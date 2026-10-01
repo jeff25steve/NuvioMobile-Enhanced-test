@@ -277,7 +277,7 @@ object SyncManager {
     private var fullPullFreshness = ProfilePullFreshness()
 
     private val profileSyncOperations = ProfileSyncOperations(
-        pullAddons = { profileId -> AddonRepository.pullFromServer(profileId) },
+        pullAddons = { profileId -> AddonRepository.pullFromServer(profileId, forceRefreshManifests = true) },
         pullPlugins = { profileId -> PluginRepository.pullFromServer(profileId) },
         pullProfileSettings = { profileId -> ProfileSettingsSync.pull(profileId) },
         syncProviderCredentials = { profileId -> ProviderCredentialSync.syncFromRemote(profileId) },
