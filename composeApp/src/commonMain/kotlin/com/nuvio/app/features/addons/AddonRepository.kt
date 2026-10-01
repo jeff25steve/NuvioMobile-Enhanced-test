@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -160,12 +162,10 @@ object AddonRepository {
                             .filter { it.enabled }
                             .distinctBy { it.manifestUrl }
                             .forEach { addon ->
-                                refreshAddon(
-                                    manifestUrl = addon.manifestUrl,
-                                    forceRefresh = true,
-                                )
+                                refreshForSync(addon.manifestUrl)
                             }
                     }
+                    awaitRefreshes()
                     pulledFromServer = true
                     val enabledByUrl = loadLocalEnabledStates()
                     val addons = localUrls.mapIndexed { index, addonUrl ->
@@ -218,9 +218,10 @@ object AddonRepository {
                                     (addon.manifest == null && !addon.isRefreshing)
                             )
                         ) {
-                            refreshAddon(url, forceRefresh = forceRefreshManifests)
+                            refreshForSync(url)
                         }
                     }
+                    awaitRefreshes()
                     pulledFromServer = true
                     initialized = true
                     return
@@ -253,6 +254,7 @@ object AddonRepository {
                     refreshAddon(url, forceRefresh = forceRefreshManifests)
                 }
             }
+            awaitRefreshes()
             pulledFromServer = true
             initialized = true
             log.i { "pullFromServer() — applied ${urls.size} addons to state" }
@@ -426,12 +428,12 @@ object AddonRepository {
     fun refreshAddon(
         manifestUrl: String,
         forceRefresh: Boolean = false,
-    ) {
+    ): Job {
         val existingJob = activeRefreshJobs[manifestUrl]
         if (existingJob?.isActive == true) {
             if (!forceRefresh) {
                 InAppLogger.debug("Addons/Manifest", "refresh skipped active url=${InAppLogger.redactUrl(manifestUrl)}")
-                return
+                return existingJob
             }
             InAppLogger.info("Addons/Manifest", "refresh superseding active request url=${InAppLogger.redactUrl(manifestUrl)}")
             existingJob.cancel()
@@ -497,6 +499,7 @@ object AddonRepository {
             }
         }
         activeRefreshJobs[manifestUrl] = refreshJob
+        return refreshJob
     }
 
     private fun pushToServer() {
