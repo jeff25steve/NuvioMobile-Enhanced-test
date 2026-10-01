@@ -9,6 +9,7 @@ import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.addons.AddonStorage
 import com.russhwolf.settings.SettingsInitializer
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
@@ -24,6 +25,7 @@ import org.robolectric.annotation.Config
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -147,6 +149,23 @@ class PluginSyncTest {
         assertEquals("/rest/v1/rpc/sync_push_plugins", request.requestUrl?.encodedPath)
         assertTrue(request.body.readUtf8().contains("\"p_plugins\":[]"))
         assertTrue(PluginRepository.uiState.value.repositories.isEmpty())
+    }
+
+    @Test
+    fun cancelledAddonPullPropagatesCancellation(): Unit = runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""[]""")
+                .setBodyDelay(1, TimeUnit.SECONDS),
+        )
+
+        assertFailsWith<TimeoutCancellationException> {
+            withTimeout(100) {
+                AddonRepository.pullFromServer(1)
+            }
+        }
     }
 
     @Test
