@@ -126,7 +126,7 @@ object AddonRepository {
         currentProfileId = resolveEffectiveProfileId(profileId)
         log.i { "pullFromServer() — profileId=$profileId, initialized=$initialized, pulledFromServer=$pulledFromServer" }
         InAppLogger.info("Addons/Repository", "pullFromServer profile=$currentProfileId initialized=$initialized pulled=$pulledFromServer")
-        runCatching {
+        try {
             val rows = SupabaseProvider.client.postgrest
                 .from("addons")
                 .select {
@@ -245,9 +245,11 @@ object AddonRepository {
             initialized = true
             log.i { "pullFromServer() — applied ${urls.size} addons to state" }
             InAppLogger.info("Addons/Repository", "pullFromServer applied=${urls.size}")
-        }.onFailure { e ->
-            log.e(e) { "pullFromServer() — FAILED" }
-            InAppLogger.error("Addons/Repository", "pullFromServer failed: ${InAppLogger.throwableSummary(e)}")
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            log.e(error) { "pullFromServer() — FAILED" }
+            InAppLogger.error("Addons/Repository", "pullFromServer failed: ${InAppLogger.throwableSummary(error)}")
         }
     }
 
