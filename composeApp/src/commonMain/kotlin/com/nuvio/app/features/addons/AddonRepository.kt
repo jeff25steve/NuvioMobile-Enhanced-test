@@ -195,7 +195,14 @@ object AddonRepository {
                     localUrls.forEach { url ->
                         val existing = existingByUrl[url]
                         val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
-                        if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
+                        if (
+                            addon?.enabled == true &&
+                            (
+                                forceRefreshManifests ||
+                                    existing == null ||
+                                    (addon.manifest == null && !addon.isRefreshing)
+                            )
+                        ) {
                             refreshAddon(url, forceRefresh = forceRefreshManifests)
                         }
                     }
@@ -220,7 +227,14 @@ object AddonRepository {
             urls.forEach { url ->
                 val existing = existingByUrl[url]
                 val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
-                if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
+                if (
+                    addon?.enabled == true &&
+                    (
+                        forceRefreshManifests ||
+                            existing == null ||
+                            (addon.manifest == null && !addon.isRefreshing)
+                    )
+                ) {
                     refreshAddon(url, forceRefresh = forceRefreshManifests)
                 }
             }
