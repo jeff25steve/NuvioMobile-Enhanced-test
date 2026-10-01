@@ -150,6 +150,30 @@ class PluginSyncTest {
     }
 
     @Test
+    fun forcedAddonPullDoesNotCompleteBeforeManifestRefreshFinishes(): Unit = runBlocking {
+        val addonUrl = server.url("/addon/manifest.json").toString()
+
+        respond("""[{"url":"$addonUrl","name":"Test addon","enabled":true,"sort_order":0}]""")
+        server.enqueue(
+            MockResponse()
+                .setBody("""{"id":"test","name":"Delayed","version":"1.0.0","resources":["catalog"],"types":["movie"]}""")
+                .setBodyDelay(750, TimeUnit.MILLISECONDS),
+        )
+
+        val startedAt = System.nanoTime()
+        AddonRepository.pullFromServer(1, forceRefreshManifests = true)
+        val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+
+        assertTrue(
+            elapsedMs >= 500,
+            "Addon sync returned before the manifest refresh completed: ${elapsedMs}ms",
+        )
+        assertEquals("Delayed", AddonRepository.uiState.value.addons.single().manifest?.name)
+        assertTrue(!AddonRepository.uiState.value.addons.single().isRefreshing)
+        assertNull(server.takeRequest(750, TimeUnit.MILLISECONDS))
+    }
+
+    @Test
     fun forcedAddonPullRefreshesExistingManifestFromNetwork(): Unit = runBlocking {
         val addonUrl = server.url("/addon/manifest.json").toString()
 
