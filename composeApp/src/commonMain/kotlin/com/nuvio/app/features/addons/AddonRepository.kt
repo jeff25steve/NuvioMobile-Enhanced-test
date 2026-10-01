@@ -62,7 +62,7 @@ object AddonRepository {
     private val activeRefreshJobs = mutableMapOf<String, Job>()
     private val pushJobsByProfile = mutableMapOf<Int, Job>()
 
-    fun initialize() {
+    fun initialize(forceRefreshManifests: Boolean = false) {
         val effectiveProfileId = resolveEffectiveProfileId(ProfileRepository.activeProfileId)
         if (initialized) return
         initialized = true
@@ -89,7 +89,10 @@ object AddonRepository {
             val existing = existingByUrl[manifestUrl]
             val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == manifestUrl }
             if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
-                refreshAddon(manifestUrl)
+                refreshAddon(
+                    manifestUrl = manifestUrl,
+                    forceRefresh = forceRefreshManifests,
+                )
             }
         }
     }
@@ -150,7 +153,7 @@ object AddonRepository {
                 log.i { "pullFromServer() — server empty, local has ${localUrls.size} addons" }
                 if (localUrls.isNotEmpty()) {
                     log.i { "pullFromServer() — migrating local addons to server for profile $currentProfileId" }
-                    initialize()
+                    initialize(forceRefreshManifests = forceRefreshManifests)
                     pulledFromServer = true
                     val enabledByUrl = loadLocalEnabledStates()
                     val addons = localUrls.mapIndexed { index, addonUrl ->
