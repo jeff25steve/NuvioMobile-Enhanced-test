@@ -180,6 +180,43 @@ class PluginSyncTest {
     }
 
     @Test
+    fun supersededAddonRefreshCannotOverwriteForcedRefresh(): Unit = runBlocking {
+        val addonUrl = server.url("/addon/manifest.json").toString()
+
+        respond("""{"id":"test","name":"Cached","version":"1.0.0","resources":["catalog"],"types":["movie"]}""")
+        assertTrue(AddonRepository.addAddon(addonUrl) is com.nuvio.app.features.addons.AddAddonResult.Success)
+        assertEquals("Cached", AddonRepository.uiState.value.addons.single().manifest?.name)
+        assertEquals("GET", assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)).method)
+
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"id":"test","name":"Stale","version":"1.0.0","resources":["catalog"],"types":["movie"]}""")
+                .setBodyDelay(750, TimeUnit.MILLISECONDS),
+        )
+        AddonRepository.refreshAddon(addonUrl)
+        assertEquals("GET", assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)).method)
+
+        respond("""{"id":"test","name":"Fresh","version":"2.0.0","resources":["catalog"],"types":["movie"]}""")
+        AddonRepository.refreshAddon(addonUrl, forceRefresh = true)
+
+        withTimeout(5_000) {
+            AddonRepository.uiState.first { state ->
+                state.addons.singleOrNull()?.let { !it.isRefreshing && it.manifest?.name == "Fresh" } == true
+            }
+        }
+
+        kotlinx.coroutines.delay(1_000)
+
+        val addon = AddonRepository.uiState.value.addons.single()
+        assertEquals("Fresh", addon.manifest?.name)
+        assertEquals(false, addon.isRefreshing)
+        assertNull(addon.errorMessage)
+        assertEquals("no-cache", assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)).getHeader("Cache-Control"))
+        assertNull(server.takeRequest(750, TimeUnit.MILLISECONDS))
+    }
+
+    @Test
     fun emptyRemoteRemovesCachedAddonsWithoutUploadingAndStaysEmptyAfterReload(): Unit = runBlocking {
         AddonStorage.saveInstalledAddonUrls(1, listOf(manifestUrl))
         AddonStorage.saveAddonEnabledStates(1, mapOf(manifestUrl to false))
