@@ -8,8 +8,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.network_empty_response_body
@@ -236,7 +236,6 @@ private suspend fun executeTextRequest(
             continuation.resumeWith(Result.failure(error))
         }
     }
-
 }
 
 actual suspend fun httpGetText(url: String): String =
