@@ -409,12 +409,13 @@ object AddonRepository {
         refreshJob = scope.launch {
             try {
                 val result = runCatching {
-                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=refresh")
+                    val refreshReason = if (forceRefresh) "forced_refresh" else "refresh"
+                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=$refreshReason")
                     val payload = fetchAddonResponseText(
                         url = manifestUrl,
                         forceRefresh = forceRefresh,
                     )
-                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=refresh")
+                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=$refreshReason")
                     AddonManifestParser.parse(
                         manifestUrl = manifestUrl,
                         payload = payload,
