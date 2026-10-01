@@ -212,8 +212,12 @@ class PluginSyncTest {
 
         respond("""{"id":"test","name":"Cached","version":"1.0.0","resources":["catalog"],"types":["movie"]}""")
         AddonRepository.initialize()
+        withTimeout(5_000) {
+            AddonRepository.uiState.first { state ->
+                state.addons.singleOrNull()?.let { !it.isRefreshing && it.manifest?.name == "Cached" } == true
+            }
+        }
         assertEquals("GET", assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)).method)
-        assertEquals("Cached", AddonRepository.uiState.value.addons.single().manifest?.name)
 
         respond("""[]""")
         respond("""{"id":"test","name":"Fresh","version":"2.0.0","resources":["catalog"],"types":["movie"]}""")
