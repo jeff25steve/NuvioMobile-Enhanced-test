@@ -153,7 +153,19 @@ object AddonRepository {
                 log.i { "pullFromServer() — server empty, local has ${localUrls.size} addons" }
                 if (localUrls.isNotEmpty()) {
                     log.i { "pullFromServer() — migrating local addons to server for profile $currentProfileId" }
+                    val wasInitialized = initialized
                     initialize(forceRefreshManifests = forceRefreshManifests)
+                    if (wasInitialized && forceRefreshManifests) {
+                        _uiState.value.addons
+                            .filter { it.enabled }
+                            .distinctBy { it.manifestUrl }
+                            .forEach { addon ->
+                                refreshAddon(
+                                    manifestUrl = addon.manifestUrl,
+                                    forceRefresh = true,
+                                )
+                            }
+                    }
                     pulledFromServer = true
                     val enabledByUrl = loadLocalEnabledStates()
                     val addons = localUrls.mapIndexed { index, addonUrl ->
