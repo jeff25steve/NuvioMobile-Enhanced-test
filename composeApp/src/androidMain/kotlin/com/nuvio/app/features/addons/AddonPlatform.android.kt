@@ -233,7 +233,6 @@ private suspend fun executeTextRequest(
     } finally {
         cancelHandle?.dispose()
     }
-
 }
 
 actual suspend fun httpGetText(url: String): String =
