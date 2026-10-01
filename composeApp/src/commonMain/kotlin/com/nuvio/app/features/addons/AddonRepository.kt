@@ -196,7 +196,7 @@ object AddonRepository {
                         val existing = existingByUrl[url]
                         val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
                         if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
-                            refreshAddon(url)
+                            refreshAddon(url, forceRefresh = forceRefreshManifests)
                         }
                     }
                     pulledFromServer = true
@@ -221,7 +221,7 @@ object AddonRepository {
                 val existing = existingByUrl[url]
                 val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
                 if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
-                    refreshAddon(url)
+                    refreshAddon(url, forceRefresh = forceRefreshManifests)
                 }
             }
             pulledFromServer = true
