@@ -206,6 +206,39 @@ class PluginSyncTest {
     }
 
     @Test
+    fun forcedAddonPullRefreshesInitializedLocalManifestDuringMigration(): Unit = runBlocking {
+        AddonStorage.saveInstalledAddonUrls(1, listOf(manifestUrl))
+        AddonStorage.saveAddonEnabledStates(1, mapOf(manifestUrl to true))
+
+        respond("""{"id":"test","name":"Cached","version":"1.0.0","resources":["catalog"],"types":["movie"]}""")
+        AddonRepository.initialize()
+        assertEquals("GET", assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)).method)
+        assertEquals("Cached", AddonRepository.uiState.value.addons.single().manifest?.name)
+
+        respond("""[]""")
+        respond("""{"id":"test","name":"Fresh","version":"2.0.0","resources":["catalog"],"types":["movie"]}""")
+        respond("""{}""")
+
+        AddonRepository.pullFromServer(1, forceRefreshManifests = true)
+
+        val addonsPull = assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+        assertEquals("GET", addonsPull.method)
+        assertEquals("/rest/v1/addons", addonsPull.requestUrl?.encodedPath)
+
+        val manifestPull = assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+        assertEquals("GET", manifestPull.method)
+        assertEquals("no-cache", manifestPull.getHeader("Cache-Control"))
+
+        withTimeout(5_000) {
+            AddonRepository.uiState.first { state ->
+                state.addons.singleOrNull()?.let { !it.isRefreshing && it.manifest?.name == "Fresh" } == true
+            }
+        }
+
+        assertEquals("Fresh", AddonRepository.uiState.value.addons.single().manifest?.name)
+    }
+
+    @Test
     fun supersededAddonRefreshCannotOverwriteForcedRefresh(): Unit = runBlocking {
         val addonUrl = server.url("/addon/manifest.json").toString()
 
