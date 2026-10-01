@@ -426,18 +426,26 @@ object AddonRepository {
         var refreshJob: Job? = null
         refreshJob = scope.launch {
             try {
-                val result = runCatching {
-                    val refreshReason = if (forceRefresh) "forced_refresh" else "refresh"
-                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=$refreshReason")
-                    val payload = fetchAddonResponseText(
-                        url = manifestUrl,
-                        forceRefresh = forceRefresh,
+                val result = try {
+                    Result.success(
+                        run {
+                            val refreshReason = if (forceRefresh) "forced_refresh" else "refresh"
+                            InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=$refreshReason")
+                            val payload = fetchAddonResponseText(
+                                url = manifestUrl,
+                                forceRefresh = forceRefresh,
+                            )
+                            InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=$refreshReason")
+                            AddonManifestParser.parse(
+                                manifestUrl = manifestUrl,
+                                payload = payload,
+                            )
+                        },
                     )
-                    InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=$refreshReason")
-                    AddonManifestParser.parse(
-                        manifestUrl = manifestUrl,
-                        payload = payload,
-                    )
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Throwable) {
+                    Result.failure(error)
                 }
 
                 _uiState.update { current ->
