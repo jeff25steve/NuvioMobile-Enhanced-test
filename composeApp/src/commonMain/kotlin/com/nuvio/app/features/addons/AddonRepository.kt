@@ -119,7 +119,7 @@ object AddonRepository {
         _uiState.value = AddonsUiState()
     }
 
-    suspend fun pullFromServer(profileId: Int) {
+    suspend fun pullFromServer(profileId: Int, forceRefreshManifests: Boolean = false) {
         currentProfileId = resolveEffectiveProfileId(profileId)
         log.i { "pullFromServer() — profileId=$profileId, initialized=$initialized, pulledFromServer=$pulledFromServer" }
         InAppLogger.info("Addons/Repository", "pullFromServer profile=$currentProfileId initialized=$initialized pulled=$pulledFromServer")
