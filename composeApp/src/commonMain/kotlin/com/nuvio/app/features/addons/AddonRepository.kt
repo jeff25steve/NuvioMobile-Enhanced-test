@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -129,6 +130,24 @@ object AddonRepository {
         log.i { "pullFromServer() — profileId=$profileId, initialized=$initialized, pulledFromServer=$pulledFromServer" }
         InAppLogger.info("Addons/Repository", "pullFromServer profile=$currentProfileId initialized=$initialized pulled=$pulledFromServer")
         runCatching {
+            val refreshJobs = mutableListOf<Job>()
+            fun refreshForSync(manifestUrl: String) {
+                refreshJobs += refreshAddon(
+                    manifestUrl = manifestUrl,
+                    forceRefresh = forceRefreshManifests,
+                )
+            }
+            suspend fun awaitRefreshes() {
+                if (refreshJobs.isEmpty()) return
+                try {
+                    refreshJobs.joinAll()
+                } finally {
+                    if (!currentCoroutineContext().isActive) {
+                        refreshJobs.forEach(Job::cancel)
+                    }
+                }
+            }
+
             val rows = SupabaseProvider.client.postgrest
                 .from("addons")
                 .select {
@@ -251,7 +270,7 @@ object AddonRepository {
                             (addon.manifest == null && !addon.isRefreshing)
                     )
                 ) {
-                    refreshAddon(url, forceRefresh = forceRefreshManifests)
+                    refreshForSync(url)
                 }
             }
             awaitRefreshes()
