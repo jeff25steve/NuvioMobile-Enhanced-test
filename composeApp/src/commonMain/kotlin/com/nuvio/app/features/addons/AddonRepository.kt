@@ -414,8 +414,12 @@ object AddonRepository {
     ) {
         val existingJob = activeRefreshJobs[manifestUrl]
         if (existingJob?.isActive == true) {
-            InAppLogger.debug("Addons/Manifest", "refresh skipped active url=${InAppLogger.redactUrl(manifestUrl)}")
-            return
+            if (!forceRefresh) {
+                InAppLogger.debug("Addons/Manifest", "refresh skipped active url=${InAppLogger.redactUrl(manifestUrl)}")
+                return
+            }
+            InAppLogger.info("Addons/Manifest", "refresh superseding active request url=${InAppLogger.redactUrl(manifestUrl)}")
+            existingJob.cancel()
         }
 
         markRefreshing(manifestUrl)
