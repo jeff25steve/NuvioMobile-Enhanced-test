@@ -59,6 +59,36 @@ class SyncManagerTest {
     }
 
     @Test
+    fun `addon sync does not complete while manifest refresh is pending`() = runBlocking {
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val syncCompleted = CompletableDeferred<Unit>()
+
+        val sync = kotlinx.coroutines.async {
+            runOrderedProfileSync(
+                profileId = 11,
+                pluginsEnabled = false,
+                operations = recordingOperations(mutableListOf()).copy(
+                    pullAddons = {
+                        refreshStarted.complete(Unit)
+                        releaseRefresh.await()
+                    },
+                ),
+            )
+        }
+
+        refreshStarted.await()
+        yield()
+        assertFalse(syncCompleted.isCompleted)
+        assertFalse(sync.isCompleted)
+
+        releaseRefresh.complete(Unit)
+        sync.await()
+        syncCompleted.complete(Unit)
+        assertTrue(syncCompleted.isCompleted)
+    }
+
+    @Test
     fun `disabled plugins are skipped without changing sync ordering`() = runBlocking {
         val events = mutableListOf<String>()
 
