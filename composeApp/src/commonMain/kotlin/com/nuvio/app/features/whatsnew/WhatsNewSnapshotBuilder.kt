@@ -3,14 +3,13 @@ package com.nuvio.app.features.whatsnew
 import com.nuvio.app.features.updater.VersionUtils
 
 private val conventionalCommitPattern = Regex(
-    """^(feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\\(([^)]*)\\))?(!)?(?::\\s*|\\s+)?(.+)$""",
+    """^(feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\(([^)]*)\))?(?:!)?(?::\s*|\s+).+$""",
     RegexOption.IGNORE_CASE,
 )
-private val authorSuffixPattern = Regex("""\\s+@[A-Za-z0-9_.-]+\\s*$""")
-private val markdownLinkPattern = Regex("""\\[([^\\]]+)]\\([^)]*\\)""")
+private val authorSuffixPattern = Regex("""\s+@([A-Za-z0-9_.-]+)\s*$""")
+private val markdownLinkPattern = Regex("""\[([^\]]+)]\([^)]*\)""")
 private val markdownTagPattern = Regex("""<[^>]*>""")
-private val camelCasePattern = Regex("""([a-z])([A-Z])""")
-private val markdownHeadingPattern = Regex("""#{1,6}\\s+.*""")
+private val markdownHeadingPattern = Regex("""#{1,6}\s+.*""")
 private val markdownRulePattern = Regex("""-{3,}""")
 
 internal object WhatsNewSnapshotBuilder {
@@ -54,22 +53,20 @@ internal object WhatsNewSnapshotBuilder {
 
     fun cleanReleaseNotes(raw: String): List<WhatsNewNote> {
         val lines = raw
-            .replace(Regex("""(?i)<br\\s*/?>"""), "\\n")
-            .replace(Regex("""(?i)<li\\b[^>]*>"""), "\\n• ")
-            .replace(Regex("""(?i)</li>"""), "\\n")
+            .replace(Regex("""(?i)<br\s*/?>"""), "\n")
+            .replace(Regex("""(?i)<li\b[^>]*>"""), "\n• ")
+            .replace(Regex("""(?i)</li>"""), "\n")
             .replace(markdownLinkPattern, "$1")
             .replace(markdownTagPattern, "")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")
-            .replace("&quot;", "\"")
-            .replace("\\r", "")
+            .replace("&quot;", """)
+            .replace("\r", "")
             .lines()
             .map(String::trim)
             .filter(String::isNotBlank)
 
-        val notes = mutableListOf<WhatsNewNote>()
-
-        lines.forEach { line ->
+        return lines.mapNotNull { line ->
             val candidate = line
                 .removePrefix("•")
                 .trim()
@@ -80,66 +77,41 @@ internal object WhatsNewSnapshotBuilder {
                 .removePrefix("+")
                 .trim()
 
-            if (candidate.isBlank() || candidate.matches(markdownHeadingPattern)) return@forEach
-            if (candidate.matches(markdownRulePattern)) return@forEach
+            if (candidate.isBlank() ||
+                candidate.matches(markdownHeadingPattern) ||
+                candidate.matches(markdownRulePattern)
+            ) {
+                return@mapNotNull null
+            }
 
             val authorMatch = authorSuffixPattern.find(candidate)
             val authorLogin = authorMatch?.groupValues?.getOrNull(1)
-            val withoutAuthor = authorMatch?.let {
-                candidate.removeRange(it.range).trimEnd()
-            } ?: candidate
+            val exactWording = authorMatch
+                ?.let { candidate.removeRange(it.range).trimEnd() }
+                ?: candidate
 
-            if (withoutAuthor.isBlank()) return@forEach
+            if (exactWording.isBlank()) return@mapNotNull null
 
-            val match = conventionalCommitPattern.matchEntire(withoutAuthor)
-            val category = match?.groupValues?.getOrNull(1)
-                ?.lowercase()
-                ?.let(::categoryFor)
-                ?: WhatsNewNoteCategory.OTHER
-
-            // Keep the contributor's wording intact. We only remove the separate @login credit
-            // so it can be rendered as a distinct, explicit attribution in the UI.
-            notes += WhatsNewNote(
-                category = category,
-                text = withoutAuthor,
+            WhatsNewNote(
+                category = categoryFor(exactWording),
+                text = exactWording,
                 authorLogin = authorLogin,
             )
-        }
-
-        val deduplicatedStructured = structured
-            .distinctBy { it.category to it.text }
-            .sortedBy { categoryOrder(it.category) }
-
-        if (deduplicatedStructured.isEmpty()) {
-            val fallback = unstructured.distinct().joinToString(separator = "\\n")
-            return if (fallback.isBlank()) {
-                emptyList()
-            } else {
-                listOf(WhatsNewNote(WhatsNewNoteCategory.OTHER, fallback))
-            }
-        }
-
-        return buildList {
-            addAll(deduplicatedStructured)
-            unstructured.distinct().forEach { text ->
-                add(WhatsNewNote(WhatsNewNoteCategory.OTHER, text))
-            }
-        }
+        }.distinctBy { it.text to it.authorLogin }
     }
 
-    private fun categoryFor(type: String): WhatsNewNoteCategory = when (type) {
-        "feat" -> WhatsNewNoteCategory.FEATURES
-        "fix", "revert" -> WhatsNewNoteCategory.FIXES
-        "perf" -> WhatsNewNoteCategory.PERFORMANCE
-        "i18n" -> WhatsNewNoteCategory.LOCALIZATION
-        else -> WhatsNewNoteCategory.OTHER
-    }
+    private fun categoryFor(text: String): WhatsNewNoteCategory {
+        val type = conventionalCommitPattern.matchEntire(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.lowercase()
 
-    private fun humanizeIdentifier(raw: String): String =
-        raw
-            .replace('-', ' ')
-            .replace('_', ' ')
-            .replace(camelCasePattern, "$1 $2")
-            .trim()
-            .replaceFirstChar { it.uppercase() }
+        return when (type) {
+            "feat" -> WhatsNewNoteCategory.FEATURES
+            "fix", "revert" -> WhatsNewNoteCategory.FIXES
+            "perf" -> WhatsNewNoteCategory.PERFORMANCE
+            "i18n" -> WhatsNewNoteCategory.LOCALIZATION
+            else -> WhatsNewNoteCategory.OTHER
+        }
+    }
 }
