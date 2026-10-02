@@ -99,7 +99,7 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
-    fun cleanReleaseNotesGroupsConventionalChangesAndRemovesDeveloperMetadata() {
+    fun cleanReleaseNotesPreservesExactContributionWordingAndCredits() {
         val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
             """
             - feat(player): add smarter subtitle startup @alice
@@ -118,10 +118,18 @@ class WhatsNewSnapshotBuilderTest {
             ),
             cleaned.map(WhatsNewNote::category),
         )
-        assertEquals("Add smarter subtitle startup", cleaned[0].text)
-        assertFalse(cleaned[0].text.contains("@alice"))
-        assertFalse(cleaned[1].text.contains("github.com"))
+        assertEquals(
+            "feat(player): add smarter subtitle startup",
+            cleaned[0].text,
+        )
+        assertEquals("alice", cleaned[0].authorLogin)
+        assertEquals(
+            "fix(home): fix hero alignment details",
+            cleaned[1].text,
+        )
+        assertEquals("bob", cleaned[1].authorLogin)
         assertEquals("Reduce duplicate API work", cleaned[2].text)
+        assertEquals("carol", cleaned[2].authorLogin)
     }
 
     private fun release(
@@ -131,6 +139,7 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewNote(
                 category = WhatsNewNoteCategory.OTHER,
                 text = "Notes for " + version,
+                authorLogin = null,
             ),
         ),
     ): WhatsNewRelease =
