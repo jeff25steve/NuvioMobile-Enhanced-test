@@ -105,7 +105,7 @@ internal object WhatsNewSnapshotBuilder {
 
         val deduplicatedStructured = structured
             .distinctBy { it.category to it.text }
-            .sortedWith(compareBy({ categoryOrder(it.category) }, { it.text.lowercase() }))
+            .sortedBy { categoryOrder(it.category) }
 
         if (deduplicatedStructured.isEmpty()) {
             val fallback = unstructured.distinct().joinToString(separator = "\\n")
