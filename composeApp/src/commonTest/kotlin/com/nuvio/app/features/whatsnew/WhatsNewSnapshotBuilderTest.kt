@@ -75,6 +75,20 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun cleanReleaseNotesDecodesCommonHtmlEntitiesWithoutRewritingContributionText() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            "- fix(player): handle \"quoted\" title &amp; subtitle @alice",
+        )
+
+        assertEquals(1, cleaned.size)
+        assertEquals(
+            "fix(player): handle \"quoted\" title & subtitle",
+            cleaned.single().text,
+        )
+        assertEquals("alice", cleaned.single().authorLogin)
+    }
+
+    @Test
     fun releaseOrderIsNormalizedNewestFirstWithoutDuplicatingVersions() {
         val releases = listOf(
             release("1.2.0"),
