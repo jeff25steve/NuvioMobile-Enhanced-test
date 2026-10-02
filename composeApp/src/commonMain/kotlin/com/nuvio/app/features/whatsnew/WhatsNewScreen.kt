@@ -142,6 +142,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                             Icon(
                                 imageVector = Icons.Rounded.Refresh,
                                 contentDescription = stringResource(Res.string.whats_new_refresh),
+                                tint = MaterialTheme.nuvio.colors.textPrimary,
                             )
                         }
                     }
@@ -322,7 +323,7 @@ private fun CurrentVersionCard(
                 imageVector = Icons.Rounded.NewReleases,
                 contentDescription = null,
                 modifier = Modifier.size(NuvioTokens.Icon.lg),
-                tint = MaterialTheme.nuvio.colors.accent,
+                tint = MaterialTheme.nuvio.colors.textPrimary,
             )
             Column(
                 modifier = Modifier.weight(1f),
