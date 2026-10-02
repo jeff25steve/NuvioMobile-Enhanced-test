@@ -79,7 +79,7 @@ internal object WhatsNewRepository {
             !currentIsNewerThanCache &&
             now - cached.fetchedAtMillis < CACHE_TTL_MILLIS
         ) {
-            return@runCatching cachedContent
+            return cachedContent
         }
 
         if (
