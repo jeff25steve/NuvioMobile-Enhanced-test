@@ -125,15 +125,15 @@ private fun String.resolveAgainstManifest(manifestUrl: String): String =
         else -> {
             val manifestBase = manifestUrl.substringBefore("?").substringBeforeLast('/', "")
             if (startsWith('/')) {
-                val origin = manifestBase.substringBefore("/", missingDelimiterValue = manifestBase)
-                val schemeAndHost = if (origin.contains("://")) {
-                    val scheme = origin.substringBefore("://")
-                    val host = manifestBase.substringAfter("://").substringBefore("/")
-                    "$scheme://$host"
+                val scheme = manifestBase.substringBefore("://", missingDelimiterValue = "")
+                val authority = manifestBase
+                    .substringAfter("://", missingDelimiterValue = "")
+                    .substringBefore("/")
+                if (scheme.isNotBlank() && authority.isNotBlank()) {
+                    "$scheme://$authority$this"
                 } else {
-                    manifestBase
+                    "$manifestBase$this"
                 }
-                "$schemeAndHost$this"
             } else {
                 "$manifestBase/$this"
             }
