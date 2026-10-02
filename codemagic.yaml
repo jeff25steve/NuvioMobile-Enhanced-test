@@ -14,7 +14,17 @@ workflows:
         script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
 
       - name: Build Android Full Debug APK
-        script: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --no-daemon --stacktrace
+        script: |
+          set -o pipefail
+          ./gradlew :androidApp:assembleFullDebug             -Pnuvio.android.distribution=full             -Pnuvio.ios.distribution=appstore             --no-daemon             --stacktrace             --console=plain 2>&1 | tee "$CM_BUILD_DIR/gradle-build.log"
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo ""
+            echo "===== Kotlin/Gradle compiler diagnostics ====="
+            grep -E '(^|[^[:alnum:]])(e: |error: |w: |FAILURE:|Caused by:)'               "$CM_BUILD_DIR/gradle-build.log" | tail -n 200 || true
+          fi
+          exit "$build_status"
 
     artifacts:
       - androidApp/build/outputs/**/*.apk
+      - gradle-build.log
