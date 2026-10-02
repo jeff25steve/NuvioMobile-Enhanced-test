@@ -43,6 +43,20 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun currentVersionAtLatestReleaseReportsNoNewReleases() {
+        val snapshot = WhatsNewSnapshotBuilder.build(
+            releases = listOf(
+                release("1.4.0"),
+                release("1.3.0"),
+            ),
+            currentVersion = "1.4.0",
+        )
+
+        assertTrue(snapshot.hasCompleteSinceVersion)
+        assertTrue(snapshot.sinceYourVersion.isEmpty())
+    }
+
+    @Test
     fun anInvalidCurrentVersionDoesNotProduceAFalseSinceCount() {
         val releases = listOf(
             release("1.4.0"),
@@ -81,7 +95,10 @@ class WhatsNewSnapshotBuilderTest {
     fun prereleaseVersionsAreOrderedBeforeStableAndReleaseNotesAreCleaned() {
         val releases = listOf(
             release("1.0.0", notes = "1.0.0"),
-            release("1.0.0-beta.2", notes = "# Fixes\n\n- Fixed [playback](https://example.com)\n- Removed `debug`."),
+            release(
+                "1.0.0-beta.2",
+                notes = "<h2>Fixes</h2><ul><li><strong>Fixed</strong> [playback](https://example.com)</li><li>Removed `debug`.</li></ul>",
+            ),
             release("1.0.0-beta.1", notes = "Older"),
         )
 
@@ -99,7 +116,11 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("• Fixed playback"),
         )
         assertFalse(WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("https://"))
-        assertFalse(WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("`"))
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes)
+        assertFalse(cleaned.contains("`"))
+        assertFalse(cleaned.contains("<"))
+        assertTrue(cleaned.contains("• Fixed playback"))
+        assertTrue(cleaned.contains("• Removed debug"))
     }
 
     private fun release(version: String, title: String = version, notes: String = "Notes for $version"): WhatsNewRelease =
