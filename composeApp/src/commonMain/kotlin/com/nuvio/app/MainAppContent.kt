@@ -156,6 +156,7 @@ import com.nuvio.app.features.settings.LicensesAttributionsSettingsScreen
 import com.nuvio.app.features.settings.MetaScreenSettingsScreen
 import com.nuvio.app.features.settings.PluginsSettingsScreen
 import com.nuvio.app.features.settings.SupportersContributorsSettingsScreen
+import com.nuvio.app.features.settings.WhatsNewSettingsScreen
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.streams.BingeGroupCacheRepository
 import com.nuvio.app.features.streams.StreamAutoPlayPolicy
@@ -375,6 +376,7 @@ internal fun MainAppContent(
     val pushEditProfile: () -> Unit = { navController.navigate(ProfileEditRoute(editProfileTitle)) }
     val supportersSettingsTitle = stringResource(Res.string.compose_settings_page_supporters_contributors)
     val licensesSettingsTitle = stringResource(Res.string.compose_settings_page_licenses_attributions)
+    val whatsNewSettingsTitle = stringResource(Res.string.compose_settings_page_whats_new)
     val collectionsTitle = stringResource(Res.string.collections_header)
     val newCollectionTitle = stringResource(Res.string.collections_new)
     val detailsFallbackTitle = stringResource(Res.string.meta_section_details_title)
@@ -1628,6 +1630,9 @@ internal fun MainAppContent(
                                 },
                                 onLicensesAttributionsSettingsClick = {
                                     navController.navigate(LicensesAttributionsSettingsRoute(licensesSettingsTitle))
+                                onWhatsNewSettingsClick = {
+                                    navController.navigate(WhatsNewSettingsRoute(whatsNewSettingsTitle))
+                                },
                                 },
                                 onCheckForUpdatesClick = if (AppFeaturePolicy.inAppUpdaterEnabled) {
                                     {
@@ -1839,7 +1844,12 @@ internal fun MainAppContent(
                         LicensesAttributionsSettingsScreen(onBack = onBack)
                     }
                 }
-                entry<CollectionsRoute> { route ->
+                                    entry<WhatsNewSettingsRoute> { route ->
+                        SettingsDestination(route, navController) { onBack ->
+                            WhatsNewSettingsScreen(onBack = onBack)
+                        }
+                    }
+entry<CollectionsRoute> { route ->
                     CollectionsDestination(
                         route = route,
                         navController = navController,
