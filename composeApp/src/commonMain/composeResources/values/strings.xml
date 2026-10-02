@@ -2643,6 +2643,7 @@
     <string name="whats_new_latest_release">Latest release</string>
     <string name="whats_new_recent_releases">Recent releases</string>
     <string name="whats_new_since_one_release">1 release since your version</string>
+    <string name="whats_new_up_to_date">You’re up to date</string>
     <string name="whats_new_since_releases">%1$d releases since your version</string>
     <string name="whats_new_release_format">Version %1$s</string>
     <string name="whats_new_open_github">View on GitHub</string>
