@@ -17,7 +17,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private const val RELEASE_PAGE_SIZE = 20
+private const val RELEASE_PAGE_SIZE = 100
 private const val CACHE_TTL_MILLIS = 24L * 60L * 60L * 1000L
 private const val FAILED_REFRESH_RETRY_MILLIS = 6L * 60L * 60L * 1000L
 private const val MAX_RESPONSE_BODY_BYTES = 2 * 1024 * 1024
@@ -110,9 +110,7 @@ internal object WhatsNewRepository {
             throw error
         } catch (error: Throwable) {
             cached?.let {
-                AppUpdaterPlatform.setWhatsNewCache(
-                    encodeCache(it.copy(lastFailedAttemptAtMillis = now)),
-                )
+                persistCache(it.copy(lastFailedAttemptAtMillis = now))
             }
             if (cachedContent != null) {
                 return cachedContent.copy(isStale = true)
@@ -127,7 +125,7 @@ internal object WhatsNewRepository {
                     fetchedAtMillis = now,
                     lastFailedAttemptAtMillis = 0L,
                 )
-                AppUpdaterPlatform.setWhatsNewCache(encodeCache(updated))
+                persistCache(updated)
                 cachedContent ?: error("Cached release history is invalid")
             }
 
@@ -149,7 +147,7 @@ internal object WhatsNewRepository {
                     fromCache = false,
                     isStale = false,
                 ) ?: error("GitHub returned release history without a valid release")
-                AppUpdaterPlatform.setWhatsNewCache(encodeCache(envelope))
+                persistCache(envelope)
                 content
             }
         }
@@ -165,6 +163,12 @@ internal object WhatsNewRepository {
 
     private fun encodeCache(cache: WhatsNewCacheEnvelope): String =
         json.encodeToString(cache)
+
+    private fun persistCache(cache: WhatsNewCacheEnvelope) {
+        runCatching {
+            AppUpdaterPlatform.setWhatsNewCache(encodeCache(cache))
+        }
+    }
 
     private fun decodeContent(
         body: String,
