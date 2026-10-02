@@ -80,6 +80,7 @@ import nuvio.composeapp.generated.resources.whats_new_refreshing
 import nuvio.composeapp.generated.resources.whats_new_release_format
 import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_status_current_ahead
+import nuvio.composeapp.generated.resources.whats_new_status_update_available
 import nuvio.composeapp.generated.resources.whats_new_status_unknown
 import nuvio.composeapp.generated.resources.whats_new_status_updates_available
 import nuvio.composeapp.generated.resources.whats_new_status_up_to_date
@@ -318,7 +319,11 @@ private fun versionStatus(
             val count = snapshot.releases.count {
                 VersionUtils.isRemoteNewer(it.version, snapshot.currentVersion)
             }.coerceAtLeast(1)
-            stringResource(Res.string.whats_new_status_updates_available, count)
+            if (count == 1) {
+                stringResource(Res.string.whats_new_status_update_available)
+            } else {
+                stringResource(Res.string.whats_new_status_updates_available, count)
+            }
         }
         currentIsNewer -> stringResource(
             Res.string.whats_new_status_current_ahead,
