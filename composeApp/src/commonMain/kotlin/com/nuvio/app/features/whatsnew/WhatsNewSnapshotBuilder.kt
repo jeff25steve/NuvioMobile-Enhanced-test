@@ -43,11 +43,21 @@ internal object WhatsNewSnapshotBuilder {
 
     fun cleanReleaseNotes(raw: String): String =
         raw
+            .replace(Regex("""(?i)<br\\s*/?>"""), "\n")
+            .replace(Regex("""(?i)<li\\b[^>]*>"""), "\n• ")
+            .replace(Regex("""(?i)</li>"""), "\n")
+            .replace(Regex("""(?i)</?(?:p|div|h[1-6]|ul|ol|blockquote|pre|table|thead|tbody|tr|th|td)\\b[^>]*>"""), "\n")
             .replace(Regex("<[^>]*>"), "")
-            .replace(Regex("""(?m)^[ \t]*#{1,6}[ \t]*"""), "")
-            .replace(Regex("""\[([^\]]+)\]\([^\)]+\)"""), "$1")
-            .replace('`'.toString(), "")
-            .replace(Regex("""(?m)^[ \t]*[-*][ \t]+"""), "• ")
-            .replace(Regex("""\n{3,}"""), "\n\n")
+            .replace(Regex("""(?m)^[ \\t]*#{1,6}[ \\t]*"""), "")
+            .replace(Regex("""\\[([^\\]]+)\\]\\([^\\)]+\\)"""), "$1")
+            .replace(Regex("""\\*\\*([^*]+)\\*\\*"""), "$1")
+            .replace(`.toString(), "")
+            .replace(Regex("""(?m)^[ \\t]*[-*+][ \\t]+"""), "• ")
+            .replace(Regex("""(?m)^[ \\t]*---+[ \\t]*$"""), "")
+            .replace(Regex("""[ \\t]+\\n"""), "\n")
+            .replace(Regex("""\\n{3,}"""), "\n\n")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
             .trim()
 }
