@@ -8,9 +8,17 @@ private val conventionalCommitPattern = Regex(
 )
 private val authorSuffixPattern = Regex("""\s+@([A-Za-z0-9_.-]+)\s*$""")
 private val markdownLinkPattern = Regex("""\[([^\]]+)]\([^)]*\)""")
-private val markdownTagPattern = Regex("""<[^>]*>""")
+private val htmlLineBreakPattern = Regex(
+    """(?i)<(?:br\s*/?|/?(?:p|div|ul|ol)\b[^>]*>)""",
+)
+private val htmlListItemPattern = Regex("""(?i)<li\b[^>]*>""")
+private val htmlListItemEndPattern = Regex("""(?i)</li>""")
+private val htmlFormattingTagPattern = Regex(
+    """(?i)</?(?:a|b|strong|i|em|code|del|s|u|small|sub|sup)\b[^>]*>""",
+)
 private val markdownHeadingPattern = Regex("""#{1,6}\s+.*""")
-private val markdownRulePattern = Regex("""-{3,}""")
+private val markdownRulePattern = Regex("""-{3,}\s*$""")
+private val listMarkerPattern = Regex("""^[•*+-]\s+""")
 
 internal object WhatsNewSnapshotBuilder {
     fun build(
@@ -53,14 +61,18 @@ internal object WhatsNewSnapshotBuilder {
 
     fun cleanReleaseNotes(raw: String): List<WhatsNewNote> {
         val lines = raw
-            .replace(Regex("""(?i)<br\s*/?>"""), "\n")
-            .replace(Regex("""(?i)<li\b[^>]*>"""), "\n• ")
-            .replace(Regex("""(?i)</li>"""), "\n")
+            .replace(htmlLineBreakPattern, "\n")
+            .replace(htmlListItemPattern, "\n• ")
+            .replace(htmlListItemEndPattern, "\n")
             .replace(markdownLinkPattern, "$1")
-            .replace(markdownTagPattern, "")
+            .replace(htmlFormattingTagPattern, "")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")
             .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
             .replace("\r", "")
             .lines()
             .map(String::trim)
@@ -97,7 +109,7 @@ internal object WhatsNewSnapshotBuilder {
                 text = exactWording,
                 authorLogin = authorLogin,
             )
-        }.distinctBy { it.text to it.authorLogin }
+        }
     }
 
     private fun categoryFor(text: String): WhatsNewNoteCategory {
