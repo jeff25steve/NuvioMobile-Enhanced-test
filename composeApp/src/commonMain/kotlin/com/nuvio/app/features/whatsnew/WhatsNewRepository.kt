@@ -113,6 +113,9 @@ internal object WhatsNewRepository {
                 check(response.status == 304 || response.status in 200..299) {
                     "GitHub release history request failed: " + response.status
                 }
+                check(isTrustedApiResponseUrl(response.url)) {
+                    "GitHub release history response came from an unexpected URL"
+                }
             }
         } catch (error: CancellationException) {
             throw error
@@ -215,6 +218,19 @@ internal object WhatsNewRepository {
             isStale = isStale,
             fetchedAtMillis = fetchedAtMillis,
         )
+    }
+
+    private fun isTrustedApiResponseUrl(url: String): Boolean {
+        val normalized = url.trim()
+        val expectedPath =
+            "$GITHUB_API_BASE/repos/$GITHUB_OWNER/$GITHUB_REPO/releases"
+        return (
+            normalized == expectedPath ||
+                normalized.startsWith("$expectedPath?") ||
+                normalized.startsWith("$expectedPath/")
+            ) &&
+            !normalized.any(Char::isWhitespace) &&
+            !normalized.any(Char::isISOControl)
     }
 
     private fun isTrustedReleaseUrl(url: String): Boolean {
