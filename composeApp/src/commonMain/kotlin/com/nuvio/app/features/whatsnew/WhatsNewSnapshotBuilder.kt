@@ -80,13 +80,7 @@ internal object WhatsNewSnapshotBuilder {
 
         return lines.mapNotNull { line ->
             val candidate = line
-                .removePrefix("•")
-                .trim()
-                .removePrefix("-")
-                .trim()
-                .removePrefix("*")
-                .trim()
-                .removePrefix("+")
+                .replaceFirst(listMarkerPattern, "")
                 .trim()
 
             if (candidate.isBlank() ||
