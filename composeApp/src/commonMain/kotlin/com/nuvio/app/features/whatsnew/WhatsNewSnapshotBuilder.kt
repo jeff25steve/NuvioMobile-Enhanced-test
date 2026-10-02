@@ -67,8 +67,7 @@ internal object WhatsNewSnapshotBuilder {
             .map(String::trim)
             .filter(String::isNotBlank)
 
-        val structured = mutableListOf<WhatsNewNote>()
-        val unstructured = mutableListOf<String>()
+        val notes = mutableListOf<WhatsNewNote>()
 
         lines.forEach { line ->
             val candidate = line
@@ -84,23 +83,27 @@ internal object WhatsNewSnapshotBuilder {
             if (candidate.isBlank() || candidate.matches(markdownHeadingPattern)) return@forEach
             if (candidate.matches(markdownRulePattern)) return@forEach
 
-            val withoutAuthor = candidate.replace(authorSuffixPattern, "").trim()
+            val authorMatch = authorSuffixPattern.find(candidate)
+            val authorLogin = authorMatch?.groupValues?.getOrNull(1)
+            val withoutAuthor = authorMatch?.let {
+                candidate.removeRange(it.range).trimEnd()
+            } ?: candidate
+
             if (withoutAuthor.isBlank()) return@forEach
 
             val match = conventionalCommitPattern.matchEntire(withoutAuthor)
-            if (match != null) {
-                val type = match.groupValues[1].lowercase()
-                val scope = match.groupValues[2].takeIf(String::isNotBlank)
-                val message = match.groupValues[4].trim().ifBlank {
-                    scope?.let(::humanizeIdentifier) ?: "Release update"
-                }
-                structured += WhatsNewNote(
-                    category = categoryFor(type),
-                    text = message.replaceFirstChar { it.uppercase() },
-                )
-            } else {
-                unstructured += withoutAuthor
-            }
+            val category = match?.groupValues?.getOrNull(1)
+                ?.lowercase()
+                ?.let(::categoryFor)
+                ?: WhatsNewNoteCategory.OTHER
+
+            // Keep the contributor's wording intact. We only remove the separate @login credit
+            // so it can be rendered as a distinct, explicit attribution in the UI.
+            notes += WhatsNewNote(
+                category = category,
+                text = withoutAuthor,
+                authorLogin = authorLogin,
+            )
         }
 
         val deduplicatedStructured = structured
@@ -130,14 +133,6 @@ internal object WhatsNewSnapshotBuilder {
         "perf" -> WhatsNewNoteCategory.PERFORMANCE
         "i18n" -> WhatsNewNoteCategory.LOCALIZATION
         else -> WhatsNewNoteCategory.OTHER
-    }
-
-    private fun categoryOrder(category: WhatsNewNoteCategory): Int = when (category) {
-        WhatsNewNoteCategory.FEATURES -> 0
-        WhatsNewNoteCategory.FIXES -> 1
-        WhatsNewNoteCategory.PERFORMANCE -> 2
-        WhatsNewNoteCategory.LOCALIZATION -> 3
-        WhatsNewNoteCategory.OTHER -> 4
     }
 
     private fun humanizeIdentifier(raw: String): String =
