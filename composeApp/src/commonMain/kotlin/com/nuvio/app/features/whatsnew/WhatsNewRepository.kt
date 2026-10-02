@@ -209,8 +209,6 @@ internal object WhatsNewRepository {
                 releaseUrl = release.htmlUrl?.takeIf(::isTrustedReleaseUrl),
             )
         }
-        if (mapped.isEmpty()) return null
-
         return WhatsNewContent(
             snapshot = WhatsNewSnapshotBuilder.build(mapped, currentVersion),
             fromCache = fromCache,
