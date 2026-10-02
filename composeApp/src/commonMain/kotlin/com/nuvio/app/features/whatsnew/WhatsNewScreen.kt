@@ -208,6 +208,21 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     }
                 }
 
+                if (!snapshot.hasCompleteSinceVersion &&
+                    snapshot.releases.any {
+                        VersionUtils.isRemoteNewer(it.version, snapshot.currentVersion)
+                    }
+                ) {
+                    item {
+                        Text(
+                            text = stringResource(Res.string.whats_new_since_unavailable),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.nuvio.colors.textMuted,
+                            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s4),
+                        )
+                    }
+                }
+
                 if (value.content.isStale && !isRefreshing) {
                     item {
                         Text(
