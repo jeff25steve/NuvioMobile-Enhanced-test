@@ -54,6 +54,7 @@ import nuvio.composeapp.generated.resources.whats_new_retry
 import nuvio.composeapp.generated.resources.whats_new_since_one_release
 import nuvio.composeapp.generated.resources.whats_new_since_releases
 import nuvio.composeapp.generated.resources.whats_new_unavailable
+import nuvio.composeapp.generated.resources.whats_new_up_to_date
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -134,10 +135,10 @@ private fun WhatsNewPageBody(isTablet: Boolean) {
 
                 if (snapshot.hasCompleteSinceVersion) {
                     Text(
-                        text = if (snapshot.sinceYourVersion.size == 1) {
-                            stringResource(Res.string.whats_new_since_one_release)
-                        } else {
-                            stringResource(
+                        text = when (snapshot.sinceYourVersion.size) {
+                            0 -> stringResource(Res.string.whats_new_up_to_date)
+                            1 -> stringResource(Res.string.whats_new_since_one_release)
+                            else -> stringResource(
                                 Res.string.whats_new_since_releases,
                                 snapshot.sinceYourVersion.size,
                             )
