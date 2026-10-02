@@ -1,7 +1,7 @@
 package com.nuvio.app.features.settings
 
-
 import com.nuvio.app.features.whatsnew.whatsNewSettingsContent
+
 import com.nuvio.app.navigation.LocalUseNativeNavigation
 import com.nuvio.app.core.build.AppFeaturePolicy
 
@@ -801,7 +801,6 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                 )
                  SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = false)
-                     SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = true)
                 SettingsPage.Playback -> playbackSettingsContent(
                     isTablet = false,
                     showLoadingOverlay = showLoadingOverlay,
@@ -1278,6 +1277,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                         isTablet = true,
                     )
+                     SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = true)
                     SettingsPage.Playback -> playbackSettingsContent(
                         isTablet = true,
                         showLoadingOverlay = showLoadingOverlay,
