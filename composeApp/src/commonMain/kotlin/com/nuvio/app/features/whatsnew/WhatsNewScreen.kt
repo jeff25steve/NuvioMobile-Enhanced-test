@@ -106,17 +106,20 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
         val preserveContent = state is LoadState.Content && loadedChannel == channel
         if (!preserveContent) state = LoadState.Loading
         isRefreshing = true
-        val result = WhatsNewRepository.load(
-            channel = channel,
-            currentVersion = AppVersionConfig.VERSION_NAME,
-            forceRefresh = forceRefresh,
-        )
-        isRefreshing = false
-        state = result.fold(
-            onSuccess = LoadState::Content,
-            onFailure = { LoadState.Error },
-        )
-        loadedChannel = channel
+        try {
+            val result = WhatsNewRepository.load(
+                channel = channel,
+                currentVersion = AppVersionConfig.VERSION_NAME,
+                forceRefresh = forceRefresh,
+            )
+            state = result.fold(
+                onSuccess = LoadState::Content,
+                onFailure = { LoadState.Error },
+            )
+            loadedChannel = channel
+        } finally {
+            isRefreshing = false
+        }
     }
 
     val channelLabel = stringResource(
@@ -543,18 +546,21 @@ private fun ReleaseNotes(
                 color = MaterialTheme.nuvio.colors.textPrimary,
             )
         } else {
+            var previousCategory: WhatsNewNoteCategory? = null
             visibleNotes.forEach { note ->
+                val showCategory = note.category != WhatsNewNoteCategory.OTHER &&
+                    note.category != previousCategory
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
                 ) {
-                    if (note.category != WhatsNewNoteCategory.OTHER || note.authorLogin != null) {
+                    if (showCategory || note.authorLogin != null) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
                         ) {
-                            if (note.category != WhatsNewNoteCategory.OTHER) {
+                            if (showCategory) {
                                 Text(
                                     text = stringResource(noteCategoryResource(note.category)),
                                     style = MaterialTheme.typography.labelSmall,
@@ -580,6 +586,7 @@ private fun ReleaseNotes(
                         color = MaterialTheme.nuvio.colors.textPrimary,
                     )
                 }
+                previousCategory = note.category
             }
 
             if (allowToggle) {
