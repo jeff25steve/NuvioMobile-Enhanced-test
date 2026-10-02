@@ -2676,6 +2676,7 @@
     <string name="whats_new_category_performance">Performance</string>
     <string name="whats_new_category_localization">Localization</string>
     <string name="whats_new_category_other">Other changes</string>
+    <string name="whats_new_since_unavailable">Changes since your version can&apos;t be determined from the available release history.</string>
     <string name="whats_new_since_your_version">Since your version</string>
     <string name="whats_new_contributor_credit">Credit: @%1$s</string>
 </resources>
