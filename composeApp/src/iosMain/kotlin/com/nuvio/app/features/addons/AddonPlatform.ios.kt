@@ -11,6 +11,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -183,14 +184,34 @@ actual suspend fun httpRequestRaw(
             }
         }
         .let { response ->
-            val receivedBytes = response.body<ByteArray>()
-            val limitedBytes = receivedBytes.copyOf(minOf(receivedBytes.size, maxResponseBodyBytes.coerceAtLeast(0)))
+            val maxBytes = maxResponseBodyBytes.coerceAtLeast(0)
+            val limitedBuffer = ByteArray(maxBytes)
+            val channel = response.bodyAsChannel()
+            var bytesRead = 0
+            while (bytesRead < maxBytes) {
+                val read = channel.readAvailable(
+                    limitedBuffer,
+                    bytesRead,
+                    maxBytes - bytesRead,
+                )
+                if (read < 0) break
+                if (read == 0) continue
+                bytesRead += read
+            }
+
+            val truncated = if (bytesRead == maxBytes) {
+                val probe = ByteArray(1)
+                channel.readAvailable(probe, 0, 1) > 0
+            } else {
+                false
+            }
+            val limitedBytes = limitedBuffer.copyOf(bytesRead)
             val decoded = limitedBytes.decodeToString()
             RawHttpResponse(
                 status = response.status.value,
                 statusText = response.status.description,
                 url = response.call.request.url.toString(),
-                body = if (receivedBytes.size > limitedBytes.size) "$decoded\n...[truncated]" else decoded,
+                body = if (truncated) "$decoded\n...[truncated]" else decoded,
                 bodyBytes = limitedBytes,
                 headers = response.headers.entries().associate { (name, values) ->
                     name.lowercase() to values.joinToString(",")
