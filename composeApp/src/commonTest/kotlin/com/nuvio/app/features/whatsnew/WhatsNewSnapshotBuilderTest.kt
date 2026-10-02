@@ -75,6 +75,18 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun emptyReleaseListProducesAnIncompleteSnapshotWithoutFalseUpdates() {
+        val snapshot = WhatsNewSnapshotBuilder.build(
+            releases = emptyList(),
+            currentVersion = "1.2.0",
+        )
+
+        assertTrue(snapshot.releases.isEmpty())
+        assertFalse(snapshot.hasCompleteSinceVersion)
+        assertTrue(snapshot.sinceYourVersion.isEmpty())
+    }
+
+    @Test
     fun cleanReleaseNotesDecodesCommonHtmlEntitiesWithoutRewritingContributionText() {
         val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
             "- fix(player): handle \"quoted\" title &amp; subtitle @alice",
