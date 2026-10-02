@@ -1630,6 +1630,7 @@ internal fun MainAppContent(
                                 },
                                 onLicensesAttributionsSettingsClick = {
                                     navController.navigate(LicensesAttributionsSettingsRoute(licensesSettingsTitle))
+                                },
                                 onWhatsNewSettingsClick = {
                                     navController.navigate(WhatsNewSettingsRoute(whatsNewSettingsTitle))
                                 },
@@ -1844,12 +1845,12 @@ internal fun MainAppContent(
                         LicensesAttributionsSettingsScreen(onBack = onBack)
                     }
                 }
-                                    entry<WhatsNewSettingsRoute> { route ->
-                        SettingsDestination(route, navController) { onBack ->
-                            WhatsNewSettingsScreen(onBack = onBack)
-                        }
+                entry<WhatsNewSettingsRoute> { route ->
+                    SettingsDestination(route, navController) { onBack ->
+                        WhatsNewSettingsScreen(onBack = onBack)
                     }
-entry<CollectionsRoute> { route ->
+                }
+
                     CollectionsDestination(
                         route = route,
                         navController = navController,
