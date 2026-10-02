@@ -120,7 +120,7 @@ internal object WhatsNewRepository {
             throw error
         }
 
-        when (response.status) {
+        return when (response.status) {
             304 -> {
                 val existing = cached ?: error("GitHub returned 304 without cached release history")
                 val updated = existing.copy(
