@@ -48,8 +48,6 @@ internal object WhatsNewSnapshotBuilder {
             .replace(Regex("""\[([^\]]+)\]\([^\)]+\)"""), "$1")
             .replace('`'.toString(), "")
             .replace(Regex("""(?m)^\s*[-*]\s+"""), "• ")
-            .replace(Regex("""\n{3,}"""), "
-
-")
+            .replace(Regex("""\n{3,}"""), "\n\n")
             .trim()
 }
