@@ -799,6 +799,7 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                 )
                 SettingsPage.Playback -> playbackSettingsContent(
+SettingsPage.WhatsNew -> com.nuvio.app.features.whatsnew.whatsNewSettingsContent(isTablet = false)
                     isTablet = false,
                     showLoadingOverlay = showLoadingOverlay,
                     holdToSpeedEnabled = holdToSpeedEnabled,
@@ -1275,6 +1276,7 @@ private fun TabletSettingsScreen(
                         isTablet = true,
                     )
                     SettingsPage.Playback -> playbackSettingsContent(
+                    SettingsPage.WhatsNew -> com.nuvio.app.features.whatsnew.whatsNewSettingsContent(isTablet = true)
                         isTablet = true,
                         showLoadingOverlay = showLoadingOverlay,
                         holdToSpeedEnabled = holdToSpeedEnabled,
