@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -210,34 +209,48 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     }
                 }
 
-                if (snapshot.hasCompleteSinceVersion && snapshot.sinceYourVersion.isNotEmpty()) {
+                val sinceReleases = snapshot.sinceYourVersion.takeIf {
+                    snapshot.hasCompleteSinceVersion && it.isNotEmpty()
+                }.orEmpty()
+                val sinceVersions = sinceReleases.mapTo(mutableSetOf(), WhatsNewRelease::version)
+
+                if (sinceReleases.isNotEmpty()) {
                     item {
                         NuvioSectionLabel(
                             text = stringResource(Res.string.whats_new_since_your_version),
                         )
                     }
-                    items(
-                        items = snapshot.sinceYourVersion,
-                        key = { release -> "since:" + release.version },
-                    ) { release ->
-                        ReleaseHistoryRow(release)
+                    item(key = "latest:" + sinceReleases.first().version) {
+                        ReleaseCard(sinceReleases.first())
+                    }
+                    if (sinceReleases.size > 1) {
+                        items(
+                            items = sinceReleases.drop(1),
+                            key = { release -> "since:" + release.version },
+                        ) { release ->
+                            ReleaseHistoryRow(release)
+                        }
+                    }
+                } else {
+                    snapshot.releases.firstOrNull()?.let { latest ->
+                        item(key = "latest:" + latest.version) {
+                            ReleaseCard(latest)
+                        }
                     }
                 }
 
-                snapshot.releases.firstOrNull()?.let { latest ->
-                    item(key = "latest:" + latest.version) {
-                        ReleaseCard(latest)
-                    }
-                }
+                val earlierReleases = snapshot.releases
+                    .drop(1)
+                    .filterNot { it.version in sinceVersions }
 
-                if (snapshot.releases.size > 1) {
+                if (earlierReleases.isNotEmpty()) {
                     item {
                         NuvioSectionLabel(
                             text = stringResource(Res.string.whats_new_recent_releases),
                         )
                     }
                     items(
-                        items = snapshot.releases.drop(1),
+                        items = earlierReleases,
                         key = { release -> release.version },
                     ) { release ->
                         ReleaseHistoryRow(release)
