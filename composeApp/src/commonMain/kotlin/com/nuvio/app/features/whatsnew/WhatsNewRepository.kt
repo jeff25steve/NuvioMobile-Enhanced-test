@@ -11,6 +11,7 @@ import com.nuvio.app.features.updater.ReleaseSelector
 import com.nuvio.app.features.updater.UpdateChannel
 import com.nuvio.app.features.updater.UpdatePreferences
 import com.nuvio.app.features.updater.VersionUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -25,7 +26,7 @@ private const val MAX_RESPONSE_BODY_BYTES = 2 * 1024 * 1024
 private data class WhatsNewCacheEnvelope(
     val channel: String,
     val fetchedAtMillis: Long,
-    val lastAttemptAtMillis: Long,
+    val lastFailedAttemptAtMillis: Long = 0L,
     val etag: String? = null,
     val body: String,
 )
@@ -39,7 +40,23 @@ internal object WhatsNewRepository {
     suspend fun load(
         channel: UpdateChannel = UpdatePreferences.shared.channel.value,
         currentVersion: String = AppVersionConfig.VERSION_NAME,
-    ): Result<WhatsNewContent> = runCatching {
+    ): Result<WhatsNewContent> {
+        return try {
+            loadInternal(
+                channel = channel,
+                currentVersion = currentVersion,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun loadInternal(
+        channel: UpdateChannel,
+        currentVersion: String,
+    ): WhatsNewContent {
         val now = AppUpdaterPlatform.currentTimeMillis()
         val cached = readCache(channel)
         val cachedContent = cached?.let {
@@ -67,14 +84,13 @@ internal object WhatsNewRepository {
 
         if (
             cachedContent != null &&
-            !currentIsNewerThanCache &&
-            cached.lastAttemptAtMillis > 0L &&
-            now - cached.lastAttemptAtMillis < FAILED_REFRESH_RETRY_MILLIS
+            cached.lastFailedAttemptAtMillis > 0L &&
+            now - cached.lastFailedAttemptAtMillis < FAILED_REFRESH_RETRY_MILLIS
         ) {
-            return@runCatching cachedContent.copy(isStale = true)
+            return cachedContent.copy(isStale = true)
         }
 
-        val response = runCatching {
+        val response = try {
             httpRequestRaw(
                 method = "GET",
                 url = "$GITHUB_API_BASE/repos/$GITHUB_OWNER/$GITHUB_REPO/releases?per_page=$RELEASE_PAGE_SIZE&page=1",
@@ -90,12 +106,16 @@ internal object WhatsNewRepository {
                     "GitHub release history request failed: ${it.status}"
                 }
             }
-        }.getOrElse { error ->
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
             cached?.let {
-                AppUpdaterPlatform.setWhatsNewCache(encodeCache(it.copy(lastAttemptAtMillis = now)))
+                AppUpdaterPlatform.setWhatsNewCache(
+                    encodeCache(it.copy(lastFailedAttemptAtMillis = now)),
+                )
             }
             if (cachedContent != null) {
-                return@runCatching cachedContent.copy(isStale = true)
+                return cachedContent.copy(isStale = true)
             }
             throw error
         }
@@ -105,7 +125,7 @@ internal object WhatsNewRepository {
                 val existing = cached ?: error("GitHub returned 304 without cached release history")
                 val updated = existing.copy(
                     fetchedAtMillis = now,
-                    lastAttemptAtMillis = now,
+                    lastFailedAttemptAtMillis = 0L,
                 )
                 AppUpdaterPlatform.setWhatsNewCache(encodeCache(updated))
                 cachedContent ?: error("Cached release history is invalid")
@@ -118,7 +138,7 @@ internal object WhatsNewRepository {
                 val envelope = WhatsNewCacheEnvelope(
                     channel = channel.name,
                     fetchedAtMillis = now,
-                    lastAttemptAtMillis = now,
+                    lastFailedAttemptAtMillis = 0L,
                     etag = etag,
                     body = response.body,
                 )
