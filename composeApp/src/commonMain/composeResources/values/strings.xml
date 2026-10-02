@@ -2637,4 +2637,19 @@
     <string name="movie_status_rumored">Rumored</string>
     <string name="movie_status_in_production">In Production</string>
     <string name="movie_status_post_production">Post Production</string>
+    <string name="compose_settings_page_whats_new">What&apos;s New</string>
+    <string name="whats_new_root_description">See what&apos;s changed in recent releases</string>
+    <string name="whats_new_current_version">Current version</string>
+    <string name="whats_new_latest_release">Latest release</string>
+    <string name="whats_new_recent_releases">Recent releases</string>
+    <string name="whats_new_since_one_release">1 release since your version</string>
+    <string name="whats_new_since_releases">%1$d releases since your version</string>
+    <string name="whats_new_release_format">Version %1$s</string>
+    <string name="whats_new_open_github">View on GitHub</string>
+    <string name="whats_new_no_release_notes">No release notes were provided for this release.</string>
+    <string name="whats_new_no_releases">No releases are available right now.</string>
+    <string name="whats_new_unavailable">Release history unavailable</string>
+    <string name="whats_new_load_failed">Nuvio couldn&apos;t load the release history. Check your connection and try again.</string>
+    <string name="whats_new_retry">Try again</string>
+    <string name="whats_new_cached">Showing cached release history.</string>
 </resources>
