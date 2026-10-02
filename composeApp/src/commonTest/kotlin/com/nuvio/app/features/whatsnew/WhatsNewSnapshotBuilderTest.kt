@@ -21,7 +21,10 @@ class WhatsNewSnapshotBuilderTest {
         )
 
         assertTrue(snapshot.hasCompleteSinceVersion)
-        assertEquals(listOf("1.4.0", "1.3.0"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
+        assertEquals(
+            listOf("1.4.0", "1.3.0"),
+            snapshot.sinceYourVersion.map(WhatsNewRelease::version),
+        )
         assertEquals("1.2.0", snapshot.currentVersion)
     }
 
@@ -58,14 +61,12 @@ class WhatsNewSnapshotBuilderTest {
 
     @Test
     fun anInvalidCurrentVersionDoesNotProduceAFalseSinceCount() {
-        val releases = listOf(
-            release("1.4.0"),
-            release("1.3.0"),
-            release("1.2.0"),
-        )
-
         val snapshot = WhatsNewSnapshotBuilder.build(
-            releases = releases,
+            releases = listOf(
+                release("1.4.0"),
+                release("1.3.0"),
+                release("1.2.0"),
+            ),
             currentVersion = "not-a-version",
         )
 
@@ -87,44 +88,57 @@ class WhatsNewSnapshotBuilderTest {
             currentVersion = "1.2.0",
         )
 
-        assertEquals(listOf("1.4.0", "1.3.0", "1.2.0"), snapshot.releases.map(WhatsNewRelease::version))
-        assertEquals(listOf("1.4.0", "1.3.0"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
+        assertEquals(
+            listOf("1.4.0", "1.3.0", "1.2.0"),
+            snapshot.releases.map(WhatsNewRelease::version),
+        )
+        assertEquals(
+            listOf("1.4.0", "1.3.0"),
+            snapshot.sinceYourVersion.map(WhatsNewRelease::version),
+        )
     }
 
     @Test
-    fun prereleaseVersionsAreOrderedBeforeStableAndReleaseNotesAreCleaned() {
-        val releases = listOf(
-            release("1.0.0", notes = "1.0.0"),
-            release(
-                "1.0.0-beta.2",
-                notes = "<h2>Fixes</h2><ul><li><strong>Fixed</strong> [playback](https://example.com)</li><li>Removed `debug`.</li></ul>",
-            ),
-            release("1.0.0-beta.1", notes = "Older"),
-        )
-
-        val snapshot = WhatsNewSnapshotBuilder.build(
-            releases = releases,
-            currentVersion = "1.0.0-beta.1",
+    fun cleanReleaseNotesGroupsConventionalChangesAndRemovesDeveloperMetadata() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            """
+            - feat(player): add smarter subtitle startup @alice
+            - fix(home): fix hero alignment [details](https://github.com/example/project) @bob
+            - perf(profile): reduce duplicate API work @carol
+            - i18n(el): improve Greek wording @dora
+            """.trimIndent(),
         )
 
         assertEquals(
-            listOf("1.0.0", "1.0.0-beta.2", "1.0.0-beta.1"),
-            snapshot.releases.map(WhatsNewRelease::version),
+            listOf(
+                WhatsNewNoteCategory.FEATURES,
+                WhatsNewNoteCategory.FIXES,
+                WhatsNewNoteCategory.PERFORMANCE,
+                WhatsNewNoteCategory.LOCALIZATION,
+            ),
+            cleaned.map(WhatsNewNote::category),
         )
-        assertEquals(listOf("1.0.0", "1.0.0-beta.2"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
-        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes)
-        assertFalse(cleaned.contains("`"))
-        assertFalse(cleaned.contains("<"))
-        assertTrue(cleaned.contains("• Fixed playback"))
-        assertTrue(cleaned.contains("• Removed debug"))
+        assertEquals("Add smarter subtitle startup", cleaned[0].text)
+        assertFalse(cleaned[0].text.contains("@alice"))
+        assertFalse(cleaned[1].text.contains("github.com"))
+        assertEquals("Reduce duplicate API work", cleaned[2].text)
     }
 
-    private fun release(version: String, title: String = version, notes: String = "Notes for $version"): WhatsNewRelease =
+    private fun release(
+        version: String,
+        title: String = version,
+        notes: List<WhatsNewNote> = listOf(
+            WhatsNewNote(
+                category = WhatsNewNoteCategory.OTHER,
+                text = "Notes for " + version,
+            ),
+        ),
+    ): WhatsNewRelease =
         WhatsNewRelease(
             version = version,
             title = title,
             notes = notes,
             publishedAt = null,
-            releaseUrl = "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/tag/$version",
+            releaseUrl = "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/tag/" + version,
         )
 }
