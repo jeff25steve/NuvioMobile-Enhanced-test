@@ -800,8 +800,9 @@ private fun MobileSettingsScreen(
                 SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                     isTablet = false,
                 )
+                 SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = false)
+                     SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = true)
                 SettingsPage.Playback -> playbackSettingsContent(
-SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = false)
                     isTablet = false,
                     showLoadingOverlay = showLoadingOverlay,
                     holdToSpeedEnabled = holdToSpeedEnabled,
@@ -1278,7 +1279,6 @@ private fun TabletSettingsScreen(
                         isTablet = true,
                     )
                     SettingsPage.Playback -> playbackSettingsContent(
-                    SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = true)
                         isTablet = true,
                         showLoadingOverlay = showLoadingOverlay,
                         holdToSpeedEnabled = holdToSpeedEnabled,
