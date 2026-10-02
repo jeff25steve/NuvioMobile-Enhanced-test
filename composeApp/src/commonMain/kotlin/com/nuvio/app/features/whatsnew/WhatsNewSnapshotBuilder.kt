@@ -60,7 +60,7 @@ internal object WhatsNewSnapshotBuilder {
             .replace(markdownTagPattern, "")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")
-            .replace("&quot;", """)
+            .replace("&quot;", "\"")
             .replace("\r", "")
             .lines()
             .map(String::trim)
