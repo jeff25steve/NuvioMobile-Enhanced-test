@@ -125,6 +125,49 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun cleanReleaseNotesPreservesAngleBracketTextThatIsNotHtml() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            "- fix(player): support <TV> channel names",
+        )
+
+        assertEquals(
+            "fix(player): support <TV> channel names",
+            cleaned.single().text,
+        )
+    }
+
+    @Test
+    fun cleanReleaseNotesDoesNotStripAHyphenThatIsPartOfTheText() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            "-not-a-list-item",
+        )
+
+        assertEquals(
+            "-not-a-list-item",
+            cleaned.single().text,
+        )
+    }
+
+    @Test
+    fun cleanReleaseNotesPreservesRepeatedContributionLinesInOrder() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            """
+            - fix(player): update subtitle handling @alice
+            - fix(player): update subtitle handling @alice
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf(
+                "fix(player): update subtitle handling",
+                "fix(player): update subtitle handling",
+            ),
+            cleaned.map(WhatsNewNote::text),
+        )
+        assertEquals(listOf("alice", "alice"), cleaned.map(WhatsNewNote::authorLogin))
+    }
+
+    @Test
     fun cleanReleaseNotesPreservesExactContributionWordingAndCredits() {
         val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
             """
