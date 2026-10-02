@@ -546,8 +546,8 @@ private fun ReleaseNotes(
                 color = MaterialTheme.nuvio.colors.textPrimary,
             )
         } else {
-            var previousCategory: WhatsNewNoteCategory? = null
-            visibleNotes.forEach { note ->
+            visibleNotes.forEachIndexed { index, note ->
+                val previousCategory = visibleNotes.getOrNull(index - 1)?.category
                 val showCategory = note.category != WhatsNewNoteCategory.OTHER &&
                     note.category != previousCategory
                 Column(
@@ -586,7 +586,6 @@ private fun ReleaseNotes(
                         color = MaterialTheme.nuvio.colors.textPrimary,
                     )
                 }
-                previousCategory = note.category
             }
 
             if (allowToggle) {
