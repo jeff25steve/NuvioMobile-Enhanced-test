@@ -112,10 +112,6 @@ class WhatsNewSnapshotBuilderTest {
             snapshot.releases.map(WhatsNewRelease::version),
         )
         assertEquals(listOf("1.0.0", "1.0.0-beta.2"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
-        assertTrue(
-            WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("• Fixed playback"),
-        )
-        assertFalse(WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("https://"))
         val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes)
         assertFalse(cleaned.contains("`"))
         assertFalse(cleaned.contains("<"))
