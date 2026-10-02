@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
@@ -217,7 +218,14 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                 if (sinceReleases.isNotEmpty()) {
                     item {
                         NuvioSectionLabel(
-                            text = stringResource(Res.string.whats_new_since_your_version),
+                            text = if (sinceReleases.size == 1) {
+                                stringResource(Res.string.whats_new_since_one_release)
+                            } else {
+                                stringResource(
+                                    Res.string.whats_new_since_releases,
+                                    sinceReleases.size,
+                                )
+                            },
                         )
                     }
                     item(key = "latest:" + sinceReleases.first().version) {
@@ -264,7 +272,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                 if (value.content.isStale) {
                     item {
                         Text(
-                            text = stringResource(Res.string.whats_new_cached),
+                            text = stringResource(Res.string.whats_new_refresh_failed_cached),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.nuvio.colors.textMuted,
                         )
@@ -347,16 +355,15 @@ private fun versionStatus(
     val currentIsNewer = VersionUtils.isRemoteNewer(snapshot.currentVersion, latest.version)
 
     return when {
-        latestIsNewer -> {
-            val count = snapshot.releases.count {
-                VersionUtils.isRemoteNewer(it.version, snapshot.currentVersion)
-            }.coerceAtLeast(1)
+        latestIsNewer && snapshot.hasCompleteSinceVersion -> {
+            val count = snapshot.sinceYourVersion.size.coerceAtLeast(1)
             if (count == 1) {
                 stringResource(Res.string.whats_new_status_update_available)
             } else {
                 stringResource(Res.string.whats_new_status_updates_available, count)
             }
         }
+        latestIsNewer -> stringResource(Res.string.whats_new_status_newer_releases_available)
         currentIsNewer -> stringResource(
             Res.string.whats_new_status_current_ahead,
             channelLabel,
@@ -480,7 +487,7 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                 }
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = expansionLabel,
+                    contentDescription = null,
                     modifier = Modifier
                         .size(NuvioTokens.Icon.md)
                         .rotate(if (expanded) 90f else 0f),
@@ -566,10 +573,12 @@ private fun ReleaseNotes(
 
         release.releaseUrl?.let { url ->
             val uriHandler = LocalUriHandler.current
-            NuvioPrimaryButton(
-                text = stringResource(Res.string.whats_new_open_github),
+            TextButton(
+                modifier = Modifier.align(Alignment.End),
                 onClick = { uriHandler.openUri(url) },
-            )
+            ) {
+                Text(stringResource(Res.string.whats_new_open_github))
+            }
         }
     }
 }
@@ -583,24 +592,6 @@ private fun noteCategoryResource(category: WhatsNewNoteCategory) = when (categor
 }
 
 private fun releaseDate(release: WhatsNewRelease): String? =
-    release.publishedAt?.takeIf { it.length >= 10 }?.let { raw ->
-        val year = raw.substring(0, 4)
-        val month = raw.substring(5, 7).toIntOrNull() ?: return@let raw.take(10)
-        val day = raw.substring(8, 10).toIntOrNull() ?: return@let raw.take(10)
-        val monthName = when (month) {
-            1 -> "Jan"
-            2 -> "Feb"
-            3 -> "Mar"
-            4 -> "Apr"
-            5 -> "May"
-            6 -> "Jun"
-            7 -> "Jul"
-            8 -> "Aug"
-            9 -> "Sep"
-            10 -> "Oct"
-            11 -> "Nov"
-            12 -> "Dec"
-            else -> return@let raw.take(10)
-        }
-        "$day $monthName $year"
-    }
+    release.publishedAt
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::formatReleaseDateForDisplay)
