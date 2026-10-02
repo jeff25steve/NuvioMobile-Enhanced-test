@@ -44,10 +44,10 @@ internal object WhatsNewSnapshotBuilder {
     fun cleanReleaseNotes(raw: String): String =
         raw
             .replace(Regex("<[^>]*>"), "")
-            .replace(Regex("""(?m)^\s*#{1,6}\s*"""), "")
+            .replace(Regex("""(?m)^[ \t]*#{1,6}[ \t]*"""), "")
             .replace(Regex("""\[([^\]]+)\]\([^\)]+\)"""), "$1")
             .replace('`'.toString(), "")
-            .replace(Regex("""(?m)^\s*[-*]\s+"""), "• ")
+            .replace(Regex("""(?m)^[ \t]*[-*][ \t]+"""), "• ")
             .replace(Regex("""\n{3,}"""), "\n\n")
             .trim()
 }
