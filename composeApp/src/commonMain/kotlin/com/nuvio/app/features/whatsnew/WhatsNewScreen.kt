@@ -78,6 +78,8 @@ import nuvio.composeapp.generated.resources.whats_new_open_github
 import nuvio.composeapp.generated.resources.whats_new_refresh
 import nuvio.composeapp.generated.resources.whats_new_refreshing
 import nuvio.composeapp.generated.resources.whats_new_release_format
+import nuvio.composeapp.generated.resources.whats_new_since_your_version
+import nuvio.composeapp.generated.resources.whats_new_contributor_credit
 import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_status_current_ahead
 import nuvio.composeapp.generated.resources.whats_new_status_update_available
@@ -96,17 +98,20 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
     val channel by UpdatePreferences.shared.channel.collectAsStateWithLifecycle()
     var state by remember { mutableStateOf<LoadState>(LoadState.Loading) }
     var refreshKey by rememberSaveable { mutableIntStateOf(0) }
+    var lastHandledRefreshKey by rememberSaveable { mutableIntStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
     var loadedChannel by remember { mutableStateOf<UpdateChannel?>(null) }
 
     LaunchedEffect(channel, refreshKey) {
+        val forceRefresh = refreshKey != 0 && refreshKey != lastHandledRefreshKey
+        lastHandledRefreshKey = refreshKey
         val preserveContent = state is LoadState.Content && loadedChannel == channel
         if (!preserveContent) state = LoadState.Loading
         isRefreshing = true
         val result = WhatsNewRepository.load(
             channel = channel,
             currentVersion = AppVersionConfig.VERSION_NAME,
-            forceRefresh = refreshKey > 0,
+            forceRefresh = forceRefresh,
         )
         isRefreshing = false
         state = result.fold(
@@ -202,6 +207,20 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                             color = MaterialTheme.nuvio.colors.textMuted,
                             modifier = Modifier.padding(horizontal = NuvioTokens.Space.s4),
                         )
+                    }
+                }
+
+                if (snapshot.hasCompleteSinceVersion && snapshot.sinceYourVersion.isNotEmpty()) {
+                    item {
+                        NuvioSectionLabel(
+                            text = stringResource(Res.string.whats_new_since_your_version),
+                        )
+                    }
+                    items(
+                        items = snapshot.sinceYourVersion,
+                        key = { release -> "since:" + release.version },
+                    ) { release ->
+                        ReleaseHistoryRow(release)
                     }
                 }
 
@@ -487,25 +506,33 @@ private fun ReleaseNotes(
                 color = MaterialTheme.nuvio.colors.textPrimary,
             )
         } else {
-            var previousCategory: WhatsNewNoteCategory? = null
             visibleNotes.forEach { note ->
-                if (note.category != previousCategory) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
+                ) {
                     Text(
                         text = stringResource(noteCategoryResource(note.category)),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.nuvio.colors.textMuted,
-                        modifier = Modifier.padding(
-                            top = if (previousCategory == null) 0.dp else NuvioTokens.Space.s4,
-                        ),
                     )
-                    previousCategory = note.category
+                    Text(
+                        text = "• " + note.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.nuvio.colors.textPrimary,
+                    )
+                    note.authorLogin?.let { author ->
+                        Text(
+                            text = stringResource(
+                                Res.string.whats_new_contributor_credit,
+                                author,
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.nuvio.colors.textMuted,
+                        )
+                    }
                 }
-                Text(
-                    text = "• " + note.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.nuvio.colors.textPrimary,
-                )
             }
 
             if (allowToggle) {
