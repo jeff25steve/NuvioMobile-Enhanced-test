@@ -1,5 +1,6 @@
 package com.nuvio.app.features.whatsnew
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.NewReleases
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,9 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
+import com.nuvio.app.core.ui.NuvioPrimaryButton
+import com.nuvio.app.core.ui.NuvioSectionLabel
+import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioSurfaceCard
+import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.updater.UpdatePreferences
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_settings_page_whats_new
@@ -87,12 +91,9 @@ private fun WhatsNewPageBody(isTablet: Boolean) {
         )
     }
 
-    val horizontalPadding = if (isTablet) 20.dp else 0.dp
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(if (isTablet) 18.dp else 14.dp),
     ) {
         when (val value = state) {
             LoadState.Loading -> Column(
@@ -106,23 +107,23 @@ private fun WhatsNewPageBody(isTablet: Boolean) {
 
             LoadState.Error -> NuvioSurfaceCard {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
                 ) {
                     Text(
                         text = stringResource(Res.string.whats_new_unavailable),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.nuvio.colors.textPrimary,
                     )
                     Text(
                         text = stringResource(Res.string.whats_new_load_failed),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.nuvio.colors.textMuted,
                     )
-                    Button(onClick = { retryKey++ }) {
-                        Text(text = stringResource(Res.string.whats_new_retry))
-                    }
+                    NuvioPrimaryButton(
+                        text = stringResource(Res.string.whats_new_retry),
+                        onClick = { retryKey++ },
+                    )
                 }
             }
 
@@ -150,11 +151,8 @@ private fun WhatsNewPageBody(isTablet: Boolean) {
                 latest?.let { ReleaseCard(it) }
 
                 if (snapshot.releases.size > 1) {
-                    Text(
+                    NuvioSectionLabel(
                         text = stringResource(Res.string.whats_new_recent_releases),
-                        modifier = Modifier.padding(top = 8.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
                     )
                     snapshot.releases.drop(1).forEach { release ->
                         ReleaseHistoryRow(release)
@@ -168,8 +166,8 @@ private fun WhatsNewPageBody(isTablet: Boolean) {
                 if (value.content.isStale) {
                     Text(
                         text = stringResource(Res.string.whats_new_cached),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.nuvio.colors.textMuted,
                     )
                 }
             }
@@ -187,27 +185,26 @@ private sealed interface LoadState {
 private fun CurrentVersionCard(version: String) {
     NuvioSurfaceCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
         ) {
             Icon(
                 imageVector = Icons.Rounded.NewReleases,
                 contentDescription = null,
-                modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(NuvioTokens.Icon.lg),
+                tint = MaterialTheme.nuvio.colors.accent,
             )
-            Column(modifier = Modifier.padding(start = 14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2)) {
                 Text(
                     text = stringResource(Res.string.whats_new_current_version),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.nuvio.colors.textMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
                     text = stringResource(Res.string.whats_new_release_format, version),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.nuvio.colors.textPrimary,
                 )
             }
         }
@@ -218,22 +215,24 @@ private fun CurrentVersionCard(version: String) {
 private fun ReleaseCard(release: WhatsNewRelease) {
     NuvioSurfaceCard {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
         ) {
-            Text(
+            NuvioSectionLabel(
                 text = stringResource(Res.string.whats_new_latest_release),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelMedium,
             )
             Text(
                 text = release.title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.nuvio.colors.textPrimary,
             )
-            releaseDate(release)?.let { Text(text = it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            releaseDate(release)?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.nuvio.colors.textMuted,
+                )
+            }
             ReleaseNotes(release)
         }
     }
@@ -244,32 +243,42 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
     var expanded by remember { mutableStateOf(false) }
 
     NuvioSurfaceCard {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(12.dp),
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = release.title, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = release.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.nuvio.colors.textPrimary,
+                        maxLines = 2,
+                    )
                     releaseDate(release)?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.nuvio.colors.textMuted,
                         )
                     }
                 }
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
                     contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(NuvioTokens.Icon.md),
+                    tint = MaterialTheme.nuvio.colors.textMuted,
                 )
             }
-            if (expanded) ReleaseNotes(release)
+            AnimatedVisibility(visible = expanded) {
+                ReleaseNotes(release)
+            }
         }
     }
 }
@@ -278,27 +287,19 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
 private fun ReleaseNotes(release: WhatsNewRelease) {
     val uriHandler = LocalUriHandler.current
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
     ) {
         Text(
             text = release.notes.ifBlank { stringResource(Res.string.whats_new_no_release_notes) },
-            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.nuvio.colors.textPrimary,
         )
         release.releaseUrl?.let { url ->
-            Button(onClick = { uriHandler.openUri(url) }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = stringResource(Res.string.whats_new_open_github),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
+            NuvioPrimaryButton(
+                text = stringResource(Res.string.whats_new_open_github),
+                onClick = { uriHandler.openUri(url) },
+            )
         }
     }
 }
