@@ -2655,6 +2655,7 @@
     <string name="whats_new_load_failed">Nuvio couldn&apos;t load the release history. Check your connection and try again.</string>
     <string name="whats_new_retry">Try again</string>
     <string name="whats_new_cached">Showing cached release history.</string>
+    <string name="whats_new_refresh_failed_cached">Couldn&apos;t refresh release history. Showing cached data.</string>
     <string name="whats_new_channel_format">%1$s channel</string>
     <string name="whats_new_refresh">Refresh release history</string>
     <string name="whats_new_refreshing">Refreshing release history…</string>
@@ -2663,6 +2664,7 @@
     <string name="whats_new_last_checked_hours">Last checked %1$d hours ago</string>
     <string name="whats_new_last_checked_days">Last checked %1$d days ago</string>
     <string name="whats_new_status_up_to_date">You’re up to date with the selected channel.</string>
+    <string name="whats_new_status_newer_releases_available">Newer releases are available.</string>
     <string name="whats_new_status_update_available">1 newer release is available.</string>
     <string name="whats_new_status_updates_available">%1$d newer releases are available.</string>
     <string name="whats_new_status_current_ahead">This build is newer than the latest %1$s release listed here.</string>
