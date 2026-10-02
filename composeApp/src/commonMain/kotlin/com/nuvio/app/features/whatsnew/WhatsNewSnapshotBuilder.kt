@@ -51,7 +51,7 @@ internal object WhatsNewSnapshotBuilder {
             .replace(Regex("""(?m)^[ \t]*#{1,6}[ \t]*"""), "")
             .replace(Regex("""\[([^\]]+)\]\([^\)]+\)"""), "$1")
             .replace(Regex("""\*\*([^*]+)\*\*"""), "$1")
-            .replace('`'.toString(), "")
+            .replace(Char(96).toString(), "")
             .replace(Regex("""(?m)^[ \t]*[-*+][ \t]+"""), "• ")
             .replace(Regex("""(?m)^[ \t]*---+[ \t]*$"""), "")
             .replace(Regex("""[ \t]+\n"""), "\n")
