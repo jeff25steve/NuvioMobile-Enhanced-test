@@ -10,7 +10,10 @@ internal enum class WhatsNewNoteCategory {
 
 internal data class WhatsNewNote(
     val category: WhatsNewNoteCategory,
+    /** Exact contribution wording from the GitHub release body, excluding the author credit. */
     val text: String,
+    /** GitHub login explicitly credited on the release-body line, when present. */
+    val authorLogin: String?,
 )
 
 internal data class WhatsNewRelease(
