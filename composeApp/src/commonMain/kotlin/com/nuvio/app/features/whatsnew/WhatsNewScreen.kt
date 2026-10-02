@@ -37,8 +37,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
 import com.nuvio.app.core.ui.NuvioPrimaryButton
@@ -58,7 +58,6 @@ import nuvio.composeapp.generated.resources.action_expand
 import nuvio.composeapp.generated.resources.compose_settings_page_whats_new
 import nuvio.composeapp.generated.resources.updates_channel_beta
 import nuvio.composeapp.generated.resources.updates_channel_stable
-import nuvio.composeapp.generated.resources.whats_new_cached
 import nuvio.composeapp.generated.resources.whats_new_category_features
 import nuvio.composeapp.generated.resources.whats_new_category_fixes
 import nuvio.composeapp.generated.resources.whats_new_category_localization
@@ -78,7 +77,6 @@ import nuvio.composeapp.generated.resources.whats_new_open_github
 import nuvio.composeapp.generated.resources.whats_new_refresh
 import nuvio.composeapp.generated.resources.whats_new_refreshing
 import nuvio.composeapp.generated.resources.whats_new_release_format
-import nuvio.composeapp.generated.resources.whats_new_since_your_version
 import nuvio.composeapp.generated.resources.whats_new_contributor_credit
 import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_status_current_ahead
@@ -531,27 +529,37 @@ private fun ReleaseNotes(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
                 ) {
-                    Text(
-                        text = stringResource(noteCategoryResource(note.category)),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.nuvio.colors.textMuted,
-                    )
+                    if (note.category != WhatsNewNoteCategory.OTHER || note.authorLogin != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
+                        ) {
+                            if (note.category != WhatsNewNoteCategory.OTHER) {
+                                Text(
+                                    text = stringResource(noteCategoryResource(note.category)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.nuvio.colors.textMuted,
+                                )
+                            }
+                            note.authorLogin?.let { author ->
+                                Text(
+                                    text = stringResource(
+                                        Res.string.whats_new_contributor_credit,
+                                        author,
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.nuvio.colors.textMuted,
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = "• " + note.text,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.nuvio.colors.textPrimary,
                     )
-                    note.authorLogin?.let { author ->
-                        Text(
-                            text = stringResource(
-                                Res.string.whats_new_contributor_credit,
-                                author,
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.nuvio.colors.textMuted,
-                        )
-                    }
                 }
             }
 
