@@ -128,7 +128,7 @@ class WhatsNewSnapshotBuilderTest {
             cleaned[1].text,
         )
         assertEquals("bob", cleaned[1].authorLogin)
-        assertEquals("Reduce duplicate API work", cleaned[2].text)
+        assertEquals("perf(profile): reduce duplicate API work", cleaned[2].text)
         assertEquals("carol", cleaned[2].authorLogin)
     }
 
