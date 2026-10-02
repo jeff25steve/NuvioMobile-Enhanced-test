@@ -74,16 +74,9 @@ internal object WhatsNewRepository {
                 fetchedAtMillis = it.fetchedAtMillis,
             )
         }
-        val currentIsNewerThanCache = cachedContent?.snapshot?.releases
-            ?.firstOrNull()
-            ?.version
-            ?.let { cachedLatest -> VersionUtils.isRemoteNewer(currentVersion, cachedLatest) }
-            ?: false
-
         if (
             !forceRefresh &&
             cachedContent != null &&
-            !currentIsNewerThanCache &&
             now - cached.fetchedAtMillis < CACHE_TTL_MILLIS
         ) {
             return cachedContent
