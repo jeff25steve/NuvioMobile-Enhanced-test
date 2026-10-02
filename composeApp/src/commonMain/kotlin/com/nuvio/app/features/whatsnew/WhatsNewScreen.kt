@@ -208,6 +208,17 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     }
                 }
 
+                if (value.content.isStale && !isRefreshing) {
+                    item {
+                        Text(
+                            text = stringResource(Res.string.whats_new_refresh_failed_cached),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.nuvio.colors.textMuted,
+                            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s4),
+                        )
+                    }
+                }
+
                 val sinceReleases = snapshot.sinceYourVersion.takeIf {
                     snapshot.hasCompleteSinceVersion && it.isNotEmpty()
                 }.orEmpty()
@@ -267,15 +278,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     item { Text(text = stringResource(Res.string.whats_new_no_releases)) }
                 }
 
-                if (value.content.isStale) {
-                    item {
-                        Text(
-                            text = stringResource(Res.string.whats_new_refresh_failed_cached),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.nuvio.colors.textMuted,
-                        )
-                    }
-                }
+
             }
         }
     }
