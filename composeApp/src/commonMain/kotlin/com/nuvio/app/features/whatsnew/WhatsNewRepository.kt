@@ -40,12 +40,14 @@ internal object WhatsNewRepository {
     suspend fun load(
         channel: UpdateChannel = UpdatePreferences.shared.channel.value,
         currentVersion: String = AppVersionConfig.VERSION_NAME,
+        forceRefresh: Boolean = false,
     ): Result<WhatsNewContent> {
         return try {
             Result.success(
                 loadInternal(
                     channel = channel,
                     currentVersion = currentVersion,
+                    forceRefresh = forceRefresh,
                 ),
             )
         } catch (error: CancellationException) {
@@ -58,6 +60,7 @@ internal object WhatsNewRepository {
     private suspend fun loadInternal(
         channel: UpdateChannel,
         currentVersion: String,
+        forceRefresh: Boolean,
     ): WhatsNewContent {
         val now = AppUpdaterPlatform.currentTimeMillis()
         val cached = readCache(channel)
@@ -68,6 +71,7 @@ internal object WhatsNewRepository {
                 currentVersion = currentVersion,
                 fromCache = true,
                 isStale = false,
+                fetchedAtMillis = it.fetchedAtMillis,
             )
         }
         val currentIsNewerThanCache = cachedContent?.snapshot?.releases
@@ -77,6 +81,7 @@ internal object WhatsNewRepository {
             ?: false
 
         if (
+            !forceRefresh &&
             cachedContent != null &&
             !currentIsNewerThanCache &&
             now - cached.fetchedAtMillis < CACHE_TTL_MILLIS
@@ -85,6 +90,7 @@ internal object WhatsNewRepository {
         }
 
         if (
+            !forceRefresh &&
             cachedContent != null &&
             cached.lastFailedAttemptAtMillis > 0L &&
             now - cached.lastFailedAttemptAtMillis < FAILED_REFRESH_RETRY_MILLIS
@@ -103,9 +109,9 @@ internal object WhatsNewRepository {
                 },
                 body = "",
                 maxResponseBodyBytes = MAX_RESPONSE_BODY_BYTES,
-            ).also {
-                check(it.status == 304 || it.status in 200..299) {
-                    "GitHub release history request failed: ${it.status}"
+            ).also { response ->
+                check(response.status == 304 || response.status in 200..299) {
+                    "GitHub release history request failed: " + response.status
                 }
             }
         } catch (error: CancellationException) {
@@ -128,7 +134,11 @@ internal object WhatsNewRepository {
                     lastFailedAttemptAtMillis = 0L,
                 )
                 persistCache(updated)
-                cachedContent ?: error("Cached release history is invalid")
+                cachedContent?.copy(
+                    fromCache = true,
+                    isStale = false,
+                    fetchedAtMillis = now,
+                ) ?: error("Cached release history is invalid")
             }
 
             else -> {
@@ -148,6 +158,7 @@ internal object WhatsNewRepository {
                     currentVersion = currentVersion,
                     fromCache = false,
                     isStale = false,
+                    fetchedAtMillis = now,
                 ) ?: error("GitHub returned release history without a valid release")
                 persistCache(envelope)
                 content
@@ -178,6 +189,7 @@ internal object WhatsNewRepository {
         currentVersion: String,
         fromCache: Boolean,
         isStale: Boolean,
+        fetchedAtMillis: Long,
     ): WhatsNewContent? {
         val releases = runCatching {
             json.decodeFromString<List<GitHubReleaseDto>>(body)
@@ -203,12 +215,16 @@ internal object WhatsNewRepository {
             snapshot = WhatsNewSnapshotBuilder.build(mapped, currentVersion),
             fromCache = fromCache,
             isStale = isStale,
+            fetchedAtMillis = fetchedAtMillis,
         )
     }
 
     private fun isTrustedReleaseUrl(url: String): Boolean {
         val normalized = url.trim()
-        return normalized.startsWith("https://github.com/", ignoreCase = true) &&
-            !normalized.contains(" ")
+        val expectedPrefix =
+            "https://github.com/" + GITHUB_OWNER + "/" + GITHUB_REPO + "/"
+        return normalized.startsWith(expectedPrefix, ignoreCase = true) &&
+            !normalized.any(Char::isWhitespace) &&
+            !normalized.any(Char::isISOControl)
     }
 }
