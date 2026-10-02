@@ -77,11 +77,36 @@ class WhatsNewSnapshotBuilderTest {
         assertEquals(listOf("1.4.0", "1.3.0"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
     }
 
-    private fun release(version: String, title: String = version): WhatsNewRelease =
+    @Test
+    fun prereleaseVersionsAreOrderedBeforeStableAndReleaseNotesAreCleaned() {
+        val releases = listOf(
+            release("1.0.0", notes = "1.0.0"),
+            release("1.0.0-beta.2", notes = "# Fixes\n\n- Fixed [playback](https://example.com)\n- Removed `debug`."),
+            release("1.0.0-beta.1", notes = "Older"),
+        )
+
+        val snapshot = WhatsNewSnapshotBuilder.build(
+            releases = releases,
+            currentVersion = "1.0.0-beta.1",
+        )
+
+        assertEquals(
+            listOf("1.0.0", "1.0.0-beta.2", "1.0.0-beta.1"),
+            snapshot.releases.map(WhatsNewRelease::version),
+        )
+        assertEquals(listOf("1.0.0", "1.0.0-beta.2"), snapshot.sinceYourVersion.map(WhatsNewRelease::version))
+        assertTrue(
+            WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("• Fixed playback"),
+        )
+        assertFalse(WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("https://"))
+        assertFalse(WhatsNewSnapshotBuilder.cleanReleaseNotes(releases[1].notes).contains("`"))
+    }
+
+    private fun release(version: String, title: String = version, notes: String = "Notes for $version"): WhatsNewRelease =
         WhatsNewRelease(
             version = version,
             title = title,
-            notes = "Notes for $version",
+            notes = notes,
             publishedAt = null,
             releaseUrl = "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/tag/$version",
         )
