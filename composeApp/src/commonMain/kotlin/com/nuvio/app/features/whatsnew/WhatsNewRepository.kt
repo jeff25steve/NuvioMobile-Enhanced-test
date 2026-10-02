@@ -42,9 +42,11 @@ internal object WhatsNewRepository {
         currentVersion: String = AppVersionConfig.VERSION_NAME,
     ): Result<WhatsNewContent> {
         return try {
-            loadInternal(
-                channel = channel,
-                currentVersion = currentVersion,
+            Result.success(
+                loadInternal(
+                    channel = channel,
+                    currentVersion = currentVersion,
+                ),
             )
         } catch (error: CancellationException) {
             throw error
