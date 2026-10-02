@@ -31,7 +31,6 @@ actual object AppUpdaterPlatform {
         } else {
             defaults.setObject(payload, forKey = "nuvio_whats_new_cache")
         }
-        defaults.synchronize()
     }
 
     actual fun currentTimeMillis(): Long =
