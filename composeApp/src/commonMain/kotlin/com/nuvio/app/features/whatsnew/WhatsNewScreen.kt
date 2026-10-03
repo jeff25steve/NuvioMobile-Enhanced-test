@@ -409,7 +409,7 @@ private fun CurrentVersionCard(
                     imageVector = Icons.Rounded.NewReleases,
                     contentDescription = null,
                     modifier = Modifier.size(NuvioTokens.Icon.md),
-                    tint = MaterialTheme.nuvio.colors.textMuted,
+                    tint = MaterialTheme.nuvio.colors.accent,
                 )
                 Text(
                     text = stringResource(Res.string.whats_new_release_format, version),
@@ -502,36 +502,27 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
         ageMillis < minuteMillis -> stringResource(Res.string.whats_new_last_checked_just_now)
         ageMillis < hourMillis -> {
             val minutes = ageMillis / minuteMillis
-            stringResource(
-                if (minutes == 1L) {
-                    Res.string.whats_new_last_checked_minute
-                } else {
-                    Res.string.whats_new_last_checked_minutes
-                },
-                minutes,
-            )
+            if (minutes == 1L) {
+                stringResource(Res.string.whats_new_last_checked_minute, minutes)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_minutes, minutes)
+            }
         }
         ageMillis < dayMillis -> {
             val hours = ageMillis / hourMillis
-            stringResource(
-                if (hours == 1L) {
-                    Res.string.whats_new_last_checked_hour
-                } else {
-                    Res.string.whats_new_last_checked_hours
-                },
-                hours,
-            )
+            if (hours == 1L) {
+                stringResource(Res.string.whats_new_last_checked_hour, hours)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_hours, hours)
+            }
         }
         else -> {
             val days = ageMillis / dayMillis
-            stringResource(
-                if (days == 1L) {
-                    Res.string.whats_new_last_checked_day
-                } else {
-                    Res.string.whats_new_last_checked_days
-                },
-                days,
-            )
+            if (days == 1L) {
+                stringResource(Res.string.whats_new_last_checked_day, days)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_days, days)
+            }
         }
     }
 }
