@@ -101,6 +101,36 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun cleanReleaseNotesRemovesCommonMarkdownPresentationSyntax() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            """
+            > **💡 Note**
+            - fix(player): use \`hardware acceleration\` instead @alice
+            - ~~old wording~~ replaced with the new wording
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf(
+                "💡 Note",
+                "fix(player): use hardware acceleration instead",
+                "old wording replaced with the new wording",
+            ),
+            cleaned.map(WhatsNewNote::text),
+        )
+        assertEquals("alice", cleaned[1].authorLogin)
+    }
+
+    @Test
+    fun cleanReleaseNotesGroupsBlockquotesBeforeRemovingListMarkers() {
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
+            "> - feat(home): add a cleaner hero",
+        )
+
+        assertEquals("feat(home): add a cleaner hero", cleaned.single().text)
+    }
+
+    @Test
     fun releaseOrderIsNormalizedNewestFirstWithoutDuplicatingVersions() {
         val releases = listOf(
             release("1.2.0"),
