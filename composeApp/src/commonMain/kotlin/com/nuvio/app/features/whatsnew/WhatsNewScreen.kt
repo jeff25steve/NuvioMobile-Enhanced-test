@@ -80,6 +80,9 @@ import nuvio.composeapp.generated.resources.whats_new_category_performance
 import nuvio.composeapp.generated.resources.whats_new_channel_format
 import nuvio.composeapp.generated.resources.whats_new_hide_changes
 import nuvio.composeapp.generated.resources.whats_new_last_checked_days
+import nuvio.composeapp.generated.resources.whats_new_last_checked_day
+import nuvio.composeapp.generated.resources.whats_new_last_checked_hour
+import nuvio.composeapp.generated.resources.whats_new_last_checked_minute
 import nuvio.composeapp.generated.resources.whats_new_last_checked_hours
 import nuvio.composeapp.generated.resources.whats_new_last_checked_just_now
 import nuvio.composeapp.generated.resources.whats_new_last_checked_minutes
@@ -369,10 +372,10 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
 
-            item(key = "whats-new-bottom-spacer") {
-                Spacer(modifier = Modifier.size(80.dp))
-            }
+        item(key = "whats-new-bottom-spacer") {
+            Spacer(modifier = Modifier.size(80.dp))
         }
     }
 }
@@ -762,7 +765,7 @@ private fun ReleaseNotes(
                                 color = tokens.colors.textPrimary,
                             )
                             Text(
-                                text = formatReleaseNoteForDisplay(note.text),
+                                text = WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay(note.text),
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = tokens.colors.textPrimary,
