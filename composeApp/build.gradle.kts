@@ -322,9 +322,8 @@ val resolvedBuildChannel = (
     providers.gradleProperty("nuvio.build.channel").orNull
         ?: providers.environmentVariable("NUVIO_BUILD_CHANNEL").orNull
         ?: if (
-            requestedGradleTasks.any { "debug" in it } ||
-                Regex("""(?:^|[._-])(alpha|beta|rc|preview)(?:[._-]|$)""", RegexOption.IGNORE_CASE)
-                    .containsMatchIn(releaseAppVersionName)
+            Regex("""(?:^|[._-])(alpha|beta|rc|preview)(?:[._-]|$)""", RegexOption.IGNORE_CASE)
+                .containsMatchIn(releaseAppVersionName)
         ) {
             "beta"
         } else {
