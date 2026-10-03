@@ -98,7 +98,7 @@ internal object WhatsNewRepository {
                 headers = buildMap {
                     put("Accept", "application/vnd.github+json")
                     put("User-Agent", "NuvioMobile")
-                    cached?.etag?.takeIf { it.isNotBlank() }?.let { put("If-None-Match", it) }
+                    cachedContent?.let {\n                        cached?.etag?.takeIf { it.isNotBlank() }?.let { put("If-None-Match", it) }\n                    }
                 },
                 body = "",
                 maxResponseBodyBytes = MAX_RESPONSE_BODY_BYTES,
