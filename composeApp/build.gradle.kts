@@ -230,10 +230,6 @@ plugins {
     alias(libs.plugins.kotlinxSerialization)
 }
 
-compose.resources {
-    generateResClass = always
-}
-
 val supabaseProps = Properties().apply {
     val propsFile = rootProject.file("local.properties")
     if (propsFile.exists()) propsFile.inputStream().use { load(it) }
@@ -337,9 +333,9 @@ val generateRuntimeConfigs = tasks.register<GenerateRuntimeConfigsTask>("generat
     )
 }
 
-// Compose Multiplatform already wires generated resource accessors into the
-// commonMain source set. Keep that plugin-owned task graph authoritative rather
-// than adding a broad dependency from every Kotlin compilation.
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    dependsOn(generateRuntimeConfigs)
+}
 
 kotlin {
     android {
