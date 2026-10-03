@@ -1,10 +1,5 @@
 package com.nuvio.app.features.whatsnew
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -698,34 +693,7 @@ private fun ReleaseHistoryRow(
                     tint = MaterialTheme.nuvio.colors.textMuted,
                 )
             }
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn(
-                    animationSpec = tween(
-                        durationMillis = NuvioTokens.Motion.normalMillis,
-                        easing = NuvioTokens.Motion.standard,
-                    ),
-                ) + expandVertically(
-                    animationSpec = tween(
-                        durationMillis = NuvioTokens.Motion.normalMillis,
-                        easing = NuvioTokens.Motion.standard,
-                    ),
-                    expandFrom = Alignment.Top,
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(
-                        durationMillis = NuvioTokens.Motion.fastMillis,
-                        easing = NuvioTokens.Motion.accelerate,
-                    ),
-                ) + shrinkVertically(
-                    animationSpec = tween(
-                        durationMillis = NuvioTokens.Motion.fastMillis,
-                        easing = NuvioTokens.Motion.accelerate,
-                    ),
-                    shrinkTowards = Alignment.Top,
-                ),
-                label = "release_notes_visibility",
-            ) {
+            if (expanded) {
                 ReleaseNotes(
                     release = release,
                     expanded = true,
