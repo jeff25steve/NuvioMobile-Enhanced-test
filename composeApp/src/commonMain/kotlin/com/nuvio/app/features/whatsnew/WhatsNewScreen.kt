@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -262,7 +263,10 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         )
                     }
                     item(key = "latest:" + sinceReleases.first().version) {
-                        ReleaseCard(sinceReleases.first())
+                        ReleaseCard(
+                            release = sinceReleases.first(),
+                            showLatestLabel = false,
+                        )
                     }
                     if (sinceReleases.size > 1) {
                         items(
@@ -426,7 +430,10 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
 }
 
 @Composable
-private fun ReleaseCard(release: WhatsNewRelease) {
+private fun ReleaseCard(
+    release: WhatsNewRelease,
+    showLatestLabel: Boolean = true,
+) {
     var expanded by rememberSaveable(release.version) { mutableStateOf(false) }
 
     NuvioSurfaceCard {
@@ -434,9 +441,11 @@ private fun ReleaseCard(release: WhatsNewRelease) {
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
         ) {
-            NuvioSectionLabel(
-                text = stringResource(Res.string.whats_new_latest_release),
-            )
+            if (showLatestLabel) {
+                NuvioSectionLabel(
+                    text = stringResource(Res.string.whats_new_latest_release),
+                )
+            }
             Text(
                 text = release.version,
                 style = MaterialTheme.typography.titleLarge,
@@ -593,29 +602,49 @@ private fun ReleaseNotes(
                 }
             }
 
-            if (allowToggle) {
-                TextButton(onClick = onToggle) {
-                    Text(
-                        text = if (expanded) {
-                            stringResource(Res.string.whats_new_hide_changes)
-                        } else {
-                            stringResource(
-                                Res.string.whats_new_show_all_changes,
-                                release.notes.size,
-                            )
-                        },
-                    )
-                }
-            }
         }
 
-        release.releaseUrl?.let { url ->
-            val uriHandler = LocalUriHandler.current
-            TextButton(
-                modifier = Modifier.align(Alignment.End),
-                onClick = { uriHandler.openUri(url) },
+        val releaseUrl = release.releaseUrl
+        if (allowToggle || releaseUrl != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (allowToggle && releaseUrl != null) {
+                    Arrangement.SpaceBetween
+                } else {
+                    Arrangement.End
+                },
             ) {
-                Text(stringResource(Res.string.whats_new_open_github))
+                if (allowToggle) {
+                    TextButton(
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.nuvio.colors.textPrimary,
+                        ),
+                        onClick = onToggle,
+                    ) {
+                        Text(
+                            text = if (expanded) {
+                                stringResource(Res.string.whats_new_hide_changes)
+                            } else {
+                                stringResource(
+                                    Res.string.whats_new_show_all_changes,
+                                    release.notes.size,
+                                )
+                            },
+                        )
+                    }
+                }
+                releaseUrl?.let { url ->
+                    val uriHandler = LocalUriHandler.current
+                    TextButton(
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.nuvio.colors.textPrimary,
+                        ),
+                        onClick = { uriHandler.openUri(url) },
+                    ) {
+                        Text(stringResource(Res.string.whats_new_open_github))
+                    }
+                }
             }
         }
     }
