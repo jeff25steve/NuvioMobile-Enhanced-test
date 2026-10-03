@@ -2647,6 +2647,8 @@
     <string name="whats_new_empty">No release history is available.</string>
     <string name="whats_new_loading">Loading release history…</string>
     <string name="whats_new_load_more">Load more releases</string>
+    <string name="whats_new_recent_history">Recent history</string>
+    <string name="whats_new_last_checked">Last checked %1$s</string>
     <string name="whats_new_more_changes">+ %1$d more changes</string>
     <string name="whats_new_view_on_github">View release on GitHub</string>
 
