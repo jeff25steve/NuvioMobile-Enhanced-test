@@ -280,6 +280,14 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("fix(trailer): open ios playback in fullscreen"),
         )
         assertEquals(
+            "Match continue watching badge colors to TV",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("fix(home): match continue watching badge colors to tv"),
+        )
+        assertEquals(
+            "Keep Android landscape lock during exit",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("fix(player): keep android landscape lock during exit"),
+        )
+        assertEquals(
             "Allows users to add profiles",
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Allows users to add profiles"),
         )
