@@ -497,69 +497,70 @@ private fun versionStatus(
 
 @Composable
 private fun lastCheckedLabel(fetchedAtMillis: Long): String {
-    val ageMillis = (
-        AppUpdaterPlatform.currentTimeMillis() - fetchedAtMillis
-        ).coerceAtLeast(0L)
-    val minuteMillis = 60_000L
-    val hourMillis = 60L * minuteMillis
-    val dayMillis = 24L * hourMillis
-    val weekMillis = 7L * dayMillis
-    val monthMillis = 30L * dayMillis
-    val yearMillis = 365L * dayMillis
+    val age = calculateLastCheckedAge(
+        fetchedAtMillis = fetchedAtMillis,
+        nowMillis = AppUpdaterPlatform.currentTimeMillis(),
+    )
 
-    return when {
-        ageMillis < minuteMillis -> stringResource(Res.string.whats_new_last_checked_just_now)
-        ageMillis < hourMillis -> {
-            val minutes = ageMillis / minuteMillis
-            if (minutes == 1L) {
-                stringResource(Res.string.whats_new_last_checked_minute, minutes)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_minutes, minutes)
-            }
-        }
-        ageMillis < dayMillis -> {
-            val hours = ageMillis / hourMillis
-            if (hours == 1L) {
-                stringResource(Res.string.whats_new_last_checked_hour, hours)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_hours, hours)
-            }
-        }
-        ageMillis < weekMillis -> {
-            val days = ageMillis / dayMillis
-            if (days == 1L) {
-                stringResource(Res.string.whats_new_last_checked_day, days)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_days, days)
-            }
-        }
-        ageMillis < monthMillis -> {
-            val weeks = ageMillis / weekMillis
-            if (weeks == 1L) {
-                stringResource(Res.string.whats_new_last_checked_week, weeks)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_weeks, weeks)
-            }
-        }
-        ageMillis < yearMillis -> {
-            val months = ageMillis / monthMillis
-            if (months == 1L) {
-                stringResource(Res.string.whats_new_last_checked_month, months)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_months, months)
-            }
-        }
-        else -> {
-            val years = ageMillis / yearMillis
-            if (years == 1L) {
-                stringResource(Res.string.whats_new_last_checked_year, years)
-            } else {
-                stringResource(Res.string.whats_new_last_checked_years, years)
-            }
-        }
+    return when (age.unit) {
+        LastCheckedUnit.JUST_NOW ->
+            stringResource(Res.string.whats_new_last_checked_just_now)
+        LastCheckedUnit.MINUTE ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_minute
+                } else {
+                    Res.string.whats_new_last_checked_minutes
+                },
+                age.amount,
+            )
+        LastCheckedUnit.HOUR ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_hour
+                } else {
+                    Res.string.whats_new_last_checked_hours
+                },
+                age.amount,
+            )
+        LastCheckedUnit.DAY ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_day
+                } else {
+                    Res.string.whats_new_last_checked_days
+                },
+                age.amount,
+            )
+        LastCheckedUnit.WEEK ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_week
+                } else {
+                    Res.string.whats_new_last_checked_weeks
+                },
+                age.amount,
+            )
+        LastCheckedUnit.MONTH ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_month
+                } else {
+                    Res.string.whats_new_last_checked_months
+                },
+                age.amount,
+            )
+        LastCheckedUnit.YEAR ->
+            stringResource(
+                if (age.amount == 1L) {
+                    Res.string.whats_new_last_checked_year
+                } else {
+                    Res.string.whats_new_last_checked_years
+                },
+                age.amount,
+            )
     }
 }
-
 @Composable
 private fun ReleaseCard(
     release: WhatsNewRelease,
