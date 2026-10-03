@@ -588,11 +588,11 @@ private fun ReleaseNotes(
     allowToggle: Boolean,
 ) {
     val tokens = MaterialTheme.nuvio
-    val visibleNotes = if (expanded) release.notes else release.notes.take(MAX_PREVIEW_NOTES)
+    val visibleNotes = if (expanded) release.notes else previewNotes(release.notes)
     val contributors = release.notes
         .mapNotNull { it.authorLogin?.takeIf(String::isNotBlank) }
         .distinct()
-    val showContributors = contributors.isNotEmpty() && (expanded || !allowToggle)
+    val showContributors = contributors.isNotEmpty() && expanded
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -622,32 +622,37 @@ private fun ReleaseNotes(
                             color = tokens.colors.textMuted,
                         )
                     }
-                    Text(
-                        text = "• " + note.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = tokens.colors.textPrimary,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
+                    ) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = tokens.colors.textPrimary,
+                        )
+                        Text(
+                            text = note.text,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = tokens.colors.textPrimary,
+                        )
+                    }
                 }
             }
         }
 
         if (showContributors) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
-            ) {
-                Text(
-                    text = stringResource(Res.string.whats_new_contributors),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = tokens.colors.textMuted,
-                )
-                Text(
-                    text = contributors.joinToString(" · ") { "@$it" },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = tokens.colors.textSecondary,
-                )
-            }
+            Text(
+                text = stringResource(Res.string.whats_new_contributors) +
+                    " · " +
+                    contributors.joinToString(" · ") { "@$it" },
+                style = MaterialTheme.typography.bodySmall,
+                color = tokens.colors.textSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
 
         val releaseUrl = release.releaseUrl
@@ -686,12 +691,41 @@ private fun ReleaseNotes(
                         ),
                         onClick = { uriHandler.openUri(url) },
                     ) {
+                        Icon(
+                            imageVector = Icons.Rounded.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(NuvioTokens.Icon.sm),
+                        )
+                        Spacer(modifier = Modifier.size(NuvioTokens.Space.s4))
                         Text(stringResource(Res.string.whats_new_open_github))
                     }
                 }
             }
         }
     }
+}
+
+private fun previewNotes(notes: List<WhatsNewNote>): List<WhatsNewNote> {
+    if (notes.size <= PREVIEW_MIN_NOTES) return notes
+
+    val preview = ArrayList<WhatsNewNote>(minOf(notes.size, PREVIEW_MAX_NOTES))
+    var visibleCharacters = 0
+
+    for (note in notes) {
+        if (preview.size >= PREVIEW_MAX_NOTES) break
+
+        val noteCharacters = note.text.trim().length
+        if (preview.size >= PREVIEW_MIN_NOTES &&
+            visibleCharacters + noteCharacters > PREVIEW_NOTE_CHAR_LIMIT
+        ) {
+            break
+        }
+
+        preview += note
+        visibleCharacters += noteCharacters
+    }
+
+    return preview
 }
 
 private fun noteCategoryResource(category: WhatsNewNoteCategory) = when (category) {
