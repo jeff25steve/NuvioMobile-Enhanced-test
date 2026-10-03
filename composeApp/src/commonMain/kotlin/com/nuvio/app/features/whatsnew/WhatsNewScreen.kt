@@ -1,5 +1,6 @@
 package com.nuvio.app.features.whatsnew
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -297,12 +298,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         ReleaseCard(
                             release = sinceReleases.first(),
                             showLatestLabel = false,
-                            modifier = Modifier.animateItem(
-                                placementSpec = tween(
-                                    durationMillis = NuvioTokens.Motion.normalMillis,
-                                    easing = NuvioTokens.Motion.standard,
-                                ),
-                            ),
                         )
                     }
                     if (sinceReleases.size > 1) {
@@ -312,12 +307,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         ) { release ->
                             ReleaseHistoryRow(
                                 release = release,
-                                modifier = Modifier.animateItem(
-                                    placementSpec = tween(
-                                        durationMillis = NuvioTokens.Motion.normalMillis,
-                                        easing = NuvioTokens.Motion.standard,
-                                    ),
-                                ),
                             )
                         }
                     }
@@ -326,12 +315,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         item(key = "latest:" + latest.version) {
                             ReleaseCard(
                                 release = latest,
-                                modifier = Modifier.animateItem(
-                                    placementSpec = tween(
-                                        durationMillis = NuvioTokens.Motion.normalMillis,
-                                        easing = NuvioTokens.Motion.standard,
-                                    ),
-                                ),
                             )
                         }
                     }
@@ -353,12 +336,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     ) { release ->
                         ReleaseHistoryRow(
                             release = release,
-                            modifier = Modifier.animateItem(
-                                placementSpec = tween(
-                                    durationMillis = NuvioTokens.Motion.normalMillis,
-                                    easing = NuvioTokens.Motion.standard,
-                                ),
-                            ),
                         )
                     }
                 }
@@ -566,7 +543,12 @@ private fun ReleaseCard(
     val previewNoteCount = previewNotes(release.notes).size
 
     NuvioSurfaceCard(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(
+                durationMillis = NuvioTokens.Motion.normalMillis,
+                easing = NuvioTokens.Motion.standard,
+            ),
+        ),
         tonalElevation = 1,
     ) {
         Column(
@@ -636,7 +618,14 @@ private fun ReleaseHistoryRow(
         ),
         label = "release_chevron_rotation",
     )
-    NuvioSurfaceCard(modifier = modifier) {
+    NuvioSurfaceCard(
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(
+                durationMillis = NuvioTokens.Motion.normalMillis,
+                easing = NuvioTokens.Motion.standard,
+            ),
+        ),
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
