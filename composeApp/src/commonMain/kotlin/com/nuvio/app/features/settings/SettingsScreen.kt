@@ -1,7 +1,5 @@
 package com.nuvio.app.features.settings
 
-import com.nuvio.app.features.whatsnew.whatsNewSettingsContent
-
 import com.nuvio.app.navigation.LocalUseNativeNavigation
 import com.nuvio.app.core.build.AppFeaturePolicy
 
@@ -949,6 +947,7 @@ private fun MobileSettingsScreen(
         }
         }
     }
+    }
 }
 
 @Composable
@@ -1425,6 +1424,7 @@ private fun TabletSettingsScreen(
                 }
             }
             }
+        }
         }
     }
 }
