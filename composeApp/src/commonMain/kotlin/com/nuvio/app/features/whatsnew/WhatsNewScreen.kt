@@ -77,6 +77,7 @@ import nuvio.composeapp.generated.resources.whats_new_category_fixes
 import nuvio.composeapp.generated.resources.whats_new_category_localization
 import nuvio.composeapp.generated.resources.whats_new_category_other
 import nuvio.composeapp.generated.resources.whats_new_category_performance
+import nuvio.composeapp.generated.resources.whats_new_channel_format
 import nuvio.composeapp.generated.resources.whats_new_hide_changes
 import nuvio.composeapp.generated.resources.whats_new_last_checked_days
 import nuvio.composeapp.generated.resources.whats_new_last_checked_hours
