@@ -92,4 +92,18 @@ class ThemeSettingsRepositoryTest {
         assertEquals(saved, ThemeSettingsRepository.customThemePreference.value)
         assertEquals(saved.encode(), ThemeSettingsStorage.exportToSyncPayload().decodeSyncString("custom_theme_colors"))
     }
+    @Test
+    fun setThemeRejectsUnavailableEntitledThemeButAllowsStandardTheme() {
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(AppTheme.WHITE, ThemeSettingsRepository.selectedTheme.value)
+
+        ThemeSettingsRepository.setTheme(AppTheme.GOLD)
+        assertEquals(AppTheme.WHITE, ThemeSettingsRepository.selectedTheme.value)
+        assertEquals(null, ThemeSettingsStorage.loadSelectedTheme())
+
+        ThemeSettingsRepository.setTheme(AppTheme.OCEAN)
+        assertEquals(AppTheme.OCEAN, ThemeSettingsRepository.selectedTheme.value)
+        assertEquals(AppTheme.OCEAN.name, ThemeSettingsStorage.loadSelectedTheme())
+    }
+
 }

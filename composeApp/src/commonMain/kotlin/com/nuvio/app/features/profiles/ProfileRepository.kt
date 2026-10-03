@@ -102,22 +102,29 @@ object ProfileRepository {
         if (stored == null) {
             _state.value = ProfileState()
             activeProfileIndex = 1
+            ThemeSettingsRepository.onProfileChanged()
             return
         }
 
         if (stored.userId != userId) {
             _state.value = ProfileState()
             activeProfileIndex = 1
+            ThemeSettingsRepository.clearLocalState()
             return
         }
 
+        val previousActiveProfileIndex = activeProfileIndex
         applyStoredPayload(stored)
+        if (previousActiveProfileIndex != activeProfileIndex) {
+            ThemeSettingsRepository.onProfileChanged()
+        }
     }
 
     fun clearInMemory() {
         loadedCacheForUserId = null
         activeProfileIndex = 1
         _state.value = ProfileState()
+        ThemeSettingsRepository.clearLocalState()
     }
 
     suspend fun pullProfiles() {
@@ -128,6 +135,7 @@ object ProfileRepository {
             return
         }
         try {
+            val previousActiveProfileIndex = activeProfileIndex
             val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profiles")
             val profiles = result.decodeList<NuvioProfile>()
             _state.value = _state.value.copy(
@@ -138,6 +146,9 @@ object ProfileRepository {
             )
             if (_state.value.activeProfile != null) {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
+            }
+            if (previousActiveProfileIndex != activeProfileIndex) {
+                ThemeSettingsRepository.onProfileChanged()
             }
             persist()
         } catch (e: Throwable) {

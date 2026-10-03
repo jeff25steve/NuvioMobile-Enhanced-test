@@ -6,6 +6,7 @@ import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
 import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
+import com.nuvio.app.features.membership.availableAppThemes
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +67,13 @@ object ThemeSettingsRepository {
     }
 
     fun onProfileChanged() {
+        // Theme preferences are profile-scoped. Reload from the current profile and retry if a
+        // concurrent profile transition changed the active profile during the read.
+        repeat(2) {
+            val profileIdAtStart = com.nuvio.app.features.profiles.ProfileRepository.activeProfileId
+            loadFromDisk()
+            if (profileIdAtStart == com.nuvio.app.features.profiles.ProfileRepository.activeProfileId) return
+        }
         loadFromDisk()
     }
 
@@ -141,6 +149,9 @@ object ThemeSettingsRepository {
 
     fun setTheme(theme: AppTheme) {
         ensureLoaded()
+        val access = MemberAccessRepository.access.value
+        // Reject stale premium selections that can arrive from an old UI state or cached data.
+        if (theme !in availableAppThemes(access.entitlements)) return
         if (_selectedThemePreference.value == theme) return
         _selectedThemePreference.value = theme
         ThemeSettingsStorage.saveSelectedTheme(theme.name)

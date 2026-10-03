@@ -40,6 +40,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -49,6 +50,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -82,6 +84,10 @@ object ProfileSettingsSync {
     @Volatile
     private var skipNextPushSignature: String? = null
 
+    @Volatile
+    private var pendingLocalPush: PendingLocalPush? = null
+
+    private var pendingPushRetryJob: Job? = null
     private var observeJob: Job? = null
 
     fun startObserving() {
@@ -115,6 +121,7 @@ object ProfileSettingsSync {
             try {
                 val localBlob = exportSettingsBlob()
                 if (ProfileRepository.activeProfileId != profileId) return@withLock false
+                val observedSignatureAtStart = currentObservedStateSignature()
                 val localSignature = buildSignature(localBlob)
 
                 val params = buildJsonObject {
@@ -128,30 +135,52 @@ object ProfileSettingsSync {
 
                 if (remoteJson == null) {
                     log.i { "pull(profileId=$profileId) — no remote settings blob found" }
+                    if (currentObservedStateSignature() != observedSignatureAtStart) {
+                        pendingLocalPush = PendingLocalPush(
+                            profileId = profileId,
+                            signature = currentObservedStateSignature(),
+                        )
+                    }
+                    return@withLock false
+                }
+
+                val remoteBlob = runCatching {
+                    json.decodeFromJsonElement(MobileProfileSettingsBlob.serializer(), remoteJson)
+                }.getOrElse { error ->
+                    log.e(error) { "pull(profileId=$profileId) — failed to decode remote settings blob" }
+                    return@withLock false
+                }
+                val remoteSignature = buildSignature(remoteBlob)
+                if (remoteSignature == localSignature) {
+                    log.d { "pull(profileId=$profileId) — remote matches local" }
+                    return@withLock false
+                }
+
+                // A settings pull must never overwrite a user edit that happened while the
+                // request was in flight. Preserve that local state and let the retry path push it.
+                if (
+                    ProfileRepository.activeProfileId != profileId ||
+                    currentObservedStateSignature() != observedSignatureAtStart ||
+                    pendingLocalPush?.profileId == profileId
+                ) {
+                    pendingLocalPush = PendingLocalPush(
+                        profileId = profileId,
+                        signature = currentObservedStateSignature(),
+                    )
+                    log.i { "pull(profileId=$profileId) — local settings changed during pull; preserving local state" }
                     return@withLock false
                 }
 
                 isApplyingRemoteBlob = true
                 try {
-                    val remoteBlob = runCatching {
-                        json.decodeFromJsonElement(MobileProfileSettingsBlob.serializer(), remoteJson)
-                    }.getOrElse { error ->
-                        log.e(error) { "pull(profileId=$profileId) — failed to decode remote settings blob" }
-                        return@withLock false
-                    }
-                    val remoteSignature = buildSignature(remoteBlob)
-                    if (remoteSignature == localSignature) {
-                        log.d { "pull(profileId=$profileId) — remote matches local" }
-                        return@withLock false
-                    }
-
                     if (ProfileRepository.activeProfileId != profileId) return@withLock false
                     applyRemoteBlob(remoteBlob)
-                    skipNextPushSignature = currentObservedStateSignature()
                 } finally {
                     isApplyingRemoteBlob = false
                 }
 
+                skipNextPushSignature = currentObservedStateSignature()
+                pendingLocalPush = null
                 log.i { "pull(profileId=$profileId) — applied remote settings blob" }
                 true
             } catch (error: Exception) {
@@ -159,6 +188,7 @@ object ProfileSettingsSync {
                 false
             } finally {
                 isServerSyncInFlight = false
+                schedulePendingPushRetry()
             }
         }
     }
@@ -207,6 +237,15 @@ object ProfileSettingsSync {
             combine(signatureFlows) { currentObservedStateSignature() }
                 .distinctUntilChanged()
                 .drop(1)
+                .onEach { signature ->
+                    val authState = AuthRepository.state.value
+                    if (authState !is AuthState.Authenticated || authState.isAnonymous) return@onEach
+                    if (isApplyingRemoteBlob) return@onEach
+                    pendingLocalPush = PendingLocalPush(
+                        profileId = ProfileRepository.activeProfileId,
+                        signature = signature,
+                    )
+                }
                 .debounce(PUSH_DEBOUNCE_MS)
                 .collect { signature ->
                     val authState = AuthRepository.state.value
@@ -215,12 +254,59 @@ object ProfileSettingsSync {
                     if (signature != currentObservedStateSignature()) return@collect
                     if (signature == skipNextPushSignature) {
                         skipNextPushSignature = null
+                        if (pendingLocalPush?.signature == signature) pendingLocalPush = null
                         return@collect
                     }
-                    pushCurrentProfileToRemote()
+                    val pushSucceeded = pushCurrentProfileToRemote()
+                    if (pushSucceeded &&
+                        currentObservedStateSignature() == signature &&
+                        pendingLocalPush?.signature == signature
+                    ) {
+                        pendingLocalPush = null
+                    } else {
+                        schedulePendingPushRetry()
+                    }
                 }
         }
     }
+
+    private fun schedulePendingPushRetry() {
+        if (pendingPushRetryJob?.isActive == true || pendingLocalPush == null) return
+        pendingPushRetryJob = scope.launch {
+            var retryDelayMs = 1_000L
+            while (true) {
+                delay(retryDelayMs)
+                val pending = pendingLocalPush ?: break
+                val authState = AuthRepository.state.value
+                if (authState !is AuthState.Authenticated || authState.isAnonymous) break
+                if (ProfileRepository.activeProfileId != pending.profileId) break
+                if (isApplyingRemoteBlob || isServerSyncInFlight) {
+                    retryDelayMs = (retryDelayMs * 2L).coerceAtMost(30_000L)
+                    continue
+                }
+                val currentSignature = currentObservedStateSignature()
+                if (currentSignature != pending.signature) {
+                    pendingLocalPush = PendingLocalPush(
+                        profileId = ProfileRepository.activeProfileId,
+                        signature = currentSignature,
+                    )
+                    retryDelayMs = 1_000L
+                    continue
+                }
+                if (pushCurrentProfileToRemote()) {
+                    if (currentObservedStateSignature() == pending.signature) {
+                        pendingLocalPush = null
+                        break
+                    }
+                    retryDelayMs = 1_000L
+                } else {
+                    retryDelayMs = (retryDelayMs * 2L).coerceAtMost(30_000L)
+                }
+            }
+            pendingPushRetryJob = null
+        }
+    }
+
 
     private suspend fun pushToRemoteLocked(profileId: Int, blob: MobileProfileSettingsBlob) {
         val params = buildJsonObject {
@@ -377,6 +463,11 @@ object ProfileSettingsSync {
     private fun currentObservedStateSignature(): String = buildSignature(exportSettingsBlob())
 
 }
+
+private data class PendingLocalPush(
+    val profileId: Int,
+    val signature: String,
+)
 
 @Serializable
 private data class MobileProfileSettingsBlob(
