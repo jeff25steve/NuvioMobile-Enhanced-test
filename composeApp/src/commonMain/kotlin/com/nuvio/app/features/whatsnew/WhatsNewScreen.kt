@@ -605,45 +605,43 @@ private fun ReleaseNotes(
         }
 
         val releaseUrl = release.releaseUrl
-        if (allowToggle || releaseUrl != null) {
+        if (allowToggle) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = if (allowToggle && releaseUrl != null) {
-                    Arrangement.SpaceBetween
-                } else {
-                    Arrangement.End
-                },
+                horizontalArrangement = Arrangement.Start,
             ) {
-                if (allowToggle) {
-                    TextButton(
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.nuvio.colors.textPrimary,
-                        ),
-                        onClick = onToggle,
-                    ) {
-                        Text(
-                            text = if (expanded) {
-                                stringResource(Res.string.whats_new_hide_changes)
-                            } else {
-                                stringResource(
-                                    Res.string.whats_new_show_all_changes,
-                                    release.notes.size,
-                                )
-                            },
-                        )
-                    }
+                TextButton(
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.nuvio.colors.textPrimary,
+                    ),
+                    onClick = onToggle,
+                ) {
+                    Text(
+                        text = if (expanded) {
+                            stringResource(Res.string.whats_new_hide_changes)
+                        } else {
+                            stringResource(
+                                Res.string.whats_new_show_all_changes,
+                                release.notes.size,
+                            )
+                        },
+                    )
                 }
-                releaseUrl?.let { url ->
-                    val uriHandler = LocalUriHandler.current
-                    TextButton(
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.nuvio.colors.textPrimary,
-                        ),
-                        onClick = { uriHandler.openUri(url) },
-                    ) {
-                        Text(stringResource(Res.string.whats_new_open_github))
-                    }
+            }
+        }
+        releaseUrl?.let { url ->
+            val uriHandler = LocalUriHandler.current
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.nuvio.colors.textMuted,
+                    ),
+                    onClick = { uriHandler.openUri(url) },
+                ) {
+                    Text(stringResource(Res.string.whats_new_open_github))
                 }
             }
         }
