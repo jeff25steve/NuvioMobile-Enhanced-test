@@ -347,7 +347,15 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         items = earlierReleases,
                         key = { release -> release.version },
                     ) { release ->
-                        ReleaseHistoryRow(release)
+                        ReleaseHistoryRow(
+                            release = release,
+                            modifier = Modifier.animateItem(
+                                placementSpec = tween(
+                                    durationMillis = NuvioTokens.Motion.normalMillis,
+                                    easing = NuvioTokens.Motion.standard,
+                                ),
+                            ),
+                        )
                     }
                 }
 
@@ -554,6 +562,7 @@ private fun ReleaseCard(
                 expanded = expanded,
                 onToggle = { expanded = !expanded },
                 allowToggle = release.notes.size > previewNoteCount,
+                showGithub = release.notes.size <= previewNoteCount || expanded,
             )
         }
     }
@@ -576,7 +585,7 @@ private fun ReleaseHistoryRow(
         ),
         label = "release_chevron_rotation",
     )
-    NuvioSurfaceCard {
+    NuvioSurfaceCard(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
