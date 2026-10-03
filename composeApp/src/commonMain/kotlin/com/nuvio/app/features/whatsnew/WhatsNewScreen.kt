@@ -3,6 +3,7 @@ package com.nuvio.app.features.whatsnew
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -142,10 +143,16 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                 onBack = onBack,
                 actions = {
                     if (isRefreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(NuvioTokens.Icon.md),
-                            strokeWidth = 2.dp,
-                        )
+                        Box(
+                            modifier = Modifier.size(48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(NuvioTokens.Icon.md),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.nuvio.colors.textPrimary,
+                            )
+                        }
                     } else {
                         IconButton(onClick = { refreshKey++ }) {
                             Icon(
