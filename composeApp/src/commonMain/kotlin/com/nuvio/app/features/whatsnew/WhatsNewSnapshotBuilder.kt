@@ -175,7 +175,6 @@ internal object WhatsNewSnapshotBuilder {
                 authorLogin = authorLogin,
             )
         }
-}
     }
 
     internal fun formatReleaseNoteForDisplay(rawText: String): String {
