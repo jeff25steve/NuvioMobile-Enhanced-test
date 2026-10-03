@@ -909,7 +909,6 @@ private fun ReleaseNotes(
             }
         }
     }
-}
 
 private fun previewNotes(notes: List<WhatsNewNote>): List<WhatsNewNote> {
     if (notes.size <= PREVIEW_MIN_NOTES) return notes
