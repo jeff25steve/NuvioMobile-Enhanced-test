@@ -144,6 +144,7 @@ fun SettingsScreen(
     onAccountClick: () -> Unit = {},
     onSupportersContributorsClick: () -> Unit = {},
     onLicensesAttributionsClick: () -> Unit = {},
+    onWhatsNewClick: () -> Unit = {},
     onCheckForUpdatesClick: (() -> Unit)? = null,
     onTestUpdateBannerClick: (() -> Unit)? = null,
     onCollectionsClick: () -> Unit = {},
@@ -353,6 +354,11 @@ fun SettingsScreen(
         } else {
             onLicensesAttributionsClick
         }
+        val openWhatsNew = if (onNavigatePage != null) {
+            { openPage(SettingsPage.WhatsNew) }
+        } else {
+            onWhatsNewClick
+        }
 
         LaunchedEffect(page, currentPage) {
             if (page.name != currentPage) {
@@ -463,6 +469,7 @@ fun SettingsScreen(
                         onPosterClick = onPosterClick,
                         onSupportersContributorsClick = openSupportersContributors,
                         onLicensesAttributionsClick = openLicensesAttributions,
+                        onWhatsNewClick = openWhatsNew,
                         onCheckForUpdatesClick = onCheckForUpdatesClick,
                         onTestUpdateBannerClick = onTestUpdateBannerClick,
                         onCollectionsClick = onCollectionsClick,
@@ -545,6 +552,7 @@ fun SettingsScreen(
                         onAccountClick = openAccount,
                         onSupportersContributorsClick = openSupportersContributors,
                         onLicensesAttributionsClick = openLicensesAttributions,
+                        onWhatsNewClick = openWhatsNew,
                         onCheckForUpdatesClick = onCheckForUpdatesClick,
                         onTestUpdateBannerClick = onTestUpdateBannerClick,
                         onCollectionsClick = onCollectionsClick,
@@ -757,6 +765,7 @@ private fun MobileSettingsScreen(
                             onTrackingClick = { onPageChange(SettingsPage.TraktAuthentication) },
                             onSupportersContributorsClick = onSupportersContributorsClick,
                             onLicensesAttributionsClick = onLicensesAttributionsClick,
+                            onWhatsNewClick = onWhatsNewClick,
                             onCheckForUpdatesClick = onCheckForUpdatesClick,
                             onTestUpdateBannerClick = onTestUpdateBannerClick,
                             onAccountClick = onAccountClick,
@@ -786,6 +795,9 @@ private fun MobileSettingsScreen(
                 }
                 SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                     isTablet = false,
+                )
+                SettingsPage.WhatsNew -> WhatsNewSettingsScreen(
+                    onBack = ::navigateBack,
                 )
                 SettingsPage.Playback -> playbackSettingsContent(
                     isTablet = false,
@@ -1228,6 +1240,7 @@ private fun TabletSettingsScreen(
                                 onTrackingClick = { openInlinePage(SettingsPage.TraktAuthentication) },
                                 onSupportersContributorsClick = { openInlinePage(SettingsPage.SupportersContributors) },
                                 onLicensesAttributionsClick = { openInlinePage(SettingsPage.LicensesAttributions) },
+                                onWhatsNewClick = { openInlinePage(SettingsPage.WhatsNew) },
                                 onCheckForUpdatesClick = onCheckForUpdatesClick,
                                 onTestUpdateBannerClick = onTestUpdateBannerClick,
                                 onAccountClick = { openInlinePage(SettingsPage.Account) },
@@ -1260,6 +1273,9 @@ private fun TabletSettingsScreen(
                     }
                     SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                         isTablet = true,
+                    )
+                    SettingsPage.WhatsNew -> WhatsNewSettingsScreen(
+                        onBack = ::navigateBack,
                     )
                     SettingsPage.Playback -> playbackSettingsContent(
                         isTablet = true,
