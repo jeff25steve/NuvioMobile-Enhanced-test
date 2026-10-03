@@ -80,11 +80,16 @@ import nuvio.composeapp.generated.resources.whats_new_release_format
 import nuvio.composeapp.generated.resources.whats_new_contributor_credit
 import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_status_current_ahead
+import nuvio.composeapp.generated.resources.whats_new_status_newer_releases_available
 import nuvio.composeapp.generated.resources.whats_new_status_update_available
 import nuvio.composeapp.generated.resources.whats_new_status_unknown
 import nuvio.composeapp.generated.resources.whats_new_status_updates_available
 import nuvio.composeapp.generated.resources.whats_new_status_up_to_date
 import nuvio.composeapp.generated.resources.whats_new_unavailable
+import nuvio.composeapp.generated.resources.whats_new_refresh_failed_cached
+import nuvio.composeapp.generated.resources.whats_new_since_one_release
+import nuvio.composeapp.generated.resources.whats_new_since_releases
+import nuvio.composeapp.generated.resources.whats_new_since_unavailable
 import nuvio.composeapp.generated.resources.whats_new_recent_releases
 import nuvio.composeapp.generated.resources.whats_new_channel_format
 import org.jetbrains.compose.resources.stringResource
