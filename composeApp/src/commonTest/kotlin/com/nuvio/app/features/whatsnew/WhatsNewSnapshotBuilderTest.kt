@@ -9,6 +9,58 @@ import kotlin.time.Instant
 
 class WhatsNewSnapshotBuilderTest {
     @Test
+    fun cleanReleaseNotesKeepsOnlyChangeBulletsFromStructuredReleaseSections() {
+        val raw = """
+            # 🚀 Release v0.2.13
+
+            This release is based on the upstream release.
+
+            ---
+
+            ## Variants
+
+            ### Nuvio Full
+            This variant is similar to the official version.
+
+            ### Nuvio Enhanced
+            This custom variant includes experimental features.
+
+            **Added Features:**
+            * Added a feature.
+            * Changed an existing behavior by @alice.
+
+            **Bug Fixes:**
+            * Fixed a crash by @bob.
+
+            > **💡 Note for iOS Users:**
+            Installation guidance should not become a release-note bullet.
+
+            ---
+
+            ## 📥 Downloads
+
+            | Variant | Platform | File |
+            | :--- | :--- | :--- |
+            | Enhanced | Android | [APK](https://example.com/app.apk) |
+        """.trimIndent()
+
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(raw)
+
+        assertEquals(
+            listOf(
+                "Added a feature.",
+                "Changed an existing behavior",
+                "Fixed a crash",
+            ),
+            cleaned.map(WhatsNewNote::text),
+        )
+        assertEquals(
+            listOf("alice", "bob"),
+            cleaned.mapNotNull(WhatsNewNote::authorLogin),
+        )
+    }
+
+    @Test
     fun sinceYourVersionContainsOnlyNewerReleasesWhenCurrentVersionIsPresent() {
         val releases = listOf(
             release("1.4.0"),
