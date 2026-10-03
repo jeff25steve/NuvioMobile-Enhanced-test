@@ -17,6 +17,9 @@ private val htmlFormattingTagPattern = Regex(
     """(?i)</?(?:a|b|strong|i|em|code|del|s|u|small|sub|sup)\b[^>]*>""",
 )
 private val markdownHeadingPattern = Regex("""#{1,6}\s+.*""")
+private val markdownBlockquotePattern = Regex("""^\s*>+\s?""")
+private val markdownInlineCodePattern = Regex("""`+([^`]+)`+""")
+private val markdownStrikePattern = Regex("""~~(.+?)~~""")
 private val markdownRulePattern = Regex("""-{3,}\s*$""")
 private val listMarkerPattern = Regex("""^[•*+-]\s+""")
 
@@ -80,6 +83,12 @@ internal object WhatsNewSnapshotBuilder {
 
         return lines.mapNotNull { line ->
             val candidate = line
+                .replaceFirst(markdownBlockquotePattern, "")
+                .replace(markdownInlineCodePattern, "$1")
+                .replace(markdownStrikePattern, "$1")
+                .replace("**", "")
+                .replace("__", "")
+                .trim()
                 .replaceFirst(listMarkerPattern, "")
                 .trim()
 
