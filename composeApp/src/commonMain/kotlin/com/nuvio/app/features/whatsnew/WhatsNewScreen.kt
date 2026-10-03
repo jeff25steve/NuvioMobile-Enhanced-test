@@ -154,14 +154,14 @@ fun WhatsNewScreen(onBack: () -> Unit) {
             val history = state.releases.filterNot { it.isNewerThanCurrent }
             item {
                 Text(
-                    text = "Recent history",
+                    text = stringResource(Res.string.whats_new_recent_history),
                     modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 2.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
 
-            items(state.releases, key = { "history-${it.tag}" }) { release ->
+            items(history, key = { "history-${it.tag}" }) { release ->
                 ReleaseCard(
                     release = release,
                     expanded = expanded[release.tag] == true,
