@@ -318,7 +318,7 @@ fun runtimeConfigBoolean(key: String, default: Boolean): Boolean =
         else -> default
     }
 
-val buildChannel = (
+val resolvedBuildChannel = (
     providers.gradleProperty("nuvio.build.channel").orNull
         ?: providers.environmentVariable("NUVIO_BUILD_CHANNEL").orNull
         ?: if (
@@ -331,7 +331,7 @@ val buildChannel = (
             "stable"
         }
     ).trim().lowercase()
-require(buildChannel == "stable" || buildChannel == "beta") {
+require(resolvedBuildChannel == "stable" || resolvedBuildChannel == "beta") {
     "nuvio.build.channel/NUVIO_BUILD_CHANNEL must be 'stable' or 'beta'."
 }
 
@@ -340,7 +340,7 @@ val generateRuntimeConfigs = tasks.register<GenerateRuntimeConfigsTask>("generat
     localPropertiesFile.set(rootProject.layout.projectDirectory.file("local.properties"))
     appVersionName.set(releaseAppVersionName)
     appVersionCode.set(releaseAppVersionCode)
-    buildChannel.set(buildChannel)
+    buildChannel.set(resolvedBuildChannel)
     supabaseUrl.set(runtimeConfigValue("NUVIO_SUPABASE_URL"))
     supabaseAnonKey.set(runtimeConfigValue("NUVIO_SUPABASE_ANON_KEY"))
     supabaseFallbackUrl.set(runtimeConfigValue("NUVIO_SUPABASE_FALLBACK_URL"))
