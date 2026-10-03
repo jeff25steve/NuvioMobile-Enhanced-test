@@ -109,10 +109,6 @@ import org.jetbrains.compose.resources.stringResource
 private const val PREVIEW_NOTE_CHAR_LIMIT = 420
 private const val PREVIEW_MIN_NOTES = 2
 private const val PREVIEW_MAX_NOTES = 6
-private val conventionalCommitDisplayPattern = Regex(
-    """^(?:feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\([^)]*\))?(?:!)?:\s*""",
-    RegexOption.IGNORE_CASE,
-)
 private val NOTE_CATEGORY_ORDER = listOf(
     WhatsNewNoteCategory.FEATURES,
     WhatsNewNoteCategory.FIXES,
@@ -373,6 +369,10 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+
+            item(key = "whats-new-bottom-spacer") {
+                Spacer(modifier = Modifier.size(80.dp))
+            }
         }
     }
 }
@@ -497,18 +497,39 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
 
     return when {
         ageMillis < minuteMillis -> stringResource(Res.string.whats_new_last_checked_just_now)
-        ageMillis < hourMillis -> stringResource(
-            Res.string.whats_new_last_checked_minutes,
-            ageMillis / minuteMillis,
-        )
-        ageMillis < dayMillis -> stringResource(
-            Res.string.whats_new_last_checked_hours,
-            ageMillis / hourMillis,
-        )
-        else -> stringResource(
-            Res.string.whats_new_last_checked_days,
-            ageMillis / dayMillis,
-        )
+        ageMillis < hourMillis -> {
+            val minutes = ageMillis / minuteMillis
+            stringResource(
+                if (minutes == 1L) {
+                    Res.string.whats_new_last_checked_minute
+                } else {
+                    Res.string.whats_new_last_checked_minutes
+                },
+                minutes,
+            )
+        }
+        ageMillis < dayMillis -> {
+            val hours = ageMillis / hourMillis
+            stringResource(
+                if (hours == 1L) {
+                    Res.string.whats_new_last_checked_hour
+                } else {
+                    Res.string.whats_new_last_checked_hours
+                },
+                hours,
+            )
+        }
+        else -> {
+            val days = ageMillis / dayMillis
+            stringResource(
+                if (days == 1L) {
+                    Res.string.whats_new_last_checked_day
+                } else {
+                    Res.string.whats_new_last_checked_days
+                },
+                days,
+            )
+        }
     }
 }
 
@@ -723,44 +744,31 @@ private fun ReleaseNotes(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
                 ) {
-                    if (category != WhatsNewNoteCategory.OTHER) {
-                        Text(
-                            text = stringResource(noteCategoryResource(category)),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = tokens.colors.textMuted,
-                        )
-                    }
+                    Text(
+                        text = stringResource(noteCategoryResource(category)),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = tokens.colors.textMuted,
+                    )
                     notes.forEach { note ->
-                        val displayText = note.text.replaceFirst(
-                            conventionalCommitDisplayPattern,
-                            "",
-                        )
-                        if (category == WhatsNewNoteCategory.OTHER) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
+                        ) {
                             Text(
-                                text = displayText,
+                                text = "•",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = tokens.colors.textPrimary,
                             )
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
-                            ) {
-                                Text(
-                                    text = "•",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = tokens.colors.textPrimary,
-                                )
-                                Text(
-                                    text = displayText,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = tokens.colors.textPrimary,
-                                )
-                            }
+                            Text(
+                                text = formatReleaseNoteForDisplay(note.text),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = tokens.colors.textPrimary,
+                            )
                         }
+                    }
                     }
                 }
             }
