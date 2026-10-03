@@ -72,3 +72,8 @@ Do not rely on a successful file-write operation as evidence that the resulting 
 The direct `generateResourceAccessorsForCommonMain` preflight did not prove the complete resource pipeline was correct. Compose Multiplatform's own implementation shows that `generateResourceAccessorsForCommonMain` depends on the prepared resources produced by `prepareComposeResourcesTaskForCommonMain`, and JetBrains integration tests validate the combined generation pipeline through the project build/import tasks.
 
 Prevention: validate the complete `prepareKotlinIdeaImport` resource-generation graph instead of assuming the leaf accessor task alone is sufficient. Do not add broad `dependsOn` edges from every Kotlin compilation unless the project's actual task graph demonstrates they are required; Gradle recommends wiring producer outputs/inputs so dependencies are modeled by the generating task itself.
+
+## 2026-10-03 — Resource generation must be unconditional for this module
+
+The What’s New strings are consumed directly by commonMain source. Compose Multiplatform documents that `generateResClass = auto` only generates the resource class when the resource library is an explicit dependency, while `generateResClass = always` unconditionally enables generation. This module already depends on Compose resources, but the repeated CI failures justify making the requirement explicit rather than relying on automatic detection.
+
