@@ -479,7 +479,10 @@ private fun versionStatus(
             channelLabel,
         )
         VersionUtils.parse(snapshot.currentVersion) != null &&
-            VersionUtils.parse(latest.version) != null -> stringResource(Res.string.whats_new_status_up_to_date)
+            VersionUtils.parse(latest.version) != null -> stringResource(
+                Res.string.whats_new_status_up_to_date,
+                channelLabel,
+            )
         else -> stringResource(Res.string.whats_new_status_unknown)
     }
 }
