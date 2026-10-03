@@ -346,10 +346,12 @@ private fun CurrentVersionCard(
                 )
                 Text(
                     text = stringResource(Res.string.whats_new_release_format, version),
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.nuvio.colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = channelLabel,
                     style = MaterialTheme.typography.labelMedium,
@@ -515,7 +517,7 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable(onClickLabel = expansionLabel) { expanded = !expanded }
                     .semantics {
                         role = Role.Button
                         stateDescription = expansionState
