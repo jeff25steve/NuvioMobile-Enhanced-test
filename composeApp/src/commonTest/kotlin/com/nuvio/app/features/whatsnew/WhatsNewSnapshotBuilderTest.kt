@@ -362,6 +362,21 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun lastCheckedTreatsEndOfMonthAsARealCalendarMonth() {
+        val start = Instant.parse("2026-01-31T12:00:00Z")
+        val end = Instant.parse("2026-02-28T12:00:00Z")
+
+        assertEquals(
+            LastCheckedAge(1L, LastCheckedUnit.MONTH),
+            calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = end.toEpochMilliseconds(),
+                timeZone = TimeZone.UTC,
+            ),
+        )
+    }
+
+    @Test
     fun lastCheckedUsesLocalCalendarDaysAcrossDaylightSavingTime() {
         val timeZone = TimeZone.of("Europe/Berlin")
         val start = Instant.parse("2026-03-28T02:30:00Z")
