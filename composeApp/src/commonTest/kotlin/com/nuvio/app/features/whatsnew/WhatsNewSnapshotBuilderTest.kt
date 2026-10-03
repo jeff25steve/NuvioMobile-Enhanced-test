@@ -265,6 +265,57 @@ class WhatsNewSnapshotBuilderTest {
         assertEquals("carol", cleaned[2].authorLogin)
     }
 
+    @Test
+    fun formatReleaseNoteForDisplayNormalizesSentenceStartWithoutRewritingMidSentenceAdd() {
+        assertEquals(
+            "Added mobile background selection",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("feat(home): add mobile background selection"),
+        )
+        assertEquals(
+            "Added TVDB anime ID preference to avoid per-season IMDB splits (#1952)",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Add TVDB anime ID preference to avoid per-season IMDB splits (#1952)"),
+        )
+        assertEquals(
+            "Open iOS playback in fullscreen",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("fix(trailer): open ios playback in fullscreen"),
+        )
+        assertEquals(
+            "Allows users to add profiles",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Allows users to add profiles"),
+        )
+    }
+
+    @Test
+    fun cleanReleaseNotesPreservesAllItemsFromTheThirteenChangeRelease() {
+        val body = """
+            - fix(home): match continue watching badge colors to tv @tapframe
+            - perf(navigation): reduce root tab switch stalls @tapframe
+            - Add TVDB anime ID preference to avoid per-season IMDB splits (#1952) @skoruppa
+            - Revert "perf(navigation): reduce tab switch animation stalls" @tapframe
+            - fix(player): keep android landscape lock during exit @tapframe
+            - fix(profiles): add active profile toast and back button @tapframe
+            - fix(profiles): prevent selecting the active profile @tapframe
+            - fix(player): hide addons with no streams @tapframe
+            - fix(player): start playback without waiting for addon subtitles (#1949) @halibiram
+            - fix(trailer): open ios playback in fullscreen @tapframe
+            - Fix anime skip mapping, subtitle language detection, watched badges and Polish translations (#1943) @skoruppa
+            - fix(library): restore LaunchedEffect import after the 0.4.21 merge @luqmanfadlli
+            - feat(streams): add pinned stream sources @luqmanfadlli
+        """.trimIndent()
+
+        val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(body)
+
+        assertEquals(13, cleaned.size)
+        assertEquals(
+            "Added pinned stream sources",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay(cleaned.last().text),
+        )
+        assertEquals(
+            "Added TVDB anime ID preference to avoid per-season IMDB splits (#1952)",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay(cleaned[2].text),
+        )
+    }
+
     private fun release(
         version: String,
         title: String = version,
