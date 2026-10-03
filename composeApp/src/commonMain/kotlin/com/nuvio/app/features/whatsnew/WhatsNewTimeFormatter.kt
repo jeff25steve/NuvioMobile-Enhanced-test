@@ -2,7 +2,6 @@ package com.nuvio.app.features.whatsnew
 
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.TimeZoneContext
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.periodUntil
 import kotlin.time.Instant
 
