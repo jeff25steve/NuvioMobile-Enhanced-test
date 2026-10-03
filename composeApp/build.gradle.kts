@@ -333,8 +333,17 @@ val generateRuntimeConfigs = tasks.register<GenerateRuntimeConfigsTask>("generat
     )
 }
 
+val composeCommonResourceGenerationTasks = tasks.matching {
+    it.name == "generateComposeResClass" ||
+        it.name == "generateResourceAccessorsForCommonMain" ||
+        it.name == "generateExpectResourceCollectorsForCommonMain"
+}
+
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
     dependsOn(generateRuntimeConfigs)
+    // Keep Compose Multiplatform resource source generation explicit for KMP/AGP task graphs.
+    // Without this, a compile can observe an older/missing generated Res accessor set.
+    dependsOn(composeCommonResourceGenerationTasks)
 }
 
 kotlin {
