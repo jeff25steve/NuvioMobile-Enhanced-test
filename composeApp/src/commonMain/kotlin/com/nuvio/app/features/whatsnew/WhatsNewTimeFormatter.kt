@@ -1,7 +1,6 @@
 package com.nuvio.app.features.whatsnew
 
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.TimeZoneContext
 import kotlinx.datetime.periodUntil
 import kotlin.time.Instant
 
@@ -23,7 +22,7 @@ internal data class LastCheckedAge(
 internal fun calculateLastCheckedAge(
     fetchedAtMillis: Long,
     nowMillis: Long,
-    timeZone: TimeZone = TimeZoneContext.System.currentTimeZone(),
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ): LastCheckedAge {
     val effectiveNowMillis = nowMillis.coerceAtLeast(fetchedAtMillis)
     val elapsedMillis = effectiveNowMillis - fetchedAtMillis
