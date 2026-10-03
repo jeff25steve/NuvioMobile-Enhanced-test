@@ -113,6 +113,13 @@ private val conventionalCommitDisplayPattern = Regex(
     """^(?:feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\([^)]*\))?(?:!)?:\s*""",
     RegexOption.IGNORE_CASE,
 )
+private val NOTE_CATEGORY_ORDER = listOf(
+    WhatsNewNoteCategory.FEATURES,
+    WhatsNewNoteCategory.FIXES,
+    WhatsNewNoteCategory.PERFORMANCE,
+    WhatsNewNoteCategory.LOCALIZATION,
+    WhatsNewNoteCategory.OTHER,
+)
 
 @Composable
 fun WhatsNewSettingsScreen(onBack: () -> Unit) {
@@ -232,6 +239,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         version = snapshot.currentVersion,
                         buildChannelLabel = buildChannelLabel,
                         viewingChannelLabel = channelLabel,
+                        showViewingChannel = channelLabel != buildChannelLabel,
                         lastCheckedLabel = lastCheckedLabel(value.content.fetchedAtMillis),
                         status = versionStatus(snapshot, channelLabel),
                     )
@@ -285,6 +293,12 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         ReleaseCard(
                             release = sinceReleases.first(),
                             showLatestLabel = false,
+                            modifier = Modifier.animateItem(
+                                placementSpec = tween(
+                                    durationMillis = NuvioTokens.Motion.normalMillis,
+                                    easing = NuvioTokens.Motion.standard,
+                                ),
+                            ),
                         )
                     }
                     if (sinceReleases.size > 1) {
@@ -292,13 +306,29 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                             items = sinceReleases.drop(1),
                             key = { release -> "since:" + release.version },
                         ) { release ->
-                            ReleaseHistoryRow(release)
+                            ReleaseHistoryRow(
+                                release = release,
+                                modifier = Modifier.animateItem(
+                                    placementSpec = tween(
+                                        durationMillis = NuvioTokens.Motion.normalMillis,
+                                        easing = NuvioTokens.Motion.standard,
+                                    ),
+                                ),
+                            )
                         }
                     }
                 } else {
                     snapshot.releases.firstOrNull()?.let { latest ->
                         item(key = "latest:" + latest.version) {
-                            ReleaseCard(latest)
+                            ReleaseCard(
+                                release = latest,
+                                modifier = Modifier.animateItem(
+                                    placementSpec = tween(
+                                        durationMillis = NuvioTokens.Motion.normalMillis,
+                                        easing = NuvioTokens.Motion.standard,
+                                    ),
+                                ),
+                            )
                         }
                     }
                 }
@@ -346,10 +376,11 @@ private fun CurrentVersionCard(
     version: String,
     buildChannelLabel: String,
     viewingChannelLabel: String,
+    showViewingChannel: Boolean,
     lastCheckedLabel: String,
     status: String,
 ) {
-    NuvioSurfaceCard {
+    NuvioSurfaceCard(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
@@ -389,14 +420,16 @@ private fun CurrentVersionCard(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.nuvio.colors.textSecondary,
                 )
-                Text(
-                    text = stringResource(
-                        Res.string.whats_new_channel_format,
-                        viewingChannelLabel,
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.nuvio.colors.textMuted,
-                )
+                if (showViewingChannel) {
+                    Text(
+                        text = stringResource(
+                            Res.string.whats_new_channel_format,
+                            viewingChannelLabel,
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.nuvio.colors.textMuted,
+                    )
+                }
                 Text(
                     text = lastCheckedLabel,
                     style = MaterialTheme.typography.labelSmall,
@@ -468,11 +501,13 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
 private fun ReleaseCard(
     release: WhatsNewRelease,
     showLatestLabel: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable(release.version) { mutableStateOf(false) }
     val previewNoteCount = previewNotes(release.notes).size
 
     NuvioSurfaceCard(
+        modifier = modifier,
         tonalElevation = 1,
     ) {
         Column(
@@ -525,7 +560,10 @@ private fun ReleaseCard(
 }
 
 @Composable
-private fun ReleaseHistoryRow(release: WhatsNewRelease) {
+private fun ReleaseHistoryRow(
+    release: WhatsNewRelease,
+    modifier: Modifier = Modifier,
+) {
     var expanded by rememberSaveable(release.version) { mutableStateOf(false) }
     val expansionLabel = stringResource(
         if (expanded) Res.string.action_collapse else Res.string.action_expand,
@@ -628,6 +666,7 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                     expanded = true,
                     onToggle = {},
                     allowToggle = false,
+                    showGithub = true,
                 )
             }
         }
@@ -640,6 +679,7 @@ private fun ReleaseNotes(
     expanded: Boolean,
     onToggle: () -> Unit,
     allowToggle: Boolean,
+    showGithub: Boolean,
 ) {
     val tokens = MaterialTheme.nuvio
     val visibleNotes = if (expanded) release.notes else previewNotes(release.notes)
@@ -659,20 +699,34 @@ private fun ReleaseNotes(
                 color = tokens.colors.textPrimary,
             )
         } else {
-            visibleNotes
-                .groupBy { it.category }
-                .forEach { (category, notes) ->
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
-                    ) {
+            NOTE_CATEGORY_ORDER.forEach { category ->
+                val notes = visibleNotes.filter { it.category == category }
+                if (notes.isEmpty()) return@forEach
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
+                ) {
+                    if (category != WhatsNewNoteCategory.OTHER) {
                         Text(
                             text = stringResource(noteCategoryResource(category)),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = tokens.colors.textMuted,
                         )
-                        notes.forEach { note ->
+                    }
+                    notes.forEach { note ->
+                        val displayText = note.text.replaceFirst(
+                            conventionalCommitDisplayPattern,
+                            "",
+                        )
+                        if (category == WhatsNewNoteCategory.OTHER) {
+                            Text(
+                                text = displayText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = tokens.colors.textPrimary,
+                            )
+                        } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.Top,
@@ -684,10 +738,7 @@ private fun ReleaseNotes(
                                     color = tokens.colors.textPrimary,
                                 )
                                 Text(
-                                    text = note.text.replaceFirst(
-                                        conventionalCommitDisplayPattern,
-                                        "",
-                                    ),
+                                    text = displayText,
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = tokens.colors.textPrimary,
@@ -696,6 +747,7 @@ private fun ReleaseNotes(
                         }
                     }
                 }
+            }
         }
 
         if (showContributors) {
@@ -709,7 +761,7 @@ private fun ReleaseNotes(
             )
         }
 
-        val releaseUrl = release.releaseUrl
+        val releaseUrl = release.releaseUrl?.takeIf { showGithub }
         if (allowToggle || releaseUrl != null) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 if (maxWidth < 360.dp) {
