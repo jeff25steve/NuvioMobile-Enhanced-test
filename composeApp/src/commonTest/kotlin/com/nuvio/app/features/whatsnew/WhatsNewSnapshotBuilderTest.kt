@@ -362,6 +362,22 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun lastCheckedUsesLocalCalendarDaysAcrossDaylightSavingTime() {
+        val timeZone = TimeZone.of("Europe/Berlin")
+        val start = Instant.parse("2026-03-28T02:30:00Z")
+        val end = Instant.parse("2026-03-29T01:30:00Z")
+
+        assertEquals(
+            LastCheckedAge(1L, LastCheckedUnit.DAY),
+            calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = end.toEpochMilliseconds(),
+                timeZone = timeZone,
+            ),
+        )
+    }
+
+    @Test
     fun lastCheckedUsesCalendarYearsAcrossLeapYears() {
         val start = Instant.parse("2024-01-03T12:00:00Z")
         val end = Instant.parse("2025-01-03T12:00:00Z")
