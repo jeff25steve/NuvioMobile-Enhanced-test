@@ -505,10 +505,6 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
     val expansionLabel = stringResource(
         if (expanded) Res.string.action_collapse else Res.string.action_expand,
     )
-    val expansionState = stringResource(
-        if (expanded) Res.string.whats_new_expanded else Res.string.whats_new_collapsed,
-    )
-
     NuvioSurfaceCard {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -520,7 +516,7 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                     .clickable(onClickLabel = expansionLabel) { expanded = !expanded }
                     .semantics {
                         role = Role.Button
-                        stateDescription = expansionState
+                        stateDescription = expansionLabel
                         if (expanded) {
                             collapse(label = expansionLabel) {
                                 expanded = false
@@ -643,9 +639,7 @@ private fun ReleaseNotes(
 
         if (showContributors) {
             Text(
-                text = stringResource(Res.string.whats_new_contributors) +
-                    " · " +
-                    contributors.joinToString(" · ") { "@$it" },
+                text = contributors.joinToString(" · ") { "@$it" },
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.colors.textSecondary,
                 maxLines = 2,
