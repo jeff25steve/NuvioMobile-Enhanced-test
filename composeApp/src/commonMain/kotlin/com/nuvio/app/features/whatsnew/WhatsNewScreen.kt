@@ -497,6 +497,9 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
     val minuteMillis = 60_000L
     val hourMillis = 60L * minuteMillis
     val dayMillis = 24L * hourMillis
+    val weekMillis = 7L * dayMillis
+    val monthMillis = 30L * dayMillis
+    val yearMillis = 365L * dayMillis
 
     return when {
         ageMillis < minuteMillis -> stringResource(Res.string.whats_new_last_checked_just_now)
@@ -516,12 +519,36 @@ private fun lastCheckedLabel(fetchedAtMillis: Long): String {
                 stringResource(Res.string.whats_new_last_checked_hours, hours)
             }
         }
-        else -> {
+        ageMillis < weekMillis -> {
             val days = ageMillis / dayMillis
             if (days == 1L) {
                 stringResource(Res.string.whats_new_last_checked_day, days)
             } else {
                 stringResource(Res.string.whats_new_last_checked_days, days)
+            }
+        }
+        ageMillis < monthMillis -> {
+            val weeks = ageMillis / weekMillis
+            if (weeks == 1L) {
+                stringResource(Res.string.whats_new_last_checked_week, weeks)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_weeks, weeks)
+            }
+        }
+        ageMillis < yearMillis -> {
+            val months = ageMillis / monthMillis
+            if (months == 1L) {
+                stringResource(Res.string.whats_new_last_checked_month, months)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_months, months)
+            }
+        }
+        else -> {
+            val years = ageMillis / yearMillis
+            if (years == 1L) {
+                stringResource(Res.string.whats_new_last_checked_year, years)
+            } else {
+                stringResource(Res.string.whats_new_last_checked_years, years)
             }
         }
     }
