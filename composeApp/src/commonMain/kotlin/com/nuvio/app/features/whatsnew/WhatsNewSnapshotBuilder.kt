@@ -6,7 +6,7 @@ private val conventionalCommitPattern = Regex(
     """^(feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\(([^)]*)\))?(?:!)?(?::\s*|\s+).+$""",
     RegexOption.IGNORE_CASE,
 )
-private val authorSuffixPattern = Regex("""\s+@([A-Za-z0-9_.-]+)\s*$""")
+private val authorSuffixPattern = Regex("""\s+@([A-Za-z0-9_.-]+?)[.!?,;:]?\s*$""")
 private val markdownLinkPattern = Regex("""\[([^\]]+)]\([^)]*\)""")
 private val htmlLineBreakPattern = Regex(
     """(?i)<(?:br\s*/?|/?(?:p|div|ul|ol)\b[^>]*>)""",
@@ -17,6 +17,22 @@ private val htmlFormattingTagPattern = Regex(
     """(?i)</?(?:a|b|strong|i|em|code|del|s|u|small|sub|sup)\b[^>]*>""",
 )
 private val markdownHeadingPattern = Regex("""#{1,6}\s+.*""")
+private val markdownSectionHeadingPattern = Regex(
+    """^#{1,6}\s+(.+)$""",
+    RegexOption.IGNORE_CASE,
+)
+private val boldSectionHeadingPattern = Regex(
+    """^\*\*(.+?):\*\*\s*$""",
+    RegexOption.IGNORE_CASE,
+)
+private val changeSectionPattern = Regex(
+    """^(?:what(?:'|’)?s changed|changes?|changelog|release notes?|added features?|features?|bug fixes?|fixes?|improvements?|performance|localization|other changes?)$""",
+    RegexOption.IGNORE_CASE,
+)
+private val ignoredSectionPattern = Regex(
+    """^(?:variants?|downloads?|assets?|installation|notes?|contributors?|credits?)$""",
+    RegexOption.IGNORE_CASE,
+)
 private val markdownBlockquotePattern = Regex("""^\s*>+\s?""")
 private val markdownInlineCodePattern = Regex("""`+([^`]+)`+""")
 private val markdownStrikePattern = Regex("""~~(.+?)~~""")
@@ -34,7 +50,11 @@ private val tvWordPattern = Regex("""\btv\b""", RegexOption.IGNORE_CASE)
 private val imdbWordPattern = Regex("""\bimdb\b""", RegexOption.IGNORE_CASE)
 private val tmdbWordPattern = Regex("""\btmdb\b""", RegexOption.IGNORE_CASE)
 
-
+private enum class ReleaseNoteSectionMode {
+    NORMAL,
+    CHANGES,
+    IGNORE,
+}
 
 internal object WhatsNewSnapshotBuilder {
     fun build(
@@ -94,9 +114,18 @@ internal object WhatsNewSnapshotBuilder {
             .map(String::trim)
             .filter(String::isNotBlank)
 
+        var sectionMode = ReleaseNoteSectionMode.NORMAL
+        val hasStructuredChangeSections = lines.any { line ->
+            val structuralCandidate = line.replaceFirst(markdownBlockquotePattern, "").trim()
+            val heading =
+                markdownSectionHeadingPattern.matchEntire(structuralCandidate)?.groupValues?.getOrNull(1)
+                    ?: boldSectionHeadingPattern.matchEntire(structuralCandidate)?.groupValues?.getOrNull(1)
+            heading?.let(changeSectionPattern::matches) == true
+        }
+
         return lines.mapNotNull { line ->
-            val candidate = line
-                .replaceFirst(markdownBlockquotePattern, "")
+            val structuralCandidate = line.replaceFirst(markdownBlockquotePattern, "").trim()
+            val candidate = structuralCandidate
                 .replace(markdownInlineCodePattern, "$1")
                 .replace(markdownStrikePattern, "$1")
                 .replace(markdownTaskPattern, "")
@@ -105,6 +134,25 @@ internal object WhatsNewSnapshotBuilder {
                 .trim()
                 .replaceFirst(listMarkerPattern, "")
                 .trim()
+
+            val sectionTitle =
+                markdownSectionHeadingPattern.matchEntire(structuralCandidate)?.groupValues?.getOrNull(1)?.trim()
+                    ?: boldSectionHeadingPattern.matchEntire(structuralCandidate)?.groupValues?.getOrNull(1)?.trim()
+            if (sectionTitle != null) {
+                sectionMode = when {
+                    changeSectionPattern.matches(sectionTitle) -> ReleaseNoteSectionMode.CHANGES
+                    ignoredSectionPattern.matches(sectionTitle) -> ReleaseNoteSectionMode.IGNORE
+                    else -> ReleaseNoteSectionMode.IGNORE
+                }
+                return@mapNotNull null
+            }
+
+            if (hasStructuredChangeSections && sectionMode != ReleaseNoteSectionMode.CHANGES) {
+                return@mapNotNull null
+            }
+            if (hasStructuredChangeSections && !listMarkerPattern.containsMatchIn(structuralCandidate)) {
+                return@mapNotNull null
+            }
 
             if (candidate.isBlank() ||
                 candidate.matches(markdownHeadingPattern) ||
@@ -127,6 +175,7 @@ internal object WhatsNewSnapshotBuilder {
                 authorLogin = authorLogin,
             )
         }
+}
     }
 
     internal fun formatReleaseNoteForDisplay(rawText: String): String {
