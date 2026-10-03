@@ -13,6 +13,18 @@ workflows:
       - name: Set Android SDK location
         script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
 
+      - name: Verify Compose resource accessors
+        script: |
+          set -e
+          ./gradlew :composeApp:generateResourceAccessorsForCommonMain             --rerun-tasks             --no-daemon             --stacktrace             --console=plain
+          generated_dir="$CM_BUILD_DIR/composeApp/build/generated/compose/resourceGenerator/kotlin/commonMainResourceAccessors"
+          test -d "$generated_dir"
+          if ! grep -R -q "whats_new_since_unavailable" "$generated_dir"; then
+            echo "ERROR: Generated Compose resource accessors do not contain What’s New resources."
+            find "$generated_dir" -type f -maxdepth 8 -print || true
+            exit 1
+          fi
+
       - name: Build Android Full Debug APK
         script: |
           set -o pipefail
