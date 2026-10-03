@@ -66,6 +66,7 @@ import com.nuvio.app.features.simkl.SimklAuthStorage
 import com.nuvio.app.features.simkl.SimklSyncStorage
 import com.nuvio.app.features.tmdb.TmdbSettingsStorage
 import com.nuvio.app.features.updater.AndroidAppUpdaterPlatform
+import com.nuvio.app.features.whatsnew.WhatsNewStorage
 import com.nuvio.app.core.ui.CardDepthStyleStorage
 import com.nuvio.app.core.ui.PosterCardStyleStorage
 import com.nuvio.app.core.poster.CustomPosterUrlStorage
@@ -157,6 +158,8 @@ open class MainActivity : AppCompatActivity() {
         DownloadsSettingsStorage.initialize(applicationContext)
         DownloadNetworkGuard.initialize(applicationContext)
         AndroidAppUpdaterPlatform.initialize(applicationContext)
+
+        WhatsNewStorage.initialize(applicationContext)
         PlatformLocalAccountDataCleaner.initialize(applicationContext)
         EpisodeReleaseNotificationPlatform.initialize(applicationContext)
         EpisodeReleaseNotificationPlatform.bindActivity(this)
