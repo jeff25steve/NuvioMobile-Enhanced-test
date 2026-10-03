@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,10 +36,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
@@ -97,7 +101,9 @@ import nuvio.composeapp.generated.resources.whats_new_recent_releases
 import nuvio.composeapp.generated.resources.whats_new_channel_format
 import org.jetbrains.compose.resources.stringResource
 
-private const val MAX_PREVIEW_NOTES = 5
+private const val PREVIEW_NOTE_CHAR_LIMIT = 420
+private const val PREVIEW_MIN_NOTES = 2
+private const val PREVIEW_MAX_NOTES = 6
 
 @Composable
 fun WhatsNewSettingsScreen(onBack: () -> Unit) {
@@ -215,17 +221,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                     )
                 }
 
-                if (isRefreshing) {
-                    item {
-                        Text(
-                            text = stringResource(Res.string.whats_new_refreshing),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.nuvio.colors.textMuted,
-                            modifier = Modifier.padding(horizontal = NuvioTokens.Space.s4),
-                        )
-                    }
-                }
-
                 if (!snapshot.hasCompleteSinceVersion &&
                     snapshot.releases.any {
                         VersionUtils.isRemoteNewer(it.version, snapshot.currentVersion)
@@ -311,10 +306,14 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                 }
 
                 if (snapshot.releases.isEmpty()) {
-                    item { Text(text = stringResource(Res.string.whats_new_no_releases)) }
+                    item {
+                        Text(
+                            text = stringResource(Res.string.whats_new_no_releases),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.nuvio.colors.textMuted,
+                        )
+                    }
                 }
-
-
             }
         }
     }
@@ -334,45 +333,50 @@ private fun CurrentVersionCard(
     status: String,
 ) {
     NuvioSurfaceCard {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
+            verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
         ) {
-            Icon(
-                imageVector = Icons.Rounded.NewReleases,
-                contentDescription = null,
-                modifier = Modifier.size(NuvioTokens.Icon.lg),
-                tint = MaterialTheme.nuvio.colors.textPrimary,
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
             ) {
-                Text(
-                    text = stringResource(Res.string.whats_new_current_version),
-                    color = MaterialTheme.nuvio.colors.textMuted,
-                    style = MaterialTheme.typography.labelMedium,
+                Icon(
+                    imageVector = Icons.Rounded.NewReleases,
+                    contentDescription = null,
+                    modifier = Modifier.size(NuvioTokens.Icon.md),
+                    tint = MaterialTheme.nuvio.colors.textMuted,
                 )
                 Text(
                     text = stringResource(Res.string.whats_new_release_format, version),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.nuvio.colors.textPrimary,
                 )
+                Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = stringResource(Res.string.whats_new_channel_format, channelLabel),
+                    text = channelLabel,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.nuvio.colors.textMuted,
+                    color = MaterialTheme.nuvio.colors.textSecondary,
                 )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
+            ) {
                 Text(
                     text = status,
-                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.nuvio.colors.textPrimary,
+                    color = MaterialTheme.nuvio.colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = lastCheckedLabel,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.nuvio.colors.textMuted,
                 )
             }
@@ -443,8 +447,11 @@ private fun ReleaseCard(
     showLatestLabel: Boolean = true,
 ) {
     var expanded by rememberSaveable(release.version) { mutableStateOf(false) }
+    val previewNoteCount = previewNotes(release.notes).size
 
-    NuvioSurfaceCard {
+    NuvioSurfaceCard(
+        tonalElevation = 1,
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s10),
@@ -454,11 +461,22 @@ private fun ReleaseCard(
                     text = stringResource(Res.string.whats_new_latest_release),
                 )
             }
-            Text(
-                text = release.version,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.nuvio.colors.textPrimary,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.NewReleases,
+                    contentDescription = null,
+                    modifier = Modifier.size(NuvioTokens.Icon.md),
+                    tint = MaterialTheme.nuvio.colors.accent,
+                )
+                Text(
+                    text = release.version,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.nuvio.colors.textPrimary,
+                )
+            }
             release.title.takeUnless { it == release.version }?.let { title ->
                 Text(
                     text = title,
@@ -477,7 +495,7 @@ private fun ReleaseCard(
                 release = release,
                 expanded = expanded,
                 onToggle = { expanded = !expanded },
-                allowToggle = release.notes.size > MAX_PREVIEW_NOTES,
+                allowToggle = release.notes.size > previewNoteCount,
             )
         }
     }
@@ -488,6 +506,9 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
     var expanded by rememberSaveable(release.version) { mutableStateOf(false) }
     val expansionLabel = stringResource(
         if (expanded) Res.string.action_collapse else Res.string.action_expand,
+    )
+    val expansionState = stringResource(
+        if (expanded) Res.string.whats_new_expanded else Res.string.whats_new_collapsed,
     )
 
     NuvioSurfaceCard {
@@ -501,7 +522,18 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                     .clickable { expanded = !expanded }
                     .semantics {
                         role = Role.Button
-                        stateDescription = expansionLabel
+                        stateDescription = expansionState
+                        if (expanded) {
+                            collapse(label = expansionLabel) {
+                                expanded = false
+                                true
+                            }
+                        } else {
+                            expand(label = expansionLabel) {
+                                expanded = true
+                                true
+                            }
+                        }
                     },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
