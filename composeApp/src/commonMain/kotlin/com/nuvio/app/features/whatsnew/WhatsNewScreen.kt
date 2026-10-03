@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -554,101 +555,107 @@ private fun ReleaseNotes(
     onToggle: () -> Unit,
     allowToggle: Boolean,
 ) {
+    val tokens = MaterialTheme.nuvio
+    val visibleNotes = if (expanded) release.notes else release.notes.take(MAX_PREVIEW_NOTES)
+    val contributors = release.notes
+        .mapNotNull { it.authorLogin?.takeIf(String::isNotBlank) }
+        .distinct()
+    val showContributors = contributors.isNotEmpty() && (expanded || !allowToggle)
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
     ) {
-        val visibleNotes = if (expanded) release.notes else release.notes.take(MAX_PREVIEW_NOTES)
-
         if (visibleNotes.isEmpty()) {
             Text(
                 text = stringResource(Res.string.whats_new_no_release_notes),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.nuvio.colors.textPrimary,
+                color = tokens.colors.textPrimary,
             )
         } else {
             visibleNotes.forEachIndexed { index, note ->
                 val previousCategory = visibleNotes.getOrNull(index - 1)?.category
                 val showCategory = note.category != WhatsNewNoteCategory.OTHER &&
                     note.category != previousCategory
+
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
                 ) {
-                    if (showCategory || note.authorLogin != null) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
-                        ) {
-                            if (showCategory) {
-                                Text(
-                                    text = stringResource(noteCategoryResource(note.category)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.nuvio.colors.textMuted,
-                                )
-                            }
-                            note.authorLogin?.let { author ->
-                                Text(
-                                    text = stringResource(
-                                        Res.string.whats_new_contributor_credit,
-                                        author,
-                                    ),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.nuvio.colors.textMuted,
-                                )
-                            }
-                        }
+                    if (showCategory) {
+                        Text(
+                            text = stringResource(noteCategoryResource(note.category)),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.colors.textMuted,
+                        )
                     }
                     Text(
                         text = "• " + note.text,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.nuvio.colors.textPrimary,
+                        color = tokens.colors.textPrimary,
                     )
                 }
             }
+        }
 
+        if (showContributors) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
+            ) {
+                Text(
+                    text = stringResource(Res.string.whats_new_contributors),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = tokens.colors.textMuted,
+                )
+                Text(
+                    text = contributors.joinToString(" · ") { "@$it" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tokens.colors.textSecondary,
+                )
+            }
         }
 
         val releaseUrl = release.releaseUrl
-        if (allowToggle) {
+        if (allowToggle || releaseUrl != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.nuvio.colors.textPrimary,
-                    ),
-                    onClick = onToggle,
-                ) {
-                    Text(
-                        text = if (expanded) {
-                            stringResource(Res.string.whats_new_hide_changes)
-                        } else {
-                            stringResource(
-                                Res.string.whats_new_show_all_changes,
-                                release.notes.size,
-                            )
-                        },
-                    )
+                if (allowToggle) {
+                    TextButton(
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = tokens.colors.textPrimary,
+                        ),
+                        onClick = onToggle,
+                    ) {
+                        Text(
+                            text = if (expanded) {
+                                stringResource(Res.string.whats_new_hide_changes)
+                            } else {
+                                stringResource(
+                                    Res.string.whats_new_show_all_changes,
+                                    release.notes.size,
+                                )
+                            },
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
-            }
-        }
-        releaseUrl?.let { url ->
-            val uriHandler = LocalUriHandler.current
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.nuvio.colors.textMuted,
-                    ),
-                    onClick = { uriHandler.openUri(url) },
-                ) {
-                    Text(stringResource(Res.string.whats_new_open_github))
+
+                releaseUrl?.let { url ->
+                    val uriHandler = LocalUriHandler.current
+                    TextButton(
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = tokens.colors.textSecondary,
+                        ),
+                        onClick = { uriHandler.openUri(url) },
+                    ) {
+                        Text(stringResource(Res.string.whats_new_open_github))
+                    }
                 }
             }
         }
