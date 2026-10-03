@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -736,39 +737,49 @@ internal fun MainAppContent(
         }
     }
 
-    LaunchedEffect(authState, profileState.activeProfile?.profileIndex) {
-        if (!ownsAppRuntime) return@LaunchedEffect
+    LifecycleStartEffect(authState, profileState.activeProfile?.profileIndex) {
         val authenticatedState = authState as? AuthState.Authenticated
         val activeProfileId = profileState.activeProfile?.profileIndex
         val syncProfileId = activeProfileId?.takeIf {
             authenticatedState != null && !authenticatedState.isAnonymous
         }
-        syncProfileId?.let { profileId ->
-            InAppLogger.info("Sync/Foreground", "initial pull profile=$profileId")
-            SyncManager.pullAllForProfile(profileId)
-        }
-        try {
-            AppForegroundMonitor.events().collect { visibility ->
-                when (visibility) {
-                    AppVisibility.Foreground -> {
-                        InAppLogger.debug("App/Foreground", "foreground event: refreshing network status")
-                        NetworkStatusRepository.requestForegroundRefresh()
-                        DeviceSessionRegistration.registerIfAuthenticated()
-                        MemberAccessRepository.refreshIfStale()
-                        refreshLibraryReleaseScheduleIfStale()
-                        if (syncProfileId != null) {
-                            SyncManager.startPeriodicNuvioSyncPull(syncProfileId)
-                            InAppLogger.debug("Sync/Foreground", "foreground pull requested profile=$syncProfileId")
-                            SyncManager.requestForegroundPull(syncProfileId)
-                        } else {
-                            SyncManager.stopPeriodicNuvioSyncPull()
+
+        val foregroundJob = if (ownsAppRuntime) {
+            syncProfileId?.let { profileId ->
+                InAppLogger.info("Sync/Foreground", "initial pull profile=$profileId")
+                SyncManager.pullAllForProfile(profileId)
+            }
+            coroutineScope.launch {
+                AppForegroundMonitor.events().collect { visibility ->
+                    when (visibility) {
+                        AppVisibility.Foreground -> {
+                            InAppLogger.debug("App/Foreground", "foreground event: refreshing network status")
+                            NetworkStatusRepository.requestForegroundRefresh()
+                            DeviceSessionRegistration.registerIfAuthenticated()
+                            MemberAccessRepository.refreshIfStale()
+                            refreshLibraryReleaseScheduleIfStale()
+                            if (syncProfileId != null) {
+                                SyncManager.startPeriodicNuvioSyncPull(syncProfileId)
+                                InAppLogger.debug("Sync/Foreground", "foreground pull requested profile=$syncProfileId")
+                                SyncManager.requestForegroundPull(syncProfileId)
+                            } else {
+                                SyncManager.stopPeriodicNuvioSyncPull()
+                            }
                         }
+
+                        AppVisibility.Background -> Unit
                     }
-                    AppVisibility.Background -> SyncManager.stopPeriodicNuvioSyncPull()
                 }
             }
-        } finally {
-            SyncManager.stopPeriodicNuvioSyncPull()
+        } else {
+            null
+        }
+
+        onStopOrDispose {
+            foregroundJob?.cancel()
+            if (ownsAppRuntime) {
+                SyncManager.stopPeriodicNuvioSyncPull()
+            }
         }
     }
     var resumePromptItem by remember { mutableStateOf<ContinueWatchingItem?>(null) }
