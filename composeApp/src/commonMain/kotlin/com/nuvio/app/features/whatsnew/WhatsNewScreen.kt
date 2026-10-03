@@ -53,7 +53,7 @@ import nuvio.composeapp.generated.resources.whats_new_empty
 import nuvio.composeapp.generated.resources.whats_new_load_more
 import nuvio.composeapp.generated.resources.whats_new_last_checked
 import nuvio.composeapp.generated.resources.whats_new_loading
-import nuvio.composeapp.generated.resources.whats_new_more_changes
+import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_refresh
 import nuvio.composeapp.generated.resources.whats_new_since_version
 import nuvio.composeapp.generated.resources.whats_new_title
@@ -259,10 +259,7 @@ private fun ReleaseCard(
                 if (!expanded && release.notes.size > previewCount) {
                     TextButton(onClick = onToggle) {
                         Text(
-                            text = stringResource(
-                                Res.string.whats_new_more_changes,
-                                release.notes.size - previewCount,
-                            ),
+                            text = stringResource(Res.string.whats_new_show_all_changes),
                         )
                     }
                 }
