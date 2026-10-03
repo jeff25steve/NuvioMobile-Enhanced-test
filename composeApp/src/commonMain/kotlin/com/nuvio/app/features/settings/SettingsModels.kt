@@ -30,6 +30,7 @@ import nuvio.composeapp.generated.resources.compose_settings_page_plugins
 import nuvio.composeapp.generated.resources.compose_settings_page_poster_customization
 import nuvio.composeapp.generated.resources.compose_settings_page_profile
 import nuvio.composeapp.generated.resources.compose_settings_page_root
+import nuvio.composeapp.generated.resources.compose_settings_root_whats_new_title
 import nuvio.composeapp.generated.resources.compose_settings_page_streams
 import nuvio.composeapp.generated.resources.compose_settings_page_supporters_contributors
 import nuvio.composeapp.generated.resources.compose_settings_page_tmdb_enrichment
@@ -76,6 +77,11 @@ internal enum class SettingsPage(
     ),
     LicensesAttributions(
         titleRes = Res.string.compose_settings_page_licenses_attributions,
+        category = SettingsCategory.About,
+        parentPage = Root,
+    ),
+    WhatsNew(
+        titleRes = Res.string.compose_settings_root_whats_new_title,
         category = SettingsCategory.About,
         parentPage = Root,
     ),
