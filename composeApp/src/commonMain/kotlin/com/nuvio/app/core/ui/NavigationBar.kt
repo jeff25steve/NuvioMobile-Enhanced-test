@@ -129,6 +129,8 @@ fun NuvioNavigationBar(
         ),
         label = "nav_label_alpha",
     )
+    val tokens = MaterialTheme.nuvio
+
 
     // Dynamic horizontal padding: pill shrinks when labels are hidden — driven by same labelFraction
     val expandedHorizontalPadding = 28.dp
@@ -159,7 +161,7 @@ fun NuvioNavigationBar(
                     Modifier
                 },
             )
-            .background(Color(0xFF1C1C1E).copy(alpha = if (hazeState != null) 0.55f else 0.82f))
+            .background(tokens.colors.surfacePopover.copy(alpha = if (hazeState != null) 0.55f else 0.82f))
 
         Box(modifier = pillModifier) {
             Row(
@@ -373,6 +375,7 @@ private fun NavItemLabel(
     selected: Boolean,
     compactSize: Boolean,
 ) {
+    val tokens = MaterialTheme.nuvio
     if (label == null || labelFraction <= 0f) return
     Spacer(modifier = Modifier.height((if (compactSize) 2.dp else NuvioTokens.Space.s3) * labelFraction))
     Box(
@@ -387,7 +390,7 @@ private fun NavItemLabel(
                 lineHeight = NuvioTokens.LineHeight.labelXs,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             ),
-            color = iconColor,
+            color = if (selected) tokens.colors.textPrimary else iconColor,
             maxLines = 1,
             overflow = TextOverflow.Clip,
         )
