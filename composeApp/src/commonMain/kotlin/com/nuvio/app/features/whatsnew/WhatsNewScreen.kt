@@ -86,6 +86,12 @@ import nuvio.composeapp.generated.resources.whats_new_last_checked_minute
 import nuvio.composeapp.generated.resources.whats_new_last_checked_hours
 import nuvio.composeapp.generated.resources.whats_new_last_checked_just_now
 import nuvio.composeapp.generated.resources.whats_new_last_checked_minutes
+import nuvio.composeapp.generated.resources.whats_new_last_checked_week
+import nuvio.composeapp.generated.resources.whats_new_last_checked_weeks
+import nuvio.composeapp.generated.resources.whats_new_last_checked_month
+import nuvio.composeapp.generated.resources.whats_new_last_checked_months
+import nuvio.composeapp.generated.resources.whats_new_last_checked_year
+import nuvio.composeapp.generated.resources.whats_new_last_checked_years
 import nuvio.composeapp.generated.resources.whats_new_latest_release
 import nuvio.composeapp.generated.resources.whats_new_load_failed
 import nuvio.composeapp.generated.resources.whats_new_no_release_notes
