@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -512,6 +513,14 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
     val expansionLabel = stringResource(
         if (expanded) Res.string.action_collapse else Res.string.action_expand,
     )
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(
+            durationMillis = NuvioTokens.Motion.fastMillis,
+            easing = NuvioTokens.Motion.standard,
+        ),
+        label = "release_chevron_rotation",
+    )
     NuvioSurfaceCard {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -565,7 +574,7 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                     contentDescription = null,
                     modifier = Modifier
                         .size(NuvioTokens.Icon.md)
-                        .rotate(if (expanded) 90f else 0f),
+                        .rotate(chevronRotation),
                     tint = MaterialTheme.nuvio.colors.textMuted,
                 )
             }
@@ -620,7 +629,7 @@ private fun ReleaseNotes(
     val contributors = release.notes
         .mapNotNull { it.authorLogin?.takeIf(String::isNotBlank) }
         .distinct()
-    val showContributors = contributors.isNotEmpty() && expanded
+    val showContributors = contributors.isNotEmpty() && (expanded || !allowToggle)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
