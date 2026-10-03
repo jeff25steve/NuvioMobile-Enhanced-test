@@ -392,7 +392,7 @@ private fun CurrentVersionCard(
     lastCheckedLabel: String,
     status: String,
 ) {
-    NuvioSurfaceCard(modifier = modifier) {
+    NuvioSurfaceCard {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
