@@ -158,10 +158,14 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
             UpdateChannel.BETA -> Res.string.updates_channel_beta
         },
     )
+    val buildChannel = when (AppVersionConfig.BUILD_CHANNEL.trim().lowercase()) {
+        UpdateChannel.BETA.storedValue -> UpdateChannel.BETA
+        else -> UpdateChannel.STABLE
+    }
     val buildChannelLabel = stringResource(
-        when (AppVersionConfig.BUILD_CHANNEL.trim().lowercase()) {
-            UpdateChannel.BETA.storedValue -> Res.string.updates_channel_beta
-            else -> Res.string.updates_channel_stable
+        when (buildChannel) {
+            UpdateChannel.STABLE -> Res.string.updates_channel_stable
+            UpdateChannel.BETA -> Res.string.updates_channel_beta
         },
     )
 
@@ -239,7 +243,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         version = snapshot.currentVersion,
                         buildChannelLabel = buildChannelLabel,
                         viewingChannelLabel = channelLabel,
-                        showViewingChannel = channelLabel != buildChannelLabel,
+                        showViewingChannel = channel != buildChannel,
                         lastCheckedLabel = lastCheckedLabel(value.content.fetchedAtMillis),
                         status = versionStatus(snapshot, channelLabel),
                     )
@@ -562,7 +566,7 @@ private fun ReleaseCard(
                 expanded = expanded,
                 onToggle = { expanded = !expanded },
                 allowToggle = release.notes.size > previewNoteCount,
-                showGithub = release.notes.size <= previewNoteCount || expanded,
+                showGithub = true,
             )
         }
     }
