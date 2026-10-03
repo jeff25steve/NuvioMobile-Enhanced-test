@@ -8,6 +8,7 @@ workflows:
       java: 17
       vars:
         CM_RECURSIVE_SUBMODULE_INIT: "false"
+        NUVIO_BUILD_CHANNEL: "beta"
 
     scripts:
       - name: Set Android SDK location
