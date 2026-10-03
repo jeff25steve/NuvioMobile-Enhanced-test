@@ -39,6 +39,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import com.nuvio.app.core.ui.NuvioScreen
@@ -47,6 +50,7 @@ import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_retry
 import nuvio.composeapp.generated.resources.whats_new_empty
 import nuvio.composeapp.generated.resources.whats_new_load_more
+import nuvio.composeapp.generated.resources.whats_new_last_checked
 import nuvio.composeapp.generated.resources.whats_new_loading
 import nuvio.composeapp.generated.resources.whats_new_more_changes
 import nuvio.composeapp.generated.resources.whats_new_refresh
@@ -120,6 +124,16 @@ fun WhatsNewScreen(onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    state.lastCheckedEpochMs?.let {
+                        Text(
+                            text = stringResource(
+                                Res.string.whats_new_last_checked,
+                                formatLastChecked(it),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     state.errorMessage?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
@@ -137,9 +151,10 @@ fun WhatsNewScreen(onBack: () -> Unit) {
                 }
             }
 
+            val history = state.releases.filterNot { it.isNewerThanCurrent }
             item {
                 Text(
-                    text = stringResource(Res.string.whats_new_title),
+                    text = "Recent history",
                     modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 2.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -302,4 +317,12 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
             label = { Text(stringResource(Res.string.action_retry)) },
         )
     }
+}
+
+
+private fun formatLastChecked(epochMs: Long): String {
+    val date = Instant.fromEpochMilliseconds(epochMs)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .date
+    return formatReleaseDateForDisplay(date.toString())
 }
