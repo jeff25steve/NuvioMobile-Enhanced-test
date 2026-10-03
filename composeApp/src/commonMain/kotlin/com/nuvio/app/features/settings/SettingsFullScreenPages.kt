@@ -21,6 +21,7 @@ import com.nuvio.app.features.plugins.PluginRepository
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.buildAddonCatalogRefreshSignature
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository
+import com.nuvio.app.features.whatsnew.WhatsNewScreen
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_settings_page_account
 import nuvio.composeapp.generated.resources.compose_settings_page_addons
@@ -207,4 +208,12 @@ fun AccountSettingsScreen(
             isTablet = false,
         )
     }
+}
+
+
+@Composable
+fun WhatsNewSettingsScreen(
+    onBack: () -> Unit,
+) {
+    WhatsNewScreen(onBack = onBack)
 }
