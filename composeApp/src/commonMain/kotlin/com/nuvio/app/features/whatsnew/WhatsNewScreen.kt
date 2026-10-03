@@ -1,6 +1,11 @@
 package com.nuvio.app.features.whatsnew
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,6 +143,12 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
             UpdateChannel.BETA -> Res.string.updates_channel_beta
         },
     )
+    val buildChannelLabel = stringResource(
+        when (AppVersionConfig.BUILD_CHANNEL.trim().lowercase()) {
+            UpdateChannel.BETA.storedValue -> Res.string.updates_channel_beta
+            else -> Res.string.updates_channel_stable
+        },
+    )
 
     NuvioScreen {
         stickyHeader {
@@ -211,7 +222,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                 item {
                     CurrentVersionCard(
                         version = snapshot.currentVersion,
-                        channelLabel = channelLabel,
+                        channelLabel = buildChannelLabel,
                         lastCheckedLabel = lastCheckedLabel(value.content.fetchedAtMillis),
                         status = versionStatus(snapshot, channelLabel),
                     )
@@ -358,19 +369,15 @@ private fun CurrentVersionCard(
                     color = MaterialTheme.nuvio.colors.textSecondary,
                 )
             }
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s8),
+                verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s2),
             ) {
                 Text(
                     text = status,
-                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.nuvio.colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = lastCheckedLabel,
@@ -562,7 +569,34 @@ private fun ReleaseHistoryRow(release: WhatsNewRelease) {
                     tint = MaterialTheme.nuvio.colors.textMuted,
                 )
             }
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = NuvioTokens.Motion.normalMillis,
+                        easing = NuvioTokens.Motion.standard,
+                    ),
+                ) + expandVertically(
+                    animationSpec = tween(
+                        durationMillis = NuvioTokens.Motion.normalMillis,
+                        easing = NuvioTokens.Motion.standard,
+                    ),
+                    expandFrom = Alignment.Top,
+                ),
+                exit = fadeOut(
+                    animationSpec = tween(
+                        durationMillis = NuvioTokens.Motion.fastMillis,
+                        easing = NuvioTokens.Motion.accelerate,
+                    ),
+                ) + shrinkVertically(
+                    animationSpec = tween(
+                        durationMillis = NuvioTokens.Motion.fastMillis,
+                        easing = NuvioTokens.Motion.accelerate,
+                    ),
+                    shrinkTowards = Alignment.Top,
+                ),
+                label = "release_notes_visibility",
+            ) {
                 ReleaseNotes(
                     release = release,
                     expanded = true,
@@ -642,8 +676,6 @@ private fun ReleaseNotes(
                 text = contributors.joinToString(" · ") { "@$it" },
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.colors.textSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
         }
 
