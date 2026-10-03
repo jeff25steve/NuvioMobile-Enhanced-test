@@ -105,7 +105,7 @@ class WhatsNewSnapshotBuilderTest {
         val cleaned = WhatsNewSnapshotBuilder.cleanReleaseNotes(
             """
             > **💡 Note**
-            - fix(player): use \`hardware acceleration\` instead @alice
+            - fix(player): use `hardware acceleration` instead @alice
             - ~~old wording~~ replaced with the new wording
             """.trimIndent(),
         )
