@@ -23,6 +23,12 @@ private val markdownStrikePattern = Regex("""~~(.+?)~~""")
 private val markdownTaskPattern = Regex("""^\[[ xX]\]\s+""")
 private val markdownRulePattern = Regex("""-{3,}\s*$""")
 private val listMarkerPattern = Regex("""^[•*+-]\s+""")
+private val conventionalCommitDisplayPattern = Regex(
+    """^(?:feat|fix|perf|refactor|docs|test|ci|build|chore|revert|i18n)(?:\([^)]*\))?(?:!)?:\s*""",
+    RegexOption.IGNORE_CASE,
+)
+private val leadingAddPattern = Regex("""^add\b""", RegexOption.IGNORE_CASE)
+
 
 internal object WhatsNewSnapshotBuilder {
     fun build(
@@ -114,6 +120,35 @@ internal object WhatsNewSnapshotBuilder {
                 text = exactWording,
                 authorLogin = authorLogin,
             )
+        }
+    }
+
+    internal fun formatReleaseNoteForDisplay(rawText: String): String {
+        var text = rawText
+            .replaceFirst(conventionalCommitDisplayPattern, "")
+            .trim()
+
+        text = text.replaceFirst(leadingAddPattern, "Added")
+
+        val leadingWord = text.takeWhile { it.isLetter() }
+        return when (leadingWord.lowercase()) {
+            "ios" -> "iOS" + text.drop(leadingWord.length)
+            "android" -> "Android" + text.drop(leadingWord.length)
+            "tv" -> "TV" + text.drop(leadingWord.length)
+            "imdb" -> "IMDb" + text.drop(leadingWord.length)
+            "tmdb" -> "TMDB" + text.drop(leadingWord.length)
+            else -> {
+                val firstLetterIndex = text.indexOfFirst(Char::isLetter)
+                if (firstLetterIndex < 0) {
+                    text
+                } else {
+                    text.replaceRange(
+                        firstLetterIndex,
+                        firstLetterIndex + 1,
+                        text[firstLetterIndex].uppercase(),
+                    )
+                }
+            }
         }
     }
 
