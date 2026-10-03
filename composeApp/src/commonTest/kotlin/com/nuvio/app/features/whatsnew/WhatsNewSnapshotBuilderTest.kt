@@ -49,8 +49,8 @@ class WhatsNewSnapshotBuilderTest {
         assertEquals(
             listOf(
                 "Added a feature.",
-                "Changed an existing behavior",
-                "Fixed a crash",
+                "Changed an existing behavior by",
+                "Fixed a crash by",
             ),
             cleaned.map(WhatsNewNote::text),
         )
