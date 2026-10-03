@@ -230,6 +230,10 @@ plugins {
     alias(libs.plugins.kotlinxSerialization)
 }
 
+compose.resources {
+    generateResClass = always
+}
+
 val supabaseProps = Properties().apply {
     val propsFile = rootProject.file("local.properties")
     if (propsFile.exists()) propsFile.inputStream().use { load(it) }
