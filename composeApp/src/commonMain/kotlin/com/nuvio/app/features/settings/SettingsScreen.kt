@@ -648,6 +648,9 @@ private fun MobileSettingsScreen(
 ) {
     val saveableStateHolder = rememberSaveableStateHolder()
     saveableStateHolder.SaveableStateProvider(page.name) {
+        if (page == SettingsPage.WhatsNew) {
+            WhatsNewSettingsScreen(onBack = onNavigateBack)
+        } else {
         var settingsSearchQuery by rememberSaveable { mutableStateOf("") }
         var rootSearchVisible by rememberSaveable { mutableStateOf(false) }
         var rootSearchRevealAnimating by rememberSaveable { mutableStateOf(false) }
@@ -798,7 +801,7 @@ private fun MobileSettingsScreen(
                 SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                     isTablet = false,
                 )
-                 SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = false)
+                 SettingsPage.WhatsNew -> Unit
                 SettingsPage.Playback -> playbackSettingsContent(
                     isTablet = false,
                     showLoadingOverlay = showLoadingOverlay,
@@ -1129,6 +1132,9 @@ private fun TabletSettingsScreen(
         }
 
         saveableStateHolder.SaveableStateProvider(page.name) {
+            if (page == SettingsPage.WhatsNew) {
+                WhatsNewSettingsScreen(onBack = onNavigateBack)
+            } else {
             var settingsSearchQuery by rememberSaveable { mutableStateOf("") }
             var rootSearchVisible by rememberSaveable { mutableStateOf(false) }
             var rootSearchRevealAnimating by rememberSaveable { mutableStateOf(false) }
@@ -1276,7 +1282,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.LicensesAttributions -> licensesAttributionsContent(
                         isTablet = true,
                     )
-                     SettingsPage.WhatsNew -> whatsNewSettingsContent(isTablet = true)
+                     SettingsPage.WhatsNew -> Unit
                     SettingsPage.Playback -> playbackSettingsContent(
                         isTablet = true,
                         showLoadingOverlay = showLoadingOverlay,
