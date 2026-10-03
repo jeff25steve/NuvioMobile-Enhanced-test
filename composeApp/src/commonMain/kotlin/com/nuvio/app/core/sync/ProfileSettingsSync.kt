@@ -100,21 +100,29 @@ object ProfileSettingsSync {
     fun clearAccountState() {
         observeJob?.cancel()
         observeJob = null
+        pendingPushRetryJob?.cancel()
+        pendingPushRetryJob = null
+        pendingLocalPush = null
         skipNextPushSignature = null
         ProviderCredentialSync.clearAccountState()
     }
 
     fun onProfileChanged() {
-        if (observeJob?.isActive != true) return
+        pendingPushRetryJob?.cancel()
+        pendingPushRetryJob = null
+        pendingLocalPush = null
         skipNextPushSignature = currentObservedStateSignature()
-        ProviderCredentialSync.onProfileChanged()
+        if (observeJob?.isActive == true) {
+            ProviderCredentialSync.onProfileChanged()
+        }
     }
 
     suspend fun pull(profileId: Int): Boolean {
         ensureRepositoriesLoaded()
+        val accountId = currentCloudAccountId() ?: return false
         return syncMutex.withLock {
-            if (ProfileRepository.activeProfileId != profileId) {
-                log.d { "pull(profileId=$profileId) — skipped because profile is no longer active" }
+            if (!isCurrentSyncTarget(profileId = profileId, accountId = accountId)) {
+                log.d { "pull(profileId=$profileId) — skipped because sync target changed" }
                 return@withLock false
             }
             isServerSyncInFlight = true
@@ -129,7 +137,7 @@ object ProfileSettingsSync {
                     put("p_platform", MOBILE_SYNC_PLATFORM)
                 }
                 val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profile_settings_blob", params)
-                if (ProfileRepository.activeProfileId != profileId) return@withLock false
+                if (!isCurrentSyncTarget(profileId = profileId, accountId = accountId)) return@withLock false
                 val response = result.decodeList<SettingsBlobResponse>().firstOrNull()
                 val remoteJson = response?.settingsJson
 
@@ -137,6 +145,7 @@ object ProfileSettingsSync {
                     log.i { "pull(profileId=$profileId) — no remote settings blob found" }
                     if (currentObservedStateSignature() != observedSignatureAtStart) {
                         pendingLocalPush = PendingLocalPush(
+                            accountId = accountId,
                             profileId = profileId,
                             signature = currentObservedStateSignature(),
                         )
@@ -158,12 +167,18 @@ object ProfileSettingsSync {
 
                 // A settings pull must never overwrite a user edit that happened while the
                 // request was in flight. Preserve that local state and let the retry path push it.
+                val pendingMatchesPullStart = pendingLocalPush?.let { pending ->
+                    pending.accountId == accountId &&
+                        pending.profileId == profileId &&
+                        pending.signature == observedSignatureAtStart
+                } == true
                 if (
-                    ProfileRepository.activeProfileId != profileId ||
+                    !isCurrentSyncTarget(profileId = profileId, accountId = accountId) ||
                     currentObservedStateSignature() != observedSignatureAtStart ||
-                    pendingLocalPush?.profileId == profileId
+                    pendingMatchesPullStart
                 ) {
                     pendingLocalPush = PendingLocalPush(
+                        accountId = accountId,
                         profileId = profileId,
                         signature = currentObservedStateSignature(),
                     )
@@ -195,12 +210,14 @@ object ProfileSettingsSync {
 
     suspend fun pushCurrentProfileToRemote(): Boolean {
         ensureRepositoriesLoaded()
+        val accountId = currentCloudAccountId() ?: return false
         return syncMutex.withLock {
             runCatching {
                 val profileId = ProfileRepository.activeProfileId
+                if (!isCurrentSyncTarget(profileId = profileId, accountId = accountId)) return@runCatching false
                 val blob = exportSettingsBlob()
-                if (ProfileRepository.activeProfileId != profileId) return@runCatching false
                 pushToRemoteLocked(profileId, blob)
+                if (!isCurrentSyncTarget(profileId = profileId, accountId = accountId)) return@runCatching false
                 true
             }.onFailure { error ->
                 log.e(error) { "pushCurrentProfileToRemote() — FAILED" }
@@ -242,6 +259,7 @@ object ProfileSettingsSync {
                     if (authState !is AuthState.Authenticated || authState.isAnonymous) return@onEach
                     if (isApplyingRemoteBlob) return@onEach
                     pendingLocalPush = PendingLocalPush(
+                        accountId = authState.userId,
                         profileId = ProfileRepository.activeProfileId,
                         signature = signature,
                     )
@@ -279,7 +297,7 @@ object ProfileSettingsSync {
                 val pending = pendingLocalPush ?: break
                 val authState = AuthRepository.state.value
                 if (authState !is AuthState.Authenticated || authState.isAnonymous) break
-                if (ProfileRepository.activeProfileId != pending.profileId) break
+                if (authState.userId != pending.accountId || ProfileRepository.activeProfileId != pending.profileId) break
                 if (isApplyingRemoteBlob || isServerSyncInFlight) {
                     retryDelayMs = (retryDelayMs * 2L).coerceAtMost(30_000L)
                     continue
@@ -287,6 +305,7 @@ object ProfileSettingsSync {
                 val currentSignature = currentObservedStateSignature()
                 if (currentSignature != pending.signature) {
                     pendingLocalPush = PendingLocalPush(
+                        accountId = authState.userId,
                         profileId = ProfileRepository.activeProfileId,
                         signature = currentSignature,
                     )
@@ -307,6 +326,14 @@ object ProfileSettingsSync {
         }
     }
 
+
+    private fun currentCloudAccountId(): String? =
+        (AuthRepository.state.value as? AuthState.Authenticated)
+            ?.takeUnless { it.isAnonymous }
+            ?.userId
+
+    private fun isCurrentSyncTarget(profileId: Int, accountId: String): Boolean =
+        ProfileRepository.activeProfileId == profileId && currentCloudAccountId() == accountId
 
     private suspend fun pushToRemoteLocked(profileId: Int, blob: MobileProfileSettingsBlob) {
         val params = buildJsonObject {
@@ -465,6 +492,7 @@ object ProfileSettingsSync {
 }
 
 private data class PendingLocalPush(
+    val accountId: String,
     val profileId: Int,
     val signature: String,
 )

@@ -102,7 +102,7 @@ object ProfileRepository {
         if (stored == null) {
             _state.value = ProfileState()
             activeProfileIndex = 1
-            ThemeSettingsRepository.onProfileChanged()
+            ThemeSettingsRepository.clearLocalState()
             return
         }
 
