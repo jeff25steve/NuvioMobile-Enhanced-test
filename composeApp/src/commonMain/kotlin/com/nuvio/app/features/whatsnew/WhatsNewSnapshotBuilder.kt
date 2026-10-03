@@ -28,6 +28,12 @@ private val conventionalCommitDisplayPattern = Regex(
     RegexOption.IGNORE_CASE,
 )
 private val leadingAddPattern = Regex("""^add\b""", RegexOption.IGNORE_CASE)
+private val iosWordPattern = Regex("""\bios\b""", RegexOption.IGNORE_CASE)
+private val androidWordPattern = Regex("""\bandroid\b""", RegexOption.IGNORE_CASE)
+private val tvWordPattern = Regex("""\btv\b""", RegexOption.IGNORE_CASE)
+private val imdbWordPattern = Regex("""\bimdb\b""", RegexOption.IGNORE_CASE)
+private val tmdbWordPattern = Regex("""\btmdb\b""", RegexOption.IGNORE_CASE)
+
 
 
 internal object WhatsNewSnapshotBuilder {
@@ -129,26 +135,22 @@ internal object WhatsNewSnapshotBuilder {
             .trim()
 
         text = text.replaceFirst(leadingAddPattern, "Added")
+        text = text
+            .replace(iosWordPattern, "iOS")
+            .replace(androidWordPattern, "Android")
+            .replace(tvWordPattern, "TV")
+            .replace(imdbWordPattern, "IMDb")
+            .replace(tmdbWordPattern, "TMDB")
 
-        val leadingWord = text.takeWhile { it.isLetter() }
-        return when (leadingWord.lowercase()) {
-            "ios" -> "iOS" + text.drop(leadingWord.length)
-            "android" -> "Android" + text.drop(leadingWord.length)
-            "tv" -> "TV" + text.drop(leadingWord.length)
-            "imdb" -> "IMDb" + text.drop(leadingWord.length)
-            "tmdb" -> "TMDB" + text.drop(leadingWord.length)
-            else -> {
-                val firstLetterIndex = text.indexOfFirst(Char::isLetter)
-                if (firstLetterIndex < 0) {
-                    text
-                } else {
-                    text.replaceRange(
-                        firstLetterIndex,
-                        firstLetterIndex + 1,
-                        text[firstLetterIndex].uppercase(),
-                    )
-                }
-            }
+        val firstLetterIndex = text.indexOfFirst(Char::isLetter)
+        return if (firstLetterIndex < 0) {
+            text
+        } else {
+            text.replaceRange(
+                firstLetterIndex,
+                firstLetterIndex + 1,
+                text[firstLetterIndex].uppercase(),
+            )
         }
     }
 
