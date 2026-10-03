@@ -37,6 +37,25 @@ Before adding or changing a settings page:
 6. Run the exact Codemagic workflow for the affected distribution; do not use GitHub Actions while the project CI restriction is active.
 7. Treat compiler diagnostics from the first clean build as authoritative and fix the earliest real source error before interpreting cascading errors.
 
+## 2026-10-03 — Codemagic Android Full Debug failure: generated Compose resources missing
+
+Codemagic run #8 reached Kotlin compilation, but the compiler reported unresolved generated accessors such as `Res.string.whats_new_since_unavailable`, `Res.string.whats_new_refresh_failed_cached`, `Res.string.whats_new_since_one_release`, `Res.string.whats_new_since_releases`, and `Res.string.whats_new_status_newer_releases_available`.
+
+The source strings were verified in `composeApp/src/commonMain/composeResources/values/strings.xml`. They are legal Compose resource identifiers and exist exactly once, so the failure is not explained by a missing XML declaration.
+
+The Compose Multiplatform pipeline generates Kotlin accessors through `generateResourceAccessorsForCommonMain`. Current KMP/Gradle ecosystems have documented cases where generated resource outputs are consumed without an explicit task dependency, producing incorrect build results.
+
+### Prevention now implemented
+
+- `composeApp/build.gradle.kts` explicitly makes Kotlin compilation depend on the common Compose resource generation tasks:
+  - `generateComposeResClass`
+  - `generateResourceAccessorsForCommonMain`
+  - `generateExpectResourceCollectorsForCommonMain`
+- `codemagic.yaml` now has a preflight step that force-runs `generateResourceAccessorsForCommonMain` and verifies that the generated output contains a What’s New accessor before the expensive APK compile step begins.
+- Do not treat `Res.string.*` errors as missing XML until the generated accessor output has been checked.
+- After any KMP/AGP/Compose upgrade, re-check task dependency wiring for generated source directories.
+
+
 ## Editing-process lesson
 
 An intermediate automated edit added unmatched/extra closing braces while trying to wrap the missing What's New page. The file was subsequently checked and repaired, but this demonstrates that large text-based rewrites must be followed by:
