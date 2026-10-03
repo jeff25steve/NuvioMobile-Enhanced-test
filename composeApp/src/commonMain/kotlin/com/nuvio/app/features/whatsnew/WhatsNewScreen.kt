@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsStateWithLifecycle
@@ -256,14 +257,14 @@ private fun ReleaseCard(
                     }
                 }
                 if (!expanded && release.notes.size > previewCount) {
-                    Text(
-                        text = stringResource(
-                            Res.string.whats_new_more_changes,
-                            release.notes.size - previewCount,
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                    TextButton(onClick = onToggle) {
+                        Text(
+                            text = stringResource(
+                                Res.string.whats_new_more_changes,
+                                release.notes.size - previewCount,
+                            ),
+                        )
+                    }
                 }
             }
 
