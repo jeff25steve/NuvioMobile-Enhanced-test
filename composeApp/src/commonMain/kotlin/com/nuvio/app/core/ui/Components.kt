@@ -126,7 +126,7 @@ fun NuvioSurfaceCard(
     val tokens = MaterialTheme.nuvio
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = tokens.colors.surface,
+        color = tokens.colors.surfaceCard,
         shape = tokens.shapes.card,
         tonalElevation = tonalElevation.dp,
         shadowElevation = tokens.elevation.flat,
