@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.datetime.TimeZone
+import kotlin.time.Instant
 
 class WhatsNewSnapshotBuilderTest {
     @Test
@@ -292,6 +294,106 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Allows users to add profiles"),
         )
     }
+
+    @Test
+    fun lastCheckedUsesSingularAndPluralUnitsCorrectly() {
+        val cases = listOf(
+            "1 minute" to LastCheckedAge(1L, LastCheckedUnit.MINUTE),
+            "2 minutes" to LastCheckedAge(2L, LastCheckedUnit.MINUTE),
+            "1 hour" to LastCheckedAge(1L, LastCheckedUnit.HOUR),
+            "2 hours" to LastCheckedAge(2L, LastCheckedUnit.HOUR),
+            "1 day" to LastCheckedAge(1L, LastCheckedUnit.DAY),
+            "2 days" to LastCheckedAge(2L, LastCheckedUnit.DAY),
+            "1 week" to LastCheckedAge(1L, LastCheckedUnit.WEEK),
+            "3 weeks" to LastCheckedAge(3L, LastCheckedUnit.WEEK),
+            "1 month" to LastCheckedAge(1L, LastCheckedUnit.MONTH),
+            "2 months" to LastCheckedAge(2L, LastCheckedUnit.MONTH),
+            "1 year" to LastCheckedAge(1L, LastCheckedUnit.YEAR),
+            "2 years" to LastCheckedAge(2L, LastCheckedUnit.YEAR),
+        )
+
+        cases.forEach { (label, expected) ->
+            val amountMillis = when (expected.unit) {
+                LastCheckedUnit.MINUTE -> expected.amount * 60L * 1_000L
+                LastCheckedUnit.HOUR -> expected.amount * 60L * 60L * 1_000L
+                LastCheckedUnit.DAY -> expected.amount * 24L * 60L * 60L * 1_000L
+                LastCheckedUnit.WEEK -> expected.amount * 7L * 24L * 60L * 60L * 1_000L
+                LastCheckedUnit.MONTH -> when (expected.amount) {
+                    1L -> daysBetween("2026-01-03T12:00:00Z", "2026-02-03T12:00:00Z")
+                    else -> daysBetween("2026-01-03T12:00:00Z", "2026-03-03T12:00:00Z")
+                } * 24L * 60L * 60L * 1_000L
+                LastCheckedUnit.YEAR -> when (expected.amount) {
+                    1L -> daysBetween("2025-10-03T12:00:00Z", "2026-10-03T12:00:00Z")
+                    else -> daysBetween("2024-10-03T12:00:00Z", "2026-10-03T12:00:00Z")
+                } * 24L * 60L * 60L * 1_000L
+                LastCheckedUnit.JUST_NOW -> 0L
+            }
+
+            val start = Instant.parse(
+                when (expected.unit) {
+                    LastCheckedUnit.MONTH -> "2026-01-03T12:00:00Z"
+                    LastCheckedUnit.YEAR -> "2025-10-03T12:00:00Z"
+                    else -> "2026-01-01T12:00:00Z"
+                },
+            )
+            val result = calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = start.toEpochMilliseconds() + amountMillis,
+                timeZone = TimeZone.UTC,
+            )
+
+            assertEquals(expected, result, label)
+        }
+    }
+
+    @Test
+    fun lastCheckedUsesCalendarMonthsInsteadOfThirtyDayApproximation() {
+        val start = Instant.parse("2026-01-31T12:00:00Z")
+        val end = Instant.parse("2026-03-31T12:00:00Z")
+
+        assertEquals(
+            LastCheckedAge(2L, LastCheckedUnit.MONTH),
+            calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = end.toEpochMilliseconds(),
+                timeZone = TimeZone.UTC,
+            ),
+        )
+    }
+
+    @Test
+    fun lastCheckedUsesCalendarYearsAcrossLeapYears() {
+        val start = Instant.parse("2024-01-03T12:00:00Z")
+        val end = Instant.parse("2025-01-03T12:00:00Z")
+
+        assertEquals(
+            LastCheckedAge(1L, LastCheckedUnit.YEAR),
+            calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = end.toEpochMilliseconds(),
+                timeZone = TimeZone.UTC,
+            ),
+        )
+    }
+
+    @Test
+    fun lastCheckedUsesCalendarDaysBeforeFallingBackToHours() {
+        val start = Instant.parse("2026-03-01T12:00:00Z")
+        val end = Instant.parse("2026-03-08T12:00:00Z")
+
+        assertEquals(
+            LastCheckedAge(1L, LastCheckedUnit.WEEK),
+            calculateLastCheckedAge(
+                fetchedAtMillis = start.toEpochMilliseconds(),
+                nowMillis = end.toEpochMilliseconds(),
+                timeZone = TimeZone.UTC,
+            ),
+        )
+    }
+
+    private fun daysBetween(start: String, end: String): Long =
+        (Instant.parse(end).toEpochMilliseconds() - Instant.parse(start).toEpochMilliseconds()) /
+            (24L * 60L * 60L * 1_000L)
 
     @Test
     fun cleanReleaseNotesPreservesAllItemsFromTheThirteenChangeRelease() {
