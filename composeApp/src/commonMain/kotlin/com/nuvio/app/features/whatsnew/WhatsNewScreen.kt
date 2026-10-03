@@ -70,7 +70,6 @@ import nuvio.composeapp.generated.resources.whats_new_category_fixes
 import nuvio.composeapp.generated.resources.whats_new_category_localization
 import nuvio.composeapp.generated.resources.whats_new_category_other
 import nuvio.composeapp.generated.resources.whats_new_category_performance
-import nuvio.composeapp.generated.resources.whats_new_current_version
 import nuvio.composeapp.generated.resources.whats_new_hide_changes
 import nuvio.composeapp.generated.resources.whats_new_last_checked_days
 import nuvio.composeapp.generated.resources.whats_new_last_checked_hours
@@ -82,9 +81,7 @@ import nuvio.composeapp.generated.resources.whats_new_no_release_notes
 import nuvio.composeapp.generated.resources.whats_new_no_releases
 import nuvio.composeapp.generated.resources.whats_new_open_github
 import nuvio.composeapp.generated.resources.whats_new_refresh
-import nuvio.composeapp.generated.resources.whats_new_refreshing
 import nuvio.composeapp.generated.resources.whats_new_release_format
-import nuvio.composeapp.generated.resources.whats_new_contributor_credit
 import nuvio.composeapp.generated.resources.whats_new_show_all_changes
 import nuvio.composeapp.generated.resources.whats_new_status_current_ahead
 import nuvio.composeapp.generated.resources.whats_new_status_newer_releases_available
@@ -98,7 +95,6 @@ import nuvio.composeapp.generated.resources.whats_new_since_one_release
 import nuvio.composeapp.generated.resources.whats_new_since_releases
 import nuvio.composeapp.generated.resources.whats_new_since_unavailable
 import nuvio.composeapp.generated.resources.whats_new_recent_releases
-import nuvio.composeapp.generated.resources.whats_new_channel_format
 import org.jetbrains.compose.resources.stringResource
 
 private const val PREVIEW_NOTE_CHAR_LIMIT = 420
