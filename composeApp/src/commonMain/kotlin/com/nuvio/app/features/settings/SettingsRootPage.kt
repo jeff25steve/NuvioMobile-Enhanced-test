@@ -53,6 +53,8 @@ import nuvio.composeapp.generated.resources.compose_settings_root_privacy_policy
 import nuvio.composeapp.generated.resources.compose_settings_root_switch_profile_description
 import nuvio.composeapp.generated.resources.compose_settings_root_switch_profile_title
 import nuvio.composeapp.generated.resources.compose_settings_root_tracking_description
+import nuvio.composeapp.generated.resources.compose_settings_root_whats_new_title
+import nuvio.composeapp.generated.resources.compose_settings_root_whats_new_description
 import nuvio.composeapp.generated.resources.compose_settings_root_about_section
 import nuvio.composeapp.generated.resources.compose_settings_root_account_section
 import nuvio.composeapp.generated.resources.compose_settings_root_advanced_description
@@ -79,6 +81,7 @@ internal fun LazyListScope.settingsRootContent(
     onTrackingClick: () -> Unit,
     onSupportersContributorsClick: () -> Unit,
     onLicensesAttributionsClick: () -> Unit,
+    onWhatsNewClick: () -> Unit,
     onCheckForUpdatesClick: (() -> Unit)? = null,
     onTestUpdateBannerClick: (() -> Unit)? = null,
     onAccountClick: () -> Unit,
@@ -207,6 +210,14 @@ internal fun LazyListScope.settingsRootContent(
                         icon = Icons.Rounded.Info,
                         isTablet = isTablet,
                         onClick = onLicensesAttributionsClick,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.compose_settings_root_whats_new_title),
+                        description = stringResource(Res.string.compose_settings_root_whats_new_description),
+                        icon = Icons.Rounded.Info,
+                        isTablet = isTablet,
+                        onClick = onWhatsNewClick,
                     )
                     if (onCheckForUpdatesClick != null) {
                         SettingsGroupDivider(isTablet = isTablet)
