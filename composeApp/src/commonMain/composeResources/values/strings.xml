@@ -2637,4 +2637,17 @@
     <string name="movie_status_rumored">Rumored</string>
     <string name="movie_status_in_production">In Production</string>
     <string name="movie_status_post_production">Post Production</string>
+
+    <string name="compose_settings_root_whats_new_title">What&apos;s New</string>
+    <string name="compose_settings_root_whats_new_description">See what changed since your version</string>
+    <string name="whats_new_title">What&apos;s New</string>
+    <string name="whats_new_refresh">Refresh release history</string>
+    <string name="whats_new_since_version">Changes since v%1$s</string>
+    <string name="whats_new_up_to_date">You&apos;re up to date.</string>
+    <string name="whats_new_empty">No release history is available.</string>
+    <string name="whats_new_loading">Loading release history…</string>
+    <string name="whats_new_load_more">Load more releases</string>
+    <string name="whats_new_more_changes">+ %1$d more changes</string>
+    <string name="whats_new_view_on_github">View release on GitHub</string>
+
 </resources>
