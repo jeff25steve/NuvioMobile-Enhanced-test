@@ -2678,6 +2678,12 @@
     <string name="whats_new_last_checked_minutes">Last checked %1$d minutes ago</string>
     <string name="whats_new_last_checked_hours">Last checked %1$d hours ago</string>
     <string name="whats_new_last_checked_days">Last checked %1$d days ago</string>
+    <string name="whats_new_last_checked_week">Last checked %1$d week ago</string>
+    <string name="whats_new_last_checked_weeks">Last checked %1$d weeks ago</string>
+    <string name="whats_new_last_checked_month">Last checked %1$d month ago</string>
+    <string name="whats_new_last_checked_months">Last checked %1$d months ago</string>
+    <string name="whats_new_last_checked_year">Last checked %1$d year ago</string>
+    <string name="whats_new_last_checked_years">Last checked %1$d years ago</string>
     <string name="whats_new_status_up_to_date">You’re up to date with the %1$s channel.</string>
     <string name="whats_new_status_newer_releases_available">Newer releases are available.</string>
     <string name="whats_new_status_update_available">1 newer release is available.</string>
