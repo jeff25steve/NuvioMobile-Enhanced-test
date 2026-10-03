@@ -46,6 +46,40 @@ class WhatsNewSnapshotBuilderTest {
     }
 
     @Test
+    fun futureStablePromotionAndBetaReleasesAreAllShownAsNewForCurrentBeta() {
+        val snapshot = WhatsNewSnapshotBuilder.build(
+            releases = listOf(
+                release("0.5.7", title = "0.5.7"),
+                release("0.5.7-beta.2", title = "0.5.7 Beta 2"),
+                release("0.5.7-beta.1", title = "0.5.7 Beta 1"),
+                release("0.5.6-beta.3", title = "0.5.6 Beta 3"),
+            ),
+            currentVersion = "0.5.6-beta.3",
+        )
+
+        assertTrue(snapshot.hasCompleteSinceVersion)
+        assertEquals(
+            listOf("0.5.7", "0.5.7-beta.2", "0.5.7-beta.1"),
+            snapshot.sinceYourVersion.map(WhatsNewRelease::version),
+        )
+    }
+
+    @Test
+    fun currentBetaRemainsUpToDateWhenItIsNewestAvailableRelease() {
+        val snapshot = WhatsNewSnapshotBuilder.build(
+            releases = listOf(
+                release("0.5.7-beta.2"),
+                release("0.5.7-beta.1"),
+                release("0.5.6"),
+            ),
+            currentVersion = "0.5.7-beta.2",
+        )
+
+        assertTrue(snapshot.hasCompleteSinceVersion)
+        assertTrue(snapshot.sinceYourVersion.isEmpty())
+    }
+
+    @Test
     fun currentVersionAtLatestReleaseReportsNoNewReleases() {
         val snapshot = WhatsNewSnapshotBuilder.build(
             releases = listOf(
