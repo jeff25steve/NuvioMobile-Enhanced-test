@@ -66,7 +66,6 @@ import nuvio.composeapp.generated.resources.action_install
 import nuvio.composeapp.generated.resources.action_later
 import nuvio.composeapp.generated.resources.action_retry
 import nuvio.composeapp.generated.resources.action_update
-import nuvio.composeapp.generated.resources.updates_debug_test_complete
 import nuvio.composeapp.generated.resources.updates_downloading_progress
 import nuvio.composeapp.generated.resources.updates_message_allow_installs
 import nuvio.composeapp.generated.resources.updates_message_ready
@@ -168,7 +167,6 @@ private fun AppUpdateBanner(
     val tokens = MaterialTheme.nuvio
     val targetProgress = when {
         state.isDownloading -> state.downloadProgress ?: 0f
-        state.isDebugTest && !state.isUpdateAvailable -> 1f
         else -> 0f
     }.coerceIn(0f, 1f)
     val progress by animateFloatAsState(
@@ -181,7 +179,6 @@ private fun AppUpdateBanner(
     val progressBrush = MaterialTheme.themePalette.accentBrush()
     val progressAlpha = if (isWhiteTheme) 0.18f else 1f
     val dividerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
-    val debugTestComplete = state.isDebugTest && !state.isDownloading && !state.isUpdateAvailable
     val subtitle = when {
         state.errorMessage != null -> state.errorMessage
         state.isDownloading && state.downloadProgress != null -> stringResource(
@@ -227,7 +224,7 @@ private fun AppUpdateBanner(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
-                imageVector = if (debugTestComplete) Icons.Rounded.CheckCircle else Icons.Rounded.CloudDownload,
+                imageVector = Icons.Rounded.CloudDownload,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp),
@@ -270,7 +267,7 @@ private fun AppUpdateBanner(
                 )
             }
 
-            if (!state.isDownloading && !debugTestComplete) {
+            if (!state.isDownloading) {
                 Button(
                     onClick = if (state.downloadedApkPath != null) onInstall else onDownload,
                     enabled = state.downloadedApkPath != null || state.isUpdateAvailable,
