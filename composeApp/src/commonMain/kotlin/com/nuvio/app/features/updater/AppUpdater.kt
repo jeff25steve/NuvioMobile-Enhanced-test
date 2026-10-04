@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +42,7 @@ data class AppUpdaterUiState(
     val showDialog: Boolean = false,
     val showUnknownSourcesDialog: Boolean = false,
     val errorMessage: String? = null,
+    val isDebugTest: Boolean = false,
 )
 
 class AppUpdaterController internal constructor(
@@ -100,6 +102,7 @@ class AppUpdaterController internal constructor(
                     isChecking = true,
                     errorMessage = null,
                     showUnknownSourcesDialog = false,
+                    isDebugTest = false,
                 )
             }
 
@@ -188,6 +191,10 @@ class AppUpdaterController internal constructor(
     fun downloadUpdate() {
         if (_uiState.value.isDownloading) return
         val update = _uiState.value.update ?: return
+        if (_uiState.value.isDebugTest) {
+            runDebugDownloadTest()
+            return
+        }
 
         val previousDownload = downloadJob
         previousDownload?.cancel()
@@ -272,6 +279,45 @@ class AppUpdaterController internal constructor(
             AppUpdaterPlatform.openUnknownSourcesSettings()
         }
     }
+
+    fun showDebugTestUpdate() {
+        if (!AppUpdaterPlatform.isDebugBuild || !AppUpdaterPlatform.isSupported) return
+
+        updateCheckJob?.cancel()
+        downloadJob?.cancel()
+        _uiState.value = AppUpdaterUiState(
+            updateChannel = preferences.channel.value,
+            update = AppUpdate(
+                tag = "9.9.9",
+                title = "Nuvio 9.9.9",
+                notes = """
+                    A local preview of the new update experience.
+
+                    - The banner pushes the app content down.
+                    - Download progress fills the banner with the primary accent.
+                    - Release notes live behind the info button.
+                """.trimIndent(),
+                releaseUrl = null,
+                assetName = "Nuvio-debug-preview.apk",
+                assetUrl = "debug://update-preview",
+                assetSizeBytes = 185L * 1024L * 1024L,
+            ),
+            isUpdateAvailable = true,
+            showDialog = true,
+            isDebugTest = true,
+        )
+    }
+
+    private fun runDebugDownloadTest() {
+        downloadJob = scope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    isDownloading = true,
+                    downloadProgress = 0f,
+                    errorMessage = null,
+                )
+            }
+
             for (step in 1..100) {
                 delay(35)
                 _uiState.update { state -> state.copy(downloadProgress = step / 100f) }
