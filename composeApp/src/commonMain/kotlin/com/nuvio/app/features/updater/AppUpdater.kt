@@ -41,7 +41,6 @@ data class AppUpdaterUiState(
     val showDialog: Boolean = false,
     val showUnknownSourcesDialog: Boolean = false,
     val errorMessage: String? = null,
-    val isDebugTest: Boolean = false,
 )
 
 class AppUpdaterController internal constructor(
@@ -101,7 +100,6 @@ class AppUpdaterController internal constructor(
                     isChecking = true,
                     errorMessage = null,
                     showUnknownSourcesDialog = false,
-                    isDebugTest = false,
                 )
             }
 
