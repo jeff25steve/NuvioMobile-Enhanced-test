@@ -246,7 +246,11 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         viewingChannelLabel = channelLabel,
                         showViewingChannel = channel != buildChannel,
                         lastCheckedLabel = lastCheckedLabel(value.content.fetchedAtMillis),
-                        status = versionStatus(snapshot, channelLabel),
+                        status = versionStatus(
+                    snapshot = snapshot,
+                    channelLabel = channelLabel,
+                    buildChannel = buildChannel,
+                ),
                     )
                 }
 
@@ -437,14 +441,23 @@ private fun CurrentVersionCard(
 private fun versionStatus(
     snapshot: WhatsNewSnapshot,
     channelLabel: String,
+    buildChannel: UpdateChannel,
 ): String {
     val latest = snapshot.releases.firstOrNull()
         ?: return stringResource(Res.string.whats_new_status_unknown)
 
     val latestIsNewer = VersionUtils.isRemoteNewer(latest.version, snapshot.currentVersion)
     val currentIsNewer = VersionUtils.isRemoteNewer(snapshot.currentVersion, latest.version)
+    val betaBuildMatchesDisplayedRelease =
+        buildChannel == UpdateChannel.BETA &&
+            VersionUtils.isPrerelease(latest.version) &&
+            VersionUtils.isSameBaseVersion(latest.version, snapshot.currentVersion)
 
     return when {
+        betaBuildMatchesDisplayedRelease -> stringResource(
+            Res.string.whats_new_status_up_to_date,
+            channelLabel,
+        )
         latestIsNewer && snapshot.hasCompleteSinceVersion -> {
             val count = snapshot.sinceYourVersion.size.coerceAtLeast(1)
             if (count == 1) {
