@@ -186,7 +186,6 @@ private fun AppUpdateBanner(
             (state.downloadProgress * 100).toInt().coerceIn(0, 100),
         )
         state.isDownloading -> stringResource(Res.string.updates_preparing_download)
-        debugTestComplete -> stringResource(Res.string.updates_debug_test_complete)
         state.downloadedApkPath != null -> stringResource(Res.string.updates_message_ready)
         else -> stringResource(Res.string.updates_title_available)
     }
