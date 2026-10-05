@@ -13,7 +13,7 @@ enum class ProfileBiometricResult {
 expect object ProfileBiometricAuth {
     fun initialize(host: Any)
     fun isAvailable(): Boolean
-    fun isConfigured(profileIndex: Int): Boolean
+    suspend fun isConfigured(profileIndex: Int): Boolean
     suspend fun enable(profileIndex: Int): ProfileBiometricResult
     suspend fun authenticate(profileIndex: Int): ProfileBiometricResult
     fun disable(profileIndex: Int)
