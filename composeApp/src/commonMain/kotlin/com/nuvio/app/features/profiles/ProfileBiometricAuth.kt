@@ -3,6 +3,7 @@ package com.nuvio.app.features.profiles
 enum class ProfileBiometricResult {
     Success,
     Cancelled,
+    FallbackRequested,
     Unavailable,
     NotConfigured,
     Invalidated,
