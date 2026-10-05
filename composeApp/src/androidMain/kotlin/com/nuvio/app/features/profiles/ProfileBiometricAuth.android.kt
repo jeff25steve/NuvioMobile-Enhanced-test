@@ -9,11 +9,10 @@ import java.security.KeyStoreException
 import java.security.KeyPermanentlyInvalidatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
-import javax.crypto.NoSuchPaddingException
-import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.KeyProperties
 
 actual object ProfileBiometricAuth {
@@ -158,6 +157,15 @@ actual object ProfileBiometricAuth {
     }
 
     private fun generateKey(profileIndex: Int) {
+        runCatching {
+            generateKey(profileIndex, strongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+        }.onFailure { error ->
+            if (error !is StrongBoxUnavailableException) throw error
+            generateKey(profileIndex, strongBox = false)
+        }
+    }
+
+    private fun generateKey(profileIndex: Int, strongBox: Boolean) {
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
         val builder = KeyGenParameterSpec.Builder(
             alias(profileIndex),
@@ -176,6 +184,10 @@ actual object ProfileBiometricAuth {
         } else {
             @Suppress("DEPRECATION")
             builder.setUserAuthenticationValidityDurationSeconds(-1)
+        }
+
+        if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setIsStrongBoxBacked(true)
         }
 
         generator.init(builder.build())
