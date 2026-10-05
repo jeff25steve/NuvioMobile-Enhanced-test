@@ -126,9 +126,9 @@ actual object ProfileBiometricAuth {
                         if (!continuation.isActive) return
                         continuation.resume(
                             when (errorCode) {
+                                BiometricPrompt.ERROR_NEGATIVE_BUTTON -> ProfileBiometricResult.FallbackRequested
                                 BiometricPrompt.ERROR_USER_CANCELED,
-                                BiometricPrompt.ERROR_CANCELED,
-                                BiometricPrompt.ERROR_NEGATIVE_BUTTON -> ProfileBiometricResult.Cancelled
+                                BiometricPrompt.ERROR_CANCELED -> ProfileBiometricResult.Cancelled
                                 BiometricPrompt.ERROR_NO_BIOMETRICS,
                                 BiometricPrompt.ERROR_HW_NOT_PRESENT,
                                 BiometricPrompt.ERROR_HW_UNAVAILABLE,
