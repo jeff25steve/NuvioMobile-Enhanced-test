@@ -2,15 +2,18 @@ package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.refTo
+import platform.CoreFoundation.CFDictionary
+import platform.CoreFoundation.CFTypeRef
+import platform.Foundation.NSError
 import platform.Foundation.NSData
 import platform.LocalAuthentication.LAContext
-import platform.LocalAuthentication.LAPolicy
 import platform.LocalAuthentication.LAError
+import platform.LocalAuthentication.LAPolicy
 import platform.Security.SecAccessControl
 import platform.Security.SecAccessControlCreateFlags
 import platform.Security.SecAccessControlCreateWithFlags
@@ -20,7 +23,16 @@ import platform.Security.SecItemDelete
 import platform.Security.errSecDuplicateItem
 import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
-import platform.darwin.NSObject
+import platform.Security.kSecAttrAccessControl
+import platform.Security.kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
+import platform.Security.kSecAttrAccount
+import platform.Security.kSecAttrService
+import platform.Security.kSecClass
+import platform.Security.kSecClassGenericPassword
+import platform.Security.kSecReturnAttributes
+import platform.Security.kSecReturnData
+import platform.Security.kSecUseAuthenticationContext
+import platform.Security.kSecValueData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -28,6 +40,7 @@ import kotlin.coroutines.resume
 actual object ProfileBiometricAuth {
     private const val SERVICE = "com.nuvio.media.profile-biometric"
     private const val ACCOUNT = "primary"
+    private val sentinel = "nuvio-biometric-sentinel".encodeToByteArray()
 
     private var initialized = false
 
@@ -38,9 +51,9 @@ actual object ProfileBiometricAuth {
     actual fun isAvailable(): Boolean {
         if (!initialized) return false
         val context = LAContext()
-        memScoped {
-            val error = alloc<ObjCObjectVar<platform.Foundation.NSError?>>()
-            return context.canEvaluatePolicy(
+        return memScoped {
+            val error = alloc<ObjCObjectVar<NSError?>>()
+            context.canEvaluatePolicy(
                 LAPolicy.deviceOwnerAuthenticationWithBiometrics,
                 error.ptr,
             )
@@ -49,30 +62,25 @@ actual object ProfileBiometricAuth {
 
     actual fun isConfigured(profileIndex: Int): Boolean {
         if (profileIndex != 1) return false
-        var item: CFTypeRef? = null
         val context = LAContext().apply { interactionNotAllowed = true }
         val query = baseQuery() + mapOf(
-            platform.Security.kSecReturnAttributes to true,
-            platform.Security.kSecUseAuthenticationContext to context,
+            kSecReturnAttributes to true,
+            kSecUseAuthenticationContext to context,
         )
-        val status = SecItemCopyMatching(query as platform.CoreFoundation.CFDictionary, kotlinx.cinterop.CValuesRefPointerVar { })
-        return status == errSecSuccess
+        return copyMatching(query).first == errSecSuccess
     }
 
     actual suspend fun enable(profileIndex: Int): ProfileBiometricResult {
         if (profileIndex != 1 || !isAvailable()) return ProfileBiometricResult.Unavailable
-        disable(profileIndex)
 
+        disable(profileIndex)
         val accessControl = createAccessControl() ?: return ProfileBiometricResult.Failed
         val addQuery = baseQuery() + mapOf(
-            platform.Security.kSecAttrAccessControl to accessControl,
-            platform.Security.kSecValueData to NSData.dataWithBytes(
-                "nuvio-biometric-sentinel".encodeToByteArray(),
-                "nuvio-biometric-sentinel".encodeToByteArray().size.toULong(),
-            ),
+            kSecAttrAccessControl to accessControl,
+            kSecValueData to NSData.create(sentinel.refTo(0), sentinel.size.toULong()),
         )
 
-        val addStatus = SecItemAdd(addQuery as platform.CoreFoundation.CFDictionary, null)
+        val addStatus = SecItemAdd(addQuery as CFDictionary, null)
         if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
             return ProfileBiometricResult.Failed
         }
@@ -99,7 +107,7 @@ actual object ProfileBiometricAuth {
                 "Use Face ID or Touch ID to unlock your primary profile.",
             ) { success, error ->
                 if (!continuation.isActive) return@evaluatePolicy
-                val code = (error as? platform.Foundation.NSError)?.code
+                val code = (error as? NSError)?.code
                 continuation.resume(
                     when {
                         success -> ProfileBiometricResult.Success
@@ -112,38 +120,51 @@ actual object ProfileBiometricAuth {
 
         if (biometricResult != ProfileBiometricResult.Success) return biometricResult
 
-        var item: CFTypeRef? = null
-        val query = baseQuery() + mapOf(
-            platform.Security.kSecReturnData to true,
-            platform.Security.kSecUseAuthenticationContext to context,
+        val authenticatedQuery = baseQuery() + mapOf(
+            kSecReturnData to true,
+            kSecUseAuthenticationContext to context,
         )
-        val status = SecItemCopyMatching(query as platform.CoreFoundation.CFDictionary, kotlinx.cinterop.CValuesRefPointerVar { })
+        val status = copyMatching(authenticatedQuery).first
         if (status == errSecSuccess) return ProfileBiometricResult.Success
 
-        disable(profileIndex)
-        return ProfileBiometricResult.Invalidated
+        // The biometric policy succeeded, but the device's enrolled biometric set no longer
+        // matches the access-controlled item. Treat this as an invalidated local credential and
+        // require the Nuvio PIN to establish a new biometric credential.
+        if (status == errSecItemNotFound) {
+            disable(profileIndex)
+            return ProfileBiometricResult.Invalidated
+        }
+        return ProfileBiometricResult.Failed
     }
 
     actual fun disable(profileIndex: Int) {
         if (profileIndex != 1) return
-        SecItemDelete(baseQuery() as platform.CoreFoundation.CFDictionary)
+        SecItemDelete(baseQuery() as CFDictionary)
     }
 
-    private fun baseQuery(): Map<platform.CoreFoundation.CFStringRef, Any> = mapOf(
-        platform.Security.kSecClass to platform.Security.kSecClassGenericPassword,
-        platform.Security.kSecAttrService to SERVICE,
-        platform.Security.kSecAttrAccount to ACCOUNT,
+    private fun baseQuery(): Map<Any?, Any?> = mapOf(
+        kSecClass to kSecClassGenericPassword,
+        kSecAttrService to SERVICE,
+        kSecAttrAccount to ACCOUNT,
     )
 
     private fun createAccessControl(): SecAccessControl? {
         return memScoped {
-            val error = alloc<ObjCObjectVar<platform.Foundation.NSError?>>()
+            val error = alloc<ObjCObjectVar<NSError?>>()
             SecAccessControlCreateWithFlags(
                 null,
-                platform.Security.kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
                 SecAccessControlCreateFlags.biometryCurrentSet,
                 error.ptr,
             )
+        }
+    }
+
+    private fun copyMatching(query: Map<Any?, Any?>): Pair<Int, CFTypeRef?> {
+        return memScoped {
+            val result = alloc<ObjCObjectVar<CFTypeRef?>>()
+            val status = SecItemCopyMatching(query as CFDictionary, result.ptr)
+            status to result.value
         }
     }
 }
