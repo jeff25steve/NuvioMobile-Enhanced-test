@@ -289,6 +289,7 @@ object ProfileRepository {
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             ProfilePinCacheStorage.removePayload(profileIndex)
+            ProfileBiometricAuth.disable(profileIndex)
             _state.value = _state.value.copy(
                 profiles = remaining,
                 activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) remaining.firstOrNull() else _state.value.activeProfile,
@@ -370,6 +371,7 @@ object ProfileRepository {
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
             pullProfiles()
             ProfilePinCacheStorage.removePayload(profileIndex)
+            ProfileBiometricAuth.disable(profileIndex)
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin" }
@@ -387,6 +389,7 @@ object ProfileRepository {
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
             pullProfiles()
             ProfilePinCacheStorage.removePayload(profileIndex)
+            ProfileBiometricAuth.disable(profileIndex)
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin with password" }
         }
