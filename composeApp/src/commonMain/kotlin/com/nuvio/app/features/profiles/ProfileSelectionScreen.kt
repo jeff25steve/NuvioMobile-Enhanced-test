@@ -97,8 +97,8 @@ fun ProfileSelectionScreen(
     // built-in enter/exit so the supporter badge next to the wordmark — rendered as a sibling, not
     // a descendant, of whatever this is applied to — can sit outside it and stay fully visible.
     val contentFadeAlpha = remember { Animatable(1f) }
-    val onProfileClick: (NuvioProfile, Offset) -> Unit = { profile, tapCenter ->
-        if (!interactionEnabled || biometricAuthenticating) return@let
+    val onProfileClick: (NuvioProfile, Offset) -> Unit = onProfileClick@{ profile, tapCenter ->
+        if (!interactionEnabled || biometricAuthenticating) return@onProfileClick
         if (
             !isEditMode &&
             profile.profileIndex == 1 &&
