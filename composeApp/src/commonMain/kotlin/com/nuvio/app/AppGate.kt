@@ -350,7 +350,7 @@ internal fun AppGate(
         }
     }
 
-    fun enterProfileGate(profiles: List<NuvioProfile>, syncOnEnter: Boolean) {
+    suspend fun enterProfileGate(profiles: List<NuvioProfile>, syncOnEnter: Boolean) {
         profileSelectionLoading = false
         profileSelectionTransitionActive = false
         if (profiles.isEmpty()) {
@@ -364,6 +364,36 @@ internal fun AppGate(
             gateScreen = AppGateScreen.Main.name
             autoSkipProfileSelection = false
             return
+        }
+
+        if (
+            ProfileRepository.state.value.rememberLastProfileEnabled &&
+            ProfileRepository.state.value.hasEverSelectedProfile
+        ) {
+            val rememberedLockedProfile = profiles.find {
+                it.profileIndex == ProfileRepository.activeProfileId
+            }
+            if (
+                rememberedLockedProfile?.pinEnabled == true &&
+                rememberedLockedProfile.profileIndex == 1 &&
+                ProfileBiometricAuth.isConfigured(1)
+            ) {
+                when (ProfileBiometricAuth.authenticate(1)) {
+                    ProfileBiometricResult.Success -> {
+                        selectProfile(rememberedLockedProfile, sync = syncOnEnter)
+                        gateScreen = AppGateScreen.Main.name
+                        autoSkipProfileSelection = false
+                        return
+                    }
+                    ProfileBiometricResult.Invalidated -> Unit
+                    ProfileBiometricResult.FallbackRequested,
+                    ProfileBiometricResult.Cancelled,
+                    ProfileBiometricResult.Unavailable,
+                    ProfileBiometricResult.NotConfigured,
+                    ProfileBiometricResult.Failed,
+                    -> Unit
+                }
+            }
         }
 
         autoSkipProfileSelection = true
