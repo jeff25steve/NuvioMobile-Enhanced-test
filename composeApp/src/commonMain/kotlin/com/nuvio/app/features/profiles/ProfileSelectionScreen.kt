@@ -101,6 +101,7 @@ fun ProfileSelectionScreen(
         if (!interactionEnabled || biometricAuthenticating) return@onProfileClick
         if (
             !isEditMode &&
+            profile.profileIndex != activeProfileIndex &&
             profile.profileIndex == 1 &&
             profile.pinEnabled &&
             ProfileBiometricAuth.isConfigured(profile.profileIndex)
