@@ -537,6 +537,9 @@ fun ProfileEditScreen(
             onVerify = { pin -> ProfileRepository.clearPin(currentProfile.profileIndex, pin) },
             onVerified = {
                 showPinClear = false
+                if (currentProfile.profileIndex == 1) {
+                    biometricConfigured = false
+                }
             },
             onDismiss = {
                 showPinClear = false
