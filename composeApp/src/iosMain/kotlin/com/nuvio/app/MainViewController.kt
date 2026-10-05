@@ -98,6 +98,7 @@ fun AppGateViewController(
         )
     },
 ).apply {
+    ProfileBiometricAuth.initialize(this)
     view.backgroundColor = UIColor.clearColor
 }
 
