@@ -4,9 +4,9 @@ import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.refTo
 import platform.CoreFoundation.CFDictionary
 import platform.CoreFoundation.CFTypeRef
 import platform.Foundation.NSError
@@ -77,7 +77,7 @@ actual object ProfileBiometricAuth {
         val accessControl = createAccessControl() ?: return ProfileBiometricResult.Failed
         val addQuery = baseQuery() + mapOf(
             kSecAttrAccessControl to accessControl,
-            kSecValueData to NSData.create(sentinel.refTo(0), sentinel.size.toULong()),
+            kSecValueData to NSData.create(bytes = allocArrayOf(sentinel), length = sentinel.size.toULong()),
         )
 
         val addStatus = SecItemAdd(addQuery as CFDictionary, null)
