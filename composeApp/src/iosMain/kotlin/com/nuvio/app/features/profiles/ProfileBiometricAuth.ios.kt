@@ -10,6 +10,7 @@ import kotlinx.cinterop.ptr
 import platform.Foundation.NSData
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicy
+import platform.LocalAuthentication.LAError
 import platform.Security.SecAccessControl
 import platform.Security.SecAccessControlCreateFlags
 import platform.Security.SecAccessControlCreateWithFlags
@@ -96,13 +97,14 @@ actual object ProfileBiometricAuth {
             context.evaluatePolicy(
                 LAPolicy.deviceOwnerAuthenticationWithBiometrics,
                 "Use Face ID or Touch ID to unlock your primary profile.",
-            ) { success, _ ->
+            ) { success, error ->
                 if (!continuation.isActive) return@evaluatePolicy
+                val code = (error as? platform.Foundation.NSError)?.code
                 continuation.resume(
-                    if (success) {
-                        ProfileBiometricResult.Success
-                    } else {
-                        ProfileBiometricResult.Cancelled
+                    when {
+                        success -> ProfileBiometricResult.Success
+                        code == LAError.userFallback.code.toLong() -> ProfileBiometricResult.FallbackRequested
+                        else -> ProfileBiometricResult.Cancelled
                     },
                 )
             }
