@@ -32,7 +32,7 @@ actual object ProfileBiometricAuth {
             BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    actual fun isConfigured(profileIndex: Int): Boolean {
+    actual suspend fun isConfigured(profileIndex: Int): Boolean {
         if (profileIndex != 1) return false
         return runCatching {
             val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
