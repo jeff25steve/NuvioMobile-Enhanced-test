@@ -60,9 +60,9 @@ actual object ProfilePinCacheStorage {
             ?.commit()
     }
 
-    private fun saveEncrypted(profileIndex: Int, payload: String) {
-        val values = preferences ?: return
-        val key = getOrCreateKey() ?: return
+    private fun saveEncrypted(profileIndex: Int, payload: String): Boolean {
+        val values = preferences ?: return false
+        val key = getOrCreateKey() ?: return false
         runCatching {
             val cipher = Cipher.getInstance(CIPHER)
             cipher.init(Cipher.ENCRYPT_MODE, key)
