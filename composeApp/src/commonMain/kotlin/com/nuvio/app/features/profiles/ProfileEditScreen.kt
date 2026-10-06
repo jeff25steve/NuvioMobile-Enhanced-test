@@ -90,10 +90,13 @@ fun ProfileEditScreen(
     var showBiometricEnablePin by remember { mutableStateOf(false) }
     var showBiometricDisablePin by remember { mutableStateOf(false) }
     var biometricConfigured by remember(currentProfile?.profileIndex) {
-        mutableStateOf(
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(currentProfile?.profileIndex) {
+        biometricConfigured =
             currentProfile?.profileIndex == 1 &&
-                ProfileBiometricAuth.isConfigured(1),
-        )
+                ProfileBiometricAuth.isConfigured(1)
     }
     var biometricSetupFailed by remember { mutableStateOf(false) }
     val memberAccess by remember {
@@ -502,8 +505,10 @@ fun ProfileEditScreen(
             onVerify = { pin -> ProfileRepository.verifyPin(currentProfile.profileIndex, pin) },
             onVerified = {
                 showBiometricDisablePin = false
-                ProfileBiometricAuth.disable(1)
-                biometricConfigured = false
+                scope.launch {
+                    ProfileBiometricAuth.disable(1)
+                    biometricConfigured = false
+                }
             },
             onDismiss = { showBiometricDisablePin = false },
         )
