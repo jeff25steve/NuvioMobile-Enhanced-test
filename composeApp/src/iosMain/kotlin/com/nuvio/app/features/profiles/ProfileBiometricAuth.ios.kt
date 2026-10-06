@@ -34,8 +34,6 @@ import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
