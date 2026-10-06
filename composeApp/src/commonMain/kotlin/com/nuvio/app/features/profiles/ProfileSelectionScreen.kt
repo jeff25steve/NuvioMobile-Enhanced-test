@@ -116,7 +116,7 @@ fun ProfileSelectionScreen(
                         isEditMode = isEditMode,
                         activeProfileIndex = activeProfileIndex,
                         onEditProfile = onEditProfile,
-                        onActiveProfileSelected = { showAlreadyActiveProfileToast(it) },
+                        onActiveProfileSelected = { scope.launch { showAlreadyActiveProfileToast(it) } },
                         onPinRequired = { pendingPinSelection = it to tapCenter },
                         onProfileSelected = { onProfileSelected(it, tapCenter) },
                     )
