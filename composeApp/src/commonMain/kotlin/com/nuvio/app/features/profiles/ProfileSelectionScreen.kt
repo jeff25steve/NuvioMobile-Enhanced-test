@@ -133,12 +133,15 @@ fun ProfileSelectionScreen(
                         pendingPinSelection = profile to tapCenter
                     }
                     ProfileBiometricResult.Invalidated,
+                    -> {
+                        biometricAuthenticating = false
+                        pendingPinSelection = profile to tapCenter
+                    }
                     ProfileBiometricResult.Unavailable,
                     ProfileBiometricResult.NotConfigured,
                     ProfileBiometricResult.Failed,
                     -> {
                         biometricAuthenticating = false
-                        pendingPinSelection = profile to tapCenter
                     }
                     ProfileBiometricResult.Cancelled -> {
                         biometricAuthenticating = false
