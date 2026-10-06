@@ -68,7 +68,7 @@ actual object ProfileBiometricAuth {
         if (!isConfigured(profileIndex)) return ProfileBiometricResult.NotConfigured
 
         return runCatching {
-            authenticateInternal(profileIndex)
+            authenticateInternal(profileIndex, setup = false)
         }.getOrElse { error ->
             if (error is KeyPermanentlyInvalidatedException) {
                 deleteKey(profileIndex)
