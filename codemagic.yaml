@@ -1,0 +1,31 @@
+workflows:
+  android-full-debug:
+    name: Nuvio Enhanced - Android Full Debug
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    environment:
+      java: 17
+      vars:
+        CM_RECURSIVE_SUBMODULE_INIT: "false"
+        NUVIO_BUILD_CHANNEL: "beta"
+
+    scripts:
+      - name: Set Android SDK location
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+
+      - name: Build Android Full Debug APK
+        script: |
+          set -o pipefail
+          ./gradlew :androidApp:assembleFullDebug             -Pnuvio.android.distribution=full             -Pnuvio.ios.distribution=appstore             --no-daemon             --stacktrace             --console=plain 2>&1 | tee "$CM_BUILD_DIR/gradle-build.log"
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo ""
+            echo "===== Kotlin/Gradle compiler diagnostics ====="
+            grep -E '(^|[^[:alnum:]])(e: |error: |w: |FAILURE:|Caused by:)'               "$CM_BUILD_DIR/gradle-build.log" | tail -n 200 || true
+          fi
+          exit "$build_status"
+
+    artifacts:
+      - androidApp/build/outputs/**/*.apk
+      - gradle-build.log
