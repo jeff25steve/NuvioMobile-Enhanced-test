@@ -474,7 +474,13 @@ private fun ProfileAvatarCard(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
-                onClickLabel = stringResource(Res.string.profile_select_accessibility),
+                onClickLabel = stringResource(
+                    if (isEditMode) {
+                        Res.string.profile_edit_accessibility
+                    } else {
+                        Res.string.profile_select_accessibility
+                    },
+                ),
                 onClick = { onClick(avatarCenterInWindow) },
             )
             .semantics {
