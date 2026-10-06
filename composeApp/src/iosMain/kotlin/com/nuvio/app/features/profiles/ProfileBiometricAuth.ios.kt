@@ -10,6 +10,8 @@ import platform.CoreFoundation.CFDictionary
 import platform.CoreFoundation.CFTypeRef
 import platform.Foundation.NSError
 import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicy
 import platform.Security.SecAccessControl
