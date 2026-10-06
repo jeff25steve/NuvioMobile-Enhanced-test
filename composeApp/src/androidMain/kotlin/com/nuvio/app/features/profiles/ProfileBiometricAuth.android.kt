@@ -143,7 +143,11 @@ actual object ProfileBiometricAuth {
                                 BiometricPrompt.ERROR_NO_BIOMETRICS,
                                 BiometricPrompt.ERROR_HW_NOT_PRESENT,
                                 BiometricPrompt.ERROR_HW_UNAVAILABLE,
-                                BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> ProfileBiometricResult.Unavailable
+                                BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL,
+                                BiometricPrompt.ERROR_LOCKOUT,
+                                BiometricPrompt.ERROR_LOCKOUT_PERMANENT,
+                                BiometricPrompt.ERROR_SECURITY_UPDATE_REQUIRED ->
+                                    ProfileBiometricResult.Unavailable
                                 else -> ProfileBiometricResult.Failed
                             },
                         )
