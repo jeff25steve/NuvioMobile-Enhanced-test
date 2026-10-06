@@ -11,8 +11,29 @@ workflows:
         NUVIO_BUILD_CHANNEL: "beta"
 
     scripts:
-      - name: Set Android SDK location
-        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Configure Android build
+        script: |
+          set -euo pipefail
+
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+
+          discovery_json="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            https://api.nuvio.tv/.well-known/nuvio)"
+
+          nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
+          nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
+          nuvio_tv_login="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["capabilities"]["tv_login"]).lower())')"
+
+          test -n "$nuvio_backend_url"
+          test -n "$nuvio_publishable_key"
+          test "$nuvio_tv_login" = "true"
+
+          cat >> "$CM_BUILD_DIR/local.properties" <<EOF
+NUVIO_SUPABASE_URL=$nuvio_backend_url
+NUVIO_SUPABASE_ANON_KEY=$nuvio_publishable_key
+NUVIO_SUPABASE_FALLBACK_URL=
+EOF
 
       - name: Build Android Full Debug APK
         script: |
