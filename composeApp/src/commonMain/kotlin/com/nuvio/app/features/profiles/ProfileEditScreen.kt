@@ -492,7 +492,7 @@ fun ProfileEditScreen(
             onVerified = {
                 showBiometricEnablePin = false
                 scope.launch {
-                    when (ProfileBiometricAuth.enable(1)) {
+                    when (ProfileBiometricAuth.enable(1, currentProfile.userId)) {
                         ProfileBiometricResult.Success -> biometricConfigured = true
                         ProfileBiometricResult.Cancelled,
                         ProfileBiometricResult.FallbackRequested,
