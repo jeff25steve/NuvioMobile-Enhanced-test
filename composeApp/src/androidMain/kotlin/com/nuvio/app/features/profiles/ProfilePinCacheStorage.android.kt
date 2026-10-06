@@ -84,22 +84,25 @@ actual object ProfilePinCacheStorage {
 
     private fun decrypt(encoded: String): String? {
         val key = getExistingKey() ?: return null
-        val envelope = runCatching {
-            Base64.decode(encoded, Base64.DEFAULT)
-        }.getOrNull() ?: return null
-        if (envelope.size <= 1 + GCM_IV_BYTES || envelope[0].toInt() != 1) return null
 
-        val iv = envelope.copyOfRange(1, 1 + GCM_IV_BYTES)
-        val ciphertext = envelope.copyOfRange(1 + GCM_IV_BYTES, envelope.size)
-        return runCatching {
-            val cipher = Cipher.getInstance(CIPHER)
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                key,
-                GCMParameterSpec(GCM_TAG_BITS, iv),
-            )
-            cipher.doFinal(ciphertext).decodeToString()
-        }.getOrNull()
+        return try {
+            val envelope = Base64.decode(encoded, Base64.DEFAULT)
+            if (envelope.size <= 1 + GCM_IV_BYTES || envelope[0].toInt() != 1) {
+                null
+            } else {
+                val iv = envelope.copyOfRange(1, 1 + GCM_IV_BYTES)
+                val ciphertext = envelope.copyOfRange(1 + GCM_IV_BYTES, envelope.size)
+                val cipher = Cipher.getInstance(CIPHER)
+                cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    key,
+                    GCMParameterSpec(GCM_TAG_BITS, iv),
+                )
+                cipher.doFinal(ciphertext).decodeToString()
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun getExistingKey(): SecretKey? =
