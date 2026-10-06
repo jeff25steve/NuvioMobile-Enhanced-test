@@ -333,6 +333,11 @@ fun ProfileEditScreen(
 
         if (!isNew) {
             item {
+                val pinEnabled = currentProfile?.pinEnabled == true
+                val biometricAvailable =
+                    currentProfile?.profileIndex == 1 &&
+                        (ProfileBiometricAuth.isAvailable() || biometricConfigured)
+
                 NuvioSurfaceCard {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text(
@@ -340,60 +345,54 @@ fun ProfileEditScreen(
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Text(
-                            text = if (currentProfile?.pinEnabled == true) {
-                                stringResource(Res.string.profile_security_pin_enabled)
-                            } else {
-                                stringResource(Res.string.profile_security_pin_disabled)
+
+                        ProfileOptionRow(
+                            title = stringResource(Res.string.profile_pin_lock),
+                            description = stringResource(Res.string.profile_pin_lock_description),
+                            checked = pinEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    showPinSetup = true
+                                } else {
+                                    showPinClear = true
+                                }
                             },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        if (currentProfile?.pinEnabled == true) {
-                            NuvioPrimaryButton(
-                                text = stringResource(Res.string.profile_remove_pin_lock),
-                                onClick = { showPinClear = true },
+
+                        if (currentProfile?.profileIndex == 1) {
+                            ProfileOptionRow(
+                                title = stringResource(Res.string.profile_biometric_unlock),
+                                description = when {
+                                    !pinEnabled -> stringResource(
+                                        Res.string.profile_biometric_requires_pin,
+                                    )
+                                    !biometricAvailable -> stringResource(
+                                        Res.string.profile_biometric_unavailable,
+                                    )
+                                    else -> stringResource(
+                                        Res.string.profile_biometric_disabled_description,
+                                    )
+                                },
+                                checked = biometricConfigured,
+                                enabled = pinEnabled && biometricAvailable,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        showBiometricEnablePin = true
+                                    } else {
+                                        showBiometricDisablePin = true
+                                    }
+                                },
                             )
 
-                            if (currentProfile.profileIndex == 1) {
+                            if (biometricConfigured) {
                                 Text(
-                                    text = if (biometricConfigured) {
-                                        stringResource(Res.string.profile_biometric_enabled_description)
-                                    } else {
-                                        stringResource(Res.string.profile_biometric_disabled_description)
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = stringResource(
+                                        Res.string.profile_biometric_privacy_note,
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-
-                                if (ProfileBiometricAuth.isAvailable() || biometricConfigured) {
-                                    NuvioPrimaryButton(
-                                        text = if (biometricConfigured) {
-                                            stringResource(Res.string.profile_disable_biometric_unlock)
-                                        } else {
-                                            stringResource(Res.string.profile_enable_biometric_unlock)
-                                        },
-                                        onClick = {
-                                            if (biometricConfigured) {
-                                                showBiometricDisablePin = true
-                                            } else {
-                                                showBiometricEnablePin = true
-                                            }
-                                        },
-                                    )
-                                } else {
-                                    Text(
-                                        text = stringResource(Res.string.profile_biometric_unavailable),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
                             }
-                        } else {
-                            NuvioPrimaryButton(
-                                text = stringResource(Res.string.profile_set_pin_lock),
-                                onClick = { showPinSetup = true },
-                            )
                         }
                     }
                 }
@@ -702,6 +701,7 @@ private fun ProfileOptionRow(
     title: String,
     description: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -716,19 +716,28 @@ private fun ProfileOptionRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
                 fontWeight = FontWeight.Medium,
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                },
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
