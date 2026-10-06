@@ -262,7 +262,6 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
                         status = versionStatus(
                     snapshot = snapshot,
                     channelLabel = channelLabel.takeIf { releaseChannelsEnabled },
-                    buildChannel = buildChannel,
                     viewingChannel = channel,
                 ),
                     )
@@ -453,7 +452,6 @@ private fun CurrentVersionCard(
     }
 }
 
-@Composable
 internal fun betaReleaseMatchesDisplayedBuild(
     currentVersion: String,
     latestVersion: String,
@@ -470,10 +468,10 @@ internal fun betaReleaseMatchesDisplayedBuild(
         !VersionUtils.isRemoteNewer(latestVersion, currentVersion)
 }
 
+@Composable
 private fun versionStatus(
     snapshot: WhatsNewSnapshot,
     channelLabel: String?,
-    buildChannel: UpdateChannel,
     viewingChannel: UpdateChannel,
 ): String {
     val latest = snapshot.releases.firstOrNull()
