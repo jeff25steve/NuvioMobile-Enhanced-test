@@ -21,6 +21,7 @@ import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
 import platform.Security.errSecDuplicateItem
 import platform.Security.errSecItemNotFound
+import platform.Security.errSecUserCanceled
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessControl
 import platform.Security.kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
@@ -59,7 +60,7 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual fun isConfigured(profileIndex: Int): Boolean {
+    actual suspend fun isConfigured(profileIndex: Int): Boolean {
         if (profileIndex != 1) return false
         val context = LAContext().apply { interactionNotAllowed = true }
         val query = baseQuery() + mapOf(
@@ -86,7 +87,7 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Failed
         }
 
-        val result = authenticate(profileIndex)
+        val result = authenticateInternal(profileIndex, setup = true)
         if (result != ProfileBiometricResult.Success) {
             disable(profileIndex)
         }
@@ -94,13 +95,26 @@ actual object ProfileBiometricAuth {
     }
 
     actual suspend fun authenticate(profileIndex: Int): ProfileBiometricResult {
+        return authenticateInternal(profileIndex, setup = false)
+    }
+
+    private suspend fun authenticateInternal(
+        profileIndex: Int,
+        setup: Boolean,
+    ): ProfileBiometricResult {
         if (profileIndex != 1) return ProfileBiometricResult.Unavailable
         if (!isConfigured(profileIndex)) return ProfileBiometricResult.NotConfigured
         if (!isAvailable()) return ProfileBiometricResult.Unavailable
 
         val context = LAContext().apply {
-            localizedFallbackTitle = "Use PIN"
-            localizedReason = "Use Face ID or Touch ID to unlock your primary Nuvio profile."
+            localizedReason = if (setup) {
+                "Confirm your biometric to enable primary Nuvio profile unlock."
+            } else {
+                "Use Face ID or Touch ID to unlock your primary Nuvio profile."
+            }
+            if (!setup) {
+                localizedFallbackTitle = "Use PIN"
+            }
         }
         val authenticatedQuery = baseQuery() + mapOf(
             kSecReturnData to true,
@@ -117,6 +131,7 @@ actual object ProfileBiometricAuth {
                 disable(profileIndex)
                 ProfileBiometricResult.Invalidated
             }
+            errSecUserCanceled -> ProfileBiometricResult.Cancelled
             else -> ProfileBiometricResult.Failed
         }
     }
