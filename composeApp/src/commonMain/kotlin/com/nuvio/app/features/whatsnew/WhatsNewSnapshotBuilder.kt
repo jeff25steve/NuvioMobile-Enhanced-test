@@ -1,5 +1,6 @@
 package com.nuvio.app.features.whatsnew
 
+import com.nuvio.app.features.updater.UpdateChannel
 import com.nuvio.app.features.updater.VersionUtils
 
 private val conventionalCommitPattern = Regex(
@@ -54,6 +55,29 @@ private enum class ReleaseNoteSectionMode {
     NORMAL,
     CHANGES,
     IGNORE,
+}
+
+internal fun isCurrentBuildAlignedWithDisplayedBetaRelease(
+    currentVersion: String,
+    latestVersion: String,
+    buildChannel: UpdateChannel,
+    viewingChannel: UpdateChannel?,
+): Boolean {
+    if (!VersionUtils.isPrerelease(latestVersion) ||
+        !VersionUtils.isSameBaseVersion(latestVersion, currentVersion)
+    ) {
+        return false
+    }
+
+    val viewingBetaChannel = viewingChannel == UpdateChannel.BETA ||
+        (viewingChannel == null && buildChannel == UpdateChannel.BETA)
+    if (!viewingBetaChannel) return false
+
+    // A stable build for the same release line already includes that beta line.
+    // For beta builds, don't suppress an update to a newer beta prerelease.
+    return !VersionUtils.isPrerelease(currentVersion) ||
+        (buildChannel == UpdateChannel.BETA &&
+            !VersionUtils.isRemoteNewer(latestVersion, currentVersion))
 }
 
 internal object WhatsNewSnapshotBuilder {
