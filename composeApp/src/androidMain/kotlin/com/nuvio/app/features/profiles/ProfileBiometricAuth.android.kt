@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
+import java.lang.ref.WeakReference
 import java.security.KeyStore
 import java.security.KeyStoreException
 import java.security.KeyPermanentlyInvalidatedException
@@ -24,14 +25,16 @@ actual object ProfileBiometricAuth {
     private const val KEY_PREFIX = "nuvio_primary_profile_biometric_"
     private val sentinel = "nuvio-profile-biometric".encodeToByteArray()
 
-    private var activity: FragmentActivity? = null
+    private var activityReference: WeakReference<FragmentActivity>? = null
 
     actual fun initialize(host: Any) {
-        activity = host as? FragmentActivity
+        activityReference = (host as? FragmentActivity)?.let(::WeakReference)
     }
 
+    private fun activity(): FragmentActivity? = activityReference?.get()
+
     actual fun isAvailable(): Boolean {
-        val host = activity ?: return false
+        val host = activity() ?: return false
         val keyguard = host.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         if (keyguard != null && !keyguard.isDeviceSecure) return false
         return BiometricManager.from(host).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
@@ -89,7 +92,7 @@ actual object ProfileBiometricAuth {
         profileIndex: Int,
         setup: Boolean,
     ): ProfileBiometricResult {
-        val host = activity ?: return ProfileBiometricResult.Unavailable
+        val host = activity() ?: return ProfileBiometricResult.Unavailable
         val biometricManager = BiometricManager.from(host)
         if (
             biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) !=
@@ -111,7 +114,7 @@ actual object ProfileBiometricAuth {
                         result: BiometricPrompt.AuthenticationResult,
                     ) {
                         val authenticatedCipher = result.cryptoObject?.cipher
-                        if (authenticatedCipher == null) {
+                        if (authenticatedCipher == null || authenticatedCipher !== cipher) {
                             if (continuation.isActive) continuation.resume(ProfileBiometricResult.Failed)
                             return
                         }
