@@ -45,8 +45,12 @@ actual object ProfilePinCacheStorage {
             ?: return null
         if (savePayloadInternal(profileIndex, legacy)) {
             platform.Foundation.NSUserDefaults.standardUserDefaults.removeObjectForKey(legacyKey)
+            return legacy
         }
-        return legacy
+
+        // Do not leave a plaintext verifier behind when secure storage is unavailable.
+        platform.Foundation.NSUserDefaults.standardUserDefaults.removeObjectForKey(legacyKey)
+        return null
     }
 
     actual fun savePayload(profileIndex: Int, payload: String) {
