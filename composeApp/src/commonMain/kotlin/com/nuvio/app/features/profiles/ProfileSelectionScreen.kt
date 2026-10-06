@@ -142,6 +142,7 @@ fun ProfileSelectionScreen(
                     ProfileBiometricResult.Failed,
                     -> {
                         biometricAuthenticating = false
+                        pendingPinSelection = profile to tapCenter
                     }
                     ProfileBiometricResult.Cancelled -> {
                         biometricAuthenticating = false
