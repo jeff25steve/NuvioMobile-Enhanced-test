@@ -111,7 +111,8 @@ fun ProfileSelectionScreen(
         ) {
             biometricAuthenticating = true
             scope.launch {
-                val biometricConfigured = ProfileBiometricAuth.isConfigured(profile.profileIndex)
+                val biometricConfigured =
+                    ProfileBiometricAuth.isConfigured(profile.profileIndex, profile.userId)
                 if (!biometricConfigured) {
                     biometricAuthenticating = false
                     routeProfileSelection(
