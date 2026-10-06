@@ -36,6 +36,8 @@ import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nuvio.composeapp.generated.resources.Res
+import org.jetbrains.compose.resources.getString
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
@@ -109,13 +111,15 @@ actual object ProfileBiometricAuth {
         if (!isAvailable()) return ProfileBiometricResult.Unavailable
 
         val context = LAContext().apply {
-            localizedReason = if (setup) {
-                "Confirm your biometric to enable primary Nuvio profile unlock."
-            } else {
-                "Use Face ID or Touch ID to unlock your primary Nuvio profile."
-            }
+            localizedReason = getString(
+                if (setup) {
+                    Res.string.profile_biometric_setup_reason
+                } else {
+                    Res.string.profile_biometric_unlock_reason
+                },
+            )
             if (!setup) {
-                localizedFallbackTitle = "Use PIN"
+                localizedFallbackTitle = getString(Res.string.profile_biometric_prompt_use_pin)
             }
         }
         val authenticatedQuery = baseQuery() + mapOf(
