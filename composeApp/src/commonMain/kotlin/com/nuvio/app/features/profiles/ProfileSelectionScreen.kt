@@ -147,6 +147,7 @@ fun ProfileSelectionScreen(
                     ProfileBiometricResult.Failed,
                     -> {
                         biometricAuthenticating = false
+                        pendingPinSelection = profile to tapCenter
                     }
                     ProfileBiometricResult.Cancelled -> {
                         biometricAuthenticating = false
@@ -568,7 +569,7 @@ private fun ProfileAvatarCard(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Lock,
-                        contentDescription = null,
+                        contentDescription = stringResource(Res.string.profile_locked_accessibility),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp),
                     )
