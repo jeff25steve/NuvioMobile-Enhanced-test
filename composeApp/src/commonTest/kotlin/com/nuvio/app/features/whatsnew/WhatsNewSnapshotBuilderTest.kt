@@ -6,6 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.datetime.TimeZone
 import kotlin.time.Instant
+import com.nuvio.app.features.updater.UpdateChannel
 
 class WhatsNewSnapshotBuilderTest {
     @Test
@@ -148,6 +149,61 @@ class WhatsNewSnapshotBuilderTest {
         assertEquals(
             listOf("0.5.7", "0.5.7-beta.2", "0.5.7-beta.1"),
             snapshot.sinceYourVersion.map(WhatsNewRelease::version),
+        )
+    }
+
+    @Test
+    fun stableBuildWithSameBaseAsLatestBetaIsUpToDateWhenViewingBeta() {
+        assertTrue(
+            betaReleaseMatchesDisplayedBuild(
+                currentVersion = "0.5.6",
+                latestVersion = "0.5.6-beta",
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun newerBetaPrereleaseIsStillReportedAsNewForOlderBetaBuild() {
+        assertFalse(
+            betaReleaseMatchesDisplayedBuild(
+                currentVersion = "0.5.6-beta.1",
+                latestVersion = "0.5.6-beta.2",
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun exactBetaBuildIsCurrentForMatchingLatestBeta() {
+        assertTrue(
+            betaReleaseMatchesDisplayedBuild(
+                currentVersion = "0.5.6-beta.2",
+                latestVersion = "0.5.6-beta.2",
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun stableBuildOnDifferentReleaseLineIsNotMarkedCurrentForBeta() {
+        assertFalse(
+            betaReleaseMatchesDisplayedBuild(
+                currentVersion = "0.5.6",
+                latestVersion = "0.5.7-beta",
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun stableBuildDoesNotUseBetaAlignmentWhenViewingStable() {
+        assertFalse(
+            betaReleaseMatchesDisplayedBuild(
+                currentVersion = "0.5.6",
+                latestVersion = "0.5.6-beta",
+                viewingChannel = UpdateChannel.STABLE,
+            ),
         )
     }
 
