@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -518,13 +519,57 @@ object ProfileRepository {
             )
         }
 
-        val digest = hashProfilePin(profileIndex = profileIndex, salt = cached.salt, pin = pin)
-        return if (digest == cached.digest) {
-            PinVerifyResult(unlocked = true)
-        } else {
-            PinVerifyResult(unlocked = false, message = localizedString(Res.string.pin_incorrect))
+        val now = Clock.System.now().epochSeconds
+        if (cached.lockedUntilEpochSeconds > now) {
+            val retryAfterSeconds = (cached.lockedUntilEpochSeconds - now)
+                .coerceAtLeast(1L)
+                .coerceAtMost(Int.MAX_VALUE.toLong())
+                .toInt()
+            return PinVerifyResult(
+                unlocked = false,
+                retryAfterSeconds = retryAfterSeconds,
+                message = localizedString(
+                    Res.string.pin_locked_try_again,
+                ).replace("%1$s", retryAfterSeconds.toString()),
+            )
         }
+
+        val digest = hashProfilePin(profileIndex = profileIndex, salt = cached.salt, pin = pin)
+        if (digest == cached.digest) {
+            if (cached.failedAttempts != 0 || cached.lockedUntilEpochSeconds != 0L) {
+                val reset = cached.copy(
+                    failedAttempts = 0,
+                    lockedUntilEpochSeconds = 0,
+                )
+                ProfilePinCacheStorage.savePayload(profileIndex, json.encodeToString(reset))
+            }
+            return PinVerifyResult(unlocked = true)
+        }
+
+        val failedAttempts = (cached.failedAttempts + 1).coerceAtMost(10)
+        val retryAfterSeconds = localPinRetryAfterSeconds(failedAttempts)
+        val updated = cached.copy(
+            failedAttempts = failedAttempts,
+            lockedUntilEpochSeconds = now + retryAfterSeconds,
+        )
+        ProfilePinCacheStorage.savePayload(profileIndex, json.encodeToString(updated))
+        return PinVerifyResult(
+            unlocked = false,
+            retryAfterSeconds = retryAfterSeconds.toInt(),
+            message = null,
+        )
     }
+
+    private fun localPinRetryAfterSeconds(failedAttempts: Int): Long =
+        when {
+            failedAttempts <= 1 -> 1L
+            failedAttempts == 2 -> 2L
+            failedAttempts == 3 -> 4L
+            failedAttempts == 4 -> 8L
+            failedAttempts == 5 -> 15L
+            failedAttempts == 6 -> 30L
+            else -> 60L
+        }
 
     private fun syncPinCache(profiles: List<NuvioProfile>) {
         val profilesByIndex = profiles.associateBy { it.profileIndex }
