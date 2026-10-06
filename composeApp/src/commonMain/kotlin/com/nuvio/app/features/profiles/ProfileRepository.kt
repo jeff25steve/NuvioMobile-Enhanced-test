@@ -342,8 +342,10 @@ object ProfileRepository {
                     rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
                 }
             }
-        }.getOrElse { e ->
-            log.e(e) { "Failed to verify pin" }
+        }.getOrElse {
+            // Never log the authentication exception: request/transport exceptions are not useful
+            // enough to justify risking credential-adjacent data in crash/log pipelines.
+            log.w { "PIN verification request failed; attempting local verification" }
             verifyPinLocally(profileIndex, pin)
         }
     }
