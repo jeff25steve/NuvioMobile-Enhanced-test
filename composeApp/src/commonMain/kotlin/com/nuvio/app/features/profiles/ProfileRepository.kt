@@ -289,7 +289,7 @@ object ProfileRepository {
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex)
+            ProfileBiometricAuth.disable(profileIndex, remaining.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty())
             _state.value = _state.value.copy(
                 profiles = remaining,
                 activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) remaining.firstOrNull() else _state.value.activeProfile,
@@ -309,7 +309,10 @@ object ProfileRepository {
             // Remote deletion succeeded; remove device-local authentication artifacts even if
             // the subsequent profile refresh is interrupted or unavailable.
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex)
+            ProfileBiometricAuth.disable(
+                profileIndex,
+                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+            )
             pullProfiles()
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
@@ -375,7 +378,10 @@ object ProfileRepository {
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
             pullProfiles()
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex)
+            ProfileBiometricAuth.disable(
+                profileIndex,
+                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+            )
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin" }
