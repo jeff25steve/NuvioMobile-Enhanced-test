@@ -1817,8 +1817,13 @@
     <string name="profile_security">Security</string>
     <string name="profile_security_pin_disabled">Add a PIN if you want this profile locked before switching into it.</string>
     <string name="profile_security_pin_enabled">This profile is protected with a PIN.</string>
+    <string name="profile_pin_lock">PIN lock</string>
+    <string name="profile_pin_lock_description">Require your PIN before switching to this profile.</string>
+    <string name="profile_biometric_unlock">Biometric unlock</string>
     <string name="profile_biometric_enabled_description">Unlock your primary profile with your device's biometric. Nuvio never stores your biometric data, and your unlock credential stays on this device. Anyone with a biometric enrolled on this device can unlock the profile.</string>
-    <string name="profile_biometric_disabled_description">Unlock your primary profile faster with your device's biometric. Your PIN remains available as a fallback.</string>
+    <string name="profile_biometric_disabled_description">Unlock your primary profile with your device's biometric. Your PIN remains available as a fallback.</string>
+    <string name="profile_biometric_requires_pin">Turn on PIN lock first to enable biometric unlock.</string>
+    <string name="profile_biometric_privacy_note">Nuvio never stores your biometric data. Anyone with a biometric enrolled on this device can unlock the profile.</string>
     <string name="profile_enable_biometric_unlock">Enable biometric unlock</string>
     <string name="profile_disable_biometric_unlock">Turn off biometric unlock</string>
     <string name="profile_biometric_unavailable">Biometric unlock isn't available on this device.</string>
