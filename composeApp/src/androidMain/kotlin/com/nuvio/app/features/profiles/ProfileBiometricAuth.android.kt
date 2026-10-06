@@ -1,6 +1,8 @@
 package com.nuvio.app.features.profiles
 
 import android.os.Build
+import android.app.KeyguardManager
+import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
@@ -28,6 +30,8 @@ actual object ProfileBiometricAuth {
 
     actual fun isAvailable(): Boolean {
         val host = activity ?: return false
+        val keyguard = host.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        if (keyguard != null && !keyguard.isDeviceSecure) return false
         return BiometricManager.from(host).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
             BiometricManager.BIOMETRIC_SUCCESS
     }
