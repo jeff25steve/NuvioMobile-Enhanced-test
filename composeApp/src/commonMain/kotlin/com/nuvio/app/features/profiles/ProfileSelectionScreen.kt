@@ -127,7 +127,12 @@ fun ProfileSelectionScreen(
                     return@launch
                 }
 
-                when (val result = ProfileBiometricAuth.authenticate(profile.profileIndex)) {
+                when (
+                    val result = ProfileBiometricAuth.authenticate(
+                        profile.profileIndex,
+                        profile.userId,
+                    )
+                ) {
                     ProfileBiometricResult.Success -> {
                         biometricAuthenticating = false
                         onProfileSelected(profile, tapCenter)
