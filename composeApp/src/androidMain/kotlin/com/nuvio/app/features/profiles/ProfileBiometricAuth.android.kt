@@ -16,6 +16,8 @@ import kotlin.coroutines.resume
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.KeyProperties
+import nuvio.composeapp.generated.resources.Res
+import org.jetbrains.compose.resources.getString
 
 actual object ProfileBiometricAuth {
     private const val KEYSTORE = "AndroidKeyStore"
@@ -161,13 +163,33 @@ actual object ProfileBiometricAuth {
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
                 .setTitle(
-                    if (setup) "Set up biometric unlock" else "Unlock primary profile",
+                    getString(
+                        if (setup) {
+                            Res.string.profile_biometric_prompt_setup_title
+                        } else {
+                            Res.string.profile_biometric_prompt_unlock_title
+                        },
+                    ),
                 )
                 .setSubtitle(
-                    if (setup) "Confirm your device biometric" else "Use your fingerprint or other strong biometric",
+                    getString(
+                        if (setup) {
+                            Res.string.profile_biometric_prompt_setup_subtitle
+                        } else {
+                            Res.string.profile_biometric_prompt_unlock_subtitle
+                        },
+                    ),
                 )
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .setNegativeButtonText(if (setup) "Cancel" else "Use PIN")
+                .setNegativeButtonText(
+                    getString(
+                        if (setup) {
+                            Res.string.action_cancel
+                        } else {
+                            Res.string.profile_biometric_prompt_use_pin
+                        },
+                    ),
+                )
                 .setConfirmationRequired(false)
                 .build()
 
