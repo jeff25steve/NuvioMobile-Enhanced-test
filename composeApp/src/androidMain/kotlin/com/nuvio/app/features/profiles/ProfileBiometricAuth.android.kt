@@ -62,12 +62,12 @@ actual object ProfileBiometricAuth {
             when (val result = authenticateInternal(profileIndex, userId, setup = true)) {
                 ProfileBiometricResult.Success -> result
                 else -> {
-                    deleteKey(profileIndex)
+                    deleteKey(profileIndex, userId)
                     result
                 }
             }
         }.getOrElse {
-            deleteKey(profileIndex)
+            deleteKey(profileIndex, userId)
             ProfileBiometricResult.Failed
         }
     }
