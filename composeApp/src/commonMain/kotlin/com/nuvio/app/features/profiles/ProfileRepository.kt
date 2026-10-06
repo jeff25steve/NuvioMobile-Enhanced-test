@@ -306,6 +306,10 @@ object ProfileRepository {
                 putSyncOriginClientId()
             }
             SupabaseProvider.client.postgrest.rpc("sync_delete_profile_data", params)
+            // Remote deletion succeeded; remove device-local authentication artifacts even if
+            // the subsequent profile refresh is interrupted or unavailable.
+            ProfilePinCacheStorage.removePayload(profileIndex)
+            ProfileBiometricAuth.disable(profileIndex)
             pullProfiles()
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
