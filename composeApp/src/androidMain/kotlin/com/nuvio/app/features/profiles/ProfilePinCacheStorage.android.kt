@@ -67,7 +67,7 @@ actual object ProfilePinCacheStorage {
             val cipher = Cipher.getInstance(CIPHER)
             cipher.init(Cipher.ENCRYPT_MODE, key)
             val iv = cipher.iv
-            if (iv.size != GCM_IV_BYTES) return
+            if (iv.size != GCM_IV_BYTES) return@runCatching false
             val ciphertext = cipher.doFinal(payload.encodeToByteArray())
             val envelope = ByteArray(1 + iv.size + ciphertext.size)
             envelope[0] = 1
