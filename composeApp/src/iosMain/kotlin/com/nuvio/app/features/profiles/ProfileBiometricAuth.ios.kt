@@ -12,7 +12,6 @@ import platform.CoreFoundation.CFTypeRef
 import platform.Foundation.NSError
 import platform.Foundation.NSData
 import platform.LocalAuthentication.LAContext
-import platform.LocalAuthentication.LAError
 import platform.LocalAuthentication.LAPolicy
 import platform.Security.SecAccessControl
 import platform.Security.SecAccessControlCreateFlags
@@ -103,44 +102,25 @@ actual object ProfileBiometricAuth {
 
         val context = LAContext().apply {
             localizedFallbackTitle = "Use PIN"
+            localizedReason = "Use Face ID or Touch ID to unlock your primary Nuvio profile."
         }
-
-        val biometricResult = suspendCancellableCoroutine<ProfileBiometricResult> { continuation ->
-            context.evaluatePolicy(
-                LAPolicy.deviceOwnerAuthenticationWithBiometrics,
-                "Use Face ID or Touch ID to unlock your primary profile.",
-            ) { success, error ->
-                if (!continuation.isActive) return@evaluatePolicy
-                val code = (error as? NSError)?.code
-                continuation.resume(
-                    when {
-                        success -> ProfileBiometricResult.Success
-                        code == LAError.userFallback.code.toLong() -> ProfileBiometricResult.FallbackRequested
-                        else -> ProfileBiometricResult.Cancelled
-                    },
-                )
-            }
-        }
-
-        if (biometricResult != ProfileBiometricResult.Success) return biometricResult
-
         val authenticatedQuery = baseQuery() + mapOf(
             kSecReturnData to true,
             kSecUseAuthenticationContext to context,
         )
-        val status = withContext(Dispatchers.Default) {
-            copyMatching(authenticatedQuery).first
-        }
-        if (status == errSecSuccess) return ProfileBiometricResult.Success
 
-        // The biometric policy succeeded, but the device's enrolled biometric set no longer
-        // matches the access-controlled item. Treat this as an invalidated local credential and
-        // require the Nuvio PIN to establish a new biometric credential.
-        if (status == errSecItemNotFound) {
-            disable(profileIndex)
-            return ProfileBiometricResult.Invalidated
+        // Keychain access control is the authority. The protected item cannot be returned unless
+        // the system's biometric ACL is satisfied. This avoids trusting an evaluatePolicy boolean.
+        return when (withContext(Dispatchers.Default) {
+            copyMatching(authenticatedQuery).first
+        }) {
+            errSecSuccess -> ProfileBiometricResult.Success
+            errSecItemNotFound -> {
+                disable(profileIndex)
+                ProfileBiometricResult.Invalidated
+            }
+            else -> ProfileBiometricResult.Failed
         }
-        return ProfileBiometricResult.Failed
     }
 
     actual suspend fun disable(profileIndex: Int) {
