@@ -1,5 +1,8 @@
 package com.nuvio.app.core.storage
 
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthState
+
 import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.sync.SyncManager
 import com.nuvio.app.core.sync.ProfileSettingsSync
