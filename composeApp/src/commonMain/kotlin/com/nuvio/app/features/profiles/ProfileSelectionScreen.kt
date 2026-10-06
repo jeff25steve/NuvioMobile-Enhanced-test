@@ -45,6 +45,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -471,8 +474,12 @@ private fun ProfileAvatarCard(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
+                onClickLabel = stringResource(Res.string.profile_select_accessibility),
                 onClick = { onClick(avatarCenterInWindow) },
             )
+            .semantics {
+                role = Role.Button
+            }
             .padding(8.dp),
     ) {
         Box(
