@@ -1817,7 +1817,7 @@
     <string name="profile_security">Security</string>
     <string name="profile_security_pin_disabled">Add a PIN if you want this profile locked before switching into it.</string>
     <string name="profile_security_pin_enabled">This profile is protected with a PIN.</string>
-    <string name="profile_biometric_enabled_description">Biometric unlock is enabled for the primary profile. It is stored only on this device and never synced. Anyone enrolled for biometrics on this device can unlock it.</string>
+    <string name="profile_biometric_enabled_description">Biometric unlock is enabled for the primary profile. Nuvio never stores your biometric data; its unlock credential stays only on this device and is never synced. Anyone enrolled for biometrics on this device can unlock it.</string>
     <string name="profile_biometric_disabled_description">Use your device's secure biometric as a faster alternative to the Nuvio PIN. Your PIN remains available as the fallback.</string>
     <string name="profile_enable_biometric_unlock">Enable Biometric Unlock</string>
     <string name="profile_disable_biometric_unlock">Disable Biometric Unlock</string>
@@ -1833,7 +1833,7 @@
     <string name="profile_enable_biometric_for">Enable biometric unlock for %1$s</string>
     <string name="profile_disable_biometric_for">Disable biometric unlock for %1$s</string>
     <string name="profile_biometric_setup_title">Biometric unlock</string>
-    <string name="profile_biometric_setup_failed">Biometric unlock could not be enabled. Your Nuvio PIN remains available.</string>
+    <string name="profile_biometric_setup_failed">Biometric unlock could not be enabled. Your Nuvio PIN is unchanged and remains available.</string>
     <string name="profile_select_avatar">Select an avatar for this profile.</string>
     <string name="profile_set_pin_lock">Set PIN Lock</string>
     <string name="profile_unnamed">Unnamed profile</string>
