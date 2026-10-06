@@ -78,7 +78,7 @@ actual object ProfilePinCacheStorage {
             values.edit()
                 .putString(payloadKey(profileIndex), PAYLOAD_PREFIX + encoded)
                 .commit()
-        }
+        }.isSuccess
     }
 
     private fun decrypt(encoded: String): String? {
