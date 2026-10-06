@@ -165,13 +165,8 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
             UpdateChannel.BETA -> Res.string.updates_channel_beta
         },
     )
-    val buildChannel = if (
-        !releaseChannelsEnabled || VersionUtils.isPrerelease(AppVersionConfig.VERSION_NAME)
-    ) {
-        UpdateChannel.BETA
-    } else {
-        UpdateChannel.STABLE
-    }
+    val buildChannel = UpdateChannel.fromStoredValue(AppVersionConfig.BUILD_CHANNEL)
+        ?: UpdateChannel.defaultForVersion(AppVersionConfig.VERSION_NAME)
     val buildChannelLabel = if (releaseChannelsEnabled) {
         stringResource(
             when (buildChannel) {
