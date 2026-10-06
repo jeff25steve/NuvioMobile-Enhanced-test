@@ -9,7 +9,7 @@ import androidx.fragment.app.FragmentActivity
 import java.lang.ref.WeakReference
 import java.security.KeyStore
 import java.security.KeyStoreException
-import java.security.KeyPermanentlyInvalidatedException
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -17,7 +17,7 @@ import kotlin.coroutines.resume
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.KeyProperties
-import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
 actual object ProfileBiometricAuth {
@@ -112,6 +112,27 @@ actual object ProfileBiometricAuth {
 
         val cipher = createCipher(profileIndex, userId)
         val cryptoObject = BiometricPrompt.CryptoObject(cipher)
+        val promptTitle = getString(
+            if (setup) {
+                Res.string.profile_biometric_prompt_setup_title
+            } else {
+                Res.string.profile_biometric_prompt_unlock_title
+            },
+        )
+        val promptSubtitle = getString(
+            if (setup) {
+                Res.string.profile_biometric_prompt_setup_subtitle
+            } else {
+                Res.string.profile_biometric_prompt_unlock_subtitle
+            },
+        )
+        val negativeButtonText = getString(
+            if (setup) {
+                Res.string.action_cancel
+            } else {
+                Res.string.profile_biometric_prompt_use_pin
+            },
+        )
 
         return suspendCancellableCoroutine { continuation ->
             val executor = host.mainExecutor
@@ -174,34 +195,10 @@ actual object ProfileBiometricAuth {
             )
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle(
-                    getString(
-                        if (setup) {
-                            Res.string.profile_biometric_prompt_setup_title
-                        } else {
-                            Res.string.profile_biometric_prompt_unlock_title
-                        },
-                    ),
-                )
-                .setSubtitle(
-                    getString(
-                        if (setup) {
-                            Res.string.profile_biometric_prompt_setup_subtitle
-                        } else {
-                            Res.string.profile_biometric_prompt_unlock_subtitle
-                        },
-                    ),
-                )
+                .setTitle(promptTitle)
+                .setSubtitle(promptSubtitle)
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .setNegativeButtonText(
-                    getString(
-                        if (setup) {
-                            Res.string.action_cancel
-                        } else {
-                            Res.string.profile_biometric_prompt_use_pin
-                        },
-                    ),
-                )
+                .setNegativeButtonText(negativeButtonText)
                 .setConfirmationRequired(false)
                 .build()
 
