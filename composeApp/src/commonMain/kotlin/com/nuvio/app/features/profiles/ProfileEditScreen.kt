@@ -491,6 +491,9 @@ fun ProfileEditScreen(
                 scope.launch {
                     when (ProfileBiometricAuth.enable(1)) {
                         ProfileBiometricResult.Success -> biometricConfigured = true
+                        ProfileBiometricResult.Cancelled,
+                        ProfileBiometricResult.FallbackRequested,
+                        -> Unit
                         else -> biometricSetupFailed = true
                     }
                 }
