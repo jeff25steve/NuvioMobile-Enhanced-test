@@ -99,37 +99,53 @@ fun ProfileSelectionScreen(
     val contentFadeAlpha = remember { Animatable(1f) }
     val onProfileClick: (NuvioProfile, Offset) -> Unit = onProfileClick@{ profile, tapCenter ->
         if (!interactionEnabled || biometricAuthenticating) return@onProfileClick
+
         if (
             !isEditMode &&
             profile.profileIndex != activeProfileIndex &&
             profile.profileIndex == 1 &&
-            profile.pinEnabled &&
-            ProfileBiometricAuth.isConfigured(profile.profileIndex)
+            profile.pinEnabled
         ) {
             biometricAuthenticating = true
             scope.launch {
-                val result = ProfileBiometricAuth.authenticate(profile.profileIndex)
-                biometricAuthenticating = false
-                when (result) {
+                val biometricConfigured = ProfileBiometricAuth.isConfigured(profile.profileIndex)
+                if (!biometricConfigured) {
+                    biometricAuthenticating = false
+                    routeProfileSelection(
+                        profile = profile,
+                        isEditMode = isEditMode,
+                        activeProfileIndex = activeProfileIndex,
+                        onEditProfile = onEditProfile,
+                        onActiveProfileSelected = { showAlreadyActiveProfileToast(it) },
+                        onPinRequired = { pendingPinSelection = it to tapCenter },
+                        onProfileSelected = { onProfileSelected(it, tapCenter) },
+                    )
+                    return@launch
+                }
+
+                when (val result = ProfileBiometricAuth.authenticate(profile.profileIndex)) {
                     ProfileBiometricResult.Success -> {
-                        if (interactionEnabled && profile.profileIndex != activeProfileIndex) {
-                            onProfileSelected(profile, tapCenter)
-                        } else if (interactionEnabled) {
-                            showAlreadyActiveProfileToast(profile.name)
-                        }
+                        biometricAuthenticating = false
+                        onProfileSelected(profile, tapCenter)
                     }
-                    ProfileBiometricResult.FallbackRequested,
+                    ProfileBiometricResult.FallbackRequested -> {
+                        biometricAuthenticating = false
+                        pendingPinSelection = profile to tapCenter
+                    }
                     ProfileBiometricResult.Invalidated,
                     ProfileBiometricResult.Unavailable,
                     ProfileBiometricResult.NotConfigured,
                     ProfileBiometricResult.Failed,
                     -> {
+                        biometricAuthenticating = false
                         pendingPinSelection = profile to tapCenter
                     }
-                    ProfileBiometricResult.Cancelled -> Unit
+                    ProfileBiometricResult.Cancelled -> {
+                        biometricAuthenticating = false
+                    }
                 }
             }
-        } else if (interactionEnabled) {
+        } else {
             routeProfileSelection(
                 profile = profile,
                 isEditMode = isEditMode,
