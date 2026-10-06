@@ -1830,6 +1830,7 @@
     <string name="profile_biometric_setup_reason">Confirm your biometric to enable primary profile unlock.</string>
     <string name="profile_biometric_unlock_reason">Use biometric authentication to unlock your primary profile.</string>
     <string name="profile_locked_accessibility">Locked profile. Enter PIN to unlock.</string>
+    <string name="profile_select_accessibility">Select profile</string>
     <string name="profile_enable_biometric_for">Enable biometric unlock for %1$s</string>
     <string name="profile_disable_biometric_for">Disable biometric unlock for %1$s</string>
     <string name="profile_biometric_setup_title">Biometric unlock</string>
