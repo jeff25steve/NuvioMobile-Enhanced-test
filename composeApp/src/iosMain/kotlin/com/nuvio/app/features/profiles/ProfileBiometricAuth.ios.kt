@@ -33,6 +33,8 @@ import platform.Security.kSecReturnAttributes
 import platform.Security.kSecReturnData
 import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecValueData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -80,7 +82,9 @@ actual object ProfileBiometricAuth {
             kSecValueData to NSData.create(bytes = allocArrayOf(sentinel), length = sentinel.size.toULong()),
         )
 
-        val addStatus = SecItemAdd(addQuery as CFDictionary, null)
+        val addStatus = withContext(Dispatchers.Default) {
+            SecItemAdd(addQuery as CFDictionary, null)
+        }
         if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
             return ProfileBiometricResult.Failed
         }
@@ -124,7 +128,9 @@ actual object ProfileBiometricAuth {
             kSecReturnData to true,
             kSecUseAuthenticationContext to context,
         )
-        val status = copyMatching(authenticatedQuery).first
+        val status = withContext(Dispatchers.Default) {
+            copyMatching(authenticatedQuery).first
+        }
         if (status == errSecSuccess) return ProfileBiometricResult.Success
 
         // The biometric policy succeeded, but the device's enrolled biometric set no longer
@@ -137,9 +143,11 @@ actual object ProfileBiometricAuth {
         return ProfileBiometricResult.Failed
     }
 
-    actual fun disable(profileIndex: Int) {
+    actual suspend fun disable(profileIndex: Int) {
         if (profileIndex != 1) return
-        SecItemDelete(baseQuery() as CFDictionary)
+        withContext(Dispatchers.Default) {
+            SecItemDelete(baseQuery() as CFDictionary)
+        }
     }
 
     private fun baseQuery(): Map<Any?, Any?> = mapOf(
