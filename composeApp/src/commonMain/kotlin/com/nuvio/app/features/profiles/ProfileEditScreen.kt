@@ -512,7 +512,7 @@ fun ProfileEditScreen(
             onVerified = {
                 showBiometricDisablePin = false
                 scope.launch {
-                    ProfileBiometricAuth.disable(1)
+                    ProfileBiometricAuth.disable(1, currentProfile.userId)
                     biometricConfigured = false
                 }
             },
