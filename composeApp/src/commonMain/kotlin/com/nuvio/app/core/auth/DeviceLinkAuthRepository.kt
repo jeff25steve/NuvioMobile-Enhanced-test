@@ -7,9 +7,6 @@ import com.nuvio.app.core.network.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
-import io.github.jan.supabase.functions.functions
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.rpc
 import io.ktor.client.statement.bodyAsText
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
