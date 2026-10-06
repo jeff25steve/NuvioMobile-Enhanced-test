@@ -52,6 +52,8 @@ actual object ProfileBiometricAuth {
 
     actual fun initialize(host: Any) {
         initialized = host is platform.UIKit.UIViewController
+        // Remove the pre-account-bound credential so a rollback cannot reuse it across accounts.
+        deleteLegacyCredential()
     }
 
     actual fun isAvailable(): Boolean {
