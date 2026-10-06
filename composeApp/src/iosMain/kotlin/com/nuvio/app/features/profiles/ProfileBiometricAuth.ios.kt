@@ -71,8 +71,8 @@ actual object ProfileBiometricAuth {
             kSecReturnAttributes to true,
             kSecUseAuthenticationContext to context,
         )
-        return copyMatching(query).first == errSecSuccess ||
-            copyMatching(query).first == errSecInteractionNotAllowed
+        val status = copyMatching(query).first
+        return status == errSecSuccess || status == errSecInteractionNotAllowed
     }
 
     actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
