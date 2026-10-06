@@ -4,10 +4,18 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.core.network.ServerConfiguration
 import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.network.SupabaseProvider
+import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
+import io.ktor.client.request.HttpMethod
+import io.ktor.client.request.contentType
+import io.ktor.client.request.header
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
@@ -67,16 +75,23 @@ object DeviceLinkAuthRepository {
             val configuration = ServerConfigurationRepository.active.value
             val nonce = Uuid.random().toString()
             try {
+                val anonymousAccessToken = createAnonymousAccessToken(configuration)
                 val session = startSession(
                     configuration = configuration,
                     nonce = nonce,
                     deviceName = currentDeviceClientMetadata().deviceName,
+                    accessToken = anonymousAccessToken,
                 )
                 _state.value = DeviceLinkAuthState.Waiting(
                     code = formatDeviceLinkCode(session.userCode),
                     verificationUrl = session.verificationUriComplete,
                 )
-                pollAndComplete(session, nonce)
+                pollAndComplete(
+                    configuration = configuration,
+                    session = session,
+                    nonce = nonce,
+                    accessToken = anonymousAccessToken,
+                )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: DeviceLinkAuthException) {
@@ -95,10 +110,38 @@ object DeviceLinkAuthRepository {
         _state.value = DeviceLinkAuthState.Idle
     }
 
+    @OptIn(SupabaseInternal::class)
+    private suspend fun createAnonymousAccessToken(
+        configuration: ServerConfiguration,
+    ): String {
+        val response = SupabaseProvider.client.httpClient.request(
+            "${configuration.backendUrl.trimEnd('/')}/auth/v1/signup",
+        ) {
+            method = HttpMethod.Post
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("data", buildJsonObject {
+                        put("tv_client", "mobile")
+                    })
+                }.toString(),
+            )
+        }
+        if (!response.status.isSuccess()) {
+            throw DeviceLinkAuthException(DeviceLinkAuthFailure.Start)
+        }
+        return json.decodeFromString<AnonymousAuthResponse>(response.bodyAsText())
+            .accessToken
+            .takeIf(String::isNotBlank)
+            ?: throw DeviceLinkAuthException(DeviceLinkAuthFailure.Start)
+    }
+
+    @OptIn(SupabaseInternal::class)
     private suspend fun startSession(
         configuration: ServerConfiguration,
         nonce: String,
         deviceName: String,
+        accessToken: String,
     ): DeviceLinkStartResponse {
         val params = buildJsonObject {
             put("p_device_nonce", nonce)
@@ -106,9 +149,18 @@ object DeviceLinkAuthRepository {
             put("p_device_name", deviceName)
             put("p_device_type", "mobile")
         }
-        return SupabaseProvider.client.postgrest
-            .rpc("start_device_login_session", params)
-            .decodeList<DeviceLinkStartResponse>()
+        val response = SupabaseProvider.client.httpClient.request(
+            "${configuration.backendUrl.trimEnd('/')}/rest/v1/rpc/start_device_login_session",
+        ) {
+            method = HttpMethod.Post
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.Authorization, "Bearer $accessToken")
+            setBody(params.toString())
+        }
+        if (!response.status.isSuccess()) {
+            throw DeviceLinkAuthException(DeviceLinkAuthFailure.Start)
+        }
+        return json.decodeFromString<List<DeviceLinkStartResponse>>(response.bodyAsText())
             .firstOrNull()
             ?.takeIf {
                 it.deviceCode.isNotBlank() &&
@@ -118,7 +170,7 @@ object DeviceLinkAuthRepository {
             ?: throw DeviceLinkAuthException(DeviceLinkAuthFailure.Start)
     }
 
-    private suspend fun pollAndComplete(session: DeviceLinkStartResponse, nonce: String) {
+    @OptIn(SupabaseInternal::class)
         var pollAttempts = 0
         var consecutiveFailures = 0
         val intervalMillis = session.pollIntervalSeconds.coerceIn(2, 10) * 1_000L
@@ -131,9 +183,18 @@ object DeviceLinkAuthRepository {
                     put("p_code", session.deviceCode)
                     put("p_device_nonce", nonce)
                 }
-                SupabaseProvider.client.postgrest
-                    .rpc("poll_tv_login_session", params)
-                    .decodeList<DeviceLinkPollResponse>()
+                val response = SupabaseProvider.client.httpClient.request(
+                    "${configuration.backendUrl.trimEnd('/')}/rest/v1/rpc/poll_tv_login_session",
+                ) {
+                    method = HttpMethod.Post
+                    contentType(ContentType.Application.Json)
+                    header(HttpHeaders.Authorization, "Bearer $accessToken")
+                    setBody(params.toString())
+                }
+                if (!response.status.isSuccess()) {
+                    throw DeviceLinkAuthException(DeviceLinkAuthFailure.Complete)
+                }
+                json.decodeFromString<List<DeviceLinkPollResponse>>(response.bodyAsText())
                     .firstOrNull()
                     ?: throw DeviceLinkAuthException(DeviceLinkAuthFailure.Complete)
             } catch (error: CancellationException) {
@@ -153,7 +214,12 @@ object DeviceLinkAuthRepository {
                         verificationUrl = session.verificationUriComplete,
                         isCompleting = true,
                     )
-                    completeSession(session.deviceCode, nonce)
+                    completeSession(
+                        configuration = configuration,
+                        deviceCode = session.deviceCode,
+                        nonce = nonce,
+                        accessToken = accessToken,
+                    )
                     return
                 }
                 else -> throw DeviceLinkAuthException(DeviceLinkAuthFailure.Expired)
@@ -163,13 +229,29 @@ object DeviceLinkAuthRepository {
         throw DeviceLinkAuthException(DeviceLinkAuthFailure.Expired)
     }
 
-    private suspend fun completeSession(deviceCode: String, nonce: String) {
+    @OptIn(SupabaseInternal::class)
+    private suspend fun completeSession(
+        configuration: ServerConfiguration,
+        deviceCode: String,
+        nonce: String,
+        accessToken: String,
+    ) {
         try {
             val payload = buildJsonObject {
                 put("code", deviceCode)
                 put("device_nonce", nonce)
             }
-            val response = SupabaseProvider.client.functions.invoke("tv-logins-exchange", payload)
+            val response = SupabaseProvider.client.httpClient.request(
+                "${configuration.backendUrl.trimEnd('/')}/functions/v1/tv-logins-exchange",
+            ) {
+                method = HttpMethod.Post
+                contentType(ContentType.Application.Json)
+                header(HttpHeaders.Authorization, "Bearer $accessToken")
+                setBody(payload.toString())
+            }
+            if (!response.status.isSuccess()) {
+                throw DeviceLinkAuthException(DeviceLinkAuthFailure.Complete)
+            }
             val result = json.decodeFromString<DeviceLinkExchangeResponse>(response.bodyAsText())
             val user = result.user ?: SupabaseProvider.client.auth.retrieveUser(result.accessToken)
             val expiresIn = requireNotNull(result.expiresIn?.takeIf { it > 0L })
@@ -209,6 +291,11 @@ private data class DeviceLinkStartResponse(
 @Serializable
 private data class DeviceLinkPollResponse(
     val status: String,
+)
+
+@Serializable
+private data class AnonymousAuthResponse(
+    @SerialName("access_token") val accessToken: String,
 )
 
 @Serializable
