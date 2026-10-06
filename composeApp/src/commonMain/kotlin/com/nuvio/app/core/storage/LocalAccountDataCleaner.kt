@@ -21,6 +21,8 @@ import com.nuvio.app.features.player.PlayerSettingsRepository
 import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.plugins.PluginRepository
 import com.nuvio.app.features.player.SubtitleRepository
+import com.nuvio.app.features.profiles.ProfileBiometricAuth
+import com.nuvio.app.features.profiles.ProfilePinCacheStorage
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.profiles.MAX_PROFILES
 import com.nuvio.app.features.search.SearchRepository
@@ -41,6 +43,12 @@ import com.nuvio.app.features.watched.WatchedRepository
 
 internal object LocalAccountDataCleaner {
     fun wipe() {
+        val accountUserId = (AuthRepository.state.value as? AuthState.Authenticated)?.userId
+        if (!accountUserId.isNullOrBlank()) {
+            ProfileBiometricAuth.disable(1, accountUserId)
+        }
+        (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
+
         ensureTrackingProvidersRegistered()
         TrackingProviderRegistry.removeStoredProfiles(1..MAX_PROFILES)
         SyncManager.cancelAccountSync()
