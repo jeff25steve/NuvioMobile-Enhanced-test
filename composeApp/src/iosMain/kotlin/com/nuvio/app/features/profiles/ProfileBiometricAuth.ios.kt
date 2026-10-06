@@ -91,23 +91,32 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Failed
         }
 
-        val result = authenticateInternal(profileIndex, setup = true)
+        val result = authenticateInternal(profileIndex, userId, setup = true)
         if (result != ProfileBiometricResult.Success) {
             disable(profileIndex)
         }
         return result
     }
 
-    actual suspend fun authenticate(profileIndex: Int): ProfileBiometricResult {
-        return authenticateInternal(profileIndex, setup = false)
+    actual suspend fun authenticate(profileIndex: Int, userId: String): ProfileBiometricResult {
+        return authenticateInternal(profileIndex, userId, setup = false)
+    }
+
+    actual fun disable(profileIndex: Int, userId: String) {
+        if (profileIndex != 1) return
+        if (userId.isNotBlank()) {
+            SecItemDelete(baseQuery(userId) as CFDictionary)
+        }
+        deleteLegacyCredential()
     }
 
     private suspend fun authenticateInternal(
         profileIndex: Int,
+        userId: String,
         setup: Boolean,
     ): ProfileBiometricResult {
-        if (profileIndex != 1) return ProfileBiometricResult.Unavailable
-        if (!isConfigured(profileIndex)) return ProfileBiometricResult.NotConfigured
+        if (profileIndex != 1 || userId.isBlank()) return ProfileBiometricResult.Unavailable
+        if (!isConfigured(profileIndex, userId)) return ProfileBiometricResult.NotConfigured
         if (!isAvailable()) return ProfileBiometricResult.Unavailable
 
         val context = LAContext().apply {
@@ -122,7 +131,7 @@ actual object ProfileBiometricAuth {
                 localizedFallbackTitle = getString(Res.string.profile_biometric_prompt_use_pin)
             }
         }
-        val authenticatedQuery = baseQuery() + mapOf(
+        val authenticatedQuery = baseQuery(userId) + mapOf(
             kSecReturnData to true,
             kSecUseAuthenticationContext to context,
         )
@@ -149,11 +158,24 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    private fun baseQuery(): Map<Any?, Any?> = mapOf(
+    private fun baseQuery(userId: String): Map<Any?, Any?> = mapOf(
         kSecClass to kSecClassGenericPassword,
         kSecAttrService to SERVICE,
-        kSecAttrAccount to ACCOUNT,
+        kSecAttrAccount to account(userId),
     )
+
+    private fun account(userId: String): String =
+        "primary-" + ProfilePinCrypto.sha256Hex("primary-profile-biometric:$userId")
+
+    private fun deleteLegacyCredential() {
+        SecItemDelete(
+            mapOf(
+                kSecClass to kSecClassGenericPassword,
+                kSecAttrService to LEGACY_SERVICE,
+                kSecAttrAccount to LEGACY_ACCOUNT,
+            ) as CFDictionary,
+        )
+    }
 
     private fun createAccessControl(): SecAccessControl? {
         return memScoped {
