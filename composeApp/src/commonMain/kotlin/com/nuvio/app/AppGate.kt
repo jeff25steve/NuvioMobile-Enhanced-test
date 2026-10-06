@@ -190,6 +190,9 @@ internal fun AppGate(
     // Set once both of the above are true, to play AppLoadingContent's exit-toward-the-Profile-tab
     // animation; only once *that* finishes does it actually close the overlay.
     var profileTransitionExiting by remember { mutableStateOf(false) }
+    // Prevent profile sync/state updates from launching a second startup biometric prompt while the
+    // first system prompt is still visible. The guard is transient and clears as soon as the attempt ends.
+    var startupBiometricInProgress by remember { mutableStateOf(false) }
 
     // Resetting these three flags has to happen synchronously, in the very same recomposition
     // that flips `profileSelectionTransitionActive` on — not from a LaunchedEffect keyed on it,
@@ -367,6 +370,7 @@ internal fun AppGate(
         }
 
         if (
+            !startupBiometricInProgress &&
             ProfileRepository.state.value.rememberLastProfileEnabled &&
             ProfileRepository.state.value.hasEverSelectedProfile
         ) {
@@ -375,23 +379,29 @@ internal fun AppGate(
             }
             if (
                 rememberedLockedProfile?.pinEnabled == true &&
-                rememberedLockedProfile.profileIndex == 1 &&
-                ProfileBiometricAuth.isConfigured(1)
+                rememberedLockedProfile.profileIndex == 1
             ) {
-                when (ProfileBiometricAuth.authenticate(1)) {
-                    ProfileBiometricResult.Success -> {
-                        selectProfile(rememberedLockedProfile, sync = syncOnEnter)
-                        gateScreen = AppGateScreen.Main.name
-                        autoSkipProfileSelection = false
-                        return
+                startupBiometricInProgress = true
+                try {
+                    if (ProfileBiometricAuth.isConfigured(1)) {
+                        when (ProfileBiometricAuth.authenticate(1)) {
+                            ProfileBiometricResult.Success -> {
+                                selectProfile(rememberedLockedProfile, sync = syncOnEnter)
+                                gateScreen = AppGateScreen.Main.name
+                                autoSkipProfileSelection = false
+                                return
+                            }
+                            ProfileBiometricResult.Invalidated -> Unit
+                            ProfileBiometricResult.FallbackRequested,
+                            ProfileBiometricResult.Cancelled,
+                            ProfileBiometricResult.Unavailable,
+                            ProfileBiometricResult.NotConfigured,
+                            ProfileBiometricResult.Failed,
+                            -> Unit
+                        }
                     }
-                    ProfileBiometricResult.Invalidated -> Unit
-                    ProfileBiometricResult.FallbackRequested,
-                    ProfileBiometricResult.Cancelled,
-                    ProfileBiometricResult.Unavailable,
-                    ProfileBiometricResult.NotConfigured,
-                    ProfileBiometricResult.Failed,
-                    -> Unit
+                } finally {
+                    startupBiometricInProgress = false
                 }
             }
         }
