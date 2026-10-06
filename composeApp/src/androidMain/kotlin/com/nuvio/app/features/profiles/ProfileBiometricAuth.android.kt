@@ -30,6 +30,8 @@ actual object ProfileBiometricAuth {
 
     actual fun initialize(host: Any) {
         activityReference = (host as? FragmentActivity)?.let(::WeakReference)
+        // Remove the pre-account-bound credential so a rollback cannot reuse it across accounts.
+        deleteLegacyKey()
     }
 
     private fun activity(): FragmentActivity? = activityReference?.get()
