@@ -50,7 +50,7 @@ actual object ProfileBiometricAuth {
         deleteKey(profileIndex)
         return runCatching {
             generateKey(profileIndex)
-            when (val result = authenticateInternal(profileIndex)) {
+            when (val result = authenticateInternal(profileIndex, setup = true)) {
                 ProfileBiometricResult.Success -> result
                 else -> {
                     deleteKey(profileIndex)
@@ -83,7 +83,10 @@ actual object ProfileBiometricAuth {
         deleteKey(profileIndex)
     }
 
-    private suspend fun authenticateInternal(profileIndex: Int): ProfileBiometricResult {
+    private suspend fun authenticateInternal(
+        profileIndex: Int,
+        setup: Boolean,
+    ): ProfileBiometricResult {
         val host = activity ?: return ProfileBiometricResult.Unavailable
         val biometricManager = BiometricManager.from(host)
         if (
@@ -129,7 +132,12 @@ actual object ProfileBiometricAuth {
                         if (!continuation.isActive) return
                         continuation.resume(
                             when (errorCode) {
-                                BiometricPrompt.ERROR_NEGATIVE_BUTTON -> ProfileBiometricResult.FallbackRequested
+                                BiometricPrompt.ERROR_NEGATIVE_BUTTON ->
+                                    if (setup) {
+                                        ProfileBiometricResult.Cancelled
+                                    } else {
+                                        ProfileBiometricResult.FallbackRequested
+                                    }
                                 BiometricPrompt.ERROR_USER_CANCELED,
                                 BiometricPrompt.ERROR_CANCELED -> ProfileBiometricResult.Cancelled
                                 BiometricPrompt.ERROR_NO_BIOMETRICS,
@@ -148,10 +156,14 @@ actual object ProfileBiometricAuth {
             )
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock primary profile")
-                .setSubtitle("Use your fingerprint or other strong biometric")
+                .setTitle(
+                    if (setup) "Set up biometric unlock" else "Unlock primary profile",
+                )
+                .setSubtitle(
+                    if (setup) "Confirm your device biometric" else "Use your fingerprint or other strong biometric",
+                )
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .setNegativeButtonText("Use PIN")
+                .setNegativeButtonText(if (setup) "Cancel" else "Use PIN")
                 .setConfirmationRequired(false)
                 .build()
 
