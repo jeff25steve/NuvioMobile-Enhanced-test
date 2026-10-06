@@ -20,6 +20,7 @@ import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
 import platform.Security.errSecDuplicateItem
+import platform.Security.errSecInteractionNotAllowed
 import platform.Security.errSecItemNotFound
 import platform.Security.errSecUserCanceled
 import platform.Security.errSecSuccess
@@ -67,7 +68,8 @@ actual object ProfileBiometricAuth {
             kSecReturnAttributes to true,
             kSecUseAuthenticationContext to context,
         )
-        return copyMatching(query).first == errSecSuccess
+        val status = copyMatching(query).first
+        return status == errSecSuccess || status == errSecInteractionNotAllowed
     }
 
     actual suspend fun enable(profileIndex: Int): ProfileBiometricResult {
