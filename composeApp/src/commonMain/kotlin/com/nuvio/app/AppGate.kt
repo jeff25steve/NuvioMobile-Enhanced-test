@@ -383,8 +383,8 @@ internal fun AppGate(
             ) {
                 startupBiometricInProgress = true
                 try {
-                    if (ProfileBiometricAuth.isConfigured(1)) {
-                        when (ProfileBiometricAuth.authenticate(1)) {
+                    if (ProfileBiometricAuth.isConfigured(1, rememberedLockedProfile.userId)) {
+                        when (ProfileBiometricAuth.authenticate(1, rememberedLockedProfile.userId)) {
                             ProfileBiometricResult.Success -> {
                                 selectProfile(rememberedLockedProfile, sync = syncOnEnter)
                                 gateScreen = AppGateScreen.Main.name
