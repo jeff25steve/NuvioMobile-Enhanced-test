@@ -23,6 +23,7 @@ import org.jetbrains.compose.resources.getString
 actual object ProfileBiometricAuth {
     private const val KEYSTORE = "AndroidKeyStore"
     private const val KEY_PREFIX = "nuvio_primary_profile_biometric_"
+    private const val LEGACY_ALIAS = "nuvio_primary_profile_biometric_1"
     private val sentinel = "nuvio-profile-biometric".encodeToByteArray()
 
     private var activityReference: WeakReference<FragmentActivity>? = null
@@ -41,21 +42,24 @@ actual object ProfileBiometricAuth {
             BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    actual suspend fun isConfigured(profileIndex: Int): Boolean {
-        if (profileIndex != 1) return false
+    actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
+        if (profileIndex != 1 || userId.isBlank()) return false
         return runCatching {
             val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-            keyStore.containsAlias(alias(profileIndex))
+            keyStore.containsAlias(alias(profileIndex, userId))
         }.getOrDefault(false)
     }
 
-    actual suspend fun enable(profileIndex: Int): ProfileBiometricResult {
-        if (profileIndex != 1 || !isAvailable()) return ProfileBiometricResult.Unavailable
+    actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
+        if (profileIndex != 1 || userId.isBlank() || !isAvailable()) {
+            return ProfileBiometricResult.Unavailable
+        }
 
-        deleteKey(profileIndex)
+        deleteKey(profileIndex, userId)
+        deleteLegacyKey()
         return runCatching {
-            generateKey(profileIndex)
-            when (val result = authenticateInternal(profileIndex, setup = true)) {
+            generateKey(profileIndex, userId)
+            when (val result = authenticateInternal(profileIndex, userId, setup = true)) {
                 ProfileBiometricResult.Success -> result
                 else -> {
                     deleteKey(profileIndex)
@@ -68,15 +72,15 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual suspend fun authenticate(profileIndex: Int): ProfileBiometricResult {
-        if (profileIndex != 1) return ProfileBiometricResult.Unavailable
-        if (!isConfigured(profileIndex)) return ProfileBiometricResult.NotConfigured
+    actual suspend fun authenticate(profileIndex: Int, userId: String): ProfileBiometricResult {
+        if (profileIndex != 1 || userId.isBlank()) return ProfileBiometricResult.Unavailable
+        if (!isConfigured(profileIndex, userId)) return ProfileBiometricResult.NotConfigured
 
         return runCatching {
-            authenticateInternal(profileIndex, setup = false)
+            authenticateInternal(profileIndex, userId, setup = false)
         }.getOrElse { error ->
             if (error is KeyPermanentlyInvalidatedException) {
-                deleteKey(profileIndex)
+                deleteKey(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             } else {
                 ProfileBiometricResult.Failed
@@ -84,12 +88,15 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual suspend fun disable(profileIndex: Int) {
-        deleteKey(profileIndex)
+    actual fun disable(profileIndex: Int, userId: String) {
+        if (profileIndex != 1) return
+        if (userId.isNotBlank()) deleteKey(profileIndex, userId)
+        deleteLegacyKey()
     }
 
     private suspend fun authenticateInternal(
         profileIndex: Int,
+        userId: String,
         setup: Boolean,
     ): ProfileBiometricResult {
         val host = activity() ?: return ProfileBiometricResult.Unavailable
@@ -101,7 +108,7 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        val cipher = createCipher(profileIndex)
+        val cipher = createCipher(profileIndex, userId)
         val cryptoObject = BiometricPrompt.CryptoObject(cipher)
 
         return suspendCancellableCoroutine { continuation ->
@@ -124,7 +131,7 @@ actual object ProfileBiometricAuth {
                             ProfileBiometricResult.Success
                         }.getOrElse { error ->
                             if (error is KeyPermanentlyInvalidatedException) {
-                                deleteKey(profileIndex)
+                                deleteKey(profileIndex, userId)
                                 ProfileBiometricResult.Invalidated
                             } else {
                                 ProfileBiometricResult.Failed
@@ -201,19 +208,19 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    private fun generateKey(profileIndex: Int) {
+    private fun generateKey(profileIndex: Int, userId: String) {
         runCatching {
-            generateKey(profileIndex, strongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            generateKey(profileIndex, userId, strongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
         }.onFailure { error ->
             if (error !is StrongBoxUnavailableException) throw error
-            generateKey(profileIndex, strongBox = false)
+            generateKey(profileIndex, userId, strongBox = false)
         }
     }
 
-    private fun generateKey(profileIndex: Int, strongBox: Boolean) {
+    private fun generateKey(profileIndex: Int, userId: String, strongBox: Boolean) {
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
         val builder = KeyGenParameterSpec.Builder(
-            alias(profileIndex),
+            alias(profileIndex, userId),
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -239,23 +246,38 @@ actual object ProfileBiometricAuth {
         generator.generateKey()
     }
 
-    private fun createCipher(profileIndex: Int): Cipher {
+    private fun createCipher(profileIndex: Int, userId: String): Cipher {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        val key = keyStore.getKey(alias(profileIndex), null)
+        val key = keyStore.getKey(alias(profileIndex, userId), null)
             ?: throw KeyStoreException("Biometric key is unavailable")
         return Cipher.getInstance("AES/GCM/NoPadding").apply {
             init(Cipher.ENCRYPT_MODE, key)
         }
     }
 
-    private fun deleteKey(profileIndex: Int) {
+    private fun deleteKey(profileIndex: Int, userId: String) {
+        if (userId.isBlank()) return
         runCatching {
             KeyStore.getInstance(KEYSTORE).apply {
                 load(null)
-                if (containsAlias(alias(profileIndex))) deleteEntry(alias(profileIndex))
+                if (containsAlias(alias(profileIndex, userId))) {
+                    deleteEntry(alias(profileIndex, userId))
+                }
             }
         }
     }
 
-    private fun alias(profileIndex: Int): String = KEY_PREFIX + profileIndex
+    private fun deleteLegacyKey() {
+        runCatching {
+            KeyStore.getInstance(KEYSTORE).apply {
+                load(null)
+                if (containsAlias(LEGACY_ALIAS)) deleteEntry(LEGACY_ALIAS)
+            }
+        }
+    }
+
+    private fun alias(profileIndex: Int, userId: String): String =
+        KEY_PREFIX + ProfilePinCrypto.sha256Hex(
+            "primary-profile-biometric:$profileIndex:$userId",
+        )
 }
