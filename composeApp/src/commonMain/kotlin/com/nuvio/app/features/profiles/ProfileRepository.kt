@@ -286,13 +286,20 @@ object ProfileRepository {
     }
 
     suspend fun deleteProfile(profileIndex: Int) {
+        val deletedProfile = _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }
+        val userId = deletedProfile?.userId.orEmpty()
+
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex, remaining.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty())
+            ProfileBiometricAuth.disable(profileIndex, userId)
             _state.value = _state.value.copy(
                 profiles = remaining,
-                activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) remaining.firstOrNull() else _state.value.activeProfile,
+                activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) {
+                    remaining.firstOrNull()
+                } else {
+                    _state.value.activeProfile
+                },
             )
             if (_state.value.activeProfile != null) {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
@@ -309,10 +316,7 @@ object ProfileRepository {
             // Remote deletion succeeded; remove device-local authentication artifacts even if
             // the subsequent profile refresh is interrupted or unavailable.
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(
-                profileIndex,
-                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
-            )
+            ProfileBiometricAuth.disable(profileIndex, userId)
             pullProfiles()
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
