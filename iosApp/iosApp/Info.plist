@@ -52,7 +52,7 @@
 		<true/>
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to unlock your primary Nuvio profile.</string>
+	<string>Use biometric authentication to unlock your primary Nuvio profile.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>shareddocuments</string>
