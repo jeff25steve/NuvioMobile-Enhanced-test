@@ -39,6 +39,8 @@ import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.auth.AuthScreen
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.profiles.AvatarRepository
+import com.nuvio.app.features.profiles.ProfileBiometricAuth
+import com.nuvio.app.features.profiles.ProfileBiometricResult
 import com.nuvio.app.features.profiles.NuvioProfile
 import com.nuvio.app.features.profiles.ProfileEditScreen
 import com.nuvio.app.features.profiles.ProfileRepository
