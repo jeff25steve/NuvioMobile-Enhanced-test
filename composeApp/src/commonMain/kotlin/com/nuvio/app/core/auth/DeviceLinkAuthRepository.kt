@@ -8,14 +8,15 @@ import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.auth.user.UserSession
-import io.ktor.client.request.HttpMethod
-import io.ktor.client.request.contentType
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
@@ -119,6 +120,8 @@ object DeviceLinkAuthRepository {
         ) {
             method = HttpMethod.Post
             contentType(ContentType.Application.Json)
+            header("apikey", configuration.publishableKey)
+            header(HttpHeaders.Authorization, "Bearer " + configuration.publishableKey)
             setBody(
                 buildJsonObject {
                     put("data", buildJsonObject {
@@ -154,6 +157,7 @@ object DeviceLinkAuthRepository {
         ) {
             method = HttpMethod.Post
             contentType(ContentType.Application.Json)
+            header("apikey", configuration.publishableKey)
             header(HttpHeaders.Authorization, "Bearer $accessToken")
             setBody(params.toString())
         }
@@ -194,6 +198,7 @@ object DeviceLinkAuthRepository {
                 ) {
                     method = HttpMethod.Post
                     contentType(ContentType.Application.Json)
+                    header("apikey", configuration.publishableKey)
                     header(HttpHeaders.Authorization, "Bearer $accessToken")
                     setBody(params.toString())
                 }
@@ -252,6 +257,7 @@ object DeviceLinkAuthRepository {
             ) {
                 method = HttpMethod.Post
                 contentType(ContentType.Application.Json)
+                header("apikey", configuration.publishableKey)
                 header(HttpHeaders.Authorization, "Bearer $accessToken")
                 setBody(payload.toString())
             }
