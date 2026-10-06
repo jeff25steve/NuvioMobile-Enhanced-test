@@ -44,7 +44,7 @@ import org.jetbrains.compose.resources.getString
 actual object ProfileBiometricAuth {
     private const val SERVICE = "com.nuvio.media.profile-biometric"
     private const val ACCOUNT = "primary"
-    private const val SENTINEL = "nuvio-biometric-SENTINEL"
+    private const val SENTINEL = "nuvio-biometric-sentinel"
     private const val LEGACY_SERVICE = SERVICE
     private const val LEGACY_ACCOUNT = ACCOUNT
 
