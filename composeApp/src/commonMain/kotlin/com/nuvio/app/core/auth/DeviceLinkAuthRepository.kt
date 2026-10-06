@@ -171,6 +171,12 @@ object DeviceLinkAuthRepository {
     }
 
     @OptIn(SupabaseInternal::class)
+    private suspend fun pollAndComplete(
+        configuration: ServerConfiguration,
+        session: DeviceLinkStartResponse,
+        nonce: String,
+        accessToken: String,
+    ) {
         var pollAttempts = 0
         var consecutiveFailures = 0
         val intervalMillis = session.pollIntervalSeconds.coerceIn(2, 10) * 1_000L
