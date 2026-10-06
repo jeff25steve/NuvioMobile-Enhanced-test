@@ -528,9 +528,6 @@ object ProfileRepository {
             return PinVerifyResult(
                 unlocked = false,
                 retryAfterSeconds = retryAfterSeconds,
-                message = localizedString(
-                    Res.string.pin_locked_try_again,
-                ).replace("%1$s", retryAfterSeconds.toString()),
             )
         }
 
