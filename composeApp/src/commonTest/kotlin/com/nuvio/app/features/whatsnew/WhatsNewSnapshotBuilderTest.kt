@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.nuvio.app.features.updater.UpdateChannel
 import kotlinx.datetime.TimeZone
 import kotlin.time.Instant
 
@@ -148,6 +149,54 @@ class WhatsNewSnapshotBuilderTest {
         assertEquals(
             listOf("0.5.7", "0.5.7-beta.2", "0.5.7-beta.1"),
             snapshot.sinceYourVersion.map(WhatsNewRelease::version),
+        )
+    }
+
+    @Test
+    fun stableBuildOnBetaChannelIsUpToDateWhenBetaHasSameBaseVersion() {
+        assertTrue(
+            isCurrentBuildAlignedWithDisplayedBetaRelease(
+                currentVersion = "0.5.6",
+                latestVersion = "0.5.6-beta",
+                buildChannel = UpdateChannel.STABLE,
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun olderBetaBuildStillSeesNewerBetaPrereleaseAsAnUpdate() {
+        assertFalse(
+            isCurrentBuildAlignedWithDisplayedBetaRelease(
+                currentVersion = "0.5.6-beta.1",
+                latestVersion = "0.5.6-beta.2",
+                buildChannel = UpdateChannel.BETA,
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun betaBuildMatchesItsExactDisplayedPrerelease() {
+        assertTrue(
+            isCurrentBuildAlignedWithDisplayedBetaRelease(
+                currentVersion = "0.5.6-beta.2",
+                latestVersion = "0.5.6-beta.2",
+                buildChannel = UpdateChannel.BETA,
+                viewingChannel = UpdateChannel.BETA,
+            ),
+        )
+    }
+
+    @Test
+    fun stableBuildDoesNotTreatDifferentBetaReleaseLineAsUpToDate() {
+        assertFalse(
+            isCurrentBuildAlignedWithDisplayedBetaRelease(
+                currentVersion = "0.5.6",
+                latestVersion = "0.5.7-beta",
+                buildChannel = UpdateChannel.STABLE,
+                viewingChannel = UpdateChannel.BETA,
+            ),
         )
     }
 
