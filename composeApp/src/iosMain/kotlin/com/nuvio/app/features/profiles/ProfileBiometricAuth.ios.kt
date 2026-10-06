@@ -4,7 +4,6 @@ import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
-import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import platform.CoreFoundation.CFDictionary
@@ -43,7 +42,9 @@ import org.jetbrains.compose.resources.getString
 actual object ProfileBiometricAuth {
     private const val SERVICE = "com.nuvio.media.profile-biometric"
     private const val ACCOUNT = "primary"
-    private val sentinel = "nuvio-biometric-sentinel".encodeToByteArray()
+    private const val SENTINEL = "nuvio-biometric-SENTINEL"
+    private const val LEGACY_SERVICE = SERVICE
+    private const val LEGACY_ACCOUNT = ACCOUNT
 
     private var initialized = false
 
@@ -63,25 +64,31 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual suspend fun isConfigured(profileIndex: Int): Boolean {
-        if (profileIndex != 1) return false
+    actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
+        if (profileIndex != 1 || userId.isBlank()) return false
         val context = LAContext().apply { interactionNotAllowed = true }
-        val query = baseQuery() + mapOf(
+        val query = baseQuery(userId) + mapOf(
             kSecReturnAttributes to true,
             kSecUseAuthenticationContext to context,
         )
-        val status = copyMatching(query).first
-        return status == errSecSuccess || status == errSecInteractionNotAllowed
+        return copyMatching(query).first == errSecSuccess ||
+            copyMatching(query).first == errSecInteractionNotAllowed
     }
 
-    actual suspend fun enable(profileIndex: Int): ProfileBiometricResult {
-        if (profileIndex != 1 || !isAvailable()) return ProfileBiometricResult.Unavailable
+    actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
+        if (profileIndex != 1 || userId.isBlank() || !isAvailable()) {
+            return ProfileBiometricResult.Unavailable
+        }
 
-        disable(profileIndex)
+        disable(profileIndex, userId)
+        deleteLegacyCredential()
         val accessControl = createAccessControl() ?: return ProfileBiometricResult.Failed
-        val addQuery = baseQuery() + mapOf(
+        val valueData = NSString.create(string = SENTINEL)
+            .dataUsingEncoding(NSUTF8StringEncoding)
+            ?: return ProfileBiometricResult.Failed
+        val addQuery = baseQuery(userId) + mapOf(
             kSecAttrAccessControl to accessControl,
-            kSecValueData to NSData.create(bytes = allocArrayOf(sentinel), length = sentinel.size.toULong()),
+            kSecValueData to valueData,
         )
 
         val addStatus = withContext(Dispatchers.Default) {
@@ -93,7 +100,7 @@ actual object ProfileBiometricAuth {
 
         val result = authenticateInternal(profileIndex, userId, setup = true)
         if (result != ProfileBiometricResult.Success) {
-            disable(profileIndex)
+            disable(profileIndex, userId)
         }
         return result
     }
@@ -143,18 +150,11 @@ actual object ProfileBiometricAuth {
         }) {
             errSecSuccess -> ProfileBiometricResult.Success
             errSecItemNotFound -> {
-                disable(profileIndex)
+                disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
             errSecUserCanceled -> ProfileBiometricResult.Cancelled
             else -> ProfileBiometricResult.Failed
-        }
-    }
-
-    actual suspend fun disable(profileIndex: Int) {
-        if (profileIndex != 1) return
-        withContext(Dispatchers.Default) {
-            SecItemDelete(baseQuery() as CFDictionary)
         }
     }
 
