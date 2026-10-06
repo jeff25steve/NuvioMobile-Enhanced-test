@@ -75,7 +75,7 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual fun disable(profileIndex: Int) {
+    actual suspend fun disable(profileIndex: Int) {
         deleteKey(profileIndex)
     }
 
