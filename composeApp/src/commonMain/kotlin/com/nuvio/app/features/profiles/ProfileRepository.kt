@@ -403,7 +403,10 @@ object ProfileRepository {
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
             pullProfiles()
             ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex)
+            ProfileBiometricAuth.disable(
+                profileIndex,
+                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+            )
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin with password" }
         }
