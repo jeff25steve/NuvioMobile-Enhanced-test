@@ -40,8 +40,9 @@ actual object ProfilePinCacheStorage {
         // Migrate the legacy plaintext cache on first access. The old verifier remains usable
         // only long enough to be re-encrypted with an app-bound Android Keystore key.
         if (stored.isNotBlank()) {
-            saveEncrypted(profileIndex, stored)
-            return stored
+            if (saveEncrypted(profileIndex, stored)) return stored
+            // Do not leave a plaintext verifier behind when secure storage is unavailable.
+            values.edit().remove(payloadKey(profileIndex)).commit()
         }
 
         return null
