@@ -373,6 +373,9 @@ fun ProfileEditScreen(
                                     !biometricAvailable -> stringResource(
                                         Res.string.profile_biometric_unavailable,
                                     )
+                                    biometricConfigured -> stringResource(
+                                        Res.string.profile_biometric_enabled_description,
+                                    )
                                     else -> stringResource(
                                         Res.string.profile_biometric_disabled_description,
                                     )
