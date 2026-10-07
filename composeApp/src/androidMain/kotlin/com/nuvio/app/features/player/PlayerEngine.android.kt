@@ -28,6 +28,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 import androidx.lifecycle.LifecycleEventObserver
@@ -145,15 +146,16 @@ actual fun PlatformPlayerSurface(
         useYoutubeChunkedPlayback,
         initialPositionRequestKey.orEmpty(),
     )
+
     val requestedEngine = playbackEngine ?: playerSettings.androidPlaybackEngine
     var activeEngine by remember(playerSourceKey, requestedEngine) {
         mutableStateOf(requestedEngine.initialAndroidEngine())
     }
 
-    LaunchedEffect(activeEngine, playerSourceKey, playerSettings.androidPlaybackEngine) {
+    LaunchedEffect(activeEngine, playerSourceKey, requestedEngine) {
         InAppLogger.info(
             "Player/Android",
-            "engine=$activeEngine configured=${playerSettings.androidPlaybackEngine} url=${InAppLogger.redactUrl(sourceUrl)} " +
+            "engine=$activeEngine configured=$requestedEngine url=${InAppLogger.redactUrl(sourceUrl)} " +
                 "audio=${!sourceAudioUrl.isNullOrBlank()} subtitles=${externalSubtitles.size} " +
                 "streamType=${normalizeStreamType(streamType) ?: "unknown"}",
         )
@@ -297,6 +299,8 @@ private fun ExoPlayerSurface(
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
     var initializedVideoDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     var initializedAudioDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
+    var playerChapters by remember(playerSourceKey) { mutableStateOf<List<PlayerChapter>>(emptyList()) }
+    var chaptersProbeDone by remember(playerSourceKey) { mutableStateOf(false) }
     val effectiveDecoderPriority = decoderPriorityOverride ?: playerSettings.decoderPriority
     val volumeBoostAudioProcessor = remember(playerSourceKey) {
         PlayerOutputAudioProcessor(stereoDownmixEnabled = !playerSettings.androidAudioPassthroughEnabled)
@@ -502,9 +506,38 @@ private fun ExoPlayerSurface(
     }
 
     fun dispatchExoPlayerSnapshot() {
-        val snapshot = exoPlayer.snapshot(initializedVideoDecoderName, initializedAudioDecoderName)
+        val snapshot = exoPlayer.snapshot(initializedVideoDecoderName, initializedAudioDecoderName, playerChapters)
         latestOnSnapshot.value(snapshot)
         nowPlayingController.syncPlayback(snapshot)
+    }
+
+    LaunchedEffect(exoPlayer, playerSourceKey) {
+        if (chaptersProbeDone || useYoutubeChunkedPlayback) return@LaunchedEffect
+        if (!isProgressivePlaybackSource(sourceUrl, sanitizedSourceResponseHeaders, normalizedStreamType)) {
+            return@LaunchedEffect
+        }
+        while (
+            exoPlayer.playbackState != Player.STATE_READY ||
+            exoPlayer.duration == C.TIME_UNSET ||
+            exoPlayer.isCurrentMediaItemLive
+        ) {
+            delay(500)
+        }
+        val chapterDataSourceFactory = PlatformPlaybackDataSourceFactory.create(
+            context = context,
+            defaultRequestHeaders = sanitizedSourceHeaders,
+            defaultResponseHeaders = sanitizedSourceResponseHeaders,
+            useYoutubeChunkedPlayback = false,
+            useLongReadTimeout = isLoopbackPlaybackSource(sourceUrl),
+        )
+        val chapters = withTimeoutOrNull(20_000L) {
+            PlayerChapterReader.read(sourceUrl, chapterDataSourceFactory)
+        }.orEmpty()
+        chaptersProbeDone = true
+        if (chapters.isNotEmpty()) {
+            playerChapters = chapters
+            dispatchExoPlayerSnapshot()
+        }
     }
 
     DisposableEffect(nowPlayingController) {
@@ -1672,6 +1705,9 @@ private class NuvioLibmpvView(
         }
     }
 
+    private var cachedChapters: List<PlayerChapter> = emptyList()
+    private var cachedChaptersKey: String? = null
+
     private fun readSnapshotNow(): PlayerPlaybackSnapshot {
         val paused = mpv.getPropertyBoolean("pause") ?: true
         val pausedForCache = mpv.getPropertyBoolean("paused-for-cache") ?: false
@@ -1702,7 +1738,18 @@ private class NuvioLibmpvView(
             videoWidth = videoWidth,
             videoHeight = videoHeight,
             mediaInfoJson = buildLibmpvMediaInfoJson(),
+            chapters = chaptersFor(durationMs),
         )
+    }
+
+    private fun chaptersFor(durationMs: Long): List<PlayerChapter> {
+        if (durationMs <= 0L) return emptyList()
+        val key = "$currentSourceUrl|$durationMs"
+        if (key != cachedChaptersKey) {
+            cachedChaptersKey = key
+            cachedChapters = runCatching { mpvChapters(mpv::getPropertyString) }.getOrDefault(emptyList())
+        }
+        return cachedChapters
     }
 
 
@@ -2367,7 +2414,11 @@ private const val MPV_SUBTITLE_FONT_SIZE_MIN = 36
 private const val MPV_SUBTITLE_FONT_SIZE_MAX = 122
 private const val MPV_SUBTITLE_OUTLINE_SIZE_SCALE = 1.5
 
-private fun ExoPlayer.snapshot(videoDecoder: String?, audioDecoder: String?): PlayerPlaybackSnapshot {
+private fun ExoPlayer.snapshot(
+    videoDecoder: String?,
+    audioDecoder: String?,
+    chapters: List<PlayerChapter> = emptyList(),
+): PlayerPlaybackSnapshot {
     val (videoWidth, videoHeight) = videoDimensions()
     return PlayerPlaybackSnapshot(
         isLoading = playbackState == Player.STATE_IDLE || playbackState == Player.STATE_BUFFERING,
@@ -2380,6 +2431,7 @@ private fun ExoPlayer.snapshot(videoDecoder: String?, audioDecoder: String?): Pl
         videoWidth = videoWidth,
         videoHeight = videoHeight,
         mediaInfoJson = buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder),
+        chapters = chapters,
     )
 }
 
