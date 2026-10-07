@@ -1826,7 +1826,7 @@
     <string name="profile_pin_lock_description">Require your PIN before switching to this profile.</string>
     <string name="profile_biometric_unlock">Biometric unlock</string>
     <string name="profile_biometric_enabled_description">Unlock your primary profile with your device's biometric. Nuvio never stores your biometric data, and your unlock credential stays on this device. Anyone with a biometric enrolled on this device can unlock the profile.</string>
-    <string name="profile_biometric_disabled_description">Unlock your primary profile with your device's biometric. Your PIN remains available as a fallback.</string>
+    <string name="profile_biometric_disabled_description">Use your fingerprint or face recognition to unlock your primary profile instead of entering your PIN.</string>
     <string name="profile_biometric_requires_pin">Turn on PIN lock first to enable biometric unlock.</string>
     <string name="profile_biometric_privacy_note">Nuvio never stores your biometric data. Anyone with a biometric enrolled on this device can unlock the profile.</string>
     <string name="profile_enable_biometric_unlock">Enable biometric unlock</string>
