@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.layout.onSizeChanged
+import com.nuvio.app.features.player.seekpreview.rememberSeekPreviewController
 import com.nuvio.app.features.player.skip.PlayerNextEpisodeRules
 import com.nuvio.app.core.logging.InAppLogger
 import com.nuvio.app.features.p2p.P2pStreamingState
@@ -378,6 +379,14 @@ private fun PlayerScreenRuntime.currentInitialPositionRequestKey(): String? {
 @Composable
 private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, isEpisode: Boolean) {
     val isInPip = rememberIsInPictureInPicture()
+    val seekPreview = rememberSeekPreviewController(
+        url = activePlaybackSourceUrl?.takeIf {
+            playerSettingsUiState.seekPreviewEnabled &&
+                !isLiveTvPlayback &&
+                activeTorrentInfoHash == null
+        },
+        headers = activeSourceHeaders,
+    )
     val userRatingTarget = currentUserRatingTarget()
     val canRate = rememberCanRate(userRatingTarget)
     val userRating = rememberUserRating(userRatingTarget.takeIf { canRate })
@@ -477,6 +486,11 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
                     openEpisodesPanel()
                 }
             } else null,
+            onChaptersClick = if (playbackSnapshot.chapters.isNotEmpty()) {
+                {
+                    openChaptersPanel()
+                }
+            } else null,
             onLiveChannelsClick = if (isLiveTvPlayback) {
                 {
                     showLiveChannelsPanel = true
@@ -554,6 +568,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
             },
             horizontalSafePadding = horizontalSafePadding,
             modifier = Modifier.fillMaxSize(),
+            seekPreview = seekPreview,
         )
     }
 }
@@ -676,6 +691,15 @@ private fun BoxScope.RenderPlaybackOverlays(
             },
         )
     }
+}
+
+private fun PlayerScreenRuntime.openChaptersPanel() {
+    showChaptersPanel = true
+    showSourcesPanel = false
+    showQualityPanel = false
+    showEpisodesPanel = false
+    showLiveChannelsPanel = false
+    controlsVisible = false
 }
 
 private fun PlayerScreenRuntime.openQualityPanel() {
@@ -885,6 +909,20 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
             showEpisodesPanel = false
             episodeStreamsPanelState = EpisodeStreamsPanelState()
             PlayerStreamsRepository.clearEpisodeStreams()
+            controlsVisible = true
+        },
+        showChaptersPanel = showChaptersPanel,
+        chapters = playbackSnapshot.chapters,
+        onChapterSelected = { chapter ->
+            val targetMs = chapter.startMs.coerceAtLeast(0L)
+            finishTimelineScrub(targetMs)
+            playerController?.seekTo(targetMs)
+            scheduleProgressSyncAfterSeek()
+            showChaptersPanel = false
+            controlsVisible = true
+        },
+        onChaptersPanelDismissed = {
+            showChaptersPanel = false
             controlsVisible = true
         },
         showSubmitIntroModal = showSubmitIntroModal,

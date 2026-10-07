@@ -7,6 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Flag
@@ -59,6 +63,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -84,6 +91,8 @@ import com.nuvio.app.core.ui.accentBrush
 import com.nuvio.app.core.ui.appIconPainter
 import com.nuvio.app.core.ui.gradientMask
 import com.nuvio.app.core.ui.nuvioTypeScale
+import com.nuvio.app.features.player.seekpreview.SeekPreviewController
+import com.nuvio.app.features.player.seekpreview.SeekPreviewOverlay
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
@@ -126,6 +135,7 @@ internal fun PlayerControlsShell(
     userRating: Int? = null,
     onSourcesClick: (() -> Unit)? = null,
     onEpisodesClick: (() -> Unit)? = null,
+    onChaptersClick: (() -> Unit)? = null,
     onLiveChannelsClick: (() -> Unit)? = null,
     qualityLabel: String? = null,
     onQualityClick: (() -> Unit)? = null,
@@ -140,6 +150,7 @@ internal fun PlayerControlsShell(
     onScrubFinished: (Long) -> Unit,
     horizontalSafePadding: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
+    seekPreview: SeekPreviewController? = null,
 ) {
     val density = LocalDensity.current
     var timelineHeight by remember { mutableStateOf(0.dp) }
@@ -278,9 +289,11 @@ internal fun PlayerControlsShell(
                     onAudioClick = onAudioClick,
                     onSourcesClick = onSourcesClick,
                     onEpisodesClick = onEpisodesClick,
+                    onChaptersClick = onChaptersClick,
                     onLiveChannelsClick = onLiveChannelsClick,
                     qualityLabel = qualityLabel,
                     onQualityClick = onQualityClick,
+                    seekPreview = seekPreview,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -310,6 +323,17 @@ internal fun PlayerControlsShell(
                             metrics = metrics,
                         )
                     }
+                    PlayerChapterLabel(
+                        chapters = playbackSnapshot.chapters,
+                        positionMs = displayedPositionMs,
+                        metrics = metrics,
+                        onClick = onChaptersClick?.let { openChapters ->
+                            {
+                                onInteraction()
+                                openChapters()
+                            }
+                        },
+                    )
                     PlayerTimeline(
                         snapshot = playbackSnapshot,
                         displayedPositionMs = displayedPositionMs,
@@ -318,6 +342,7 @@ internal fun PlayerControlsShell(
                             onInteraction()
                             onScrubFinished(it)
                         },
+                        seekPreview = seekPreview,
                     )
                     PlayerControlActions(
                         playbackSnapshot = playbackSnapshot,
@@ -330,6 +355,7 @@ internal fun PlayerControlsShell(
                         onAudioClick = { onAudioClick?.invoke() },
                         onSourcesClick = onSourcesClick,
                         onEpisodesClick = onEpisodesClick,
+                        onChaptersClick = onChaptersClick,
                         onNextEpisodeClick = onNextEpisodeClick,
                         onSwitchEngineClick = onSwitchEngineClick,
                         onSpeedClick = { onSpeedClick?.invoke() },
@@ -680,9 +706,11 @@ private fun ProgressControls(
     onAudioClick: (() -> Unit)? = null,
     onSourcesClick: (() -> Unit)? = null,
     onEpisodesClick: (() -> Unit)? = null,
+    onChaptersClick: (() -> Unit)? = null,
     onLiveChannelsClick: (() -> Unit)? = null,
     qualityLabel: String? = null,
     onQualityClick: (() -> Unit)? = null,
+    seekPreview: SeekPreviewController? = null,
     modifier: Modifier = Modifier,
 ) {
     val aspectRatioPainter = appIconPainter(AppIconResource.PlayerAspectRatio)
@@ -690,13 +718,22 @@ private fun ProgressControls(
     val audioPainter = appIconPainter(AppIconResource.PlayerAudioFilled)
 
     Column(modifier = modifier) {
+        PlayerChapterLabel(
+            chapters = playbackSnapshot.chapters,
+            positionMs = displayedPositionMs,
+            metrics = metrics,
+            modifier = Modifier.padding(horizontal = 12.dp),
+            onClick = onChaptersClick,
+        )
         PlayerSeekBar(
             durationMs = playbackSnapshot.durationMs,
             displayedPositionMs = displayedPositionMs,
             bufferedPositionMs = playbackSnapshot.bufferedPositionMs,
+            chapters = playbackSnapshot.chapters,
             metrics = metrics,
             onScrubChange = onScrubChange,
             onScrubFinished = onScrubFinished,
+            seekPreview = seekPreview,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -754,6 +791,13 @@ private fun ProgressControls(
                             label = stringResource(Res.string.compose_player_episodes),
                             icon = Icons.Rounded.VideoLibrary,
                             onClick = onEpisodesClick,
+                        )
+                    }
+                    if (onChaptersClick != null) {
+                        PlayerActionPillButton(
+                            label = stringResource(Res.string.player_chapters),
+                            icon = Icons.AutoMirrored.Rounded.ListAlt,
+                            onClick = onChaptersClick,
                         )
                     }
                     if (onLiveChannelsClick != null) {
@@ -829,39 +873,52 @@ internal fun PlayerSeekBar(
     onScrubFinished: (Long) -> Unit,
     modifier: Modifier = Modifier,
     bufferedPositionMs: Long = 0L,
+    seekPreview: SeekPreviewController? = null,
+    chapters: List<PlayerChapter> = emptyList(),
 ) {
     val seekDurationMs = durationMs.coerceAtLeast(1L)
     val bufferedFraction = playerBufferedFraction(bufferedPositionMs, durationMs)
+    val chapterMarks = remember(chapters, durationMs) { chapters.chapterMarkFractions(durationMs) }
     val seekDescription = stringResource(Res.string.player_seek_position)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val isDragged by interactionSource.collectIsDraggedAsState()
     Column(modifier = modifier) {
-        // Upstream pulled the seek bar out of ProgressControls; the fork's tap-to-seek wrapper
-        // follows it here rather than staying at the call site, so the trailer player's seek bar
-        // gets the same behaviour.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(metrics.sliderTouchHeight)
-                .graphicsLayer(scaleY = metrics.sliderScaleY)
-                .tapToSeekOnTimeline(
-                    durationMs = durationMs,
-                    currentPositionMs = { displayedPositionMs },
-                    onSeek = { positionMs ->
-                        val targetPositionMs = positionMs.coerceIn(0L, seekDurationMs)
-                        onScrubChange(targetPositionMs)
-                        onScrubFinished(targetPositionMs)
-                    },
-                ),
-        ) {
-            Slider(
+        Box {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .semantics { contentDescription = seekDescription },
-                value = displayedPositionMs.coerceIn(0L, seekDurationMs).toFloat(),
-                onValueChange = { value -> onScrubChange(value.toLong()) },
-                onValueChangeFinished = { onScrubFinished(displayedPositionMs.coerceIn(0L, seekDurationMs)) },
-                enabled = durationMs > 0L,
-                valueRange = 0f..seekDurationMs.toFloat(),
-                track = { sliderState -> PlayerProgressTrack(sliderState, bufferedFraction) },
+                    .fillMaxWidth()
+                    .height(metrics.sliderTouchHeight)
+                    .graphicsLayer(scaleY = metrics.sliderScaleY)
+                    .tapToSeekOnTimeline(
+                        durationMs = durationMs,
+                        currentPositionMs = { displayedPositionMs },
+                        onSeek = { positionMs ->
+                            val targetPositionMs = positionMs.coerceIn(0L, seekDurationMs)
+                            onScrubChange(targetPositionMs)
+                            onScrubFinished(targetPositionMs)
+                        },
+                    ),
+            ) {
+                Slider(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics { contentDescription = seekDescription },
+                    value = displayedPositionMs.coerceIn(0L, seekDurationMs).toFloat(),
+                    onValueChange = { value -> onScrubChange(value.toLong()) },
+                    onValueChangeFinished = { onScrubFinished(displayedPositionMs.coerceIn(0L, seekDurationMs)) },
+                    enabled = durationMs > 0L,
+                    valueRange = 0f..seekDurationMs.toFloat(),
+                    interactionSource = interactionSource,
+                    track = { sliderState -> PlayerProgressTrack(sliderState, bufferedFraction, chapterMarks) },
+                )
+            }
+            SeekPreviewOverlay(
+                controller = seekPreview,
+                active = durationMs > 0L && (isPressed || isDragged),
+                positionMs = displayedPositionMs.coerceIn(0L, seekDurationMs),
+                durationMs = durationMs,
+                modifier = Modifier.matchParentSize(),
             )
         }
         Row(
@@ -909,7 +966,11 @@ private fun PlayerBufferedTrack(bufferedFraction: Float, enabled: Boolean = true
 }
 
 @Composable
-private fun PlayerProgressTrack(sliderState: SliderState, bufferedFraction: Float) {
+private fun PlayerProgressTrack(
+    sliderState: SliderState,
+    bufferedFraction: Float,
+    chapterMarks: List<Float> = emptyList(),
+) {
     val palette = MaterialTheme.themePalette
     val inactiveTrackColors = SliderDefaults.colors(
         activeTrackColor = Color.Transparent,
@@ -935,6 +996,22 @@ private fun PlayerProgressTrack(sliderState: SliderState, bufferedFraction: Floa
             modifier = Modifier.gradientMask(palette.accentBrush()),
             colors = activeTrackColors,
         )
+        if (chapterMarks.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .drawBehind {
+                        val markWidth = PlayerChapterMarkWidth.toPx()
+                        chapterMarks.forEach { fraction ->
+                            drawRect(
+                                color = PlayerChapterMarkColor,
+                                topLeft = Offset(size.width * fraction - markWidth / 2f, 0f),
+                                size = Size(markWidth, size.height),
+                            )
+                        }
+                    },
+            )
+        }
     }
 }
 
