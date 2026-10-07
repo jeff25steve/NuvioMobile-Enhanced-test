@@ -38,7 +38,9 @@ workflows:
       - name: Build Android Full Debug APK
         script: |
           set -o pipefail
+          beta_version_name="$(grep '^MARKETING_VERSION=' iosApp/Configuration/Version.xcconfig | cut -d= -f2)-beta"
           ./gradlew :androidApp:assembleFullDebug \
+            -Pnuvio.app.versionName="$beta_version_name" \
             -Pnuvio.android.distribution=full \
             -Pnuvio.ios.distribution=appstore \
             --no-daemon \
