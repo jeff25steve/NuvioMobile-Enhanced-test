@@ -207,7 +207,11 @@ actual object ProfileBiometricAuth {
                 disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
-            errSecUserCanceled -> ProfileBiometricResult.FallbackRequested
+            errSecUserCanceled -> if (setup) {
+                ProfileBiometricResult.Cancelled
+            } else {
+                ProfileBiometricResult.FallbackRequested
+            }
             errSecInteractionNotAllowed -> ProfileBiometricResult.Failed
             else -> ProfileBiometricResult.Failed
         }
