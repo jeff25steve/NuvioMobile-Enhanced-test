@@ -2,7 +2,6 @@ package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -10,12 +9,15 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
-import platform.CoreFoundation.CFDataRefVar
+import platform.CoreFoundation.CFErrorRefVar
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringRef
+import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
@@ -34,6 +36,7 @@ import platform.Security.kSecAttrAccount
 import platform.Security.kSecAttrService
 import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
+import platform.Security.kSecReturnAttributes
 import platform.Security.kSecReturnData
 import platform.Security.kSecMatchLimit
 import platform.Security.kSecMatchLimitOne
@@ -43,12 +46,7 @@ import platform.Security.kSecUseAuthenticationUIFail
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import platform.Foundation.CFBridgingRetain
-import platform.Foundation.NSData
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
+import platform.Foundation.*
 import platform.UIKit.UIViewController
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
@@ -83,8 +81,8 @@ actual object ProfileBiometricAuth {
 
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
+                CFDictionaryAddValue(query, kSecReturnAttributes, kCFBooleanTrue)
                 CFDictionaryAddValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
-                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne)
                 SecItemCopyMatching(query, null)
             }
         }
@@ -172,9 +170,8 @@ actual object ProfileBiometricAuth {
             } else {
                 "Use your fingerprint or face to unlock your primary profile."
             }
-            // Apple owns this fallback button and it authenticates with the device
-            // passcode, not Nuvio's profile PIN. The profile PIN remains the app-level
-            // fallback handled by ProfileSelectionScreen/PinEntryDialog.
+            // Do not expose Apple's device-passcode fallback. Nuvio's profile PIN
+            // is the only app-level fallback for a locked profile.
             localizedFallbackTitle = ""
         }
 
@@ -185,9 +182,9 @@ actual object ProfileBiometricAuth {
                 setAuthenticationContext(query, context)
 
                 memScoped {
-                    val result = alloc<CFDataRefVar>()
+                    val result = alloc<CFTypeRefVar>()
                     result.value = null
-                    val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
+                    val resultStatus = SecItemCopyMatching(query, result.ptr)
                     result.value?.let { CFRelease(it) }
                     resultStatus
                 }
@@ -200,22 +197,22 @@ actual object ProfileBiometricAuth {
                 disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
-            // iOS intentionally hides Apple's device-passcode fallback because the
-            // profile PIN is Nuvio's fallback. Treating explicit biometric cancellation
-            // as a fallback request gives the caller a direct PIN path.
-            errSecUserCanceled -> ProfileBiometricResult.FallbackRequested
+            errSecUserCanceled -> ProfileBiometricResult.Cancelled
             errSecInteractionNotAllowed -> ProfileBiometricResult.Failed
             else -> ProfileBiometricResult.Failed
         }
     }
 
     private fun createAccessControl() =
-        SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-            kSecAccessControlBiometryCurrentSet,
-            null,
-        )
+        memScoped {
+            val error = alloc<CFErrorRefVar>()
+            SecAccessControlCreateWithFlags(
+                kCFAllocatorDefault,
+                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                kSecAccessControlBiometryCurrentSet,
+                error.ptr,
+            )
+        }
 
     private fun setAuthenticationContext(
         query: CFMutableDictionaryRef,
@@ -247,10 +244,10 @@ actual object ProfileBiometricAuth {
         block: (CFMutableDictionaryRef) -> T,
     ): T {
         val query = CFDictionaryCreateMutable(
-            null,
-            8,
-            null,
-            null,
+            kCFAllocatorDefault,
+            0,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr,
         ) ?: error("Unable to allocate Keychain query")
 
         try {
