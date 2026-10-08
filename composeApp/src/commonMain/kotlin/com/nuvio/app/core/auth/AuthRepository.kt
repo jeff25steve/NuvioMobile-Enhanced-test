@@ -196,7 +196,8 @@ object AuthRepository {
         val sessionClear = runCatching { SupabaseProvider.client.auth.clearSession() }
         _state.value = AuthState.Unauthenticated
         val failure = anonymousClear.exceptionOrNull() ?: sessionClear.exceptionOrNull()
-        val cancellation = sessionClear.exceptionOrNull() as? CancellationException
+        val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
+            ?: sessionClear.exceptionOrNull() as? CancellationException
         if (cancellation != null) throw cancellation
         return if (failure == null) Result.success(Unit) else Result.failure(failure)
     }
