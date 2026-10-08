@@ -116,8 +116,13 @@ actual object ProfileBiometricAuth {
         val addStatus = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
                 CFDictionaryAddValue(query, kSecAttrAccessControl, accessControl)
-                CFDictionaryAddValue(query, kSecValueData, valueData)
-                SecItemAdd(query, null)
+                val bridgedValueData = CFBridgingRetain(valueData)
+                try {
+                    CFDictionaryAddValue(query, kSecValueData, bridgedValueData)
+                    SecItemAdd(query, null)
+                } finally {
+                    CFRelease(bridgedValueData)
+                }
             }
         }
 
