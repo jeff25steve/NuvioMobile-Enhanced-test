@@ -2,26 +2,30 @@ package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.cstr
+import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.value
-import platform.CoreFoundation.CFDictionaryAddValue
-import platform.CoreFoundation.CFDictionaryCreateMutable
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.usePinned
+import platform.CoreFoundation.CFDataCreate
+import platform.CoreFoundation.CFDataRef
 import platform.CoreFoundation.CFDataRefVar
+import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFDictionarySetValue
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
-import platform.Foundation.CFBridgingRelease
-import platform.Foundation.CFBridgingRetain
-import platform.Foundation.NSData
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
+import platform.CoreFoundation.kCFStringEncodingUTF8
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
+import platform.Foundation.NSUserDefaults
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -42,78 +46,67 @@ actual object ProfilePinCacheStorage {
 
     actual fun loadPayload(profileIndex: Int): String? {
         val query = createQuery(profileIndex)
-        return try {
-            copyMatching(query).let { (status, value) ->
-                if (status == errSecSuccess) {
-                    return value?.let { data ->
-                        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
-                    }
-                }
-                migrateLegacyPayload(profileIndex)
-            }
-        } finally {
-            // The query is released by copyMatching.
-        }
+        return copyMatching(query).second
+            ?: migrateLegacyPayload(profileIndex)
     }
 
     actual fun savePayload(profileIndex: Int, payload: String) {
-        val data = payload.toNSData()
-
+        val data = payload.toCFData() ?: return
         val query = createQuery(profileIndex)
+
         try {
-            CFDictionaryAddValue(query, kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-            val bridgedData = CFBridgingRetain(data)
-            try {
-                CFDictionaryAddValue(query, kSecValueData, bridgedData)
-                deleteExisting(profileIndex)
-                SecItemAdd(query, null)
-            } finally {
-                bridgedData?.let { CFRelease(it) }
-            }
+            CFDictionarySetValue(
+                query,
+                kSecAttrAccessible,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            )
+            CFDictionarySetValue(query, kSecValueData, data)
+            deleteExisting(profileIndex)
+            SecItemAdd(query, null)
         } finally {
+            CFRelease(data)
             CFRelease(query)
         }
     }
 
     actual fun removePayload(profileIndex: Int) {
         deleteExisting(profileIndex)
-        platform.Foundation.NSUserDefaults.standardUserDefaults
-            .removeObjectForKey("${LEGACY_PREFIX}${profileIndex}")
+        NSUserDefaults.standardUserDefaults.removeObjectForKey(
+            "${LEGACY_PREFIX}${profileIndex}",
+        )
     }
 
     private fun migrateLegacyPayload(profileIndex: Int): String? {
         val legacyKey = "${LEGACY_PREFIX}${profileIndex}"
-        val legacy = platform.Foundation.NSUserDefaults.standardUserDefaults
+        val legacy = NSUserDefaults.standardUserDefaults
             .stringForKey(legacyKey)
             ?.takeIf { it.isNotBlank() }
             ?: return null
 
         if (savePayloadInternal(profileIndex, legacy)) {
-            platform.Foundation.NSUserDefaults.standardUserDefaults
-                .removeObjectForKey(legacyKey)
+            NSUserDefaults.standardUserDefaults.removeObjectForKey(legacyKey)
             return legacy
         }
 
-        platform.Foundation.NSUserDefaults.standardUserDefaults
-            .removeObjectForKey(legacyKey)
+        NSUserDefaults.standardUserDefaults.removeObjectForKey(legacyKey)
         return null
     }
 
     private fun savePayloadInternal(profileIndex: Int, payload: String): Boolean {
-        val data = payload.toNSData()
-
+        val data = payload.toCFData() ?: return false
         val query = createQuery(profileIndex)
+
         return try {
-            CFDictionaryAddValue(query, kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-            val bridgedData = CFBridgingRetain(data)
-            try {
-                CFDictionaryAddValue(query, kSecValueData, bridgedData)
-                deleteExisting(profileIndex)
-                SecItemAdd(query, null) == errSecSuccess
-            } finally {
-                bridgedData?.let { CFRelease(it) }
-            }
+            CFDictionarySetValue(
+                query,
+                kSecAttrAccessible,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            )
+            CFDictionarySetValue(query, kSecValueData, data)
+            deleteExisting(profileIndex)
+            SecItemAdd(query, null) == errSecSuccess
         } finally {
+            CFRelease(data)
             CFRelease(query)
         }
     }
@@ -129,12 +122,12 @@ actual object ProfilePinCacheStorage {
 
     private fun createQuery(profileIndex: Int): CFMutableDictionaryRef {
         return CFDictionaryCreateMutable(
-            null,
+            kCFAllocatorDefault,
             5,
-            null,
-            null,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr,
         )!!.also {
-            CFDictionaryAddValue(it, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(it, kSecClass, kSecClassGenericPassword)
             addString(it, kSecAttrService, SERVICE)
             addString(it, kSecAttrAccount, "profile-${profileIndex}")
         }
@@ -142,20 +135,28 @@ actual object ProfilePinCacheStorage {
 
     private fun copyMatching(
         query: CFMutableDictionaryRef,
-    ): Pair<Int, NSData?> {
+    ): Pair<Int, String?> {
         return memScoped {
-            CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
+            CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
             val result = alloc<CFDataRefVar>()
             result.value = null
             val status = SecItemCopyMatching(query, result.ptr.reinterpret())
-            val data = if (status == errSecSuccess) {
-                CFBridgingRelease(result.value) as? NSData
+
+            val payload = if (status == errSecSuccess) {
+                result.value?.let { data ->
+                    try {
+                        data.readBytes().decodeToString()
+                    } finally {
+                        CFRelease(data)
+                    }
+                }
             } else {
                 result.value?.let { CFRelease(it) }
                 null
             }
+
             try {
-                status to data
+                status to payload
             } finally {
                 CFRelease(query)
             }
@@ -167,8 +168,32 @@ actual object ProfilePinCacheStorage {
         key: CFStringRef?,
         value: String,
     ) {
-        val retained = CFBridgingRetain(value)
-        CFDictionaryAddValue(query, key, retained)
-        retained?.let { CFRelease(it) }
+        val stringRef = cfString(value) ?: return
+        CFDictionarySetValue(query, key, stringRef)
+        CFRelease(stringRef)
+    }
+
+    private fun cfString(value: String): CFStringRef? =
+        memScoped {
+            CFStringCreateWithCString(
+                kCFAllocatorDefault,
+                value.cstr.ptr,
+                kCFStringEncodingUTF8,
+            )
+        }
+
+    private fun String.toCFData(): CFDataRef? {
+        val bytes = encodeToByteArray()
+        return if (bytes.isEmpty()) {
+            CFDataCreate(kCFAllocatorDefault, null, 0)
+        } else {
+            bytes.usePinned { pinned ->
+                CFDataCreate(
+                    kCFAllocatorDefault,
+                    pinned.addressOf(0).reinterpret(),
+                    bytes.size.convert(),
+                )
+            }
+        }
     }
 }
