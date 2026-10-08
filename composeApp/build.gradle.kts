@@ -5,6 +5,8 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -18,6 +20,7 @@ abstract class GenerateRuntimeConfigsTask : DefaultTask() {
 
     @get:Optional
     @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val localPropertiesFile: RegularFileProperty
 
     @get:Input
@@ -317,7 +320,13 @@ fun runtimeConfigBoolean(key: String, default: Boolean): Boolean =
 
 val generateRuntimeConfigs = tasks.register<GenerateRuntimeConfigsTask>("generateRuntimeConfigs") {
     outputDir.set(generatedRuntimeConfigDir)
-    localPropertiesFile.set(rootProject.layout.projectDirectory.file("local.properties"))
+    // Only set the optional input when the file actually exists. A provider
+    // pointing at a missing file is still a configured @InputFile and can fail
+    // Gradle task validation; an unset optional property is valid.
+    val localProperties = rootProject.layout.projectDirectory.file("local.properties")
+    if (localProperties.asFile.isFile) {
+        localPropertiesFile.set(localProperties)
+    }
     appVersionName.set(releaseAppVersionName)
     appVersionCode.set(releaseAppVersionCode)
     supabaseUrl.set(runtimeConfigValue("NUVIO_SUPABASE_URL"))
