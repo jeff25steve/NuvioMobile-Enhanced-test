@@ -80,11 +80,11 @@ actual object ProfilePinCacheStorage {
     actual fun removePayload(profileIndex: Int) {
         deleteExisting(profileIndex)
         platform.Foundation.NSUserDefaults.standardUserDefaults
-            .removeObjectForKey("\${LEGACY_PREFIX}\${profileIndex}")
+            .removeObjectForKey("${LEGACY_PREFIX}${profileIndex}")
     }
 
     private fun migrateLegacyPayload(profileIndex: Int): String? {
-        val legacyKey = "\${LEGACY_PREFIX}\${profileIndex}"
+        val legacyKey = "${LEGACY_PREFIX}${profileIndex}"
         val legacy = platform.Foundation.NSUserDefaults.standardUserDefaults
             .stringForKey(legacyKey)
             ?.takeIf { it.isNotBlank() }
@@ -140,7 +140,7 @@ actual object ProfilePinCacheStorage {
         )!!.also {
             CFDictionaryAddValue(it, kSecClass, kSecClassGenericPassword)
             addString(it, kSecAttrService, SERVICE)
-            addString(it, kSecAttrAccount, "profile-\${profileIndex}")
+            addString(it, kSecAttrAccount, "profile-${profileIndex}")
         }
     }
 
