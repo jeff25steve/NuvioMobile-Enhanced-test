@@ -15,8 +15,11 @@ import android.security.keystore.UserNotAuthenticatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -24,6 +27,9 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
+
+private val LegacyBiometricCleanupScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 actual object ProfileBiometricAuth {
     private const val KEYSTORE = "AndroidKeyStore"
@@ -35,8 +41,11 @@ actual object ProfileBiometricAuth {
 
     actual fun initialize(host: Any) {
         activityReference = (host as? FragmentActivity)?.let(::WeakReference)
-        // Remove the pre-account-bound credential so a rollback cannot reuse it across accounts.
-        deleteLegacyKey()
+        // Keystore access is synchronous; keep legacy cleanup off the UI thread.
+        // This legacy alias is not account-scoped and is never used by current credentials.
+        LegacyBiometricCleanupScope.launch {
+            deleteLegacyKey()
+        }
     }
 
     private fun activity(): FragmentActivity? = activityReference?.get()
