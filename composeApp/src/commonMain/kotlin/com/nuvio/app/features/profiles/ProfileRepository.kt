@@ -218,6 +218,8 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("sync_push_profiles", params)
             pullProfiles()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile push")) return
             log.e(e) { "Failed to push profiles" }
