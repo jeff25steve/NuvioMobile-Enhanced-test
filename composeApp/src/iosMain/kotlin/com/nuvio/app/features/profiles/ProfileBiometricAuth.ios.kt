@@ -1,13 +1,11 @@
 package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
@@ -41,6 +39,8 @@ import platform.Security.kSecClassGenericPassword
 import platform.Security.kSecReturnAttributes
 import platform.Security.kSecReturnData
 import platform.Security.kSecUseAuthenticationContext
+import platform.Security.kSecUseAuthenticationUI
+import platform.Security.kSecUseAuthenticationUIFail
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -77,14 +77,10 @@ actual object ProfileBiometricAuth {
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
 
-        val context = LAContext().apply {
-            interactionNotAllowed = true
-        }
-
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
                 CFDictionaryAddValue(query, kSecReturnAttributes, kCFBooleanTrue)
-                setAuthenticationContext(query, context)
+                CFDictionaryAddValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
                 SecItemCopyMatching(query, null)
             }
         }
@@ -262,15 +258,7 @@ actual object ProfileBiometricAuth {
     }
 
     private fun String.toNSData(): NSData =
-        encodeToByteArray().let { bytes ->
-            if (bytes.isEmpty()) {
-                NSData()
-            } else {
-                bytes.usePinned { pinned ->
-                    NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-                }
-            }
-        }
+        NSString.create(string = this).dataUsingEncoding(NSUTF8StringEncoding) ?: NSData()
 
     private fun addString(
         query: CFMutableDictionaryRef,
