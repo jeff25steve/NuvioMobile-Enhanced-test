@@ -160,6 +160,7 @@ object AuthRepository {
             runCatching { SupabaseProvider.client.auth.signOut() }
         }
 
+        val remoteCancellation = remoteSignOut.exceptionOrNull() as? CancellationException
         val fallbackSessionClear = if (remoteSignOut.isFailure) {
             runCatching { SupabaseProvider.client.auth.clearSession() }
                 .onFailure { error -> log.w(error) { "Failed to clear Supabase session after sign-out failure" } }
@@ -174,7 +175,7 @@ object AuthRepository {
             ?: remoteSignOut.exceptionOrNull()
             ?: fallbackSessionClear.exceptionOrNull()
             ?: localCleanup.exceptionOrNull()
-        val cancellation = remoteSignOut.exceptionOrNull() as? CancellationException
+        val cancellation = remoteCancellation
             ?: fallbackSessionClear.exceptionOrNull() as? CancellationException
         if (cancellation != null) throw cancellation
         return if (failure == null) {
