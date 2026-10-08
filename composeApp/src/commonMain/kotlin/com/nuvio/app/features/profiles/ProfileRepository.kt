@@ -483,6 +483,7 @@ object ProfileRepository {
         val payload = CachedProfilePinPayload(
             salt = salt,
             digest = hashProfilePin(profileIndex = profileIndex, salt = salt, pin = pin),
+            profileUserId = profile?.userId.orEmpty(),
             profileUpdatedAt = profile?.updatedAt.orEmpty(),
         )
         ProfilePinCacheStorage.savePayload(profileIndex, json.encodeToString(payload))
@@ -508,6 +509,16 @@ object ProfileRepository {
             unlocked = false,
             message = localizedString(Res.string.profile_pin_offline_verification_requires_online),
         )
+
+        if (cached.profileUserId != profile.userId) {
+            // The verifier is account-bound. Never allow a cache from another account
+            // to authorize this profile, even if profile indexes overlap.
+            ProfilePinCacheStorage.removePayload(profileIndex)
+            return PinVerifyResult(
+                unlocked = false,
+                message = localizedString(Res.string.profile_pin_offline_verification_requires_online),
+            )
+        }
 
         if (
             cached.profileUpdatedAt.isNotBlank() &&
