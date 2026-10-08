@@ -145,6 +145,7 @@ object ProfileRepository {
             if (_state.value.activeProfile != null) {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
             }
+            syncPinCache(profiles.sortedBy { it.profileIndex })
             persist()
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return
