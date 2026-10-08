@@ -230,11 +230,6 @@ plugins {
     alias(libs.plugins.kotlinxSerialization)
 }
 
-// Generate the Compose resource accessors deterministically in CI and for all targets.
-compose.resources {
-    generateResClass = always
-}
-
 
 val supabaseProps = Properties().apply {
     val propsFile = rootProject.file("local.properties")
