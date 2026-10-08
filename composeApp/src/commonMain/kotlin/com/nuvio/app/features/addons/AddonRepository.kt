@@ -146,7 +146,7 @@ object AddonRepository {
             val urls = rowsByUrl.keys.toList()
             log.i { "pullFromServer() — server returned ${rows.size} addons" }
             InAppLogger.info("Addons/Repository", "pullFromServer serverRows=${rows.size} uniqueUrls=${urls.size}")
-            urls.forEachIndexed { i, u -> log.d { "  server[$i]: $u" } }
+            urls.forEachIndexed { i, u -> log.d { "  server[$i]: ${InAppLogger.redactUrl(u)}" } }
 
             if (urls.isEmpty() && !pulledFromServer) {
                 val localUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(currentProfileId))
@@ -251,7 +251,7 @@ object AddonRepository {
             InAppLogger.warn("Addons/Repository", "addAddon blocked because active profile uses primary addons")
             return AddAddonResult.Error(getString(Res.string.profile_primary_addons_required))
         }
-        log.i { "addAddon() — rawUrl=$rawUrl" }
+        log.i { "addAddon() — rawUrl=${InAppLogger.redactUrl(rawUrl)}" }
         InAppLogger.info("Addons/Repository", "addAddon rawUrl=${InAppLogger.redactUrl(rawUrl)}")
         val manifestUrl = try {
             normalizeManifestUrl(rawUrl)
