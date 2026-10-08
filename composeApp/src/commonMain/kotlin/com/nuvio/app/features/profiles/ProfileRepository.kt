@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
@@ -332,6 +333,8 @@ object ProfileRepository {
                 ProfileBiometricAuth.disable(profileIndex, userId)
             }
             pullProfiles()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
             log.e(e) { "Failed to delete profile $profileIndex" }
@@ -359,7 +362,8 @@ object ProfileRepository {
                     }
                 }
             }
-        }.getOrElse {
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
             // Never log the authentication exception: request/transport exceptions are not useful
             // enough to justify risking credential-adjacent data in crash/log pipelines.
             log.w { "PIN verification request failed; attempting local verification" }
@@ -387,6 +391,7 @@ object ProfileRepository {
             }
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.e(e) { "Failed to set pin" }
         }.getOrElse {
             PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
@@ -414,6 +419,7 @@ object ProfileRepository {
             }
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.e(e) { "Failed to clear pin" }
         }.getOrElse {
             PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
@@ -436,6 +442,7 @@ object ProfileRepository {
                 )
             }
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.e(e) { "Failed to clear pin with password" }
         }
     }
@@ -445,6 +452,7 @@ object ProfileRepository {
             val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profile_locks")
             result.decodeList<ProfileLockState>()
         }.getOrElse { e ->
+            if (e is CancellationException) throw e
             log.e(e) { "Failed to pull profile locks" }
             emptyList()
         }
