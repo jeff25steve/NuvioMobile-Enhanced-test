@@ -338,9 +338,14 @@ fun ProfileEditScreen(
         if (!isNew) {
             item {
                 val pinEnabled = currentProfile?.pinEnabled == true
-                val biometricAvailable =
+                val biometricAvailable = remember(
+                    currentProfile?.profileIndex,
+                    currentProfile?.userId,
+                    biometricConfigured,
+                ) {
                     currentProfile?.profileIndex == 1 &&
                         (ProfileBiometricAuth.isAvailable() || biometricConfigured)
+                }
 
                 NuvioSurfaceCard {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
