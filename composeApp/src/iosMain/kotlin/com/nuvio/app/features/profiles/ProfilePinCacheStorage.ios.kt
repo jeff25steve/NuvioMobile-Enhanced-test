@@ -164,7 +164,7 @@ actual object ProfilePinCacheStorage {
         key: CFStringRef?,
         value: String,
     ) {
-        val retained = CFBridgingRetain(value as NSString)
+        val retained = CFBridgingRetain(value)
         CFDictionaryAddValue(query, key, retained)
         retained?.let { CFRelease(it) }
     }
