@@ -153,6 +153,9 @@ object AuthRepository {
         val anonymousRead = runCatching { AuthStorage.loadAnonymousUserId() }
         val wasAnonymous = anonymousRead.getOrNull() != null
         val anonymousClear = runCatching { AuthStorage.clearAnonymousUserId() }
+        val preflightCancellation = anonymousRead.exceptionOrNull() as? CancellationException
+            ?: anonymousClear.exceptionOrNull() as? CancellationException
+        if (preflightCancellation != null) throw preflightCancellation
         validatedRemoteUserId = null
         val remoteSignOut = if (wasAnonymous) {
             Result.success(Unit)
