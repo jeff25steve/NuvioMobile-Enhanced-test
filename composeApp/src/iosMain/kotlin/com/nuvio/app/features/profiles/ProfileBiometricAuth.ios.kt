@@ -2,6 +2,7 @@ package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -9,14 +10,12 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFDataRefVar
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringRef
-import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
-import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
-import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
@@ -187,9 +186,9 @@ actual object ProfileBiometricAuth {
                 setAuthenticationContext(query, context)
 
                 memScoped {
-                    val result = alloc<CFTypeRefVar>()
+                    val result = alloc<CFDataRefVar>()
                     result.value = null
-                    val resultStatus = SecItemCopyMatching(query, result.ptr)
+                    val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
                     result.value?.let { CFRelease(it) }
                     resultStatus
                 }
@@ -246,10 +245,10 @@ actual object ProfileBiometricAuth {
         block: (CFMutableDictionaryRef) -> T,
     ): T {
         val query = CFDictionaryCreateMutable(
-            kCFAllocatorDefault,
-            0,
-            kCFTypeDictionaryKeyCallBacks.ptr,
-            kCFTypeDictionaryValueCallBacks.ptr,
+            null,
+            8,
+            null,
+            null,
         ) ?: error("Unable to allocate Keychain query")
 
         try {
