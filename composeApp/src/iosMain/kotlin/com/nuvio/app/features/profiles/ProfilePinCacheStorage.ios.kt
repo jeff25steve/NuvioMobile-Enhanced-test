@@ -45,12 +45,14 @@ actual object ProfilePinCacheStorage {
 
     actual fun loadPayload(profileIndex: Int): String? {
         val (status, data) = copyMatching(createQuery(profileIndex))
-        if (status == errSecSuccess) {
-            return data?.let {
+        val payload = if (status == errSecSuccess) {
+            data?.let {
                 NSString.create(data = it, encoding = NSUTF8StringEncoding)?.toString()
             }
+        } else {
+            null
         }
-        return migrateLegacyPayload(profileIndex)
+        return payload ?: migrateLegacyPayload(profileIndex)
     }
 
     actual fun savePayload(profileIndex: Int, payload: String) {
