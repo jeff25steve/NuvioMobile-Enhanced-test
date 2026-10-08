@@ -20,10 +20,6 @@ import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.CFBridgingRetain
-import platform.Foundation.NSError
-import platform.Foundation.NSData
-import platform.Foundation.NSString
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
@@ -48,8 +44,7 @@ import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import nuvio.composeapp.generated.resources.Res
-import org.jetbrains.compose.resources.getString
+import platform.Foundation.*
 import platform.UIKit.UIViewController
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
@@ -171,21 +166,13 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        val localizedReason = getString(
-            if (setup) {
-                Res.string.profile_biometric_setup_reason
-            } else {
-                Res.string.profile_biometric_unlock_reason
-            },
-        )
-        val localizedFallbackTitle = if (!setup) {
-            getString(Res.string.profile_biometric_prompt_use_pin)
-        } else {
-            null
-        }
         val context = LAContext().apply {
-            this.localizedReason = localizedReason
-            this.localizedFallbackTitle = localizedFallbackTitle
+            localizedReason = if (setup) {
+                "Confirm your fingerprint or face to turn on biometric unlock."
+            } else {
+                "Use your fingerprint or face to unlock your primary profile."
+            }
+            localizedFallbackTitle = if (!setup) "Use PIN" else null
         }
 
         val status = withContext(Dispatchers.Default) {
