@@ -115,7 +115,7 @@ actual object ProfilePinCacheStorage {
                 deleteExisting(profileIndex)
                 SecItemAdd(query, null) == errSecSuccess
             } finally {
-                CFRelease(bridgedData)
+                bridgedData?.let { CFRelease(it) }
             }
         } finally {
             CFRelease(query)
