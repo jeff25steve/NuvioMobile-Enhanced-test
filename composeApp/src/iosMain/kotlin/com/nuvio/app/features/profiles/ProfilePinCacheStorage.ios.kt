@@ -1,11 +1,14 @@
 package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
+import kotlinx.cinterop.readBytes
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
@@ -16,12 +19,9 @@ import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
 import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSData
 import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -45,9 +45,7 @@ actual object ProfilePinCacheStorage {
         return try {
             copyMatching(query).let { (status, value) ->
                 if (status == errSecSuccess) {
-                    return value?.let { data ->
-                        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
-                    }
+                    return value?.toUtf8String()
                 }
                 migrateLegacyPayload(profileIndex)
             }
@@ -57,9 +55,7 @@ actual object ProfilePinCacheStorage {
     }
 
     actual fun savePayload(profileIndex: Int, payload: String) {
-        val data = NSString.create(string = payload)
-            .dataUsingEncoding(NSUTF8StringEncoding)
-            ?: return
+        val data = payload.toNSData()
 
         val query = createQuery(profileIndex)
         try {
@@ -102,9 +98,7 @@ actual object ProfilePinCacheStorage {
     }
 
     private fun savePayloadInternal(profileIndex: Int, payload: String): Boolean {
-        val data = NSString.create(string = payload)
-            .dataUsingEncoding(NSUTF8StringEncoding)
-            ?: return false
+        val data = payload.toNSData()
 
         val query = createQuery(profileIndex)
         return try {
@@ -166,12 +160,30 @@ actual object ProfilePinCacheStorage {
         }
     }
 
+    private fun String.toNSData(): NSData =
+        encodeToByteArray().let { bytes ->
+            if (bytes.isEmpty()) {
+                NSData.create(bytes = null, length = 0uL)
+            } else {
+                bytes.usePinned { pinned ->
+                    NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+                }
+            }
+        }
+
+    private fun NSData.toUtf8String(): String? {
+        val size = length.toInt()
+        if (size == 0) return ""
+        val pointer = bytes ?: return null
+        return pointer.readBytes(size).decodeToString()
+    }
+
     private fun addString(
         query: CFMutableDictionaryRef,
         key: CFStringRef?,
         value: String,
     ) {
-        val retained = CFBridgingRetain(NSString.create(string = value))
+        val retained = CFBridgingRetain(value as NSString)
         CFDictionaryAddValue(query, key, retained)
         retained?.let { CFRelease(it) }
     }
