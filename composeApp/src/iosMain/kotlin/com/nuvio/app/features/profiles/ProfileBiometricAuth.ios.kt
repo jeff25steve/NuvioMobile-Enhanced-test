@@ -200,7 +200,10 @@ actual object ProfileBiometricAuth {
                 disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
-            errSecUserCanceled -> ProfileBiometricResult.Cancelled
+            // iOS intentionally hides Apple's device-passcode fallback because the
+            // profile PIN is Nuvio's fallback. Treating explicit biometric cancellation
+            // as a fallback request gives the caller a direct PIN path.
+            errSecUserCanceled -> ProfileBiometricResult.FallbackRequested
             errSecInteractionNotAllowed -> ProfileBiometricResult.Failed
             else -> ProfileBiometricResult.Failed
         }
