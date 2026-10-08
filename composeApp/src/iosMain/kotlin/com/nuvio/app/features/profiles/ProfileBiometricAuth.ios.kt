@@ -183,19 +183,21 @@ actual object ProfileBiometricAuth {
             localizedFallbackTitle = ""
         }
 
-        val status = withContext(Dispatchers.Default) {
-            withKeychainQuery(userId) { query ->
-                CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
-                CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
-                setAuthenticationContext(query, context)
+        // Run the authentication-triggering Keychain read in the caller's context.
+        // UI-driven callers execute here on the main dispatcher; moving this synchronous
+        // system-authentication request to a worker dispatcher can interfere with prompt
+        // presentation/lifecycle handling on iOS.
+        val status = withKeychainQuery(userId) { query ->
+            CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+            CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+            setAuthenticationContext(query, context)
 
-                memScoped {
-                    val result = alloc<CFDataRefVar>()
-                    result.value = null
-                    val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
-                    result.value?.let { CFRelease(it) }
-                    resultStatus
-                }
+            memScoped {
+                val result = alloc<CFDataRefVar>()
+                result.value = null
+                val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
+                result.value?.let { CFRelease(it) }
+                resultStatus
             }
         }
 
