@@ -10,6 +10,7 @@ import java.lang.ref.WeakReference
 import java.security.KeyStore
 import java.security.KeyStoreException
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.UserNotAuthenticatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -231,7 +232,7 @@ actual object ProfileBiometricAuth {
             try {
                 generateKey(profileIndex, userId, strongBox = true)
                 return
-            } catch (_: Exception) {
+            } catch (_: StrongBoxUnavailableException) {
                 deleteKey(profileIndex, userId)
             }
         }
