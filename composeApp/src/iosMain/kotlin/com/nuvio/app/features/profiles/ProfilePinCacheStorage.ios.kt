@@ -18,7 +18,13 @@ import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.*
+import platform.Foundation.CFBridgingRelease
+import platform.Foundation.CFBridgingRetain
+import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.create
+import platform.Foundation.dataUsingEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
