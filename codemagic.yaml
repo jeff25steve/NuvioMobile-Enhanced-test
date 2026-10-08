@@ -127,8 +127,14 @@ workflows:
           NUVIO_SUPABASE_FALLBACK_URL=
           EOF
 
-          # Run the exact custom Gradle task implicated by the previous
-          # Xcode failure separately, with full diagnostics available.
+          # Generate Compose's Res class/accessors explicitly before Xcode invokes
+          # the Kotlin/Native framework compilation. This keeps the iOS compile
+          # independent of Gradle task-order inference in the Xcode build phase.
+          ./gradlew :composeApp:generateComposeResClass \
+            :composeApp:generateResourceAccessorsForCommonMain \
+            --no-daemon --stacktrace --console=plain
+
+          # Run runtime configuration generation separately with full diagnostics.
           set -o pipefail
           ./gradlew :composeApp:generateRuntimeConfigs \
             -Pnuvio.ios.distribution=appstore \
