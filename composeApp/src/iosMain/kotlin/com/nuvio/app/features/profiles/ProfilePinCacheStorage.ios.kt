@@ -16,7 +16,6 @@ import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.CFBridgingRelease
 import platform.Foundation.create
 import platform.Foundation.dataUsingEncoding
 import platform.Foundation.CFBridgingRetain
@@ -46,7 +45,7 @@ actual object ProfilePinCacheStorage {
         return try {
             copyMatching(query).let { (status, value) ->
                 if (status == errSecSuccess) {
-                    return (CFBridgingRelease(value) as? platform.Foundation.NSData)?.let { data ->
+                    return value?.let { data ->
                         NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
                     }
                 }
@@ -65,9 +64,14 @@ actual object ProfilePinCacheStorage {
         val query = createQuery(profileIndex)
         try {
             CFDictionaryAddValue(query, kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-            CFDictionaryAddValue(query, kSecValueData, data)
-            deleteExisting(profileIndex)
-            SecItemAdd(query, null)
+            val bridgedData = CFBridgingRetain(data)
+            try {
+                CFDictionaryAddValue(query, kSecValueData, bridgedData)
+                deleteExisting(profileIndex)
+                SecItemAdd(query, null)
+            } finally {
+                CFRelease(bridgedData)
+            }
         } finally {
             CFRelease(query)
         }
@@ -105,9 +109,14 @@ actual object ProfilePinCacheStorage {
         val query = createQuery(profileIndex)
         return try {
             CFDictionaryAddValue(query, kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
-            CFDictionaryAddValue(query, kSecValueData, data)
-            deleteExisting(profileIndex)
-            SecItemAdd(query, null) == errSecSuccess
+            val bridgedData = CFBridgingRetain(data)
+            try {
+                CFDictionaryAddValue(query, kSecValueData, bridgedData)
+                deleteExisting(profileIndex)
+                SecItemAdd(query, null) == errSecSuccess
+            } finally {
+                CFRelease(bridgedData)
+            }
         } finally {
             CFRelease(query)
         }
