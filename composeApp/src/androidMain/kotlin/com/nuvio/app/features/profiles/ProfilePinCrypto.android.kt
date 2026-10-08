@@ -10,4 +10,9 @@ actual object ProfilePinCrypto {
             byte.toUByte().toString(16).padStart(2, '0')
         }
     }
+
+    actual fun secureRandomBytes(size: Int): ByteArray {
+        require(size > 0) { "Random byte count must be positive" }
+        return ByteArray(size).also { SecureRandom().nextBytes(it) }
+    }
 }
