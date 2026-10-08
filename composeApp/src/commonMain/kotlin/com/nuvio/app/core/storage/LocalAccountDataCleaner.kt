@@ -45,10 +45,12 @@ import com.nuvio.app.features.watchprogress.WatchProgressSourceCoordinator
 import com.nuvio.app.features.watched.WatchedRepository
 
 internal object LocalAccountDataCleaner {
-    fun wipe() {
-        val accountUserId = (AuthRepository.state.value as? AuthState.Authenticated)?.userId
-        if (!accountUserId.isNullOrBlank()) {
-            ProfileBiometricAuth.disable(1, accountUserId)
+    fun wipe(accountUserId: String? = null) {
+        val cleanupUserId = accountUserId
+            ?.takeIf { it.isNotBlank() }
+            ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
+        if (!cleanupUserId.isNullOrBlank()) {
+            ProfileBiometricAuth.disable(1, cleanupUserId)
         }
         (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
 

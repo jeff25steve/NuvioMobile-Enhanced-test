@@ -1,10 +1,11 @@
 package com.nuvio.app.features.profiles
 
-import kotlin.random.Random
 import kotlinx.serialization.Serializable
+import kotlin.uuid.Uuid
 
 @Serializable
 internal data class CachedProfilePinPayload(
+    val userId: String = "",
     val salt: String,
     val digest: String,
     val profileUpdatedAt: String = "",
@@ -12,11 +13,7 @@ internal data class CachedProfilePinPayload(
     val lockedUntilEpochSeconds: Long = 0,
 )
 
-internal fun generateProfilePinSalt(): String {
-    val first = Random.nextLong().toULong().toString(16)
-    val second = Random.nextLong().toULong().toString(16)
-    return "$first$second"
-}
+internal fun generateProfilePinSalt(): String = Uuid.random().toString()
 
 internal fun hashProfilePin(profileIndex: Int, salt: String, pin: String): String =
     ProfilePinCrypto.sha256Hex("profile:$profileIndex:$salt:$pin")

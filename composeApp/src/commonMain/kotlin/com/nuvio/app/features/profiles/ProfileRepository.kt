@@ -481,6 +481,7 @@ object ProfileRepository {
         val profile = _state.value.profiles.find { it.profileIndex == profileIndex }
         val salt = generateProfilePinSalt()
         val payload = CachedProfilePinPayload(
+            userId = profile?.userId.orEmpty(),
             salt = salt,
             digest = hashProfilePin(profileIndex = profileIndex, salt = salt, pin = pin),
             profileUpdatedAt = profile?.updatedAt.orEmpty(),
@@ -492,6 +493,12 @@ object ProfileRepository {
         val profile = _state.value.profiles.find { it.profileIndex == profileIndex }
         if (profile?.pinEnabled != true) {
             return PinVerifyResult(unlocked = true)
+        }
+        if (profile.userId.isBlank()) {
+            return PinVerifyResult(
+                unlocked = false,
+                message = localizedString(Res.string.profile_pin_offline_verification_requires_online),
+            )
         }
 
         val payload = ProfilePinCacheStorage.loadPayload(profileIndex).orEmpty().trim()
@@ -508,6 +515,14 @@ object ProfileRepository {
             unlocked = false,
             message = localizedString(Res.string.profile_pin_offline_verification_requires_online),
         )
+
+        if (cached.userId.isBlank() || cached.userId != profile.userId) {
+            ProfilePinCacheStorage.removePayload(profileIndex)
+            return PinVerifyResult(
+                unlocked = false,
+                message = localizedString(Res.string.profile_pin_offline_verification_requires_online),
+            )
+        }
 
         if (
             cached.profileUpdatedAt.isNotBlank() &&
@@ -585,6 +600,11 @@ object ProfileRepository {
             val cached = runCatching {
                 json.decodeFromString<CachedProfilePinPayload>(raw)
             }.getOrNull() ?: run {
+                ProfilePinCacheStorage.removePayload(profileIndex)
+                continue
+            }
+
+            if (cached.userId.isBlank() || cached.userId != profile.userId) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 continue
             }

@@ -12,7 +12,9 @@ import java.security.KeyStoreException
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.StrongBoxUnavailableException
@@ -46,10 +48,12 @@ actual object ProfileBiometricAuth {
 
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
-        return runCatching {
-            val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-            keyStore.containsAlias(alias(profileIndex, userId))
-        }.getOrDefault(false)
+        return withContext(Dispatchers.Default) {
+            runCatching {
+                val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
+                keyStore.containsAlias(alias(profileIndex, userId))
+            }.getOrDefault(false)
+        }
     }
 
     actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
@@ -57,19 +61,27 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        deleteKey(profileIndex, userId)
-        deleteLegacyKey()
+        withContext(Dispatchers.Default) {
+            deleteKey(profileIndex, userId)
+            deleteLegacyKey()
+        }
         return runCatching {
-            generateKey(profileIndex, userId)
+            withContext(Dispatchers.Default) {
+                generateKey(profileIndex, userId)
+            }
             when (val result = authenticateInternal(profileIndex, userId, setup = true)) {
                 ProfileBiometricResult.Success -> result
                 else -> {
-                    deleteKey(profileIndex, userId)
+                    withContext(Dispatchers.Default) {
+                        deleteKey(profileIndex, userId)
+                    }
                     result
                 }
             }
         }.getOrElse {
-            deleteKey(profileIndex, userId)
+            withContext(Dispatchers.Default) {
+                deleteKey(profileIndex, userId)
+            }
             ProfileBiometricResult.Failed
         }
     }
@@ -82,7 +94,9 @@ actual object ProfileBiometricAuth {
             authenticateInternal(profileIndex, userId, setup = false)
         }.getOrElse { error ->
             if (error is KeyPermanentlyInvalidatedException) {
-                deleteKey(profileIndex, userId)
+                withContext(Dispatchers.Default) {
+                    deleteKey(profileIndex, userId)
+                }
                 ProfileBiometricResult.Invalidated
             } else {
                 ProfileBiometricResult.Failed
@@ -110,7 +124,9 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        val cipher = createCipher(profileIndex, userId)
+        val cipher = withContext(Dispatchers.Default) {
+            createCipher(profileIndex, userId)
+        }
         val cryptoObject = BiometricPrompt.CryptoObject(cipher)
         val promptTitle = getString(
             if (setup) {
@@ -134,7 +150,7 @@ actual object ProfileBiometricAuth {
             },
         )
 
-        return suspendCancellableCoroutine { continuation ->
+        val result = suspendCancellableCoroutine<ProfileBiometricResult> { continuation ->
             val executor = host.mainExecutor
             val prompt = BiometricPrompt(
                 host,
@@ -154,7 +170,6 @@ actual object ProfileBiometricAuth {
                             ProfileBiometricResult.Success
                         }.getOrElse { error ->
                             if (error is KeyPermanentlyInvalidatedException) {
-                                deleteKey(profileIndex, userId)
                                 ProfileBiometricResult.Invalidated
                             } else {
                                 ProfileBiometricResult.Failed
@@ -205,6 +220,13 @@ actual object ProfileBiometricAuth {
             continuation.invokeOnCancellation { prompt.cancelAuthentication() }
             prompt.authenticate(promptInfo, cryptoObject)
         }
+
+        if (result == ProfileBiometricResult.Invalidated) {
+            withContext(Dispatchers.Default) {
+                deleteKey(profileIndex, userId)
+            }
+        }
+        return result
     }
 
     private fun generateKey(profileIndex: Int, userId: String) {
