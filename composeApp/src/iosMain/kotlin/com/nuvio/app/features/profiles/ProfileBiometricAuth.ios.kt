@@ -22,6 +22,7 @@ import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSError
 import platform.Foundation.NSString
 import platform.Foundation.create
+import platform.Foundation.dataUsingEncoding
 import platform.Foundation.NSUTF8StringEncoding
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
@@ -47,8 +48,6 @@ import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import nuvio.composeapp.generated.resources.Res
-import org.jetbrains.compose.resources.getString
 import platform.UIKit.UIViewController
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
@@ -168,17 +167,13 @@ actual object ProfileBiometricAuth {
         }
 
         val context = LAContext().apply {
-            localizedReason = getString(
-                if (setup) {
-                    Res.string.profile_biometric_setup_reason
-                } else {
-                    Res.string.profile_biometric_unlock_reason
-                },
-            )
+            localizedReason = if (setup) {
+                "Confirm your fingerprint or face to turn on biometric unlock."
+            } else {
+                "Use your fingerprint or face to unlock your primary profile."
+            }
             if (!setup) {
-                localizedFallbackTitle = getString(
-                    Res.string.profile_biometric_prompt_use_pin,
-                )
+                localizedFallbackTitle = "Use PIN"
             }
         }
 
