@@ -136,15 +136,22 @@ actual object ProfilePinCacheStorage {
 
     private fun copyMatching(
         query: CFMutableDictionaryRef,
-    ): Pair<Int, CFTypeRef?> {
-        return memScoped {
+    ): Pair<Int, NSData?> {
+        return try {
             CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
-            val result = alloc<CFTypeRefVar>()
-            result.value = null
-            val status = SecItemCopyMatching(query, result.ptr)
-            val value = result.value
-            status to value
-        }.also {
+            memScoped {
+                val result = alloc<CFTypeRefVar>()
+                result.value = null
+                val status = SecItemCopyMatching(query, result.ptr)
+                val data = if (status == errSecSuccess) {
+                    CFBridgingRelease(result.value) as? NSData
+                } else {
+                    result.value?.let { CFRelease(it) }
+                    null
+                }
+                status to data
+            }
+        } finally {
             CFRelease(query)
         }
     }
