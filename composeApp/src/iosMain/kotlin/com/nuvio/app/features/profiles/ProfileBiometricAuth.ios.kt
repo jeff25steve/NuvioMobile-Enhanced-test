@@ -169,12 +169,16 @@ actual object ProfileBiometricAuth {
             } else {
                 "Use your fingerprint or face to unlock your primary profile."
             }
-            localizedFallbackTitle = if (!setup) "Use PIN" else null
+            // Apple owns this fallback button and it authenticates with the device
+            // passcode, not Nuvio's profile PIN. The profile PIN remains the app-level
+            // fallback handled by ProfileSelectionScreen/PinEntryDialog.
+            localizedFallbackTitle = ""
         }
 
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
                 CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
+                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne)
                 setAuthenticationContext(query, context)
 
                 memScoped {
