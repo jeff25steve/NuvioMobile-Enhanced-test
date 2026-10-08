@@ -50,7 +50,9 @@ import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecUseAuthenticationUI
 import platform.Security.kSecUseAuthenticationUIFail
 import platform.Security.kSecValueData
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import platform.UIKit.UIViewController
 
@@ -107,6 +109,7 @@ actual object ProfileBiometricAuth {
 
         disable(profileIndex, userId)
 
+        try {
         val accessControl = createAccessControl()
             ?: return ProfileBiometricResult.Failed
 
@@ -138,6 +141,12 @@ actual object ProfileBiometricAuth {
             disable(profileIndex, userId)
         }
         return result
+        } catch (error: CancellationException) {
+            withContext(NonCancellable + Dispatchers.Default) {
+                disable(profileIndex, userId)
+            }
+            throw error
+        }
     }
 
     actual suspend fun authenticate(
