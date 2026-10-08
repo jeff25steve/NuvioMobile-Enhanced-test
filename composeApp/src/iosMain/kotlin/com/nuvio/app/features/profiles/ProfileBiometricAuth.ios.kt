@@ -19,7 +19,6 @@ import platform.CoreFoundation.kCFBooleanTrue
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
-import platform.Security.SecAccessControlRef
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -207,7 +206,7 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    private fun createAccessControl(): SecAccessControlRef? =
+    private fun createAccessControl() =
         SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
             kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
