@@ -70,21 +70,40 @@ workflows:
       vars:
         CM_RECURSIVE_SUBMODULE_INIT: "true"
         NUVIO_BUILD_CHANNEL: "beta"
+        XCODE_PROJECT: "iosApp.xcodeproj"
+        XCODE_SCHEME: "iosApp"
+        IOS_SIMULATOR_DESTINATION: "generic/platform=iOS Simulator"
 
     scripts:
-      - name: Build iOS simulator
+      - name: Initialize Git submodules
+        script: |
+          set -euo pipefail
+
+          cd "$CM_BUILD_DIR"
+
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+          test -f "$CM_BUILD_DIR/MPVKit/Package.swift"
+
+          echo "MPVKit submodule initialized:"
+          git -C "$CM_BUILD_DIR/MPVKit" rev-parse HEAD
+
+      - name: Build iOS Simulator .app
         script: |
           set -o pipefail
 
           cd "$CM_BUILD_DIR/iosApp"
 
           xcodebuild build \
-            -project "iosApp.xcodeproj" \
-            -scheme "iosApp" \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
             -sdk iphonesimulator \
+            -destination "$IOS_SIMULATOR_DESTINATION" \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee "$CM_BUILD_DIR/xcodebuild-ios-simulator.log"
 
           build_status=${PIPESTATUS[0]}
@@ -98,5 +117,6 @@ workflows:
 
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
       - /tmp/xcodebuild_logs/*.log
       - xcodebuild-ios-simulator.log
