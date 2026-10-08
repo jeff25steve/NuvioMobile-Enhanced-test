@@ -58,3 +58,45 @@ workflows:
     artifacts:
       - androidApp/build/outputs/**/*.apk
       - gradle-build.log
+
+  ios-simulator-debug:
+    name: Nuvio Enhanced - iOS Simulator Debug
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    environment:
+      java: 17
+      xcode: latest
+      vars:
+        CM_RECURSIVE_SUBMODULE_INIT: "true"
+        NUVIO_BUILD_CHANNEL: "beta"
+
+    scripts:
+      - name: Build iOS simulator
+        script: |
+          set -o pipefail
+
+          cd "$CM_BUILD_DIR/iosApp"
+
+          xcodebuild build \
+            -project "iosApp.xcodeproj" \
+            -scheme "iosApp" \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee "$CM_BUILD_DIR/xcodebuild-ios-simulator.log"
+
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo ""
+            echo "===== Xcode build diagnostics ====="
+            grep -E '(^|[[:space:]])(error:|warning:|fatal error:)' \
+              "$CM_BUILD_DIR/xcodebuild-ios-simulator.log" | tail -n 200 || true
+          fi
+          exit "$build_status"
+
+    artifacts:
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - /tmp/xcodebuild_logs/*.log
+      - xcodebuild-ios-simulator.log
