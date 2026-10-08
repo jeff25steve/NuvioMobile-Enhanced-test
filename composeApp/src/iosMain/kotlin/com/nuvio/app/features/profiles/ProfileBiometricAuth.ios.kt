@@ -9,7 +9,6 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
-import platform.CoreFoundation.CFErrorRefVar
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringRef
@@ -21,6 +20,7 @@ import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
+import platform.Security.SecAccessControlRef
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -36,8 +36,9 @@ import platform.Security.kSecAttrAccount
 import platform.Security.kSecAttrService
 import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
-import platform.Security.kSecReturnAttributes
 import platform.Security.kSecReturnData
+import platform.Security.kSecMatchLimit
+import platform.Security.kSecMatchLimitOne
 import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecUseAuthenticationUI
 import platform.Security.kSecUseAuthenticationUIFail
@@ -79,8 +80,8 @@ actual object ProfileBiometricAuth {
 
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
-                CFDictionaryAddValue(query, kSecReturnAttributes, kCFBooleanTrue)
                 CFDictionaryAddValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
+                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne)
                 SecItemCopyMatching(query, null)
             }
         }
@@ -198,16 +199,13 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    private fun createAccessControl() =
-        memScoped {
-            val error = alloc<CFErrorRefVar>()
-            SecAccessControlCreateWithFlags(
-                kCFAllocatorDefault,
-                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-                kSecAccessControlBiometryCurrentSet,
-                error.ptr,
-            )
-        }
+    private fun createAccessControl(): SecAccessControlRef? =
+        SecAccessControlCreateWithFlags(
+            kCFAllocatorDefault,
+            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+            kSecAccessControlBiometryCurrentSet,
+            null,
+        )
 
     private fun setAuthenticationContext(
         query: CFMutableDictionaryRef,
