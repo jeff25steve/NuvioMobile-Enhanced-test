@@ -94,6 +94,7 @@ object AuthRepository {
             validatedRemoteUserId = userId
             true
         }.getOrElse { e ->
+            if (e is CancellationException) throw e
             if (isInvalidRemoteSessionError(e)) {
                 log.w(e) { "Stored Supabase session no longer belongs to an active account; clearing local auth" }
                 clearLocalSessionAfterRemoteInvalidation()
@@ -126,6 +127,7 @@ object AuthRepository {
         trustNextSessionWithoutValidation = true
         Unit
     }.onFailure { e ->
+        if (e is CancellationException) throw e
         log.e(e) { "Email sign-up failed" }
         _error.value = e.safeAuthErrorDescription()
             ?: getString(Res.string.auth_sign_up_failed)
@@ -139,6 +141,7 @@ object AuthRepository {
         }
         trustNextSessionWithoutValidation = true
     }.onFailure { e ->
+        if (e is CancellationException) throw e
         log.e(e) { "Email sign-in failed" }
         _error.value = e.safeAuthErrorDescription()
             ?: getString(Res.string.auth_sign_in_failed)
@@ -243,6 +246,7 @@ object AuthRepository {
             _state.value = AuthState.Unauthenticated
         }
     }.onFailure { e ->
+        if (e is CancellationException) throw e
         log.e(e) { "Account deletion failed" }
         _error.value = e.message ?: getString(Res.string.auth_account_deletion_failed)
     }
