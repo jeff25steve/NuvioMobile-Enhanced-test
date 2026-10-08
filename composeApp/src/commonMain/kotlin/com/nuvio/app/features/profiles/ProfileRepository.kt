@@ -151,6 +151,8 @@ object ProfileRepository {
                 syncPinCache(profiles.sortedBy { it.profileIndex })
             }
             persist()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return
             log.e(e) { "Failed to pull profiles" }
