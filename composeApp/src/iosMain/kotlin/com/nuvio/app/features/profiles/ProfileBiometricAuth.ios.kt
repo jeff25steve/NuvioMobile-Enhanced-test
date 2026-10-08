@@ -121,7 +121,7 @@ actual object ProfileBiometricAuth {
                     CFDictionaryAddValue(query, kSecValueData, bridgedValueData)
                     SecItemAdd(query, null)
                 } finally {
-                    CFRelease(bridgedValueData)
+                    bridgedValueData?.let { CFRelease(it) }
                 }
             }
         }
@@ -230,7 +230,7 @@ actual object ProfileBiometricAuth {
             kSecUseAuthenticationContext,
             contextReference,
         )
-        CFRelease(contextReference)
+        contextReference?.let { CFRelease(it) }
     }
 
     private fun deleteLegacyCredential() {
@@ -275,7 +275,7 @@ actual object ProfileBiometricAuth {
     ) {
         val retained = CFBridgingRetain(NSString.create(string = value))
         CFDictionaryAddValue(query, key, retained)
-        CFRelease(retained)
+        retained?.let { CFRelease(it) }
     }
 
     private fun account(userId: String): String =
