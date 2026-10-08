@@ -67,7 +67,6 @@ workflows:
       java: 17
       xcode: latest
       vars:
-        CM_RECURSIVE_SUBMODULE_INIT: "false"
         NUVIO_BUILD_CHANNEL: "beta"
         NUVIO_IOS_DISTRIBUTION: "appstore"
         XCODE_PROJECT: "iosApp.xcodeproj"
