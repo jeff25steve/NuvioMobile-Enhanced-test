@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.DialogSurface
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -63,7 +64,14 @@ fun PinEntryDialog(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var isVerifying by remember { mutableStateOf(false) }
+    var cooldownSeconds by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(cooldownSeconds) {
+        if (cooldownSeconds <= 0) return@LaunchedEffect
+        delay(1000)
+        cooldownSeconds -= 1
+    }
     val haptic = LocalHapticFeedback.current
 
     DialogSurface(
@@ -114,7 +122,7 @@ fun PinEntryDialog(
 
             PinKeypad(
                 onDigit = { digit ->
-                    if (pin.length < 4 && !isVerifying) {
+                    if (pin.length < 4 && !isVerifying && cooldownSeconds == 0) {
                         error = null
                         pin += digit
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -126,6 +134,7 @@ fun PinEntryDialog(
                                     onVerified?.invoke(pin)
                                 } else {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    cooldownSeconds = result.retryAfterSeconds
                                     error = result.message ?: if (result.retryAfterSeconds > 0) {
                                         getString(
                                             Res.string.pin_locked_try_again,
@@ -142,7 +151,7 @@ fun PinEntryDialog(
                     }
                 },
                 onBackspace = {
-                    if (pin.isNotEmpty() && !isVerifying) {
+                    if (pin.isNotEmpty() && !isVerifying && cooldownSeconds == 0) {
                         pin = pin.dropLast(1)
                         error = null
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
