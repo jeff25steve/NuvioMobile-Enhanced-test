@@ -15,7 +15,6 @@ import javax.crypto.KeyGenerator
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.KeyProperties
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -208,12 +207,15 @@ actual object ProfileBiometricAuth {
     }
 
     private fun generateKey(profileIndex: Int, userId: String) {
-        runCatching {
-            generateKey(profileIndex, userId, strongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-        }.onFailure { error ->
-            if (error !is StrongBoxUnavailableException) throw error
-            generateKey(profileIndex, userId, strongBox = false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                generateKey(profileIndex, userId, strongBox = true)
+                return
+            } catch (_: Exception) {
+                deleteKey(profileIndex, userId)
+            }
         }
+        generateKey(profileIndex, userId, strongBox = false)
     }
 
     private fun generateKey(profileIndex: Int, userId: String, strongBox: Boolean) {
