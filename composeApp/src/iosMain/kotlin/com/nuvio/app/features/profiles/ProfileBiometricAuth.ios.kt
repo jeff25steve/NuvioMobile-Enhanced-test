@@ -1,11 +1,13 @@
 package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
@@ -20,10 +22,8 @@ import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSError
+import platform.Foundation.NSData
 import platform.Foundation.NSString
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
-import platform.Foundation.NSUTF8StringEncoding
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
@@ -109,9 +109,7 @@ actual object ProfileBiometricAuth {
         val accessControl = createAccessControl()
             ?: return ProfileBiometricResult.Failed
 
-        val valueData = NSString.create(string = SENTINEL)
-            .dataUsingEncoding(NSUTF8StringEncoding)
-            ?: return ProfileBiometricResult.Failed
+        val valueData = SENTINEL.encodeToByteArray().toNSData()
 
         val addStatus = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
@@ -268,12 +266,23 @@ actual object ProfileBiometricAuth {
         }
     }
 
+    private fun String.toNSData(): NSData =
+        encodeToByteArray().let { bytes ->
+            if (bytes.isEmpty()) {
+                NSData.create(bytes = null, length = 0uL)
+            } else {
+                bytes.usePinned { pinned ->
+                    NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
+                }
+            }
+        }
+
     private fun addString(
         query: CFMutableDictionaryRef,
         key: CFStringRef?,
         value: String,
     ) {
-        val retained = CFBridgingRetain(NSString.create(string = value))
+        val retained = CFBridgingRetain(value as NSString)
         CFDictionaryAddValue(query, key, retained)
         retained?.let { CFRelease(it) }
     }
