@@ -53,6 +53,9 @@ import platform.Security.kSecValueData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.UIKit.UIViewController
 
@@ -67,7 +70,12 @@ actual object ProfileBiometricAuth {
 
     actual fun initialize(host: Any) {
         initialized = host is UIViewController
-        deleteLegacyCredential()
+        // Initialize is called from app setup and has no suspend boundary. Keep cleanup
+        // off the UI thread without blocking it; account-scoped cleanup remains explicit
+        // in the repository when the account is known.
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            deleteLegacyCredential()
+        }
     }
 
     actual fun isAvailable(): Boolean {
