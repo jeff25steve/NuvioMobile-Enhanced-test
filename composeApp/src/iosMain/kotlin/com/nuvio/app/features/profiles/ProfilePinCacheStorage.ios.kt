@@ -70,7 +70,7 @@ actual object ProfilePinCacheStorage {
                 deleteExisting(profileIndex)
                 SecItemAdd(query, null)
             } finally {
-                CFRelease(bridgedData)
+                bridgedData?.let { CFRelease(it) }
             }
         } finally {
             CFRelease(query)
@@ -173,6 +173,6 @@ actual object ProfilePinCacheStorage {
     ) {
         val retained = CFBridgingRetain(NSString.create(string = value))
         CFDictionaryAddValue(query, key, retained)
-        CFRelease(retained)
+        retained?.let { CFRelease(it) }
     }
 }
