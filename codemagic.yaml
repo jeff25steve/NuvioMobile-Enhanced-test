@@ -22,11 +22,9 @@ workflows:
 
           nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
           nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
-          nuvio_tv_login="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["capabilities"]["tv_login"]).lower())')"
 
           test -n "$nuvio_backend_url"
           test -n "$nuvio_publishable_key"
-          test "$nuvio_tv_login" = "true"
 
           cat >> "$CM_BUILD_DIR/local.properties" <<EOF
           NUVIO_SUPABASE_URL=$nuvio_backend_url
@@ -37,7 +35,13 @@ workflows:
       - name: Build Android Full Debug APK
         script: |
           set -o pipefail
-          beta_version_name="$(grep '^MARKETING_VERSION=' iosApp/Configuration/Version.xcconfig | cut -d= -f2)-beta"
+          version_file="$CM_BUILD_DIR/iosApp/Configuration/Version.xcconfig"
+          if ! grep -Eq '^MARKETING_VERSION=[0-9]+(\.[0-9]+)*$' "$version_file"; then
+            echo "ERROR: MARKETING_VERSION is missing or invalid in $version_file" >&2
+            exit 1
+          fi
+          marketing_version="$(sed -n 's/^MARKETING_VERSION=//p' "$version_file" | head -n 1)"
+          beta_version_name="${marketing_version}-beta"
           ./gradlew :androidApp:assembleFullDebug \
             -Pnuvio.app.versionName="$beta_version_name" \
             -Pnuvio.android.distribution=full \
@@ -104,11 +108,9 @@ workflows:
 
           nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
           nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
-          nuvio_tv_login="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["capabilities"]["tv_login"]).lower())')"
 
           test -n "$nuvio_backend_url"
           test -n "$nuvio_publishable_key"
-          test "$nuvio_tv_login" = "true"
 
           cat >> "$CM_BUILD_DIR/local.properties" <<EOF
           NUVIO_SUPABASE_URL=$nuvio_backend_url
