@@ -269,7 +269,7 @@ actual object ProfileBiometricAuth {
     private fun String.toNSData(): NSData =
         encodeToByteArray().let { bytes ->
             if (bytes.isEmpty()) {
-                NSData.create(bytes = null, length = 0uL)
+                NSData()
             } else {
                 bytes.usePinned { pinned ->
                     NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
