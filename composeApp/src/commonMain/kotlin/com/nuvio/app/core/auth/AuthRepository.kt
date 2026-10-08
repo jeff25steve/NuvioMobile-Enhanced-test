@@ -230,6 +230,7 @@ object AuthRepository {
         runCatching {
             SupabaseProvider.client.auth.clearSession()
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.w(e) { "Failed to clear Supabase session after remote invalidation; continuing local reset" }
         }
         val localCleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
