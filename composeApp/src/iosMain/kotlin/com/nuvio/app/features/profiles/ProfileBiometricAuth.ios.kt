@@ -12,18 +12,8 @@ import platform.Foundation.NSError
 import platform.Foundation.NSData
 import platform.Foundation.NSString
 import platform.Foundation.NSUTF8StringEncoding
-import platform.LocalAuthentication.LAAccessControlOperationUseItem
 import platform.LocalAuthentication.LAContext
-import platform.LocalAuthentication.LAErrorAppCancel
-import platform.LocalAuthentication.LAErrorBiometryLockout
-import platform.LocalAuthentication.LAErrorBiometryNotAvailable
-import platform.LocalAuthentication.LAErrorBiometryNotEnrolled
-import platform.LocalAuthentication.LAErrorPasscodeNotSet
-import platform.LocalAuthentication.LAErrorSystemCancel
-import platform.LocalAuthentication.LAErrorUserCancel
-import platform.LocalAuthentication.LAErrorUserFallback
 import platform.LocalAuthentication.LAPolicy
-import kotlin.coroutines.resume
 import platform.Security.SecAccessControl
 import platform.Security.SecAccessControlCreateFlags
 import platform.Security.SecAccessControlCreateWithFlags
@@ -149,66 +139,24 @@ actual object ProfileBiometricAuth {
         if (!isConfigured(profileIndex, userId)) return ProfileBiometricResult.NotConfigured
         if (!isAvailable()) return ProfileBiometricResult.Unavailable
 
-        val localizedReason = getString(
-            if (setup) {
-                Res.string.profile_biometric_setup_reason
-            } else {
-                Res.string.profile_biometric_unlock_reason
-            },
-        )
-        val accessControl = createAccessControl()
-            ?: return ProfileBiometricResult.Failed
         val context = LAContext().apply {
-            this.localizedReason = localizedReason
-            // Setup should require biometrics without exposing a device-passcode fallback.
-            // During unlock, this button deliberately means "Use PIN" at the app level.
-            localizedFallbackTitle = if (setup) {
-                ""
+            // Keep the Keychain ACL strictly biometric. biometryCurrentSet must not gain a
+            // device-passcode fallback because that would weaken the security boundary. Nuvio's
+            // own PIN fallback is represented by the system cancel action and never grants the
+            // Keychain item.
+            localizedCancelTitle = if (setup) {
+                getString(Res.string.action_cancel)
             } else {
                 getString(Res.string.profile_biometric_prompt_use_pin)
             }
         }
-
-        // Evaluate the exact same access-control policy used by the Keychain item so cancellation
-        // and the app-level PIN fallback are explicit. The Keychain read below remains the final
-        // authority and uses this same LAContext.
-        val (authorized, authenticationError) =
-            suspendCancellableCoroutine<Pair<Boolean, NSError?>> { continuation ->
-                context.evaluateAccessControl(
-                    accessControl = accessControl,
-                    operation = LAAccessControlOperationUseItem,
-                    localizedReason = localizedReason,
-                ) { success, error ->
-                    if (continuation.isActive) {
-                        continuation.resume(success to error)
-                    }
-                }
-                continuation.invokeOnCancellation { context.invalidate() }
-            }
-
-        if (!authorized) {
-            return when (authenticationError?.code?.toInt()) {
-                LAErrorUserFallback -> ProfileBiometricResult.FallbackRequested
-                LAErrorUserCancel,
-                LAErrorAppCancel,
-                LAErrorSystemCancel,
-                -> ProfileBiometricResult.Cancelled
-                LAErrorBiometryNotAvailable,
-                LAErrorBiometryNotEnrolled,
-                LAErrorBiometryLockout,
-                LAErrorPasscodeNotSet,
-                -> ProfileBiometricResult.Unavailable
-                else -> ProfileBiometricResult.Failed
-            }
-        }
-
         val authenticatedQuery = baseQuery(userId) + mapOf(
             kSecReturnData to true,
             kSecUseAuthenticationContext to context,
         )
 
-        // Keychain access control remains the authority: policy success alone is never treated as
-        // proof that this exact protected item can be read.
+        // The Keychain access-control ACL is the authority. SecItemCopyMatching performs the
+        // biometric prompt and only returns the protected item after the ACL is satisfied.
         return when (withContext(Dispatchers.Default) {
             copyMatching(authenticatedQuery).first
         }) {
@@ -219,7 +167,12 @@ actual object ProfileBiometricAuth {
                 }
                 ProfileBiometricResult.Invalidated
             }
-            errSecUserCanceled -> ProfileBiometricResult.Cancelled
+            errSecUserCanceled ->
+                if (setup) {
+                    ProfileBiometricResult.Cancelled
+                } else {
+                    ProfileBiometricResult.FallbackRequested
+                }
             else -> ProfileBiometricResult.Failed
         }
     }
