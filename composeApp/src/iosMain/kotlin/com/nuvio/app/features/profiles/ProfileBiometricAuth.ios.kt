@@ -2,23 +2,37 @@ package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.ObjCObjectVar
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.cstr
+import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.value
-import platform.CoreFoundation.CFDictionaryAddValue
-import platform.CoreFoundation.CFDictionaryCreateMutable
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.usePinned
+import platform.CoreFoundation.CFDataCreate
+import platform.CoreFoundation.CFDataRef
 import platform.CoreFoundation.CFDataRefVar
+import platform.CoreFoundation.CFDictionarySetValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
+import platform.CoreFoundation.CFErrorRefVar
 import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFStringEncodingUTF8
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
+import platform.Foundation.CFBridgingRetain
+import platform.Foundation.NSError
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
+import platform.Security.SecAccessControlRef
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -34,30 +48,23 @@ import platform.Security.kSecAttrAccount
 import platform.Security.kSecAttrService
 import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
-import platform.Security.kSecReturnData
 import platform.Security.kSecMatchLimit
 import platform.Security.kSecMatchLimitOne
+import platform.Security.kSecReturnData
 import platform.Security.kSecUseAuthenticationContext
 import platform.Security.kSecUseAuthenticationUI
 import platform.Security.kSecUseAuthenticationUIFail
 import platform.Security.kSecValueData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import platform.Foundation.CFBridgingRetain
-import platform.Foundation.NSData
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.create
-import platform.Foundation.dataUsingEncoding
 import platform.UIKit.UIViewController
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
     private const val SERVICE = "com.nuvio.media.profile-biometric"
-    private const val ACCOUNT = "primary"
-    private const val SENTINEL = "nuvio-biometric-sentinel"
     private const val LEGACY_SERVICE = SERVICE
-    private const val LEGACY_ACCOUNT = ACCOUNT
+    private const val LEGACY_ACCOUNT = "primary"
+    private const val SENTINEL = "nuvio-biometric-sentinel"
 
     private var initialized = false
 
@@ -83,8 +90,8 @@ actual object ProfileBiometricAuth {
 
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
-                CFDictionaryAddValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
-                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne)
+                CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
+                CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
                 SecItemCopyMatching(query, null)
             }
         }
@@ -92,7 +99,10 @@ actual object ProfileBiometricAuth {
         return status == errSecSuccess || status == errSecInteractionNotAllowed
     }
 
-    actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
+    actual suspend fun enable(
+        profileIndex: Int,
+        userId: String,
+    ): ProfileBiometricResult {
         if (profileIndex != 1 || userId.isBlank()) {
             return ProfileBiometricResult.Unavailable
         }
@@ -101,27 +111,25 @@ actual object ProfileBiometricAuth {
         }
 
         disable(profileIndex, userId)
-        deleteLegacyCredential()
 
         val accessControl = createAccessControl()
             ?: return ProfileBiometricResult.Failed
 
-        val valueData = SENTINEL.encodeToByteArray().toNSData()
+        val valueData = SENTINEL.toCFData()
+            ?: return ProfileBiometricResult.Failed
 
-        val addStatus = withContext(Dispatchers.Default) {
-            withKeychainQuery(userId) { query ->
-                CFDictionaryAddValue(query, kSecAttrAccessControl, accessControl)
-                val bridgedValueData = CFBridgingRetain(valueData)
-                try {
-                    CFDictionaryAddValue(query, kSecValueData, bridgedValueData)
+        val addStatus = try {
+            withContext(Dispatchers.Default) {
+                withKeychainQuery(userId) { query ->
+                    CFDictionarySetValue(query, kSecAttrAccessControl, accessControl)
+                    CFDictionarySetValue(query, kSecValueData, valueData)
                     SecItemAdd(query, null)
-                } finally {
-                    bridgedValueData?.let { CFRelease(it) }
                 }
             }
+        } finally {
+            CFRelease(valueData)
+            CFRelease(accessControl)
         }
-
-        CFRelease(accessControl)
 
         if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
             return ProfileBiometricResult.Failed
@@ -172,16 +180,13 @@ actual object ProfileBiometricAuth {
             } else {
                 "Use your fingerprint or face to unlock your primary profile."
             }
-            // Apple owns this fallback button and it authenticates with the device
-            // passcode, not Nuvio's profile PIN. The profile PIN remains the app-level
-            // fallback handled by ProfileSelectionScreen/PinEntryDialog.
             localizedFallbackTitle = ""
         }
 
         val status = withContext(Dispatchers.Default) {
             withKeychainQuery(userId) { query ->
-                CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
-                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne)
+                CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+                CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
                 setAuthenticationContext(query, context)
 
                 memScoped {
@@ -200,34 +205,30 @@ actual object ProfileBiometricAuth {
                 disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
-            // iOS intentionally hides Apple's device-passcode fallback because the
-            // profile PIN is Nuvio's fallback. Treating explicit biometric cancellation
-            // as a fallback request gives the caller a direct PIN path.
             errSecUserCanceled -> ProfileBiometricResult.FallbackRequested
             errSecInteractionNotAllowed -> ProfileBiometricResult.Failed
             else -> ProfileBiometricResult.Failed
         }
     }
 
-    private fun createAccessControl() =
-        SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-            kSecAccessControlBiometryCurrentSet,
-            null,
-        )
+    private fun createAccessControl(): SecAccessControlRef? =
+        memScoped {
+            val error = alloc<CFErrorRefVar>()
+            SecAccessControlCreateWithFlags(
+                kCFAllocatorDefault,
+                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                kSecAccessControlBiometryCurrentSet,
+                error.ptr,
+            )
+        }
 
     private fun setAuthenticationContext(
         query: CFMutableDictionaryRef,
         context: LAContext,
     ) {
-        val contextReference = CFBridgingRetain(context)
-        CFDictionaryAddValue(
-            query,
-            kSecUseAuthenticationContext,
-            contextReference,
-        )
-        contextReference?.let { CFRelease(it) }
+        val contextReference = CFBridgingRetain(context) ?: return
+        CFDictionarySetValue(query, kSecUseAuthenticationContext, contextReference)
+        CFRelease(contextReference)
     }
 
     private fun deleteLegacyCredential() {
@@ -247,35 +248,44 @@ actual object ProfileBiometricAuth {
         block: (CFMutableDictionaryRef) -> T,
     ): T {
         val query = CFDictionaryCreateMutable(
-            null,
+            kCFAllocatorDefault,
             8,
-            null,
-            null,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr,
         ) ?: error("Unable to allocate Keychain query")
 
+        val serviceRef = cfString(service)
+        val accountRef = account?.let(::cfString)
         try {
-            addString(query, kSecAttrService, service)
-            if (account != null) {
-                addString(query, kSecAttrAccount, account)
-            }
-            CFDictionaryAddValue(query, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(query, kSecAttrService, serviceRef)
+            accountRef?.let { CFDictionarySetValue(query, kSecAttrAccount, it) }
             return block(query)
         } finally {
+            accountRef?.let { CFRelease(it) }
+            serviceRef?.let { CFRelease(it) }
             CFRelease(query)
         }
     }
 
-    private fun String.toNSData(): NSData =
-        NSString.create(string = this).dataUsingEncoding(NSUTF8StringEncoding) ?: NSData()
+    private fun cfString(value: String): CFStringRef? =
+        memScoped {
+            CFStringCreateWithCString(
+                kCFAllocatorDefault,
+                value.cstr.ptr,
+                kCFStringEncodingUTF8,
+            )
+        }
 
-    private fun addString(
-        query: CFMutableDictionaryRef,
-        key: CFStringRef?,
-        value: String,
-    ) {
-        val retained = CFBridgingRetain(value)
-        CFDictionaryAddValue(query, key, retained)
-        retained?.let { CFRelease(it) }
+    private fun String.toCFData(): CFDataRef? {
+        val bytes = encodeToByteArray()
+        return bytes.usePinned { pinned ->
+            CFDataCreate(
+                kCFAllocatorDefault,
+                pinned.addressOf(0).reinterpret(),
+                bytes.size.convert(),
+            )
+        }
     }
 
     private fun account(userId: String): String =
