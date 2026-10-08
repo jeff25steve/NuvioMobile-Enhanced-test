@@ -8,7 +8,6 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import kotlinx.cinterop.readBytes
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
@@ -19,9 +18,7 @@ import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.CFBridgingRetain
-import platform.Foundation.NSData
-import platform.Foundation.NSString
+import platform.Foundation.*
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -45,7 +42,9 @@ actual object ProfilePinCacheStorage {
         return try {
             copyMatching(query).let { (status, value) ->
                 if (status == errSecSuccess) {
-                    return value?.toUtf8String()
+                    return value?.let { data ->
+                        NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
+                    }
                 }
                 migrateLegacyPayload(profileIndex)
             }
@@ -141,41 +140,23 @@ actual object ProfilePinCacheStorage {
     private fun copyMatching(
         query: CFMutableDictionaryRef,
     ): Pair<Int, NSData?> {
-        return try {
+        return memScoped {
             CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
-            memScoped {
-                val result = alloc<CFTypeRefVar>()
-                result.value = null
-                val status = SecItemCopyMatching(query, result.ptr)
-                val data = if (status == errSecSuccess) {
-                    CFBridgingRelease(result.value) as? NSData
-                } else {
-                    result.value?.let { CFRelease(it) }
-                    null
-                }
-                status to data
-            }
-        } finally {
-            CFRelease(query)
-        }
-    }
-
-    private fun String.toNSData(): NSData =
-        encodeToByteArray().let { bytes ->
-            if (bytes.isEmpty()) {
-                NSData()
+            val result = alloc<CFTypeRefVar>()
+            result.value = null
+            val status = SecItemCopyMatching(query, result.ptr)
+            val data = if (status == errSecSuccess) {
+                CFBridgingRelease(result.value) as? NSData
             } else {
-                bytes.usePinned { pinned ->
-                    NSData.create(bytes = pinned.addressOf(0), length = bytes.size.toULong())
-                }
+                result.value?.let { CFRelease(it) }
+                null
+            }
+            try {
+                status to data
+            } finally {
+                CFRelease(query)
             }
         }
-
-    private fun NSData.toUtf8String(): String? {
-        val size = length.toInt()
-        if (size == 0) return ""
-        val pointer = bytes ?: return null
-        return pointer.readBytes(size).decodeToString()
     }
 
     private fun addString(
