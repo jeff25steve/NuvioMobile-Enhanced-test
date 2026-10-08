@@ -3,30 +3,27 @@ package com.nuvio.app.features.profiles
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
-import kotlinx.cinterop.cstr
-import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.value
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.usePinned
-import platform.CoreFoundation.CFDataCreate
-import platform.CoreFoundation.CFDataRef
 import platform.CoreFoundation.CFDataRefVar
 import platform.CoreFoundation.CFDictionarySetValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
-import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringRef
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
-import platform.CoreFoundation.kCFStringEncodingUTF8
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.Foundation.CFBridgingRetain
+import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.create
+import platform.Foundation.dataUsingEncoding
 import platform.Foundation.NSError
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
@@ -113,19 +110,22 @@ actual object ProfileBiometricAuth {
         val accessControl = createAccessControl()
             ?: return ProfileBiometricResult.Failed
 
-        val valueData = SENTINEL.toCFData()
-            ?: return ProfileBiometricResult.Failed
+        val valueData = SENTINEL.toNSData()
 
         val addStatus = try {
             withContext(Dispatchers.Default) {
                 withKeychainQuery(userId) { query ->
                     CFDictionarySetValue(query, kSecAttrAccessControl, accessControl)
-                    CFDictionarySetValue(query, kSecValueData, valueData)
-                    SecItemAdd(query, null)
+                    val bridgedValueData = CFBridgingRetain(valueData)
+                    try {
+                        CFDictionarySetValue(query, kSecValueData, bridgedValueData)
+                        SecItemAdd(query, null)
+                    } finally {
+                        bridgedValueData?.let { CFRelease(it) }
+                    }
                 }
             }
         } finally {
-            CFRelease(valueData)
             CFRelease(accessControl)
         }
 
@@ -258,37 +258,29 @@ actual object ProfileBiometricAuth {
             kCFTypeDictionaryValueCallBacks.ptr,
         ) ?: error("Unable to allocate Keychain query")
 
-        val serviceRef = cfString(service)
-        val accountRef = account?.let(::cfString)
         try {
             CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
-            CFDictionarySetValue(query, kSecAttrService, serviceRef)
-            accountRef?.let { CFDictionarySetValue(query, kSecAttrAccount, it) }
+            addString(query, kSecAttrService, service)
+            if (account != null) addString(query, kSecAttrAccount, account)
             return block(query)
         } finally {
-            accountRef?.let { CFRelease(it) }
-            serviceRef?.let { CFRelease(it) }
             CFRelease(query)
         }
     }
 
-    private fun cfString(value: String): CFStringRef? =
-        memScoped {
-            CFStringCreateWithCString(
-                kCFAllocatorDefault,
-                value.cstr.ptr,
-                kCFStringEncodingUTF8,
-            )
-        }
+    private fun String.toNSData(): NSData =
+        NSString.create(string = this).dataUsingEncoding(NSUTF8StringEncoding) ?: NSData()
 
-    private fun String.toCFData(): CFDataRef? {
-        val bytes = encodeToByteArray()
-        return bytes.usePinned { pinned ->
-            CFDataCreate(
-                kCFAllocatorDefault,
-                pinned.addressOf(0).reinterpret(),
-                bytes.size.convert(),
-            )
+    private fun addString(
+        query: CFMutableDictionaryRef,
+        key: CFStringRef?,
+        value: String,
+    ) {
+        val retained = CFBridgingRetain(value) ?: return
+        try {
+            CFDictionarySetValue(query, key, retained)
+        } finally {
+            CFRelease(retained)
         }
     }
 
