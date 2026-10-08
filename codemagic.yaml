@@ -127,24 +127,6 @@ workflows:
           NUVIO_SUPABASE_FALLBACK_URL=
           EOF
 
-          # Generate Compose's Res class/accessors explicitly before Xcode invokes
-          # the Kotlin/Native framework compilation. This keeps the iOS compile
-          # independent of Gradle task-order inference in the Xcode build phase.
-          ./gradlew :composeApp:generateComposeResClass \
-            :composeApp:generateResourceAccessorsForCommonMain \
-            --no-daemon --stacktrace --console=plain
-
-          # Verify the generated resource source contains every new biometric
-          # string before Xcode starts Kotlin/Native compilation.
-          resource_codegen_dir="$CM_BUILD_DIR/composeApp/build/generated/compose/resourceGenerator/kotlin"
-          test -d "$resource_codegen_dir"
-          for resource_name in \
-            profile_biometric_setup_reason \
-            profile_biometric_unlock_reason \
-            profile_biometric_prompt_use_pin; do
-            grep -R --include='*.kt' -l "$resource_name" "$resource_codegen_dir" >/dev/null
-          done
-
           # Run runtime configuration generation separately with full diagnostics.
           set -o pipefail
           ./gradlew :composeApp:generateRuntimeConfigs \
