@@ -59,6 +59,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.UIKit.UIViewController
 
+private val LegacyCredentialCleanupScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
     private const val SERVICE = "com.nuvio.media.profile-biometric"
@@ -73,7 +76,7 @@ actual object ProfileBiometricAuth {
         // Initialize is called from app setup and has no suspend boundary. Keep cleanup
         // off the UI thread without blocking it; account-scoped cleanup remains explicit
         // in the repository when the account is known.
-        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+        LegacyCredentialCleanupScope.launch {
             deleteLegacyCredential()
         }
     }
