@@ -2,6 +2,9 @@ package com.nuvio.app.features.profiles
 
 import com.nuvio.app.features.plugins.cryptointerop.CC_SHA256
 import com.nuvio.app.features.plugins.cryptointerop.CC_SHA256_DIGEST_LENGTH
+import platform.Security.SecRandomCopyBytes
+import platform.Security.kSecRandomDefault
+import platform.Security.errSecSuccess
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.refTo
 
