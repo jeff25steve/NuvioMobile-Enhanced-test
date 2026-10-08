@@ -68,21 +68,25 @@ workflows:
       java: 17
       xcode: latest
       vars:
-        CM_RECURSIVE_SUBMODULE_INIT: "true"
+        CM_RECURSIVE_SUBMODULE_INIT: "false"
         NUVIO_BUILD_CHANNEL: "beta"
         XCODE_PROJECT: "iosApp.xcodeproj"
         XCODE_SCHEME: "iosApp"
         IOS_SIMULATOR_DESTINATION: "generic/platform=iOS Simulator"
 
     scripts:
-      - name: Initialize Git submodules
+      - name: Initialize MPVKit submodule
         script: |
           set -euo pipefail
 
           cd "$CM_BUILD_DIR"
 
-          git submodule sync --recursive
-          git submodule update --init --recursive
+          # The repository also contains a legacy "libass-android" gitlink
+          # without a matching entry in the root .gitmodules file. Codemagic's
+          # recursive checkout therefore fails before the build starts.
+          # iOS only requires the top-level MPVKit Swift package.
+          git submodule sync -- MPVKit
+          git submodule update --init --depth 1 MPVKit
 
           test -f "$CM_BUILD_DIR/MPVKit/Package.swift"
 
