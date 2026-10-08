@@ -588,10 +588,17 @@ object ProfileRepository {
 
     private fun syncPinCache(profiles: List<NuvioProfile>) {
         val profilesByIndex = profiles.associateBy { it.profileIndex }
+        val accountUserId =
+            (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
         for (profileIndex in 1..MAX_PROFILES) {
             val profile = profilesByIndex[profileIndex]
             if (profile == null || !profile.pinEnabled) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
+                if (profileIndex == 1 && accountUserId.isNotBlank()) {
+                    // PIN state can change remotely. A primary profile whose PIN is gone
+                    // must not retain a stale biometric credential on this device.
+                    ProfileBiometricAuth.disable(1, profile?.userId.orEmpty().ifBlank { accountUserId })
+                }
                 continue
             }
 
