@@ -10,6 +10,7 @@ import java.lang.ref.WeakReference
 import java.security.KeyStore
 import java.security.KeyStoreException
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.keystore.UserNotAuthenticatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -45,10 +46,29 @@ actual object ProfileBiometricAuth {
 
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
-        return runCatching {
+
+        return try {
             val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-            keyStore.containsAlias(alias(profileIndex, userId))
-        }.getOrDefault(false)
+            val key = keyStore.getKey(alias(profileIndex, userId), null) ?: return false
+
+            try {
+                // A valid per-use biometric key is expected to reject an unauthenticated
+                // cipher initialization. A permanently invalidated key must be removed
+                // so the UI does not report biometric unlock as still enabled.
+                Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, key)
+                true
+            } catch (_: UserNotAuthenticatedException) {
+                true
+            } catch (_: KeyPermanentlyInvalidatedException) {
+                deleteKey(profileIndex, userId)
+                false
+            }
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            deleteKey(profileIndex, userId)
+            false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
