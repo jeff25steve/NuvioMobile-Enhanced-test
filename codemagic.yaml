@@ -7,7 +7,6 @@ workflows:
     environment:
       java: 17
       vars:
-        CM_RECURSIVE_SUBMODULE_INIT: "false"
         NUVIO_BUILD_CHANNEL: "beta"
 
     scripts:
@@ -76,29 +75,16 @@ workflows:
         IOS_SIMULATOR_DESTINATION: "generic/platform=iOS Simulator"
 
     scripts:
-      - name: Initialize MPVKit submodule
-        script: |
-          set -euo pipefail
-
-          cd "$CM_BUILD_DIR"
-
-          # The repository also contains a legacy "libass-android" gitlink
-          # without a matching entry in the root .gitmodules file. Codemagic's
-          # recursive checkout therefore fails before the build starts.
-          # iOS only requires the top-level MPVKit Swift package.
-          git submodule sync -- MPVKit
-          git submodule update --init --depth 1 MPVKit
-
-          test -f "$CM_BUILD_DIR/MPVKit/Package.swift"
-
-          echo "MPVKit submodule initialized:"
-          git -C "$CM_BUILD_DIR/MPVKit" rev-parse HEAD
-
       - name: Prepare and validate Kotlin Multiplatform configuration
         script: |
           set -euo pipefail
 
           cd "$CM_BUILD_DIR"
+
+          # Codemagic checks out Git submodules before scripts run. The root
+          # .gitmodules contains valid URLs for all gitlinks, so use that
+          # checkout directly and fail early only if the iOS package is absent.
+          test -f "$CM_BUILD_DIR/MPVKit/Package.swift"
 
           # The Xcode Compile Kotlin Framework phase invokes Gradle from the
           # repository root. Create the ignored local.properties file first,
