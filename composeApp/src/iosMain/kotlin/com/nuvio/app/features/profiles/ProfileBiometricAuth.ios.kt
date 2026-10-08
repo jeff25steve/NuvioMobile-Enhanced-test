@@ -18,7 +18,6 @@ import platform.CoreFoundation.CFDataRefVar
 import platform.CoreFoundation.CFDictionarySetValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
-import platform.CoreFoundation.CFErrorRefVar
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringCreateWithCString
 import platform.CoreFoundation.CFStringRef
@@ -32,7 +31,6 @@ import platform.Foundation.NSError
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
-import platform.Security.SecAccessControlRef
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -217,16 +215,13 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    private fun createAccessControl(): SecAccessControlRef? =
-        memScoped {
-            val error = alloc<CFErrorRefVar>()
-            SecAccessControlCreateWithFlags(
-                kCFAllocatorDefault,
-                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-                kSecAccessControlBiometryCurrentSet,
-                error.ptr,
-            )
-        }
+    private fun createAccessControl() =
+        SecAccessControlCreateWithFlags(
+            kCFAllocatorDefault,
+            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+            kSecAccessControlBiometryCurrentSet,
+            null,
+        )
 
     private fun setAuthenticationContext(
         query: CFMutableDictionaryRef,
