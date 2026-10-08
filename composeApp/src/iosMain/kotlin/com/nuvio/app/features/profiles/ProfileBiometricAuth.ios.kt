@@ -21,6 +21,7 @@ import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
 import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSError
 import platform.Foundation.NSString
+import platform.Foundation.create
 import platform.Foundation.NSUTF8StringEncoding
 import platform.LocalAuthentication.LAContext
 import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
