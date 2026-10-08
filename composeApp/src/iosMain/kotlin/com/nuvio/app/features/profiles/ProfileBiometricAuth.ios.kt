@@ -118,7 +118,9 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        disable(profileIndex, userId)
+        withContext(Dispatchers.Default) {
+            disable(profileIndex, userId)
+        }
 
         try {
             val accessControl = createAccessControl()
