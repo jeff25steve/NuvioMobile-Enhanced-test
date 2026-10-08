@@ -11,12 +11,12 @@ import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringRef
-import platform.CoreFoundation.CFTypeRef
 import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
 import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
 import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
+import platform.Foundation.CFBridgingRelease
 import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSString
 import platform.Foundation.NSUTF8StringEncoding
@@ -43,14 +43,14 @@ actual object ProfilePinCacheStorage {
         return try {
             copyMatching(query).let { (status, value) ->
                 if (status == errSecSuccess) {
-                    return (value as? platform.Foundation.NSData)?.let { data ->
+                    return (CFBridgingRelease(value) as? platform.Foundation.NSData)?.let { data ->
                         NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
                     }
                 }
                 migrateLegacyPayload(profileIndex)
             }
         } finally {
-            // copyMatching consumes and releases the returned result.
+            // The query itself is released by copyMatching.
         }
     }
 
