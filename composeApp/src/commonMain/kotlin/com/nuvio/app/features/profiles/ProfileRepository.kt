@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
@@ -298,8 +299,10 @@ object ProfileRepository {
 
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
-            ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex, userId)
+            withContext(Dispatchers.Default) {
+                ProfilePinCacheStorage.removePayload(profileIndex)
+                ProfileBiometricAuth.disable(profileIndex, userId)
+            }
             _state.value = _state.value.copy(
                 profiles = remaining,
                 activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) {
@@ -322,8 +325,10 @@ object ProfileRepository {
             SupabaseProvider.client.postgrest.rpc("sync_delete_profile_data", params)
             // Remote deletion succeeded; remove device-local authentication artifacts even if
             // the subsequent profile refresh is interrupted or unavailable.
-            ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(profileIndex, userId)
+            withContext(Dispatchers.Default) {
+                ProfilePinCacheStorage.removePayload(profileIndex)
+                ProfileBiometricAuth.disable(profileIndex, userId)
+            }
             pullProfiles()
         } catch (e: Throwable) {
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
@@ -333,7 +338,9 @@ object ProfileRepository {
 
     suspend fun verifyPin(profileIndex: Int, pin: String): PinVerifyResult {
         if (AuthRepository.state.value !is AuthState.Authenticated) {
-            return verifyPinLocally(profileIndex, pin)
+            return withContext(Dispatchers.Default) {
+                verifyPinLocally(profileIndex, pin)
+            }
         }
 
         return runCatching {
@@ -345,14 +352,18 @@ object ProfileRepository {
             result.decodeSingle<PinVerifyResult>().also { verifyResult ->
                 if (verifyResult.unlocked) {
                     pullProfiles()
-                    rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
+                    withContext(Dispatchers.Default) {
+                        rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
+                    }
                 }
             }
         }.getOrElse {
             // Never log the authentication exception: request/transport exceptions are not useful
             // enough to justify risking credential-adjacent data in crash/log pipelines.
             log.w { "PIN verification request failed; attempting local verification" }
-            verifyPinLocally(profileIndex, pin)
+            withContext(Dispatchers.Default) {
+                verifyPinLocally(profileIndex, pin)
+            }
         }
     }
 
@@ -369,7 +380,9 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("set_profile_pin", params)
             pullProfiles()
-            rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
+            withContext(Dispatchers.Default) {
+                rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
+            }
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
             log.e(e) { "Failed to set pin" }
@@ -390,11 +403,13 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
             pullProfiles()
-            ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(
-                profileIndex,
-                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
-            )
+            withContext(Dispatchers.Default) {
+                ProfilePinCacheStorage.removePayload(profileIndex)
+                ProfileBiometricAuth.disable(
+                    profileIndex,
+                    _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+                )
+            }
             PinVerifyResult(unlocked = true)
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin" }
@@ -411,11 +426,13 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
             pullProfiles()
-            ProfilePinCacheStorage.removePayload(profileIndex)
-            ProfileBiometricAuth.disable(
-                profileIndex,
-                _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
-            )
+            withContext(Dispatchers.Default) {
+                ProfilePinCacheStorage.removePayload(profileIndex)
+                ProfileBiometricAuth.disable(
+                    profileIndex,
+                    _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+                )
+            }
         }.onFailure { e ->
             log.e(e) { "Failed to clear pin with password" }
         }
