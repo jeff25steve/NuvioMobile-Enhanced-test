@@ -14,7 +14,9 @@ import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.UserNotAuthenticatedException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -70,6 +72,8 @@ actual object ProfileBiometricAuth {
             } catch (_: KeyPermanentlyInvalidatedException) {
                 deleteKey(profileIndex, userId)
                 false
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: Exception) {
                 false
             }
@@ -85,20 +89,23 @@ actual object ProfileBiometricAuth {
             deleteKey(profileIndex, userId)
             deleteLegacyKey()
         }
-        return runCatching {
+        return try {
             withContext(Dispatchers.Default) {
                 generateKey(profileIndex, userId)
             }
-            when (val result = authenticateInternal(profileIndex, userId, setup = true)) {
-                ProfileBiometricResult.Success -> result
-                else -> {
-                    withContext(Dispatchers.Default) {
-                        deleteKey(profileIndex, userId)
-                    }
-                    result
+            val result = authenticateInternal(profileIndex, userId, setup = true)
+            if (result != ProfileBiometricResult.Success) {
+                withContext(Dispatchers.Default) {
+                    deleteKey(profileIndex, userId)
                 }
             }
-        }.getOrElse {
+            result
+        } catch (error: CancellationException) {
+            withContext(NonCancellable + Dispatchers.Default) {
+                deleteKey(profileIndex, userId)
+            }
+            throw error
+        } catch (_: Exception) {
             withContext(Dispatchers.Default) {
                 deleteKey(profileIndex, userId)
             }
@@ -110,17 +117,17 @@ actual object ProfileBiometricAuth {
         if (profileIndex != 1 || userId.isBlank()) return ProfileBiometricResult.Unavailable
         if (!isConfigured(profileIndex, userId)) return ProfileBiometricResult.NotConfigured
 
-        return runCatching {
+        return try {
             authenticateInternal(profileIndex, userId, setup = false)
-        }.getOrElse { error ->
-            if (error is KeyPermanentlyInvalidatedException) {
-                withContext(Dispatchers.Default) {
-                    deleteKey(profileIndex, userId)
-                }
-                ProfileBiometricResult.Invalidated
-            } else {
-                ProfileBiometricResult.Failed
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: KeyPermanentlyInvalidatedException) {
+            withContext(Dispatchers.Default) {
+                deleteKey(profileIndex, userId)
             }
+            ProfileBiometricResult.Invalidated
+        } catch (_: Exception) {
+            ProfileBiometricResult.Failed
         }
     }
 
