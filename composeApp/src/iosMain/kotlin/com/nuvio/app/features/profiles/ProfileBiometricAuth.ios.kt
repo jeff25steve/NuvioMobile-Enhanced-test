@@ -6,16 +6,24 @@ import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import platform.CoreFoundation.CFDictionary
-import platform.CoreFoundation.CFTypeRef
+import kotlinx.cinterop.value
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFErrorRefVar
+import platform.CoreFoundation.CFMutableDictionaryRef
+import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFStringRef
+import platform.CoreFoundation.CFTypeRefVar
+import platform.CoreFoundation.kCFAllocatorDefault
+import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
+import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSError
-import platform.Foundation.NSData
 import platform.Foundation.NSString
 import platform.Foundation.NSUTF8StringEncoding
 import platform.LocalAuthentication.LAContext
-import platform.LocalAuthentication.LAPolicy
-import platform.Security.SecAccessControl
-import platform.Security.SecAccessControlCreateFlags
+import platform.LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics
 import platform.Security.SecAccessControlCreateWithFlags
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
@@ -25,6 +33,7 @@ import platform.Security.errSecInteractionNotAllowed
 import platform.Security.errSecItemNotFound
 import platform.Security.errSecUserCanceled
 import platform.Security.errSecSuccess
+import platform.Security.kSecAccessControlBiometryCurrentSet
 import platform.Security.kSecAttrAccessControl
 import platform.Security.kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
 import platform.Security.kSecAttrAccount
@@ -39,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import org.jetbrains.compose.resources.getString
+import platform.UIKit.UIViewController
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
@@ -51,18 +61,17 @@ actual object ProfileBiometricAuth {
     private var initialized = false
 
     actual fun initialize(host: Any) {
-        initialized = host is platform.UIKit.UIViewController
-        // Remove the pre-account-bound credential so a rollback cannot reuse it across accounts.
+        initialized = host is UIViewController
         deleteLegacyCredential()
     }
 
     actual fun isAvailable(): Boolean {
         if (!initialized) return false
-        val context = LAContext()
+
         return memScoped {
             val error = alloc<ObjCObjectVar<NSError?>>()
-            context.canEvaluatePolicy(
-                LAPolicy.deviceOwnerAuthenticationWithBiometrics,
+            LAContext().canEvaluatePolicy(
+                LAPolicyDeviceOwnerAuthenticationWithBiometrics,
                 error.ptr,
             )
         }
@@ -70,34 +79,50 @@ actual object ProfileBiometricAuth {
 
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
-        val context = LAContext().apply { interactionNotAllowed = true }
-        val query = baseQuery(userId) + mapOf(
-            kSecReturnAttributes to true,
-            kSecUseAuthenticationContext to context,
-        )
-        val status = copyMatching(query).first
+
+        val context = LAContext().apply {
+            interactionNotAllowed = true
+        }
+
+        val status = withContext(Dispatchers.Default) {
+            withKeychainQuery(userId) { query ->
+                CFDictionaryAddValue(query, kSecReturnAttributes, kCFBooleanTrue)
+                setAuthenticationContext(query, context)
+                SecItemCopyMatching(query, null)
+            }
+        }
+
         return status == errSecSuccess || status == errSecInteractionNotAllowed
     }
 
     actual suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult {
-        if (profileIndex != 1 || userId.isBlank() || !isAvailable()) {
+        if (profileIndex != 1 || userId.isBlank()) {
+            return ProfileBiometricResult.Unavailable
+        }
+        if (!isAvailable()) {
             return ProfileBiometricResult.Unavailable
         }
 
         disable(profileIndex, userId)
         deleteLegacyCredential()
-        val accessControl = createAccessControl() ?: return ProfileBiometricResult.Failed
+
+        val accessControl = createAccessControl()
+            ?: return ProfileBiometricResult.Failed
+
         val valueData = NSString.create(string = SENTINEL)
             .dataUsingEncoding(NSUTF8StringEncoding)
             ?: return ProfileBiometricResult.Failed
-        val addQuery = baseQuery(userId) + mapOf(
-            kSecAttrAccessControl to accessControl,
-            kSecValueData to valueData,
-        )
 
         val addStatus = withContext(Dispatchers.Default) {
-            SecItemAdd(addQuery as CFDictionary, null)
+            withKeychainQuery(userId) { query ->
+                CFDictionaryAddValue(query, kSecAttrAccessControl, accessControl)
+                CFDictionaryAddValue(query, kSecValueData, valueData)
+                SecItemAdd(query, null)
+            }
         }
+
+        CFRelease(accessControl)
+
         if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
             return ProfileBiometricResult.Failed
         }
@@ -109,14 +134,19 @@ actual object ProfileBiometricAuth {
         return result
     }
 
-    actual suspend fun authenticate(profileIndex: Int, userId: String): ProfileBiometricResult {
-        return authenticateInternal(profileIndex, userId, setup = false)
-    }
+    actual suspend fun authenticate(
+        profileIndex: Int,
+        userId: String,
+    ): ProfileBiometricResult =
+        authenticateInternal(profileIndex, userId, setup = false)
 
     actual fun disable(profileIndex: Int, userId: String) {
         if (profileIndex != 1) return
+
         if (userId.isNotBlank()) {
-            SecItemDelete(baseQuery(userId) as CFDictionary)
+            withKeychainQuery(userId) { query ->
+                SecItemDelete(query)
+            }
         }
         deleteLegacyCredential()
     }
@@ -126,9 +156,15 @@ actual object ProfileBiometricAuth {
         userId: String,
         setup: Boolean,
     ): ProfileBiometricResult {
-        if (profileIndex != 1 || userId.isBlank()) return ProfileBiometricResult.Unavailable
-        if (!isConfigured(profileIndex, userId)) return ProfileBiometricResult.NotConfigured
-        if (!isAvailable()) return ProfileBiometricResult.Unavailable
+        if (profileIndex != 1 || userId.isBlank()) {
+            return ProfileBiometricResult.Unavailable
+        }
+        if (!isConfigured(profileIndex, userId)) {
+            return ProfileBiometricResult.NotConfigured
+        }
+        if (!isAvailable()) {
+            return ProfileBiometricResult.Unavailable
+        }
 
         val context = LAContext().apply {
             localizedReason = getString(
@@ -139,65 +175,110 @@ actual object ProfileBiometricAuth {
                 },
             )
             if (!setup) {
-                localizedFallbackTitle = getString(Res.string.profile_biometric_prompt_use_pin)
+                localizedFallbackTitle = getString(
+                    Res.string.profile_biometric_prompt_use_pin,
+                )
             }
         }
-        val authenticatedQuery = baseQuery(userId) + mapOf(
-            kSecReturnData to true,
-            kSecUseAuthenticationContext to context,
-        )
 
-        // Keychain access control is the authority. The protected item cannot be returned unless
-        // the system's biometric ACL is satisfied. This avoids trusting an evaluatePolicy boolean.
-        return when (withContext(Dispatchers.Default) {
-            copyMatching(authenticatedQuery).first
-        }) {
+        val status = withContext(Dispatchers.Default) {
+            withKeychainQuery(userId) { query ->
+                CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
+                setAuthenticationContext(query, context)
+
+                memScoped {
+                    val result = alloc<CFTypeRefVar>()
+                    result.value = null
+                    val resultStatus = SecItemCopyMatching(query, result.ptr)
+                    result.value?.let { CFRelease(it) }
+                    resultStatus
+                }
+            }
+        }
+
+        return when (status) {
             errSecSuccess -> ProfileBiometricResult.Success
             errSecItemNotFound -> {
                 disable(profileIndex, userId)
                 ProfileBiometricResult.Invalidated
             }
             errSecUserCanceled -> ProfileBiometricResult.Cancelled
+            errSecInteractionNotAllowed -> ProfileBiometricResult.Failed
             else -> ProfileBiometricResult.Failed
         }
     }
 
-    private fun baseQuery(userId: String): Map<Any?, Any?> = mapOf(
-        kSecClass to kSecClassGenericPassword,
-        kSecAttrService to SERVICE,
-        kSecAttrAccount to account(userId),
-    )
-
-    private fun account(userId: String): String =
-        "primary-" + ProfilePinCrypto.sha256Hex("primary-profile-biometric:$userId")
-
-    private fun deleteLegacyCredential() {
-        SecItemDelete(
-            mapOf(
-                kSecClass to kSecClassGenericPassword,
-                kSecAttrService to LEGACY_SERVICE,
-                kSecAttrAccount to LEGACY_ACCOUNT,
-            ) as CFDictionary,
-        )
-    }
-
-    private fun createAccessControl(): SecAccessControl? {
-        return memScoped {
-            val error = alloc<ObjCObjectVar<NSError?>>()
+    private fun createAccessControl() =
+        memScoped {
+            val error = alloc<CFErrorRefVar>()
             SecAccessControlCreateWithFlags(
-                null,
+                kCFAllocatorDefault,
                 kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-                SecAccessControlCreateFlags.biometryCurrentSet,
+                kSecAccessControlBiometryCurrentSet,
                 error.ptr,
             )
         }
+
+    private fun setAuthenticationContext(
+        query: CFMutableDictionaryRef,
+        context: LAContext,
+    ) {
+        val contextReference = CFBridgingRetain(context)
+        CFDictionaryAddValue(
+            query,
+            kSecUseAuthenticationContext,
+            contextReference,
+        )
+        CFRelease(contextReference)
     }
 
-    private fun copyMatching(query: Map<Any?, Any?>): Pair<Int, CFTypeRef?> {
-        return memScoped {
-            val result = alloc<ObjCObjectVar<CFTypeRef?>>()
-            val status = SecItemCopyMatching(query as CFDictionary, result.ptr)
-            status to result.value
+    private fun deleteLegacyCredential() {
+        withKeychainQuery(
+            userId = null,
+            service = LEGACY_SERVICE,
+            account = LEGACY_ACCOUNT,
+        ) { query ->
+            SecItemDelete(query)
         }
     }
+
+    private fun <T> withKeychainQuery(
+        userId: String?,
+        service: String = SERVICE,
+        account: String? = userId?.let(::account),
+        block: (CFMutableDictionaryRef) -> T,
+    ): T {
+        val query = CFDictionaryCreateMutable(
+            kCFAllocatorDefault,
+            0,
+            kCFTypeDictionaryKeyCallBacks.ptr,
+            kCFTypeDictionaryValueCallBacks.ptr,
+        ) ?: error("Unable to allocate Keychain query")
+
+        try {
+            addString(query, kSecAttrService, service)
+            if (account != null) {
+                addString(query, kSecAttrAccount, account)
+            }
+            CFDictionaryAddValue(query, kSecClass, kSecClassGenericPassword)
+            return block(query)
+        } finally {
+            CFRelease(query)
+        }
+    }
+
+    private fun addString(
+        query: CFMutableDictionaryRef,
+        key: CFStringRef?,
+        value: String,
+    ) {
+        val retained = CFBridgingRetain(NSString.create(string = value))
+        CFDictionaryAddValue(query, key, retained)
+        CFRelease(retained)
+    }
+
+    private fun account(userId: String): String =
+        "primary-" + ProfilePinCrypto.sha256Hex(
+            "primary-profile-biometric:$userId",
+        )
 }
