@@ -110,37 +110,37 @@ actual object ProfileBiometricAuth {
         disable(profileIndex, userId)
 
         try {
-        val accessControl = createAccessControl()
-            ?: return ProfileBiometricResult.Failed
+            val accessControl = createAccessControl()
+                ?: return ProfileBiometricResult.Failed
 
-        val valueData = SENTINEL.toNSData()
+            val valueData = SENTINEL.toNSData()
 
-        val addStatus = try {
-            withContext(Dispatchers.Default) {
-                withKeychainQuery(userId) { query ->
-                    CFDictionarySetValue(query, kSecAttrAccessControl, accessControl)
-                    val bridgedValueData = CFBridgingRetain(valueData)
-                    try {
-                        CFDictionarySetValue(query, kSecValueData, bridgedValueData)
-                        SecItemAdd(query, null)
-                    } finally {
-                        bridgedValueData?.let { CFRelease(it) }
+            val addStatus = try {
+                withContext(Dispatchers.Default) {
+                    withKeychainQuery(userId) { query ->
+                        CFDictionarySetValue(query, kSecAttrAccessControl, accessControl)
+                        val bridgedValueData = CFBridgingRetain(valueData)
+                        try {
+                            CFDictionarySetValue(query, kSecValueData, bridgedValueData)
+                            SecItemAdd(query, null)
+                        } finally {
+                            bridgedValueData?.let { CFRelease(it) }
+                        }
                     }
                 }
+            } finally {
+                CFRelease(accessControl)
             }
-        } finally {
-            CFRelease(accessControl)
-        }
 
-        if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
-            return ProfileBiometricResult.Failed
-        }
+            if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
+                return ProfileBiometricResult.Failed
+            }
 
-        val result = authenticateInternal(profileIndex, userId, setup = true)
-        if (result != ProfileBiometricResult.Success) {
-            disable(profileIndex, userId)
-        }
-        return result
+            val result = authenticateInternal(profileIndex, userId, setup = true)
+            if (result != ProfileBiometricResult.Success) {
+                disable(profileIndex, userId)
+            }
+            return result
         } catch (error: CancellationException) {
             withContext(NonCancellable + Dispatchers.Default) {
                 disable(profileIndex, userId)
