@@ -1,24 +1,27 @@
 package com.nuvio.app.features.profiles
 
 import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreFoundation.CFDictionaryAddValue
 import platform.CoreFoundation.CFDictionaryCreateMutable
+import platform.CoreFoundation.CFDataRefVar
 import platform.CoreFoundation.CFMutableDictionaryRef
 import platform.CoreFoundation.CFRelease
 import platform.CoreFoundation.CFStringRef
-import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.kCFAllocatorDefault
 import platform.CoreFoundation.kCFBooleanTrue
-import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
-import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
-import platform.Foundation.*
+import platform.Foundation.CFBridgingRelease
+import platform.Foundation.CFBridgingRetain
+import platform.Foundation.NSData
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.create
+import platform.Foundation.dataUsingEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
@@ -49,7 +52,7 @@ actual object ProfilePinCacheStorage {
                 migrateLegacyPayload(profileIndex)
             }
         } finally {
-            // The query itself is released by copyMatching.
+            // The query is released by copyMatching.
         }
     }
 
@@ -126,10 +129,10 @@ actual object ProfilePinCacheStorage {
 
     private fun createQuery(profileIndex: Int): CFMutableDictionaryRef {
         return CFDictionaryCreateMutable(
-            kCFAllocatorDefault,
-            0,
-            kCFTypeDictionaryKeyCallBacks.ptr,
-            kCFTypeDictionaryValueCallBacks.ptr,
+            null,
+            5,
+            null,
+            null,
         )!!.also {
             CFDictionaryAddValue(it, kSecClass, kSecClassGenericPassword)
             addString(it, kSecAttrService, SERVICE)
@@ -142,9 +145,9 @@ actual object ProfilePinCacheStorage {
     ): Pair<Int, NSData?> {
         return memScoped {
             CFDictionaryAddValue(query, kSecReturnData, kCFBooleanTrue)
-            val result = alloc<CFTypeRefVar>()
+            val result = alloc<CFDataRefVar>()
             result.value = null
-            val status = SecItemCopyMatching(query, result.ptr)
+            val status = SecItemCopyMatching(query, result.ptr.reinterpret())
             val data = if (status == errSecSuccess) {
                 CFBridgingRelease(result.value) as? NSData
             } else {
