@@ -31,6 +31,7 @@ import platform.Security.SecAccessControlCreateWithFlags
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
+import platform.Security.errSecDuplicateItem
 import platform.Security.errSecInteractionNotAllowed
 import platform.Security.errSecItemNotFound
 import platform.Security.errSecUserCanceled
@@ -52,6 +53,8 @@ import platform.Security.kSecValueData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import org.jetbrains.compose.resources.getString
+import nuvio.composeapp.generated.resources.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -117,9 +120,12 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        withContext(Dispatchers.IO) {
-            disable(profileIndex, userId)
+        // A failed deletion must abort setup: otherwise a stale credential could survive
+        // while the UI reports that a newly configured credential was created.
+        val deleted = withContext(Dispatchers.IO) {
+            deleteCredential(userId)
         }
+        if (!deleted) return ProfileBiometricResult.Failed
 
         try {
             val accessControl = createAccessControl()
@@ -148,24 +154,39 @@ actual object ProfileBiometricAuth {
             // deletion did not take effect or another operation raced us; do not treat an old
             // credential as a successfully created credential.
             if (addStatus != errSecSuccess) {
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.IO) {
+                        deleteCredential(userId)
+                    }
+                }
                 return ProfileBiometricResult.Failed
             }
 
             val result = authenticateInternal(profileIndex, userId, setup = true)
             if (result != ProfileBiometricResult.Success) {
-                withContext(Dispatchers.IO) {
-                    disable(profileIndex, userId)
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.IO) {
+                        deleteCredential(userId)
+                    }
                 }
             }
             return result
         } catch (error: CancellationException) {
-            // Keep cleanup non-cancellable, then switch dispatcher inside it.
+            // Credential creation is a transaction from the UI's perspective: cancellation
+            // must not leave an unconfirmed Keychain item configured.
             withContext(NonCancellable) {
                 withContext(Dispatchers.IO) {
-                    disable(profileIndex, userId)
+                    deleteCredential(userId)
                 }
             }
             throw error
+        } catch (_: Exception) {
+            withContext(NonCancellable) {
+                withContext(Dispatchers.IO) {
+                    deleteCredential(userId)
+                }
+            }
+            ProfileBiometricResult.Failed
         }
     }
 
@@ -179,11 +200,17 @@ actual object ProfileBiometricAuth {
         if (profileIndex != 1) return
 
         if (userId.isNotBlank()) {
-            withKeychainQuery(userId) { query ->
-                SecItemDelete(query)
-            }
+            deleteCredential(userId)
         }
         deleteLegacyCredential()
+    }
+
+    private fun deleteCredential(userId: String): Boolean {
+        if (userId.isBlank()) return false
+        val status = withKeychainQuery(userId) { query ->
+            SecItemDelete(query)
+        }
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     private suspend fun authenticateInternal(
@@ -202,11 +229,13 @@ actual object ProfileBiometricAuth {
         }
 
         val context = LAContext().apply {
-            localizedReason = if (setup) {
-                "Confirm your fingerprint or face to turn on biometric unlock."
-            } else {
-                "Use your fingerprint or face to unlock your primary profile."
-            }
+            localizedReason = getString(
+                if (setup) {
+                    Res.string.profile_biometric_setup_reason
+                } else {
+                    Res.string.profile_biometric_unlock_reason
+                },
+            )
             localizedFallbackTitle = ""
         }
 
