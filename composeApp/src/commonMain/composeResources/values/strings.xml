@@ -1850,6 +1850,7 @@
     <string name="profile_disable_biometric_for">Disable biometric unlock for %1$s</string>
     <string name="profile_biometric_setup_title">Biometric unlock</string>
     <string name="profile_biometric_setup_failed">Biometric unlock couldn't be enabled. Your PIN is unchanged and remains available.</string>
+    <string name="profile_biometric_disable_failed">Nuvio couldn't confirm removal of the biometric unlock credential. Biometric unlock may still be enabled; try again.</string>
     <string name="profile_select_avatar">Select an avatar for this profile.</string>
     <string name="profile_set_pin_lock">Set PIN Lock</string>
     <string name="profile_unnamed">Unnamed profile</string>
