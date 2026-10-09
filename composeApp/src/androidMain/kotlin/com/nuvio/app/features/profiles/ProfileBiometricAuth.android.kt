@@ -29,7 +29,7 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
 private val LegacyBiometricCleanupScope =
-    CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 actual object ProfileBiometricAuth {
     private const val KEYSTORE = "AndroidKeyStore"
