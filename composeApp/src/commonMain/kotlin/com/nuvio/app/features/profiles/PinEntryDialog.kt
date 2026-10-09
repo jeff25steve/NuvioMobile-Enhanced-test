@@ -60,7 +60,6 @@ fun PinEntryDialog(
     onDismiss: () -> Unit,
     onVerified: ((String) -> Unit)? = null,
     onForgotPin: (() -> Unit)? = null,
-    closeOnSuccessfulResultWithMessage: Boolean = false,
 ) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -133,12 +132,6 @@ fun PinEntryDialog(
                                 val result = onVerify(pin)
                                 if (result.unlocked) {
                                     onVerified?.invoke(pin)
-                                    if (result.message != null) {
-                                        error = result.message
-                                        if (closeOnSuccessfulResultWithMessage) {
-                                            onDismiss()
-                                        }
-                                    }
                                 } else {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     cooldownSeconds = result.retryAfterSeconds
