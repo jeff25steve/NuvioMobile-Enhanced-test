@@ -60,6 +60,7 @@ fun PinEntryDialog(
     onDismiss: () -> Unit,
     onVerified: ((String) -> Unit)? = null,
     onForgotPin: (() -> Unit)? = null,
+    closeOnSuccessfulResultWithMessage: Boolean = false,
 ) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
