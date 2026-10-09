@@ -52,7 +52,7 @@ internal object LocalAccountDataCleaner {
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
-        (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
+        (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
         if (!cleanupUserId.isNullOrBlank()) {
             withContext(Dispatchers.IO) {
                 ProfileBiometricAuth.disable(1, cleanupUserId)
