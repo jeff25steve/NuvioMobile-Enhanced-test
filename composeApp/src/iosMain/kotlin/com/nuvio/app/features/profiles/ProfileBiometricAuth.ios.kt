@@ -145,18 +145,26 @@ actual object ProfileBiometricAuth {
                 CFRelease(accessControl)
             }
 
-            if (addStatus != errSecSuccess && addStatus != errSecDuplicateItem) {
+            // The existing item was deliberately deleted above. A duplicate here means that
+            // deletion did not take effect or another operation raced us; do not treat an old
+            // credential as a successfully created credential.
+            if (addStatus != errSecSuccess) {
                 return ProfileBiometricResult.Failed
             }
 
             val result = authenticateInternal(profileIndex, userId, setup = true)
             if (result != ProfileBiometricResult.Success) {
-                disable(profileIndex, userId)
+                withContext(Dispatchers.Default) {
+                    disable(profileIndex, userId)
+                }
             }
             return result
         } catch (error: CancellationException) {
-            withContext(NonCancellable + Dispatchers.Default) {
-                disable(profileIndex, userId)
+            // Keep cleanup non-cancellable, then switch dispatcher inside it.
+            withContext(NonCancellable) {
+                withContext(Dispatchers.Default) {
+                    disable(profileIndex, userId)
+                }
             }
             throw error
         }
@@ -205,21 +213,27 @@ actual object ProfileBiometricAuth {
 
         // SecItemCopyMatching is synchronous. Keep the authentication-triggering Keychain
         // operation off the Compose/UI thread so the app remains responsive while iOS presents
-        // and waits for the biometric prompt.
-        val status = withContext(Dispatchers.Default) {
-            withKeychainQuery(userId) { query ->
-                CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
-                CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
-                setAuthenticationContext(query, context)
+        // and waits for the biometric prompt. Invalidate the context if the caller is cancelled
+        // so a pending LocalAuthentication evaluation is interrupted rather than left running.
+        val status = try {
+            withContext(Dispatchers.Default) {
+                withKeychainQuery(userId) { query ->
+                    CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+                    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+                    setAuthenticationContext(query, context)
 
-                memScoped {
-                    val result = alloc<CFDataRefVar>()
-                    result.value = null
-                    val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
-                    result.value?.let { CFRelease(it) }
-                    resultStatus
+                    memScoped {
+                        val result = alloc<CFDataRefVar>()
+                        result.value = null
+                        val resultStatus = SecItemCopyMatching(query, result.ptr.reinterpret())
+                        result.value?.let { CFRelease(it) }
+                        resultStatus
+                    }
                 }
             }
+        } catch (error: CancellationException) {
+            context.invalidate()
+            throw error
         }
 
         return when (status) {
