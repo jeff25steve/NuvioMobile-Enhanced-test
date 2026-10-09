@@ -232,6 +232,7 @@ object AddonRepository {
             log.i { "pullFromServer() — applied ${urls.size} addons to state" }
             InAppLogger.info("Addons/Repository", "pullFromServer applied=${urls.size}")
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.e(e) { "pullFromServer() — FAILED" }
             InAppLogger.error("Addons/Repository", "pullFromServer failed: ${InAppLogger.throwableSummary(e)}")
         }
@@ -279,6 +280,8 @@ object AddonRepository {
                     payload = payload,
                 )
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             InAppLogger.error("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} failed reason=add: ${InAppLogger.throwableSummary(error)}")
             return AddAddonResult.Error(error.message ?: getString(Res.string.addon_load_manifest_failed))
@@ -411,17 +414,23 @@ object AddonRepository {
         var refreshJob: Job? = null
         refreshJob = scope.launch {
             try {
-                val result = runCatching {
+                val result = try {
                     InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=refresh")
                     val payload = fetchAddonResponseText(
                         url = manifestUrl,
                         forceRefresh = forceRefresh,
                     )
                     InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=refresh")
-                    AddonManifestParser.parse(
-                        manifestUrl = manifestUrl,
-                        payload = payload,
+                    Result.success(
+                        AddonManifestParser.parse(
+                            manifestUrl = manifestUrl,
+                            payload = payload,
+                        ),
                     )
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Throwable) {
+                    Result.failure(error)
                 }
 
                 _uiState.update { current ->
