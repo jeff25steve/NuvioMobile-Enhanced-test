@@ -132,6 +132,12 @@ fun PinEntryDialog(
                                 val result = onVerify(pin)
                                 if (result.unlocked) {
                                     onVerified?.invoke(pin)
+                                    if (result.message != null) {
+                                        // The operation succeeded, but a related local cleanup
+                                        // needs attention (for example, biometric removal).
+                                        // Report it without turning success into a PIN failure.
+                                        error = result.message
+                                    }
                                 } else {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     cooldownSeconds = result.retryAfterSeconds
