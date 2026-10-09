@@ -146,7 +146,7 @@ object AddonRepository {
             val urls = rowsByUrl.keys.toList()
             log.i { "pullFromServer() — server returned ${rows.size} addons" }
             InAppLogger.info("Addons/Repository", "pullFromServer serverRows=${rows.size} uniqueUrls=${urls.size}")
-            urls.forEachIndexed { i, u -> log.d { "  server[$i]: ${InAppLogger.redactUrl(u)}" } }
+            urls.forEachIndexed { i, u -> log.d { "  server[$i]: $u" } }
 
             if (urls.isEmpty() && !pulledFromServer) {
                 val localUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(currentProfileId))
@@ -232,10 +232,8 @@ object AddonRepository {
             log.i { "pullFromServer() — applied ${urls.size} addons to state" }
             InAppLogger.info("Addons/Repository", "pullFromServer applied=${urls.size}")
         }.onFailure { e ->
-            if (e is CancellationException) throw e
-            val safeError = safeAddonErrorSummary(e)
-            log.e { "pullFromServer() — FAILED: $safeError" }
-            InAppLogger.error("Addons/Repository", "pullFromServer failed: $safeError")
+            log.e(e) { "pullFromServer() — FAILED" }
+            InAppLogger.error("Addons/Repository", "pullFromServer failed: ${InAppLogger.throwableSummary(e)}")
         }
     }
 
@@ -253,7 +251,7 @@ object AddonRepository {
             InAppLogger.warn("Addons/Repository", "addAddon blocked because active profile uses primary addons")
             return AddAddonResult.Error(getString(Res.string.profile_primary_addons_required))
         }
-        log.i { "addAddon() — rawUrl=${InAppLogger.redactUrl(rawUrl)}" }
+        log.i { "addAddon() — rawUrl=$rawUrl" }
         InAppLogger.info("Addons/Repository", "addAddon rawUrl=${InAppLogger.redactUrl(rawUrl)}")
         val manifestUrl = try {
             normalizeManifestUrl(rawUrl)
@@ -281,10 +279,8 @@ object AddonRepository {
                     payload = payload,
                 )
             }
-        } catch (error: CancellationException) {
-            throw error
         } catch (error: Throwable) {
-            InAppLogger.error("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} failed reason=add: ${safeAddonErrorSummary(error)}")
+            InAppLogger.error("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} failed reason=add: ${InAppLogger.throwableSummary(error)}")
             return AddAddonResult.Error(error.message ?: getString(Res.string.addon_load_manifest_failed))
         }
 
@@ -415,23 +411,17 @@ object AddonRepository {
         var refreshJob: Job? = null
         refreshJob = scope.launch {
             try {
-                val result = try {
+                val result = runCatching {
                     InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=refresh")
                     val payload = fetchAddonResponseText(
                         url = manifestUrl,
                         forceRefresh = forceRefresh,
                     )
                     InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} ok chars=${payload.length} reason=refresh")
-                    Result.success(
-                        AddonManifestParser.parse(
-                            manifestUrl = manifestUrl,
-                            payload = payload,
-                        ),
+                    AddonManifestParser.parse(
+                        manifestUrl = manifestUrl,
+                        payload = payload,
                     )
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Throwable) {
-                    Result.failure(error)
                 }
 
                 _uiState.update { current ->
@@ -450,7 +440,7 @@ object AddonRepository {
                                         )
                                     },
                                     onFailure = { error ->
-                                        InAppLogger.error("Addons/Manifest", "refresh failed url=${InAppLogger.redactUrl(manifestUrl)}: ${safeAddonErrorSummary(error)}")
+                                        InAppLogger.error("Addons/Manifest", "refresh failed url=${InAppLogger.redactUrl(manifestUrl)}: ${InAppLogger.throwableSummary(error)}")
                                         addon.copy(
                                             isRefreshing = false,
                                             errorMessage = error.message ?: getString(Res.string.addon_load_manifest_failed),
@@ -503,9 +493,8 @@ object AddonRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                val safeError = safeAddonErrorSummary(error)
-                log.e { "pushToServer() — FAILED: $safeError" }
-                InAppLogger.error("Addons/Repository", "pushToServer failed: $safeError")
+                log.e(error) { "pushToServer() — FAILED" }
+                InAppLogger.error("Addons/Repository", "pushToServer failed: ${InAppLogger.throwableSummary(error)}")
             } finally {
                 if (pushJobsByProfile[profileId] === pushJob) {
                     pushJobsByProfile.remove(profileId)
@@ -629,7 +618,3 @@ private fun normalizeManifestUrl(rawUrl: String): String {
 
     return if (query.isEmpty()) manifestPath else "$manifestPath?$query"
 }
-
-
-private fun safeAddonErrorSummary(error: Throwable): String =
-    InAppLogger.redactUrl(InAppLogger.throwableSummary(error))
