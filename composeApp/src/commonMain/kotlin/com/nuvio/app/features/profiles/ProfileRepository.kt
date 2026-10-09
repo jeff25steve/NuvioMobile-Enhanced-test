@@ -424,10 +424,13 @@ object ProfileRepository {
             // and must not turn that committed server change into a reported PIN failure.
             pullProfiles()
 
+            val accountUserId =
+                (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
             val profileUserId = _state.value.profiles
                 .firstOrNull { it.profileIndex == profileIndex }
                 ?.userId
                 .orEmpty()
+                .ifBlank { accountUserId }
             val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(profileIndex, profileUserId)
