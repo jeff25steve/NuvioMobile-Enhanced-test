@@ -420,11 +420,17 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
             pullProfiles()
-            withContext(Dispatchers.IO) {
+            val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(
                     profileIndex,
                     _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
+                )
+            }
+            if (!biometricRemoved) {
+                return@runCatching PinVerifyResult(
+                    unlocked = false,
+                    message = getString(Res.string.profile_biometric_disable_failed),
                 )
             }
             PinVerifyResult(unlocked = true)
@@ -444,12 +450,15 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
             pullProfiles()
-            withContext(Dispatchers.IO) {
+            val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(
                     profileIndex,
                     _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
                 )
+            }
+            if (!biometricRemoved) {
+                log.w { "PIN was cleared but biometric credential removal could not be confirmed" }
             }
         }.onFailure { e ->
             if (e is CancellationException) throw e
