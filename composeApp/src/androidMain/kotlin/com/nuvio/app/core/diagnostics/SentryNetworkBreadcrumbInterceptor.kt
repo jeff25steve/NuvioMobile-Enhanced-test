@@ -64,7 +64,12 @@ class SentryNetworkBreadcrumbInterceptor : Interceptor {
         breadcrumb.setData("elapsed_ms", elapsedMs)
         if (error != null) {
             breadcrumb.setData("error_type", error.javaClass.name)
-            error.message?.let { breadcrumb.setData("error_message", it.take(240)) }
+            error.message?.let { message ->
+                breadcrumb.setData(
+                    "error_message",
+                    message.replace(url.toString(), scrubbedUrl(url)).take(240),
+                )
+            }
         }
         Sentry.addBreadcrumb(breadcrumb)
     }
@@ -81,6 +86,8 @@ class SentryNetworkBreadcrumbInterceptor : Interceptor {
 
     private fun scrubbedUrl(url: HttpUrl): String =
         url.newBuilder()
+            .username("")
+            .password("")
             .query(null)
             .fragment(null)
             .build()
