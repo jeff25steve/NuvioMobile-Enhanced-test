@@ -580,6 +580,7 @@ fun ProfileEditScreen(
             onDismiss = {
                 showPinClear = false
             },
+            closeOnSuccessfulResultWithMessage = true,
         )
     }
 }
