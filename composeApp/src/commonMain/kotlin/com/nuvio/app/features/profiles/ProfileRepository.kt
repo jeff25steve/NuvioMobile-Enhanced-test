@@ -413,33 +413,35 @@ object ProfileRepository {
             return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_requires_internet))
         }
 
-        return runCatching {
+        return try {
             val params = buildJsonObject {
                 put("p_profile_id", profileIndex)
                 currentPin?.let { put("p_current_pin", it) }
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
+
+            // The server PIN is now cleared. Refresh/cache cleanup is local follow-up work
+            // and must not turn that committed server change into a reported PIN failure.
             pullProfiles()
+
+            val profileUserId = _state.value.profiles
+                .firstOrNull { it.profileIndex == profileIndex }
+                ?.userId
+                .orEmpty()
             val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
-                // PIN removal must not depend on biometric cleanup succeeding; check and
-                // report the credential result separately after the server confirms PIN removal.
-                ProfileBiometricAuth.disable(
-                    profileIndex,
-                    _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
-                )
+                ProfileBiometricAuth.disable(profileIndex, profileUserId)
             }
-            if (!biometricRemoved) {
-                return@runCatching PinVerifyResult(
-                    unlocked = false,
-                    message = getString(Res.string.profile_biometric_disable_failed),
-                )
-            }
-            PinVerifyResult(unlocked = true)
-        }.onFailure { e ->
-            if (e is CancellationException) throw e
+
+            PinVerifyResult(
+                unlocked = true,
+                message = if (biometricRemoved) null
+                    else getString(Res.string.profile_biometric_disable_failed),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
             log.e(e) { "Failed to clear pin" }
-        }.getOrElse {
             PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
     }
