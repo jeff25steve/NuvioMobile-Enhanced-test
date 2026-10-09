@@ -16,5 +16,5 @@ expect object ProfileBiometricAuth {
     suspend fun isConfigured(profileIndex: Int, userId: String): Boolean
     suspend fun enable(profileIndex: Int, userId: String): ProfileBiometricResult
     suspend fun authenticate(profileIndex: Int, userId: String): ProfileBiometricResult
-    fun disable(profileIndex: Int, userId: String)
+    fun disable(profileIndex: Int, userId: String): Boolean
 }
