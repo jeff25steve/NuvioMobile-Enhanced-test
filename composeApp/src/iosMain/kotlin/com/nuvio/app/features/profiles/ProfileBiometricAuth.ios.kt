@@ -195,13 +195,13 @@ actual object ProfileBiometricAuth {
     ): ProfileBiometricResult =
         authenticateInternal(profileIndex, userId, setup = false)
 
-    actual fun disable(profileIndex: Int, userId: String) {
-        if (profileIndex != 1) return
+    actual fun disable(profileIndex: Int, userId: String): Boolean {
+        if (profileIndex != 1) return true
+        if (userId.isBlank()) return false
 
-        if (userId.isNotBlank()) {
-            deleteCredential(userId)
-        }
-        deleteLegacyCredential()
+        val accountCredentialRemoved = deleteCredential(userId)
+        val legacyCredentialRemoved = deleteLegacyCredential()
+        return accountCredentialRemoved && legacyCredentialRemoved
     }
 
     private fun deleteCredential(userId: String): Boolean {
@@ -297,14 +297,15 @@ actual object ProfileBiometricAuth {
         CFRelease(contextReference)
     }
 
-    private fun deleteLegacyCredential() {
-        withKeychainQuery(
+    private fun deleteLegacyCredential(): Boolean {
+        val status = withKeychainQuery(
             userId = null,
             service = LEGACY_SERVICE,
             account = LEGACY_ACCOUNT,
         ) { query ->
             SecItemDelete(query)
         }
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     private fun <T> withKeychainQuery(
