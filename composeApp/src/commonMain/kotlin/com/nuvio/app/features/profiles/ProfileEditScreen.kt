@@ -106,6 +106,7 @@ fun ProfileEditScreen(
     }
     var biometricSetupFailed by remember { mutableStateOf(false) }
     var biometricDisableFailed by remember { mutableStateOf(false) }
+    var pinClearBiometricCleanupFailed by remember { mutableStateOf(false) }
     val memberAccess by remember {
         MemberAccessRepository.ensureStarted()
         MemberAccessRepository.access
@@ -570,17 +571,25 @@ fun ProfileEditScreen(
     if (showPinClear && currentProfile != null) {
         PinEntryDialog(
             profileName = stringResource(Res.string.profile_remove_pin_for, currentProfile.name),
-            onVerify = { pin -> ProfileRepository.clearPin(currentProfile.profileIndex, pin) },
+            onVerify = { pin ->
+                val result = ProfileRepository.clearPin(currentProfile.profileIndex, pin)
+                pinClearBiometricCleanupFailed =
+                    currentProfile.profileIndex == 1 && result.unlocked && result.message != null
+                if (pinClearBiometricCleanupFailed) {
+                    biometricDisableFailed = true
+                }
+                result
+            },
             onVerified = {
                 showPinClear = false
                 if (currentProfile.profileIndex == 1) {
-                    biometricConfigured = false
+                    biometricConfigured = pinClearBiometricCleanupFailed
                 }
             },
             onDismiss = {
                 showPinClear = false
+                pinClearBiometricCleanupFailed = false
             },
-            closeOnSuccessfulResultWithMessage = true,
         )
     }
 }
