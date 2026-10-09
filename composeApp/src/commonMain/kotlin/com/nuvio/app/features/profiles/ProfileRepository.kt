@@ -353,7 +353,7 @@ object ProfileRepository {
 
     suspend fun verifyPin(profileIndex: Int, pin: String): PinVerifyResult {
         if (AuthRepository.state.value !is AuthState.Authenticated) {
-            return withContext(Dispatchers.Default) {
+            return withContext(Dispatchers.IO) {
                 verifyPinLocally(profileIndex, pin)
             }
         }
@@ -367,7 +367,7 @@ object ProfileRepository {
             result.decodeSingle<PinVerifyResult>().also { verifyResult ->
                 if (verifyResult.unlocked) {
                     pullProfiles()
-                    withContext(Dispatchers.Default) {
+                    withContext(Dispatchers.IO) {
                         rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
                     }
                 }
@@ -377,7 +377,7 @@ object ProfileRepository {
             // Never log the authentication exception: request/transport exceptions are not useful
             // enough to justify risking credential-adjacent data in crash/log pipelines.
             log.w { "PIN verification request failed; attempting local verification" }
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 verifyPinLocally(profileIndex, pin)
             }
         }
@@ -396,7 +396,7 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("set_profile_pin", params)
             pullProfiles()
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
             }
             PinVerifyResult(unlocked = true)
