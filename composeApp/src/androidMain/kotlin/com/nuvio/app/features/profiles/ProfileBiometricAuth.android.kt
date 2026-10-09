@@ -121,8 +121,10 @@ actual object ProfileBiometricAuth {
             }
             throw error
         } catch (_: Exception) {
-            withContext(Dispatchers.IO) {
-                deleteKey(profileIndex, userId)
+            withContext(NonCancellable) {
+                withContext(Dispatchers.IO) {
+                    deleteKey(profileIndex, userId)
+                }
             }
             ProfileBiometricResult.Failed
         }
