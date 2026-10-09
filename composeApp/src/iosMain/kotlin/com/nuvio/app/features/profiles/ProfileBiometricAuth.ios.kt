@@ -96,7 +96,7 @@ actual object ProfileBiometricAuth {
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
 
-        val status = withContext(Dispatchers.Default) {
+        val status = withContext(Dispatchers.IO) {
             withKeychainQuery(userId) { query ->
                 CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUIFail)
                 CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
@@ -118,7 +118,7 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        withContext(Dispatchers.Default) {
+        withContext(Dispatchers.IO) {
             disable(profileIndex, userId)
         }
 
@@ -129,7 +129,7 @@ actual object ProfileBiometricAuth {
             val valueData = SENTINEL.toNSData()
 
             val addStatus = try {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     withKeychainQuery(userId) { query ->
                         CFDictionarySetValue(query, kSecAttrAccessControl, accessControl)
                         val bridgedValueData = CFBridgingRetain(valueData)
@@ -154,7 +154,7 @@ actual object ProfileBiometricAuth {
 
             val result = authenticateInternal(profileIndex, userId, setup = true)
             if (result != ProfileBiometricResult.Success) {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     disable(profileIndex, userId)
                 }
             }
@@ -162,7 +162,7 @@ actual object ProfileBiometricAuth {
         } catch (error: CancellationException) {
             // Keep cleanup non-cancellable, then switch dispatcher inside it.
             withContext(NonCancellable) {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     disable(profileIndex, userId)
                 }
             }
@@ -211,12 +211,11 @@ actual object ProfileBiometricAuth {
             localizedFallbackTitle = ""
         }
 
-        // SecItemCopyMatching is synchronous. Keep the authentication-triggering Keychain
-        // operation off the Compose/UI thread so the app remains responsive while iOS presents
-        // and waits for the biometric prompt. Invalidate the context if the caller is cancelled
-        // so a pending LocalAuthentication evaluation is interrupted rather than left running.
+        // SecItemCopyMatching is synchronous and may wait for biometric interaction. Use the
+        // blocking-I/O dispatcher rather than consuming a compute dispatcher thread while the
+        // user responds. Invalidate the context if the caller is cancelled.
         val status = try {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 withKeychainQuery(userId) { query ->
                     CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
                     CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
@@ -239,7 +238,7 @@ actual object ProfileBiometricAuth {
         return when (status) {
             errSecSuccess -> ProfileBiometricResult.Success
             errSecItemNotFound -> {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     disable(profileIndex, userId)
                 }
                 ProfileBiometricResult.Invalidated
