@@ -106,7 +106,7 @@ fun ProfileEditScreen(
     }
     var biometricSetupFailed by remember { mutableStateOf(false) }
     var biometricDisableFailed by remember { mutableStateOf(false) }
-    var pinClearBiometricCleanupFailed by remember { mutableStateOf(false) }
+    var biometricDisableFailedMessage by remember { mutableStateOf<String?>(null) }
     val memberAccess by remember {
         MemberAccessRepository.ensureStarted()
         MemberAccessRepository.access
@@ -548,12 +548,19 @@ fun ProfileEditScreen(
 
     if (biometricDisableFailed) {
         NuvioStatusModal(
-            title = stringResource(Res.string.profile_biometric_setup_title),
-            message = stringResource(Res.string.profile_biometric_disable_failed),
+            title = stringResource(Res.string.profile_security),
+            message = biometricDisableFailedMessage
+                ?: stringResource(Res.string.profile_biometric_disable_failed),
             isVisible = true,
             confirmText = stringResource(Res.string.action_ok),
-            onConfirm = { biometricDisableFailed = false },
-            onDismiss = { biometricDisableFailed = false },
+            onConfirm = {
+                biometricDisableFailed = false
+                biometricDisableFailedMessage = null
+            },
+            onDismiss = {
+                biometricDisableFailed = false
+                biometricDisableFailedMessage = null
+            },
         )
     }
 
@@ -573,9 +580,8 @@ fun ProfileEditScreen(
             profileName = stringResource(Res.string.profile_remove_pin_for, currentProfile.name),
             onVerify = { pin ->
                 val result = ProfileRepository.clearPin(currentProfile.profileIndex, pin)
-                pinClearBiometricCleanupFailed =
-                    currentProfile.profileIndex == 1 && result.unlocked && result.message != null
-                if (pinClearBiometricCleanupFailed) {
+                if (result.unlocked && result.message != null) {
+                    biometricDisableFailedMessage = result.message
                     biometricDisableFailed = true
                 }
                 result
@@ -583,12 +589,23 @@ fun ProfileEditScreen(
             onVerified = {
                 showPinClear = false
                 if (currentProfile.profileIndex == 1) {
-                    biometricConfigured = pinClearBiometricCleanupFailed
+                    scope.launch {
+                        biometricConfigured = try {
+                            if (currentProfile.userId.isBlank()) {
+                                true
+                            } else {
+                                ProfileBiometricAuth.isConfigured(1, currentProfile.userId)
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            true
+                        }
+                    }
                 }
             },
             onDismiss = {
                 showPinClear = false
-                pinClearBiometricCleanupFailed = false
             },
         )
     }
