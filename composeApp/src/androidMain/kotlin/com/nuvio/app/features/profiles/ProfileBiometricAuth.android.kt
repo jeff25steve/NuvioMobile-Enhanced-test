@@ -148,10 +148,13 @@ actual object ProfileBiometricAuth {
         }
     }
 
-    actual fun disable(profileIndex: Int, userId: String) {
-        if (profileIndex != 1) return
-        if (userId.isNotBlank()) deleteKey(profileIndex, userId)
+    actual fun disable(profileIndex: Int, userId: String): Boolean {
+        if (profileIndex != 1) return true
+        if (userId.isBlank()) return false
+
+        deleteKey(profileIndex, userId)
         deleteLegacyKey()
+        return !keyExists(profileIndex, userId) && !legacyKeyExists()
     }
 
     private suspend fun authenticateInternal(
@@ -340,6 +343,12 @@ actual object ProfileBiometricAuth {
             }
         }
     }
+
+    private fun legacyKeyExists(): Boolean =
+        runCatching {
+            KeyStore.getInstance(KEYSTORE).apply { load(null) }
+                .containsAlias(LEGACY_ALIAS)
+        }.getOrDefault(true)
 
     private fun deleteLegacyKey() {
         runCatching {
