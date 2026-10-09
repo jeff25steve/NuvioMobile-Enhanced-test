@@ -287,7 +287,7 @@ object MetaDetailsRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                log.w { "Lightweight meta request failed url=${InAppLogger.redactUrl(url)}: ${safeMetadataErrorSummary(error)}" }
+                log.w(error) { "Lightweight meta request failed url=$url" }
                 null
             }
             if (response == null) continue
@@ -309,7 +309,7 @@ object MetaDetailsRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                log.w { "Failed to parse lightweight meta url=${InAppLogger.redactUrl(url)}: ${safeMetadataErrorSummary(error)}" }
+                log.w(error) { "Failed to parse lightweight meta url=$url" }
                 null
             }
             if (meta != null) return MetaLookupOutcome.Loaded(meta)
@@ -352,11 +352,10 @@ object MetaDetailsRepository {
 
         return try {
             TmdbSettingsRepository.ensureLoaded()
-            log.d { "Fetching meta from: ${InAppLogger.redactUrl(url)}" }
+            log.d { "Fetching meta from: $url" }
             InAppLogger.info("Metadata/AddonFetch", "Fetching meta type=$type id=$id url=${InAppLogger.redactUrl(url)}")
             val payload = fetchAddonResponseText(url)
-            // Add-on payloads may contain private stream URLs or tokens; keep size diagnostics only.
-            log.d { "Raw metadata payload length=${payload.length}" }
+            log.d { "Raw payload length=${payload.length}, first 500 chars: ${payload.take(500)}" }
             InAppLogger.debug("Metadata/AddonFetch", "Meta payload length=${payload.length} type=$type id=$id")
             val result = withContext(Dispatchers.Default) { MetaDetailsParser.parse(payload) }
             val tmdbEnriched = withTimeoutOrNull(TMDB_ENRICH_TIMEOUT_MS) {
@@ -391,9 +390,8 @@ object MetaDetailsRepository {
             enriched
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
-            val safeError = safeMetadataErrorSummary(e)
-            log.e { "Failed to fetch/parse meta from ${InAppLogger.redactUrl(url)} (manifest=${InAppLogger.redactUrl(manifest.transportUrl)}): $safeError" }
-            InAppLogger.warn("Metadata/AddonFetch", "Failed meta source=${manifest.name} url=${InAppLogger.redactUrl(url)} error=$safeError")
+            log.e(e) { "Failed to fetch/parse meta from $url (manifest=${manifest.transportUrl})" }
+            InAppLogger.warn("Metadata/AddonFetch", "Failed meta source=${manifest.name} url=${InAppLogger.redactUrl(url)} error=${InAppLogger.throwableSummary(e)}")
             null
         }
     }
@@ -569,8 +567,7 @@ object MetaDetailsRepository {
                     fallbackItemType = fallbackItemType,
                 )
             }.onFailure { error ->
-                if (error is CancellationException) throw error
-                log.w { "Failed to load Simkl related titles for ${meta.id}: ${safeMetadataErrorSummary(error)}" }
+                log.w { "Failed to load Simkl related titles for ${meta.id}: ${error.message}" }
             }.getOrDefault(emptyList())
 
             return meta.copy(
@@ -594,10 +591,8 @@ object MetaDetailsRepository {
                     fallbackItemType = fallbackItemType,
                 )
             }.onFailure { error ->
-                if (error is CancellationException) throw error
-                val safeError = safeMetadataErrorSummary(error)
-                log.w { "Failed to load Trakt related titles for ${meta.id}: $safeError" }
-                InAppLogger.warn("Metadata/Trakt", "Failed related titles id=${meta.id} error=$safeError")
+                log.w { "Failed to load Trakt related titles for ${meta.id}: ${error.message}" }
+                InAppLogger.warn("Metadata/Trakt", "Failed related titles id=${meta.id} error=${InAppLogger.throwableSummary(error)}")
             }.getOrDefault(MoreLikeThisPage())
             InAppLogger.info("Metadata/Trakt", "Related titles id=${meta.id} count=${page.items.size} hasMore=${page.hasMore}")
 
@@ -757,7 +752,3 @@ internal sealed interface MetaLookupOutcome {
 
     object Failed : MetaLookupOutcome
 }
-
-
-private fun safeMetadataErrorSummary(error: Throwable): String =
-    InAppLogger.redactUrl(InAppLogger.throwableSummary(error))
