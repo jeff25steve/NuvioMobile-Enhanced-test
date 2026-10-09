@@ -55,6 +55,7 @@ import com.nuvio.app.core.ui.platformPhysicalTopInset
 import com.nuvio.app.features.membership.CosmeticEntitlement
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.ProfileBackgroundRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
