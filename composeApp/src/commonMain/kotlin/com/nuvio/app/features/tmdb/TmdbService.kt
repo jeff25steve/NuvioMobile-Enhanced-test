@@ -3,6 +3,8 @@ package com.nuvio.app.features.tmdb
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.logging.InAppLogger
 import com.nuvio.app.features.addons.httpGetText
+import io.ktor.http.encodeURLParameter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
@@ -15,6 +17,7 @@ object TmdbService {
     private val imdbToTmdbCache = linkedMapOf<String, String>()
     private val tmdbToImdbCache = linkedMapOf<String, String>()
     private val cacheMutex = Mutex()
+    private val imdbIdRegex = Regex("tt\\d+", RegexOption.IGNORE_CASE)
 
     suspend fun ensureTmdbId(videoId: String, mediaType: String, fallbackImdbId: String? = null): String? {
         val apiKey = TmdbSettingsRepository.effectiveApiKey()
@@ -33,6 +36,7 @@ object TmdbService {
             return normalized
         }
         if (normalized.startsWith("tt", ignoreCase = true)) {
+            if (!imdbIdRegex.matches(normalized)) return null
             InAppLogger.debug("Metadata/TMDB", "ensureTmdbId imdb=$normalized type=$mediaType")
             return imdbToTmdb(imdbId = normalized, mediaType = mediaType, apiKey = apiKey)
         }
@@ -41,7 +45,7 @@ object TmdbService {
         val normalizedFallback = fallbackImdbId
             ?.trim()
             ?.substringBefore(':')
-            ?.takeIf { it.startsWith("tt", ignoreCase = true) }
+            ?.takeIf { imdbIdRegex.matches(it) }
         if (normalizedFallback != null) {
             InAppLogger.debug("Metadata/TMDB", "ensureTmdbId fallbackImdb=$normalizedFallback type=$mediaType")
             return imdbToTmdb(imdbId = normalizedFallback, mediaType = mediaType, apiKey = apiKey)
@@ -119,14 +123,18 @@ object TmdbService {
     ): T? {
         val url = buildTmdbUrl(endpoint = endpoint, apiKey = apiKey, query = query)
         InAppLogger.info("Metadata/TMDB", "GET endpoint=$endpoint url=${InAppLogger.redactUrl(url)}")
-        return runCatching {
+        return try {
             val payload = httpGetText(url)
             InAppLogger.info("Metadata/TMDB", "GET endpoint=$endpoint ok chars=${payload.length}")
             json.decodeFromString<T>(payload)
-        }.onFailure { error ->
-            log.w { "TMDB request failed for $endpoint: ${error.message}" }
-            InAppLogger.warn("Metadata/TMDB", "GET endpoint=$endpoint failed: ${InAppLogger.throwableSummary(error)}")
-        }.getOrNull()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            val safeError = InAppLogger.redactUrl(InAppLogger.throwableSummary(error))
+            log.w { "TMDB request failed for $endpoint: $safeError" }
+            InAppLogger.warn("Metadata/TMDB", "GET endpoint=$endpoint failed: $safeError")
+            null
+        }
     }
 
     internal fun normalizeMediaType(mediaType: String): String =
@@ -144,7 +152,7 @@ internal fun buildTmdbUrl(
 ): String {
     val params = linkedMapOf("api_key" to apiKey)
     query.forEach { (key, value) ->
-        if (value.isNotBlank()) {
+        if (key != "api_key" && value.isNotBlank()) {
             params[key] = value
         }
     }
@@ -153,7 +161,9 @@ internal fun buildTmdbUrl(
         append(endpoint.removePrefix("/"))
         if (params.isNotEmpty()) {
             append("?")
-            append(params.entries.joinToString("&") { (key, value) -> "$key=$value" })
+            append(params.entries.joinToString("&") { (key, value) ->
+                "${key.encodeURLParameter()}=${value.encodeURLParameter()}"
+            })
         }
     }
 }
