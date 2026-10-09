@@ -422,6 +422,8 @@ object ProfileRepository {
             pullProfiles()
             val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
+                // PIN removal must not depend on biometric cleanup succeeding; check and
+                // report the credential result separately after the server confirms PIN removal.
                 ProfileBiometricAuth.disable(
                     profileIndex,
                     _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
@@ -452,6 +454,8 @@ object ProfileRepository {
             pullProfiles()
             val biometricRemoved = withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
+                // PIN removal must not depend on biometric cleanup succeeding; check and
+                // report the credential result separately after the server confirms PIN removal.
                 ProfileBiometricAuth.disable(
                     profileIndex,
                     _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
