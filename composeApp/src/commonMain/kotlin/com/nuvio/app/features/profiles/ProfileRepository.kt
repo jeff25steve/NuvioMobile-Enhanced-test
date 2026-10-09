@@ -116,7 +116,7 @@ object ProfileRepository {
             // overwrite new-account state or remove newly populated cache entries.
             _state.value = ProfileState()
             activeProfileIndex = 1
-            (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
+            (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
             withContext(Dispatchers.IO) {
                 ProfileBiometricAuth.disable(1, stored.userId)
             }
@@ -446,23 +446,26 @@ object ProfileRepository {
         if (sameAccount()) {
             withContext(NonCancellable) {
                 withContext(Dispatchers.IO) {
-                    pinCacheRemoved = try {
-                        ProfilePinCacheStorage.removePayload(profileIndex)
-                        true
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        log.w { "Unable to remove local PIN cache after server PIN removal" }
-                        false
-                    }
+                    // Re-check after the dispatcher switch so an account change while queued
+                    // cannot clear the new account's profile-indexed PIN cache.
+                    if (sameAccount()) {
+                        pinCacheRemoved = try {
+                            ProfilePinCacheStorage.removePayload(profileIndex)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            log.w { "Unable to remove local PIN cache after server PIN removal" }
+                            false
+                        }
 
-                    biometricRemoved = try {
-                        ProfileBiometricAuth.disable(profileIndex, profileUserId)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        log.w { "Unable to remove biometric credential after server PIN removal" }
-                        false
+                        biometricRemoved = try {
+                            ProfileBiometricAuth.disable(profileIndex, profileUserId)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            log.w { "Unable to remove biometric credential after server PIN removal" }
+                            false
+                        }
                     }
                 }
             }
