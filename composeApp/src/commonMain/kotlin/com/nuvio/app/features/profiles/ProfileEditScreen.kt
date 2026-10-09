@@ -105,6 +105,7 @@ fun ProfileEditScreen(
                 ProfileBiometricAuth.isConfigured(1, currentProfile.userId)
     }
     var biometricSetupFailed by remember { mutableStateOf(false) }
+    var biometricDisableFailed by remember { mutableStateOf(false) }
     val memberAccess by remember {
         MemberAccessRepository.ensureStarted()
         MemberAccessRepository.access
@@ -522,10 +523,11 @@ fun ProfileEditScreen(
             onVerified = {
                 showBiometricDisablePin = false
                 scope.launch {
-                    withContext(Dispatchers.IO) {
+                    val removed = withContext(Dispatchers.IO) {
                         ProfileBiometricAuth.disable(1, currentProfile.userId)
                     }
-                    biometricConfigured = false
+                    biometricConfigured = !removed
+                    biometricDisableFailed = !removed
                 }
             },
             onDismiss = { showBiometricDisablePin = false },
@@ -540,6 +542,17 @@ fun ProfileEditScreen(
             confirmText = stringResource(Res.string.action_ok),
             onConfirm = { biometricSetupFailed = false },
             onDismiss = { biometricSetupFailed = false },
+        )
+    }
+
+    if (biometricDisableFailed) {
+        NuvioStatusModal(
+            title = stringResource(Res.string.profile_biometric_setup_title),
+            message = stringResource(Res.string.profile_biometric_disable_failed),
+            isVisible = true,
+            confirmText = stringResource(Res.string.action_ok),
+            onConfirm = { biometricDisableFailed = false },
+            onDismiss = { biometricDisableFailed = false },
         )
     }
 
