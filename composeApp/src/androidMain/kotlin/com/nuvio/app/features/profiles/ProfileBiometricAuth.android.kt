@@ -61,7 +61,7 @@ actual object ProfileBiometricAuth {
     actual suspend fun isConfigured(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1 || userId.isBlank()) return false
 
-        return withContext(Dispatchers.Default) {
+        return withContext(Dispatchers.IO) {
             try {
                 val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
                 val key = keyStore.getKey(alias(profileIndex, userId), null) ?: return@withContext false
@@ -94,17 +94,20 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        withContext(Dispatchers.Default) {
+        val deleted = withContext(Dispatchers.IO) {
             deleteKey(profileIndex, userId)
             deleteLegacyKey()
+            !keyExists(profileIndex, userId)
         }
+        if (!deleted) return ProfileBiometricResult.Failed
+
         return try {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 generateKey(profileIndex, userId)
             }
             val result = authenticateInternal(profileIndex, userId, setup = true)
             if (result != ProfileBiometricResult.Success) {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     deleteKey(profileIndex, userId)
                 }
             }
@@ -112,13 +115,13 @@ actual object ProfileBiometricAuth {
         } catch (error: CancellationException) {
             // Keep the cleanup non-cancellable, then switch dispatcher inside it.
             withContext(NonCancellable) {
-                withContext(Dispatchers.Default) {
+                withContext(Dispatchers.IO) {
                     deleteKey(profileIndex, userId)
                 }
             }
             throw error
         } catch (_: Exception) {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 deleteKey(profileIndex, userId)
             }
             ProfileBiometricResult.Failed
@@ -134,7 +137,7 @@ actual object ProfileBiometricAuth {
         } catch (error: CancellationException) {
             throw error
         } catch (error: KeyPermanentlyInvalidatedException) {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 deleteKey(profileIndex, userId)
             }
             ProfileBiometricResult.Invalidated
@@ -163,7 +166,7 @@ actual object ProfileBiometricAuth {
             return ProfileBiometricResult.Unavailable
         }
 
-        val cipher = withContext(Dispatchers.Default) {
+        val cipher = withContext(Dispatchers.IO) {
             createCipher(profileIndex, userId)
         }
         val cryptoObject = BiometricPrompt.CryptoObject(cipher)
@@ -261,7 +264,7 @@ actual object ProfileBiometricAuth {
         }
 
         if (result == ProfileBiometricResult.Invalidated) {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 deleteKey(profileIndex, userId)
             }
         }
@@ -317,6 +320,12 @@ actual object ProfileBiometricAuth {
             init(Cipher.ENCRYPT_MODE, key)
         }
     }
+
+    private fun keyExists(profileIndex: Int, userId: String): Boolean =
+        runCatching {
+            KeyStore.getInstance(KEYSTORE).apply { load(null) }
+                .containsAlias(alias(profileIndex, userId))
+        }.getOrDefault(true)
 
     private fun deleteKey(profileIndex: Int, userId: String) {
         if (userId.isBlank()) return
