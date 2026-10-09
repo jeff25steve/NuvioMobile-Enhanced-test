@@ -55,7 +55,9 @@ import com.nuvio.app.core.ui.platformPhysicalTopInset
 import com.nuvio.app.features.membership.CosmeticEntitlement
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.ProfileBackgroundRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -520,7 +522,9 @@ fun ProfileEditScreen(
             onVerified = {
                 showBiometricDisablePin = false
                 scope.launch {
-                    ProfileBiometricAuth.disable(1, currentProfile.userId)
+                    withContext(Dispatchers.IO) {
+                        ProfileBiometricAuth.disable(1, currentProfile.userId)
+                    }
                     biometricConfigured = false
                 }
             },
