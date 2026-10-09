@@ -28,6 +28,7 @@ import platform.Foundation.dataUsingEncoding
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
+import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessible
 import platform.Security.kSecAttrAccessibleWhenUnlockedThisDeviceOnly
@@ -78,11 +79,15 @@ actual object ProfilePinCacheStorage {
         }
     }
 
-    actual fun removePayload(profileIndex: Int) {
-        deleteExisting(profileIndex)
-        NSUserDefaults.standardUserDefaults.removeObjectForKey(
-            "${LEGACY_PREFIX}${profileIndex}",
-        )
+    actual fun removePayload(profileIndex: Int): Boolean {
+        val keychainStatus = deleteExisting(profileIndex)
+        val legacyKey = "${LEGACY_PREFIX}${profileIndex}"
+        val defaults = NSUserDefaults.standardUserDefaults
+        defaults.removeObjectForKey(legacyKey)
+        val legacyRemoved = defaults.objectForKey(legacyKey) == null
+        val keychainRemoved =
+            keychainStatus == errSecSuccess || keychainStatus == errSecItemNotFound
+        return keychainRemoved && legacyRemoved
     }
 
     private fun migrateLegacyPayload(profileIndex: Int): String? {
@@ -124,9 +129,9 @@ actual object ProfilePinCacheStorage {
         }
     }
 
-    private fun deleteExisting(profileIndex: Int) {
+    private fun deleteExisting(profileIndex: Int): Int {
         val query = createQuery(profileIndex)
-        try {
+        return try {
             SecItemDelete(query)
         } finally {
             CFRelease(query)
