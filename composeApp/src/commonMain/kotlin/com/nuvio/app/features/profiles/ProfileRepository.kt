@@ -116,7 +116,7 @@ object ProfileRepository {
             _state.value = ProfileState()
             activeProfileIndex = 1
             (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 ProfileBiometricAuth.disable(1, stored.userId)
             }
             return
@@ -150,7 +150,7 @@ object ProfileRepository {
             if (_state.value.activeProfile != null) {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
             }
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 syncPinCache(profiles.sortedBy { it.profileIndex })
             }
             persist()
@@ -310,7 +310,7 @@ object ProfileRepository {
 
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(profileIndex, userId)
             }
@@ -338,7 +338,7 @@ object ProfileRepository {
             ServerRepository.removeProfile(profileIndex)
             // Remote deletion succeeded; remove device-local authentication artifacts even if
             // the subsequent profile refresh is interrupted or unavailable.
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(profileIndex, userId)
             }
@@ -420,7 +420,7 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
             pullProfiles()
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(
                     profileIndex,
@@ -444,7 +444,7 @@ object ProfileRepository {
             }
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
             pullProfiles()
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
                 ProfilePinCacheStorage.removePayload(profileIndex)
                 ProfileBiometricAuth.disable(
                     profileIndex,
@@ -493,7 +493,7 @@ object ProfileRepository {
         if (_state.value.activeProfile != null) {
             activeProfileIndex = _state.value.activeProfile!!.profileIndex
         }
-        withContext(Dispatchers.Default) {
+        withContext(Dispatchers.IO) {
             syncPinCache(profiles)
         }
         persist()
@@ -519,7 +519,7 @@ object ProfileRepository {
             rememberLastProfileEnabled = stored.rememberLastProfileEnabled,
         )
         _state.value.activeProfile?.let { activeProfileIndex = it.profileIndex }
-        withContext(Dispatchers.Default) {
+        withContext(Dispatchers.IO) {
             syncPinCache(profiles)
         }
     }
