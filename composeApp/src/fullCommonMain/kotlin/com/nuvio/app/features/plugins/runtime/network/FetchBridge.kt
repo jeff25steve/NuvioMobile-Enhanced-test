@@ -33,14 +33,10 @@ internal class FetchBridge : HostModule {
             try {
                 performNativeFetch(url, method, headersJson, bodyKind, body, followRedirects)
             } catch (t: Throwable) {
-                val safeUrl = InAppLogger.redactUrl(url)
-                val safeError = InAppLogger.redactUrl(InAppLogger.throwableSummary(t))
-                // Exception messages can include full request URLs, including query credentials.
-                // Keep the useful summary, but do not attach the unsanitized Throwable to platform logs.
-                log.e { "Fetch bridge error for $method $safeUrl: $safeError" }
+                log.e(t) { "Fetch bridge error for $method $url" }
                 InAppLogger.error(
                     "PluginRuntime/Fetch",
-                    "$method $safeUrl failed: $safeError",
+                    "$method ${InAppLogger.redactUrl(url)} failed: ${InAppLogger.throwableSummary(t)}",
                 )
                 JsonObject(
                     mapOf(
