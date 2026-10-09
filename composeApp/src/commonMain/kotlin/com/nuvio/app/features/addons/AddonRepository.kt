@@ -233,8 +233,9 @@ object AddonRepository {
             InAppLogger.info("Addons/Repository", "pullFromServer applied=${urls.size}")
         }.onFailure { e ->
             if (e is CancellationException) throw e
-            log.e(e) { "pullFromServer() — FAILED" }
-            InAppLogger.error("Addons/Repository", "pullFromServer failed: ${InAppLogger.throwableSummary(e)}")
+            val safeError = safeAddonErrorSummary(e)
+            log.e { "pullFromServer() — FAILED: $safeError" }
+            InAppLogger.error("Addons/Repository", "pullFromServer failed: $safeError")
         }
     }
 
@@ -283,7 +284,7 @@ object AddonRepository {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            InAppLogger.error("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} failed reason=add: ${InAppLogger.throwableSummary(error)}")
+            InAppLogger.error("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} failed reason=add: ${safeAddonErrorSummary(error)}")
             return AddAddonResult.Error(error.message ?: getString(Res.string.addon_load_manifest_failed))
         }
 
@@ -449,7 +450,7 @@ object AddonRepository {
                                         )
                                     },
                                     onFailure = { error ->
-                                        InAppLogger.error("Addons/Manifest", "refresh failed url=${InAppLogger.redactUrl(manifestUrl)}: ${InAppLogger.throwableSummary(error)}")
+                                        InAppLogger.error("Addons/Manifest", "refresh failed url=${InAppLogger.redactUrl(manifestUrl)}: ${safeAddonErrorSummary(error)}")
                                         addon.copy(
                                             isRefreshing = false,
                                             errorMessage = error.message ?: getString(Res.string.addon_load_manifest_failed),
@@ -502,8 +503,9 @@ object AddonRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                log.e(error) { "pushToServer() — FAILED" }
-                InAppLogger.error("Addons/Repository", "pushToServer failed: ${InAppLogger.throwableSummary(error)}")
+                val safeError = safeAddonErrorSummary(error)
+                log.e { "pushToServer() — FAILED: $safeError" }
+                InAppLogger.error("Addons/Repository", "pushToServer failed: $safeError")
             } finally {
                 if (pushJobsByProfile[profileId] === pushJob) {
                     pushJobsByProfile.remove(profileId)
@@ -627,3 +629,7 @@ private fun normalizeManifestUrl(rawUrl: String): String {
 
     return if (query.isEmpty()) manifestPath else "$manifestPath?$query"
 }
+
+
+private fun safeAddonErrorSummary(error: Throwable): String =
+    InAppLogger.redactUrl(InAppLogger.throwableSummary(error))
