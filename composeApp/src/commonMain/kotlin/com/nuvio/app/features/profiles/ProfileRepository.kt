@@ -435,40 +435,48 @@ object ProfileRepository {
             return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
 
-        // The server has committed the PIN removal. Do local cleanup before refreshing
-        // profiles so a refresh cancellation cannot skip removal of the cached verifier/key.
+        // Once the server confirms PIN removal, local credential cleanup must not be
+        // reported as a failed PIN operation. Avoid touching index-scoped storage if the
+        // authenticated account changed while the request was in flight.
         var pinCacheRemoved = false
         var biometricRemoved = false
-        withContext(NonCancellable) {
-            withContext(Dispatchers.IO) {
-                pinCacheRemoved = try {
-                    ProfilePinCacheStorage.removePayload(profileIndex)
-                    ProfilePinCacheStorage.loadPayload(profileIndex) == null
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    log.w { "Unable to confirm local PIN-cache removal after server PIN removal" }
-                    false
-                }
+        val sameAccount = {
+            (AuthRepository.state.value as? AuthState.Authenticated)?.userId == accountUserId
+        }
+        if (sameAccount()) {
+            withContext(NonCancellable) {
+                withContext(Dispatchers.IO) {
+                    pinCacheRemoved = try {
+                        ProfilePinCacheStorage.removePayload(profileIndex)
+                        true
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        log.w { "Unable to remove local PIN cache after server PIN removal" }
+                        false
+                    }
 
-                biometricRemoved = try {
-                    ProfileBiometricAuth.disable(profileIndex, profileUserId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    log.w { "Unable to remove biometric credential after server PIN removal" }
-                    false
+                    biometricRemoved = try {
+                        ProfileBiometricAuth.disable(profileIndex, profileUserId)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        log.w { "Unable to remove biometric credential after server PIN removal" }
+                        false
+                    }
                 }
             }
         }
 
-        pullProfiles()
+        if (sameAccount()) {
+            pullProfiles()
+        }
 
-        val cleanupSucceeded = pinCacheRemoved && biometricRemoved
+        val cleanupSucceeded = sameAccount() && pinCacheRemoved && biometricRemoved
         return PinVerifyResult(
             unlocked = true,
             message = if (cleanupSucceeded) null
-                else getString(Res.string.profile_biometric_disable_failed),
+                else getString(Res.string.profile_pin_clear_cleanup_failed),
         )
     }
 
