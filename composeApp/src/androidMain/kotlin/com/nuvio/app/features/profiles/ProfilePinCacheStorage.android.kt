@@ -54,11 +54,11 @@ actual object ProfilePinCacheStorage {
     }
 
     @Synchronized
-    actual fun removePayload(profileIndex: Int) {
-        preferences
-            ?.edit()
-            ?.remove(payloadKey(profileIndex))
-            ?.commit()
+    actual fun removePayload(profileIndex: Int): Boolean {
+        val values = preferences ?: return false
+        val key = payloadKey(profileIndex)
+        val committed = values.edit().remove(key).commit()
+        return committed && !values.contains(key)
     }
 
     private fun saveEncrypted(profileIndex: Int, payload: String): Boolean {
