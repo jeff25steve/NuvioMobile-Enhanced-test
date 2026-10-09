@@ -180,6 +180,7 @@ object AuthRepository {
             ?: localCleanup.exceptionOrNull()
         val cancellation = remoteCancellation
             ?: fallbackSessionClear.exceptionOrNull() as? CancellationException
+            ?: localCleanup.exceptionOrNull() as? CancellationException
         if (cancellation != null) throw cancellation
         return if (failure == null) {
             Result.success(Unit)
@@ -236,6 +237,7 @@ object AuthRepository {
         val localCleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
         _state.value = AuthState.Unauthenticated
         localCleanup.onFailure { error ->
+            if (error is CancellationException) throw error
             log.e(error) { "Local account cleanup failed after remote session invalidation" }
         }
     }
