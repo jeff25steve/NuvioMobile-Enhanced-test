@@ -150,10 +150,13 @@ actual object ProfileBiometricAuth {
 
     actual fun disable(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1) return true
-        if (userId.isBlank()) return false
+
+        // The legacy alias is global, not account-scoped, so it can be removed even
+        // when the current account ID is unavailable. Never guess an account alias.
+        deleteLegacyKey()
+        if (userId.isBlank()) return !legacyKeyExists()
 
         deleteKey(profileIndex, userId)
-        deleteLegacyKey()
         return !keyExists(profileIndex, userId) && !legacyKeyExists()
     }
 
