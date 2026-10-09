@@ -110,8 +110,11 @@ actual object ProfileBiometricAuth {
             }
             result
         } catch (error: CancellationException) {
-            withContext(NonCancellable + Dispatchers.Default) {
-                deleteKey(profileIndex, userId)
+            // Keep the cleanup non-cancellable, then switch dispatcher inside it.
+            withContext(NonCancellable) {
+                withContext(Dispatchers.Default) {
+                    deleteKey(profileIndex, userId)
+                }
             }
             throw error
         } catch (_: Exception) {
