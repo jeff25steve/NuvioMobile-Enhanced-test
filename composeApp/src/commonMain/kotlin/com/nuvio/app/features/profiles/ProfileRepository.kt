@@ -151,9 +151,7 @@ object ProfileRepository {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
             }
             withContext(Dispatchers.Default) {
-                withContext(Dispatchers.Default) {
-                    syncPinCache(profiles.sortedBy { it.profileIndex })
-                }
+                syncPinCache(profiles.sortedBy { it.profileIndex })
             }
             persist()
         } catch (e: CancellationException) {
