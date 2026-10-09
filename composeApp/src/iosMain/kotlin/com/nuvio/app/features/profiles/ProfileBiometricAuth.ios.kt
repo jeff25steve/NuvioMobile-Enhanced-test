@@ -197,10 +197,13 @@ actual object ProfileBiometricAuth {
 
     actual fun disable(profileIndex: Int, userId: String): Boolean {
         if (profileIndex != 1) return true
+
+        // The legacy Keychain item is not account-scoped; remove it even if the
+        // current account ID is unavailable, without guessing an account credential.
+        val legacyCredentialRemoved = deleteLegacyCredential()
         if (userId.isBlank()) return false
 
         val accountCredentialRemoved = deleteCredential(userId)
-        val legacyCredentialRemoved = deleteLegacyCredential()
         return accountCredentialRemoved && legacyCredentialRemoved
     }
 
