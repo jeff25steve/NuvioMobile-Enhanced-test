@@ -90,7 +90,7 @@ object ProfileRepository {
         persist()
     }
 
-    fun loadCachedProfiles(): Boolean {
+    suspend fun loadCachedProfiles(): Boolean {
         val stored = decodeStoredPayload() ?: return false
         loadedCacheForUserId = stored.userId
         applyStoredPayload(stored)
@@ -98,7 +98,7 @@ object ProfileRepository {
         return _state.value.profiles.isNotEmpty()
     }
 
-    fun ensureLoaded(userId: String) {
+    suspend fun ensureLoaded(userId: String) {
         if (loadedCacheForUserId == userId && _state.value.isLoaded) return
 
         val stored = decodeStoredPayload()
@@ -113,8 +113,10 @@ object ProfileRepository {
             // A persisted profile snapshot can belong to a previous account. Remove
             // that account's device-local authentication artifacts before loading
             // anything for the new account.
-            ProfileBiometricAuth.disable(1, stored.userId)
-            (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
+            withContext(Dispatchers.Default) {
+                ProfileBiometricAuth.disable(1, stored.userId)
+                (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
+            }
             _state.value = ProfileState()
             activeProfileIndex = 1
             return
@@ -466,7 +468,7 @@ object ProfileRepository {
         }
     }
 
-    private fun applyPayloadsLocally(payloads: List<ProfilePushPayload>) {
+    private suspend fun applyPayloadsLocally(payloads: List<ProfilePushPayload>) {
         val authState = AuthRepository.state.value as? AuthState.Authenticated ?: return
         val profiles = payloads.map { p ->
             NuvioProfile(
@@ -491,7 +493,9 @@ object ProfileRepository {
         if (_state.value.activeProfile != null) {
             activeProfileIndex = _state.value.activeProfile!!.profileIndex
         }
-        syncPinCache(profiles)
+        withContext(Dispatchers.Default) {
+            syncPinCache(profiles)
+        }
         persist()
     }
 
@@ -504,7 +508,7 @@ object ProfileRepository {
         }.getOrNull()
     }
 
-    private fun applyStoredPayload(stored: StoredProfilePayload) {
+    private suspend fun applyStoredPayload(stored: StoredProfilePayload) {
         val profiles = stored.profiles.sortedBy { it.profileIndex }
         activeProfileIndex = stored.activeProfileIndex
         _state.value = ProfileState(
@@ -515,7 +519,9 @@ object ProfileRepository {
             rememberLastProfileEnabled = stored.rememberLastProfileEnabled,
         )
         _state.value.activeProfile?.let { activeProfileIndex = it.profileIndex }
-        syncPinCache(profiles)
+        withContext(Dispatchers.Default) {
+            syncPinCache(profiles)
+        }
     }
 
     private fun rememberVerifiedPin(profileIndex: Int, pin: String) {

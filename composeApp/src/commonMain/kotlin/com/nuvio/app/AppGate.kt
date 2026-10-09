@@ -385,22 +385,20 @@ internal fun AppGate(
             ) {
                 startupBiometricInProgress = true
                 try {
-                    if (ProfileBiometricAuth.isConfigured(1, rememberedLockedProfile.userId)) {
-                        when (ProfileBiometricAuth.authenticate(1, rememberedLockedProfile.userId)) {
-                            ProfileBiometricResult.Success -> {
-                                selectProfile(rememberedLockedProfile, sync = syncOnEnter)
-                                gateScreen = AppGateScreen.Main.name
-                                autoSkipProfileSelection = false
-                                return
-                            }
-                            ProfileBiometricResult.Invalidated -> Unit
-                            ProfileBiometricResult.FallbackRequested,
-                            ProfileBiometricResult.Cancelled,
-                            ProfileBiometricResult.Unavailable,
-                            ProfileBiometricResult.NotConfigured,
-                            ProfileBiometricResult.Failed,
-                            -> Unit
+                    when (ProfileBiometricAuth.authenticate(1, rememberedLockedProfile.userId)) {
+                        ProfileBiometricResult.Success -> {
+                            selectProfile(rememberedLockedProfile, sync = syncOnEnter)
+                            gateScreen = AppGateScreen.Main.name
+                            autoSkipProfileSelection = false
+                            return
                         }
+                        ProfileBiometricResult.Invalidated -> Unit
+                        ProfileBiometricResult.FallbackRequested,
+                        ProfileBiometricResult.Cancelled,
+                        ProfileBiometricResult.Unavailable,
+                        ProfileBiometricResult.NotConfigured,
+                        ProfileBiometricResult.Failed,
+                        -> Unit
                     }
                 } finally {
                     startupBiometricInProgress = false

@@ -2,6 +2,8 @@ package com.nuvio.app.core.storage
 
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.sync.SyncManager
@@ -46,12 +48,14 @@ import com.nuvio.app.features.watchprogress.WatchProgressSourceCoordinator
 import com.nuvio.app.features.watched.WatchedRepository
 
 internal object LocalAccountDataCleaner {
-    fun wipe(accountUserId: String? = null) {
+    suspend fun wipe(accountUserId: String? = null) {
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
         if (!cleanupUserId.isNullOrBlank()) {
-            ProfileBiometricAuth.disable(1, cleanupUserId)
+            withContext(Dispatchers.Default) {
+                ProfileBiometricAuth.disable(1, cleanupUserId)
+            }
         }
         (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
 

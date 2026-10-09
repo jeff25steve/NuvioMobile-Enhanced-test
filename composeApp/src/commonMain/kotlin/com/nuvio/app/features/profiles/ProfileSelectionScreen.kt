@@ -111,22 +111,6 @@ fun ProfileSelectionScreen(
         ) {
             biometricAuthenticating = true
             scope.launch {
-                val biometricConfigured =
-                    ProfileBiometricAuth.isConfigured(profile.profileIndex, profile.userId)
-                if (!biometricConfigured) {
-                    biometricAuthenticating = false
-                    routeProfileSelection(
-                        profile = profile,
-                        isEditMode = isEditMode,
-                        activeProfileIndex = activeProfileIndex,
-                        onEditProfile = onEditProfile,
-                        onActiveProfileSelected = { scope.launch { showAlreadyActiveProfileToast(it) } },
-                        onPinRequired = { pendingPinSelection = it to tapCenter },
-                        onProfileSelected = { onProfileSelected(it, tapCenter) },
-                    )
-                    return@launch
-                }
-
                 when (
                     val result = ProfileBiometricAuth.authenticate(
                         profile.profileIndex,
