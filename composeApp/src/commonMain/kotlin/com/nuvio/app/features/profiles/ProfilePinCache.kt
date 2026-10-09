@@ -8,8 +8,6 @@ internal data class CachedProfilePinPayload(
     val digest: String,
     val profileUserId: String = "",
     val profileUpdatedAt: String = "",
-    val failedAttempts: Int = 0,
-    val lockedUntilEpochSeconds: Long = 0,
 )
 
 internal fun generateProfilePinSalt(): String =
