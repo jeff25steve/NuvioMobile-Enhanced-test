@@ -575,6 +575,13 @@ fun ProfileEditScreen(
                 showPinClear = false
                 if (currentProfile.profileIndex == 1) {
                     biometricConfigured = false
+                    scope.launch {
+                        val removed = withContext(Dispatchers.IO) {
+                            ProfileBiometricAuth.disable(1, currentProfile.userId)
+                        }
+                        biometricConfigured = !removed
+                        biometricDisableFailed = !removed
+                    }
                 }
             },
             onDismiss = {
