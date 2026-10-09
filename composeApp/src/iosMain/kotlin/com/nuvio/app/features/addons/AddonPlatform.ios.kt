@@ -11,10 +11,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
-import io.ktor.utils.io.readRemaining
-import kotlinx.io.readByteArray
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -75,19 +72,14 @@ private fun parseEnabledStateLine(line: String): Pair<String, Boolean>? {
     return url to enabled
 }
 
-private fun createAddonHttpClient(followRedirects: Boolean): HttpClient =
-    HttpClient(Darwin) {
-        this.followRedirects = followRedirects
-        install(HttpTimeout) {
-            requestTimeoutMillis = 60_000
-            connectTimeoutMillis = 60_000
-            socketTimeoutMillis = 60_000
-        }
-        expectSuccess = false
+private val addonHttpClient = HttpClient(Darwin) {
+    install(HttpTimeout) {
+        requestTimeoutMillis = 60_000
+        connectTimeoutMillis = 60_000
+        socketTimeoutMillis = 60_000
     }
-
-private val addonHttpClient = createAddonHttpClient(followRedirects = true)
-private val addonHttpClientWithoutRedirects = createAddonHttpClient(followRedirects = false)
+    expectSuccess = false
+}
 
 actual suspend fun httpGetText(url: String): String =
     addonHttpClient
@@ -179,39 +171,26 @@ actual suspend fun httpRequestRaw(
     maxResponseBodyBytes: Int,
     bodyBytes: ByteArray?,
 ): RawHttpResponse =
-    (if (followRedirects) addonHttpClient else addonHttpClientWithoutRedirects)
+    addonHttpClient
         .request {
             url(url)
             this.method = HttpMethod.parse(method.uppercase())
             headers.forEach { (key, value) ->
                 header(key, value)
             }
-            if (
-                this.method == HttpMethod.Post ||
-                this.method == HttpMethod.Put ||
-                this.method == HttpMethod.Patch ||
-                this.method == HttpMethod.Delete
-            ) {
+            if (this.method == HttpMethod.Post || this.method == HttpMethod.Put || this.method == HttpMethod.Patch) {
                 setBody(bodyBytes ?: body)
             }
         }
         .let { response ->
-            val maxBytes = maxResponseBodyBytes.coerceAtLeast(0)
-            val responseChannel = response.bodyAsChannel()
-            val receivedBytes = responseChannel
-                .readRemaining(maxBytes.toLong() + 1L)
-                .readByteArray()
-            val truncated = receivedBytes.size > maxBytes
-            val limitedBytes = if (truncated) receivedBytes.copyOf(maxBytes) else receivedBytes
-            if (truncated) {
-                responseChannel.cancel(kotlinx.coroutines.CancellationException("Response body exceeds configured limit"))
-            }
+            val receivedBytes = response.body<ByteArray>()
+            val limitedBytes = receivedBytes.copyOf(minOf(receivedBytes.size, maxResponseBodyBytes.coerceAtLeast(0)))
             val decoded = limitedBytes.decodeToString()
             RawHttpResponse(
                 status = response.status.value,
                 statusText = response.status.description,
                 url = response.call.request.url.toString(),
-                body = if (truncated) "$decoded\n...[truncated]" else decoded,
+                body = if (receivedBytes.size > limitedBytes.size) "$decoded\n...[truncated]" else decoded,
                 bodyBytes = limitedBytes,
                 headers = response.headers.entries().associate { (name, values) ->
                     name.lowercase() to values.joinToString(",")
