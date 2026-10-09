@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
 import kotlinx.serialization.Serializable
@@ -409,44 +410,66 @@ object ProfileRepository {
     }
 
     suspend fun clearPin(profileIndex: Int, currentPin: String? = null): PinVerifyResult {
-        if (AuthRepository.state.value !is AuthState.Authenticated) {
+        val accountUserId =
+            (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
+        if (accountUserId.isBlank()) {
             return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_requires_internet))
         }
 
-        return try {
-            val params = buildJsonObject {
-                put("p_profile_id", profileIndex)
-                currentPin?.let { put("p_current_pin", it) }
-            }
+        val profileUserId = _state.value.profiles
+            .firstOrNull { it.profileIndex == profileIndex }
+            ?.userId
+            .orEmpty()
+            .ifBlank { accountUserId }
+
+        val params = buildJsonObject {
+            put("p_profile_id", profileIndex)
+            currentPin?.let { put("p_current_pin", it) }
+        }
+        try {
             SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
-
-            // The server PIN is now cleared. Refresh/cache cleanup is local follow-up work
-            // and must not turn that committed server change into a reported PIN failure.
-            pullProfiles()
-
-            val accountUserId =
-                (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
-            val profileUserId = _state.value.profiles
-                .firstOrNull { it.profileIndex == profileIndex }
-                ?.userId
-                .orEmpty()
-                .ifBlank { accountUserId }
-            val biometricRemoved = withContext(Dispatchers.IO) {
-                ProfilePinCacheStorage.removePayload(profileIndex)
-                ProfileBiometricAuth.disable(profileIndex, profileUserId)
-            }
-
-            PinVerifyResult(
-                unlocked = true,
-                message = if (biometricRemoved) null
-                    else getString(Res.string.profile_biometric_disable_failed),
-            )
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             log.e(e) { "Failed to clear pin" }
-            PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
+
+        // The server has committed the PIN removal. Do local cleanup before refreshing
+        // profiles so a refresh cancellation cannot skip removal of the cached verifier/key.
+        var pinCacheRemoved = false
+        var biometricRemoved = false
+        withContext(NonCancellable) {
+            withContext(Dispatchers.IO) {
+                pinCacheRemoved = try {
+                    ProfilePinCacheStorage.removePayload(profileIndex)
+                    ProfilePinCacheStorage.loadPayload(profileIndex) == null
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.w { "Unable to confirm local PIN-cache removal after server PIN removal" }
+                    false
+                }
+
+                biometricRemoved = try {
+                    ProfileBiometricAuth.disable(profileIndex, profileUserId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.w { "Unable to remove biometric credential after server PIN removal" }
+                    false
+                }
+            }
+        }
+
+        pullProfiles()
+
+        val cleanupSucceeded = pinCacheRemoved && biometricRemoved
+        return PinVerifyResult(
+            unlocked = true,
+            message = if (cleanupSucceeded) null
+                else getString(Res.string.profile_biometric_disable_failed),
+        )
     }
 
     suspend fun clearPinWithPassword(profileIndex: Int, accountPassword: String) {
