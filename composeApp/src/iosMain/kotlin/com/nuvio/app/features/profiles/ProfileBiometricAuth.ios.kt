@@ -61,7 +61,7 @@ import kotlinx.coroutines.withContext
 import platform.UIKit.UIViewController
 
 private val LegacyCredentialCleanupScope =
-    CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual object ProfileBiometricAuth {
