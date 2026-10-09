@@ -135,6 +135,9 @@ fun PinEntryDialog(
                                     onVerified?.invoke(pin)
                                     if (result.message != null) {
                                         error = result.message
+                                        if (closeOnSuccessfulResultWithMessage) {
+                                            onDismiss()
+                                        }
                                     }
                                 } else {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
