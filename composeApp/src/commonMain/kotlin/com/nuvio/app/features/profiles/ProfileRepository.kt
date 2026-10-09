@@ -110,15 +110,15 @@ object ProfileRepository {
         }
 
         if (stored.userId != userId) {
-            // A persisted profile snapshot can belong to a previous account. Remove
-            // that account's device-local authentication artifacts before loading
-            // anything for the new account.
+            // A persisted profile snapshot can belong to a previous account. Clear its
+            // in-memory state before suspending so a concurrent profile refresh cannot
+            // have its newer state overwritten when secure-store cleanup resumes.
+            _state.value = ProfileState()
+            activeProfileIndex = 1
             withContext(Dispatchers.Default) {
                 ProfileBiometricAuth.disable(1, stored.userId)
                 (1..MAX_PROFILES).forEach(ProfilePinCacheStorage::removePayload)
             }
-            _state.value = ProfileState()
-            activeProfileIndex = 1
             return
         }
 
