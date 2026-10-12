@@ -1,5 +1,7 @@
 package com.nuvio.app.features.settings
 
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,11 +47,13 @@ internal fun NavigationBarPreview(
     style: NavBarStyle,
     isTablet: Boolean,
     glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean = false,
     position: NavBarPosition = NavBarPosition.BOTTOM,
     tabletLayout: Boolean = false,
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
+    val liquidGlassBackdrop = rememberLayerBackdrop()
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
     val topPill = isTablet
     val pillOnTop = topPill || (style != NavBarStyle.CLASSIC && position == NavBarPosition.TOP)
@@ -70,6 +74,7 @@ internal fun NavigationBarPreview(
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
+                    .then(if (liquidGlassEnabled) Modifier.layerBackdrop(liquidGlassBackdrop) else Modifier)
                     .then(if (!topPill && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)
@@ -127,6 +132,8 @@ internal fun NavigationBarPreview(
                     contentPadding = PaddingValues(vertical = 16.dp),
                     compactSize = topPill,
                     glowEnabled = glowEnabled,
+                    liquidGlassEnabled = liquidGlassEnabled,
+                    liquidGlassBackdrop = liquidGlassBackdrop,
                     inlineLabels = tabletLayout,
                 )
             }

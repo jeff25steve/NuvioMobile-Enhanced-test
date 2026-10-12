@@ -125,6 +125,7 @@ internal fun LazyListScope.appearanceSettingsContent(
         var showTabBarBehaviorSheet by remember { mutableStateOf(false) }
         var showAppIconPicker by remember { mutableStateOf(false) }
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
+        val liquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         // Upstream pins tablets to COMPACT because there the bar is a top rail. This fork puts
         // the floating pill at the bottom on every size, so the chosen style still applies.
@@ -269,6 +270,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                 onStyleSelected = onNavBarStyleSelected,
                 glowEnabled = glowEnabled,
                 onGlowChanged = ThemeSettingsRepository::setNavBarGlowEnabled,
+                liquidGlassEnabled = liquidGlassEnabled,
+                onLiquidGlassChanged = ThemeSettingsRepository::setNavBarLiquidGlassEnabled,
                 selectedPosition = navBarPosition,
                 onPositionSelected = ThemeSettingsRepository::setNavBarPosition,
                 onDismiss = { showNavBarStyleSheet = false },

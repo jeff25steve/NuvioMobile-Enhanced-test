@@ -1,5 +1,7 @@
 package com.nuvio.app.core.ui
 
+import com.nuvio.app.core.ui.glass.LiquidGlassBarSurface
+import com.kyant.backdrop.Backdrop
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -86,6 +88,8 @@ internal fun FloatingNavigationBar(
     contentPadding: PaddingValues = floatingNavigationBarPadding(),
     compactSize: Boolean = false,
     glowEnabled: Boolean = true,
+    liquidGlassEnabled: Boolean = false,
+    liquidGlassBackdrop: Backdrop? = null,
     inlineLabels: Boolean = false,
 ) {
     if (items.isEmpty()) return
@@ -199,7 +203,11 @@ internal fun FloatingNavigationBar(
                                     drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
                                 },
                         ) {
-                            GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
+                            if (liquidGlassEnabled && liquidGlassBackdrop != null) {
+                                LiquidGlassBarSurface(liquidGlassBackdrop, Modifier.matchParentSize())
+                            } else {
+                                GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
+                            }
                         }
                         Box(
                             Modifier.matchParentSize().drawWithContent {

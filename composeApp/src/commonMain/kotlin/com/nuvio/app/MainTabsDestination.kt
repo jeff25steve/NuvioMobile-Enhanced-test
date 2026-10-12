@@ -1,5 +1,7 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.runtime.collectAsState
 import com.nuvio.app.core.ui.NativeTabBridge
 import androidx.compose.foundation.layout.Box
@@ -91,8 +93,10 @@ internal fun MainTabsDestination(
         val tabsRouteActive = rootRouteActive
         val navBarScrollState = rememberNuvioNavBarScrollState()
         val navBarHazeState = rememberHazeState()
+        val navBarLiquidGlassBackdrop = rememberLayerBackdrop()
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
+        val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         val floatingNavigationItems = mainFloatingNavigationItems(
@@ -142,6 +146,7 @@ internal fun MainTabsDestination(
                         modifier = Modifier
                             .fillMaxSize()
                             .then(if (tabsRouteActive && navBarStyleSetting != NavBarStyle.CLASSIC) Modifier.hazeSource(state = navBarHazeState) else Modifier)
+                            .then(if (tabsRouteActive && navBarStyleSetting != NavBarStyle.CLASSIC && navBarLiquidGlassEnabled) Modifier.layerBackdrop(navBarLiquidGlassBackdrop) else Modifier)
                             .then(if (tabsRouteActive && navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
                             .padding(innerPadding),
                     )
@@ -180,6 +185,8 @@ internal fun MainTabsDestination(
                         },
                         items = floatingNavigationItems,
                         glowEnabled = navBarGlowEnabled,
+                        liquidGlassEnabled = navBarLiquidGlassEnabled,
+                        liquidGlassBackdrop = navBarLiquidGlassBackdrop,
                         inlineLabels = isTabletLayout,
                     )
                 }
@@ -305,6 +312,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     isTabletLayout: Boolean,
     showLiveTv: Boolean,
     hazeState: HazeState?,
+    liquidGlassBackdrop: com.kyant.backdrop.Backdrop?,
+    liquidGlassEnabled: Boolean,
     onTabSelected: (AppScreenTab) -> Unit,
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
@@ -371,6 +380,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                     floatingNavigationBarPadding()
                 },
                 glowEnabled = glowEnabled,
+                liquidGlassEnabled = liquidGlassEnabled,
+                liquidGlassBackdrop = liquidGlassBackdrop,
                 inlineLabels = isTabletLayout,
             )
         }

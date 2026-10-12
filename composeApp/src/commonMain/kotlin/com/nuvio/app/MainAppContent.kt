@@ -1,5 +1,7 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.MutableTransitionState
@@ -1462,6 +1464,8 @@ internal fun MainAppContent(
             val nativeTabBarOwnsChrome = useNativeNavigation && useNativeTabBar
             val settingsRouteBarVisible = currentRoute is SettingsDestinationRoute && !nativeTabBarOwnsChrome
             val settingsRouteBarHazeState = rememberHazeState()
+            val settingsRouteBarLiquidGlassBackdrop = rememberLayerBackdrop()
+            val settingsRouteBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
             var settingsRouteBarOverlay by remember { mutableStateOf(0.dp) }
             val settingsRouteBottomOverlay = when {
                 currentRoute !is SettingsDestinationRoute -> 0.dp
@@ -1496,7 +1500,8 @@ internal fun MainAppContent(
                     backStack = navBackStack,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (settingsRouteBarVisible) Modifier.hazeSource(state = settingsRouteBarHazeState) else Modifier),
+                        .then(if (settingsRouteBarVisible) Modifier.hazeSource(state = settingsRouteBarHazeState) else Modifier)
+                        .then(if (settingsRouteBarVisible && settingsRouteBarLiquidGlassEnabled) Modifier.layerBackdrop(settingsRouteBarLiquidGlassBackdrop) else Modifier),
                     onBack = { navController.popBackStack() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
@@ -1903,6 +1908,8 @@ internal fun MainAppContent(
                         isTabletLayout = useTabletFloatingTabBar || maxWidth >= 768.dp,
                         showLiveTv = showLiveTvInNavigation,
                         hazeState = settingsRouteBarHazeState,
+                        liquidGlassBackdrop = settingsRouteBarLiquidGlassBackdrop,
+                        liquidGlassEnabled = settingsRouteBarLiquidGlassEnabled,
                         onTabSelected = ::selectTabFromSettingsRoute,
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,

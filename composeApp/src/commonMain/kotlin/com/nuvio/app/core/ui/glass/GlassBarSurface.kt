@@ -1,5 +1,12 @@
 package com.nuvio.app.core.ui.glass
 
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.Backdrop
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -60,4 +67,34 @@ internal fun Modifier.barBackdrop(hazeState: HazeState): Modifier = hazeEffect(s
     backgroundColor = GlassSurfaceColor
     tints = listOf(HazeTint(Color.Transparent))
     noiseFactor = 0f
+}
+
+/**
+ * Opt-in Liquid Glass surface using Kyant0's Backdrop effects.
+ * The navigation items, selection rendering, gestures and existing glow remain separate layers.
+ */
+@Composable
+internal fun LiquidGlassBarSurface(
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+) {
+    val isLightTheme = !isSystemInDarkTheme()
+    val containerColor = if (isLightTheme) {
+        Color(0xFFFAFAFA).copy(alpha = 0.4f)
+    } else {
+        Color(0xFF121212).copy(alpha = 0.4f)
+    }
+
+    Box(
+        modifier.drawBackdrop(
+            backdrop = backdrop,
+            shape = { RoundedCornerShape(50) },
+            effects = {
+                vibrancy()
+                blur(8f.dp.toPx())
+                lens(24f.dp.toPx(), 24f.dp.toPx())
+            },
+            onDrawSurface = { drawRect(containerColor) },
+        ),
+    )
 }
