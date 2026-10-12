@@ -25,8 +25,9 @@ import dev.chrisbanes.haze.hazeEffect
 internal val GlassSurfaceColor = Color(0xFF1C1C1E)
 
 /**
- * The backdrop of the floating navigation pill. Android 13+ adds a refraction shader on top of
- * the haze blur; everywhere else — including iOS — it is [FrostedGlassBar].
+ * Default surface for the floating navigation pill. The opt-in Kyant Backdrop surface is used
+ * when runtime shaders are supported (Android 13+ and Skiko targets); otherwise this Haze surface
+ * remains in use.
  */
 @Composable
 internal expect fun GlassBarSurface(

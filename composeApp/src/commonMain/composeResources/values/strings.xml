@@ -753,8 +753,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Navigation Bar Style</string>
     <string name="settings_nav_bar_glow">Glass glow</string>
     <string name="settings_nav_bar_glow_description">Adds soft light around the floating bar.</string>
-    <string name="settings_nav_bar_liquid_glass">Liquid Glass effect</string>
-    <string name="settings_nav_bar_liquid_glass_description">Adds a refractive glass effect to the floating navigation bar on supported devices.</string>
+    <string name="settings_nav_bar_liquid_glass">Liquid Glass material</string>
+    <string name="settings_nav_bar_liquid_glass_description">Adds refraction and blur to the floating navigation bar.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Requires Android 13 or later. This device will keep the existing glass style.</string>
     <string name="settings_nav_bar_glow_on">Glow on</string>
     <string name="settings_nav_bar_glow_off">Glow off</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -46,6 +47,7 @@ internal fun NavigationBarSettingsSheet(
     onPositionSelected: (NavBarPosition) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val liquidGlassSupported = isRuntimeShaderSupported()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val dismiss: () -> Unit = {
@@ -132,8 +134,15 @@ internal fun NavigationBarSettingsSheet(
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
                             title = stringResource(Res.string.settings_nav_bar_liquid_glass),
-                            description = stringResource(Res.string.settings_nav_bar_liquid_glass_description),
+                            description = stringResource(
+                                if (liquidGlassSupported) {
+                                    Res.string.settings_nav_bar_liquid_glass_description
+                                } else {
+                                    Res.string.settings_nav_bar_liquid_glass_unsupported_description
+                                },
+                            ),
                             checked = liquidGlassEnabled,
+                            enabled = liquidGlassSupported,
                             isTablet = isTablet,
                             onCheckedChange = onLiquidGlassChanged,
                         )
