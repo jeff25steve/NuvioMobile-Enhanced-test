@@ -678,6 +678,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Estilo de la barra de navegación</string>
     <string name="settings_nav_bar_glow">Resplandor de cristal</string>
     <string name="settings_nav_bar_glow_description">Añade una luz suave alrededor de la barra flotante.</string>
+    <string name="settings_nav_bar_liquid_glass">Material Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Añade refracción y desenfoque a la barra de navegación flotante.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Requiere Android 13 o posterior. Este dispositivo mantendrá el estilo de vidrio actual.</string>
     <string name="settings_nav_bar_glow_on">Resplandor activado</string>
     <string name="settings_nav_bar_glow_off">Resplandor desactivado</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

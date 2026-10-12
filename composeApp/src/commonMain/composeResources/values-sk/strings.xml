@@ -2246,6 +2246,9 @@
     <string name="settings_appearance_app_icon_sheet_title">Vyberte ikonu aplikácie</string>
     <string name="settings_nav_bar_glow">Sklenená žiara</string>
     <string name="settings_nav_bar_glow_description">Pridá jemné svetlo okolo plávajúcej lišty.</string>
+    <string name="settings_nav_bar_liquid_glass">Materiál Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Pridá lom svetla a rozmazanie na plávajúcu navigačnú lištu.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Vyžaduje Android 13 alebo novší. Toto zariadenie ponechá existujúci sklenený štýl.</string>
     <string name="settings_nav_bar_glow_on">Žiara zapnutá</string>
     <string name="settings_nav_bar_glow_off">Žiara vypnutá</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

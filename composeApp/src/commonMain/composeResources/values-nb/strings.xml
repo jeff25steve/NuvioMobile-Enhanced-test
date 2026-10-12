@@ -1675,6 +1675,9 @@ Du bruker denne funksjonen helt på eget ansvar. P2P kan deaktiveres når som he
     <string name="settings_meta_trailers_description">Trailer-rad og avspillings-snarveier.</string>
     <string name="settings_nav_bar_glow">Glassglød</string>
     <string name="settings_nav_bar_glow_description">Legger til mykt lys rundt den flytende linjen.</string>
+    <string name="settings_nav_bar_liquid_glass">Liquid Glass-materiale</string>
+    <string name="settings_nav_bar_liquid_glass_description">Legger til lysbrytning og uskarphet på den flytende navigasjonslinjen.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Krever Android 13 eller nyere. Denne enheten beholder den eksisterende glassstilen.</string>
     <string name="settings_nav_bar_glow_off">Glød av</string>
     <string name="settings_nav_bar_glow_on">Glød på</string>
     <string name="settings_nav_bar_preview_hint">Trykk på linjen for å prøve. Rull forhåndsvisningen for å prøve adaptiv størrelse.</string>

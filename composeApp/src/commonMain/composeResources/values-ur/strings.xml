@@ -680,6 +680,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Navigation Bar کا انداز</string>
     <string name="settings_nav_bar_glow">شیشے جیسی چمک</string>
     <string name="settings_nav_bar_glow_description">فلوٹنگ بار کے گرد نرم روشنی شامل کرتا ہے۔</string>
+    <string name="settings_nav_bar_liquid_glass">Liquid Glass میٹیریل</string>
+    <string name="settings_nav_bar_liquid_glass_description">فلوٹنگ نیویگیشن بار میں روشنی کے انعطاف اور دھندلاہٹ کا اثر شامل کرتا ہے۔</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">اس کے لیے Android 13 یا بعد کا ورژن درکار ہے۔ اس ڈیوائس پر موجودہ گلاس اسٹائل برقرار رہے گا۔</string>
     <string name="settings_nav_bar_glow_on">چمک فعال</string>
     <string name="settings_nav_bar_glow_off">چمک غیر فعال</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

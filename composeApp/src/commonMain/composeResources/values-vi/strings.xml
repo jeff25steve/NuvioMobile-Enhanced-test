@@ -682,6 +682,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Kiểu thanh điều hướng</string>
     <string name="settings_nav_bar_glow">Hiệu ứng vệt sáng mờ</string>
     <string name="settings_nav_bar_glow_description">Thêm vệt sáng mờ quanh thanh điều hướng nổi.</string>
+    <string name="settings_nav_bar_liquid_glass">Chất liệu Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Thêm hiệu ứng khúc xạ và làm mờ cho thanh điều hướng nổi.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Yêu cầu Android 13 trở lên. Thiết bị này sẽ tiếp tục dùng kiểu kính hiện tại.</string>
     <string name="settings_nav_bar_glow_on">Bật phát sáng</string>
     <string name="settings_nav_bar_glow_off">Tắt phát sáng</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>
