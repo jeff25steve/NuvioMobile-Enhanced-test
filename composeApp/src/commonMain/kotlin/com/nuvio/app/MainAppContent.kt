@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.isRuntimeShaderSupported
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -1501,7 +1502,7 @@ internal fun MainAppContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(if (settingsRouteBarVisible) Modifier.hazeSource(state = settingsRouteBarHazeState) else Modifier)
-                        .then(if (settingsRouteBarVisible && settingsRouteBarLiquidGlassEnabled) Modifier.layerBackdrop(settingsRouteBarLiquidGlassBackdrop) else Modifier),
+                        .then(if (settingsRouteBarVisible && settingsRouteBarLiquidGlassEnabled && isRuntimeShaderSupported()) Modifier.layerBackdrop(settingsRouteBarLiquidGlassBackdrop) else Modifier),
                     onBack = { navController.popBackStack() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator<NavKey>(),

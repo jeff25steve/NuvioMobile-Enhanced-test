@@ -1,5 +1,6 @@
 package com.nuvio.app.core.ui
 
+import com.kyant.backdrop.isRuntimeShaderSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassBarSurface
 import com.kyant.backdrop.Backdrop
 import androidx.compose.animation.core.animateFloatAsState
@@ -203,7 +204,7 @@ internal fun FloatingNavigationBar(
                                     drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
                                 },
                         ) {
-                            if (liquidGlassEnabled && liquidGlassBackdrop != null) {
+                            if (liquidGlassEnabled && liquidGlassBackdrop != null && isRuntimeShaderSupported()) {
                                 LiquidGlassBarSurface(liquidGlassBackdrop, Modifier.matchParentSize())
                             } else {
                                 GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
