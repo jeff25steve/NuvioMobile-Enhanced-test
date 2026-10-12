@@ -42,6 +42,34 @@ class ThemeSettingsStorageTest {
     }
 
     @Test
+    fun liquidGlassPreferenceSurvivesReloadAndSync() {
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(true)
+        ThemeSettingsStorage.initialize(RuntimeEnvironment.getApplication())
+        assertEquals(true, ThemeSettingsStorage.loadNavBarLiquidGlassEnabled())
+
+        val payload = ThemeSettingsStorage.exportToSyncPayload()
+        assertEquals(true, payload.decodeSyncBoolean("nav_bar_liquid_glass_enabled"))
+
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(false)
+        ThemeSettingsStorage.replaceFromSyncPayload(payload)
+        assertEquals(true, ThemeSettingsStorage.loadNavBarLiquidGlassEnabled())
+    }
+
+    @Test
+    fun olderPayloadClearsOnlyTheCurrentProfilesLiquidGlassPreference() {
+        val preferences = RuntimeEnvironment.getApplication()
+            .getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val otherProfileKey = ProfileScopedKey.of("nav_bar_liquid_glass_enabled", 99)
+        preferences.edit().putBoolean(otherProfileKey, false).commit()
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(true)
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertNull(ThemeSettingsStorage.loadNavBarLiquidGlassEnabled())
+        assertEquals(false, preferences.getBoolean(otherProfileKey, true))
+    }
+
+    @Test
     fun olderPayloadClearsOnlyTheCurrentProfilesGlowPreference() {
         val preferences = RuntimeEnvironment.getApplication()
             .getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
