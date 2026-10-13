@@ -79,7 +79,7 @@
 - Render selected-tab content only inside the moving selected pill. Preserve the existing selected-tab accent styling inside that pill, keep inactive icons/labels muted, and ensure slider edits never alter navigation icon/label colours; preserve regular non-Liquid-Glass styling.
 - Preserve Android < API 33 fallback and shared/iOS compile compatibility.
 
-- [ ] Add or extend a test for selected-index mapping/path boundaries if the existing host-test APIs support it.
+- [x] Extend the LTR/RTL host tests to verify the selected lens uses a local slot offset and does not apply JellyMotion's shared parent panel offset a second time. Actual rendered path geometry remains unverified.
 - [x] Implement the minimum rendering changes; retain Kyant's actual API and existing JellyMotion.
 - [x] Review RTL, selected index bounds, and all call sites by source inspection; runtime behavior remains unverified.
 
