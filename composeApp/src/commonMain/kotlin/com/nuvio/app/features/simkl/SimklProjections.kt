@@ -757,6 +757,11 @@ private data class SimklAnimeVideoIdParts(
     val episodeNumber: Int?,
 )
 
+internal fun SimklSyncSnapshot.resolveAnimeVideoCanonicalContentId(videoId: String): String? {
+    val parsed = parseSimklAnimeVideoId(videoId) ?: return null
+    return resolveCanonicalContentId("${parsed.prefix}:${parsed.id}")
+}
+
 private fun parseSimklAnimeVideoId(videoId: String): SimklAnimeVideoIdParts? {
     val trimmed = videoId.trim()
     if (trimmed.isBlank()) return null
