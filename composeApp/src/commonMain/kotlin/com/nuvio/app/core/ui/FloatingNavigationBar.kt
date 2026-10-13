@@ -233,16 +233,7 @@ internal fun FloatingNavigationBar(
                             .matchParentSize()
                             .graphicsLayer { translationX = motion.frame.panelOffset * density.density },
                     ) {
-                        Box(
-                            Modifier.matchParentSize()
-                                .then(
-                                    if (useLiquidGlassMaterial) {
-                                        Modifier.layerBackdrop(liquidGlassContentBackdrop)
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                        ) {
+                        Box(Modifier.matchParentSize()) {
                             Box(
                                 Modifier.matchParentSize()
                                     .clip(floatingBarShape)
@@ -277,6 +268,27 @@ internal fun FloatingNavigationBar(
                                 },
                             ) {
                                 JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                            }
+                            if (useLiquidGlassMaterial) {
+                                // This layer is a backdrop source for the selected lens only.
+                                // Keep it invisible to the user so it cannot duplicate labels/icons.
+                                Box(
+                                    Modifier
+                                        .matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .graphicsLayer { alpha = 0f }
+                                        .layerBackdrop(liquidGlassContentBackdrop),
+                                ) {
+                                    JellyTabRow(
+                                        items,
+                                        labelFraction,
+                                        motion,
+                                        active = true,
+                                        compactSize = compactSize,
+                                        modifier = Modifier.matchParentSize(),
+                                        inlineLabels = inlineLabels,
+                                    )
+                                }
                             }
                         }
                         if (selectedIndex >= 0) {
