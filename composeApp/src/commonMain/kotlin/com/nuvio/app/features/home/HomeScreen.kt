@@ -488,10 +488,23 @@ fun HomeScreen(
                 item.nextUpSeedEpisodeNumber,
             ) !in continueWatchingPreferences.dismissedNextUpKeys
         }
-        mergeHomeNextUpItemsWithCache(
-            resolvedItems = liveNextUpItems,
-            cachedItems = cachedNextUpItems,
-            conclusivelyProcessedContentIds = processedNextUpContentIds,
+        dropNextUpItemsClaimedByOtherSeries(
+            nextUpItemsBySeries = mergeHomeNextUpItemsWithCache(
+                resolvedItems = liveNextUpItems,
+                cachedItems = cachedNextUpItems,
+                conclusivelyProcessedContentIds = processedNextUpContentIds,
+            ),
+            canonicalSeedContentId = WatchProgressRepository::nextUpSeedContentId,
+            seriesIdentityIds = { item ->
+                if (effectiveWatchProgressSource != WatchProgressSource.SIMKL) {
+                    emptyList()
+                } else {
+                    MetaDetailsRepository.peek(item.parentMetaType, item.parentMetaId)
+                        ?.tvdbId
+                        ?.let { tvdbId -> listOf("tvdb:$tvdbId") }
+                        .orEmpty()
+                }
+            },
         )
     }
 
@@ -1359,6 +1372,25 @@ private fun List<CompletedSeriesCandidate>.distinctBySeedContentIdentity(
     if (indices.none { index -> this[index].content.id != canonicalIds[index] }) return this
     val keptGroups = mutableSetOf<String>()
     return filterIndexed { index, _ -> keptGroups.add(canonicalIds[index]) }
+}
+
+internal fun dropNextUpItemsClaimedByOtherSeries(
+    nextUpItemsBySeries: Map<String, Pair<Long, ContinueWatchingItem>>,
+    canonicalSeedContentId: (String) -> String,
+    seriesIdentityIds: (ContinueWatchingItem) -> List<String> = { emptyList() },
+): Map<String, Pair<Long, ContinueWatchingItem>> {
+    if (nextUpItemsBySeries.size < 2) return nextUpItemsBySeries
+    val seriesByCanonical = nextUpItemsBySeries.keys.associateBy(canonicalSeedContentId)
+    return nextUpItemsBySeries.filter { (contentId, pair) ->
+        val videoId = pair.second.videoId
+        val claimedByVideo = canonicalSeedContentId(videoId)
+            .takeIf { canonical -> canonical != videoId }
+            ?.let(seriesByCanonical::get)
+        val claimedBySeries = seriesIdentityIds(pair.second).firstNotNullOfOrNull { identityId ->
+            seriesByCanonical[canonicalSeedContentId(identityId)]?.takeIf { owner -> owner != contentId }
+        }
+        (claimedByVideo == null || claimedByVideo == contentId) && claimedBySeries == null
+    }
 }
 
 internal fun filterNextUpItemsByCurrentSeeds(
