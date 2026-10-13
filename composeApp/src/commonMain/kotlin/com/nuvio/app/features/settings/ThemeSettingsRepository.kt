@@ -4,6 +4,10 @@ import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings
 import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
@@ -59,6 +63,16 @@ object ThemeSettingsRepository {
     private val _navBarLiquidGlassEnabled = MutableStateFlow(false)
     val navBarLiquidGlassEnabled: StateFlow<Boolean> = _navBarLiquidGlassEnabled.asStateFlow()
 
+    private val _navBarLiquidGlassBarEffects =
+        MutableStateFlow(LiquidGlassEffectDefaults.floatingBar)
+    val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> =
+        _navBarLiquidGlassBarEffects.asStateFlow()
+
+    private val _navBarLiquidGlassSelectionEffects =
+        MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
+    val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
+        _navBarLiquidGlassSelectionEffects.asStateFlow()
+
     private var hasLoaded = false
     private var observesMembership = false
 
@@ -92,6 +106,8 @@ object ThemeSettingsRepository {
         _selectedAppLanguage.value = AppLanguage.DEVICE
         _navBarGlowEnabled.value = true
         _navBarLiquidGlassEnabled.value = false
+        _navBarLiquidGlassBarEffects.value = LiquidGlassEffectDefaults.floatingBar
+        _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
         _navBarStyle.value = NavBarStyle.ADAPTIVE
         _navBarPosition.value = NavBarPosition.BOTTOM
     }
@@ -127,6 +143,16 @@ object ThemeSettingsRepository {
         _selectedAppLanguage.value = appLanguage
         _navBarGlowEnabled.value = ThemeSettingsStorage.loadNavBarGlowEnabled() ?: true
         _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: false
+        _navBarLiquidGlassBarEffects.value = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+        _navBarLiquidGlassSelectionEffects.value = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
         _navBarStyle.value = NavBarStyle.fromKey(ThemeSettingsStorage.loadNavBarStyle())
         _navBarPosition.value = NavBarPosition.fromKey(ThemeSettingsStorage.loadNavBarPosition())
     }
@@ -224,6 +250,43 @@ object ThemeSettingsRepository {
         if (_navBarLiquidGlassEnabled.value == enabled) return
         _navBarLiquidGlassEnabled.value = enabled
         ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(enabled)
+    }
+
+    /** Updates the live floating-bar draft. Persistent storage is written when the settings sheet closes. */
+    fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
+        ensureLoaded()
+        _navBarLiquidGlassBarEffects.value = settings.sanitized(
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+    }
+
+    /** Updates the live selected-tab lens draft without persisting on every slider frame. */
+    fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
+        ensureLoaded()
+        _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+    }
+
+    /** Commits both effect groups together on every Navigation Bar settings-sheet exit path. */
+    fun saveNavBarLiquidGlassEffectSettings() {
+        ensureLoaded()
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
+            encodeLiquidGlassEffectSettings(
+                _navBarLiquidGlassBarEffects.value,
+                LiquidGlassEffectDefaults.floatingBar,
+                LiquidGlassEffectDefaults.floatingBarLimits,
+            ),
+        )
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
+            encodeLiquidGlassEffectSettings(
+                _navBarLiquidGlassSelectionEffects.value,
+                LiquidGlassEffectDefaults.selectionLens,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ),
+        )
     }
 
     private fun observeMembership() {
