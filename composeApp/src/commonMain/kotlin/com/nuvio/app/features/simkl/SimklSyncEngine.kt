@@ -1,5 +1,7 @@
 package com.nuvio.app.features.simkl
 
+import kotlinx.serialization.json.JsonElement
+
 internal class SimklSyncEngine(
     private val remote: SimklSyncRemote,
     private val nowEpochMs: () -> Long,
@@ -73,10 +75,20 @@ internal fun mergeDelta(
     delta: SimklAllItemsResponse,
 ): List<SimklLibraryEntry> {
     val merged = current.mapNotNull { entry -> entry.stableKey()?.let { key -> key to entry } }.toMap().toMutableMap()
+    val retainedIdsBySimklId = mutableMapOf<String, Map<String, JsonElement>>()
+    current.forEach { entry ->
+        val ids = entry.media?.ids ?: return@forEach
+        val simklId = ids.simklIdValue() ?: return@forEach
+        retainedIdsBySimklId[simklId] = retainedIdsBySimklId[simklId].orEmpty() + ids
+    }
     val incomingKeys = mutableSetOf<String>()
     val incomingSimklIds = mutableSetOf<String>()
     delta.presentTypes().forEach { type ->
-        delta.entriesFor(type).forEach { entry ->
+        delta.entriesFor(type).forEach { incoming ->
+            val entry = incoming.media?.ids?.simklIdValue()
+                ?.let(retainedIdsBySimklId::get)
+                ?.let(incoming::withRetainedIds)
+                ?: incoming
             entry.stableKey()?.let { key ->
                 merged[key] = entry
                 incomingKeys += key
@@ -90,6 +102,14 @@ internal fun mergeDelta(
         simklId in incomingSimklIds
     }
     return merged.values.sortedWith(simklEntryComparator)
+}
+
+private fun SimklLibraryEntry.withRetainedIds(retained: Map<String, JsonElement>): SimklLibraryEntry {
+    val media = media ?: return this
+    val ids = retained + media.ids
+    if (ids == media.ids) return this
+    val updated = media.copy(ids = ids)
+    return if (movie != null) copy(movie = updated) else copy(show = updated)
 }
 
 internal fun SimklLibraryEntry.isLocalPlaceholder(): Boolean =
