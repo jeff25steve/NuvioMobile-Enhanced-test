@@ -146,6 +146,8 @@ internal fun FloatingNavigationBar(
     } else {
         null
     }
+    val selectionPillCornerRadiusPercent =
+        if (liquidGlassSelectionBackdrop != null) selectionLensEffects.cornerRadiusPercent else 50f
     val currentItems by rememberUpdatedState(items)
     val currentIsRtl by rememberUpdatedState(isRtl)
     val density = LocalDensity.current
@@ -264,7 +266,7 @@ internal fun FloatingNavigationBar(
                                 Modifier.matchParentSize().drawWithContent {
                                     if (selectedIndex >= 0) {
                                         clipPath(
-                                            jellyPillPath(motion.frame, items.size, selectionLensEffects.cornerRadiusPercent),
+                                            jellyPillPath(motion.frame, items.size, selectionPillCornerRadiusPercent),
                                             ClipOp.Difference,
                                         ) {
                                             this@drawWithContent.drawContent()
@@ -317,7 +319,7 @@ internal fun FloatingNavigationBar(
                                                     jellyPillPath(
                                                         motion.frame,
                                                         items.size,
-                                                        selectionLensEffects.cornerRadiusPercent,
+                                                        selectionPillCornerRadiusPercent,
                                                     ),
                                                 ) {
                                                     this@drawWithContent.drawContent()
