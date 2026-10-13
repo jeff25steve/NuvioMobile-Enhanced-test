@@ -83,6 +83,45 @@ class ThemeSettingsStorageTest {
         assertEquals(false, preferences.getBoolean(otherProfileKey, true))
     }
 
+
+    @Test
+    fun liquidGlassEffectSettingsRoundTripThroughStorageAndSync() {
+        val bar = """{"cornerRadiusPercent":44.0,"blurRadiusDp":12.0}"""
+        val lens = """{"cornerRadiusPercent":28.0,"refractionAmountDp":19.0}"""
+
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(bar)
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(lens)
+        ThemeSettingsStorage.initialize(RuntimeEnvironment.getApplication())
+
+        assertEquals(bar, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(lens, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+
+        val payload = ThemeSettingsStorage.exportToSyncPayload()
+        assertEquals(bar, payload.decodeSyncString("nav_bar_liquid_glass_bar_effects"))
+        assertEquals(lens, payload.decodeSyncString("nav_bar_liquid_glass_selection_effects"))
+
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects("{}")
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects("{}")
+        ThemeSettingsStorage.replaceFromSyncPayload(payload)
+
+        assertEquals(bar, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(lens, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+    }
+
+    @Test
+    fun replacingOlderSyncPayloadClearsOnlyCurrentProfilesGlassEffectSettings() {
+        val preferences = RuntimeEnvironment.getApplication()
+            .getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val otherProfileKey = ProfileScopedKey.of("nav_bar_liquid_glass_bar_effects", 99)
+        preferences.edit().putString(otherProfileKey, """{"blurRadiusDp":3}""").commit()
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects("""{"blurRadiusDp":9}""")
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertNull(ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals("""{"blurRadiusDp":3}""", preferences.getString(otherProfileKey, null))
+    }
+
     @Test
     fun savedGradientRoundTripsThroughProfileSync() {
         val colors = CustomThemeColors(0x123456, 0xABCDEF, 0x654321).encode()
