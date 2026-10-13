@@ -73,6 +73,12 @@ object ThemeSettingsRepository {
     val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
         _navBarLiquidGlassSelectionEffects.asStateFlow()
 
+    // Signals that the effect drafts were committed to persistent storage. ProfileSettingsSync
+    // observes this because slider edits change the draft flows before the stored payload changes.
+    private val _navBarLiquidGlassEffectsRevision = MutableStateFlow(0L)
+    val navBarLiquidGlassEffectsRevision: StateFlow<Long> =
+        _navBarLiquidGlassEffectsRevision.asStateFlow()
+
     private var hasLoaded = false
     private var observesMembership = false
 
@@ -287,6 +293,7 @@ object ThemeSettingsRepository {
                 LiquidGlassEffectDefaults.selectionLensLimits,
             ),
         )
+        _navBarLiquidGlassEffectsRevision.value += 1L
     }
 
     private fun observeMembership() {
