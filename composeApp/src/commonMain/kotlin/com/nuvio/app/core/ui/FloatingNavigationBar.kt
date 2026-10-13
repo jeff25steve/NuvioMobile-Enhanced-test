@@ -231,7 +231,11 @@ internal fun FloatingNavigationBar(
                                     },
                             ) {
                                 if (useLiquidGlassMaterial) {
-                                    LiquidGlassFrostedBar(hazeState, Modifier.matchParentSize(), glowStrength)
+                                    LiquidGlassFrostedBar(
+                                        backdrop = liquidGlassBackdrop!!,
+                                        modifier = Modifier.matchParentSize(),
+                                        glowStrength = glowStrength,
+                                    )
                                 } else {
                                     GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
                                 }

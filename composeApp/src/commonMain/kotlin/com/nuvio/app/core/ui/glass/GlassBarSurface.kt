@@ -1,6 +1,8 @@
 package com.nuvio.app.core.ui.glass
 
+import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
@@ -75,33 +77,33 @@ internal fun Modifier.barBackdrop(hazeState: HazeState): Modifier = hazeEffect(s
  * Keeps the existing Haze blur while using a theme-appropriate translucent tint.
  */
 @Composable
-internal fun LiquidGlassFrostedBar(hazeState: HazeState?, modifier: Modifier, glowStrength: Float) {
+internal fun LiquidGlassFrostedBar(backdrop: Backdrop, modifier: Modifier, glowStrength: Float) {
     val isLightTheme = !isSystemInDarkTheme()
     val surfaceColor = if (isLightTheme) Color(0xFFFAFAFA) else Color(0xFF121212)
+    val containerColor = surfaceColor.copy(alpha = 0.4f)
 
     Box(
         modifier
-            .then(
-                if (hazeState != null) {
-                    Modifier.hazeEffect(state = hazeState) {
-                        blurRadius = 24.dp
-                        backgroundColor = surfaceColor
-                        tints = listOf(HazeTint(Color.Transparent))
-                        noiseFactor = 0f
-                    }
-                } else {
-                    Modifier
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { androidx.compose.foundation.shape.RoundedCornerShape(50) },
+                effects = {
+                    vibrancy()
+                    blur(8f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
+                },
+                onDrawSurface = {
+                    drawRect(containerColor)
                 },
             )
             .drawWithCache {
-                val fill = surfaceColor.copy(alpha = if (hazeState != null) 0.4f else 0.82f)
                 val edgeTop = if (isLightTheme) 0.55f else 0.27f
                 val edge = Brush.verticalGradient(
                     listOf(Color.White.copy(alpha = edgeTop), Color.White.copy(alpha = 0.02f)),
                 )
                 val width = 0.75.dp.toPx()
-                onDrawBehind {
-                    drawRect(fill)
+                onDrawWithContent {
+                    drawContent()
                     drawRoundRect(
                         brush = edge,
                         topLeft = Offset(width / 2, width / 2),
