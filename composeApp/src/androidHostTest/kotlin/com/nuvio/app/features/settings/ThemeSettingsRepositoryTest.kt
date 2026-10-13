@@ -5,6 +5,8 @@ import android.content.Context
 import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.MemberAssetStorage
 import org.junit.runner.RunWith
@@ -70,6 +72,49 @@ class ThemeSettingsRepositoryTest {
         ThemeSettingsStorage.replaceFromSyncPayload(kotlinx.serialization.json.buildJsonObject {})
         ThemeSettingsRepository.onProfileChanged()
         assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+    }
+
+    @Test
+    fun liquidGlassEffectDraftsPersistOnlyWhenCommittedAndReload() {
+        ThemeSettingsRepository.ensureLoaded()
+        val bar = LiquidGlassEffectDefaults.floatingBar.copy(
+            blurRadiusDp = 17f,
+            tintOpacity = 0.7f,
+        )
+        val lens = LiquidGlassEffectDefaults.selectionLens.copy(
+            cornerRadiusPercent = 23f,
+            chromaticAberration = false,
+        )
+
+        ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(bar)
+        ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(lens)
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+
+        assertEquals(
+            bar,
+            decodeLiquidGlassEffectSettings(
+                ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+                LiquidGlassEffectDefaults.floatingBar,
+                LiquidGlassEffectDefaults.floatingBarLimits,
+            ),
+        )
+        assertEquals(
+            lens,
+            decodeLiquidGlassEffectSettings(
+                ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+                LiquidGlassEffectDefaults.selectionLens,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ),
+        )
+
+        ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(bar, ThemeSettingsRepository.navBarLiquidGlassBarEffects.value)
+        assertEquals(lens, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
     }
 
     @Test
