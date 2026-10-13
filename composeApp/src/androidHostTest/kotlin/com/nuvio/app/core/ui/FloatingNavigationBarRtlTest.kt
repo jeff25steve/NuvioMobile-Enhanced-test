@@ -184,4 +184,51 @@ class FloatingNavigationBarRtlTest {
         assertEquals(3, rightVisual)
         assertEquals(3, logicalNavIndex(rightVisual, count, isRtl))
     }
+    @Test
+    fun `selection lens offset follows visual slots in LTR and mirrored RTL`() {
+        val count = 4
+        val tabWidth = 78f
+        val inset = 4f
+
+        for (position in 0 until count) {
+            assertEquals(
+                inset + tabWidth * position,
+                liquidGlassSelectionTranslationX(
+                    position = position.toFloat(),
+                    count = count,
+                    tabWidthPx = tabWidth,
+                    insetPx = inset,
+                    isRtl = false,
+                ),
+                0.001f,
+                "LTR visual slot $position",
+            )
+            assertEquals(
+                -inset - tabWidth * (count - 1 - position),
+                liquidGlassSelectionTranslationX(
+                    position = position.toFloat(),
+                    count = count,
+                    tabWidthPx = tabWidth,
+                    insetPx = inset,
+                    isRtl = true,
+                ),
+                0.001f,
+                "RTL visual slot $position",
+            )
+        }
+
+        assertEquals(
+            -inset - tabWidth * 0.5f,
+            liquidGlassSelectionTranslationX(
+                position = 2.5f,
+                count = count,
+                tabWidthPx = tabWidth,
+                insetPx = inset,
+                isRtl = true,
+            ),
+            0.001f,
+            "RTL lens should interpolate between visual slots",
+        )
+    }
+
 }

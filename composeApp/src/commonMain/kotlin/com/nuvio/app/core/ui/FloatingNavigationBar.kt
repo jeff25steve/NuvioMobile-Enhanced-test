@@ -258,7 +258,13 @@ internal fun FloatingNavigationBar(
                                         .height(trackHeight - 8.dp)
                                         .graphicsLayer {
                                             val frame = motion.frame
-                                            translationX = 4.dp.toPx() + liquidGlassSelectionTabWidth.toPx() * frame.position
+                                            translationX = liquidGlassSelectionTranslationX(
+                                                position = frame.position,
+                                                count = items.size,
+                                                tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
+                                                insetPx = 4.dp.toPx(),
+                                                isRtl = isRtl,
+                                            )
                                             translationY = 4.dp.toPx()
                                             scaleX = frame.pillScaleX
                                             scaleY = frame.pillScaleY
@@ -306,6 +312,22 @@ internal fun visualNavIndex(logicalIndex: Int, count: Int, isRtl: Boolean): Int 
 
 internal fun logicalNavIndex(visualIndex: Int, count: Int, isRtl: Boolean): Int =
     if (visualIndex in 0 until count && isRtl) count - 1 - visualIndex else visualIndex
+
+/**
+ * Converts the selected visual slot into an offset from Box's logical-start alignment.
+ * That alignment is left in LTR and right in RTL, so the physical translation must mirror.
+ */
+internal fun liquidGlassSelectionTranslationX(
+    position: Float,
+    count: Int,
+    tabWidthPx: Float,
+    insetPx: Float,
+    isRtl: Boolean,
+): Float = if (isRtl) {
+    -insetPx - tabWidthPx * (count - 1 - position)
+} else {
+    insetPx + tabWidthPx * position
+}
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
