@@ -10,6 +10,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.Backdrop
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -29,7 +30,7 @@ internal val GlassSurfaceColor = Color(0xFF1C1C1E)
 
 /**
  * Existing platform-specific capsule surface used when the Liquid Glass material option is off.
- * The opt-in material keeps a frosted capsule and draws Kyant's refractive lens only on selection.
+ * The opt-in path below applies Kyant's full-capsule refraction and a separate animated selection lens.
  */
 @Composable
 internal expect fun GlassBarSurface(
@@ -73,8 +74,9 @@ internal fun Modifier.barBackdrop(hazeState: HazeState): Modifier = hazeEffect(s
 }
 
 /**
- * Frosted capsule used behind the separate refractive selection lens.
- * Keeps the existing Haze blur while using a theme-appropriate translucent tint.
+ * Adapts Kyant0's LiquidBottomTabs surface effects to Nuvio's existing pill geometry:
+ * vibrancy, background blur, full-capsule refraction, and a theme-aware translucent tint.
+ * Nuvio's existing JellyMotion and glow remain responsible for navigation interaction.
  */
 @Composable
 internal fun LiquidGlassFrostedBar(backdrop: Backdrop, modifier: Modifier, glowStrength: Float) {
@@ -86,7 +88,7 @@ internal fun LiquidGlassFrostedBar(backdrop: Backdrop, modifier: Modifier, glowS
         modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { androidx.compose.foundation.shape.RoundedCornerShape(50) },
+                shape = { RoundedCornerShape(50) },
                 effects = {
                     vibrancy()
                     blur(8f.dp.toPx())
