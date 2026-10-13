@@ -55,15 +55,20 @@ internal fun JellyTabRow(
     compactSize: Boolean,
     modifier: Modifier,
     inlineLabels: Boolean = false,
+    themeAccentEnabled: Boolean = active,
 ) {
     val tokens = MaterialTheme.nuvio
     val palette = MaterialTheme.themePalette
-    val color = if (active) tokens.colors.accent else tokens.colors.textMuted
+    val color = when {
+        active && themeAccentEnabled -> tokens.colors.accent
+        active -> tokens.colors.textPrimary
+        else -> tokens.colors.textMuted
+    }
     val iconSize = if (compactSize) 24.dp else 28.dp
     val labelHeight = if (compactSize) 14.dp else 16.dp
     val iconModifier = Modifier.size(iconSize)
-        .then(if (active) Modifier.gradientMask(palette.accentBrush()) else Modifier)
-    val iconTint = if (active) Color.White else color
+        .then(if (active && themeAccentEnabled) Modifier.gradientMask(palette.accentBrush()) else Modifier)
+    val iconTint = if (active && themeAccentEnabled) Color.White else color
     Row(
         modifier = modifier.padding(4.dp).clearAndSetSemantics {},
         verticalAlignment = Alignment.CenterVertically,
