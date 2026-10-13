@@ -268,6 +268,7 @@ internal fun FloatingNavigationBar(
                                                 tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
                                                 insetPx = 4.dp.toPx(),
                                                 isRtl = isRtl,
+                                                panelOffsetPx = frame.panelOffset * density.density,
                                             )
                                             translationY = 4.dp.toPx()
                                             scaleX = frame.pillScaleX
@@ -328,11 +329,12 @@ internal fun liquidGlassSelectionTranslationX(
     tabWidthPx: Float,
     insetPx: Float,
     isRtl: Boolean,
-): Float = if (isRtl) {
+    panelOffsetPx: Float = 0f,
+): Float = (if (isRtl) {
     -insetPx - tabWidthPx * (count - 1 - position)
 } else {
     insetPx + tabWidthPx * position
-}
+}) + panelOffsetPx
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
