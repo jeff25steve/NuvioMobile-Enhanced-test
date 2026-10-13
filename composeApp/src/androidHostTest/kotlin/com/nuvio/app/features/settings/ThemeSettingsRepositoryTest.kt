@@ -77,6 +77,7 @@ class ThemeSettingsRepositoryTest {
     @Test
     fun liquidGlassEffectDraftsPersistOnlyWhenCommittedAndReload() {
         ThemeSettingsRepository.ensureLoaded()
+        val persistedRevision = ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value
         val bar = LiquidGlassEffectDefaults.floatingBar.copy(
             blurRadiusDp = 17f,
             tintOpacity = 0.7f,
@@ -95,9 +96,11 @@ class ThemeSettingsRepositoryTest {
 
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+        assertEquals(persistedRevision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
 
         ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
 
+        assertEquals(persistedRevision + 1L, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
         assertEquals(
             bar,
             decodeLiquidGlassEffectSettings(
