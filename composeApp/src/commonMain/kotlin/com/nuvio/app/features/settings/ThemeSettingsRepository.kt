@@ -247,15 +247,18 @@ object ThemeSettingsRepository {
     fun setNavBarGlowEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_navBarGlowEnabled.value == enabled) return
-        _navBarGlowEnabled.value = enabled
+        // Persist before emitting: ProfileSettingsSync recomputes its signature from storage when
+        // this flow changes, so emitting first could race with an older persisted value.
         ThemeSettingsStorage.saveNavBarGlowEnabled(enabled)
+        _navBarGlowEnabled.value = enabled
     }
 
     fun setNavBarLiquidGlassEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_navBarLiquidGlassEnabled.value == enabled) return
-        _navBarLiquidGlassEnabled.value = enabled
+        // The same ordering ensures the sync observer sees the new toggle value.
         ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(enabled)
+        _navBarLiquidGlassEnabled.value = enabled
     }
 
     /** Updates the live floating-bar draft. Persistent storage is written when the settings sheet closes. */
