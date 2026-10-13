@@ -191,6 +191,7 @@ object ProfileSettingsSync {
             ThemeSettingsRepository.navBarLiquidGlassEnabled.map { "nav_bar_liquid_glass_enabled" },
             ThemeSettingsRepository.navBarLiquidGlassBarEffects.map { "nav_bar_liquid_glass_bar_effects" },
             ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.map { "nav_bar_liquid_glass_selection_effects" },
+            ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.map { "nav_bar_liquid_glass_effects_committed" },
             PosterCardStyleRepository.uiState.map { "poster_card_style" },
             CustomPosterUrlRepository.pattern.map { "custom_poster_url" },
             CustomPosterUrlRepository.enabledScreens.map { "custom_poster_screens" },
