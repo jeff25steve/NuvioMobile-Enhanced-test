@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
@@ -79,20 +80,39 @@ internal fun Modifier.barBackdrop(hazeState: HazeState): Modifier = hazeEffect(s
  * Nuvio's existing JellyMotion and glow remain responsible for navigation interaction.
  */
 @Composable
-internal fun LiquidGlassFrostedBar(backdrop: Backdrop, modifier: Modifier, glowStrength: Float) {
+internal fun LiquidGlassFrostedBar(
+    backdrop: Backdrop,
+    modifier: Modifier,
+    glowStrength: Float,
+    settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+) {
+    val safeSettings = settings.sanitized(
+        LiquidGlassEffectDefaults.floatingBar,
+        LiquidGlassEffectDefaults.floatingBarLimits,
+    )
     val isLightTheme = !isSystemInDarkTheme()
     val surfaceColor = if (isLightTheme) Color(0xFFFAFAFA) else Color(0xFF121212)
-    val containerColor = surfaceColor.copy(alpha = 0.4f)
+    val containerColor = surfaceColor.copy(alpha = safeSettings.tintOpacity)
+    val cornerShape = RoundedCornerShape(safeSettings.cornerRadiusPercent.roundToInt())
 
     Box(
         modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { RoundedCornerShape(50) },
+                shape = { cornerShape },
                 effects = {
                     vibrancy()
-                    blur(8f.dp.toPx())
-                    lens(24f.dp.toPx(), 24f.dp.toPx())
+                    if (safeSettings.blurRadiusDp > 0f) {
+                        blur(safeSettings.blurRadiusDp.dp.toPx())
+                    }
+                    if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+                        lens(
+                            refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
+                            refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
+                            depthEffect = safeSettings.depthEffect,
+                            chromaticAberration = safeSettings.chromaticAberration,
+                        )
+                    }
                 },
                 onDrawSurface = {
                     drawRect(containerColor)
@@ -104,13 +124,14 @@ internal fun LiquidGlassFrostedBar(backdrop: Backdrop, modifier: Modifier, glowS
                     listOf(Color.White.copy(alpha = edgeTop), Color.White.copy(alpha = 0.02f)),
                 )
                 val width = 0.75.dp.toPx()
+                val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
                 onDrawWithContent {
                     drawContent()
                     drawRoundRect(
                         brush = edge,
                         topLeft = Offset(width / 2, width / 2),
                         size = Size(size.width - width, size.height - width),
-                        cornerRadius = CornerRadius((size.height - width) / 2),
+                        cornerRadius = CornerRadius((cornerRadius - width / 2).coerceAtLeast(0f)),
                         style = Stroke(width),
                         alpha = glowStrength,
                     )
@@ -129,7 +150,12 @@ internal fun LiquidGlassSelectionSurface(
     pressProgress: () -> Float,
     shape: () -> Shape,
     modifier: Modifier = Modifier,
+    settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
 ) {
+    val safeSettings = settings.sanitized(
+        LiquidGlassEffectDefaults.selectionLens,
+        LiquidGlassEffectDefaults.selectionLensLimits,
+    )
     val isLightTheme = !isSystemInDarkTheme()
     Box(
         modifier.drawBackdrop(
@@ -137,11 +163,21 @@ internal fun LiquidGlassSelectionSurface(
             shape = shape,
             effects = {
                 val progress = pressProgress().coerceIn(0f, 1f)
-                lens(
-                    10f.dp.toPx() * progress,
-                    14f.dp.toPx() * progress,
-                    chromaticAberration = true,
-                )
+                if (safeSettings.blurRadiusDp > 0f) {
+                    blur(safeSettings.blurRadiusDp.dp.toPx())
+                }
+                if (
+                    safeSettings.refractionHeightDp > 0f &&
+                    safeSettings.refractionAmountDp > 0f &&
+                    progress > 0f
+                ) {
+                    lens(
+                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx() * progress,
+                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx() * progress,
+                        depthEffect = safeSettings.depthEffect,
+                        chromaticAberration = safeSettings.chromaticAberration,
+                    )
+                }
             },
             highlight = {
                 Highlight.Default.copy(alpha = pressProgress().coerceIn(0f, 1f))
@@ -156,7 +192,7 @@ internal fun LiquidGlassSelectionSurface(
             onDrawSurface = {
                 val progress = pressProgress().coerceIn(0f, 1f)
                 drawRect(
-                    if (isLightTheme) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f),
+                    if (isLightTheme) Color.Black.copy(alpha = safeSettings.tintOpacity) else Color.White.copy(alpha = safeSettings.tintOpacity),
                     alpha = 1f - progress,
                 )
                 drawRect(Color.Black.copy(alpha = 0.03f * progress))
