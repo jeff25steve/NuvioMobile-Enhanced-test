@@ -127,6 +127,8 @@ internal fun LazyListScope.appearanceSettingsContent(
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val liquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+        val floatingBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+        val selectionLensEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
         // Upstream pins tablets to COMPACT because there the bar is a top rail. This fork puts
         // the floating pill at the bottom on every size, so the chosen style still applies.
         val effectiveNavBarStyle = selectedNavBarStyle
@@ -272,6 +274,11 @@ internal fun LazyListScope.appearanceSettingsContent(
                 onGlowChanged = ThemeSettingsRepository::setNavBarGlowEnabled,
                 liquidGlassEnabled = liquidGlassEnabled,
                 onLiquidGlassChanged = ThemeSettingsRepository::setNavBarLiquidGlassEnabled,
+                floatingBarEffects = floatingBarEffects,
+                onFloatingBarEffectsChanged = ThemeSettingsRepository::updateNavBarLiquidGlassBarEffects,
+                selectionLensEffects = selectionLensEffects,
+                onSelectionLensEffectsChanged = ThemeSettingsRepository::updateNavBarLiquidGlassSelectionEffects,
+                onSaveLiquidGlassEffectSettings = ThemeSettingsRepository::saveNavBarLiquidGlassEffectSettings,
                 selectedPosition = navBarPosition,
                 onPositionSelected = ThemeSettingsRepository::setNavBarPosition,
                 onDismiss = { showNavBarStyleSheet = false },
