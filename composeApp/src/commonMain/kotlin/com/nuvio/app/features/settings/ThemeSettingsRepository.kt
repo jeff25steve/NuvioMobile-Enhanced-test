@@ -65,18 +65,18 @@ object ThemeSettingsRepository {
 
     private val _navBarLiquidGlassBarEffects =
         MutableStateFlow(LiquidGlassEffectDefaults.floatingBar)
-    val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> =
+    internal val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> =
         _navBarLiquidGlassBarEffects.asStateFlow()
 
     private val _navBarLiquidGlassSelectionEffects =
         MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
-    val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
+    internal val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
         _navBarLiquidGlassSelectionEffects.asStateFlow()
 
     // Signals that the effect drafts were committed to persistent storage. ProfileSettingsSync
     // observes this because slider edits change the draft flows before the stored payload changes.
     private val _navBarLiquidGlassEffectsRevision = MutableStateFlow(0L)
-    val navBarLiquidGlassEffectsRevision: StateFlow<Long> =
+    internal val navBarLiquidGlassEffectsRevision: StateFlow<Long> =
         _navBarLiquidGlassEffectsRevision.asStateFlow()
 
     private var hasLoaded = false
@@ -259,7 +259,7 @@ object ThemeSettingsRepository {
     }
 
     /** Updates the live floating-bar draft. Persistent storage is written when the settings sheet closes. */
-    fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
+    internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassBarEffects.value = settings.sanitized(
             LiquidGlassEffectDefaults.floatingBar,
@@ -268,7 +268,7 @@ object ThemeSettingsRepository {
     }
 
     /** Updates the live selected-tab lens draft without persisting on every slider frame. */
-    fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
+    internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
             LiquidGlassEffectDefaults.selectionLens,
@@ -277,7 +277,7 @@ object ThemeSettingsRepository {
     }
 
     /** Commits both effect groups together on every Navigation Bar settings-sheet exit path. */
-    fun saveNavBarLiquidGlassEffectSettings() {
+    internal fun saveNavBarLiquidGlassEffectSettings() {
         ensureLoaded()
         ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
             encodeLiquidGlassEffectSettings(
