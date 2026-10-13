@@ -387,7 +387,7 @@ private fun LiquidGlassEffectSlider(
     steps: Int = 0,
     onValueChange: (Float) -> Unit,
 ) {
-    val safeValue = value.takeIf(Float::isFinite)?.coerceIn(valueRange) ?: valueRange.start
+    val safeValue = value.takeIf { it.isFinite() }?.coerceIn(valueRange) ?: valueRange.start
     Column(
         modifier = Modifier
             .fillMaxWidth()
