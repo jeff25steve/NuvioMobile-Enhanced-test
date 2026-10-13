@@ -472,9 +472,15 @@ private fun List<SimklLibraryEntry>.sameSimklItem(
     media: SimklMedia,
 ): SimklLibraryEntry? {
     val simklId = media.ids.simklIdValue() ?: return null
-    return firstOrNull { entry -> entry.mediaType == mediaType && entry.media?.ids?.simklIdValue() == simklId }
-        ?: firstOrNull { entry -> entry.media?.ids?.simklIdValue() == simklId }
+    return filter { entry -> entry.media?.ids?.simklIdValue() == simklId }
+        .maxWithOrNull(
+            compareBy<SimklLibraryEntry> { entry -> entry.watchedEpisodeCount() }
+                .thenBy { entry -> entry.mediaType == mediaType },
+        )
 }
+
+private fun SimklLibraryEntry.watchedEpisodeCount(): Int =
+    seasons.sumOf { season -> season.episodes.count { episode -> episode.watchedAt != null } }
 
 internal fun SimklSyncSnapshot.canonicalSeriesContentId(contentId: String): String? =
     seriesContentIdIndex().resolve(contentId)
@@ -486,17 +492,42 @@ private fun SimklSyncSnapshot.seriesContentIdIndex(): SimklSeriesContentIdIndex 
     seriesContentIdIndexCache.value?.let { cached ->
         if (cached.snapshot === this && cached.animeIdPreference == animeIdPreference) return cached
     }
+    val seriesEntries = entries.mapNotNull { entry ->
+        if (entry.isMovieEntry()) return@mapNotNull null
+        val media = entry.media ?: return@mapNotNull null
+        val canonical = media.canonicalContentId(animeIdPreference) ?: return@mapNotNull null
+        Triple(entry, media, canonical)
+    }
+    val representativeBySimklId = seriesEntries
+        .filter { (_, media, _) -> media.ids.simklIdValue() != null }
+        .groupBy { (_, media, _) -> media.ids.simklIdValue() }
+        .mapValues { (_, group) ->
+            group.maxBy { (entry, _, _) -> entry.watchedEpisodeCount() }.third
+        }
+    val identifiedEntries = seriesEntries.filter { (_, media, _) -> media.ids.simklIdValue() != null }
     val canonicalByIdentity = mutableMapOf<String, String>()
     val canonicalByExternalKey = mutableMapOf<String, String?>()
-    entries.forEach { entry ->
-        if (entry.isMovieEntry()) return@forEach
-        val media = entry.media ?: return@forEach
-        val canonical = media.canonicalContentId(animeIdPreference) ?: return@forEach
-        canonicalByIdentity[canonical.lowercase()] = canonical
+    seriesEntries.forEach { (_, media, canonical) ->
+        val simklId = media.ids.simklIdValue()
+        val target = if (simklId != null) {
+            representativeBySimklId[simklId] ?: canonical
+        } else {
+            identifiedEntries
+                .firstOrNull { (_, identifiedMedia, _) -> identifiedMedia.matchesTarget(media) }
+                ?.let { (_, identifiedMedia, identifiedCanonical) ->
+                    representativeBySimklId[identifiedMedia.ids.simklIdValue()] ?: identifiedCanonical
+                }
+                ?: canonical
+        }
+        val identityKey = canonical.lowercase()
+        val existingTarget = canonicalByIdentity[identityKey]
+        if (existingTarget == null || (existingTarget != canonical && target == canonical)) {
+            canonicalByIdentity[identityKey] = target
+        }
         media.toTrackingExternalIds().seriesIdentityKeys().forEach { key ->
             if (key !in canonicalByExternalKey) {
-                canonicalByExternalKey[key] = canonical
-            } else if (canonicalByExternalKey[key] != canonical) {
+                canonicalByExternalKey[key] = target
+            } else if (canonicalByExternalKey[key] != target) {
                 canonicalByExternalKey[key] = null
             }
         }

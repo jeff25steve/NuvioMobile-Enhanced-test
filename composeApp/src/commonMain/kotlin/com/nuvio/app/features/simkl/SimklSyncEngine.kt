@@ -73,12 +73,31 @@ internal fun mergeDelta(
     delta: SimklAllItemsResponse,
 ): List<SimklLibraryEntry> {
     val merged = current.mapNotNull { entry -> entry.stableKey()?.let { key -> key to entry } }.toMap().toMutableMap()
+    val incomingKeys = mutableSetOf<String>()
+    val incomingSimklIds = mutableSetOf<String>()
     delta.presentTypes().forEach { type ->
         delta.entriesFor(type).forEach { entry ->
-            entry.stableKey()?.let { key -> merged[key] = entry }
+            entry.stableKey()?.let { key ->
+                merged[key] = entry
+                incomingKeys += key
+                entry.media?.ids?.simklIdValue()?.let(incomingSimklIds::add)
+            }
         }
     }
+    merged.entries.removeAll { (key, entry) ->
+        if (key in incomingKeys) return@removeAll false
+        val simklId = entry.media?.ids?.simklIdValue() ?: return@removeAll true
+        simklId in incomingSimklIds
+    }
     return merged.values.sortedWith(simklEntryComparator)
+}
+
+internal fun SimklLibraryEntry.isLocalPlaceholder(): Boolean =
+    media != null && media?.ids?.simklIdValue() == null
+
+internal fun SimklSyncSnapshot.withoutLocalPlaceholders(): SimklSyncSnapshot {
+    if (entries.none(SimklLibraryEntry::isLocalPlaceholder)) return this
+    return copy(entries = entries.filterNot(SimklLibraryEntry::isLocalPlaceholder))
 }
 
 internal fun reconcileRemovedEntries(
