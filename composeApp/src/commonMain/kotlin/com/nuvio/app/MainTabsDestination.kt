@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.isRuntimeShaderSupported
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -98,8 +99,6 @@ internal fun MainTabsDestination(
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
-        val navBarLiquidGlassBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
-        val navBarLiquidGlassSelectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         val floatingNavigationItems = mainFloatingNavigationItems(
@@ -174,7 +173,7 @@ internal fun MainTabsDestination(
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
                         else -> {}
                     }
-                    FloatingNavigationBar(
+                    MainFloatingNavigationBar(
                         modifier = Modifier.align(if (floatingBarOnTop) Alignment.TopCenter else Alignment.BottomCenter),
                         scrollState = navBarScrollState,
                         hazeState = navBarHazeState,
@@ -190,14 +189,47 @@ internal fun MainTabsDestination(
                         glowEnabled = navBarGlowEnabled,
                         liquidGlassEnabled = navBarLiquidGlassEnabled,
                         liquidGlassBackdrop = navBarLiquidGlassBackdrop,
-                        liquidGlassBarEffects = navBarLiquidGlassBarEffects,
-                        liquidGlassSelectionEffects = navBarLiquidGlassSelectionEffects,
                         inlineLabels = isTabletLayout,
                     )
                 }
             }
         }
     }
+}
+
+
+/**
+ * Collect high-frequency glass effect drafts inside the navigation bar instead of the whole
+ * MainTabsDestination, so dragging a settings slider only invalidates this bar and its preview.
+ */
+@Composable
+private fun MainFloatingNavigationBar(
+    items: List<FloatingNavigationItem>,
+    modifier: Modifier,
+    scrollState: com.nuvio.app.core.ui.NuvioNavBarScrollState?,
+    hazeState: HazeState?,
+    contentPadding: PaddingValues,
+    glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean,
+    liquidGlassBackdrop: Backdrop?,
+    inlineLabels: Boolean,
+) {
+    val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+
+    FloatingNavigationBar(
+        items = items,
+        modifier = modifier,
+        scrollState = scrollState,
+        hazeState = hazeState,
+        contentPadding = contentPadding,
+        glowEnabled = glowEnabled,
+        liquidGlassEnabled = liquidGlassEnabled,
+        liquidGlassBackdrop = liquidGlassBackdrop,
+        liquidGlassBarEffects = barEffects,
+        liquidGlassSelectionEffects = selectionEffects,
+        inlineLabels = inlineLabels,
+    )
 }
 
 @Composable
