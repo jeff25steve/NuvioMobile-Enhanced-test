@@ -113,3 +113,14 @@
 - [ ] Run focused tests and builds. Not run: no working local repository/build environment was available; GitHub commit statuses and associated PR workflow runs are empty. Do not treat this as a pass.
 - [x] Review the generated diff: only the scoped navigation, settings/storage, resources, tests, and design/plan files changed relative to the implementation start; theme/RTL/tablet/iOS fallback and sync call paths were source-checked.
 - [x] Review claimed passes against tool output. Android and iOS device rendering remain unverified.
+
+
+## Follow-up review findings (2026-10-13)
+
+- Corrected the selected-lens local X offset so the shared JellyMotion panel translation is applied only once; updated the LTR/RTL unit assertions.
+- Moved dismissal-time persistence before suspend/animation work so the values are written synchronously when Done/Back/swipe/outside dismissal begins.
+- Changed glass surface tint to use Nuvio's own surface tokens rather than the operating system's light/dark setting.
+- Fixed ThemeSettingsRepository visibility so internal glass settings types are not exposed through public APIs.
+- Added a commit revision StateFlow to trigger profile-settings sync after both effect groups are saved. Toggle setters persist before emitting their sync-observed StateFlows.
+- Removed per-frame glass draft flows from ProfileSettingsSync's full-blob signature observers; only the post-commit revision signals a saved effect change. Isolated slider flows inside NavigationBarSettingsSheetHost to avoid recomposing the whole Appearance section.
+- Android/iOS storage and the sync observer were source-inspected. Unit tests were extended for draft-only state, commit revision and profile-key isolation. They were not run: this session has no local repository/build environment, and no GitHub status/workflow run was available. Real-device UI rendering remains outstanding.
