@@ -162,18 +162,16 @@ internal fun LiquidGlassSelectionSurface(
             backdrop = backdrop,
             shape = shape,
             effects = {
-                val progress = pressProgress().coerceIn(0f, 1f)
                 if (safeSettings.blurRadiusDp > 0f) {
                     blur(safeSettings.blurRadiusDp.dp.toPx())
                 }
-                if (
-                    safeSettings.refractionHeightDp > 0f &&
-                    safeSettings.refractionAmountDp > 0f &&
-                    progress > 0f
-                ) {
+                if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+                    // Keep the configured lens active at rest so the settings controls have an
+                    // immediate visible effect; pressProgress still drives the animated highlights
+                    // and shadows below.
                     lens(
-                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx() * progress,
-                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx() * progress,
+                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
+                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
                         depthEffect = safeSettings.depthEffect,
                         chromaticAberration = safeSettings.chromaticAberration,
                     )
