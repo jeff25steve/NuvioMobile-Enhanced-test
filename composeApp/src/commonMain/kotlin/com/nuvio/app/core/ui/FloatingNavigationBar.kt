@@ -337,7 +337,7 @@ internal fun FloatingNavigationBar(
                                         },
                                     ),
                             ) {
-                                JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, themeAccentEnabled = liquidGlassSelectionBackdrop == null)
                             }
                         }
                         JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize(), inlineLabels = inlineLabels)
