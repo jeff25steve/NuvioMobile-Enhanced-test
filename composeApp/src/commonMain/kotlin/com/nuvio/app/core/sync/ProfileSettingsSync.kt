@@ -189,8 +189,8 @@ object ProfileSettingsSync {
             ThemeSettingsRepository.liquidGlassNativeTabBarEnabled.map { "liquid_glass_tab_bar" },
             ThemeSettingsRepository.navBarGlowEnabled.map { "nav_bar_glow_enabled" },
             ThemeSettingsRepository.navBarLiquidGlassEnabled.map { "nav_bar_liquid_glass_enabled" },
-            ThemeSettingsRepository.navBarLiquidGlassBarEffects.map { "nav_bar_liquid_glass_bar_effects" },
-            ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.map { "nav_bar_liquid_glass_selection_effects" },
+            // Draft StateFlows update on every slider frame; observe only the persistence revision so
+            // profile-sync never serializes the full settings blob while someone is dragging a slider.
             ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.map { "nav_bar_liquid_glass_effects_committed" },
             PosterCardStyleRepository.uiState.map { "poster_card_style" },
             CustomPosterUrlRepository.pattern.map { "custom_poster_url" },
