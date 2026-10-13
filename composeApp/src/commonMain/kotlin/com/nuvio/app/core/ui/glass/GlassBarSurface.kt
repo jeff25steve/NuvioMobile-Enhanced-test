@@ -9,6 +9,7 @@ import com.kyant.backdrop.shadow.Shadow
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.nuvio
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
