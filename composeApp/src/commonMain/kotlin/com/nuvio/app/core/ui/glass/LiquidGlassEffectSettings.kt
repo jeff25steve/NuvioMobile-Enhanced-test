@@ -1,0 +1,125 @@
+package com.nuvio.app.core.ui.glass
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.floatOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+@Serializable
+internal data class LiquidGlassEffectSettings(
+    val cornerRadiusPercent: Float,
+    val blurRadiusDp: Float,
+    val refractionHeightDp: Float,
+    val refractionAmountDp: Float,
+    val chromaticAberration: Boolean,
+    val depthEffect: Boolean,
+    val tintOpacity: Float,
+) {
+    fun sanitized(
+        defaults: LiquidGlassEffectSettings,
+        limits: LiquidGlassEffectLimits,
+    ): LiquidGlassEffectSettings = copy(
+        cornerRadiusPercent = safeRange(cornerRadiusPercent, 50f, defaults.cornerRadiusPercent),
+        blurRadiusDp = safeRange(blurRadiusDp, limits.maxBlurRadiusDp, defaults.blurRadiusDp),
+        refractionHeightDp = safeRange(
+            refractionHeightDp,
+            limits.maxRefractionHeightDp,
+            defaults.refractionHeightDp,
+        ),
+        refractionAmountDp = safeRange(
+            refractionAmountDp,
+            limits.maxRefractionAmountDp,
+            defaults.refractionAmountDp,
+        ),
+        tintOpacity = safeRange(tintOpacity, 1f, defaults.tintOpacity),
+    )
+
+    private fun safeRange(value: Float, maximum: Float, fallback: Float): Float =
+        (value.takeIf(Float::isFinite) ?: fallback).coerceIn(0f, maximum)
+}
+
+internal data class LiquidGlassEffectLimits(
+    val maxBlurRadiusDp: Float,
+    val maxRefractionHeightDp: Float,
+    val maxRefractionAmountDp: Float,
+)
+
+internal object LiquidGlassEffectDefaults {
+    val floatingBar = LiquidGlassEffectSettings(
+        cornerRadiusPercent = 50f,
+        blurRadiusDp = 8f,
+        refractionHeightDp = 24f,
+        refractionAmountDp = 24f,
+        chromaticAberration = false,
+        depthEffect = false,
+        tintOpacity = 0.4f,
+    )
+    val selectionLens = LiquidGlassEffectSettings(
+        cornerRadiusPercent = 50f,
+        blurRadiusDp = 0f,
+        refractionHeightDp = 10f,
+        refractionAmountDp = 14f,
+        chromaticAberration = true,
+        depthEffect = false,
+        tintOpacity = 0.1f,
+    )
+
+    val floatingBarLimits = LiquidGlassEffectLimits(
+        maxBlurRadiusDp = 32f,
+        maxRefractionHeightDp = 48f,
+        maxRefractionAmountDp = 48f,
+    )
+    val selectionLensLimits = LiquidGlassEffectLimits(
+        maxBlurRadiusDp = 24f,
+        maxRefractionHeightDp = 32f,
+        maxRefractionAmountDp = 32f,
+    )
+}
+
+private val liquidGlassSettingsJson = Json {
+    ignoreUnknownKeys = true
+}
+
+internal fun encodeLiquidGlassEffectSettings(
+    settings: LiquidGlassEffectSettings,
+    defaults: LiquidGlassEffectSettings,
+    limits: LiquidGlassEffectLimits,
+): String = liquidGlassSettingsJson.encodeToString(settings.sanitized(defaults, limits))
+
+internal fun decodeLiquidGlassEffectSettings(
+    encoded: String?,
+    defaults: LiquidGlassEffectSettings,
+    limits: LiquidGlassEffectLimits,
+): LiquidGlassEffectSettings {
+    if (encoded.isNullOrBlank()) return defaults
+
+    val values = runCatching {
+        liquidGlassSettingsJson.parseToJsonElement(encoded).jsonObject
+    }.getOrNull() ?: return defaults
+
+    return defaults.copy(
+        cornerRadiusPercent = values.floatOrDefault("cornerRadiusPercent", defaults.cornerRadiusPercent),
+        blurRadiusDp = values.floatOrDefault("blurRadiusDp", defaults.blurRadiusDp),
+        refractionHeightDp = values.floatOrDefault("refractionHeightDp", defaults.refractionHeightDp),
+        refractionAmountDp = values.floatOrDefault("refractionAmountDp", defaults.refractionAmountDp),
+        chromaticAberration = values.booleanOrDefault("chromaticAberration", defaults.chromaticAberration),
+        depthEffect = values.booleanOrDefault("depthEffect", defaults.depthEffect),
+        tintOpacity = values.floatOrDefault("tintOpacity", defaults.tintOpacity),
+    ).sanitized(defaults, limits)
+}
+
+private fun kotlinx.serialization.json.JsonObject.floatOrDefault(
+    key: String,
+    default: Float,
+): Float {
+    val value = runCatching { this[key]?.jsonPrimitive?.floatOrNull }.getOrNull()
+    return value?.takeIf(Float::isFinite) ?: default
+}
+
+private fun kotlinx.serialization.json.JsonObject.booleanOrDefault(
+    key: String,
+    default: Boolean,
+): Boolean = runCatching { this[key]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: default
