@@ -122,29 +122,38 @@ internal fun LiquidGlassFrostedBar(hazeState: HazeState?, modifier: Modifier, gl
 @Composable
 internal fun LiquidGlassSelectionSurface(
     backdrop: Backdrop,
+    pressProgress: Float,
     shape: () -> Shape,
     modifier: Modifier = Modifier,
 ) {
     val isLightTheme = !isSystemInDarkTheme()
+    val progress = pressProgress.coerceIn(0f, 1f)
     Box(
         modifier.drawBackdrop(
             backdrop = backdrop,
             shape = shape,
             effects = {
-                lens(10f.dp.toPx(), 14f.dp.toPx(), chromaticAberration = true)
+                lens(
+                    10f.dp.toPx() * progress,
+                    14f.dp.toPx() * progress,
+                    chromaticAberration = true,
+                )
             },
             highlight = {
-                Highlight.Default.copy(alpha = 0.7f)
+                Highlight.Default.copy(alpha = progress)
             },
             shadow = {
-                Shadow(alpha = 0.3f)
+                Shadow(alpha = progress)
             },
             innerShadow = {
-                InnerShadow(radius = 8f.dp, alpha = 0.35f)
+                InnerShadow(radius = 8f.dp * progress, alpha = progress)
             },
             onDrawSurface = {
-                drawRect(if (isLightTheme) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f))
-                drawRect(Color.Black.copy(alpha = 0.03f))
+                drawRect(
+                    if (isLightTheme) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f),
+                    alpha = 1f - progress,
+                )
+                drawRect(Color.Black.copy(alpha = 0.03f * progress))
             },
         ),
     )
