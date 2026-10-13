@@ -10,13 +10,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -31,11 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ClipOp
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -45,7 +42,6 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
@@ -53,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
 import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
-import com.nuvio.app.core.ui.jelly.JellyFrame
 import com.nuvio.app.core.ui.jelly.JellyMotion
 import com.nuvio.app.core.ui.jelly.JellySelectionSource
 import com.nuvio.app.core.ui.jelly.JellyTabRow
@@ -64,7 +59,6 @@ import com.nuvio.app.core.ui.jelly.jellyPillPath
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 import org.jetbrains.compose.resources.DrawableResource
 
 internal class FloatingNavigationItem(
@@ -177,7 +171,7 @@ internal fun FloatingNavigationBar(
             .padding(horizontal = horizontalPadding),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .widthIn(max = if (inlineLabels) inlineMaxWidth else 400.dp)
                 .fillMaxWidth()
@@ -188,7 +182,9 @@ internal fun FloatingNavigationBar(
                 .pointerInput(motion, density, items.size, isRtl) {
                     detectJellyTabGestures(motion, density.density, { currentItems }, { currentIsRtl })
                 },
+            contentAlignment = Alignment.TopStart,
         ) {
+            val liquidGlassSelectionTabWidth = ((maxWidth - 8.dp) / items.size).coerceAtLeast(0.dp)
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -256,11 +252,24 @@ internal fun FloatingNavigationBar(
                         }
                         if (selectedIndex >= 0) {
                             if (liquidGlassSelectionBackdrop != null) {
-                                LiquidGlassSelectionSurface(
-                                    backdrop = liquidGlassSelectionBackdrop,
-                                    shape = { createJellySelectionShape(motion.frame, items.size, density) },
-                                    modifier = Modifier.matchParentSize(),
-                                )
+                                Box(
+                                    Modifier
+                                        .width(liquidGlassSelectionTabWidth)
+                                        .height(trackHeight - 8.dp)
+                                        .graphicsLayer {
+                                            val frame = motion.frame
+                                            translationX = 4.dp.toPx() + liquidGlassSelectionTabWidth.toPx() * frame.position
+                                            translationY = 4.dp.toPx()
+                                            scaleX = frame.pillScaleX
+                                            scaleY = frame.pillScaleY
+                                        },
+                                ) {
+                                    LiquidGlassSelectionSurface(
+                                        backdrop = liquidGlassSelectionBackdrop,
+                                        shape = { RoundedCornerShape(50) },
+                                        modifier = Modifier.matchParentSize(),
+                                    )
+                                }
                             }
                             Box(
                                 Modifier.matchParentSize()
@@ -291,26 +300,6 @@ internal fun FloatingNavigationBar(
     }
 }
 
-
-private fun createJellySelectionShape(frame: JellyFrame, count: Int, density: Density): Shape =
-    GenericShape { size, _ ->
-        val inset = with(density) { 4.dp.toPx() }
-        val tabWidth = ((size.width - 2f * inset) / count).coerceAtLeast(0f)
-        val itemHeight = (size.height - 2f * inset).coerceAtLeast(0f)
-        val centerX = inset + (frame.position + 0.5f) * tabWidth
-        val halfWidth = tabWidth * frame.pillScaleX / 2f
-        val halfHeight = itemHeight * frame.pillScaleY / 2f
-        val radius = min(tabWidth, itemHeight) / 2f
-        addRoundRect(
-            RoundRect(
-                left = centerX - halfWidth,
-                top = size.height / 2f - halfHeight,
-                right = centerX + halfWidth,
-                bottom = size.height / 2f + halfHeight,
-                cornerRadius = CornerRadius(radius * frame.pillScaleX, radius * frame.pillScaleY),
-            ),
-        )
-    }
 
 internal fun visualNavIndex(logicalIndex: Int, count: Int, isRtl: Boolean): Int =
     if (logicalIndex in 0 until count && isRtl) count - 1 - logicalIndex else logicalIndex
