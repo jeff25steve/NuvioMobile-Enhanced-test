@@ -86,8 +86,12 @@ class ThemeSettingsRepositoryTest {
             chromaticAberration = false,
         )
 
+        val defaultLens = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
         ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(bar)
+        assertEquals(defaultLens, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+
         ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(lens)
+        assertEquals(bar, ThemeSettingsRepository.navBarLiquidGlassBarEffects.value)
 
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
