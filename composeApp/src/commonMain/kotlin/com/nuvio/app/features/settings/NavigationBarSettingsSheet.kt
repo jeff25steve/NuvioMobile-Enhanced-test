@@ -373,7 +373,7 @@ private fun LiquidGlassEffectGroupHeader(
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = resetDescription,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
