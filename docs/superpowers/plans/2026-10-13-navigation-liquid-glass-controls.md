@@ -41,9 +41,9 @@
 - Separate `FloatingBarDefaults` and `SelectionLensDefaults` define the documented values.
 - `sanitized()` clamps finite numeric values to their documented ranges and handles non-finite values safely.
 
-- [ ] Add tests for defaults, both ends of each numeric range, non-finite and out-of-range inputs, and the distinct chromatic-aberration defaults.
-- [ ] Verify the new tests' expected behavior by inspection; run through the repository's native test environment if available.
-- [ ] Implement the model and keep UI-specific conversions (dp-to-px, rounded-corner percent) at the rendering boundary.
+- [x] Add tests for defaults, both ends of each numeric range, non-finite and out-of-range inputs, and the distinct chromatic-aberration defaults.
+- [ ] Run the new tests through the repository's native test environment. Test source and expectations were reviewed, but the build environment was unavailable in this session.
+- [x] Implement the model and keep UI-specific conversions (dp-to-px, rounded-corner percent) at the rendering boundary.
 
 ### Task 2: Persist profile-scoped settings and sync
 
@@ -60,9 +60,9 @@
 - Repository exposes live read-only StateFlows and draft update/commit functions. Update functions only change in-memory values; commit writes both current groups at sheet exit.
 - Sync payloads export/import each configuration under independent keys; malformed values are parsed safely and sanitized to defaults/valid ranges.
 
-- [ ] Add failing tests for storage reload, sync round-trip, missing keys, malformed serialized values and profile-key isolation.
-- [ ] Implement common storage contracts and both platform storage functions with the existing ProfileScopedKey pattern.
-- [ ] Add repository load/reset/update/commit behavior and ensure `clearLocalState`/profile reload reset or reload the new flows.
+- [x] Add tests for storage reload, sync round-trip, missing keys, malformed serialized values and profile-key isolation.
+- [x] Implement common storage contracts and both platform storage functions with the existing ProfileScopedKey pattern.
+- [x] Add repository load/reset/update/commit behavior and ensure `clearLocalState`/profile reload reset or reload the new flows.
 
 ### Task 3: Parameterize the glass render surfaces and correct overlay
 
@@ -80,8 +80,8 @@
 - Preserve Android < API 33 fallback and shared/iOS compile compatibility.
 
 - [ ] Add or extend a test for selected-index mapping/path boundaries if the existing host-test APIs support it.
-- [ ] Implement the minimum rendering changes; retain Kyant's actual API and existing JellyMotion.
-- [ ] Review RTL, selected index bounds, and all call sites.
+- [x] Implement the minimum rendering changes; retain Kyant's actual API and existing JellyMotion.
+- [x] Review RTL, selected index bounds, and all call sites by source inspection; runtime behavior remains unverified.
 
 ### Task 4: Add accessible live controls and independent reset buttons
 
@@ -100,16 +100,16 @@
 - Every dismissal path (Done, Back, swipe, outside tap) calls repository commit before dismissing. No separate Save button.
 - Preview receives the exact same two settings objects as the production component.
 
-- [ ] Add concise labels/content descriptions for the controls and reset buttons.
-- [ ] Wire draft updates without per-frame persistence and commit both groups through a single exit callback.
-- [ ] Verify all exit paths use the same dismissal callback.
+- [x] Add concise labels/content descriptions for the controls and reset buttons.
+- [x] Wire draft updates without per-frame persistence and commit both groups through a single exit callback.
+- [x] Verify Done and modal dismissal paths use the same save-before-dismiss callback by source inspection.
 
 ### Task 5: Final regression and verification pass
 
 **Files:**
 - Review all files changed by Tasks 1–4 and any directly needed test changes.
 
-- [ ] Inspect the complete change set against the spec and the initial branch head.
-- [ ] Run available focused tests, static checks, and builds; if the only available CI is quota-blocked, state that explicitly.
-- [ ] Verify the generated diff touches no unrelated files/settings and preserves theme, RTL, tablet layout, iOS fallback, existing bar settings and sync semantics.
-- [ ] Review every claimed pass against actual tool output; list Android/iOS device-rendering status explicitly.
+- [x] Inspect the complete change set against the spec and the initial implementation head.
+- [ ] Run focused tests and builds. Not run: no working local repository/build environment was available; GitHub commit statuses and associated PR workflow runs are empty. Do not treat this as a pass.
+- [x] Review the generated diff: only the scoped navigation, settings/storage, resources, tests, and design/plan files changed relative to the implementation start; theme/RTL/tablet/iOS fallback and sync call paths were source-checked.
+- [x] Review claimed passes against tool output. Android and iOS device rendering remain unverified.
