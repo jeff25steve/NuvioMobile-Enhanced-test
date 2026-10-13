@@ -47,6 +47,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
 import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
 import com.nuvio.app.core.ui.jelly.JellyMotion
@@ -59,6 +61,7 @@ import com.nuvio.app.core.ui.jelly.jellyPillPath
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.DrawableResource
 
 internal class FloatingNavigationItem(
@@ -97,6 +100,8 @@ internal fun FloatingNavigationBar(
     glowEnabled: Boolean = true,
     liquidGlassEnabled: Boolean = false,
     liquidGlassBackdrop: Backdrop? = null,
+    liquidGlassBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    liquidGlassSelectionEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     inlineLabels: Boolean = false,
 ) {
     if (items.isEmpty()) return
@@ -122,6 +127,20 @@ internal fun FloatingNavigationBar(
     val liquidGlassContentBackdrop = rememberLayerBackdrop()
     val useLiquidGlassMaterial =
         liquidGlassEnabled && liquidGlassBackdrop != null && isRuntimeShaderSupported()
+    val floatingBarEffects = liquidGlassBarEffects.sanitized(
+        LiquidGlassEffectDefaults.floatingBar,
+        LiquidGlassEffectDefaults.floatingBarLimits,
+    )
+    val selectionLensEffects = liquidGlassSelectionEffects.sanitized(
+        LiquidGlassEffectDefaults.selectionLens,
+        LiquidGlassEffectDefaults.selectionLensLimits,
+    )
+    val floatingBarShape = remember(useLiquidGlassMaterial, floatingBarEffects.cornerRadiusPercent) {
+        RoundedCornerShape(if (useLiquidGlassMaterial) floatingBarEffects.cornerRadiusPercent.roundToInt() else 50)
+    }
+    val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
+        RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
+    }
     val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
         rememberCombinedBackdrop(liquidGlassBackdrop!!, liquidGlassContentBackdrop)
     } else {
@@ -224,7 +243,7 @@ internal fun FloatingNavigationBar(
                         ) {
                             Box(
                                 Modifier.matchParentSize()
-                                    .clip(RoundedCornerShape(50))
+                                    .clip(floatingBarShape)
                                     .drawWithContent {
                                         drawContent()
                                         drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
@@ -235,6 +254,7 @@ internal fun FloatingNavigationBar(
                                         backdrop = liquidGlassBackdrop!!,
                                         modifier = Modifier.matchParentSize(),
                                         glowStrength = glowStrength,
+                                        settings = floatingBarEffects,
                                     )
                                 } else {
                                     GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
@@ -243,7 +263,10 @@ internal fun FloatingNavigationBar(
                             Box(
                                 Modifier.matchParentSize().drawWithContent {
                                     if (selectedIndex >= 0) {
-                                        clipPath(jellyPillPath(motion.frame, items.size), ClipOp.Difference) {
+                                        clipPath(
+                                            jellyPillPath(motion.frame, items.size, selectionLensEffects.cornerRadiusPercent),
+                                            ClipOp.Difference,
+                                        ) {
                                             this@drawWithContent.drawContent()
                                         }
                                     } else {
@@ -278,8 +301,9 @@ internal fun FloatingNavigationBar(
                                     LiquidGlassSelectionSurface(
                                         backdrop = liquidGlassSelectionBackdrop,
                                         pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
-                                        shape = { RoundedCornerShape(50) },
+                                        shape = { selectionLensShape },
                                         modifier = Modifier.matchParentSize(),
+                                        settings = selectionLensEffects,
                                     )
                                 }
                             }
@@ -288,7 +312,17 @@ internal fun FloatingNavigationBar(
                                     .clearAndSetSemantics {}
                                     .then(
                                         if (liquidGlassSelectionBackdrop != null) {
-                                            Modifier
+                                            Modifier.drawWithContent {
+                                                clipPath(
+                                                    jellyPillPath(
+                                                        motion.frame,
+                                                        items.size,
+                                                        selectionLensEffects.cornerRadiusPercent,
+                                                    ),
+                                                ) {
+                                                    this@drawWithContent.drawContent()
+                                                }
+                                            }
                                         } else {
                                             Modifier.drawWithContent {
                                                 drawJellyPill(
