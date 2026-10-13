@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.AppScreenTab
 import com.nuvio.app.TabletFloatingTopBar
@@ -51,6 +53,8 @@ internal fun NavigationBarPreview(
     liquidGlassEnabled: Boolean = false,
     position: NavBarPosition = NavBarPosition.BOTTOM,
     tabletLayout: Boolean = false,
+    floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
@@ -136,6 +140,8 @@ internal fun NavigationBarPreview(
                     glowEnabled = glowEnabled,
                     liquidGlassEnabled = effectiveLiquidGlassEnabled,
                     liquidGlassBackdrop = liquidGlassBackdrop,
+                    liquidGlassBarEffects = floatingBarEffects,
+                    liquidGlassSelectionEffects = selectionLensEffects,
                     inlineLabels = tabletLayout,
                 )
             }
