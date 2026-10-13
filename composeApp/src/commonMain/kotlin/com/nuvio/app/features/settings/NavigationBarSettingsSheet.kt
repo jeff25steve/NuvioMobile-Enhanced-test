@@ -66,8 +66,10 @@ internal fun NavigationBarSettingsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val dismiss: () -> Unit = {
+        // Persist synchronously before beginning any suspend/animation work. This covers both
+        // explicit Done and platform dismissal callbacks that may immediately dispose the sheet.
+        onSaveLiquidGlassEffectSettings()
         scope.launch {
-            onSaveLiquidGlassEffectSettings()
             dismissNuvioBottomSheet(sheetState, onDismiss)
         }
     }
