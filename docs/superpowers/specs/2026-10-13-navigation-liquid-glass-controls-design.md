@@ -1,0 +1,75 @@
+# Liquid Glass Navigation Controls — Design Specification
+
+**Status:** Proposed design; awaiting review before implementation  
+**Date:** 2026-10-13  
+**Target branch:** `feature/navigation-liquid-glass`  
+**Reference implementations:** [Kyant0/AndroidLiquidGlass, KMP branch](https://github.com/Kyant0/AndroidLiquidGlass/tree/kmp) and [Kashif-E/KMPLiquidGlass](https://github.com/Kashif-E/KMPLiquidGlass/tree/master)
+
+## Goal
+
+Fix the visual and interaction defects in Nuvio's opt-in Liquid Glass floating navigation bar, and expose useful glass-effect controls without changing navigation behavior, icon/label content, tab ordering, gestures, existing style/position/glow settings, or the regular Enhanced navigation appearance.
+
+## Confirmed implementation findings
+
+- `FloatingNavigationBar.kt` renders an active `JellyTabRow` over the full bar when the Liquid Glass selection backdrop is present. Unlike the upstream Kyant implementation, that active row is not hidden or clipped to the selected capsule. This produces the visible extra accent-coloured/bold words and icons. The active row must be clipped to the moving selection path; the inactive row remains the only full-width visible row.
+- Kyant's `lens` accepts non-negative refraction height and amount in **pixels**, returns without a lens when either value is zero, and supports Boolean `depthEffect` and `chromaticAberration`. The existing implementation hard-codes the bar lens at 24 dp × 24 dp and the pressed selection lens at 10 dp × 14 dp, and applies a fixed 8 dp blur to the bar. Slider values must be converted from dp to pixels at the actual drawing density. Increasing a slider must never invert its meaning.
+- The existing theme-settings repository/storage already scopes relevant settings per profile and includes settings in sync payloads. New effect controls should follow that path instead of introducing a separate preference system.
+- The project is Kotlin Multiplatform. Kyant's KMP implementation reports runtime-shader support on its Skia target (used by iOS); Android runtime shaders require API 33+. Existing unsupported-platform fallback must remain intact.
+
+## UX and controls
+
+When **Liquid Glass** is enabled for a non-classic floating navigation bar, show two visually distinct groups in the existing Nuvio bottom sheet:
+
+### Floating bar
+
+- Corner radius: 0–50%, default **50%** (capsule).
+- Blur radius: 0–32 dp, default **8 dp**.
+- Refraction height: 0–48 dp, default **24 dp**.
+- Refraction amount: 0–48 dp, default **24 dp**.
+- Chromatic aberration: switch, default **off**.
+- Depth effect: switch, default **off**.
+- Glass tint opacity: 0–100%, default **40%**, matching the current surface tint.
+
+### Selected-tab lens
+
+- Corner radius: 0–50%, default **50%**.
+- Blur radius: 0–24 dp, default **0 dp** (keeps the current selection surface blur-free).
+- Refraction height: 0–32 dp, default **10 dp**.
+- Refraction amount: 0–32 dp, default **14 dp**.
+- Chromatic aberration: switch, default **on**, matching the current selected lens.
+- Depth effect: switch, default **off**.
+- Glass tint opacity: 0–100%, default **10%**, matching the current idle selection tint.
+
+Each group's title has a **reset-to-default icon button** using the app's existing icon/button style. Resetting one group restores and saves only that group's defaults; it must not change the other group or any navigation settings. Slider values are displayed with units/percentages where applicable. Use standard Material 3 sliders and accessible labelled switches, consistent with the current Nuvio settings typography, spacing, theme colours, and touch targets. Controls are visible only while Liquid Glass is enabled, and retain the existing shader-support/unsupported-state behavior.
+
+The settings-sheet preview and the running floating bar update as the user changes a control. Update in-memory state during a drag, then persist the changed group when the interaction finishes rather than writing preferences on every slider frame. Switches and reset actions persist immediately. Reset restores the defined constants, not the last-saved custom values.
+
+## Implementation boundaries
+
+Expected production files (confirm exact call sites again immediately before editing):
+
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/FloatingNavigationBar.kt`: constrain active labels/icons to the animated selected pill and pass effect settings to the two surfaces.
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/glass/GlassBarSurface.kt`: parameterize existing Kyant effects and expose a single default configuration per surface; preserve the normal frosted fallback.
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/features/settings/NavigationBarSettingsSheet.kt` and `NavigationBarPreview.kt`: controls, reset buttons, independent defaults, and live preview.
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/features/settings/ThemeSettingsRepository.kt` and `ThemeSettingsStorage.kt`, plus Android/iOS storage implementations: profile-scoped state, safe loading defaults, persistence and sync payload integration.
+- Focused tests under `composeApp/src/androidHostTest/kotlin/com/nuvio/app/` for settings encoding/decoding, clamping and defaults; add a regression assertion where the existing UI-test setup can reliably exercise the active-row clipping.
+
+Persist the two effect configurations independently, with backward-compatible defaults when an existing profile has no keys. Malformed or out-of-range stored values must safely fall back to validated defaults; no migration of unrelated settings is required. Use existing serialization utilities/dependencies and established profile-scoped storage conventions. Do not change website-managed configuration.
+
+## Compatibility and regression constraints
+
+- Keep the opt-in toggle, all existing navigation styles/positions, glow, compact/expanded behavior, drag-to-select, click targets, RTL mapping, tab labels/icons, and Android/iOS navigation destinations unchanged.
+- When refraction height or amount is zero, disable that lens effect (as Kyant's API does); zero blur disables blur. Ranges/defaults must be monotonic and bounded.
+- Preserve Android API 32-and-below frosted fallback and existing runtime-shader support gating; no new dependency.
+- Do not alter the native iOS navigation bar or the separate native Liquid Glass tab-bar behavior.
+- Avoid per-frame disk writes. Never persist effect settings globally across profiles.
+- Do not start GitHub Actions for verification while the Actions quota is exhausted. Build/test verification must be reported honestly; source inspection is not a substitute for a successful build or device check.
+
+## Acceptance criteria
+
+1. With Liquid Glass enabled, the normal bar shows one set of tab labels/icons. Only the selected pill receives active treatment; text is never duplicated or globally accent-tinted by the hidden/reference layer.
+2. Changing each slider/switch changes its corresponding real surface effect in the correct direction, live in the preview and navigation bar; it never changes the other surface's settings.
+3. Both reset icon buttons restore all values in their own group to the constants above and leave the other group's current custom values unchanged.
+4. Settings survive app restart and remain isolated per profile; sync export/import preserves both groups, and old/malformed payloads load safe defaults.
+5. Existing normal navigation behavior and frosted fallbacks remain intact.
+6. Focused tests are added and run where available; Android/iOS builds and real-device rendering are explicitly marked unverified unless successfully executed.
