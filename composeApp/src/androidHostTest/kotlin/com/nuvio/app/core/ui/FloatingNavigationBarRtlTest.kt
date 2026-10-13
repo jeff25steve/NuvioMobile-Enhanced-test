@@ -229,6 +229,35 @@ class FloatingNavigationBarRtlTest {
             0.001f,
             "RTL lens should interpolate between visual slots",
         )
+
+        // The selected lens must follow JellyMotion's physical panel offset during a drag.
+        // The offset is a physical X translation, so it is added unchanged in both layout directions.
+        assertEquals(
+            inset + tabWidth * 1.5f + 12f,
+            liquidGlassSelectionTranslationX(
+                position = 1.5f,
+                count = count,
+                tabWidthPx = tabWidth,
+                insetPx = inset,
+                panelOffsetPx = 12f,
+                isRtl = false,
+            ),
+            0.001f,
+            "LTR lens must follow positive drag panel offset",
+        )
+        assertEquals(
+            -inset - tabWidth * (count - 1 - 1.5f) + 12f,
+            liquidGlassSelectionTranslationX(
+                position = 1.5f,
+                count = count,
+                tabWidthPx = tabWidth,
+                insetPx = inset,
+                panelOffsetPx = 12f,
+                isRtl = true,
+            ),
+            0.001f,
+            "RTL lens must follow the same physical drag panel offset",
+        )
     }
 
 }
