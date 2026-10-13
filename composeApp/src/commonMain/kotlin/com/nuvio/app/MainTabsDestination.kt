@@ -98,6 +98,8 @@ internal fun MainTabsDestination(
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
+        val navBarLiquidGlassBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+        val navBarLiquidGlassSelectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         val floatingNavigationItems = mainFloatingNavigationItems(
@@ -188,6 +190,8 @@ internal fun MainTabsDestination(
                         glowEnabled = navBarGlowEnabled,
                         liquidGlassEnabled = navBarLiquidGlassEnabled,
                         liquidGlassBackdrop = navBarLiquidGlassBackdrop,
+                        liquidGlassBarEffects = navBarLiquidGlassBarEffects,
+                        liquidGlassSelectionEffects = navBarLiquidGlassSelectionEffects,
                         inlineLabels = isTabletLayout,
                     )
                 }
@@ -323,6 +327,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     val style by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
     val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
     val position by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+    val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val highlightedTab = AppScreenTab.Settings
 
@@ -383,6 +389,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                 glowEnabled = glowEnabled,
                 liquidGlassEnabled = liquidGlassEnabled,
                 liquidGlassBackdrop = liquidGlassBackdrop,
+                liquidGlassBarEffects = barEffects,
+                liquidGlassSelectionEffects = selectionEffects,
                 inlineLabels = isTabletLayout,
             )
         }
