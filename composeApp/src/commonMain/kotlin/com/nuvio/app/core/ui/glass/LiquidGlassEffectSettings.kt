@@ -38,7 +38,7 @@ internal data class LiquidGlassEffectSettings(
     )
 
     private fun safeRange(value: Float, maximum: Float, fallback: Float): Float =
-        (value.takeIf(Float::isFinite) ?: fallback).coerceIn(0f, maximum)
+        (value.takeIf { it.isFinite() } ?: fallback).coerceIn(0f, maximum)
 }
 
 internal data class LiquidGlassEffectLimits(
@@ -116,7 +116,7 @@ private fun kotlinx.serialization.json.JsonObject.floatOrDefault(
     default: Float,
 ): Float {
     val value = runCatching { this[key]?.jsonPrimitive?.floatOrNull }.getOrNull()
-    return value?.takeIf(Float::isFinite) ?: default
+    return value?.takeIf { it.isFinite() } ?: default
 }
 
 private fun kotlinx.serialization.json.JsonObject.booleanOrDefault(
