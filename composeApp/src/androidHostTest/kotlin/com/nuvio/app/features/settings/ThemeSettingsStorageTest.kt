@@ -112,14 +112,21 @@ class ThemeSettingsStorageTest {
     fun replacingOlderSyncPayloadClearsOnlyCurrentProfilesGlassEffectSettings() {
         val preferences = RuntimeEnvironment.getApplication()
             .getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
-        val otherProfileKey = ProfileScopedKey.of("nav_bar_liquid_glass_bar_effects", 99)
-        preferences.edit().putString(otherProfileKey, """{"blurRadiusDp":3}""").commit()
+        val otherProfileBarKey = ProfileScopedKey.of("nav_bar_liquid_glass_bar_effects", 99)
+        val otherProfileLensKey = ProfileScopedKey.of("nav_bar_liquid_glass_selection_effects", 99)
+        preferences.edit()
+            .putString(otherProfileBarKey, """{"blurRadiusDp":3}""")
+            .putString(otherProfileLensKey, """{"refractionAmountDp":8}""")
+            .commit()
         ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects("""{"blurRadiusDp":9}""")
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects("""{"refractionAmountDp":10}""")
 
         ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
 
         assertNull(ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
-        assertEquals("""{"blurRadiusDp":3}""", preferences.getString(otherProfileKey, null))
+        assertNull(ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+        assertEquals("""{"blurRadiusDp":3}""", preferences.getString(otherProfileBarKey, null))
+        assertEquals("""{"refractionAmountDp":8}""", preferences.getString(otherProfileLensKey, null))
     }
 
     @Test
