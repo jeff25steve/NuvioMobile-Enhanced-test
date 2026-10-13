@@ -76,7 +76,7 @@
 - Convert dp effect values to pixels with the active draw density before passing them to Kyant `blur`/`lens`.
 - Clamp/sanitize before use. Zero blur omits the blur effect; zero height or amount omits the lens; toggles choose the appropriate upstream Boolean parameters.
 - Use the selected surface's configurable shape in both its backdrop and clip.
-- Render selected-tab content only inside the moving selected pill. In Liquid Glass mode use neutral primary text/icon colour so theme accents affect sliders and the existing floating glow, not navigation icons/labels; preserve the regular non-Liquid-Glass selected accent styling.
+- Render selected-tab content only inside the moving selected pill. Preserve the existing selected-tab accent styling inside that pill, keep inactive icons/labels muted, and ensure slider edits never alter navigation icon/label colours; preserve regular non-Liquid-Glass styling.
 - Preserve Android < API 33 fallback and shared/iOS compile compatibility.
 
 - [ ] Add or extend a test for selected-index mapping/path boundaries if the existing host-test APIs support it.
