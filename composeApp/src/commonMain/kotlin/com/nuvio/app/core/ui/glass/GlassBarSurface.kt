@@ -26,9 +26,8 @@ import dev.chrisbanes.haze.hazeEffect
 internal val GlassSurfaceColor = Color(0xFF1C1C1E)
 
 /**
- * Default surface for the floating navigation pill. The opt-in Kyant Backdrop surface is used
- * when runtime shaders are supported (Android 13+ and Skiko targets); otherwise this Haze surface
- * remains in use.
+ * Existing platform-specific capsule surface used when the Liquid Glass material option is off.
+ * The opt-in material keeps a frosted capsule and draws Kyant's refractive lens only on selection.
  */
 @Composable
 internal expect fun GlassBarSurface(
