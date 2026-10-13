@@ -1357,18 +1357,8 @@ private fun List<CompletedSeriesCandidate>.distinctBySeedContentIdentity(
     if (size < 2) return this
     val canonicalIds = map { candidate -> canonicalSeedContentId(candidate.content.id) }
     if (indices.none { index -> this[index].content.id != canonicalIds[index] }) return this
-    val groupsWithCanonicalMember = indices
-        .filter { index -> this[index].content.id == canonicalIds[index] }
-        .mapTo(mutableSetOf()) { index -> canonicalIds[index] }
-    val keptAliasGroups = mutableSetOf<String>()
-    return filterIndexed { index, candidate ->
-        val canonical = canonicalIds[index]
-        when {
-            candidate.content.id == canonical -> true
-            canonical in groupsWithCanonicalMember -> false
-            else -> keptAliasGroups.add(canonical)
-        }
-    }
+    val keptGroups = mutableSetOf<String>()
+    return filterIndexed { index, _ -> keptGroups.add(canonicalIds[index]) }
 }
 
 internal fun filterNextUpItemsByCurrentSeeds(
