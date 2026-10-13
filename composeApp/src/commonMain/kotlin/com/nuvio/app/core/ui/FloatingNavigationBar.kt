@@ -305,7 +305,6 @@ internal fun FloatingNavigationBar(
                                                 tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
                                                 insetPx = 4.dp.toPx(),
                                                 isRtl = isRtl,
-                                                panelOffsetPx = frame.panelOffset * density.density,
                                             )
                                             translationY = 4.dp.toPx()
                                             scaleX = frame.pillScaleX
@@ -371,18 +370,22 @@ internal fun logicalNavIndex(visualIndex: Int, count: Int, isRtl: Boolean): Int 
  * Converts the selected visual slot into an offset from Box's logical-start alignment.
  * That alignment is left in LTR and right in RTL, so the physical translation must mirror.
  */
+/**
+ * Converts a selected visual slot to an offset local to the already translated navigation row.
+ * JellyMotion's physical panelOffset is applied once by the shared parent graphics layer; applying
+ * it here as well would make the selected lens drift twice as far as the visible tabs.
+ */
 internal fun liquidGlassSelectionTranslationX(
     position: Float,
     count: Int,
     tabWidthPx: Float,
     insetPx: Float,
     isRtl: Boolean,
-    panelOffsetPx: Float = 0f,
-): Float = (if (isRtl) {
+): Float = if (isRtl) {
     -insetPx - tabWidthPx * (count - 1 - position)
 } else {
     insetPx + tabWidthPx * position
-}) + panelOffsetPx
+}
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
