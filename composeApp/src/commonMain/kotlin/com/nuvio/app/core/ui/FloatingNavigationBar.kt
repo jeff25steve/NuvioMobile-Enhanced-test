@@ -272,6 +272,7 @@ internal fun FloatingNavigationBar(
                                 ) {
                                     LiquidGlassSelectionSurface(
                                         backdrop = liquidGlassSelectionBackdrop,
+                                        pressProgress = ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f),
                                         shape = { RoundedCornerShape(50) },
                                         modifier = Modifier.matchParentSize(),
                                     )
