@@ -8,7 +8,7 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.Backdrop
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.nuvio.app.core.ui.nuvio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -90,9 +90,9 @@ internal fun LiquidGlassFrostedBar(
         LiquidGlassEffectDefaults.floatingBar,
         LiquidGlassEffectDefaults.floatingBarLimits,
     )
-    val isLightTheme = !isSystemInDarkTheme()
-    val surfaceColor = if (isLightTheme) Color(0xFFFAFAFA) else Color(0xFF121212)
-    val containerColor = surfaceColor.copy(alpha = safeSettings.tintOpacity)
+    // Nuvio owns its palette independently from Android/iOS system appearance.
+    // Tint the glass with the active Nuvio surface, not the device's light/dark setting.
+    val containerColor = MaterialTheme.nuvio.colors.surface.copy(alpha = safeSettings.tintOpacity)
     val cornerShape = RoundedCornerShape(safeSettings.cornerRadiusPercent.roundToInt())
 
     Box(
@@ -119,7 +119,8 @@ internal fun LiquidGlassFrostedBar(
                 },
             )
             .drawWithCache {
-                val edgeTop = if (isLightTheme) 0.55f else 0.27f
+                // Match Nuvio's existing dark frosted-bar edge treatment regardless of system theme.
+                val edgeTop = 0.27f
                 val edge = Brush.verticalGradient(
                     listOf(Color.White.copy(alpha = edgeTop), Color.White.copy(alpha = 0.02f)),
                 )
@@ -156,7 +157,6 @@ internal fun LiquidGlassSelectionSurface(
         LiquidGlassEffectDefaults.selectionLens,
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
-    val isLightTheme = !isSystemInDarkTheme()
     Box(
         modifier.drawBackdrop(
             backdrop = backdrop,
@@ -190,7 +190,7 @@ internal fun LiquidGlassSelectionSurface(
             onDrawSurface = {
                 val progress = pressProgress().coerceIn(0f, 1f)
                 drawRect(
-                    if (isLightTheme) Color.Black.copy(alpha = safeSettings.tintOpacity) else Color.White.copy(alpha = safeSettings.tintOpacity),
+                    Color.White.copy(alpha = safeSettings.tintOpacity),
                     alpha = 1f - progress,
                 )
                 drawRect(Color.Black.copy(alpha = 0.03f * progress))
