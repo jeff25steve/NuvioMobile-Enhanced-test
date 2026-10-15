@@ -23,6 +23,8 @@ class LiquidGlassEffectSettingsTest {
         assertEquals(14f, lens.refractionAmountDp)
         assertEquals(0.1f, lens.tintOpacity)
         assertEquals(true, lens.chromaticAberration)
+        assertEquals(false, lens.affectTabIcons)
+        assertEquals(false, lens.affectFloatingBar)
         assertNotEquals(bar, lens)
     }
 
