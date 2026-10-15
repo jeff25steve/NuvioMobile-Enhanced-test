@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
 import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
 import com.nuvio.app.core.ui.glass.shouldCaptureFloatingBar
@@ -154,18 +155,17 @@ internal fun FloatingNavigationBar(
     val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
         RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
     }
-    // Keep the screen backdrop as the default; add bar and icon sources only when opted in.
+    // The primary lens always samples the screen. Only the optional floating-bar source is
+    // composited into this pass; tab icons use a separate refraction-only overlay below so the
+    // selected-lens blur cannot smear glyphs when icon refraction is enabled.
     val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
         val screenBackdrop = liquidGlassBackdrop!!
-        when {
-            liquidGlassBarBackdrop != null && liquidGlassIconsBackdrop != null ->
-                rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop, liquidGlassIconsBackdrop)
-            liquidGlassBarBackdrop != null ->
-                rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop)
-            liquidGlassIconsBackdrop != null ->
-                rememberCombinedBackdrop(screenBackdrop, liquidGlassIconsBackdrop)
-            else -> screenBackdrop
+        if (liquidGlassBarBackdrop != null) {
+            rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop)
+        } else {
+            screenBackdrop
         }
+    }
     } else {
         null
     }
@@ -383,6 +383,36 @@ internal fun FloatingNavigationBar(
                                             // Kyant's backdrop sampler can invert it for source mapping.
                                             val frame = motion.frame
                                             // This lens is inside the same parent layer that applies panelOffset.
+                                            translationX = liquidGlassSelectionTranslationX(
+                                                position = frame.position,
+                                                count = items.size,
+                                                tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
+                                                insetPx = 4.dp.toPx(),
+                                                isRtl = isRtl,
+                                            )
+                                            translationY = 4.dp.toPx()
+                                            scaleX = frame.pillScaleX
+                                            scaleY = frame.pillScaleY
+                                        },
+                                    )
+                                }
+                            }
+
+                            // Keep icon refraction separate from the main screen/bar lens: the
+                            // configured lens blur must not blur this icon-only source a second time.
+                            if (liquidGlassIconsBackdrop != null) {
+                                Box(
+                                    Modifier
+                                        .width(liquidGlassSelectionTabWidth)
+                                        .height(trackHeight - 8.dp),
+                                ) {
+                                    LiquidGlassIconRefractionSurface(
+                                        backdrop = liquidGlassIconsBackdrop,
+                                        shape = { selectionLensShape },
+                                        modifier = Modifier.matchParentSize(),
+                                        settings = selectionLensEffects,
+                                        layerBlock = {
+                                            val frame = motion.frame
                                             translationX = liquidGlassSelectionTranslationX(
                                                 position = frame.position,
                                                 count = items.size,
