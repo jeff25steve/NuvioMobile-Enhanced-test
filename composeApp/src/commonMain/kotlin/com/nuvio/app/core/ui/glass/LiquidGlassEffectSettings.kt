@@ -54,11 +54,11 @@ internal data class LiquidGlassEffectLimits(
  * effect. If refraction is disabled (height or amount is zero) and blur is zero, keep the
  * regular selected icon visible instead of sampling a duplicate, unfiltered copy.
  */
+internal fun LiquidGlassEffectSettings.hasActiveLensEffect(): Boolean =
+    blurRadiusDp > 0f || (refractionHeightDp > 0f && refractionAmountDp > 0f)
+
 internal fun LiquidGlassEffectSettings.shouldCaptureTabIcons(): Boolean =
-    affectTabIcons && (
-        blurRadiusDp > 0f ||
-            (refractionHeightDp > 0f && refractionAmountDp > 0f)
-        )
+    affectTabIcons && hasActiveLensEffect()
 
 internal object LiquidGlassEffectDefaults {
     val floatingBar = LiquidGlassEffectSettings(
