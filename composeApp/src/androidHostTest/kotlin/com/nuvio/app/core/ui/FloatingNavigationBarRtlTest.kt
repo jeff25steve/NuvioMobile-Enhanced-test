@@ -230,31 +230,34 @@ class FloatingNavigationBarRtlTest {
             "RTL lens should interpolate between visual slots",
         )
 
-        // Panel offset is applied once by the shared parent layer, so this local slot offset must
-        // remain independent of motion.frame.panelOffset in both LTR and RTL.
+        // The selected lens is outside the panelOffset graphics layer in the Nuvio
+        // layout, so it must explicitly follow the same physical offset as the source row.
+        val panelOffsetPx = 6f
         assertEquals(
-            inset + tabWidth * 1.5f,
+            inset + tabWidth * 1.5f + panelOffsetPx,
             liquidGlassSelectionTranslationX(
                 position = 1.5f,
                 count = count,
                 tabWidthPx = tabWidth,
                 insetPx = inset,
                 isRtl = false,
+                panelOffsetPx = panelOffsetPx,
             ),
             0.001f,
-            "LTR lens local offset must not duplicate the parent panel offset",
+            "LTR lens must follow the moving panel exactly once",
         )
         assertEquals(
-            -inset - tabWidth * (count - 1 - 1.5f),
+            -inset - tabWidth * (count - 1 - 1.5f) + panelOffsetPx,
             liquidGlassSelectionTranslationX(
                 position = 1.5f,
                 count = count,
                 tabWidthPx = tabWidth,
                 insetPx = inset,
                 isRtl = true,
+                panelOffsetPx = panelOffsetPx,
             ),
             0.001f,
-            "RTL lens local offset must not duplicate the parent panel offset",
+            "RTL lens must follow the physical panel offset exactly once",
         )
     }
 
