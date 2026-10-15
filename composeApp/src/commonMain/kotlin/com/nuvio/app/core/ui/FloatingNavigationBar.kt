@@ -382,15 +382,13 @@ internal fun FloatingNavigationBar(
                                             // Apply the moving lens transform inside drawBackdrop so
                                             // Kyant's backdrop sampler can invert it for source mapping.
                                             val frame = motion.frame
+                                            // This lens is inside the same parent layer that applies panelOffset.
                                             translationX = liquidGlassSelectionTranslationX(
                                                 position = frame.position,
                                                 count = items.size,
                                                 tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
                                                 insetPx = 4.dp.toPx(),
                                                 isRtl = isRtl,
-                                                // Kyant translates the selection lens together with the
-                                                // elastic panel while the indicator is being dragged.
-                                                panelOffsetPx = frame.panelOffset * density.density,
                                             )
                                             translationY = 4.dp.toPx()
                                             scaleX = frame.pillScaleX
@@ -465,14 +463,11 @@ internal fun liquidGlassSelectionTranslationX(
     tabWidthPx: Float,
     insetPx: Float,
     isRtl: Boolean,
-    panelOffsetPx: Float = 0f,
-): Float = panelOffsetPx + (
-    if (isRtl) {
-        -insetPx - tabWidthPx * (count - 1 - position)
-    } else {
-        insetPx + tabWidthPx * position
-    }
-)
+): Float = if (isRtl) {
+    -insetPx - tabWidthPx * (count - 1 - position)
+} else {
+    insetPx + tabWidthPx * position
+}
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
