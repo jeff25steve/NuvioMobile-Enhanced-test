@@ -29,6 +29,21 @@ class LiquidGlassEffectSettingsTest {
     }
 
     @Test
+    fun iconBackdropRequiresToggleAndAnActiveLensEffect() {
+        val defaults = LiquidGlassEffectDefaults.selectionLens
+        val enabled = defaults.copy(affectTabIcons = true)
+
+        assertEquals(true, enabled.shouldCaptureTabIcons())
+        assertEquals(false, enabled.copy(affectTabIcons = false).shouldCaptureTabIcons())
+        assertEquals(false, enabled.copy(refractionHeightDp = 0f).shouldCaptureTabIcons())
+        assertEquals(false, enabled.copy(refractionAmountDp = 0f).shouldCaptureTabIcons())
+        assertEquals(
+            true,
+            enabled.copy(refractionHeightDp = 0f, blurRadiusDp = 4f).shouldCaptureTabIcons(),
+        )
+    }
+
+    @Test
     fun sanitizingClampsOutOfRangeValuesAndRestoresNonFiniteValues() {
         val defaults = LiquidGlassEffectDefaults.floatingBar
         val value = defaults.copy(
