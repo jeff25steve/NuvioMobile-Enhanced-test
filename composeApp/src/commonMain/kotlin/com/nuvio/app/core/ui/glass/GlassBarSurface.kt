@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -153,6 +154,7 @@ internal fun LiquidGlassSelectionSurface(
     shape: () -> Shape,
     modifier: Modifier = Modifier,
     settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
+    layerBlock: GraphicsLayerScope.() -> Unit = {},
 ) {
     val safeSettings = settings.sanitized(
         LiquidGlassEffectDefaults.selectionLens,
@@ -178,6 +180,7 @@ internal fun LiquidGlassSelectionSurface(
                     )
                 }
             },
+            layerBlock = layerBlock,
             highlight = {
                 Highlight.Default.copy(alpha = pressProgress().coerceIn(0f, 1f))
             },

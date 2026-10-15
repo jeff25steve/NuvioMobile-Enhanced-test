@@ -345,8 +345,17 @@ internal fun FloatingNavigationBar(
                                 Box(
                                     Modifier
                                         .width(liquidGlassSelectionTabWidth)
-                                        .height(trackHeight - 8.dp)
-                                        .graphicsLayer {
+                                        .height(trackHeight - 8.dp),
+                                ) {
+                                    LiquidGlassSelectionSurface(
+                                        backdrop = liquidGlassSelectionBackdrop,
+                                        pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
+                                        shape = { selectionLensShape },
+                                        modifier = Modifier.matchParentSize(),
+                                        settings = selectionLensEffects,
+                                        layerBlock = {
+                                            // Apply the moving lens transform inside drawBackdrop so
+                                            // Kyant's backdrop sampler can invert it for source mapping.
                                             val frame = motion.frame
                                             translationX = liquidGlassSelectionTranslationX(
                                                 position = frame.position,
@@ -359,13 +368,6 @@ internal fun FloatingNavigationBar(
                                             scaleX = frame.pillScaleX
                                             scaleY = frame.pillScaleY
                                         },
-                                ) {
-                                    LiquidGlassSelectionSurface(
-                                        backdrop = liquidGlassSelectionBackdrop,
-                                        pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
-                                        shape = { selectionLensShape },
-                                        modifier = Modifier.matchParentSize(),
-                                        settings = selectionLensEffects,
                                     )
                                 }
                             }
