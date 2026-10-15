@@ -1,9 +1,6 @@
 package com.nuvio.app.core.ui
 
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -124,7 +121,6 @@ internal fun FloatingNavigationBar(
     val selectedIndex = items.indexOfFirst { it.selected }
     val visualSelectedIndex = visualNavIndex(selectedIndex, items.size, isRtl)
     val motion = remember(items.size, isRtl) { JellyMotion(visualSelectedIndex, items.size) }
-    val liquidGlassContentBackdrop = rememberLayerBackdrop()
     val useLiquidGlassMaterial =
         liquidGlassEnabled && liquidGlassBackdrop != null && isRuntimeShaderSupported()
     val floatingBarEffects = liquidGlassBarEffects.sanitized(
@@ -141,11 +137,8 @@ internal fun FloatingNavigationBar(
     val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
         RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
     }
-    val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
-        rememberCombinedBackdrop(liquidGlassBackdrop!!, liquidGlassContentBackdrop)
-    } else {
-        null
-    }
+    // Refract only the screen backdrop so the selected lens never magnifies nav icons.
+    val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) liquidGlassBackdrop else null
     val selectionPillCornerRadiusPercent =
         if (liquidGlassSelectionBackdrop != null) selectionLensEffects.cornerRadiusPercent else 50f
     val currentItems by rememberUpdatedState(items)
@@ -268,27 +261,6 @@ internal fun FloatingNavigationBar(
                                 },
                             ) {
                                 JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
-                            }
-                            if (useLiquidGlassMaterial) {
-                                // This layer is a backdrop source for the selected lens only.
-                                // Keep it invisible to the user so it cannot duplicate labels/icons.
-                                Box(
-                                    Modifier
-                                        .matchParentSize()
-                                        .clearAndSetSemantics {}
-                                        .graphicsLayer { alpha = 0f }
-                                        .layerBackdrop(liquidGlassContentBackdrop),
-                                ) {
-                                    JellyTabRow(
-                                        items,
-                                        labelFraction,
-                                        motion,
-                                        active = true,
-                                        compactSize = compactSize,
-                                        modifier = Modifier.matchParentSize(),
-                                        inlineLabels = inlineLabels,
-                                    )
-                                }
                             }
                         }
                         if (selectedIndex >= 0) {
