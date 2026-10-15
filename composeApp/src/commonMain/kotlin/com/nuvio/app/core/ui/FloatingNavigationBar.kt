@@ -384,6 +384,9 @@ internal fun FloatingNavigationBar(
                                                 tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
                                                 insetPx = 4.dp.toPx(),
                                                 isRtl = isRtl,
+                                                // Kyant translates the selection lens together with the
+                                                // elastic panel while the indicator is being dragged.
+                                                panelOffsetPx = frame.panelOffset * density.density,
                                             )
                                             translationY = 4.dp.toPx()
                                             scaleX = frame.pillScaleX
@@ -458,7 +461,8 @@ internal fun liquidGlassSelectionTranslationX(
     tabWidthPx: Float,
     insetPx: Float,
     isRtl: Boolean,
-): Float = if (isRtl) {
+    panelOffsetPx: Float = 0f,
+): Float = panelOffsetPx + if (isRtl) {
     -insetPx - tabWidthPx * (count - 1 - position)
 } else {
     insetPx + tabWidthPx * position
