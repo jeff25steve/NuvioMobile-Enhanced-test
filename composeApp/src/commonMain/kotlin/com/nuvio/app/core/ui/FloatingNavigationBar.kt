@@ -265,13 +265,21 @@ internal fun FloatingNavigationBar(
                                     },
                             ) {
                                 if (useLiquidGlassMaterial) {
-                                    LiquidGlassFrostedBar(
-                                        backdrop = liquidGlassBackdrop!!,
-                                        modifier = Modifier.matchParentSize(),
-                                        glowStrength = glowStrength,
-                                        settings = floatingBarEffects,
-                                        exportedBackdrop = liquidGlassBarBackdrop,
-                                    )
+                                    // Capture the rendered child via Kyant's layerBackdrop modifier.
+                                    // This includes the bar's own rounded backdrop pass and rim, without
+                                    // accidentally exporting the un-clipped intermediate backdrop layer.
+                                    Box(
+                                        Modifier.matchParentSize().then(
+                                            liquidGlassBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier,
+                                        ),
+                                    ) {
+                                        LiquidGlassFrostedBar(
+                                            backdrop = liquidGlassBackdrop!!,
+                                            modifier = Modifier.matchParentSize(),
+                                            glowStrength = glowStrength,
+                                            settings = floatingBarEffects,
+                                        )
+                                    }
                                 } else {
                                     GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
                                 }
