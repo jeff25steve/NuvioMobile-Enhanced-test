@@ -79,7 +79,7 @@
 - Render selected-tab content only inside the moving selected pill. Preserve the existing selected-tab accent styling inside that pill, keep inactive icons/labels muted, and ensure slider edits never alter navigation icon/label colours; preserve regular non-Liquid-Glass styling.
 - Preserve Android < API 33 fallback and shared/iOS compile compatibility.
 
-- [x] Extend the LTR/RTL host tests to verify the selected lens uses a local slot offset and does not apply JellyMotion's shared parent panel offset a second time. Actual rendered path geometry remains unverified.
+- [x] Extend the LTR/RTL host tests to verify the selected lens combines its local slot offset with the physical `panelOffset`; the lens sits outside the child graphics layer that translates the visible row and icon source. Actual rendered path geometry remains unverified.
 - [x] Implement the minimum rendering changes; retain Kyant's actual API and existing JellyMotion.
 - [x] Review RTL, selected index bounds, and all call sites by source inspection; runtime behavior remains unverified.
 
@@ -115,9 +115,10 @@
 - [x] Review claimed passes against tool output. Android and iOS device rendering remain unverified.
 
 
-## Follow-up review findings (2026-10-13)
+## Follow-up review findings (2026-10-13 and 2026-10-15)
 
-- Corrected the selected-lens local X offset so the shared JellyMotion panel translation is applied only once; updated the LTR/RTL unit assertions.
+- Corrected icon-source composition: clip inactive icons out of the selected pill before recording active selected content, and do not draw a crisp selected row over its refracted copy. Only allocate optional icon/bar sources while the selection lens has an active refraction or blur effect; when the effect is disabled, keep the normal selected icon visible. Regression tests cover independent source toggles and zero-effect fallback.
+- Corrected the selected-lens local X offset against Kyant's KMP reference: the lens adds the physical `panelOffset` because it is a sibling outside Nuvio's translated row container. Replaced the previous incorrect LTR/RTL test assumption.
 - Moved dismissal-time persistence before suspend/animation work so the values are written synchronously when Done/Back/swipe/outside dismissal begins.
 - Changed glass surface tint to use Nuvio's own surface tokens rather than the operating system's light/dark setting.
 - Fixed ThemeSettingsRepository visibility so internal glass settings types are not exposed through public APIs.
