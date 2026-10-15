@@ -51,6 +51,8 @@ import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
 import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
+import com.nuvio.app.core.ui.glass.shouldCaptureFloatingBar
+import com.nuvio.app.core.ui.glass.shouldCaptureTabIcons
 import com.nuvio.app.core.ui.jelly.JellyMotion
 import com.nuvio.app.core.ui.jelly.JellySelectionSource
 import com.nuvio.app.core.ui.jelly.JellyTabRow
