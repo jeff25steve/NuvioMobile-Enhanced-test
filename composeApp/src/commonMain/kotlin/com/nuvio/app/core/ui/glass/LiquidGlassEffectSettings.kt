@@ -50,19 +50,20 @@ internal data class LiquidGlassEffectLimits(
 )
 
 /**
- * Supplemental backdrop sources should only be present while the selection lens has an active
- * visual effect; otherwise the source would be composited without any refraction or blur.
+ * These optional sources exist to add refraction targets to the selection lens, not to extend its
+ * blur. If either refraction dimension is zero, Kyant's lens effect is a no-op and the sources
+ * should not replace normal foreground content.
  */
-internal fun LiquidGlassEffectSettings.hasActiveLensEffect(): Boolean =
-    blurRadiusDp > 0f || (refractionHeightDp > 0f && refractionAmountDp > 0f)
+internal fun LiquidGlassEffectSettings.hasActiveRefraction(): Boolean =
+    refractionHeightDp > 0f && refractionAmountDp > 0f
 
-/** Capture tab icons only when requested and when the lens can visibly process the source. */
+/** Capture tab content only when requested and when refraction is active. */
 internal fun LiquidGlassEffectSettings.shouldCaptureTabIcons(): Boolean =
-    affectTabIcons && hasActiveLensEffect()
+    affectTabIcons && hasActiveRefraction()
 
-/** Capture the floating-bar surface only when requested and when the lens can process it. */
+/** Capture the floating-bar surface only when requested and when refraction is active. */
 internal fun LiquidGlassEffectSettings.shouldCaptureFloatingBar(): Boolean =
-    affectFloatingBar && hasActiveLensEffect()
+    affectFloatingBar && hasActiveRefraction()
 
 internal object LiquidGlassEffectDefaults {
     val floatingBar = LiquidGlassEffectSettings(
