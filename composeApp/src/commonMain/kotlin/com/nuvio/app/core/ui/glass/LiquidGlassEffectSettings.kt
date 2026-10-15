@@ -50,16 +50,17 @@ internal data class LiquidGlassEffectLimits(
 )
 
 /**
- * A tab-icon backdrop source is useful only while the selection lens has an active visual
- * effect. If refraction is disabled (height or amount is zero) and blur is zero, keep the
- * regular selected icon visible instead of sampling a duplicate, unfiltered copy.
+ * Supplemental backdrop sources should only be present while the selection lens has an active
+ * visual effect; otherwise the source would be composited without any refraction or blur.
  */
 internal fun LiquidGlassEffectSettings.hasActiveLensEffect(): Boolean =
     blurRadiusDp > 0f || (refractionHeightDp > 0f && refractionAmountDp > 0f)
 
+/** Capture tab icons only when requested and when the lens can visibly process the source. */
 internal fun LiquidGlassEffectSettings.shouldCaptureTabIcons(): Boolean =
     affectTabIcons && hasActiveLensEffect()
 
+/** Capture the floating-bar surface only when requested and when the lens can process it. */
 internal fun LiquidGlassEffectSettings.shouldCaptureFloatingBar(): Boolean =
     affectFloatingBar && hasActiveLensEffect()
 
