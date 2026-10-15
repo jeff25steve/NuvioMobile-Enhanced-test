@@ -150,7 +150,7 @@ internal fun FloatingNavigationBar(
     val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
         RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
     }
-    // Refract only the screen backdrop so the selected lens never magnifies nav icons.
+    // Keep the screen backdrop as the default; add bar and icon sources only when opted in.
     val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
         val screenBackdrop = liquidGlassBackdrop!!
         when {

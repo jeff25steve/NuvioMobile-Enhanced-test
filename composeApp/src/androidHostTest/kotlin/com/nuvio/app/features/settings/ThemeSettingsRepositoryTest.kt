@@ -127,9 +127,10 @@ class ThemeSettingsRepositoryTest {
     @Test
     fun selectedLensBackdropEffectsDefaultOffAndPersistIndependently() {
         ThemeSettingsRepository.ensureLoaded()
+        val loadedDefaults = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
+        assertEquals(false, loadedDefaults.affectTabIcons)
+        assertEquals(false, loadedDefaults.affectFloatingBar)
         val defaults = LiquidGlassEffectDefaults.selectionLens
-        assertEquals(false, defaults.affectTabIcons)
-        assertEquals(false, defaults.affectFloatingBar)
         assertEquals(
             false,
             decodeLiquidGlassEffectSettings(
