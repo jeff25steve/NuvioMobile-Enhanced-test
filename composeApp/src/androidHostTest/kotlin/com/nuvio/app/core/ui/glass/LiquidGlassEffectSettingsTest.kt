@@ -29,18 +29,29 @@ class LiquidGlassEffectSettingsTest {
     }
 
     @Test
-    fun iconBackdropRequiresToggleAndAnActiveLensEffect() {
+    fun optionalSourcesRespectIndependentTogglesAndActiveLensEffects() {
         val defaults = LiquidGlassEffectDefaults.selectionLens
-        val enabled = defaults.copy(affectTabIcons = true)
+        val bothEnabled = defaults.copy(affectTabIcons = true, affectFloatingBar = true)
 
-        assertEquals(true, enabled.shouldCaptureTabIcons())
-        assertEquals(false, enabled.copy(affectTabIcons = false).shouldCaptureTabIcons())
-        assertEquals(false, enabled.copy(refractionHeightDp = 0f).shouldCaptureTabIcons())
-        assertEquals(false, enabled.copy(refractionAmountDp = 0f).shouldCaptureTabIcons())
-        assertEquals(
-            true,
-            enabled.copy(refractionHeightDp = 0f, blurRadiusDp = 4f).shouldCaptureTabIcons(),
-        )
+        assertEquals(true, bothEnabled.shouldCaptureTabIcons())
+        assertEquals(true, bothEnabled.shouldCaptureFloatingBar())
+
+        // Turning either source toggle off must not affect the other one.
+        assertEquals(false, bothEnabled.copy(affectTabIcons = false).shouldCaptureTabIcons())
+        assertEquals(true, bothEnabled.copy(affectTabIcons = false).shouldCaptureFloatingBar())
+        assertEquals(true, bothEnabled.copy(affectFloatingBar = false).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(affectFloatingBar = false).shouldCaptureFloatingBar())
+
+        // A zero height or amount disables refraction; with blur also off, neither extra
+        // source should be captured, and the normal selected icon remains visible.
+        assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(refractionAmountDp = 0f).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureFloatingBar())
+
+        // Blur remains an active lens effect even when refraction is disabled.
+        val blurOnly = bothEnabled.copy(refractionHeightDp = 0f, blurRadiusDp = 4f)
+        assertEquals(true, blurOnly.shouldCaptureTabIcons())
+        assertEquals(true, blurOnly.shouldCaptureFloatingBar())
     }
 
     @Test
