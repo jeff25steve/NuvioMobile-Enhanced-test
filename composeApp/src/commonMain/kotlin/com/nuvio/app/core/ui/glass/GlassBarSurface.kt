@@ -208,3 +208,42 @@ internal fun LiquidGlassSelectionSurface(
         ),
     )
 }
+
+/**
+ * Refract only the optional tab-icon source. Keep this pass separate from the primary lens so the
+ * selected-lens blur affects the screen/bar backdrop, not the icon glyphs that should remain legible.
+ * Like Kyant's selected-tab lens, this uses the same moving graphics-layer transform; unlike the
+ * primary lens it draws no tint, blur, highlight, or shadow over the icon content.
+ */
+@Composable
+internal fun LiquidGlassIconRefractionSurface(
+    backdrop: Backdrop,
+    shape: () -> Shape,
+    modifier: Modifier = Modifier,
+    settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
+    layerBlock: GraphicsLayerScope.() -> Unit = {},
+) {
+    val safeSettings = settings.sanitized(
+        LiquidGlassEffectDefaults.selectionLens,
+        LiquidGlassEffectDefaults.selectionLensLimits,
+    )
+    Box(
+        modifier.drawBackdrop(
+            backdrop = backdrop,
+            shape = shape,
+            effects = {
+                if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+                    lens(
+                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
+                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
+                        depthEffect = safeSettings.depthEffect,
+                        chromaticAberration = safeSettings.chromaticAberration,
+                    )
+                }
+            },
+            highlight = { null },
+            shadow = { null },
+            layerBlock = layerBlock,
+        ),
+    )
+}
