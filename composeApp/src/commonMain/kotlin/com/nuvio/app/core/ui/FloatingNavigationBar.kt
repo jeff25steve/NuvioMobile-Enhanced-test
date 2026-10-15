@@ -139,7 +139,7 @@ internal fun FloatingNavigationBar(
     } else {
         null
     }
-    val liquidGlassIconsBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.affectTabIcons) {
+    val liquidGlassIconsBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.shouldCaptureTabIcons()) {
         rememberLayerBackdrop()
     } else {
         null
