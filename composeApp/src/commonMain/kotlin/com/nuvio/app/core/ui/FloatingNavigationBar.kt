@@ -135,9 +135,7 @@ internal fun FloatingNavigationBar(
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
     val liquidGlassBarBackdrop = if (
-        useLiquidGlassMaterial &&
-        selectionLensEffects.affectFloatingBar &&
-        selectionLensEffects.hasActiveLensEffect()
+        useLiquidGlassMaterial && selectionLensEffects.shouldCaptureFloatingBar()
     ) {
         rememberLayerBackdrop()
     } else {
