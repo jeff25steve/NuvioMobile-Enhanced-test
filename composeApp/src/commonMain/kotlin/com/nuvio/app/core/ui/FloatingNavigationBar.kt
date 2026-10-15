@@ -371,35 +371,40 @@ internal fun FloatingNavigationBar(
                                     )
                                 }
                             }
-                            Box(
-                                Modifier.matchParentSize()
-                                    .clearAndSetSemantics {}
-                                    .then(
-                                        if (liquidGlassSelectionBackdrop != null) {
-                                            Modifier.drawWithContent {
-                                                clipPath(
-                                                    jellyPillPath(
+                            // Keep the selected row above the lens unless it is already
+                            // part of the lens backdrop source. Drawing it again on top would
+                            // leave a crisp duplicate over the refracted icon and label.
+                            if (liquidGlassIconsBackdrop == null) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .then(
+                                            if (liquidGlassSelectionBackdrop != null) {
+                                                Modifier.drawWithContent {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                }
+                                            } else {
+                                                Modifier.drawWithContent {
+                                                    drawJellyPill(
                                                         motion.frame,
                                                         items.size,
-                                                        selectionPillCornerRadiusPercent,
-                                                    ),
-                                                ) {
-                                                    this@drawWithContent.drawContent()
+                                                        selectedSurface,
+                                                        accentColor.copy(alpha = accentColor.alpha * glowStrength),
+                                                    ) { this@drawWithContent.drawContent() }
                                                 }
-                                            }
-                                        } else {
-                                            Modifier.drawWithContent {
-                                                drawJellyPill(
-                                                    motion.frame,
-                                                    items.size,
-                                                    selectedSurface,
-                                                    accentColor.copy(alpha = accentColor.alpha * glowStrength),
-                                                ) { this@drawWithContent.drawContent() }
-                                            }
-                                        },
-                                    ),
-                            ) {
-                                JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                            },
+                                        ),
+                                ) {
+                                    JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                }
                             }
                         }
                         JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize(), inlineLabels = inlineLabels)
