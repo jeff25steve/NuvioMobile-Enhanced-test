@@ -8,7 +8,6 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.nuvio.app.core.ui.nuvio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
@@ -91,7 +90,6 @@ internal fun LiquidGlassFrostedBar(
     modifier: Modifier,
     glowStrength: Float,
     settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
-    exportedBackdrop: LayerBackdrop? = null,
 ) {
     val safeSettings = settings.sanitized(
         LiquidGlassEffectDefaults.floatingBar,
@@ -122,8 +120,8 @@ internal fun LiquidGlassFrostedBar(
                     }
                 },
                 onDrawSurface = {
-                    // exportedBackdrop records into a separate GraphicsLayer, so it must not
-                    // depend on the visible DrawBackdrop node's outer capsule clip.
+                    // The optional layerBackdrop captures this rendered child separately, so
+                    // draw the tint with capsule geometry instead of relying on an outer clip.
                     val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
                     drawRoundRect(
                         color = containerColor,
@@ -131,8 +129,8 @@ internal fun LiquidGlassFrostedBar(
                     )
                 },
                 onDrawFront = {
-                    // Include the existing capsule rim in the exported layer as well, so the
-                    // selected lens samples the complete floating-bar glass surface.
+                    // Keep the rim in this rendered child so the optional layerBackdrop source
+                    // captures the complete visible floating-bar glass surface.
                     val width = 0.75.dp.toPx()
                     val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
                     drawRoundRect(
@@ -144,7 +142,6 @@ internal fun LiquidGlassFrostedBar(
                         alpha = glowStrength,
                     )
                 },
-                exportedBackdrop = exportedBackdrop,
             ),
     )
 }
