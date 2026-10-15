@@ -130,6 +130,13 @@ class ThemeSettingsRepositoryTest {
         val loadedDefaults = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
         assertEquals(false, loadedDefaults.affectTabIcons)
         assertEquals(false, loadedDefaults.affectFloatingBar)
+
+        // A custom theme must be unaffected by selected-lens-only settings.
+        ThemeSettingsRepository.setCustomTheme(CustomThemeColors.solid(0x2255AA))
+        val themePreferenceBefore = ThemeSettingsRepository.selectedThemePreference.value
+        val effectiveThemeBefore = ThemeSettingsRepository.selectedTheme.value
+        val themeColorsBefore = ThemeSettingsRepository.customThemeColors.value
+
         val defaults = LiquidGlassEffectDefaults.selectionLens
         assertEquals(
             false,
@@ -155,10 +162,17 @@ class ThemeSettingsRepositoryTest {
         )
         configurations.forEach { settings ->
             ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(settings)
+            assertEquals(themePreferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+            assertEquals(effectiveThemeBefore, ThemeSettingsRepository.selectedTheme.value)
+            assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
+
             ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
             ThemeSettingsRepository.clearLocalState()
             ThemeSettingsRepository.ensureLoaded()
             assertEquals(settings, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+            assertEquals(themePreferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+            assertEquals(effectiveThemeBefore, ThemeSettingsRepository.selectedTheme.value)
+            assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
         }
     }
 
