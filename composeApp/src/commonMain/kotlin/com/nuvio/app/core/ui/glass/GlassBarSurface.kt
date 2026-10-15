@@ -8,6 +8,7 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.nuvio.app.core.ui.nuvio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,9 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 
 internal val GlassSurfaceColor = Color(0xFF1C1C1E)
+private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
+    listOf(Color.White.copy(alpha = 0.27f), Color.White.copy(alpha = 0.02f)),
+)
 
 /**
  * Existing platform-specific capsule surface used when the Liquid Glass material option is off.
@@ -86,6 +90,7 @@ internal fun LiquidGlassFrostedBar(
     modifier: Modifier,
     glowStrength: Float,
     settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    exportedBackdrop: LayerBackdrop? = null,
 ) {
     val safeSettings = settings.sanitized(
         LiquidGlassEffectDefaults.floatingBar,
@@ -118,27 +123,22 @@ internal fun LiquidGlassFrostedBar(
                 onDrawSurface = {
                     drawRect(containerColor)
                 },
-            )
-            .drawWithCache {
-                // Match Nuvio's existing dark frosted-bar edge treatment regardless of system theme.
-                val edgeTop = 0.27f
-                val edge = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = edgeTop), Color.White.copy(alpha = 0.02f)),
-                )
-                val width = 0.75.dp.toPx()
-                val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
-                onDrawWithContent {
-                    drawContent()
+                onDrawFront = {
+                    // Include the existing capsule rim in the exported layer as well, so the
+                    // selected lens samples the complete floating-bar glass surface.
+                    val width = 0.75.dp.toPx()
+                    val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
                     drawRoundRect(
-                        brush = edge,
+                        brush = LiquidGlassBarEdgeBrush,
                         topLeft = Offset(width / 2, width / 2),
                         size = Size(size.width - width, size.height - width),
                         cornerRadius = CornerRadius((cornerRadius - width / 2).coerceAtLeast(0f)),
                         style = Stroke(width),
                         alpha = glowStrength,
                     )
-                }
-            },
+                },
+                exportedBackdrop = exportedBackdrop,
+            ),
     )
 }
 

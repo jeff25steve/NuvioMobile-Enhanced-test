@@ -259,8 +259,7 @@ internal fun FloatingNavigationBar(
                                     .drawWithContent {
                                         drawContent()
                                         drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
-                                    }
-                                    .then(liquidGlassBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
+                                    },
                             ) {
                                 if (useLiquidGlassMaterial) {
                                     LiquidGlassFrostedBar(
@@ -268,6 +267,7 @@ internal fun FloatingNavigationBar(
                                         modifier = Modifier.matchParentSize(),
                                         glowStrength = glowStrength,
                                         settings = floatingBarEffects,
+                                        exportedBackdrop = liquidGlassBarBackdrop,
                                     )
                                 } else {
                                     GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
@@ -299,15 +299,44 @@ internal fun FloatingNavigationBar(
                                         .graphicsLayer { alpha = 0f }
                                         .layerBackdrop(liquidGlassIconsBackdrop),
                                 ) {
-                                    JellyTabRow(
-                                        items,
-                                        labelFraction,
-                                        motion,
-                                        active = true,
-                                        compactSize = compactSize,
-                                        modifier = Modifier.matchParentSize(),
-                                        inlineLabels = inlineLabels,
-                                    )
+                                    Box(Modifier.matchParentSize()) {
+                                        JellyTabRow(
+                                            items,
+                                            labelFraction,
+                                            motion,
+                                            active = false,
+                                            compactSize = compactSize,
+                                            modifier = Modifier.matchParentSize(),
+                                            inlineLabels = inlineLabels,
+                                        )
+                                        Box(
+                                            Modifier.matchParentSize().drawWithContent {
+                                                if (selectedIndex >= 0) {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                } else {
+                                                    drawContent()
+                                                }
+                                            },
+                                        ) {
+                                            JellyTabRow(
+                                                items,
+                                                labelFraction,
+                                                motion,
+                                                active = true,
+                                                compactSize = compactSize,
+                                                modifier = Modifier.matchParentSize(),
+                                                inlineLabels = inlineLabels,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
