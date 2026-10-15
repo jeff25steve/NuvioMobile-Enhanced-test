@@ -125,6 +125,43 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
+    fun selectedLensBackdropEffectsDefaultOffAndPersistIndependently() {
+        ThemeSettingsRepository.ensureLoaded()
+        val defaults = LiquidGlassEffectDefaults.selectionLens
+        assertEquals(false, defaults.affectTabIcons)
+        assertEquals(false, defaults.affectFloatingBar)
+        assertEquals(
+            false,
+            decodeLiquidGlassEffectSettings(
+                """{"refractionAmountDp":10}""",
+                defaults,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ).affectTabIcons,
+        )
+        assertEquals(
+            false,
+            decodeLiquidGlassEffectSettings(
+                """{"refractionAmountDp":10}""",
+                defaults,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ).affectFloatingBar,
+        )
+
+        val configurations = listOf(
+            defaults.copy(affectTabIcons = true),
+            defaults.copy(affectFloatingBar = true),
+            defaults.copy(affectTabIcons = true, affectFloatingBar = true),
+        )
+        configurations.forEach { settings ->
+            ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(settings)
+            ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+            ThemeSettingsRepository.clearLocalState()
+            ThemeSettingsRepository.ensureLoaded()
+            assertEquals(settings, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+        }
+    }
+
+    @Test
     fun nonMembersCanSaveAndReloadASolidCustomTheme() {
         val colors = CustomThemeColors.solid(0x2255AA)
 

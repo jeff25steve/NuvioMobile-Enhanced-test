@@ -17,6 +17,8 @@ internal data class LiquidGlassEffectSettings(
     val chromaticAberration: Boolean,
     val depthEffect: Boolean,
     val tintOpacity: Float,
+    val affectTabIcons: Boolean = false,
+    val affectFloatingBar: Boolean = false,
 ) {
     fun sanitized(
         defaults: LiquidGlassEffectSettings,
@@ -108,6 +110,8 @@ internal fun decodeLiquidGlassEffectSettings(
         chromaticAberration = values.booleanOrDefault("chromaticAberration", defaults.chromaticAberration),
         depthEffect = values.booleanOrDefault("depthEffect", defaults.depthEffect),
         tintOpacity = values.floatOrDefault("tintOpacity", defaults.tintOpacity),
+        affectTabIcons = values.booleanOrDefault("affectTabIcons", defaults.affectTabIcons),
+        affectFloatingBar = values.booleanOrDefault("affectFloatingBar", defaults.affectFloatingBar),
     ).sanitized(defaults, limits)
 }
 

@@ -328,6 +328,24 @@ internal fun NavigationBarSettingsSheet(
                                 onSelectionLensEffectsChanged(selectionLensEffects.copy(depthEffect = it))
                             },
                         )
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_glass_lens_affect_tab_icons),
+                            description = stringResource(Res.string.settings_nav_bar_glass_lens_affect_tab_icons_description),
+                            checked = selectionLensEffects.affectTabIcons,
+                            isTablet = isTablet,
+                            onCheckedChange = {
+                                onSelectionLensEffectsChanged(selectionLensEffects.copy(affectTabIcons = it))
+                            },
+                        )
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_glass_lens_affect_floating_bar),
+                            description = stringResource(Res.string.settings_nav_bar_glass_lens_affect_floating_bar_description),
+                            checked = selectionLensEffects.affectFloatingBar,
+                            isTablet = isTablet,
+                            onCheckedChange = {
+                                onSelectionLensEffectsChanged(selectionLensEffects.copy(affectFloatingBar = it))
+                            },
+                        )
                     }
                 }
             }

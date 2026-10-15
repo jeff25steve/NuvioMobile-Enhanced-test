@@ -760,6 +760,10 @@
     <string name="settings_nav_bar_liquid_glass_selection_lens">Selected-tab lens</string>
     <string name="settings_nav_bar_liquid_glass_reset_bar">Reset floating bar effects to defaults</string>
     <string name="settings_nav_bar_liquid_glass_reset_lens">Reset selected-tab lens effects to defaults</string>
+    <string name="settings_nav_bar_glass_lens_affect_tab_icons">Lens affects tab icons</string>
+    <string name="settings_nav_bar_glass_lens_affect_tab_icons_description">Refract the tab icons and labels as the lens moves.</string>
+    <string name="settings_nav_bar_glass_lens_affect_floating_bar">Lens affects floating bar</string>
+    <string name="settings_nav_bar_glass_lens_affect_floating_bar_description">Refract the floating bar's glass surface as the lens moves.</string>
     <string name="settings_nav_bar_glass_corner_radius">Corner radius</string>
     <string name="settings_nav_bar_glass_blur_radius">Blur radius</string>
     <string name="settings_nav_bar_glass_refraction_height">Refraction height</string>

@@ -1,6 +1,9 @@
 package com.nuvio.app.core.ui
 
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -131,6 +134,16 @@ internal fun FloatingNavigationBar(
         LiquidGlassEffectDefaults.selectionLens,
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
+    val liquidGlassBarBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.affectFloatingBar) {
+        rememberLayerBackdrop()
+    } else {
+        null
+    }
+    val liquidGlassIconsBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.affectTabIcons) {
+        rememberLayerBackdrop()
+    } else {
+        null
+    }
     val floatingBarShape = remember(useLiquidGlassMaterial, floatingBarEffects.cornerRadiusPercent) {
         RoundedCornerShape(if (useLiquidGlassMaterial) floatingBarEffects.cornerRadiusPercent.roundToInt() else 50)
     }
@@ -138,7 +151,20 @@ internal fun FloatingNavigationBar(
         RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
     }
     // Refract only the screen backdrop so the selected lens never magnifies nav icons.
-    val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) liquidGlassBackdrop else null
+    val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
+        val screenBackdrop = liquidGlassBackdrop!!
+        when {
+            liquidGlassBarBackdrop != null && liquidGlassIconsBackdrop != null ->
+                rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop, liquidGlassIconsBackdrop)
+            liquidGlassBarBackdrop != null ->
+                rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop)
+            liquidGlassIconsBackdrop != null ->
+                rememberCombinedBackdrop(screenBackdrop, liquidGlassIconsBackdrop)
+            else -> screenBackdrop
+        }
+    } else {
+        null
+    }
     val selectionPillCornerRadiusPercent =
         if (liquidGlassSelectionBackdrop != null) selectionLensEffects.cornerRadiusPercent else 50f
     val currentItems by rememberUpdatedState(items)
@@ -233,7 +259,8 @@ internal fun FloatingNavigationBar(
                                     .drawWithContent {
                                         drawContent()
                                         drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
-                                    },
+                                    }
+                                    .then(liquidGlassBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
                             ) {
                                 if (useLiquidGlassMaterial) {
                                     LiquidGlassFrostedBar(
@@ -261,6 +288,27 @@ internal fun FloatingNavigationBar(
                                 },
                             ) {
                                 JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                            }
+                            if (liquidGlassIconsBackdrop != null) {
+                                // Capture the active tab row only when explicitly requested.
+                                // It is a lens source, not a second visible set of icons.
+                                Box(
+                                    Modifier
+                                        .matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .graphicsLayer { alpha = 0f }
+                                        .layerBackdrop(liquidGlassIconsBackdrop),
+                                ) {
+                                    JellyTabRow(
+                                        items,
+                                        labelFraction,
+                                        motion,
+                                        active = true,
+                                        compactSize = compactSize,
+                                        modifier = Modifier.matchParentSize(),
+                                        inlineLabels = inlineLabels,
+                                    )
+                                }
                             }
                         }
                         if (selectedIndex >= 0) {
