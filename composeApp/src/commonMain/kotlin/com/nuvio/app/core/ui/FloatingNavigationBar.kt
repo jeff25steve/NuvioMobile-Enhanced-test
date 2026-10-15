@@ -300,15 +300,36 @@ internal fun FloatingNavigationBar(
                                         .layerBackdrop(liquidGlassIconsBackdrop),
                                 ) {
                                     Box(Modifier.matchParentSize()) {
-                                        JellyTabRow(
-                                            items,
-                                            labelFraction,
-                                            motion,
-                                            active = false,
-                                            compactSize = compactSize,
-                                            modifier = Modifier.matchParentSize(),
-                                            inlineLabels = inlineLabels,
-                                        )
+                                        // Match the visible row: inactive tabs must not remain
+                                        // underneath the active icon source inside the selected pill.
+                                        Box(
+                                            Modifier.matchParentSize().drawWithContent {
+                                                if (selectedIndex >= 0) {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                        ClipOp.Difference,
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                } else {
+                                                    drawContent()
+                                                }
+                                            },
+                                        ) {
+                                            JellyTabRow(
+                                                items,
+                                                labelFraction,
+                                                motion,
+                                                active = false,
+                                                compactSize = compactSize,
+                                                modifier = Modifier.matchParentSize(),
+                                                inlineLabels = inlineLabels,
+                                            )
+                                        }
                                         Box(
                                             Modifier.matchParentSize().drawWithContent {
                                                 if (selectedIndex >= 0) {
