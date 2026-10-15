@@ -122,7 +122,13 @@ internal fun LiquidGlassFrostedBar(
                     }
                 },
                 onDrawSurface = {
-                    drawRect(containerColor)
+                    // exportedBackdrop records into a separate GraphicsLayer, so it must not
+                    // depend on the visible DrawBackdrop node's outer capsule clip.
+                    val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
+                    drawRoundRect(
+                        color = containerColor,
+                        cornerRadius = CornerRadius(cornerRadius),
+                    )
                 },
                 onDrawFront = {
                     // Include the existing capsule rim in the exported layer as well, so the
