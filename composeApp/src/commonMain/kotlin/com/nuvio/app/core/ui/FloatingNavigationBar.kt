@@ -466,11 +466,13 @@ internal fun liquidGlassSelectionTranslationX(
     insetPx: Float,
     isRtl: Boolean,
     panelOffsetPx: Float = 0f,
-): Float = panelOffsetPx + if (isRtl) {
-    -insetPx - tabWidthPx * (count - 1 - position)
-} else {
-    insetPx + tabWidthPx * position
-}
+): Float = panelOffsetPx + (
+    if (isRtl) {
+        -insetPx - tabWidthPx * (count - 1 - position)
+    } else {
+        insetPx + tabWidthPx * position
+    }
+)
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
