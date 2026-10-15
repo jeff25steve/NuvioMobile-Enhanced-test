@@ -29,7 +29,7 @@ class LiquidGlassEffectSettingsTest {
     }
 
     @Test
-    fun optionalSourcesRespectIndependentTogglesAndActiveLensEffects() {
+    fun optionalSourcesRespectIndependentTogglesAndRequireActiveRefraction() {
         val defaults = LiquidGlassEffectDefaults.selectionLens
         val bothEnabled = defaults.copy(affectTabIcons = true, affectFloatingBar = true)
 
@@ -42,16 +42,17 @@ class LiquidGlassEffectSettingsTest {
         assertEquals(true, bothEnabled.copy(affectFloatingBar = false).shouldCaptureTabIcons())
         assertEquals(false, bothEnabled.copy(affectFloatingBar = false).shouldCaptureFloatingBar())
 
-        // A zero height or amount disables refraction; with blur also off, neither extra
-        // source should be captured, and the normal selected icon remains visible.
+        // Kyant's lens is a no-op if either refraction dimension is zero.
         assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureTabIcons())
         assertEquals(false, bothEnabled.copy(refractionAmountDp = 0f).shouldCaptureTabIcons())
         assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureFloatingBar())
+        assertEquals(false, bothEnabled.copy(refractionAmountDp = 0f).shouldCaptureFloatingBar())
 
-        // Blur remains an active lens effect even when refraction is disabled.
+        // Blur belongs to the main lens background; it must not turn on icon/bar refraction
+        // sources by itself or cause crisp icon content to be hidden.
         val blurOnly = bothEnabled.copy(refractionHeightDp = 0f, blurRadiusDp = 4f)
-        assertEquals(true, blurOnly.shouldCaptureTabIcons())
-        assertEquals(true, blurOnly.shouldCaptureFloatingBar())
+        assertEquals(false, blurOnly.shouldCaptureTabIcons())
+        assertEquals(false, blurOnly.shouldCaptureFloatingBar())
     }
 
     @Test
