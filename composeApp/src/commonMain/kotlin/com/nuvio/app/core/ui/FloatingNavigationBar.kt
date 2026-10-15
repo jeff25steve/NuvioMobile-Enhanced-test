@@ -165,7 +165,6 @@ internal fun FloatingNavigationBar(
         } else {
             screenBackdrop
         }
-    }
     } else {
         null
     }
