@@ -60,6 +60,9 @@ internal fun LiquidGlassEffectSettings.hasActiveLensEffect(): Boolean =
 internal fun LiquidGlassEffectSettings.shouldCaptureTabIcons(): Boolean =
     affectTabIcons && hasActiveLensEffect()
 
+internal fun LiquidGlassEffectSettings.shouldCaptureFloatingBar(): Boolean =
+    affectFloatingBar && hasActiveLensEffect()
+
 internal object LiquidGlassEffectDefaults {
     val floatingBar = LiquidGlassEffectSettings(
         cornerRadiusPercent = 50f,
