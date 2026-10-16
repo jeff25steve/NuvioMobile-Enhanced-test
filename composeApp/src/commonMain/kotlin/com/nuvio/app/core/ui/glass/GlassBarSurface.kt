@@ -224,40 +224,40 @@ internal fun LiquidGlassSelectionSurface(
                 shape = shape,
                 effects = {
                     if (safeSettings.blurRadiusDp > 0f) {
-                    blur(safeSettings.blurRadiusDp.dp.toPx())
-                }
-                if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
-                    // Keep the configured lens active at rest so the settings controls have an
-                    // immediate visible effect; pressProgress still drives the animated highlights
-                    // and shadows below.
-                    lens(
-                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
-                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
-                        depthEffect = safeSettings.depthEffect,
-                        chromaticAberration = safeSettings.chromaticAberration,
+                        blur(safeSettings.blurRadiusDp.dp.toPx())
+                    }
+                    if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+                        // Keep the configured lens active at rest so the settings controls have an
+                        // immediate visible effect; pressProgress still drives the animated highlights
+                        // and shadows below.
+                        lens(
+                            refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
+                            refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
+                            depthEffect = safeSettings.depthEffect,
+                            chromaticAberration = safeSettings.chromaticAberration,
+                        )
+                    }
+                },
+                layerBlock = layerBlock,
+                highlight = {
+                    Highlight.Default.copy(alpha = pressProgress().coerceIn(0f, 1f))
+                },
+                shadow = {
+                    Shadow(alpha = pressProgress().coerceIn(0f, 1f))
+                },
+                innerShadow = {
+                    val progress = pressProgress().coerceIn(0f, 1f)
+                    InnerShadow(radius = 8f.dp * progress, alpha = progress)
+                },
+                onDrawSurface = {
+                    val progress = pressProgress().coerceIn(0f, 1f)
+                    drawRect(
+                        Color.White.copy(alpha = safeSettings.tintOpacity),
+                        alpha = 1f - progress,
                     )
-                }
-            },
-            layerBlock = layerBlock,
-            highlight = {
-                Highlight.Default.copy(alpha = pressProgress().coerceIn(0f, 1f))
-            },
-            shadow = {
-                Shadow(alpha = pressProgress().coerceIn(0f, 1f))
-            },
-            innerShadow = {
-                val progress = pressProgress().coerceIn(0f, 1f)
-                InnerShadow(radius = 8f.dp * progress, alpha = progress)
-            },
-            onDrawSurface = {
-                val progress = pressProgress().coerceIn(0f, 1f)
-                drawRect(
-                    Color.White.copy(alpha = safeSettings.tintOpacity),
-                    alpha = 1f - progress,
-                )
-                drawRect(Color.Black.copy(alpha = 0.03f * progress))
-            },
-        ),
+                    drawRect(Color.Black.copy(alpha = 0.03f * progress))
+                },
+            ),
     )
 }
 
@@ -287,17 +287,17 @@ internal fun LiquidGlassIconRefractionSurface(
                 shape = shape,
                 effects = {
                     if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
-                    lens(
-                        refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
-                        refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
-                        depthEffect = safeSettings.depthEffect,
-                        chromaticAberration = safeSettings.chromaticAberration,
-                    )
-                }
-            },
-            highlight = { null },
-            shadow = { null },
-            layerBlock = layerBlock,
-        ),
+                        lens(
+                            refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
+                            refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
+                            depthEffect = safeSettings.depthEffect,
+                            chromaticAberration = safeSettings.chromaticAberration,
+                        )
+                    }
+                },
+                highlight = { null },
+                shadow = { null },
+                layerBlock = layerBlock,
+            ),
     )
 }
