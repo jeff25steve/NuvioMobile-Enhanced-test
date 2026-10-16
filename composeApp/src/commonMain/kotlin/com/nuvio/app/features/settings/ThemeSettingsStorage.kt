@@ -26,6 +26,10 @@ internal expect object ThemeSettingsStorage {
     fun saveNavBarPosition(positionKey: String)
     fun loadNavBarGlowEnabled(): Boolean?
     fun saveNavBarGlowEnabled(enabled: Boolean)
+    fun loadNavBarDefaultIconColorEnabled(): Boolean?
+    fun saveNavBarDefaultIconColorEnabled(enabled: Boolean)
+    fun loadNavBarDefaultIconColor(): String?
+    fun saveNavBarDefaultIconColor(color: String)
     fun loadNavBarLiquidGlassEnabled(): Boolean?
     fun saveNavBarLiquidGlassEnabled(enabled: Boolean)
     fun loadNavBarLiquidGlassBarEffects(): String?
