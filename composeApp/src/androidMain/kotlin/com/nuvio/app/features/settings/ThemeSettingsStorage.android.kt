@@ -29,6 +29,8 @@ actual object ThemeSettingsStorage {
     private const val localNavBarStyleKey = "enhanced_local_nav_bar_style"
     private const val localNavBarPositionKey = "enhanced_local_nav_bar_position"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
+    private const val navBarDefaultIconColorEnabledKey = "nav_bar_default_icon_color_enabled"
+    private const val navBarDefaultIconColorKey = "nav_bar_default_icon_color"
     private const val navBarLiquidGlassEnabledKey = "nav_bar_liquid_glass_enabled"
     private const val navBarLiquidGlassBarEffectsKey = "nav_bar_liquid_glass_bar_effects"
     private const val navBarLiquidGlassSelectionEffectsKey = "nav_bar_liquid_glass_selection_effects"
@@ -37,6 +39,8 @@ actual object ThemeSettingsStorage {
         customThemeColorsKey,
         amoledEnabledKey,
         navBarGlowEnabledKey,
+        navBarDefaultIconColorEnabledKey,
+        navBarDefaultIconColorKey,
         navBarLiquidGlassEnabledKey,
         navBarLiquidGlassBarEffectsKey,
         navBarLiquidGlassSelectionEffectsKey,
@@ -96,6 +100,25 @@ actual object ThemeSettingsStorage {
             ?.edit()
             ?.putBoolean(ProfileScopedKey.of(navBarGlowEnabledKey), enabled)
             ?.apply()
+    }
+
+    actual fun loadNavBarDefaultIconColorEnabled(): Boolean? =
+        preferences?.let { prefs ->
+            val key = ProfileScopedKey.of(navBarDefaultIconColorEnabledKey)
+            if (prefs.contains(key)) prefs.getBoolean(key, false) else null
+        }
+
+    actual fun saveNavBarDefaultIconColorEnabled(enabled: Boolean) {
+        preferences
+            ?.edit()
+            ?.putBoolean(ProfileScopedKey.of(navBarDefaultIconColorEnabledKey), enabled)
+            ?.apply()
+    }
+
+    actual fun loadNavBarDefaultIconColor(): String? = loadRawString(navBarDefaultIconColorKey)
+
+    actual fun saveNavBarDefaultIconColor(color: String) {
+        saveRawString(navBarDefaultIconColorKey, color)
     }
 
     actual fun loadNavBarLiquidGlassEnabled(): Boolean? =
@@ -226,6 +249,10 @@ actual object ThemeSettingsStorage {
         loadSelectedTheme()?.let { put(selectedThemeKey, encodeSyncString(it)) }
         loadCustomThemeColors()?.let { put(customThemeColorsKey, encodeSyncString(it)) }
         loadNavBarGlowEnabled()?.let { put(navBarGlowEnabledKey, encodeSyncBoolean(it)) }
+        loadNavBarDefaultIconColorEnabled()?.let {
+            put(navBarDefaultIconColorEnabledKey, encodeSyncBoolean(it))
+        }
+        loadNavBarDefaultIconColor()?.let { put(navBarDefaultIconColorKey, encodeSyncString(it)) }
         loadNavBarLiquidGlassEnabled()?.let { put(navBarLiquidGlassEnabledKey, encodeSyncBoolean(it)) }
         loadNavBarLiquidGlassBarEffects()?.let { put(navBarLiquidGlassBarEffectsKey, encodeSyncString(it)) }
         loadNavBarLiquidGlassSelectionEffects()?.let {
@@ -245,6 +272,9 @@ actual object ThemeSettingsStorage {
         payload.decodeSyncString(selectedThemeKey)?.let(::saveSelectedTheme)
         payload.decodeSyncString(customThemeColorsKey)?.let(::saveCustomThemeColors)
         payload.decodeSyncBoolean(navBarGlowEnabledKey)?.let(::saveNavBarGlowEnabled)
+        payload.decodeSyncBoolean(navBarDefaultIconColorEnabledKey)
+            ?.let(::saveNavBarDefaultIconColorEnabled)
+        payload.decodeSyncString(navBarDefaultIconColorKey)?.let(::saveNavBarDefaultIconColor)
         payload.decodeSyncBoolean(navBarLiquidGlassEnabledKey)?.let(::saveNavBarLiquidGlassEnabled)
         payload.decodeSyncString(navBarLiquidGlassBarEffectsKey)?.let(::saveNavBarLiquidGlassBarEffects)
         payload.decodeSyncString(navBarLiquidGlassSelectionEffectsKey)?.let(::saveNavBarLiquidGlassSelectionEffects)
