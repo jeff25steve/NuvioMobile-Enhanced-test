@@ -1,9 +1,6 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +26,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -507,7 +505,8 @@ private fun NavigationBarPreviewStickyHeader(
     defaultIconColorEnabled: Boolean,
     defaultIconColor: Int,
 ) {
-    val outlineBounce = remember { Animatable(0f) }
+    var bounceTrigger by remember { mutableIntStateOf(0) }
+    var bounceDirection by remember { mutableStateOf(0f) }
 
     LaunchedEffect(listState) {
         val gate = NavigationPreviewScrollBounceGate()
@@ -516,20 +515,13 @@ private fun NavigationBarPreviewStickyHeader(
             .collectLatest { canScrollBackward ->
                 val direction = gate.onScrollabilityChanged(canScrollBackward)
                     ?: return@collectLatest
-                outlineBounce.snapTo(direction)
-                outlineBounce.animateTo(
-                    targetValue = 0f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMedium,
-                    ),
-                )
+                bounceDirection = direction
+                bounceTrigger = if (bounceTrigger == Int.MAX_VALUE) 1 else bounceTrigger + 1
             }
     }
 
-    // This sticky surface is opaque so scrolling settings never show through the pinned preview.
-    // The bounce value only draws the preview's outer outline; it does not drive the bar's touch
-    // animation or change its size/position while the user selects or drags tabs.
+    // Keep the pinned preview opaque while the settings list scrolls. The gate emits a one-shot
+    // request at each top-boundary crossing, which is handled by the preview bar's JellyMotion springs.
     Column(
         Modifier
             .fillMaxWidth()
@@ -550,7 +542,8 @@ private fun NavigationBarPreviewStickyHeader(
             tabletLayout = tabletLayout,
             floatingBarEffects = floatingBarEffects,
             selectionLensEffects = selectionLensEffects,
-            scrollBounce = { outlineBounce.value },
+            scrollBounceTrigger = bounceTrigger,
+            scrollBounceDirection = bounceDirection,
             defaultIconColorOverride = if (defaultIconColorEnabled) {
                 Color(defaultIconColor or 0xFF000000.toInt())
             } else {

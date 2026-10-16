@@ -28,14 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
@@ -62,7 +56,8 @@ internal fun NavigationBarPreview(
     tabletLayout: Boolean = false,
     floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
-    scrollBounce: () -> Float = { 0f },
+    scrollBounceTrigger: Int = 0,
+    scrollBounceDirection: Float = 0f,
     defaultIconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -89,39 +84,7 @@ internal fun NavigationBarPreview(
         Box(
             Modifier.fillMaxWidth()
                 .height(156.dp)
-                .clip(tokens.shapes.card)
-                .drawWithContent {
-                    drawContent()
-                    // Read the animated value in the draw phase, so only the outline
-                    // is redrawn during the spring rather than recomposing the preview contents.
-                    val bounce = scrollBounce()
-                    val strength = kotlin.math.abs(bounce).coerceIn(0f, 1f)
-                    if (strength > 0.015f && size.width > 0f && size.height > 0f) {
-                        // Animate only the preview's outside outline. Its content, including the
-                        // interactive navigation bar, stays at its normal size and receives no
-                        // bounce input from touch/selection gestures.
-                        val inset = 4.dp.toPx()
-                        val outlineSize = Size(
-                            width = (size.width - inset * 2f).coerceAtLeast(0f),
-                            height = (size.height - inset * 2f).coerceAtLeast(0f),
-                        )
-                        val outline = tokens.shapes.card.createOutline(outlineSize, layoutDirection, this)
-                        withTransform({
-                            translate(inset, inset)
-                            scale(
-                                scaleX = 1f + bounce * 0.012f,
-                                scaleY = 1f - bounce * 0.02f,
-                                pivot = Offset(outlineSize.width / 2f, outlineSize.height / 2f),
-                            )
-                        }) {
-                            drawOutline(
-                                outline = outline,
-                                color = tokens.colors.accent.copy(alpha = strength * 0.7f),
-                                style = Stroke(width = 1.5.dp.toPx()),
-                            )
-                        }
-                    }
-                },
+                .clip(tokens.shapes.card),
         ) {
             Column(
                 Modifier.matchParentSize()
@@ -190,6 +153,8 @@ internal fun NavigationBarPreview(
                     liquidGlassSelectionEffects = selectionLensEffects,
                     inlineLabels = tabletLayout,
                     defaultIconColorOverride = defaultIconColorOverride,
+                    scrollBounceTrigger = scrollBounceTrigger,
+                    scrollBounceDirection = scrollBounceDirection,
                 )
             }
         }

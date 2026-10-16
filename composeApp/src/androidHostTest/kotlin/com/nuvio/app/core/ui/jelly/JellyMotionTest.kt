@@ -99,6 +99,29 @@ class JellyMotionTest {
     }
 
     @Test
+    fun `scroll threshold bounce uses jelly track springs and settles without moving selected tab`() {
+        val motion = JellyMotion(1, 4)
+        motion.resize(320f, 64f, 4)
+
+        motion.bounce(1f)
+        assertEquals(1f, motion.frame.position)
+        assertTrue(motion.frame.trackOffsetY > 0f)
+        assertTrue(motion.frame.trackScaleX < 1f)
+        assertTrue(motion.frame.trackScale > 1f)
+
+        settle(motion)
+        assertEquals(1f, motion.frame.position)
+        assertEquals(0f, motion.frame.trackOffsetY, 0.0001f)
+        assertEquals(1f, motion.frame.trackScaleX, 0.0001f)
+        assertEquals(1f, motion.frame.trackScale, 0.0001f)
+
+        motion.bounce(-1f)
+        assertTrue(motion.frame.trackOffsetY < 0f)
+        settle(motion)
+        assertEquals(1f, motion.frame.position)
+    }
+
+    @Test
     fun `single tab and stalled frames stay finite`() {
         val motion = JellyMotion(0, 1)
         motion.resize(200f, 48f, 1)

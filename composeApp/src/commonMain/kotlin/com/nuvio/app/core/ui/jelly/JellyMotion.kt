@@ -141,6 +141,20 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         select(selectedIndex)
     }
 
+    /**
+     * Reuses the track's existing spring physics for a settings-preview scroll-threshold bounce.
+     * This only distorts the shared track; it does not change the selected tab or pointer state.
+     */
+    fun bounce(direction: Float) {
+        if (dragging || direction == 0f || !direction.isFinite()) return
+        originX = width / 2.0
+        trackY.snapTo((if (direction < 0f) -1.0 else 1.0) * height * 0.05)
+        trackX.snapTo(0.94)
+        trackPress.snapTo(1.025)
+        publish()
+        running = true
+    }
+
     fun advance(seconds: Double) {
         val delta = seconds.coerceIn(0.0, 0.064)
         target = target.coerceIn(0.0, maxIndex.toDouble())
