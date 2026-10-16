@@ -601,7 +601,7 @@ private fun NavigationBarIconColorEditor(
                     hexCode = value
                     parseHexColor(value)?.let(onColorChanged)
                 },
-                placeholder = "#999999",
+                placeholder = "#969CA3",
                 modifier = Modifier.semantics { contentDescription = hexLabel },
             )
             if (!validHex) {
