@@ -422,7 +422,7 @@ private fun NavigationBarPreviewStickyHeader(
     floatingBarEffects: LiquidGlassEffectSettings,
     selectionLensEffects: LiquidGlassEffectSettings,
 ) {
-    val scrollBounce = remember { Animatable(0f) }
+    val outlineBounce = remember { Animatable(0f) }
 
     LaunchedEffect(listState) {
         val gate = NavigationPreviewScrollBounceGate()
@@ -431,8 +431,8 @@ private fun NavigationBarPreviewStickyHeader(
             .collectLatest { canScrollBackward ->
                 val direction = gate.onScrollabilityChanged(canScrollBackward)
                     ?: return@collectLatest
-                scrollBounce.snapTo(direction)
-                scrollBounce.animateTo(
+                outlineBounce.snapTo(direction)
+                outlineBounce.animateTo(
                     targetValue = 0f,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioLowBouncy,
@@ -465,7 +465,7 @@ private fun NavigationBarPreviewStickyHeader(
             tabletLayout = tabletLayout,
             floatingBarEffects = floatingBarEffects,
             selectionLensEffects = selectionLensEffects,
-            scrollBounce = scrollBounce.value,
+            scrollBounce = { outlineBounce.value },
         )
     }
 }
