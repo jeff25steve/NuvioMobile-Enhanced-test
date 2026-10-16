@@ -180,7 +180,8 @@ class ThemeSettingsRepositoryTest {
     fun defaultNavigationIconColorIsProfileScopedAndDoesNotChangeThemeColors() {
         ThemeSettingsRepository.ensureLoaded()
         assertEquals(false, ThemeSettingsRepository.navBarDefaultIconColorEnabled.value)
-        assertEquals(DEFAULT_NAV_BAR_ICON_COLOR, ThemeSettingsRepository.navBarDefaultIconColor.value)
+        // Must match NuvioTokens.textMuted so enabling the override does not change grey by default.
+        assertEquals(0x969CA3, ThemeSettingsRepository.navBarDefaultIconColor.value)
 
         val colors = CustomThemeColors.solid(0x2255AA)
         ThemeSettingsRepository.setCustomTheme(colors)
