@@ -67,8 +67,9 @@ internal fun NavigationBarPreview(
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
-    val liquidGlassBackdrop = rememberLayerBackdrop()
     val effectiveLiquidGlassEnabled = liquidGlassEnabled && isRuntimeShaderSupported()
+    val liquidGlassBackdrop =
+        if (effectiveLiquidGlassEnabled) rememberLayerBackdrop() else null
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
     val topPill = isTablet
     val pillOnTop = topPill || (style != NavBarStyle.CLASSIC && position == NavBarPosition.TOP)
@@ -125,7 +126,7 @@ internal fun NavigationBarPreview(
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
-                    .then(if (effectiveLiquidGlassEnabled) Modifier.layerBackdrop(liquidGlassBackdrop) else Modifier)
+                    .then(liquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                     .then(if (!topPill && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)
