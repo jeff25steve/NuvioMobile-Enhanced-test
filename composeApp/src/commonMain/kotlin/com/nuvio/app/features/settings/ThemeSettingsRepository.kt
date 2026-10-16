@@ -22,7 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-internal const val DEFAULT_NAV_BAR_ICON_COLOR = 0x999999
+// Matches NuvioTokens.textMuted (0xFF969CA3) so enabling the override does not shift the default grey.
+internal const val DEFAULT_NAV_BAR_ICON_COLOR = 0x969CA3
 
 object ThemeSettingsRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
