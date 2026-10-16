@@ -103,8 +103,11 @@ class JellyMotionTest {
         val motion = JellyMotion(1, 4)
         motion.resize(320f, 64f, 4)
 
+        // The impulse begins at the current frame, not at a snapped displaced position.
         motion.bounce(1f)
         assertEquals(1f, motion.frame.position)
+        assertEquals(0f, motion.frame.trackOffsetY)
+        motion.advance(1.0 / 60)
         assertTrue(motion.frame.trackOffsetY > 0f)
         assertTrue(motion.frame.trackScaleX < 1f)
         assertTrue(motion.frame.trackScale > 1f)
@@ -116,6 +119,8 @@ class JellyMotionTest {
         assertEquals(1f, motion.frame.trackScale, 0.0001f)
 
         motion.bounce(-1f)
+        assertEquals(0f, motion.frame.trackOffsetY, 0.0001f)
+        motion.advance(1.0 / 60)
         assertTrue(motion.frame.trackOffsetY < 0f)
         settle(motion)
         assertEquals(1f, motion.frame.position)

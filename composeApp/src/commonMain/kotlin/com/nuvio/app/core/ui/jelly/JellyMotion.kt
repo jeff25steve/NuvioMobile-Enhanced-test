@@ -148,9 +148,10 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
     fun bounce(direction: Float) {
         if (dragging || direction == 0f || !direction.isFinite()) return
         originX = width / 2.0
-        trackY.snapTo((if (direction < 0f) -1.0 else 1.0) * height * 0.05)
-        trackX.snapTo(0.94)
-        trackPress.snapTo(1.025)
+        // Kick the existing springs instead of snapping the pill to a displaced frame.
+        trackY.velocity += (if (direction < 0f) -1.0 else 1.0) * height * 2.0
+        trackX.velocity -= 2.4
+        trackPress.velocity += 1.0
         publish()
         running = true
     }
