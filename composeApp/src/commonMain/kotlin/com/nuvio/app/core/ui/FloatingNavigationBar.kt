@@ -277,20 +277,29 @@ internal fun FloatingNavigationBar(
                                     },
                             ) {
                                 if (useLiquidGlassMaterial) {
-                                    // Capture the rendered child via Kyant's layerBackdrop modifier.
-                                    // This includes the bar's own rounded backdrop pass and rim, without
-                                    // accidentally exporting the un-clipped intermediate backdrop layer.
-                                    Box(
-                                        Modifier.matchParentSize().then(
-                                            liquidGlassBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier,
-                                        ),
-                                    ) {
-                                        LiquidGlassFrostedBar(
-                                            backdrop = liquidGlassBackdrop!!,
-                                            modifier = Modifier.matchParentSize(),
-                                            glowStrength = glowStrength,
-                                            settings = floatingBarEffects,
-                                        )
+                                    LiquidGlassFrostedBar(
+                                        backdrop = liquidGlassBackdrop!!,
+                                        modifier = Modifier.matchParentSize(),
+                                        glowStrength = glowStrength,
+                                        settings = floatingBarEffects,
+                                    )
+                                    if (liquidGlassBarBackdrop != null) {
+                                        // Capture the frosted glass surface without its own lens effect.
+                                        // The selected lens then refracts this source once, rather than
+                                        // sampling an already-refracted copy of the visible bar.
+                                        Box(
+                                            Modifier.matchParentSize()
+                                                .graphicsLayer { alpha = 0f }
+                                                .layerBackdrop(liquidGlassBarBackdrop),
+                                        ) {
+                                            LiquidGlassFrostedBar(
+                                                backdrop = liquidGlassBackdrop!!,
+                                                modifier = Modifier.matchParentSize(),
+                                                glowStrength = glowStrength,
+                                                settings = floatingBarEffects,
+                                                includeRefraction = false,
+                                            )
+                                        }
                                     }
                                 } else {
                                     GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
@@ -422,7 +431,7 @@ internal fun FloatingNavigationBar(
 
                             // Keep icon refraction separate from the main screen/bar lens: the
                             // configured lens blur must not blur this icon-only source a second time.
-                            if (liquidGlassIconsBackdrop != null) {
+                            if (liquidGlassIconsBackdrop != null && motion.tabIconRefractionActive) {
                                 Box(
                                     Modifier
                                         .width(liquidGlassSelectionTabWidth)
@@ -449,10 +458,10 @@ internal fun FloatingNavigationBar(
                                     )
                                 }
                             }
-                            // Keep the selected row above the lens unless it is already
-                            // part of the lens backdrop source. Drawing it again on top would
-                            // leave a crisp duplicate over the refracted icon and label.
-                            if (liquidGlassIconsBackdrop == null) {
+                            // Keep the selected row crisp at rest and during vertical scrolling.
+                            // Hide this duplicate only while a horizontal lens drag is refracting
+                            // the captured icon source.
+                            if (liquidGlassIconsBackdrop == null || !motion.tabIconRefractionActive) {
                                 Box(
                                     Modifier.matchParentSize()
                                         .clearAndSetSemantics {}

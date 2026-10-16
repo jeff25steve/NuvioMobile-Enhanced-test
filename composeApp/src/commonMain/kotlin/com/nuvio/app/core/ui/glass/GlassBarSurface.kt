@@ -143,6 +143,7 @@ internal fun LiquidGlassFrostedBar(
     modifier: Modifier,
     glowStrength: Float,
     settings: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    includeRefraction: Boolean = true,
 ) {
     val safeSettings = settings.sanitized(
         LiquidGlassEffectDefaults.floatingBar,
@@ -163,7 +164,7 @@ internal fun LiquidGlassFrostedBar(
                     if (safeSettings.blurRadiusDp > 0f) {
                         blur(safeSettings.blurRadiusDp.dp.toPx())
                     }
-                    if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+                    if (includeRefraction && safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
                         lens(
                             refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
                             refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
