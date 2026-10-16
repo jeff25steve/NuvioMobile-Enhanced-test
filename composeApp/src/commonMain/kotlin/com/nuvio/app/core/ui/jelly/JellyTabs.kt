@@ -55,16 +55,17 @@ internal fun JellyTabRow(
     compactSize: Boolean,
     modifier: Modifier,
     inlineLabels: Boolean = false,
-    inactiveColorOverride: Color? = null,
+    inactiveIconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val palette = MaterialTheme.themePalette
-    val color = if (active) tokens.colors.accent else inactiveColorOverride ?: tokens.colors.textMuted
+    // Labels retain their existing theme token; this setting customizes only inactive glyphs.
+    val color = if (active) tokens.colors.accent else tokens.colors.textMuted
     val iconSize = if (compactSize) 24.dp else 28.dp
     val labelHeight = if (compactSize) 14.dp else 16.dp
     val iconModifier = Modifier.size(iconSize)
         .then(if (active) Modifier.gradientMask(palette.accentBrush()) else Modifier)
-    val iconTint = if (active) Color.White else color
+    val iconTint = if (active) Color.White else inactiveIconColorOverride ?: color
     Row(
         modifier = modifier.padding(4.dp).clearAndSetSemantics {},
         verticalAlignment = Alignment.CenterVertically,
