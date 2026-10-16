@@ -1,6 +1,10 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
@@ -19,7 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -35,14 +44,17 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioPrimaryButton
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
+import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun NavigationBarSettingsSheet(
     isTablet: Boolean,
@@ -73,21 +85,20 @@ internal fun NavigationBarSettingsSheet(
             dismissNuvioBottomSheet(sheetState, onDismiss)
         }
     }
+    val listState = rememberLazyListState()
     NuvioModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
-        LazyColumn(Modifier.fillMaxWidth()) {
-            item {
-                Text(
-                    text = stringResource(Res.string.settings_appearance_nav_bar_style),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                )
-                NavigationBarPreview(
-                    style = selectedStyle,
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            state = listState,
+        ) {
+            stickyHeader(key = "navigation-bar-preview") {
+                NavigationBarPreviewStickyHeader(
+                    listState = listState,
+                    selectedStyle = selectedStyle,
                     isTablet = isTablet,
                     glowEnabled = glowEnabled,
                     liquidGlassEnabled = liquidGlassEnabled,
-                    position = selectedPosition,
+                    selectedPosition = selectedPosition,
                     tabletLayout = tabletLayout,
                     floatingBarEffects = floatingBarEffects,
                     selectionLensEffects = selectionLensEffects,
@@ -394,6 +405,67 @@ private fun LiquidGlassEffectGroupHeader(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+
+@Composable
+private fun NavigationBarPreviewStickyHeader(
+    listState: LazyListState,
+    selectedStyle: NavBarStyle,
+    isTablet: Boolean,
+    glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean,
+    selectedPosition: NavBarPosition,
+    tabletLayout: Boolean,
+    floatingBarEffects: LiquidGlassEffectSettings,
+    selectionLensEffects: LiquidGlassEffectSettings,
+) {
+    val scrollBounce = remember { Animatable(0f) }
+
+    LaunchedEffect(listState) {
+        val gate = NavigationPreviewScrollBounceGate()
+        snapshotFlow { listState.canScrollBackward }
+            .distinctUntilChanged()
+            .collectLatest { canScrollBackward ->
+                val direction = gate.onScrollabilityChanged(canScrollBackward)
+                    ?: return@collectLatest
+                scrollBounce.snapTo(direction)
+                scrollBounce.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium,
+                    ),
+                )
+            }
+    }
+
+    // This sticky surface is opaque so scrolling settings never show through the pinned preview.
+    // The bounce value only draws the preview's outer outline; it does not drive the bar's touch
+    // animation or change its size/position while the user selects or drags tabs.
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.nuvio.colors.surfaceSheet),
+    ) {
+        Text(
+            text = stringResource(Res.string.settings_appearance_nav_bar_style),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+        NavigationBarPreview(
+            style = selectedStyle,
+            isTablet = isTablet,
+            glowEnabled = glowEnabled,
+            liquidGlassEnabled = liquidGlassEnabled,
+            position = selectedPosition,
+            tabletLayout = tabletLayout,
+            floatingBarEffects = floatingBarEffects,
+            selectionLensEffects = selectionLensEffects,
+            scrollBounce = scrollBounce.value,
+        )
     }
 }
 
