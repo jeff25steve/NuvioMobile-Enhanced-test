@@ -28,7 +28,7 @@ import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
-import androidx.compose.ui.node.invalidateMeasurement
+import androidx.compose.ui.node.invalidateMeasurementForSubtree
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -44,8 +44,8 @@ private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
 
 /**
  * Backdrop caches its clip Shape in a graphics layer during measurement. A radius-only settings
- * change doesn't alter constraints, so request a fresh child measurement to refresh that cached clip
- * immediately instead of waiting for a later scroll/layout pass.
+ * change doesn't alter constraints, so invalidate this small lens subtree to force the backdrop's
+ * layer measure to run again immediately instead of waiting for a later scroll/layout pass.
  */
 internal fun Modifier.remeasureOnKeyChange(key: Int): Modifier =
     this then RemeasureOnKeyChangeElement(key)
@@ -58,7 +58,7 @@ private class RemeasureOnKeyChangeElement(
     override fun update(node: RemeasureOnKeyChangeNode) {
         if (node.key != key) {
             node.key = key
-            node.invalidateMeasurement()
+            node.invalidateMeasurementForSubtree()
         }
     }
 
