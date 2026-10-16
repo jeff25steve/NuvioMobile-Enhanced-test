@@ -94,12 +94,21 @@ internal fun MainTabsDestination(
         }
         val tabsRouteActive = rootRouteActive
         val navBarScrollState = rememberNuvioNavBarScrollState()
-        val navBarHazeState = rememberHazeState()
-        val navBarLiquidGlassBackdrop = rememberLayerBackdrop()
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+        val floatingBarVisible =
+            tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC
+        // Allocate backdrop state only while the Compose floating bar actually needs it.
+        val navBarHazeState = if (floatingBarVisible) rememberHazeState() else null
+        val navBarLiquidGlassBackdrop = if (
+            floatingBarVisible && navBarLiquidGlassEnabled && isRuntimeShaderSupported()
+        ) {
+            rememberLayerBackdrop()
+        } else {
+            null
+        }
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         val floatingNavigationItems = mainFloatingNavigationItems(
             highlightedTab = highlightedTab,
@@ -147,8 +156,8 @@ internal fun MainTabsDestination(
                         actions = tabActions,
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(if (tabsRouteActive && navBarStyleSetting != NavBarStyle.CLASSIC) Modifier.hazeSource(state = navBarHazeState) else Modifier)
-                            .then(if (tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC && navBarLiquidGlassEnabled && isRuntimeShaderSupported()) Modifier.layerBackdrop(navBarLiquidGlassBackdrop) else Modifier)
+                            .then(navBarHazeState?.let { Modifier.hazeSource(state = it) } ?: Modifier)
+                            .then(navBarLiquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                             .then(if (tabsRouteActive && navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
                             .padding(innerPadding),
                     )
@@ -167,7 +176,7 @@ internal fun MainTabsDestination(
                     )
                 }
 
-                if (tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC) {
+                if (floatingBarVisible) {
                     when (navBarStyleSetting) {
                         NavBarStyle.EXPANDED -> navBarScrollState.expand()
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
