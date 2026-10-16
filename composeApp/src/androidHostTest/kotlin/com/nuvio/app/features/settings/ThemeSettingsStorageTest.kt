@@ -169,6 +169,15 @@ class ThemeSettingsStorageTest {
     }
 
     @Test
+    fun invalidSyncedDefaultNavigationIconColorIsNotPersisted() {
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {
+            put("nav_bar_default_icon_color", encodeSyncString("#NOTHEX"))
+        })
+
+        assertNull(ThemeSettingsStorage.loadNavBarDefaultIconColor())
+    }
+
+    @Test
     fun savedGradientRoundTripsThroughProfileSync() {
         val colors = CustomThemeColors(0x123456, 0xABCDEF, 0x654321).encode()
         ThemeSettingsStorage.saveCustomThemeColors(colors)
