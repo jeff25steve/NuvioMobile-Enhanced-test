@@ -5,6 +5,8 @@ import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.sync.encodeSyncBoolean
 import com.nuvio.app.core.sync.encodeSyncString
 import com.nuvio.app.core.storage.ProfileScopedKey
+import com.nuvio.app.core.ui.formatHexColor
+import com.nuvio.app.core.ui.parseHexColor
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -273,7 +275,10 @@ actual object ThemeSettingsStorage {
         payload.decodeSyncBoolean(navBarGlowEnabledKey)?.let(::saveNavBarGlowEnabled)
         payload.decodeSyncBoolean(navBarDefaultIconColorEnabledKey)
             ?.let(::saveNavBarDefaultIconColorEnabled)
-        payload.decodeSyncString(navBarDefaultIconColorKey)?.let(::saveNavBarDefaultIconColor)
+        payload.decodeSyncString(navBarDefaultIconColorKey)
+            ?.let(::parseHexColor)
+            ?.let(::formatHexColor)
+            ?.let(::saveNavBarDefaultIconColor)
         payload.decodeSyncBoolean(navBarLiquidGlassEnabledKey)?.let(::saveNavBarLiquidGlassEnabled)
         payload.decodeSyncString(navBarLiquidGlassBarEffectsKey)?.let(::saveNavBarLiquidGlassBarEffects)
         payload.decodeSyncString(navBarLiquidGlassSelectionEffectsKey)?.let(::saveNavBarLiquidGlassSelectionEffects)
