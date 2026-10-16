@@ -130,6 +130,45 @@ class ThemeSettingsStorageTest {
     }
 
     @Test
+    fun defaultNavigationIconColorRoundTripsThroughProfileSync() {
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(true)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#F141F5")
+        ThemeSettingsStorage.initialize(RuntimeEnvironment.getApplication())
+
+        val payload = ThemeSettingsStorage.exportToSyncPayload()
+        assertEquals(true, payload.decodeSyncBoolean("nav_bar_default_icon_color_enabled"))
+        assertEquals("#F141F5", payload.decodeSyncString("nav_bar_default_icon_color"))
+
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(false)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#123456")
+        ThemeSettingsStorage.replaceFromSyncPayload(payload)
+
+        assertEquals(true, ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled())
+        assertEquals("#F141F5", ThemeSettingsStorage.loadNavBarDefaultIconColor())
+    }
+
+    @Test
+    fun olderPayloadClearsOnlyCurrentProfilesDefaultNavigationIconColor() {
+        val preferences = RuntimeEnvironment.getApplication()
+            .getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val otherProfileEnabledKey = ProfileScopedKey.of("nav_bar_default_icon_color_enabled", 99)
+        val otherProfileColorKey = ProfileScopedKey.of("nav_bar_default_icon_color", 99)
+        preferences.edit()
+            .putBoolean(otherProfileEnabledKey, false)
+            .putString(otherProfileColorKey, "#445566")
+            .commit()
+
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(true)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#F141F5")
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertNull(ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled())
+        assertNull(ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(false, preferences.getBoolean(otherProfileEnabledKey, true))
+        assertEquals("#445566", preferences.getString(otherProfileColorKey, null))
+    }
+
+    @Test
     fun savedGradientRoundTripsThroughProfileSync() {
         val colors = CustomThemeColors(0x123456, 0xABCDEF, 0x654321).encode()
         ThemeSettingsStorage.saveCustomThemeColors(colors)
