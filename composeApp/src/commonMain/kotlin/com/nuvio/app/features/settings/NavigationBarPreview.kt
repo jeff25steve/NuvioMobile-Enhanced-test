@@ -61,7 +61,7 @@ internal fun NavigationBarPreview(
     tabletLayout: Boolean = false,
     floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
-    scrollBounce: Float = 0f,
+    scrollBounce: () -> Float = { 0f },
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
@@ -89,7 +89,10 @@ internal fun NavigationBarPreview(
                 .clip(tokens.shapes.card)
                 .drawWithContent {
                     drawContent()
-                    val strength = kotlin.math.abs(scrollBounce).coerceIn(0f, 1f)
+                    // Read the animated value in the draw phase, so only the outline
+                    // is redrawn during the spring rather than recomposing the preview contents.
+                    val bounce = scrollBounce()
+                    val strength = kotlin.math.abs(bounce).coerceIn(0f, 1f)
                     if (strength > 0.015f && size.width > 0f && size.height > 0f) {
                         // Animate only the preview's outside outline. Its content, including the
                         // interactive navigation bar, stays at its normal size and receives no
@@ -103,8 +106,8 @@ internal fun NavigationBarPreview(
                         withTransform({
                             translate(inset, inset)
                             scale(
-                                scaleX = 1f + scrollBounce * 0.012f,
-                                scaleY = 1f - scrollBounce * 0.02f,
+                                scaleX = 1f + bounce * 0.012f,
+                                scaleY = 1f - bounce * 0.02f,
                                 pivot = Offset(outlineSize.width / 2f, outlineSize.height / 2f),
                             )
                         }) {
