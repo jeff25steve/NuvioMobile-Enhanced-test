@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,11 +28,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -43,7 +49,10 @@ import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioPrimaryButton
+import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
+import com.nuvio.app.core.ui.formatHexColor
+import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
@@ -64,6 +73,11 @@ internal fun NavigationBarSettingsSheet(
     onStyleSelected: (NavBarStyle) -> Unit,
     glowEnabled: Boolean,
     onGlowChanged: (Boolean) -> Unit,
+    defaultIconColorEnabled: Boolean,
+    onDefaultIconColorEnabledChanged: (Boolean) -> Unit,
+    defaultIconColor: Int,
+    onDefaultIconColorChanged: (Int) -> Unit,
+    onSaveDefaultIconColor: () -> Unit,
     liquidGlassEnabled: Boolean,
     onLiquidGlassChanged: (Boolean) -> Unit,
     floatingBarEffects: LiquidGlassEffectSettings,
@@ -82,10 +96,12 @@ internal fun NavigationBarSettingsSheet(
         // Persist synchronously before beginning any suspend/animation work. This covers both
         // explicit Done and platform dismissal callbacks that may immediately dispose the sheet.
         onSaveLiquidGlassEffectSettings()
+        onSaveDefaultIconColor()
         scope.launch {
             dismissNuvioBottomSheet(sheetState, onDismiss)
         }
     }
+    var defaultIconColorExpanded by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     NuvioModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
         LazyColumn(
@@ -103,6 +119,8 @@ internal fun NavigationBarSettingsSheet(
                     tabletLayout = tabletLayout,
                     floatingBarEffects = floatingBarEffects,
                     selectionLensEffects = selectionLensEffects,
+                    defaultIconColorEnabled = defaultIconColorEnabled,
+                    defaultIconColor = defaultIconColor,
                 )
             }
             if (!isTablet) {
@@ -152,6 +170,71 @@ internal fun NavigationBarSettingsSheet(
                                 },
                             )
                         }
+                    }
+                }
+            }
+            item {
+                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC) {
+                    Column {
+                        NuvioBottomSheetDivider()
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_default_icon_color),
+                            description = stringResource(Res.string.settings_nav_bar_default_icon_color_description),
+                            checked = defaultIconColorEnabled,
+                            isTablet = isTablet,
+                            onCheckedChange = { enabled ->
+                                if (!enabled) defaultIconColorExpanded = false
+                                onDefaultIconColorEnabledChanged(enabled)
+                            },
+                        )
+                    }
+                }
+            }
+            item {
+                AnimatedVisibility(
+                    visible = selectedStyle != NavBarStyle.CLASSIC && defaultIconColorEnabled,
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = Role.Button) {
+                                    defaultIconColorExpanded = !defaultIconColorExpanded
+                                }
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.settings_nav_bar_default_icon_color_change),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = stringResource(
+                                        if (defaultIconColorExpanded) {
+                                            Res.string.settings_nav_bar_default_icon_color_collapse
+                                        } else {
+                                            Res.string.settings_nav_bar_default_icon_color_expand
+                                        },
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        AnimatedVisibility(visible = defaultIconColorExpanded) {
+                            NavigationBarIconColorEditor(
+                                color = defaultIconColor,
+                                isTablet = isTablet,
+                                onColorChanged = onDefaultIconColorChanged,
+                            )
+                        }
+                        NuvioBottomSheetDivider()
                     }
                 }
             }
@@ -421,6 +504,8 @@ private fun NavigationBarPreviewStickyHeader(
     tabletLayout: Boolean,
     floatingBarEffects: LiquidGlassEffectSettings,
     selectionLensEffects: LiquidGlassEffectSettings,
+    defaultIconColorEnabled: Boolean,
+    defaultIconColor: Int,
 ) {
     val outlineBounce = remember { Animatable(0f) }
 
@@ -466,7 +551,67 @@ private fun NavigationBarPreviewStickyHeader(
             floatingBarEffects = floatingBarEffects,
             selectionLensEffects = selectionLensEffects,
             scrollBounce = { outlineBounce.value },
+            defaultIconColorOverride = if (defaultIconColorEnabled) {
+                Color(defaultIconColor or 0xFF000000.toInt())
+            } else {
+                null
+            },
         )
+    }
+}
+
+@Composable
+private fun NavigationBarIconColorEditor(
+    color: Int,
+    isTablet: Boolean,
+    onColorChanged: (Int) -> Unit,
+) {
+    val tokens = MaterialTheme.nuvio
+    var hexCode by remember(color) { mutableStateOf(formatHexColor(color)) }
+    LaunchedEffect(color) {
+        hexCode = formatHexColor(color)
+    }
+    val hexLabel = stringResource(Res.string.custom_theme_hex_title)
+    val validHex = parseHexColor(hexCode) != null
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (isTablet) 20.dp else 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Reuse the Custom Theme picker so the color channels and swatches stay consistent.
+        ThemeColorPicker(
+            color = color,
+            colorIndex = 0,
+            onColorChanged = { updated ->
+                onColorChanged(updated)
+                hexCode = formatHexColor(updated)
+            },
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = hexLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = tokens.colors.textPrimary,
+            )
+            NuvioInputField(
+                value = hexCode,
+                onValueChange = { value ->
+                    hexCode = value
+                    parseHexColor(value)?.let(onColorChanged)
+                },
+                placeholder = "#999999",
+                modifier = Modifier.semantics { contentDescription = hexLabel },
+            )
+            if (!validHex) {
+                Text(
+                    text = stringResource(Res.string.custom_theme_hex_error),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tokens.colors.danger,
+                )
+            }
+        }
     }
 }
 
