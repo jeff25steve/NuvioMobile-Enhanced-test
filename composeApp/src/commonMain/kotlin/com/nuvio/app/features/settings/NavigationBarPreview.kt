@@ -28,7 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawOutline
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
@@ -55,6 +61,7 @@ internal fun NavigationBarPreview(
     tabletLayout: Boolean = false,
     floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
+    scrollBounce: Float = 0f,
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
@@ -76,7 +83,40 @@ internal fun NavigationBarPreview(
         FloatingNavigationItem(stringResource(Res.string.compose_nav_profile), selectedIndex == 3, { selectedIndex = 3 }, icon = Icons.Default.Person),
     )
     Column(Modifier.padding(horizontal = 16.dp)) {
-        Box(Modifier.fillMaxWidth().height(156.dp).clip(tokens.shapes.card)) {
+        Box(
+            Modifier.fillMaxWidth()
+                .height(156.dp)
+                .clip(tokens.shapes.card)
+                .drawWithContent {
+                    drawContent()
+                    val strength = kotlin.math.abs(scrollBounce).coerceIn(0f, 1f)
+                    if (strength > 0.015f && size.width > 0f && size.height > 0f) {
+                        // Animate only the preview's outside outline. Its content, including the
+                        // interactive navigation bar, stays at its normal size and receives no
+                        // bounce input from touch/selection gestures.
+                        val inset = 4.dp.toPx()
+                        val outlineSize = Size(
+                            width = (size.width - inset * 2f).coerceAtLeast(0f),
+                            height = (size.height - inset * 2f).coerceAtLeast(0f),
+                        )
+                        val outline = tokens.shapes.card.createOutline(outlineSize, layoutDirection, this)
+                        withTransform({
+                            translate(inset, inset)
+                            scale(
+                                scaleX = 1f + scrollBounce * 0.012f,
+                                scaleY = 1f - scrollBounce * 0.02f,
+                                pivot = Offset(outlineSize.width / 2f, outlineSize.height / 2f),
+                            )
+                        }) {
+                            drawOutline(
+                                outline = outline,
+                                color = tokens.colors.accent.copy(alpha = strength * 0.7f),
+                                style = Stroke(width = 1.5.dp.toPx()),
+                            )
+                        }
+                    }
+                },
+        ) {
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
