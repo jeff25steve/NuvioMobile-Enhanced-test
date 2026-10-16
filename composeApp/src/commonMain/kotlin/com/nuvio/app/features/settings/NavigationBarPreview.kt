@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -62,6 +63,7 @@ internal fun NavigationBarPreview(
     floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     scrollBounce: () -> Float = { 0f },
+    defaultIconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
@@ -186,6 +188,7 @@ internal fun NavigationBarPreview(
                     liquidGlassBarEffects = floatingBarEffects,
                     liquidGlassSelectionEffects = selectionLensEffects,
                     inlineLabels = tabletLayout,
+                    defaultIconColorOverride = defaultIconColorOverride,
                 )
             }
         }
