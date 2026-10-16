@@ -300,7 +300,7 @@ internal fun FloatingNavigationBar(
                                     }
                                 },
                             ) {
-                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
+                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveIconColorOverride = defaultIconColorOverride)
                             }
                             if (liquidGlassIconsBackdrop != null) {
                                 // Capture the active tab row only when explicitly requested.
@@ -341,7 +341,7 @@ internal fun FloatingNavigationBar(
                                                 compactSize = compactSize,
                                                 modifier = Modifier.matchParentSize(),
                                                 inlineLabels = inlineLabels,
-                                                inactiveColorOverride = defaultIconColorOverride,
+                                                inactiveIconColorOverride = defaultIconColorOverride,
                                             )
                                         }
                                         Box(
@@ -469,7 +469,7 @@ internal fun FloatingNavigationBar(
                                             },
                                         ),
                                 ) {
-                                    JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
+                                    JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveIconColorOverride = defaultIconColorOverride)
                                 }
                             }
                         }
