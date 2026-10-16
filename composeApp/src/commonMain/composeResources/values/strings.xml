@@ -751,6 +751,11 @@
     <string name="settings_appearance_app_language_restart_message">Close and reopen the app to update the layout for this language.</string>
     <string name="settings_appearance_nav_bar_style">Navigation Bar</string>
     <string name="settings_appearance_nav_bar_style_sheet_title">Navigation Bar Style</string>
+    <string name="settings_nav_bar_default_icon_color">Default icon color</string>
+    <string name="settings_nav_bar_default_icon_color_description">Override the default grey used by unselected navigation icons and labels.</string>
+    <string name="settings_nav_bar_default_icon_color_change">Change default icon color</string>
+    <string name="settings_nav_bar_default_icon_color_expand">Tap to expand the color picker.</string>
+    <string name="settings_nav_bar_default_icon_color_collapse">Tap to collapse the color picker.</string>
     <string name="settings_nav_bar_glow">Glass glow</string>
     <string name="settings_nav_bar_glow_description">Adds soft light around the floating bar.</string>
     <string name="settings_nav_bar_liquid_glass">Liquid Glass material</string>
