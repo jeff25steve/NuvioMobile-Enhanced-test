@@ -216,6 +216,8 @@ private fun MainFloatingNavigationBar(
 ) {
     val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
 
     FloatingNavigationBar(
         items = items,
@@ -229,6 +231,11 @@ private fun MainFloatingNavigationBar(
         liquidGlassBarEffects = barEffects,
         liquidGlassSelectionEffects = selectionEffects,
         inlineLabels = inlineLabels,
+        defaultIconColorOverride = if (defaultIconColorEnabled) {
+            Color(defaultIconColor or 0xFF000000.toInt())
+        } else {
+            null
+        },
     )
 }
 
@@ -361,6 +368,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     val position by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
     val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val highlightedTab = AppScreenTab.Settings
 
@@ -424,6 +433,11 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                 liquidGlassBarEffects = barEffects,
                 liquidGlassSelectionEffects = selectionEffects,
                 inlineLabels = isTabletLayout,
+                defaultIconColorOverride = if (defaultIconColorEnabled) {
+                    Color(defaultIconColor or 0xFF000000.toInt())
+                } else {
+                    null
+                },
             )
         }
     }
