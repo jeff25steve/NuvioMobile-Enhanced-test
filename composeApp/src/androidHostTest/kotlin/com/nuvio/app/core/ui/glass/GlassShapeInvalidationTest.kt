@@ -24,7 +24,7 @@ class GlassShapeInvalidationTest {
     val compose = createComposeRule()
 
     @Test
-    fun radiusKeyChangeRemeasuresBackdropChildWithoutChangingBounds() {
+    fun shapeKeyChangeRemeasuresModifierSubtreeWithoutChangingBounds() {
         val radiusKey = mutableIntStateOf(30)
         val measuredSizes = mutableListOf<IntSize>()
 
