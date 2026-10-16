@@ -67,7 +67,7 @@ internal fun NavigationBarPreview(
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
-    val effectiveLiquidGlassEnabled = liquidGlassEnabled && isRuntimeShaderSupported()
+    val effectiveLiquidGlassEnabled = liquidGlassEnabled && style != NavBarStyle.CLASSIC && isRuntimeShaderSupported()
     val liquidGlassBackdrop =
         if (effectiveLiquidGlassEnabled) rememberLayerBackdrop() else null
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
