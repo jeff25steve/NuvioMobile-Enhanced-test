@@ -23,6 +23,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateMeasurement
+import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import dev.chrisbanes.haze.HazeState
@@ -33,6 +41,51 @@ internal val GlassSurfaceColor = Color(0xFF1C1C1E)
 private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
     listOf(Color.White.copy(alpha = 0.27f), Color.White.copy(alpha = 0.02f)),
 )
+
+/**
+ * Backdrop caches its clip Shape in a graphics layer during measurement. A radius-only settings
+ * change doesn't alter constraints, so request a fresh child measurement to refresh that cached clip
+ * immediately instead of waiting for a later scroll/layout pass.
+ */
+internal fun Modifier.remeasureOnKeyChange(key: Int): Modifier =
+    this then RemeasureOnKeyChangeElement(key)
+
+private class RemeasureOnKeyChangeElement(
+    private val key: Int,
+) : ModifierNodeElement<RemeasureOnKeyChangeNode>() {
+    override fun create(): RemeasureOnKeyChangeNode = RemeasureOnKeyChangeNode(key)
+
+    override fun update(node: RemeasureOnKeyChangeNode) {
+        if (node.key != key) {
+            node.key = key
+            node.invalidateMeasurement()
+        }
+    }
+
+    override fun InspectorInfo.inspectableProperties() {
+        name = "remeasureOnKeyChange"
+        properties["key"] = key
+    }
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is RemeasureOnKeyChangeElement && key == other.key)
+
+    override fun hashCode(): Int = key
+}
+
+private class RemeasureOnKeyChangeNode(
+    var key: Int,
+) : LayoutModifierNode, Modifier.Node() {
+    override fun MeasureScope.measure(
+        measurable: Measurable,
+        constraints: Constraints,
+    ): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) {
+            placeable.place(0, 0)
+        }
+    }
+}
 
 /**
  * Existing platform-specific capsule surface used when the Liquid Glass material option is off.
@@ -164,11 +217,13 @@ internal fun LiquidGlassSelectionSurface(
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
     Box(
-        modifier.drawBackdrop(
-            backdrop = backdrop,
-            shape = shape,
-            effects = {
-                if (safeSettings.blurRadiusDp > 0f) {
+        modifier
+            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = shape,
+                effects = {
+                    if (safeSettings.blurRadiusDp > 0f) {
                     blur(safeSettings.blurRadiusDp.dp.toPx())
                 }
                 if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
@@ -225,11 +280,13 @@ internal fun LiquidGlassIconRefractionSurface(
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
     Box(
-        modifier.drawBackdrop(
-            backdrop = backdrop,
-            shape = shape,
-            effects = {
-                if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
+        modifier
+            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = shape,
+                effects = {
+                    if (safeSettings.refractionHeightDp > 0f && safeSettings.refractionAmountDp > 0f) {
                     lens(
                         refractionHeight = safeSettings.refractionHeightDp.dp.toPx(),
                         refractionAmount = safeSettings.refractionAmountDp.dp.toPx(),
