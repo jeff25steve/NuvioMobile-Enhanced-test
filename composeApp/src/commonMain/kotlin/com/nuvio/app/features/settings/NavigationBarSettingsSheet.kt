@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
