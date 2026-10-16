@@ -127,6 +127,35 @@ class JellyMotionTest {
     }
 
     @Test
+    fun `tab icon refraction activates only after horizontal lens movement`() {
+        val motion = JellyMotion(0, 4)
+        motion.resize(320f, 64f, 4)
+
+        // Touching the pill or moving vertically as the settings list scrolls must not
+        // refract icons. A direct horizontal lens drag is the trigger.
+        motion.begin(20f, 32f)
+        assertFalse(motion.tabIconRefractionActive)
+        motion.drag(0f, 14f)
+        assertFalse(motion.tabIconRefractionActive)
+        motion.cancel(0)
+        settle(motion)
+        assertFalse(motion.tabIconRefractionActive)
+
+        motion.begin(20f, 32f)
+        motion.drag(3.9f, 0f)
+        assertFalse(motion.tabIconRefractionActive)
+        motion.drag(4f, 0f)
+        assertTrue(motion.tabIconRefractionActive)
+        motion.drag(4f, 12f)
+        assertTrue(motion.tabIconRefractionActive)
+
+        motion.finish()
+        assertFalse(motion.tabIconRefractionActive)
+        motion.select(2)
+        assertFalse(motion.tabIconRefractionActive)
+    }
+
+    @Test
     fun `single tab and stalled frames stay finite`() {
         val motion = JellyMotion(0, 1)
         motion.resize(200f, 48f, 1)
