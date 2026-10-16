@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -386,34 +387,36 @@ internal fun FloatingNavigationBar(
                         }
                         if (selectedIndex >= 0) {
                             if (liquidGlassSelectionBackdrop != null) {
-                                Box(
-                                    Modifier
-                                        .width(liquidGlassSelectionTabWidth)
-                                        .height(trackHeight - 8.dp),
-                                ) {
-                                    LiquidGlassSelectionSurface(
-                                        backdrop = liquidGlassSelectionBackdrop,
-                                        pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
-                                        shape = { selectionLensShape },
-                                        modifier = Modifier.matchParentSize(),
-                                        settings = selectionLensEffects,
-                                        layerBlock = {
-                                            // Apply the moving lens transform inside drawBackdrop so
-                                            // Kyant's backdrop sampler can invert it for source mapping.
-                                            val frame = motion.frame
-                                            // This lens is inside the same parent layer that applies panelOffset.
-                                            translationX = liquidGlassSelectionTranslationX(
-                                                position = frame.position,
-                                                count = items.size,
-                                                tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
-                                                insetPx = 4.dp.toPx(),
-                                                isRtl = isRtl,
-                                            )
-                                            translationY = 4.dp.toPx()
-                                            scaleX = frame.pillScaleX
-                                            scaleY = frame.pillScaleY
-                                        },
-                                    )
+                                key(selectionLensEffects.cornerRadiusPercent) {
+                                    Box(
+                                        Modifier
+                                            .width(liquidGlassSelectionTabWidth)
+                                            .height(trackHeight - 8.dp),
+                                    ) {
+                                        LiquidGlassSelectionSurface(
+                                            backdrop = liquidGlassSelectionBackdrop,
+                                            pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
+                                            shape = { selectionLensShape },
+                                            modifier = Modifier.matchParentSize(),
+                                            settings = selectionLensEffects,
+                                            layerBlock = {
+                                                // Apply the moving lens transform inside drawBackdrop so
+                                                // Kyant's backdrop sampler can invert it for source mapping.
+                                                val frame = motion.frame
+                                                // This lens is inside the same parent layer that applies panelOffset.
+                                                translationX = liquidGlassSelectionTranslationX(
+                                                    position = frame.position,
+                                                    count = items.size,
+                                                    tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
+                                                    insetPx = 4.dp.toPx(),
+                                                    isRtl = isRtl,
+                                                )
+                                                translationY = 4.dp.toPx()
+                                                scaleX = frame.pillScaleX
+                                                scaleY = frame.pillScaleY
+                                            },
+                                        )
+                                    }
                                 }
                             }
 
