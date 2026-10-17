@@ -40,6 +40,8 @@ internal fun NavigationBarSettingsSheet(
     onStyleSelected: (NavBarStyle) -> Unit,
     glowEnabled: Boolean,
     onGlowChanged: (Boolean) -> Unit,
+    liquidGlassEnabled: Boolean,
+    onLiquidGlassChanged: (Boolean) -> Unit,
     selectedPosition: NavBarPosition,
     onPositionSelected: (NavBarPosition) -> Unit,
     onDismiss: () -> Unit,
@@ -120,6 +122,20 @@ internal fun NavigationBarSettingsSheet(
                             checked = glowEnabled,
                             isTablet = isTablet,
                             onCheckedChange = onGlowChanged,
+                        )
+                    }
+                }
+            }
+            item {
+                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC) {
+                    Column {
+                        NuvioBottomSheetDivider()
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_liquid_glass),
+                            description = stringResource(Res.string.settings_nav_bar_liquid_glass_description),
+                            checked = liquidGlassEnabled,
+                            isTablet = isTablet,
+                            onCheckedChange = onLiquidGlassChanged,
                         )
                     }
                 }
