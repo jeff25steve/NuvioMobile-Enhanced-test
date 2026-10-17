@@ -76,6 +76,8 @@ import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.build.TrailerPlaybackMode
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundColor
+import com.nuvio.app.core.ui.rememberDynamicArtworkBackgroundEnabled
+import com.nuvio.app.core.ui.PrefetchArtworkDominantColors
 import com.nuvio.app.core.ui.heroStretchHeight
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.heroStretchZoom
@@ -89,6 +91,7 @@ import com.nuvio.app.features.details.youtubePlaybackUrl
 import com.nuvio.app.features.home.HomeHeroArtworkSource
 import com.nuvio.app.features.home.HomeHeroStyle
 import com.nuvio.app.features.home.MetaPreview
+import com.nuvio.app.features.player.MiniPlayerController
 import com.nuvio.app.features.trailer.TrailerPlaybackResolver
 import com.nuvio.app.features.trailer.TrailerPlaybackSource
 import kotlinx.coroutines.CoroutineScope
@@ -217,7 +220,8 @@ internal fun HomeHeroSection(
     val autoScrollPage = pagerState.settledPage
     val effectiveTrailerPlaybackEnabled = trailerPlaybackEnabled &&
         AppFeaturePolicy.heroTrailerPlaybackSupported &&
-        AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP
+        AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP &&
+        !MiniPlayerController.isActive
 
     LaunchedEffect(pagerState) {
         pagerState.scrollToPage(pagerState.currentPage)
@@ -324,8 +328,15 @@ internal fun HomeHeroSection(
             val settledItem = items[pagerState.settledPage % items.size]
 
             val activeArtworkUrl = heroArtworkUrl(settledItem, effectiveArtworkSource)
+            val activeArtworkUrl = heroArtworkUrl(items[pagerState.targetPage % items.size], effectiveArtworkSource)
             LaunchedEffect(onActiveArtworkChange, activeArtworkUrl) {
                 onActiveArtworkChange?.invoke(activeArtworkUrl)
+            }
+            if (onActiveArtworkChange != null && rememberDynamicArtworkBackgroundEnabled()) {
+                val heroArtworkUrls = remember(items, effectiveArtworkSource) {
+                    items.mapNotNull { item -> heroArtworkUrl(item, effectiveArtworkSource) }
+                }
+                PrefetchArtworkDominantColors(heroArtworkUrls)
             }
 
             val platformContext = LocalPlatformContext.current
