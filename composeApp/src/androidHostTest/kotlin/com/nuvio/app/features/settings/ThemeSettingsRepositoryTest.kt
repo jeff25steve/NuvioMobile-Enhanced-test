@@ -56,22 +56,22 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
-    fun liquidGlassMaterialDefaultsOnAndRetainsAnExplicitOffPreferenceAcrossReloads() {
+    fun liquidGlassMaterialDefaultsOffAndRetainsItsPreferenceAcrossReloads() {
         ThemeSettingsRepository.ensureLoaded()
-        assertEquals(true, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+        assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
 
-        ThemeSettingsRepository.setNavBarLiquidGlassEnabled(false)
+        ThemeSettingsRepository.setNavBarLiquidGlassEnabled(true)
         ThemeSettingsRepository.setNavBarStyle(NavBarStyle.CLASSIC)
         ThemeSettingsRepository.setNavBarStyle(NavBarStyle.COMPACT)
         ThemeSettingsRepository.clearLocalState()
         ThemeSettingsRepository.ensureLoaded()
 
-        assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+        assertEquals(true, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
         assertEquals(NavBarStyle.COMPACT, ThemeSettingsRepository.navBarStyle.value)
 
         ThemeSettingsStorage.replaceFromSyncPayload(kotlinx.serialization.json.buildJsonObject {})
         ThemeSettingsRepository.onProfileChanged()
-        assertEquals(true, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+        assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
     }
 
     @Test

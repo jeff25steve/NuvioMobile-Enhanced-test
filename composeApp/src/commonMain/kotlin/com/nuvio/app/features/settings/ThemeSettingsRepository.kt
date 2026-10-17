@@ -76,7 +76,7 @@ object ThemeSettingsRepository {
         _navBarDefaultIconColorRevision.asStateFlow()
     private var navBarDefaultIconColorDraftDirty = false
 
-    private val _navBarLiquidGlassEnabled = MutableStateFlow(true)
+    private val _navBarLiquidGlassEnabled = MutableStateFlow(false)
     val navBarLiquidGlassEnabled: StateFlow<Boolean> = _navBarLiquidGlassEnabled.asStateFlow()
 
     private val _navBarLiquidGlassBarEffects =
@@ -130,7 +130,7 @@ object ThemeSettingsRepository {
         _navBarDefaultIconColorEnabled.value = false
         _navBarDefaultIconColor.value = DEFAULT_NAV_BAR_ICON_COLOR
         navBarDefaultIconColorDraftDirty = false
-        _navBarLiquidGlassEnabled.value = true
+        _navBarLiquidGlassEnabled.value = false
         _navBarLiquidGlassBarEffects.value = LiquidGlassEffectDefaults.floatingBar
         _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
         _navBarStyle.value = NavBarStyle.ADAPTIVE
@@ -173,7 +173,7 @@ object ThemeSettingsRepository {
             ?.let(::parseHexColor)
             ?: DEFAULT_NAV_BAR_ICON_COLOR
         navBarDefaultIconColorDraftDirty = false
-        _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: true
+        _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: false
         _navBarLiquidGlassBarEffects.value = decodeLiquidGlassEffectSettings(
             ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
             LiquidGlassEffectDefaults.floatingBar,
