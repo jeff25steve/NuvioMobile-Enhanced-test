@@ -68,21 +68,23 @@ internal fun LiquidGlassEffectSettings.shouldCaptureFloatingBar(): Boolean =
 internal object LiquidGlassEffectDefaults {
     val floatingBar = LiquidGlassEffectSettings(
         cornerRadiusPercent = 50f,
-        blurRadiusDp = 8f,
-        refractionHeightDp = 24f,
-        refractionAmountDp = 24f,
-        chromaticAberration = false,
-        depthEffect = false,
-        tintOpacity = 0.4f,
+        blurRadiusDp = 1f,
+        refractionHeightDp = 11f,
+        refractionAmountDp = 23f,
+        chromaticAberration = true,
+        depthEffect = true,
+        tintOpacity = 0f,
     )
     val selectionLens = LiquidGlassEffectSettings(
         cornerRadiusPercent = 50f,
-        blurRadiusDp = 0f,
-        refractionHeightDp = 10f,
-        refractionAmountDp = 14f,
+        blurRadiusDp = 1f,
+        refractionHeightDp = 6f,
+        refractionAmountDp = 11f,
         chromaticAberration = true,
-        depthEffect = false,
-        tintOpacity = 0.1f,
+        depthEffect = true,
+        tintOpacity = 0f,
+        affectTabIcons = true,
+        affectFloatingBar = true,
     )
 
     val floatingBarLimits = LiquidGlassEffectLimits(

@@ -6,25 +6,27 @@ import kotlin.test.assertNotEquals
 
 class LiquidGlassEffectSettingsTest {
     @Test
-    fun floatingBarAndSelectionLensHaveIndependentUpstreamBasedDefaults() {
+    fun floatingBarAndSelectionLensMatchTheDisplayedResetDefaults() {
         val bar = LiquidGlassEffectDefaults.floatingBar
         val lens = LiquidGlassEffectDefaults.selectionLens
 
         assertEquals(50f, bar.cornerRadiusPercent)
-        assertEquals(8f, bar.blurRadiusDp)
-        assertEquals(24f, bar.refractionHeightDp)
-        assertEquals(24f, bar.refractionAmountDp)
-        assertEquals(0.4f, bar.tintOpacity)
-        assertEquals(false, bar.chromaticAberration)
+        assertEquals(1f, bar.blurRadiusDp)
+        assertEquals(11f, bar.refractionHeightDp)
+        assertEquals(23f, bar.refractionAmountDp)
+        assertEquals(0f, bar.tintOpacity)
+        assertEquals(true, bar.chromaticAberration)
+        assertEquals(true, bar.depthEffect)
 
         assertEquals(50f, lens.cornerRadiusPercent)
-        assertEquals(0f, lens.blurRadiusDp)
-        assertEquals(10f, lens.refractionHeightDp)
-        assertEquals(14f, lens.refractionAmountDp)
-        assertEquals(0.1f, lens.tintOpacity)
+        assertEquals(1f, lens.blurRadiusDp)
+        assertEquals(6f, lens.refractionHeightDp)
+        assertEquals(11f, lens.refractionAmountDp)
+        assertEquals(0f, lens.tintOpacity)
         assertEquals(true, lens.chromaticAberration)
-        assertEquals(false, lens.affectTabIcons)
-        assertEquals(false, lens.affectFloatingBar)
+        assertEquals(true, lens.depthEffect)
+        assertEquals(true, lens.affectTabIcons)
+        assertEquals(true, lens.affectFloatingBar)
         assertNotEquals(bar, lens)
     }
 

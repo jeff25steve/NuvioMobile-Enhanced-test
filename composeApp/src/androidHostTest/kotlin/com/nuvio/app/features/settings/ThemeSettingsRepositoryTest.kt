@@ -125,11 +125,18 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
-    fun selectedLensBackdropEffectsDefaultOffAndPersistIndependently() {
+    fun selectedLensBackdropEffectsDefaultOnAndPersistIndependently() {
         ThemeSettingsRepository.ensureLoaded()
         val loadedDefaults = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
-        assertEquals(false, loadedDefaults.affectTabIcons)
-        assertEquals(false, loadedDefaults.affectFloatingBar)
+        assertEquals(50f, loadedDefaults.cornerRadiusPercent)
+        assertEquals(1f, loadedDefaults.blurRadiusDp)
+        assertEquals(6f, loadedDefaults.refractionHeightDp)
+        assertEquals(11f, loadedDefaults.refractionAmountDp)
+        assertEquals(0f, loadedDefaults.tintOpacity)
+        assertEquals(true, loadedDefaults.chromaticAberration)
+        assertEquals(true, loadedDefaults.depthEffect)
+        assertEquals(true, loadedDefaults.affectTabIcons)
+        assertEquals(true, loadedDefaults.affectFloatingBar)
 
         // A custom theme must be unaffected by selected-lens-only settings.
         ThemeSettingsRepository.setCustomTheme(CustomThemeColors.solid(0x2255AA))
@@ -139,7 +146,7 @@ class ThemeSettingsRepositoryTest {
 
         val defaults = LiquidGlassEffectDefaults.selectionLens
         assertEquals(
-            false,
+            true,
             decodeLiquidGlassEffectSettings(
                 """{"refractionAmountDp":10}""",
                 defaults,
@@ -147,7 +154,7 @@ class ThemeSettingsRepositoryTest {
             ).affectTabIcons,
         )
         assertEquals(
-            false,
+            true,
             decodeLiquidGlassEffectSettings(
                 """{"refractionAmountDp":10}""",
                 defaults,
@@ -156,8 +163,8 @@ class ThemeSettingsRepositoryTest {
         )
 
         val configurations = listOf(
-            defaults.copy(affectTabIcons = true),
-            defaults.copy(affectFloatingBar = true),
+            defaults.copy(affectTabIcons = false, affectFloatingBar = true),
+            defaults.copy(affectTabIcons = true, affectFloatingBar = false),
             defaults.copy(affectTabIcons = true, affectFloatingBar = true),
         )
         configurations.forEach { settings ->
