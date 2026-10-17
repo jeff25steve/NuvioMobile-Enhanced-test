@@ -1,5 +1,8 @@
 package com.nuvio.app.features.settings
 
+import com.kyant.backdrop.isRuntimeShaderSupported
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,9 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.AppScreenTab
 import com.nuvio.app.TabletFloatingTopBar
@@ -45,11 +51,20 @@ internal fun NavigationBarPreview(
     style: NavBarStyle,
     isTablet: Boolean,
     glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean = false,
     position: NavBarPosition = NavBarPosition.BOTTOM,
     tabletLayout: Boolean = false,
+    floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
+    scrollBounceTrigger: Int = 0,
+    scrollBounceDirection: Float = 0f,
+    defaultIconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val hazeState = rememberHazeState()
+    val effectiveLiquidGlassEnabled = liquidGlassEnabled && style != NavBarStyle.CLASSIC && isRuntimeShaderSupported()
+    val liquidGlassBackdrop =
+        if (effectiveLiquidGlassEnabled) rememberLayerBackdrop() else null
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
     val topPill = isTablet
     val pillOnTop = topPill || (style != NavBarStyle.CLASSIC && position == NavBarPosition.TOP)
@@ -66,10 +81,15 @@ internal fun NavigationBarPreview(
         FloatingNavigationItem(stringResource(Res.string.compose_nav_profile), selectedIndex == 3, { selectedIndex = 3 }, icon = Icons.Default.Person),
     )
     Column(Modifier.padding(horizontal = 16.dp)) {
-        Box(Modifier.fillMaxWidth().height(156.dp).clip(tokens.shapes.card)) {
+        Box(
+            Modifier.fillMaxWidth()
+                .height(156.dp)
+                .clip(tokens.shapes.card),
+        ) {
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
+                    .then(liquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                     .then(if (!topPill && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)
@@ -127,7 +147,14 @@ internal fun NavigationBarPreview(
                     contentPadding = PaddingValues(vertical = 16.dp),
                     compactSize = topPill,
                     glowEnabled = glowEnabled,
+                    liquidGlassEnabled = effectiveLiquidGlassEnabled,
+                    liquidGlassBackdrop = liquidGlassBackdrop,
+                    liquidGlassBarEffects = floatingBarEffects,
+                    liquidGlassSelectionEffects = selectionLensEffects,
                     inlineLabels = tabletLayout,
+                    defaultIconColorOverride = defaultIconColorOverride,
+                    scrollBounceTrigger = scrollBounceTrigger,
+                    scrollBounceDirection = scrollBounceDirection,
                 )
             }
         }

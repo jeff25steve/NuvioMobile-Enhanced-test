@@ -682,6 +682,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Stil navigacijske trake</string>
     <string name="settings_nav_bar_glow">Sjaj stakla</string>
     <string name="settings_nav_bar_glow_description">Dodaje blagi sjaj oko plutajuće trake.</string>
+    <string name="settings_nav_bar_liquid_glass">Materijal Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Dodaje lom svjetlosti i zamućenje plutajućoj navigacijskoj traci.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Potreban je Android 13 ili noviji. Ovaj uređaj zadržat će postojeći stil stakla.</string>
     <string name="settings_nav_bar_glow_on">Sjaj uključen</string>
     <string name="settings_nav_bar_glow_off">Sjaj isključen</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

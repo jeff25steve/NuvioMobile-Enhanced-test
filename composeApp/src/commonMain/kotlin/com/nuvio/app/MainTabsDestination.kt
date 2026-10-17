@@ -1,5 +1,9 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.isRuntimeShaderSupported
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.runtime.collectAsState
 import com.nuvio.app.core.ui.NativeTabBridge
 import androidx.compose.foundation.layout.Box
@@ -90,10 +94,21 @@ internal fun MainTabsDestination(
         }
         val tabsRouteActive = rootRouteActive
         val navBarScrollState = rememberNuvioNavBarScrollState()
-        val navBarHazeState = rememberHazeState()
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
+        val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+        val floatingBarVisible =
+            tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC
+        // Allocate backdrop state only while the Compose floating bar actually needs it.
+        val navBarHazeState = if (floatingBarVisible) rememberHazeState() else null
+        val navBarLiquidGlassBackdrop = if (
+            floatingBarVisible && navBarLiquidGlassEnabled && isRuntimeShaderSupported()
+        ) {
+            rememberLayerBackdrop()
+        } else {
+            null
+        }
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         val floatingNavigationItems = mainFloatingNavigationItems(
             highlightedTab = highlightedTab,
@@ -141,7 +156,8 @@ internal fun MainTabsDestination(
                         actions = tabActions,
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(if (tabsRouteActive && navBarStyleSetting != NavBarStyle.CLASSIC) Modifier.hazeSource(state = navBarHazeState) else Modifier)
+                            .then(navBarHazeState?.let { Modifier.hazeSource(state = it) } ?: Modifier)
+                            .then(navBarLiquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                             .then(if (tabsRouteActive && navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
                             .padding(innerPadding),
                     )
@@ -160,13 +176,13 @@ internal fun MainTabsDestination(
                     )
                 }
 
-                if (tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC) {
+                if (floatingBarVisible) {
                     when (navBarStyleSetting) {
                         NavBarStyle.EXPANDED -> navBarScrollState.expand()
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
                         else -> {}
                     }
-                    FloatingNavigationBar(
+                    MainFloatingNavigationBar(
                         modifier = Modifier.align(if (floatingBarOnTop) Alignment.TopCenter else Alignment.BottomCenter),
                         scrollState = navBarScrollState,
                         hazeState = navBarHazeState,
@@ -180,12 +196,56 @@ internal fun MainTabsDestination(
                         },
                         items = floatingNavigationItems,
                         glowEnabled = navBarGlowEnabled,
+                        liquidGlassEnabled = navBarLiquidGlassEnabled,
+                        liquidGlassBackdrop = navBarLiquidGlassBackdrop,
                         inlineLabels = isTabletLayout,
                     )
                 }
             }
         }
     }
+}
+
+
+/**
+ * Collect high-frequency glass effect drafts inside the navigation bar instead of the whole
+ * MainTabsDestination, so dragging a settings slider only invalidates this bar and its preview.
+ */
+@Composable
+private fun MainFloatingNavigationBar(
+    items: List<FloatingNavigationItem>,
+    modifier: Modifier,
+    scrollState: com.nuvio.app.core.ui.NuvioNavBarScrollState?,
+    hazeState: HazeState?,
+    contentPadding: PaddingValues,
+    glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean,
+    liquidGlassBackdrop: Backdrop?,
+    inlineLabels: Boolean,
+) {
+    val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
+
+    FloatingNavigationBar(
+        items = items,
+        modifier = modifier,
+        scrollState = scrollState,
+        hazeState = hazeState,
+        contentPadding = contentPadding,
+        glowEnabled = glowEnabled,
+        liquidGlassEnabled = liquidGlassEnabled,
+        liquidGlassBackdrop = liquidGlassBackdrop,
+        liquidGlassBarEffects = barEffects,
+        liquidGlassSelectionEffects = selectionEffects,
+        inlineLabels = inlineLabels,
+        defaultIconColorOverride = if (defaultIconColorEnabled) {
+            Color(defaultIconColor or 0xFF000000.toInt())
+        } else {
+            null
+        },
+    )
 }
 
 @Composable
@@ -236,7 +296,7 @@ internal fun mainFloatingNavigationItems(
             selected = highlightedTab == AppScreenTab.Settings,
             onClick = { onTabSelected(AppScreenTab.Settings) },
             label = stringResource(Res.string.compose_nav_profile),
-            content = { onClick ->
+            content = { onClick, defaultIconColorOverride ->
                 ProfileSwitcherTab(
                     selected = highlightedTab == AppScreenTab.Settings,
                     onClick = onClick,
@@ -244,6 +304,7 @@ internal fun mainFloatingNavigationItems(
                     onAddProfileRequested = onAddProfileRequested,
                     hazeState = hazeState,
                     popupBelowAnchor = false,
+                    defaultIconColorOverride = defaultIconColorOverride,
                 )
             },
         ),
@@ -305,6 +366,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     isTabletLayout: Boolean,
     showLiveTv: Boolean,
     hazeState: HazeState?,
+    liquidGlassBackdrop: com.kyant.backdrop.Backdrop?,
+    liquidGlassEnabled: Boolean,
     onTabSelected: (AppScreenTab) -> Unit,
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
@@ -313,6 +376,10 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     val style by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
     val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
     val position by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+    val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val highlightedTab = AppScreenTab.Settings
 
@@ -371,7 +438,16 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                     floatingNavigationBarPadding()
                 },
                 glowEnabled = glowEnabled,
+                liquidGlassEnabled = liquidGlassEnabled,
+                liquidGlassBackdrop = liquidGlassBackdrop,
+                liquidGlassBarEffects = barEffects,
+                liquidGlassSelectionEffects = selectionEffects,
                 inlineLabels = isTabletLayout,
+                defaultIconColorOverride = if (defaultIconColorEnabled) {
+                    Color(defaultIconColor or 0xFF000000.toInt())
+                } else {
+                    null
+                },
             )
         }
     }

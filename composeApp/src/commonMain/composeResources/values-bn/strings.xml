@@ -681,6 +681,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">নেভিগেশন বার স্টাইল</string>
     <string name="settings_nav_bar_glow">গ্লাস গ্লো</string>
     <string name="settings_nav_bar_glow_description">ভাসমান বারের চারপাশে নরম আলো যোগ করে।</string>
+    <string name="settings_nav_bar_liquid_glass">Liquid Glass উপাদান</string>
+    <string name="settings_nav_bar_liquid_glass_description">ভাসমান নেভিগেশন বারে আলো প্রতিসরণ ও ঝাপসা প্রভাব যোগ করে।</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Android 13 বা পরবর্তী সংস্করণ প্রয়োজন। এই ডিভাইসে বর্তমান গ্লাস স্টাইলই থাকবে।</string>
     <string name="settings_nav_bar_glow_on">গ্লো চালু</string>
     <string name="settings_nav_bar_glow_off">গ্লো বন্ধ</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

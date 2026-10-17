@@ -2112,6 +2112,9 @@
     <string name="settings_appearance_app_icon_sheet_title">Wybierz ikonę</string>
     <string name="settings_nav_bar_glow">Szklany blask</string>
     <string name="settings_nav_bar_glow_description">Dodaje delikatne światło wokół pływającego paska.</string>
+    <string name="settings_nav_bar_liquid_glass">Materiał Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Dodaje załamanie światła i rozmycie do pływającego paska nawigacji.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Wymaga Androida 13 lub nowszego. Na tym urządzeniu pozostanie obecny styl szkła.</string>
     <string name="settings_nav_bar_glow_on">Blask włączony</string>
     <string name="settings_nav_bar_glow_off">Blask wyłączony</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

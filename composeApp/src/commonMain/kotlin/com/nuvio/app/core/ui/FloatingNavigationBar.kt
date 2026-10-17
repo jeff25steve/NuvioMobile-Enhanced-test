@@ -1,15 +1,22 @@
 package com.nuvio.app.core.ui
 
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.isRuntimeShaderSupported
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -26,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -40,6 +50,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
+import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
+import com.nuvio.app.core.ui.glass.shouldCaptureFloatingBar
+import com.nuvio.app.core.ui.glass.shouldCaptureTabIcons
 import com.nuvio.app.core.ui.jelly.JellyMotion
 import com.nuvio.app.core.ui.jelly.JellySelectionSource
 import com.nuvio.app.core.ui.jelly.JellyTabRow
@@ -50,6 +67,7 @@ import com.nuvio.app.core.ui.jelly.jellyPillPath
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.DrawableResource
 
 internal class FloatingNavigationItem(
@@ -58,7 +76,7 @@ internal class FloatingNavigationItem(
     val onClick: () -> Unit,
     val icon: ImageVector? = null,
     val drawable: DrawableResource? = null,
-    val content: (@Composable (onClick: () -> Unit) -> Unit)? = null,
+    val content: (@Composable (onClick: () -> Unit, defaultIconColorOverride: Color?) -> Unit)? = null,
 )
 
 /**
@@ -86,7 +104,14 @@ internal fun FloatingNavigationBar(
     contentPadding: PaddingValues = floatingNavigationBarPadding(),
     compactSize: Boolean = false,
     glowEnabled: Boolean = true,
+    liquidGlassEnabled: Boolean = false,
+    liquidGlassBackdrop: Backdrop? = null,
+    liquidGlassBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    liquidGlassSelectionEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     inlineLabels: Boolean = false,
+    defaultIconColorOverride: Color? = null,
+    scrollBounceTrigger: Int = 0,
+    scrollBounceDirection: Float = 0f,
 ) {
     if (items.isEmpty()) return
     val showGlow = !floatingNavigationGlowSupported || glowEnabled
@@ -108,6 +133,55 @@ internal fun FloatingNavigationBar(
     val selectedIndex = items.indexOfFirst { it.selected }
     val visualSelectedIndex = visualNavIndex(selectedIndex, items.size, isRtl)
     val motion = remember(items.size, isRtl) { JellyMotion(visualSelectedIndex, items.size) }
+    val lastScrollBounceTrigger = remember(motion) { mutableIntStateOf(scrollBounceTrigger) }
+    LaunchedEffect(motion, scrollBounceTrigger) {
+        if (scrollBounceTrigger == lastScrollBounceTrigger.intValue) return@LaunchedEffect
+        lastScrollBounceTrigger.intValue = scrollBounceTrigger
+        motion.bounce(scrollBounceDirection)
+    }
+    val useLiquidGlassMaterial =
+        liquidGlassEnabled && liquidGlassBackdrop != null && isRuntimeShaderSupported()
+    val floatingBarEffects = liquidGlassBarEffects.sanitized(
+        LiquidGlassEffectDefaults.floatingBar,
+        LiquidGlassEffectDefaults.floatingBarLimits,
+    )
+    val selectionLensEffects = liquidGlassSelectionEffects.sanitized(
+        LiquidGlassEffectDefaults.selectionLens,
+        LiquidGlassEffectDefaults.selectionLensLimits,
+    )
+    val liquidGlassBarBackdrop = if (
+        useLiquidGlassMaterial && selectionLensEffects.shouldCaptureFloatingBar()
+    ) {
+        rememberLayerBackdrop()
+    } else {
+        null
+    }
+    val liquidGlassIconsBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.shouldCaptureTabIcons()) {
+        rememberLayerBackdrop()
+    } else {
+        null
+    }
+    val floatingBarShape = remember(useLiquidGlassMaterial, floatingBarEffects.cornerRadiusPercent) {
+        RoundedCornerShape(if (useLiquidGlassMaterial) floatingBarEffects.cornerRadiusPercent.roundToInt() else 50)
+    }
+    val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
+        RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
+    }
+    // The primary lens always samples the screen. Only the optional floating-bar source is
+    // composited into this pass; tab icons use a separate refraction-only overlay below so the
+    // selected-lens blur cannot smear glyphs when icon refraction is enabled.
+    val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
+        val screenBackdrop = liquidGlassBackdrop!!
+        if (liquidGlassBarBackdrop != null) {
+            rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop)
+        } else {
+            screenBackdrop
+        }
+    } else {
+        null
+    }
+    val selectionPillCornerRadiusPercent =
+        if (liquidGlassSelectionBackdrop != null) selectionLensEffects.cornerRadiusPercent else 50f
     val currentItems by rememberUpdatedState(items)
     val currentIsRtl by rememberUpdatedState(isRtl)
     val density = LocalDensity.current
@@ -152,7 +226,7 @@ internal fun FloatingNavigationBar(
             .padding(horizontal = horizontalPadding),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .widthIn(max = if (inlineLabels) inlineMaxWidth else 400.dp)
                 .fillMaxWidth()
@@ -163,7 +237,9 @@ internal fun FloatingNavigationBar(
                 .pointerInput(motion, density, items.size, isRtl) {
                     detectJellyTabGestures(motion, density.density, { currentItems }, { currentIsRtl })
                 },
+            contentAlignment = Alignment.TopStart,
         ) {
+            val liquidGlassSelectionTabWidth = ((maxWidth - 8.dp) / items.size).coerceAtLeast(0.dp)
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -191,46 +267,242 @@ internal fun FloatingNavigationBar(
                             .matchParentSize()
                             .graphicsLayer { translationX = motion.frame.panelOffset * density.density },
                     ) {
-                        Box(
-                            Modifier.matchParentSize()
-                                .clip(RoundedCornerShape(50))
-                                .drawWithContent {
-                                    drawContent()
-                                    drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
-                                },
-                        ) {
-                            GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
-                        }
-                        Box(
-                            Modifier.matchParentSize().drawWithContent {
-                                if (selectedIndex >= 0) {
-                                    clipPath(jellyPillPath(motion.frame, items.size), ClipOp.Difference) {
-                                        this@drawWithContent.drawContent()
-                                    }
-                                } else {
-                                    drawContent()
-                                }
-                            },
-                        ) {
-                            JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
-                        }
-                        if (selectedIndex >= 0) {
+                        Box(Modifier.matchParentSize()) {
                             Box(
                                 Modifier.matchParentSize()
-                                    .clearAndSetSemantics {}
+                                    .clip(floatingBarShape)
                                     .drawWithContent {
-                                        drawJellyPill(
-                                            motion.frame,
-                                            items.size,
-                                            selectedSurface,
-                                            accentColor.copy(alpha = accentColor.alpha * glowStrength),
-                                        ) { drawContent() }
+                                        drawContent()
+                                        drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
                                     },
                             ) {
-                                JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                if (useLiquidGlassMaterial) {
+                                    LiquidGlassFrostedBar(
+                                        backdrop = liquidGlassBackdrop!!,
+                                        modifier = Modifier.matchParentSize(),
+                                        glowStrength = glowStrength,
+                                        settings = floatingBarEffects,
+                                    )
+                                    if (liquidGlassBarBackdrop != null) {
+                                        // Capture the frosted glass surface without its own lens effect.
+                                        // The selected lens then refracts this source once, rather than
+                                        // sampling an already-refracted copy of the visible bar.
+                                        Box(
+                                            Modifier.matchParentSize()
+                                                .graphicsLayer { alpha = 0f }
+                                                .layerBackdrop(liquidGlassBarBackdrop),
+                                        ) {
+                                            LiquidGlassFrostedBar(
+                                                backdrop = liquidGlassBackdrop!!,
+                                                modifier = Modifier.matchParentSize(),
+                                                glowStrength = glowStrength,
+                                                settings = floatingBarEffects,
+                                                includeRefraction = false,
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
+                                }
+                            }
+                            Box(
+                                Modifier.matchParentSize().drawWithContent {
+                                    if (selectedIndex >= 0) {
+                                        clipPath(
+                                            jellyPillPath(motion.frame, items.size, selectionPillCornerRadiusPercent),
+                                            ClipOp.Difference,
+                                        ) {
+                                            this@drawWithContent.drawContent()
+                                        }
+                                    } else {
+                                        drawContent()
+                                    }
+                                },
+                            ) {
+                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
+                            }
+                            if (liquidGlassIconsBackdrop != null) {
+                                // Capture the active tab row only when explicitly requested.
+                                // It is a lens source, not a second visible set of icons.
+                                Box(
+                                    Modifier
+                                        .matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .graphicsLayer { alpha = 0f }
+                                        .layerBackdrop(liquidGlassIconsBackdrop),
+                                ) {
+                                    Box(Modifier.matchParentSize()) {
+                                        // Match the visible row: inactive tabs must not remain
+                                        // underneath the active icon source inside the selected pill.
+                                        Box(
+                                            Modifier.matchParentSize().drawWithContent {
+                                                if (selectedIndex >= 0) {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                        ClipOp.Difference,
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                } else {
+                                                    drawContent()
+                                                }
+                                            },
+                                        ) {
+                                            JellyTabRow(
+                                                items,
+                                                labelFraction,
+                                                motion,
+                                                active = false,
+                                                compactSize = compactSize,
+                                                modifier = Modifier.matchParentSize(),
+                                                inlineLabels = inlineLabels,
+                                                inactiveColorOverride = defaultIconColorOverride,
+                                            )
+                                        }
+                                        Box(
+                                            Modifier.matchParentSize().drawWithContent {
+                                                if (selectedIndex >= 0) {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                } else {
+                                                    drawContent()
+                                                }
+                                            },
+                                        ) {
+                                            JellyTabRow(
+                                                items,
+                                                labelFraction,
+                                                motion,
+                                                active = true,
+                                                compactSize = compactSize,
+                                                modifier = Modifier.matchParentSize(),
+                                                inlineLabels = inlineLabels,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                        JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                        if (selectedIndex >= 0) {
+                            if (liquidGlassSelectionBackdrop != null) {
+                                key(selectionLensEffects.cornerRadiusPercent) {
+                                    Box(
+                                        Modifier
+                                            .width(liquidGlassSelectionTabWidth)
+                                            .height(trackHeight - 8.dp),
+                                    ) {
+                                        LiquidGlassSelectionSurface(
+                                            backdrop = liquidGlassSelectionBackdrop,
+                                            pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
+                                            shape = { selectionLensShape },
+                                            modifier = Modifier.matchParentSize(),
+                                            settings = selectionLensEffects,
+                                            layerBlock = {
+                                                // Apply the moving lens transform inside drawBackdrop so
+                                                // Kyant's backdrop sampler can invert it for source mapping.
+                                                val frame = motion.frame
+                                                // This lens is inside the same parent layer that applies panelOffset.
+                                                translationX = liquidGlassSelectionTranslationX(
+                                                    position = frame.position,
+                                                    count = items.size,
+                                                    tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
+                                                    insetPx = 4.dp.toPx(),
+                                                    isRtl = isRtl,
+                                                )
+                                                translationY = 4.dp.toPx()
+                                                scaleX = frame.pillScaleX
+                                                scaleY = frame.pillScaleY
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Keep icon refraction separate from the main screen/bar lens: the
+                            // configured lens blur must not blur this icon-only source a second time.
+                            if (liquidGlassIconsBackdrop != null && motion.tabIconRefractionActive) {
+                                Box(
+                                    Modifier
+                                        .width(liquidGlassSelectionTabWidth)
+                                        .height(trackHeight - 8.dp),
+                                ) {
+                                    LiquidGlassIconRefractionSurface(
+                                        backdrop = liquidGlassIconsBackdrop,
+                                        shape = { selectionLensShape },
+                                        modifier = Modifier.matchParentSize(),
+                                        settings = selectionLensEffects,
+                                        layerBlock = {
+                                            val frame = motion.frame
+                                            translationX = liquidGlassSelectionTranslationX(
+                                                position = frame.position,
+                                                count = items.size,
+                                                tabWidthPx = liquidGlassSelectionTabWidth.toPx(),
+                                                insetPx = 4.dp.toPx(),
+                                                isRtl = isRtl,
+                                            )
+                                            translationY = 4.dp.toPx()
+                                            scaleX = frame.pillScaleX
+                                            scaleY = frame.pillScaleY
+                                        },
+                                    )
+                                }
+                            }
+                            // Keep the selected row crisp at rest and during vertical scrolling.
+                            // Hide this duplicate only while a horizontal lens drag is refracting
+                            // the captured icon source.
+                            if (liquidGlassIconsBackdrop == null || !motion.tabIconRefractionActive) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .then(
+                                            if (liquidGlassSelectionBackdrop != null) {
+                                                Modifier.drawWithContent {
+                                                    clipPath(
+                                                        jellyPillPath(
+                                                            motion.frame,
+                                                            items.size,
+                                                            selectionPillCornerRadiusPercent,
+                                                        ),
+                                                    ) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                }
+                                            } else {
+                                                Modifier.drawWithContent {
+                                                    drawJellyPill(
+                                                        motion.frame,
+                                                        items.size,
+                                                        selectedSurface,
+                                                        accentColor.copy(alpha = accentColor.alpha * glowStrength),
+                                                    ) { this@drawWithContent.drawContent() }
+                                                }
+                                            },
+                                        ),
+                                ) {
+                                    JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                }
+                            }
+                        }
+                        JellyTabTargets(
+                            items,
+                            labelFraction,
+                            motion,
+                            compactSize,
+                            Modifier.matchParentSize(),
+                            inlineLabels = inlineLabels,
+                            defaultIconColorOverride = defaultIconColorOverride,
+                        )
                     }
                 }
             }
@@ -238,11 +510,33 @@ internal fun FloatingNavigationBar(
     }
 }
 
+
 internal fun visualNavIndex(logicalIndex: Int, count: Int, isRtl: Boolean): Int =
     if (logicalIndex in 0 until count && isRtl) count - 1 - logicalIndex else logicalIndex
 
 internal fun logicalNavIndex(visualIndex: Int, count: Int, isRtl: Boolean): Int =
     if (visualIndex in 0 until count && isRtl) count - 1 - visualIndex else visualIndex
+
+/**
+ * Converts the selected visual slot into an offset from Box's logical-start alignment.
+ * That alignment is left in LTR and right in RTL, so the physical translation must mirror.
+ */
+/**
+ * Converts a selected visual slot to an offset local to the already translated navigation row.
+ * JellyMotion's physical panelOffset is applied once by the shared parent graphics layer; applying
+ * it here as well would make the selected lens drift twice as far as the visible tabs.
+ */
+internal fun liquidGlassSelectionTranslationX(
+    position: Float,
+    count: Int,
+    tabWidthPx: Float,
+    insetPx: Float,
+    isRtl: Boolean,
+): Float = if (isRtl) {
+    -insetPx - tabWidthPx * (count - 1 - position)
+} else {
+    insetPx + tabWidthPx * position
+}
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,

@@ -325,6 +325,7 @@ internal fun HomeHeroSection(
                     .map { page -> HeroPageLayer(page = page, itemIndex = page % items.size) }
             }
             val currentItem = items[currentPage % items.size]
+            val settledItem = items[pagerState.settledPage % items.size]
 
             val activeArtworkUrl = heroArtworkUrl(items[pagerState.targetPage % items.size], effectiveArtworkSource)
             LaunchedEffect(onActiveArtworkChange, activeArtworkUrl) {

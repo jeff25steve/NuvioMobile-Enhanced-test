@@ -401,6 +401,9 @@
     <string name="settings_appearance_nav_bar_style_sheet_title">Στυλ γραμμής πλοήγησης</string>
     <string name="settings_nav_bar_glow">Λάμψη γυαλιού</string>
     <string name="settings_nav_bar_glow_description">Προσθέτει απαλό φως γύρω από την πλωτή γραμμή.</string>
+    <string name="settings_nav_bar_liquid_glass">Υλικό Liquid Glass</string>
+    <string name="settings_nav_bar_liquid_glass_description">Προσθέτει διάθλαση και θόλωση στην αιωρούμενη γραμμή πλοήγησης.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Απαιτείται Android 13 ή νεότερο. Σε αυτήν τη συσκευή θα παραμείνει το υπάρχον γυάλινο στυλ.</string>
     <string name="settings_nav_bar_glow_on">Λάμψη ενεργή</string>
     <string name="settings_nav_bar_glow_off">Λάμψη ανενεργή</string>
     <string name="settings_nav_bar_summary">%1$s · %2$s</string>

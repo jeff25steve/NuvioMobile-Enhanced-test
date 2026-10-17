@@ -125,7 +125,6 @@ internal fun LazyListScope.appearanceSettingsContent(
         var showTabBarBehaviorSheet by remember { mutableStateOf(false) }
         var showAppIconPicker by remember { mutableStateOf(false) }
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
-        val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         // Upstream pins tablets to COMPACT because there the bar is a top rail. This fork puts
         // the floating pill at the bottom on every size, so the chosen style still applies.
         val effectiveNavBarStyle = selectedNavBarStyle
@@ -260,16 +259,13 @@ internal fun LazyListScope.appearanceSettingsContent(
         }
 
         if (showNavBarStyleSheet) {
-            NavigationBarSettingsSheet(
-                // Passing false keeps the style list visible on tablets: the sheet hides it when
-                // isTablet is true, which only fits upstream's tablet top rail.
-                isTablet = false,
+            NavigationBarSettingsSheetHost(
                 tabletLayout = LocalNuvioTabletNavLayout.current,
                 selectedStyle = effectiveNavBarStyle,
                 onStyleSelected = onNavBarStyleSelected,
                 glowEnabled = glowEnabled,
                 onGlowChanged = ThemeSettingsRepository::setNavBarGlowEnabled,
-                selectedPosition = navBarPosition,
+                onLiquidGlassChanged = ThemeSettingsRepository::setNavBarLiquidGlassEnabled,
                 onPositionSelected = ThemeSettingsRepository::setNavBarPosition,
                 onDismiss = { showNavBarStyleSheet = false },
             )
@@ -473,4 +469,52 @@ private fun TabBarBehaviorBottomSheet(
             }
         }
     }
+}
+
+
+@Composable
+private fun NavigationBarSettingsSheetHost(
+    tabletLayout: Boolean,
+    selectedStyle: NavBarStyle,
+    onStyleSelected: (NavBarStyle) -> Unit,
+    glowEnabled: Boolean,
+    onGlowChanged: (Boolean) -> Unit,
+    onLiquidGlassChanged: (Boolean) -> Unit,
+    onPositionSelected: (NavBarPosition) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Keep high-frequency slider StateFlows inside the sheet host. Otherwise every slider drag
+    // invalidates the containing Appearance settings section, including all of its rows.
+    val liquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
+    val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
+    val floatingBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionLensEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+
+    NavigationBarSettingsSheet(
+        // Passing false keeps the style list visible on tablets: the sheet hides it when
+        // isTablet is true, which only fits upstream's tablet top rail.
+        isTablet = false,
+        tabletLayout = tabletLayout,
+        selectedStyle = selectedStyle,
+        onStyleSelected = onStyleSelected,
+        glowEnabled = glowEnabled,
+        onGlowChanged = onGlowChanged,
+        defaultIconColorEnabled = defaultIconColorEnabled,
+        onDefaultIconColorEnabledChanged = ThemeSettingsRepository::setNavBarDefaultIconColorEnabled,
+        defaultIconColor = defaultIconColor,
+        onDefaultIconColorChanged = ThemeSettingsRepository::updateNavBarDefaultIconColor,
+        onSaveDefaultIconColor = ThemeSettingsRepository::saveNavBarDefaultIconColorSettings,
+        liquidGlassEnabled = liquidGlassEnabled,
+        onLiquidGlassChanged = onLiquidGlassChanged,
+        floatingBarEffects = floatingBarEffects,
+        onFloatingBarEffectsChanged = ThemeSettingsRepository::updateNavBarLiquidGlassBarEffects,
+        selectionLensEffects = selectionLensEffects,
+        onSelectionLensEffectsChanged = ThemeSettingsRepository::updateNavBarLiquidGlassSelectionEffects,
+        onSaveLiquidGlassEffectSettings = ThemeSettingsRepository::saveNavBarLiquidGlassEffectSettings,
+        selectedPosition = navBarPosition,
+        onPositionSelected = onPositionSelected,
+        onDismiss = onDismiss,
+    )
 }
