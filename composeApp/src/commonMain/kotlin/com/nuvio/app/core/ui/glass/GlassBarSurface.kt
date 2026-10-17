@@ -156,6 +156,9 @@ internal fun LiquidGlassFrostedBar(
 
     Box(
         modifier
+            // drawBackdrop caches its clip Shape in a measured graphics layer.
+            // A radius edit does not change constraints, so refresh that layer immediately.
+            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { cornerShape },
