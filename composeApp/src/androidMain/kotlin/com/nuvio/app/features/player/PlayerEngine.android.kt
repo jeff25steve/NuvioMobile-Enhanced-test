@@ -2884,11 +2884,6 @@ private fun PlayerView.syncLibassOverlay(
         assHandler = assHandler,
         subtitleDelayUsProvider = subtitleDelayUsProvider,
     )
-    assSubtitleView.attachVsyncRenderDriver(
-        player = player,
-        assHandler = assHandler,
-        subtitleDelayUsProvider = subtitleDelayUsProvider,
-    )
     overlayContainer.addView(
         assSubtitleView,
         android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)

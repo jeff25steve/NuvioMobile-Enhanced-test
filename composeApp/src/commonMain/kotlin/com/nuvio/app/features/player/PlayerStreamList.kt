@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.streams.LocalStreamSizeLabelFormat
-import com.nuvio.app.features.streams.SharedStream
 import com.nuvio.app.features.streams.StreamBadgeSettingsRepository
 import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamCardSkeleton
@@ -47,7 +46,6 @@ internal fun PlayerStreamList(
     currentStreamUrl: String? = null,
     currentStreamName: String? = null,
     currentLabel: String? = null,
-    sharedStream: SharedStream? = null,
 ) {
     val debridSettings by remember {
         DebridSettingsRepository.ensureLoaded()
@@ -61,7 +59,7 @@ internal fun PlayerStreamList(
     val visibleGroups = streamsUiState.filteredGroups
 
     when {
-        streams.isEmpty() && sharedStream == null && streamsUiState.isAnyLoading -> {
+        streams.isEmpty() && streamsUiState.isAnyLoading -> {
             Column(
                 modifier = modifier.padding(contentPadding),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -72,7 +70,7 @@ internal fun PlayerStreamList(
             }
         }
 
-        streams.isEmpty() && sharedStream == null -> {
+        streams.isEmpty() -> {
             val error = visibleGroups.firstOrNull { it.error != null }?.error
             Box(
                 modifier = Modifier
@@ -97,21 +95,6 @@ internal fun PlayerStreamList(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = contentPadding,
             ) {
-                sharedStream?.let { shared ->
-                    item(key = "shared_stream") {
-                        StreamCard(
-                            stream = shared.stream,
-                            enabled = true,
-                            appendInstantServiceToDefaultName = false,
-                            showFileSizeBadges = streamBadgeSettings.showFileSizeBadges,
-                            showAddonLogo = streamBadgeSettings.showAddonLogo,
-                            badgePlacement = streamBadgeSettings.badgePlacement,
-                            isCurrent = true,
-                            currentLabel = shared.label,
-                            onClick = { onStreamSelected(shared.stream) },
-                        )
-                    }
-                }
                 itemsIndexed(
                     items = streams,
                     key = { index, _ -> streamKeys[index] },

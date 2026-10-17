@@ -28,7 +28,6 @@ data class EpisodeReleaseNotificationsUiState(
 internal data class StoredEpisodeReleaseNotificationsPayload(
     val enabled: Boolean = false,
     val followedShows: List<TrackedFollowedShow> = emptyList(),
-    val cachedRequests: Map<String, List<EpisodeReleaseNotificationRequest>> = emptyMap(),
 )
 
 @Serializable
@@ -38,7 +37,6 @@ internal data class TrackedFollowedShow(
     val followedOnIsoDate: String,
 )
 
-@Serializable
 internal data class EpisodeReleaseNotificationRequest(
     val requestId: String,
     val notificationTitle: String,

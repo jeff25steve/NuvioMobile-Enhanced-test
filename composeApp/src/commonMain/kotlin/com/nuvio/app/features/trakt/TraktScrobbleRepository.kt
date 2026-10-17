@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.core.build.AppVersionConfig
 import com.nuvio.app.features.addons.httpRequestRaw
 import com.nuvio.app.features.profiles.ProfileRepository
-import com.nuvio.app.features.tracking.TrackingAnimeIdMapper
 import com.nuvio.app.features.tracking.TrackingMediaKind
 import com.nuvio.app.features.tracking.TrackingMediaReference
 import com.nuvio.app.features.tracking.TrackingProviderId
@@ -113,7 +112,7 @@ internal object TraktScrobbleRepository : TrackingScrobbler {
         action: TrackingScrobbleAction,
         event: TrackingScrobbleEvent,
     ) {
-        val item = buildItem(TrackingAnimeIdMapper.toImdbReference(event.media)) ?: return
+        val item = buildItem(event.media) ?: return
         sendScrobble(
             profileId = profileId,
             action = action.wireValue,

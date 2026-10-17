@@ -46,8 +46,6 @@ data class PlayerLaunch(
     val initialPositionMs: Long = 0L,
     val initialProgressFraction: Float? = null,
     val contentLanguage: String? = null,
-    val sourceFilename: String? = null,
-    val stream: com.nuvio.app.features.streams.StreamItem? = null,
 )
 
 object PlayerLaunchStore {

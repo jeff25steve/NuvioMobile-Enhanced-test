@@ -7,10 +7,9 @@ to_ref="HEAD"
 repository="${GITHUB_REPOSITORY:-}"
 offline=false
 exclude_commits="${RELEASE_NOTES_EXCLUDE_COMMITS:-}"
-exclude_refs=()
 
 usage() {
-    echo "Usage: $0 --from <commit> [--to <commit>] [--repository <owner/repo>] [--exclude <hashes>] [--exclude-ref <ref>]... [--offline]" >&2
+    echo "Usage: $0 --from <commit> [--to <commit>] [--repository <owner/repo>] [--exclude <hashes>] [--offline]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -29,10 +28,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --exclude)
             exclude_commits="${exclude_commits} ${2:-}"
-            shift 2
-            ;;
-        --exclude-ref)
-            exclude_refs+=("^${2:-}")
             shift 2
             ;;
         --offline)
@@ -174,6 +169,6 @@ while IFS="$separator" read -r commit short_hash subject author_name author_emai
     username="$(resolve_username "$commit" "$author_name" "$author_email")"
     printf -- '- %s %s @%s  \n' "$short_hash" "$display_subject" "$username"
 done < <(
-    git log "${from_ref}..${to_ref}" ${exclude_refs[@]+"${exclude_refs[@]}"} --no-merges \
+    git log "${from_ref}..${to_ref}" --no-merges \
         --format="%H${separator}%h${separator}%s${separator}%an${separator}%ae"
 )

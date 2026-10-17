@@ -110,7 +110,7 @@ fun LiveTvScreen(
     onChannelClick: (LiveTvChannel) -> Unit,
 ) {
     val uiState by remember {
-        LiveTvRepository.ensureChannelsLoaded()
+        LiveTvRepository.ensureLoaded()
         LiveTvRepository.uiState
     }.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()

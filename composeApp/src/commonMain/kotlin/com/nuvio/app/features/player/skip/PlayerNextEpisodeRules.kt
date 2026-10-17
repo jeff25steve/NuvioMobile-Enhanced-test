@@ -50,16 +50,7 @@ object PlayerNextEpisodeRules {
                 val userTriggerMs = userThresholdPositionMs(
                     durationMs, thresholdMode, thresholdPercent, thresholdMinutesBeforeEnd
                 )
-                val isHeuristic = postCreditsScene.provider == "heuristic"
-                val sceneDurationMs = sceneEndMs - (postCreditsScene.startTime * 1_000.0).toLong()
-                val userThresholdFromEndMs = durationMs - userTriggerMs
-                return if (isHeuristic && sceneDurationMs < userThresholdFromEndMs) {
-                    false
-                } else if (isHeuristic) {
-                    positionMs >= userTriggerMs
-                } else {
-                    positionMs >= maxOf(sceneEndMs, userTriggerMs)
-                }
+                return positionMs >= maxOf(sceneEndMs, userTriggerMs)
             }
 
             val latestOutroEndMs = (outroSegments.maxOf { it.endTime } * 1_000.0).toLong()

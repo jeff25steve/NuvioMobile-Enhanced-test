@@ -15,7 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,20 +52,8 @@ object EpisodeReleaseNotificationsRepository {
     private var hasLoaded = false
     @Volatile
     private var trackedShowsByKey: Map<String, TrackedFollowedShow> = emptyMap()
-    @Volatile
-    private var cachedRequestsByShowKey: Map<String, List<EpisodeReleaseNotificationRequest>> = emptyMap()
-
-    private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
 
     init {
-        scope.launch {
-            for (ignored in refreshRequests) {
-                runCatching { refreshScheduledNotifications() }
-                    .onFailure { error ->
-                        log.e(error) { "Failed to refresh episode release notifications" }
-                    }
-            }
-        }
         scope.launch {
             LibraryRepository.uiState.collectLatest { state ->
                 if (!hasLoaded) return@collectLatest
@@ -74,16 +61,13 @@ object EpisodeReleaseNotificationsRepository {
                 val changed = reconcileTrackedShows(state)
                 if (changed) {
                     persist()
-                    if (_uiState.value.isEnabled) {
-                        requestRefresh()
-                    }
+                }
+
+                if (_uiState.value.isEnabled) {
+                    refreshScheduledNotifications()
                 }
             }
         }
-    }
-
-    private fun requestRefresh() {
-        refreshRequests.trySend(Unit)
     }
 
     fun ensureLoaded() {
@@ -104,7 +88,6 @@ object EpisodeReleaseNotificationsRepository {
     fun clearLocalState() {
         hasLoaded = false
         trackedShowsByKey = emptyMap()
-        cachedRequestsByShowKey = emptyMap()
         _uiState.value = EpisodeReleaseNotificationsUiState()
         scope.launch {
             runCatching { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
@@ -127,7 +110,9 @@ object EpisodeReleaseNotificationsRepository {
         )
         persist()
 
-        requestRefresh()
+        scope.launch {
+            refreshScheduledNotifications()
+        }
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -253,7 +238,9 @@ object EpisodeReleaseNotificationsRepository {
 
     fun refreshAsync() {
         ensureLoaded()
-        requestRefresh()
+        scope.launch {
+            refreshScheduledNotifications()
+        }
     }
 
     private fun loadFromDisk() {
@@ -274,7 +261,6 @@ object EpisodeReleaseNotificationsRepository {
                 put(buildTrackedShowKey(trackedShow.contentType, trackedShow.contentId), trackedShow)
             }
         }
-        cachedRequestsByShowKey = stored?.cachedRequests.orEmpty()
 
         _uiState.value = EpisodeReleaseNotificationsUiState(
             isEnabled = stored?.enabled ?: false,
@@ -293,7 +279,6 @@ object EpisodeReleaseNotificationsRepository {
                     enabled = _uiState.value.isEnabled,
                     followedShows = trackedShowsByKey.values
                         .sortedWith(compareBy(TrackedFollowedShow::contentType, TrackedFollowedShow::contentId)),
-                    cachedRequests = cachedRequestsByShowKey,
                 ),
             ),
         )
@@ -408,26 +393,14 @@ object EpisodeReleaseNotificationsRepository {
                 AddonRepository.awaitManifestsLoaded()
             }
 
-            val todayIso = CurrentDateProvider.todayIsoDate()
             val semaphore = Semaphore(metadataFetchConcurrency)
-            val requestsByShowKey = trackedShowsByKey.map { (showKey, trackedShow) ->
+            val requests = trackedShowsByKey.values.map { trackedShow ->
                 scope.async {
-                    val built = semaphore.withPermit {
+                    semaphore.withPermit {
                         buildRequestsForShow(trackedShow)
                     }
-                    val showRequests = (built ?: cachedRequestsByShowKey[showKey].orEmpty())
-                        .filter { request -> request.releaseDateIso >= todayIso }
-                    showKey to showRequests
                 }
-            }.awaitAll().toMap()
-
-            cachedRequestsByShowKey = requestsByShowKey
-            persist()
-
-            val requests = requestsByShowKey.values
-                .flatten()
-                .distinctBy(EpisodeReleaseNotificationRequest::requestId)
-                .sortedBy(EpisodeReleaseNotificationRequest::releaseDateIso)
+            }.awaitAll().flatten()
 
             runCatching {
                 EpisodeReleaseNotificationPlatform.scheduleEpisodeReleaseNotifications(requests)
@@ -458,7 +431,7 @@ object EpisodeReleaseNotificationsRepository {
             ?: libraryItems.firstOrNull()
     }
 
-    private suspend fun buildRequestsForShow(trackedShow: TrackedFollowedShow): List<EpisodeReleaseNotificationRequest>? {
+    private suspend fun buildRequestsForShow(trackedShow: TrackedFollowedShow): List<EpisodeReleaseNotificationRequest> {
         val meta = runCatching {
             MetaDetailsRepository.fetch(
                 type = trackedShow.contentType,
@@ -467,7 +440,7 @@ object EpisodeReleaseNotificationsRepository {
             )
         }.onFailure { error ->
             log.w { "Failed to resolve metadata for ${trackedShow.contentType}:${trackedShow.contentId}: ${error.message}" }
-        }.getOrNull() ?: return null
+        }.getOrNull() ?: return emptyList()
 
         val showTitle = meta.name.ifBlank { trackedShow.contentId }
         return meta.videos.mapNotNull { episode ->

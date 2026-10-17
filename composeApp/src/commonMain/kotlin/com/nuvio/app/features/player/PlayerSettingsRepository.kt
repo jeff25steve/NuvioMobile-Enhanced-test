@@ -97,8 +97,6 @@ data class PlayerSettingsUiState(
     val nextEpisodeThresholdPercent: Float = 99f,
     val nextEpisodeThresholdMinutesBeforeEnd: Float = 2f,
     val preloadNextEpisodeSources: Boolean = false,
-    val miniPlayerEnabled: Boolean = false,
-    val privateViewingEnabled: Boolean = false,
     val useLibass: Boolean = false,
     val libassRenderType: String = "CUES",
     val iosVideoOutputPreset: IosVideoOutputPreset = IosVideoOutputPreset.NativeEdr,
@@ -187,8 +185,6 @@ object PlayerSettingsRepository {
     private var nextEpisodeThresholdPercent = 99f
     private var nextEpisodeThresholdMinutesBeforeEnd = 2f
     private var preloadNextEpisodeSources = false
-    private var miniPlayerEnabled = false
-    private var privateViewingEnabled = false
     private var useLibass = false
     private var libassRenderType = "CUES"
     private var iosVideoOutputPreset = IosVideoOutputPreset.NativeEdr
@@ -282,8 +278,6 @@ object PlayerSettingsRepository {
         nextEpisodeThresholdPercent = 99f
         nextEpisodeThresholdMinutesBeforeEnd = 2f
         preloadNextEpisodeSources = false
-        miniPlayerEnabled = false
-        privateViewingEnabled = false
         useLibass = false
         libassRenderType = "CUES"
         iosVideoOutputPreset = IosVideoOutputPreset.NativeEdr
@@ -434,8 +428,6 @@ object PlayerSettingsRepository {
         nextEpisodeThresholdPercent = PlayerSettingsStorage.loadNextEpisodeThresholdPercent() ?: 99f
         nextEpisodeThresholdMinutesBeforeEnd = PlayerSettingsStorage.loadNextEpisodeThresholdMinutesBeforeEnd() ?: 2f
         preloadNextEpisodeSources = PlayerSettingsStorage.loadPreloadNextEpisodeSources() ?: false
-        miniPlayerEnabled = PlayerSettingsStorage.loadMiniPlayerEnabled() ?: false
-        privateViewingEnabled = PlayerSettingsStorage.loadPrivateViewingEnabled() ?: false
         useLibass = PlayerSettingsStorage.loadUseLibass() ?: false
         libassRenderType = PlayerSettingsStorage.loadLibassRenderType() ?: "CUES"
         iosVideoOutputPreset = PlayerSettingsStorage.loadIosVideoOutputPreset()
@@ -1006,22 +998,6 @@ object PlayerSettingsRepository {
         PlayerSettingsStorage.savePreloadNextEpisodeSources(enabled)
     }
 
-    fun setMiniPlayerEnabled(enabled: Boolean) {
-        ensureLoaded()
-        if (miniPlayerEnabled == enabled) return
-        miniPlayerEnabled = enabled
-        publish()
-        PlayerSettingsStorage.saveMiniPlayerEnabled(enabled)
-    }
-
-    fun setPrivateViewingEnabled(enabled: Boolean) {
-        ensureLoaded()
-        if (privateViewingEnabled == enabled) return
-        privateViewingEnabled = enabled
-        publish()
-        PlayerSettingsStorage.savePrivateViewingEnabled(enabled)
-    }
-
     fun setUseLibass(enabled: Boolean) {
         ensureLoaded()
         if (useLibass == enabled) return
@@ -1269,8 +1245,6 @@ object PlayerSettingsRepository {
             nextEpisodeThresholdPercent = nextEpisodeThresholdPercent,
             nextEpisodeThresholdMinutesBeforeEnd = nextEpisodeThresholdMinutesBeforeEnd,
             preloadNextEpisodeSources = preloadNextEpisodeSources,
-            miniPlayerEnabled = miniPlayerEnabled,
-            privateViewingEnabled = privateViewingEnabled,
             useLibass = useLibass,
             libassRenderType = libassRenderType,
             iosVideoOutputPreset = iosVideoOutputPreset,

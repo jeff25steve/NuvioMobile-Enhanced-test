@@ -57,7 +57,6 @@ import com.nuvio.app.core.format.extractReleaseYearForDisplay
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.formatRuntimeForDisplay
-import com.nuvio.app.features.player.MiniPlayerController
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.detail_logo_content_description
 import nuvio.composeapp.generated.resources.details_season_count
@@ -190,7 +189,7 @@ private fun BackdropArtwork(
             HeroTrailerPlayerSurface(
                 sourceUrl = heroTrailerSourceUrl,
                 sourceAudioUrl = heroTrailerSourceAudioUrl,
-                playWhenReady = heroTrailerPlayWhenReady() && !MiniPlayerController.isActive,
+                playWhenReady = heroTrailerPlayWhenReady(),
                 muted = heroTrailerMuted,
                 modifier = artworkModifier.graphicsLayer {
                     alpha = trailerAlpha

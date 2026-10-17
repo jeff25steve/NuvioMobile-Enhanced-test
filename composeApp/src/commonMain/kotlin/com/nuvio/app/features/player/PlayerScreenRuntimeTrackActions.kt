@@ -140,9 +140,7 @@ internal fun PlayerScreenRuntime.restorePersistedTrackPreferenceIfNeeded(): Bool
                     selectedAddonSubtitleId = subtitle.selectionKey
                     selectedSubtitleIndex = -1
                     useCustomSubtitles = true
-                    if (!maybeAutoSyncRestoredSubtitleAtStart(subtitle.url)) { // AutoSync hook
-                        playerController?.setSubtitleUri(subtitle.url)
-                    }
+                    playerController?.setSubtitleUri(subtitle.url)
                     preferredSubtitleSelectionApplied = true
                     isUserExplicitSubtitleSelection = true
                 }
@@ -267,9 +265,7 @@ private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTrack
                 selectedAddonSubtitleId = primaryAddonMatch.selectionKey
                 selectedSubtitleIndex = -1
                 useCustomSubtitles = true
-                if (!maybeAutoSyncPreferredSubtitleAtStart(primaryAddonMatch)) { // AutoSync hook
-                    playerController?.setSubtitleUri(primaryAddonMatch.url)
-                }
+                playerController?.setSubtitleUri(primaryAddonMatch.url)
                 return
             }
         }
@@ -331,7 +327,6 @@ private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTrack
         )
         if (selectedMatchesPrimary) {
             preferredSubtitleSelectionApplied = true
-            maybeAutoSyncPreferredSubtitleAtStart(selectedAddon) // AutoSync hook
             return
         }
     }
@@ -350,9 +345,7 @@ private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTrack
         selectedAddonSubtitleId = addonMatch.selectionKey
         selectedSubtitleIndex = -1
         useCustomSubtitles = true
-        if (!maybeAutoSyncPreferredSubtitleAtStart(addonMatch)) { // AutoSync hook
-            playerController?.setSubtitleUri(addonMatch.url)
-        }
+        playerController?.setSubtitleUri(addonMatch.url)
     } else if (!preferredSubtitleSelectionApplied) {
         disableAutomaticSubtitleSelection()
         preferredSubtitleSelectionApplied = true

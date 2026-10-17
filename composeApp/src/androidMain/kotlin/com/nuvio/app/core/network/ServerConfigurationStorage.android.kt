@@ -10,7 +10,6 @@ internal actual object ServerConfigurationStorage {
     private const val publishableKey = "publishable_key"
     private const val emailPasswordAuthKey = "email_password_auth"
     private const val tvLoginKey = "tv_login"
-    private const val watchPartyKey = "watch_party"
     private const val discoveryUrlKey = "discovery_url"
 
     private var preferences: SharedPreferences? = null
@@ -33,7 +32,6 @@ internal actual object ServerConfigurationStorage {
             capabilities = ServerCapabilities(
                 emailPasswordAuth = emailPasswordAuth,
                 tvLogin = tvLogin,
-                watchParty = values.getBoolean(watchPartyKey, false),
             ),
             isCustom = true,
             discoveryUrl = values.getString(discoveryUrlKey, null),
@@ -48,7 +46,6 @@ internal actual object ServerConfigurationStorage {
             ?.putString(publishableKey, configuration.publishableKey)
             ?.putBoolean(emailPasswordAuthKey, configuration.capabilities.emailPasswordAuth)
             ?.putBoolean(tvLoginKey, configuration.capabilities.tvLogin)
-            ?.putBoolean(watchPartyKey, configuration.capabilities.watchParty)
             ?.putString(discoveryUrlKey, configuration.discoveryUrl)
             ?.commit() == true
 

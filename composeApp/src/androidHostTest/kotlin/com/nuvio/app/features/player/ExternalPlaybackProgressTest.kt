@@ -38,7 +38,8 @@ class ExternalPlaybackProgressTest {
     @Before
     fun initialize() {
         val context = RuntimeEnvironment.getApplication()
-        clearPreferences()
+        context.getSharedPreferences("nuvio_watch_progress", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences("nuvio_player_settings", Context.MODE_PRIVATE).edit().clear().commit()
         WatchProgressStorage.initialize(context)
         PlayerSettingsStorage.initialize(context)
         ExternalPlayerPlatform.initialize(context)
@@ -48,7 +49,6 @@ class ExternalPlaybackProgressTest {
     @After
     fun cleanup() {
         WatchProgressRepository.clearLocalState()
-        clearPreferences()
     }
 
     @Test
@@ -138,12 +138,5 @@ class ExternalPlaybackProgressTest {
         )))
         callbacks.handleUrl("${launch.parameters["x-success"]}?lastPlayedUrl=${source.encodeURLParameter()}&position=$positionSeconds")
         return assertNotNull(callbacks.results.value?.playbackResult())
-    }
-
-    private fun clearPreferences() {
-        val context = RuntimeEnvironment.getApplication()
-        listOf("nuvio_watch_progress", "nuvio_player_settings").forEach {
-            context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
-        }
     }
 }

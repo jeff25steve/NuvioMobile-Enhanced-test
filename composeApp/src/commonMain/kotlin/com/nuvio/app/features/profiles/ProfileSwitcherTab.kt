@@ -836,10 +836,10 @@ internal fun resolveProfileAvatarBorderColor(
     avatarColor: Color,
     selectedBorderColor: Color,
     defaultIconColorOverride: Color?,
-): Color = if (selected) {
+): Color = defaultIconColorOverride ?: if (selected) {
     selectedBorderColor
 } else {
-    defaultIconColorOverride ?: avatarColor.copy(alpha = 0.5f)
+    avatarColor.copy(alpha = 0.5f)
 }
 
 @Composable
