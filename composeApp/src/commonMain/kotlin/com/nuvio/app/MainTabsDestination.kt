@@ -296,7 +296,7 @@ internal fun mainFloatingNavigationItems(
             selected = highlightedTab == AppScreenTab.Settings,
             onClick = { onTabSelected(AppScreenTab.Settings) },
             label = stringResource(Res.string.compose_nav_profile),
-            content = { onClick ->
+            content = { onClick, defaultIconColorOverride ->
                 ProfileSwitcherTab(
                     selected = highlightedTab == AppScreenTab.Settings,
                     onClick = onClick,
@@ -304,6 +304,7 @@ internal fun mainFloatingNavigationItems(
                     onAddProfileRequested = onAddProfileRequested,
                     hazeState = hazeState,
                     popupBelowAnchor = false,
+                    defaultIconColorOverride = defaultIconColorOverride,
                 )
             },
         ),

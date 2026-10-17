@@ -76,7 +76,7 @@ internal class FloatingNavigationItem(
     val onClick: () -> Unit,
     val icon: ImageVector? = null,
     val drawable: DrawableResource? = null,
-    val content: (@Composable (onClick: () -> Unit) -> Unit)? = null,
+    val content: (@Composable (onClick: () -> Unit, defaultIconColorOverride: Color?) -> Unit)? = null,
 )
 
 /**
@@ -494,7 +494,15 @@ internal fun FloatingNavigationBar(
                                 }
                             }
                         }
-                        JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                        JellyTabTargets(
+                            items,
+                            labelFraction,
+                            motion,
+                            compactSize,
+                            Modifier.matchParentSize(),
+                            inlineLabels = inlineLabels,
+                            defaultIconColorOverride = defaultIconColorOverride,
+                        )
                     }
                 }
             }

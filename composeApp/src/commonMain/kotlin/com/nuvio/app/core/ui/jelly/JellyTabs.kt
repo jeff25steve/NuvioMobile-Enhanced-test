@@ -127,6 +127,7 @@ internal fun JellyTabTargets(
     compactSize: Boolean,
     modifier: Modifier,
     inlineLabels: Boolean = false,
+    defaultIconColorOverride: Color? = null,
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Row(modifier.padding(horizontal = 4.dp).selectableGroup()) {
@@ -166,7 +167,7 @@ internal fun JellyTabTargets(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(if (compactSize) Modifier.size(24.dp) else Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                            item.content(onClick)
+                            item.content(onClick, defaultIconColorOverride)
                         }
                         Box(Modifier.alpha(0f)) {
                             InlineJellyLabel(item.label, labelFraction, Color.Transparent, active = false)
@@ -188,7 +189,7 @@ internal fun JellyTabTargets(
                                 .then(if (compactSize) Modifier.size(24.dp) else Modifier)
                                 .graphicsLayer { translationY = 2.dp.toPx() * labelFraction },
                         ) {
-                            item.content(onClick)
+                            item.content(onClick, defaultIconColorOverride)
                         }
                         Spacer(Modifier.height((if (compactSize) 14.dp else 16.dp) * labelFraction))
                     }
