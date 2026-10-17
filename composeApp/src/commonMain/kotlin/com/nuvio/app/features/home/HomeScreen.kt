@@ -230,15 +230,22 @@ fun HomeScreen(
         )
     }
 
+    val nextUpProgressSeedEntries = remember(watchProgressUiState.entries) {
+        val nowEpochMs = WatchProgressClock.nowEpochMs()
+        watchProgressUiState.entries.filter { entry ->
+            WatchProgressRepository.shouldUseAsNextUpSeed(entry, nowEpochMs)
+        }
+    }
+
     val allNextUpSeedCandidates = remember(
-        watchProgressUiState.entries,
+        nextUpProgressSeedEntries,
         watchProgressUiState.hiddenContentIds,
         nextUpWatchedItems,
         progressProviderOwnsCompletedHistory,
         continueWatchingPreferences.upNextFromFurthestEpisode,
     ) {
         buildHomeNextUpSeedCandidates(
-            progressEntries = watchProgressUiState.entries,
+            progressEntries = nextUpProgressSeedEntries,
             watchedItems = nextUpWatchedItems,
             providerOwnsCompletedHistory = progressProviderOwnsCompletedHistory,
             preferFurthestEpisode = continueWatchingPreferences.upNextFromFurthestEpisode,
@@ -542,10 +549,13 @@ fun HomeScreen(
                 continueWatchingPreferences.dismissedNextUpKeys
         }
     }
-    val shuffledContinueWatchingItems = rememberShuffleHomeItems(
+    val rawShuffledContinueWatchingItems = rememberShuffleHomeItems(
         activeProfileId, allContinueWatchingItems, shuffleCandidates,
         watchProgressUiState.entries, watchedUiState.watchedKeys, visibleContinueWatchingEntries,
-    ).withCustomPosterUrls(cwPosterPattern)
+    )
+    val shuffledContinueWatchingItems = remember(rawShuffledContinueWatchingItems, cwPosterPattern) {
+        rawShuffledContinueWatchingItems.withCustomPosterUrls(cwPosterPattern)
+    }
     val (continueWatchingItems, upcomingItems) = remember(
         shuffledContinueWatchingItems,
         continueWatchingPreferences.sortMode,

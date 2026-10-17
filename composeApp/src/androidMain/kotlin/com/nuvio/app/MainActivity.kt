@@ -2,12 +2,14 @@ package com.nuvio.app
 
 import android.content.Intent
 import android.content.res.Configuration
+import com.nuvio.app.features.autosync.AutoSyncPreferencesAndroid
 import android.os.Bundle
 import androidx.activity.compose.setContent
 
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.remember
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.nuvio.app.core.auth.AuthStorage
 import com.nuvio.app.core.network.ServerConfigurationStorage
@@ -15,8 +17,11 @@ import com.nuvio.app.core.diagnostics.SentryInitializer
 import com.nuvio.app.core.deeplink.handleAppUrl
 import com.nuvio.app.core.poster.CustomPosterUrlStorage
 import com.nuvio.app.core.storage.PlatformLocalAccountDataCleaner
+import com.nuvio.app.core.startup.StartupPreloader
 import com.nuvio.app.core.sync.SyncClientIdentityStorage
 import com.nuvio.app.core.ui.CardDepthStyleStorage
+import com.nuvio.app.core.ui.NuvioSheetHaze
+import com.nuvio.app.core.ui.NuvioSheetHazeHost
 import com.nuvio.app.core.ui.PosterCardStyleStorage
 import com.nuvio.app.features.addons.AddonHttpClientProvider
 import com.nuvio.app.features.addons.AddonStorage
@@ -32,6 +37,7 @@ import com.nuvio.app.features.library.LibraryDisplaySettingsStorage
 import com.nuvio.app.features.library.LibraryReleaseScheduleStorage
 import com.nuvio.app.features.membership.MemberAssetStorage
 import com.nuvio.app.features.library.LibraryStorage
+import com.nuvio.app.core.storage.AppFileCache
 import com.nuvio.app.features.livetv.LiveTvStorage
 import com.nuvio.app.features.details.MetaScreenSettingsStorage
 import com.nuvio.app.features.details.OmdbEpisodeRatingsStorage
@@ -83,11 +89,17 @@ import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentStorage
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesStorage
 import com.nuvio.app.features.watchprogress.ResumePromptStorage
 import com.nuvio.app.features.watchprogress.WatchProgressStorage
+import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 open class MainActivity : AppCompatActivity() {
+    private val startupScope = MainScope()
+    private var contentReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        installSplashScreen().setKeepOnScreenCondition { !contentReady }
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(
                 scrim = android.graphics.Color.TRANSPARENT,
@@ -102,6 +114,7 @@ open class MainActivity : AppCompatActivity() {
         SentryInitializer.start(application)
         super.onCreate(savedInstanceState)
         ProfileBiometricAuth.initialize(this)
+        AutoSyncPreferencesAndroid.initialize(applicationContext) // AutoSync hook
         window.setBackgroundDrawableResource(R.color.nuvio_background)
         SyncClientIdentityStorage.initialize(applicationContext)
         AddonHttpClientProvider.initialize(applicationContext)
@@ -110,6 +123,7 @@ open class MainActivity : AppCompatActivity() {
         ServerConfigurationStorage.initialize(applicationContext)
         LibraryStorage.initialize(applicationContext)
         LiveTvStorage.initialize(applicationContext)
+        AppFileCache.initialize(applicationContext)
         WatchedStorage.initialize(applicationContext)
         MetaScreenSettingsStorage.initialize(applicationContext)
         com.nuvio.app.features.shuffle.EpisodeShuffleStorage.initialize(applicationContext)
@@ -173,17 +187,33 @@ open class MainActivity : AppCompatActivity() {
         PlatformLocalAccountDataCleaner.initialize(applicationContext)
         EpisodeReleaseNotificationPlatform.initialize(applicationContext)
         EpisodeReleaseNotificationPlatform.bindActivity(this)
-        handleIncomingAppIntent(intent)
 
-        setContent {
-            App()
+        if (StartupPreloader.isComplete) {
+            showContent()
+        } else {
+            startupScope.launch {
+                StartupPreloader.awaitReady()
+                if (!isFinishing && !isDestroyed) showContent()
+            }
         }
+    }
+
+    private fun showContent() {
+        handleIncomingAppIntent(intent)
+        setContent {
+            val sheetHazeState = rememberHazeState()
+            val sheetHaze = remember(sheetHazeState) { NuvioSheetHaze(sheetHazeState) }
+            NuvioSheetHazeHost(sheetHaze = sheetHaze) {
+                App()
+            }
+        }
+        contentReady = true
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIncomingAppIntent(intent)
+        if (contentReady) handleIncomingAppIntent(intent)
     }
 
     override fun onUserLeaveHint() {
@@ -200,6 +230,7 @@ open class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        startupScope.cancel()
         EpisodeReleaseNotificationPlatform.unbindActivity(this)
         super.onDestroy()
     }
@@ -216,7 +247,7 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIncomingAppIntent(intent: Intent?) {
-        val appUrl = intent?.dataString?.trim().orEmpty()
+        val appUrl = (intent?.dataString ?: intent?.getStringExtra(LinkActivity.EXTRA_LINK))?.trim().orEmpty()
         if (appUrl.isBlank()) return
         handleAppUrl(appUrl)
     }
