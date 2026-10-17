@@ -312,7 +312,7 @@ object ThemeSettingsRepository {
         _navBarDefaultIconColorRevision.value += 1L
     }
 
-    /** Updates the live floating-bar draft. Persistent storage is written when the settings sheet closes. */
+    /** Updates the floating-bar draft; the UI persists it when an edit interaction finishes. */
     internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassBarEffects.value = settings.sanitized(
@@ -321,7 +321,7 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Updates the live selected-tab lens draft without persisting on every slider frame. */
+    /** Updates the lens draft without writing storage on every slider frame. */
     internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
@@ -330,7 +330,7 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Commits both effect groups together on every Navigation Bar settings-sheet exit path. */
+    /** Persists both effect groups after an edit interaction finishes or the settings sheet exits. */
     internal fun saveNavBarLiquidGlassEffectSettings() {
         ensureLoaded()
         ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
