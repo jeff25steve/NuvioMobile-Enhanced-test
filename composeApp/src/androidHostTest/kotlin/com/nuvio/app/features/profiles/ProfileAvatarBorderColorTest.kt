@@ -6,13 +6,13 @@ import kotlin.test.assertEquals
 
 class ProfileAvatarBorderColorTest {
     @Test
-    fun defaultIconColorOverrideWinsForSelectedAndUnselectedProfileRings() {
+    fun selectedProfileRingKeepsThemeColorAndOverrideAppliesWhenUnselected() {
         val override = Color(0xFFEC35F4)
         val avatarColor = Color(0xFF1688FF)
         val selectedBorderColor = Color(0xFF0055FF)
 
         assertEquals(
-            override,
+            selectedBorderColor,
             resolveProfileAvatarBorderColor(
                 selected = true,
                 avatarColor = avatarColor,
