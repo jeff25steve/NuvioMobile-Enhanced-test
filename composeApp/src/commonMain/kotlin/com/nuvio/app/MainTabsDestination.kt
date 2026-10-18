@@ -107,6 +107,8 @@ internal fun MainTabsDestination(
             null
         }
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
+        // The backdrop source is only consumed by the custom floating bar, not native or CLASSIC navigation.
+        val floatingBarVisible = tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC
         val floatingNavigationItems = mainFloatingNavigationItems(
             highlightedTab = highlightedTab,
             showLiveTv = showLiveTvInNavigation,
@@ -154,7 +156,7 @@ internal fun MainTabsDestination(
                         actions = tabActions,
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(if (tabsRouteActive && navBarStyleSetting != NavBarStyle.CLASSIC) Modifier.nuvioBackdropSource(navBarBackdrop) else Modifier)
+                            .then(if (floatingBarVisible) Modifier.nuvioBackdropSource(navBarBackdrop) else Modifier)
                             .then(if (tabsRouteActive && navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
                             .padding(innerPadding),
                     )
@@ -173,7 +175,7 @@ internal fun MainTabsDestination(
                     )
                 }
 
-                if (tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC) {
+                if (floatingBarVisible) {
                     when (navBarStyleSetting) {
                         NavBarStyle.EXPANDED -> navBarScrollState.expand()
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
