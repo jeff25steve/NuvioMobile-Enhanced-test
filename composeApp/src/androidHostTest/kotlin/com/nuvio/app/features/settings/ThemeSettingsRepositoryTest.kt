@@ -184,6 +184,55 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
+    fun defaultNavigationIconColorIsProfileScopedAndDoesNotChangeThemeColors() {
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(false, ThemeSettingsRepository.navBarDefaultIconColorEnabled.value)
+        // Must match NuvioTokens.textMuted so enabling the override does not change grey by default.
+        assertEquals(0x969CA3, ThemeSettingsRepository.navBarDefaultIconColor.value)
+
+        val colors = CustomThemeColors.solid(0x2255AA)
+        ThemeSettingsRepository.setCustomTheme(colors)
+        val selectedThemeBefore = ThemeSettingsRepository.selectedTheme.value
+        val preferenceBefore = ThemeSettingsRepository.selectedThemePreference.value
+        val themeColorsBefore = ThemeSettingsRepository.customThemeColors.value
+
+        ThemeSettingsRepository.setNavBarDefaultIconColorEnabled(true)
+        ThemeSettingsRepository.updateNavBarDefaultIconColor(0xF141F5)
+
+        // The color is a draft until the sheet exits; both theme preference and palette stay intact.
+        assertEquals(null, ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(selectedThemeBefore, ThemeSettingsRepository.selectedTheme.value)
+        assertEquals(preferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+        assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
+
+        ThemeSettingsRepository.saveNavBarDefaultIconColorSettings()
+        assertEquals("#F141F5", ThemeSettingsStorage.loadNavBarDefaultIconColor())
+
+        ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(true, ThemeSettingsRepository.navBarDefaultIconColorEnabled.value)
+        assertEquals(0xF141F5, ThemeSettingsRepository.navBarDefaultIconColor.value)
+        assertEquals(preferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+        assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
+    }
+
+    @Test
+    fun defaultNavigationIconColorDraftsPersistOnlyWhenCommitted() {
+        ThemeSettingsRepository.ensureLoaded()
+        val revision = ThemeSettingsRepository.navBarDefaultIconColorRevision.value
+
+        ThemeSettingsRepository.updateNavBarDefaultIconColor(0x123456)
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(revision, ThemeSettingsRepository.navBarDefaultIconColorRevision.value)
+
+        ThemeSettingsRepository.saveNavBarDefaultIconColorSettings()
+
+        assertEquals("#123456", ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(revision + 1L, ThemeSettingsRepository.navBarDefaultIconColorRevision.value)
+    }
+
+    @Test
     fun nonMembersCanSaveAndReloadASolidCustomTheme() {
         val colors = CustomThemeColors.solid(0x2255AA)
 
