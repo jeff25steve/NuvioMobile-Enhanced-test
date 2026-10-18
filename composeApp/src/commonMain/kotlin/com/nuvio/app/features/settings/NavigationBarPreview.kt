@@ -1,5 +1,7 @@
 package com.nuvio.app.features.settings
 
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +72,7 @@ internal fun NavigationBarPreview(
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
+                    .then(if (liquidGlassEnabled) Modifier.layerBackdrop(liquidGlassBackdrop) else Modifier)
                     .then(if (!topPill && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)

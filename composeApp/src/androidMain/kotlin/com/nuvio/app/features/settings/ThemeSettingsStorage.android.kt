@@ -29,11 +29,13 @@ actual object ThemeSettingsStorage {
     private const val localNavBarStyleKey = "enhanced_local_nav_bar_style"
     private const val localNavBarPositionKey = "enhanced_local_nav_bar_position"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
+    private const val navBarLiquidGlassEnabledKey = "nav_bar_liquid_glass_enabled"
     private val profileScopedSyncKeys = listOf(
         selectedThemeKey,
         customThemeColorsKey,
         amoledEnabledKey,
         navBarGlowEnabledKey,
+        navBarLiquidGlassEnabledKey,
         liquidGlassNativeTabBarEnabledKey,
         NAV_BAR_STYLE_KEY,
         NAV_BAR_POSITION_KEY,
@@ -194,6 +196,7 @@ actual object ThemeSettingsStorage {
         loadSelectedTheme()?.let { put(selectedThemeKey, encodeSyncString(it)) }
         loadCustomThemeColors()?.let { put(customThemeColorsKey, encodeSyncString(it)) }
         loadNavBarGlowEnabled()?.let { put(navBarGlowEnabledKey, encodeSyncBoolean(it)) }
+        loadNavBarLiquidGlassEnabled()?.let { put(navBarLiquidGlassEnabledKey, encodeSyncBoolean(it)) }
         loadAmoledEnabled()?.let { put(amoledEnabledKey, encodeSyncBoolean(it)) }
         loadLiquidGlassNativeTabBarEnabled()?.let { put(liquidGlassNativeTabBarEnabledKey, encodeSyncBoolean(it)) }
         loadRawString(NAV_BAR_STYLE_KEY)?.let { put(NAV_BAR_STYLE_KEY, encodeSyncString(it)) }
