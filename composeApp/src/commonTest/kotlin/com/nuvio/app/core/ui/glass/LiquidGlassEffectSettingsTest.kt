@@ -2,71 +2,133 @@ package com.nuvio.app.core.ui.glass
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertNotEquals
 
 class LiquidGlassEffectSettingsTest {
     @Test
-    fun sanitizesInvalidAndOutOfRangeValues() {
-        val defaults = LiquidGlassEffectDefaults.floatingBar
-        val dirty = defaults.copy(
-            cornerRadiusPercent = Float.NaN,
-            blurRadiusDp = -5f,
-            refractionHeightDp = 1000f,
-            refractionAmountDp = Float.POSITIVE_INFINITY,
-            tintOpacity = Float.NEGATIVE_INFINITY,
-        )
+    fun floatingBarAndSelectionLensMatchTheDisplayedResetDefaults() {
+        val bar = LiquidGlassEffectDefaults.floatingBar
+        val lens = LiquidGlassEffectDefaults.selectionLens
 
-        val safe = dirty.sanitized(defaults, LiquidGlassEffectDefaults.floatingBarLimits)
+        assertEquals(50f, bar.cornerRadiusPercent)
+        assertEquals(1f, bar.blurRadiusDp)
+        assertEquals(11f, bar.refractionHeightDp)
+        assertEquals(23f, bar.refractionAmountDp)
+        assertEquals(0f, bar.tintOpacity)
+        assertEquals(true, bar.chromaticAberration)
+        assertEquals(true, bar.depthEffect)
 
-        assertEquals(defaults.cornerRadiusPercent, safe.cornerRadiusPercent)
-        assertEquals(0f, safe.blurRadiusDp)
-        assertEquals(LiquidGlassEffectDefaults.floatingBarLimits.maxRefractionHeightDp, safe.refractionHeightDp)
-        assertEquals(defaults.refractionAmountDp, safe.refractionAmountDp)
-        assertEquals(defaults.tintOpacity, safe.tintOpacity)
+        assertEquals(50f, lens.cornerRadiusPercent)
+        assertEquals(1f, lens.blurRadiusDp)
+        assertEquals(6f, lens.refractionHeightDp)
+        assertEquals(11f, lens.refractionAmountDp)
+        assertEquals(0f, lens.tintOpacity)
+        assertEquals(true, lens.chromaticAberration)
+        assertEquals(true, lens.depthEffect)
+        assertEquals(true, lens.affectTabIcons)
+        assertEquals(true, lens.affectFloatingBar)
+        assertNotEquals(bar, lens)
     }
 
     @Test
-    fun settingsRoundTripThroughJson() {
+    fun optionalSourcesRespectIndependentTogglesAndRequireActiveRefraction() {
         val defaults = LiquidGlassEffectDefaults.selectionLens
-        val value = defaults.copy(
-            cornerRadiusPercent = 23f,
-            blurRadiusDp = 4f,
-            refractionHeightDp = 14f,
-            refractionAmountDp = 18f,
-            chromaticAberration = false,
-            depthEffect = false,
-            tintOpacity = 0.35f,
-            affectTabIcons = false,
-            affectFloatingBar = true,
-        )
+        val bothEnabled = defaults.copy(affectTabIcons = true, affectFloatingBar = true)
 
-        val encoded = encodeLiquidGlassEffectSettings(
-            value,
-            defaults,
-            LiquidGlassEffectDefaults.selectionLensLimits,
-        )
-        val decoded = decodeLiquidGlassEffectSettings(
-            encoded,
-            defaults,
-            LiquidGlassEffectDefaults.selectionLensLimits,
-        )
+        assertEquals(true, bothEnabled.shouldCaptureTabIcons())
+        assertEquals(true, bothEnabled.shouldCaptureFloatingBar())
+        assertEquals(false, bothEnabled.copy(affectTabIcons = false).shouldCaptureTabIcons())
+        assertEquals(true, bothEnabled.copy(affectTabIcons = false).shouldCaptureFloatingBar())
+        assertEquals(true, bothEnabled.copy(affectFloatingBar = false).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(affectFloatingBar = false).shouldCaptureFloatingBar())
 
-        assertEquals(value, decoded)
+        assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(refractionAmountDp = 0f).shouldCaptureTabIcons())
+        assertEquals(false, bothEnabled.copy(refractionHeightDp = 0f).shouldCaptureFloatingBar())
+        assertEquals(false, bothEnabled.copy(refractionAmountDp = 0f).shouldCaptureFloatingBar())
+
+        val blurOnly = bothEnabled.copy(refractionHeightDp = 0f, blurRadiusDp = 4f)
+        assertEquals(false, blurOnly.shouldCaptureTabIcons())
+        assertEquals(false, blurOnly.shouldCaptureFloatingBar())
     }
 
     @Test
-    fun malformedSettingsFallBackToDefaults() {
+    fun effectiveCornerRadiusPercentMatchesRoundedShapeGeometry() {
+        assertEquals(8, effectiveLiquidGlassCornerRadiusPercent(8.4f))
+        assertEquals(9, effectiveLiquidGlassCornerRadiusPercent(8.5f))
+        assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(Float.NEGATIVE_INFINITY))
+        assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.NaN))
+    }
+
+    @Test
+    fun sanitizingClampsOutOfRangeValuesAndRestoresNonFiniteValues() {
+        val defaults = LiquidGlassEffectDefaults.floatingBar
+        val value = defaults.copy(
+            cornerRadiusPercent = Float.POSITIVE_INFINITY,
+            blurRadiusDp = -8f,
+            refractionHeightDp = 100f,
+            refractionAmountDp = Float.NaN,
+            tintOpacity = 2f,
+        )
+
+        assertEquals(
+            defaults.copy(
+                blurRadiusDp = 0f,
+                refractionHeightDp = 48f,
+                tintOpacity = 1f,
+            ),
+            value.sanitized(defaults, LiquidGlassEffectDefaults.floatingBarLimits),
+        )
+    }
+
+    @Test
+    fun decodeUsesGroupSpecificDefaultsForMissingFields() {
+        val defaults = LiquidGlassEffectDefaults.selectionLens
+        val decoded = decodeLiquidGlassEffectSettings(
+            """{"blurRadiusDp":12.0}""",
+            defaults,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+        assertEquals(defaults.copy(blurRadiusDp = 12f), decoded)
+    }
+
+    @Test
+    fun malformedPayloadFallsBackToTheGroupDefaults() {
         val defaults = LiquidGlassEffectDefaults.selectionLens
         assertEquals(
             defaults,
             decodeLiquidGlassEffectSettings(
-                """{"blurRadiusDp":"not-a-number","depthEffect":false""",
+                "{broken-json",
                 defaults,
                 LiquidGlassEffectDefaults.selectionLensLimits,
             ),
         )
-        assertTrue(defaults.affectTabIcons)
-        assertTrue(defaults.affectFloatingBar)
-        assertEquals(0f, defaults.sanitized(defaults, LiquidGlassEffectDefaults.selectionLensLimits).tintOpacity)
+        assertEquals(
+            defaults,
+            decodeLiquidGlassEffectSettings(null, defaults, LiquidGlassEffectDefaults.selectionLensLimits),
+        )
+    }
+
+    @Test
+    fun serializedSettingsRoundTripAfterSanitizing() {
+        val defaults = LiquidGlassEffectDefaults.selectionLens
+        val custom = defaults.copy(
+            cornerRadiusPercent = 23f,
+            blurRadiusDp = 6.5f,
+            refractionHeightDp = 18f,
+            refractionAmountDp = 22f,
+            chromaticAberration = false,
+            depthEffect = true,
+            tintOpacity = 0.32f,
+        )
+        val encoded = encodeLiquidGlassEffectSettings(
+            custom,
+            defaults,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+        assertEquals(
+            custom,
+            decodeLiquidGlassEffectSettings(encoded, defaults, LiquidGlassEffectDefaults.selectionLensLimits),
+        )
     }
 }
