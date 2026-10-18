@@ -2841,4 +2841,9 @@
     <string name="settings_nav_bar_glass_chromatic_aberration_description">Adds subtle colour fringing around refracted edges.</string>
     <string name="settings_nav_bar_glass_depth_effect">Depth effect</string>
     <string name="settings_nav_bar_glass_depth_effect_description">Adds depth shading to the refracted surface.</string>
+    <string name="settings_nav_bar_default_icon_color">Default icon color</string>
+    <string name="settings_nav_bar_default_icon_color_description">Override the default grey used by unselected navigation icons and labels.</string>
+    <string name="settings_nav_bar_default_icon_color_change">Change default icon color</string>
+    <string name="settings_nav_bar_default_icon_color_expand">Tap to expand the color picker.</string>
+    <string name="settings_nav_bar_default_icon_color_collapse">Tap to collapse the color picker.</string>
 </resources>
