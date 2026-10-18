@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -75,7 +76,7 @@ internal class FloatingNavigationItem(
     val onClick: () -> Unit,
     val icon: ImageVector? = null,
     val drawable: DrawableResource? = null,
-    val content: (@Composable (onClick: () -> Unit) -> Unit)? = null,
+    val content: (@Composable (onClick: () -> Unit, defaultIconColorOverride: Color?) -> Unit)? = null,
 )
 
 /**
@@ -108,6 +109,7 @@ internal fun FloatingNavigationBar(
     liquidGlassBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     liquidGlassSelectionEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     inlineLabels: Boolean = false,
+    defaultIconColorOverride: Color? = null,
     scrollBounceTrigger: Int = 0,
     scrollBounceDirection: Float = 0f,
 ) {
@@ -317,7 +319,7 @@ internal fun FloatingNavigationBar(
                                     }
                                 },
                             ) {
-                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, )
+                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
                             }
                             if (liquidGlassIconsBackdrop != null) {
                                 // Capture the active tab row only when explicitly requested.
@@ -358,7 +360,7 @@ internal fun FloatingNavigationBar(
                                                 compactSize = compactSize,
                                                 modifier = Modifier.matchParentSize(),
                                                 inlineLabels = inlineLabels,
-                                                ,
+                                                inactiveColorOverride = defaultIconColorOverride,
                                             )
                                         }
                                         Box(
@@ -499,7 +501,7 @@ internal fun FloatingNavigationBar(
                             compactSize,
                             Modifier.matchParentSize(),
                             inlineLabels = inlineLabels,
-                            ,
+                            defaultIconColorOverride = defaultIconColorOverride,
                         )
                     }
                 }
