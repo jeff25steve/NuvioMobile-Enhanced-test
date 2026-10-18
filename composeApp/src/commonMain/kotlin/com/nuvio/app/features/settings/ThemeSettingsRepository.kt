@@ -12,6 +12,8 @@ import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
+import com.nuvio.app.core.ui.formatHexColor
+import com.nuvio.app.core.ui.parseHexColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+// Matches NuvioTokens.textMuted (0xFF969CA3) so enabling the override does not shift the default grey.
+internal const val DEFAULT_NAV_BAR_ICON_COLOR = 0x969CA3
 
 object ThemeSettingsRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -59,6 +64,17 @@ object ThemeSettingsRepository {
 
     private val _navBarGlowEnabled = MutableStateFlow(true)
     val navBarGlowEnabled: StateFlow<Boolean> = _navBarGlowEnabled.asStateFlow()
+
+    private val _navBarDefaultIconColorEnabled = MutableStateFlow(false)
+    val navBarDefaultIconColorEnabled: StateFlow<Boolean> = _navBarDefaultIconColorEnabled.asStateFlow()
+
+    private val _navBarDefaultIconColor = MutableStateFlow(DEFAULT_NAV_BAR_ICON_COLOR)
+    val navBarDefaultIconColor: StateFlow<Int> = _navBarDefaultIconColor.asStateFlow()
+
+    private val _navBarDefaultIconColorRevision = MutableStateFlow(0L)
+    internal val navBarDefaultIconColorRevision: StateFlow<Long> =
+        _navBarDefaultIconColorRevision.asStateFlow()
+    private var navBarDefaultIconColorDraftDirty = false
 
     private val _navBarLiquidGlassEnabled = MutableStateFlow(false)
     val navBarLiquidGlassEnabled: StateFlow<Boolean> = _navBarLiquidGlassEnabled.asStateFlow()
@@ -111,6 +127,9 @@ object ThemeSettingsRepository {
         NativeTabBridge.publishLiquidGlassEnabled(NuvioTabBarBehavior.Default.isEnabled)
         _selectedAppLanguage.value = AppLanguage.DEVICE
         _navBarGlowEnabled.value = true
+        _navBarDefaultIconColorEnabled.value = false
+        _navBarDefaultIconColor.value = DEFAULT_NAV_BAR_ICON_COLOR
+        navBarDefaultIconColorDraftDirty = false
         _navBarLiquidGlassEnabled.value = false
         _navBarLiquidGlassBarEffects.value = LiquidGlassEffectDefaults.floatingBar
         _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
@@ -148,6 +167,12 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
         _navBarGlowEnabled.value = ThemeSettingsStorage.loadNavBarGlowEnabled() ?: true
+        _navBarDefaultIconColorEnabled.value =
+            ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled() ?: false
+        _navBarDefaultIconColor.value = ThemeSettingsStorage.loadNavBarDefaultIconColor()
+            ?.let(::parseHexColor)
+            ?: DEFAULT_NAV_BAR_ICON_COLOR
+        navBarDefaultIconColorDraftDirty = false
         _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: false
         _navBarLiquidGlassBarEffects.value = decodeLiquidGlassEffectSettings(
             ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
@@ -251,6 +276,32 @@ object ThemeSettingsRepository {
         // this flow changes, so emitting first could race with an older persisted value.
         ThemeSettingsStorage.saveNavBarGlowEnabled(enabled)
         _navBarGlowEnabled.value = enabled
+    }
+
+    fun setNavBarDefaultIconColorEnabled(enabled: Boolean) {
+        ensureLoaded()
+        if (_navBarDefaultIconColorEnabled.value == enabled) return
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(enabled)
+        _navBarDefaultIconColorEnabled.value = enabled
+    }
+
+    /** Updates the live RGB draft. It is committed once when the Navigation Bar settings sheet closes. */
+    internal fun updateNavBarDefaultIconColor(color: Int) {
+        ensureLoaded()
+        val safeColor = color.coerceIn(0, 0xFFFFFF)
+        if (_navBarDefaultIconColor.value == safeColor) return
+        _navBarDefaultIconColor.value = safeColor
+        navBarDefaultIconColorDraftDirty = true
+    }
+
+    internal fun saveNavBarDefaultIconColorSettings() {
+        ensureLoaded()
+        if (!navBarDefaultIconColorDraftDirty) return
+        ThemeSettingsStorage.saveNavBarDefaultIconColor(
+            formatHexColor(_navBarDefaultIconColor.value),
+        )
+        navBarDefaultIconColorDraftDirty = false
+        _navBarDefaultIconColorRevision.value += 1L
     }
 
     fun setNavBarLiquidGlassEnabled(enabled: Boolean) {
