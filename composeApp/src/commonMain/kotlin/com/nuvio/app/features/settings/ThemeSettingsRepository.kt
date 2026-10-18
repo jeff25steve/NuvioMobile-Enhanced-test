@@ -57,11 +57,17 @@ object ThemeSettingsRepository {
     val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> = _navBarLiquidGlassBarEffects.asStateFlow()
     private val _navBarLiquidGlassSelectionEffects = MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
     val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> = _navBarLiquidGlassSelectionEffects.asStateFlow()
+    private val _navBarLiquidGlassEffectsRevision = MutableStateFlow(0L)
+    internal val navBarLiquidGlassEffectsRevision: StateFlow<Long> = _navBarLiquidGlassEffectsRevision.asStateFlow()
+    private var navBarLiquidGlassEffectsDraftDirty = false
 
     private val _navBarDefaultIconColorEnabled = MutableStateFlow(false)
     val navBarDefaultIconColorEnabled: StateFlow<Boolean> = _navBarDefaultIconColorEnabled.asStateFlow()
     private val _navBarDefaultIconColor = MutableStateFlow(DEFAULT_NAV_BAR_ICON_COLOR)
     val navBarDefaultIconColor: StateFlow<Int> = _navBarDefaultIconColor.asStateFlow()
+    private val _navBarDefaultIconColorRevision = MutableStateFlow(0L)
+    internal val navBarDefaultIconColorRevision: StateFlow<Long> = _navBarDefaultIconColorRevision.asStateFlow()
+    private var navBarDefaultIconColorDraftDirty = false
 
     private var hasLoaded = false
     private var observesMembership = false
@@ -93,6 +99,8 @@ object ThemeSettingsRepository {
         _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
         _navBarDefaultIconColorEnabled.value = false
         _navBarDefaultIconColor.value = DEFAULT_NAV_BAR_ICON_COLOR
+        navBarDefaultIconColorDraftDirty = false
+        navBarLiquidGlassEffectsDraftDirty = false
         _navBarStyle.value = NavBarStyle.ADAPTIVE
     }
 
@@ -133,6 +141,8 @@ object ThemeSettingsRepository {
         _navBarDefaultIconColorEnabled.value = ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled() ?: false
         _navBarDefaultIconColor.value = ThemeSettingsStorage.loadNavBarDefaultIconColor()
             ?.let(::parseHexColor) ?: DEFAULT_NAV_BAR_ICON_COLOR
+        navBarDefaultIconColorDraftDirty = false
+        navBarLiquidGlassEffectsDraftDirty = false
         _navBarStyle.value = NavBarStyle.fromKey(ThemeSettingsStorage.loadNavBarStyle())
     }
 
@@ -201,7 +211,7 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(enabled)
     }
 
-    fun setNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
+    internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         val safe = settings.sanitized(
             LiquidGlassEffectDefaults.floatingBar,
@@ -209,16 +219,10 @@ object ThemeSettingsRepository {
         )
         if (_navBarLiquidGlassBarEffects.value == safe) return
         _navBarLiquidGlassBarEffects.value = safe
-        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
-            encodeLiquidGlassEffectSettings(
-                safe,
-                LiquidGlassEffectDefaults.floatingBar,
-                LiquidGlassEffectDefaults.floatingBarLimits,
-            ),
-        )
+        navBarLiquidGlassEffectsDraftDirty = true
     }
 
-    fun setNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
+    internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         val safe = settings.sanitized(
             LiquidGlassEffectDefaults.selectionLens,
@@ -226,13 +230,55 @@ object ThemeSettingsRepository {
         )
         if (_navBarLiquidGlassSelectionEffects.value == safe) return
         _navBarLiquidGlassSelectionEffects.value = safe
-        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
-            encodeLiquidGlassEffectSettings(
-                safe,
-                LiquidGlassEffectDefaults.selectionLens,
-                LiquidGlassEffectDefaults.selectionLensLimits,
-            ),
+        navBarLiquidGlassEffectsDraftDirty = true
+    }
+
+    internal fun saveNavBarLiquidGlassEffectSettings() {
+        ensureLoaded()
+        if (!navBarLiquidGlassEffectsDraftDirty) return
+
+        val barEffects = _navBarLiquidGlassBarEffects.value.sanitized(
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
         )
+        val selectionEffects = _navBarLiquidGlassSelectionEffects.value.sanitized(
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+        val persistedBarEffects = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+        val persistedSelectionEffects = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+        var changed = false
+
+        if (barEffects != persistedBarEffects) {
+            ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
+                encodeLiquidGlassEffectSettings(
+                    barEffects,
+                    LiquidGlassEffectDefaults.floatingBar,
+                    LiquidGlassEffectDefaults.floatingBarLimits,
+                ),
+            )
+            changed = true
+        }
+        if (selectionEffects != persistedSelectionEffects) {
+            ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
+                encodeLiquidGlassEffectSettings(
+                    selectionEffects,
+                    LiquidGlassEffectDefaults.selectionLens,
+                    LiquidGlassEffectDefaults.selectionLensLimits,
+                ),
+            )
+            changed = true
+        }
+        navBarLiquidGlassEffectsDraftDirty = false
+        if (changed) _navBarLiquidGlassEffectsRevision.value += 1L
     }
 
     fun setNavBarDefaultIconColorEnabled(enabled: Boolean) {
@@ -242,12 +288,26 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(enabled)
     }
 
-    fun setNavBarDefaultIconColor(color: Int) {
+    internal fun updateNavBarDefaultIconColor(color: Int) {
         ensureLoaded()
-        val safeColor = color and 0xFFFFFF
+        val safeColor = color.coerceIn(0, 0xFFFFFF)
         if (_navBarDefaultIconColor.value == safeColor) return
         _navBarDefaultIconColor.value = safeColor
+        navBarDefaultIconColorDraftDirty = true
+    }
+
+    internal fun saveNavBarDefaultIconColorSettings() {
+        ensureLoaded()
+        if (!navBarDefaultIconColorDraftDirty) return
+
+        val safeColor = _navBarDefaultIconColor.value.coerceIn(0, 0xFFFFFF)
+        val persistedColor = ThemeSettingsStorage.loadNavBarDefaultIconColor()
+            ?.let(::parseHexColor) ?: DEFAULT_NAV_BAR_ICON_COLOR
+        navBarDefaultIconColorDraftDirty = false
+        if (safeColor == persistedColor) return
+
         ThemeSettingsStorage.saveNavBarDefaultIconColor(formatHexColor(safeColor))
+        _navBarDefaultIconColorRevision.value += 1L
     }
 
     private fun observeMembership() {

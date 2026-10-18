@@ -191,7 +191,10 @@ object ProfileSettingsSync {
             ThemeSettingsRepository.navBarLiquidGlassBarEffects.map { "nav_bar_liquid_glass_bar_effects" },
             ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.map { "nav_bar_liquid_glass_selection_effects" },
             ThemeSettingsRepository.navBarDefaultIconColorEnabled.map { "nav_bar_default_icon_color_enabled" },
-            ThemeSettingsRepository.navBarDefaultIconColor.map { "nav_bar_default_icon_color" },
+            // The colour value is edited as a draft; sync only after the editor commits it.
+            ThemeSettingsRepository.navBarDefaultIconColorRevision.map { "nav_bar_default_icon_color_committed" },
+            // Slider StateFlows change every frame; sync only after committed settings differ from disk.
+            ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.map { "nav_bar_liquid_glass_effects_committed" },
             ThemeSettingsRepository.navBarStyle.map { "nav_bar_style" },
             PosterCardStyleRepository.uiState.map { "poster_card_style" },
             CustomPosterUrlRepository.pattern.map { "custom_poster_url" },
