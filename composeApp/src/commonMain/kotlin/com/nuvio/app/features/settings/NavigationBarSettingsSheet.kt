@@ -121,7 +121,7 @@ internal fun NavigationBarSettingsSheet(
                     style = selectedStyle,
                     isTablet = isTablet,
                     glowEnabled = glowEnabled,
-                    liquidGlassEnabled = liquidGlassEnabled && liquidGlassSupported && selectedStyle != NavBarStyle.CLASSIC,
+                    liquidGlassEnabled = liquidGlassEnabled && liquidGlassSupported && (isTablet || selectedStyle != NavBarStyle.CLASSIC),
                     defaultIconColorOverride = defaultIconColorOverride,
                 )
             }
@@ -160,7 +160,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC) {
+                AnimatedVisibility(isTablet || selectedStyle != NavBarStyle.CLASSIC) {
                     Column {
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
@@ -402,7 +402,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(!isIos && selectedStyle != NavBarStyle.CLASSIC) {
+                AnimatedVisibility(!isIos && (isTablet || selectedStyle != NavBarStyle.CLASSIC)) {
                     Column {
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
@@ -419,7 +419,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC && draftIconColorEnabled) {
+                AnimatedVisibility((isTablet || selectedStyle != NavBarStyle.CLASSIC) && draftIconColorEnabled) {
                     Column {
                         Row(
                             modifier = Modifier
