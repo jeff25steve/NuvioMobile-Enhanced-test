@@ -125,6 +125,21 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
+    fun savingUnchangedLiquidGlassEffectDefaultsDoesNotWriteOrBumpSyncRevision() {
+        ThemeSettingsRepository.ensureLoaded()
+        val revision = ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+        assertEquals(revision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+    }
+
+    @Test
     fun selectedLensBackdropEffectsDefaultOnAndPersistIndependently() {
         ThemeSettingsRepository.ensureLoaded()
         val loadedDefaults = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
