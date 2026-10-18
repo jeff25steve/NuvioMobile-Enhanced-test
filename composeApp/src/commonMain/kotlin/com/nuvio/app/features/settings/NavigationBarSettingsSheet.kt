@@ -186,7 +186,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(isTablet || selectedStyle != NavBarStyle.CLASSIC) {
+                AnimatedVisibility(!isIos && (isTablet || selectedStyle != NavBarStyle.CLASSIC)) {
                     Column {
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
@@ -445,7 +445,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility((isTablet || selectedStyle != NavBarStyle.CLASSIC) && draftIconColorEnabled) {
+                AnimatedVisibility(!isIos && (isTablet || selectedStyle != NavBarStyle.CLASSIC) && draftIconColorEnabled) {
                     Column {
                         Row(
                             modifier = Modifier
