@@ -47,7 +47,6 @@ import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 
 private val SheetShape = RoundedCornerShape(NuvioTokens.Space.s28)
 
- 
 // Keep the sheet background treatment consistent between the sheet and pinned content inside it.
 internal fun Modifier.nuvioSheetSurface(
     backdrop: NuvioBackdrop?,
