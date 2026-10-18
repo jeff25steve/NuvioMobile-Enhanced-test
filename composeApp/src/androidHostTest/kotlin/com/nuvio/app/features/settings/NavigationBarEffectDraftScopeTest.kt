@@ -54,12 +54,18 @@ class NavigationBarEffectDraftScopeTest {
         }
         compose.waitForIdle()
 
-        val parentBefore = parentCompositions
-        val draftBefore = draftHostCompositions
-        val current = ThemeSettingsRepository.navBarLiquidGlassBarEffects.value
-        val nextBlur = if (current.blurRadiusDp == 7f) 8f else 7f
+        var parentBefore = 0
+        var draftBefore = 0
+        var currentBlur = 0f
+        compose.runOnIdle {
+            parentBefore = parentCompositions
+            draftBefore = draftHostCompositions
+            currentBlur = ThemeSettingsRepository.navBarLiquidGlassBarEffects.value.blurRadiusDp
+        }
+        val nextBlur = if (currentBlur == 7f) 8f else 7f
 
         compose.runOnIdle {
+            val current = ThemeSettingsRepository.navBarLiquidGlassBarEffects.value
             ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(current.copy(blurRadiusDp = nextBlur))
         }
         compose.waitForIdle()
