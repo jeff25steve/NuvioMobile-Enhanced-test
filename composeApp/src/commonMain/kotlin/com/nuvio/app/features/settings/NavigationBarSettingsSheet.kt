@@ -297,15 +297,6 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(isLiquidGlassSupported() && selectedStyle != NavBarStyle.CLASSIC) {
-                    NavigationBarGlassSettings(
-                        style = glassStyle,
-                        isTablet = isTablet,
-                        onStyleChanged = onGlassStyleChanged,
-                    )
-                }
-            }
-            item {
                 AnimatedVisibility(
                     visible = selectedStyle != NavBarStyle.CLASSIC && liquidGlassSupported && liquidGlassEnabled,
                 ) {
@@ -477,6 +468,17 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
+                AnimatedVisibility(isLiquidGlassSupported() && selectedStyle != NavBarStyle.CLASSIC) {
+                    NavigationBarGlassSettings(
+                        style = glassStyle,
+                        isTablet = isTablet,
+                        liquidGlassSupported = liquidGlassSupported,
+                        liquidGlassEnabled = liquidGlassEnabled,
+                        onStyleChanged = onGlassStyleChanged,
+                    )
+                }
+            }
+            item {
                 NuvioPrimaryButton(
                     text = stringResource(Res.string.action_done),
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -496,13 +498,24 @@ private val LiquidGlassMaterial.labelRes: StringResource
         LiquidGlassMaterial.SOLID -> Res.string.settings_nav_bar_glass_material_solid
     }
 
+internal fun shouldShowLegacyNavBarGlassControls(
+    liquidGlassSupported: Boolean,
+    liquidGlassEnabled: Boolean,
+): Boolean = !liquidGlassSupported || !liquidGlassEnabled
+
 @Composable
 private fun NavigationBarGlassSettings(
     style: LiquidGlassStyle,
     isTablet: Boolean,
+    liquidGlassSupported: Boolean,
+    liquidGlassEnabled: Boolean,
     onStyleChanged: (LiquidGlassStyle) -> Unit,
 ) {
     val refractionSupported = isLiquidRefractionSupported()
+    val showLegacyControls = shouldShowLegacyNavBarGlassControls(
+        liquidGlassSupported = liquidGlassSupported,
+        liquidGlassEnabled = liquidGlassEnabled,
+    )
     val materials = LiquidGlassMaterial.entries.filter {
         refractionSupported || it != LiquidGlassMaterial.CLEAR
     }
@@ -515,100 +528,114 @@ private fun NavigationBarGlassSettings(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
         )
-        materials.forEach { material ->
-            NuvioBottomSheetActionRow(
-                title = stringResource(material.labelRes),
-                onClick = { onStyleChanged(style.copy(material = material)) },
-                modifier = Modifier.semantics {
-                    role = Role.RadioButton
-                    selected = material == style.material
+        Text(
+            text = stringResource(
+                if (showLegacyControls) {
+                    Res.string.settings_nav_bar_glass_legacy_description
+                } else {
+                    Res.string.settings_nav_bar_glass_legacy_inactive_description
                 },
-                trailingContent = {
-                    if (material == style.material) {
-                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
-            )
-        }
-        AnimatedVisibility(style.usesBlur) {
-            SettingsSliderRow(
-                title = stringResource(Res.string.settings_nav_bar_glass_blur),
-                value = style.blurRadius,
-                valueText = stringResource(Res.string.settings_nav_bar_glass_value_dp, style.blurRadius),
-                valueRange = LiquidGlassStyle.BlurRange,
-                step = 1,
-                isTablet = isTablet,
-                onValueChange = { onStyleChanged(style.copy(blurRadius = it)) },
-            )
-        }
-        AnimatedVisibility(style.usesLens && refractionSupported) {
-            SettingsSliderRow(
-                title = stringResource(Res.string.settings_nav_bar_glass_refraction),
-                value = style.refraction,
-                valueText = stringResource(Res.string.settings_nav_bar_glass_value_dp, style.refraction),
-                valueRange = LiquidGlassStyle.RefractionRange,
-                step = 2,
-                isTablet = isTablet,
-                onValueChange = { onStyleChanged(style.copy(refraction = it)) },
-            )
-        }
-        AnimatedVisibility(style.usesBackdrop) {
-            Column {
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+        if (showLegacyControls) {
+            materials.forEach { material ->
+                NuvioBottomSheetActionRow(
+                    title = stringResource(material.labelRes),
+                    onClick = { onStyleChanged(style.copy(material = material)) },
+                    modifier = Modifier.semantics {
+                        role = Role.RadioButton
+                        selected = material == style.material
+                    },
+                    trailingContent = {
+                        if (material == style.material) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                )
+            }
+            AnimatedVisibility(style.usesBlur) {
                 SettingsSliderRow(
-                    title = stringResource(Res.string.settings_nav_bar_glass_tint),
-                    value = style.tintPercent,
-                    valueText = stringResource(Res.string.settings_nav_bar_glass_value_percent, style.tintPercent),
-                    valueRange = LiquidGlassStyle.TintRange,
-                    step = 5,
+                    title = stringResource(Res.string.settings_nav_bar_glass_blur),
+                    value = style.blurRadius,
+                    valueText = stringResource(Res.string.settings_nav_bar_glass_value_dp, style.blurRadius),
+                    valueRange = LiquidGlassStyle.BlurRange,
+                    step = 1,
                     isTablet = isTablet,
-                    onValueChange = { onStyleChanged(style.copy(tintPercent = it)) },
+                    onValueChange = { onStyleChanged(style.copy(blurRadius = it)) },
                 )
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_nav_bar_glass_vibrancy),
-                    description = stringResource(Res.string.settings_nav_bar_glass_vibrancy_description),
-                    checked = style.vibrancy,
+            }
+            AnimatedVisibility(style.usesLens && refractionSupported) {
+                SettingsSliderRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_refraction),
+                    value = style.refraction,
+                    valueText = stringResource(Res.string.settings_nav_bar_glass_value_dp, style.refraction),
+                    valueRange = LiquidGlassStyle.RefractionRange,
+                    step = 2,
                     isTablet = isTablet,
-                    onCheckedChange = { onStyleChanged(style.copy(vibrancy = it)) },
+                    onValueChange = { onStyleChanged(style.copy(refraction = it)) },
                 )
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_nav_bar_glass_shadow),
-                    description = stringResource(Res.string.settings_nav_bar_glass_shadow_description),
-                    checked = style.shadow,
-                    isTablet = isTablet,
-                    onCheckedChange = { onStyleChanged(style.copy(shadow = it)) },
-                )
-                if (refractionSupported) {
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_nav_bar_glass_selection_lens),
-                        description = stringResource(Res.string.settings_nav_bar_glass_selection_lens_description),
-                        checked = style.selectionLens,
+            }
+            AnimatedVisibility(style.usesBackdrop) {
+                Column {
+                    SettingsSliderRow(
+                        title = stringResource(Res.string.settings_nav_bar_glass_tint),
+                        value = style.tintPercent,
+                        valueText = stringResource(Res.string.settings_nav_bar_glass_value_percent, style.tintPercent),
+                        valueRange = LiquidGlassStyle.TintRange,
+                        step = 5,
                         isTablet = isTablet,
-                        onCheckedChange = { onStyleChanged(style.copy(selectionLens = it)) },
+                        onValueChange = { onStyleChanged(style.copy(tintPercent = it)) },
                     )
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_nav_bar_glass_vibrancy),
+                        description = stringResource(Res.string.settings_nav_bar_glass_vibrancy_description),
+                        checked = style.vibrancy,
+                        isTablet = isTablet,
+                        onCheckedChange = { onStyleChanged(style.copy(vibrancy = it)) },
+                    )
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_nav_bar_glass_shadow),
+                        description = stringResource(Res.string.settings_nav_bar_glass_shadow_description),
+                        checked = style.shadow,
+                        isTablet = isTablet,
+                        onCheckedChange = { onStyleChanged(style.copy(shadow = it)) },
+                    )
+                    if (refractionSupported) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_glass_selection_lens),
+                            description = stringResource(Res.string.settings_nav_bar_glass_selection_lens_description),
+                            checked = style.selectionLens,
+                            isTablet = isTablet,
+                            onCheckedChange = { onStyleChanged(style.copy(selectionLens = it)) },
+                        )
+                    }
                 }
             }
-        }
-        AnimatedVisibility(refractionSupported && style.usesBackdrop && (style.usesLens || style.selectionLens)) {
+            AnimatedVisibility(refractionSupported && style.usesBackdrop && (style.usesLens || style.selectionLens)) {
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_dispersion),
+                    description = stringResource(Res.string.settings_nav_bar_glass_dispersion_description),
+                    checked = style.chromaticAberration,
+                    isTablet = isTablet,
+                    onCheckedChange = { onStyleChanged(style.copy(chromaticAberration = it)) },
+                )
+            }
             SettingsSwitchRow(
-                title = stringResource(Res.string.settings_nav_bar_glass_dispersion),
-                description = stringResource(Res.string.settings_nav_bar_glass_dispersion_description),
-                checked = style.chromaticAberration,
+                title = stringResource(Res.string.settings_nav_bar_glass_highlight),
+                description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
+                checked = style.edgeHighlight,
                 isTablet = isTablet,
-                onCheckedChange = { onStyleChanged(style.copy(chromaticAberration = it)) },
+                onCheckedChange = { onStyleChanged(style.copy(edgeHighlight = it)) },
             )
-        }
-        SettingsSwitchRow(
-            title = stringResource(Res.string.settings_nav_bar_glass_highlight),
-            description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
-            checked = style.edgeHighlight,
-            isTablet = isTablet,
-            onCheckedChange = { onStyleChanged(style.copy(edgeHighlight = it)) },
-        )
-        AnimatedVisibility(style != LiquidGlassStyle.Default) {
-            NuvioBottomSheetActionRow(
-                title = stringResource(Res.string.settings_nav_bar_glass_reset),
-                onClick = { onStyleChanged(LiquidGlassStyle.Default) },
-            )
+            AnimatedVisibility(style != LiquidGlassStyle.Default) {
+                NuvioBottomSheetActionRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_reset),
+                    onClick = { onStyleChanged(LiquidGlassStyle.Default) },
+                )
+            }
         }
     }
 }

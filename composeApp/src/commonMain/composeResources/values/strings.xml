@@ -2672,6 +2672,8 @@
     <string name="settings_appearance_liquid_glass_effects">Liquid glass effects</string>
     <string name="settings_appearance_liquid_glass_effects_description">Glass on the navigation bar, sheets, player controls and cinematic screens. Turn off for solid surfaces.</string>
     <string name="settings_nav_bar_glass">Liquid glass</string>
+    <string name="settings_nav_bar_glass_legacy_description">Separate from Liquid Glass material. These settings control the navigation bar whenever Liquid Glass material is inactive.</string>
+    <string name="settings_nav_bar_glass_legacy_inactive_description">Separate from Liquid Glass material. These settings do not apply while Liquid Glass material is on.</string>
     <string name="settings_nav_bar_glass_material_liquid">Liquid</string>
     <string name="settings_nav_bar_glass_material_frosted">Frosted</string>
     <string name="settings_nav_bar_glass_material_clear">Clear</string>
