@@ -150,6 +150,16 @@ private fun LicensesAttributionsBody(
                 ),
                 isTablet = isTablet,
             )
+            PlainStackDivider()
+            LicenseRow(
+                item = LicenseItem(
+                    titleRes = Res.string.settings_licenses_attributions_backdrop_title,
+                    bodyRes = Res.string.settings_licenses_attributions_backdrop_body,
+                    licenseRes = Res.string.settings_licenses_attributions_backdrop_license,
+                    link = KyantBackdropLicenseUrl,
+                ),
+                isTablet = isTablet,
+            )
         }
     }
 }
