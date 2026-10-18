@@ -225,6 +225,8 @@ private fun MainFloatingNavigationBar(
 ) {
     val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
 
     FloatingNavigationBar(
         items = items,
@@ -238,6 +240,11 @@ private fun MainFloatingNavigationBar(
         liquidGlassBarEffects = barEffects,
         liquidGlassSelectionEffects = selectionEffects,
         inlineLabels = inlineLabels,
+        defaultIconColorOverride = if (defaultIconColorEnabled) {
+            Color(defaultIconColor or 0xFF000000.toInt())
+        } else {
+            null
+        },
     )
 }
 
@@ -289,7 +296,7 @@ internal fun mainFloatingNavigationItems(
             selected = highlightedTab == AppScreenTab.Settings,
             onClick = { onTabSelected(AppScreenTab.Settings) },
             label = stringResource(Res.string.compose_nav_profile),
-            content = { onClick ->
+            content = { onClick, defaultIconColorOverride ->
                 ProfileSwitcherTab(
                     selected = highlightedTab == AppScreenTab.Settings,
                     onClick = onClick,
@@ -297,6 +304,7 @@ internal fun mainFloatingNavigationItems(
                     onAddProfileRequested = onAddProfileRequested,
                     hazeState = hazeState,
                     popupBelowAnchor = false,
+                    defaultIconColorOverride = defaultIconColorOverride,
                 )
             },
         ),
@@ -370,6 +378,8 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     val position by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
     val barEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val highlightedTab = AppScreenTab.Settings
 
@@ -433,6 +443,11 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                 liquidGlassBarEffects = barEffects,
                 liquidGlassSelectionEffects = selectionEffects,
                 inlineLabels = isTabletLayout,
+                defaultIconColorOverride = if (defaultIconColorEnabled) {
+                    Color(defaultIconColor or 0xFF000000.toInt())
+                } else {
+                    null
+                },
             )
         }
     }
