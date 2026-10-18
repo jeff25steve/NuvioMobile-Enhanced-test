@@ -99,4 +99,70 @@ class ThemeSettingsStorageTest {
         assertEquals("WHITE", ThemeSettingsStorage.loadSelectedTheme())
         assertEquals("#111111,#222222,#333333", preferences.getString(otherProfileKey, null))
     }
+
+    @Test
+    fun navigationGlassAndIconColourRoundTripThroughProfileSync() {
+        val barDefault = com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.floatingBar
+        val lensDefault = com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.selectionLens
+        val bar = barDefault.copy(blurRadiusDp = 7.5f)
+        val lens = lensDefault.copy(refractionAmountDp = 17f, affectTabIcons = false)
+        val encodedBar = com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings(
+            bar,
+            barDefault,
+            com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+        val encodedLens = com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings(
+            lens,
+            lensDefault,
+            com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(true)
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(encodedBar)
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(encodedLens)
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(true)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#EC70A9")
+
+        val payload = ThemeSettingsStorage.exportToSyncPayload()
+        assertEquals(true, payload.decodeSyncBoolean("nav_bar_liquid_glass_enabled"))
+        assertEquals(encodedBar, payload.decodeSyncString("nav_bar_liquid_glass_bar_effects"))
+        assertEquals(encodedLens, payload.decodeSyncString("nav_bar_liquid_glass_selection_effects"))
+        assertEquals(true, payload.decodeSyncBoolean("nav_bar_default_icon_color_enabled"))
+        assertEquals("#EC70A9", payload.decodeSyncString("nav_bar_default_icon_color"))
+
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(false)
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects("")
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects("")
+        ThemeSettingsStorage.saveNavBarDefaultIconColorEnabled(false)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#969CA3")
+        ThemeSettingsStorage.replaceFromSyncPayload(payload)
+
+        assertEquals(true, ThemeSettingsStorage.loadNavBarLiquidGlassEnabled())
+        assertEquals(encodedBar, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(encodedLens, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+        assertEquals(true, ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled())
+        assertEquals("#EC70A9", ThemeSettingsStorage.loadNavBarDefaultIconColor())
+    }
+
+    @Test
+    fun olderPayloadClearsOnlyCurrentProfileNavigationGlassPreferences() {
+        val context = RuntimeEnvironment.getApplication()
+        val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val otherProfileEnabled = ProfileScopedKey.of("nav_bar_liquid_glass_enabled", 99)
+        val otherProfileColor = ProfileScopedKey.of("nav_bar_default_icon_color", 99)
+        preferences.edit()
+            .putBoolean(otherProfileEnabled, true)
+            .putString(otherProfileColor, "#123456")
+            .commit()
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(true)
+        ThemeSettingsStorage.saveNavBarDefaultIconColor("#654321")
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertNull(ThemeSettingsStorage.loadNavBarLiquidGlassEnabled())
+        assertNull(ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(true, preferences.getBoolean(otherProfileEnabled, false))
+        assertEquals("#123456", preferences.getString(otherProfileColor, null))
+    }
+
 }

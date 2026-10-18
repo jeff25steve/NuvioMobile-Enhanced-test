@@ -92,4 +92,52 @@ class ThemeSettingsRepositoryTest {
         assertEquals(saved, ThemeSettingsRepository.customThemePreference.value)
         assertEquals(saved.encode(), ThemeSettingsStorage.exportToSyncPayload().decodeSyncString("custom_theme_colors"))
     }
+
+    @Test
+    fun liquidGlassEffectDraftsPersistOnlyOnCommitAndNoOpCommitDoesNotAdvanceRevision() {
+        ThemeSettingsRepository.ensureLoaded()
+        val default = com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.floatingBar
+        val initialRevision = ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value
+        val next = default.copy(blurRadiusDp = default.blurRadiusDp + 2f)
+
+        ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(next)
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(initialRevision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+        assertEquals(initialRevision + 1L, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+        assertEquals(
+            next,
+            com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings(
+                ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+                default,
+                com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults.floatingBarLimits,
+            ),
+        )
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+        assertEquals(initialRevision + 1L, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+    }
+
+    @Test
+    fun defaultIconColourDraftIsSavedOnceAndOnlyWhenCommitted() {
+        ThemeSettingsRepository.ensureLoaded()
+        val initialRevision = ThemeSettingsRepository.navBarDefaultIconColorRevision.value
+        val customColour = 0xEC70A9
+
+        ThemeSettingsRepository.setNavBarDefaultIconColorEnabled(true)
+        ThemeSettingsRepository.updateNavBarDefaultIconColor(customColour)
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(initialRevision, ThemeSettingsRepository.navBarDefaultIconColorRevision.value)
+
+        ThemeSettingsRepository.saveNavBarDefaultIconColorSettings()
+        assertEquals("#EC70A9", ThemeSettingsStorage.loadNavBarDefaultIconColor())
+        assertEquals(initialRevision + 1L, ThemeSettingsRepository.navBarDefaultIconColorRevision.value)
+
+        ThemeSettingsRepository.saveNavBarDefaultIconColorSettings()
+        assertEquals(initialRevision + 1L, ThemeSettingsRepository.navBarDefaultIconColorRevision.value)
+    }
+
 }
