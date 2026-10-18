@@ -323,21 +323,50 @@ object ThemeSettingsRepository {
 
     internal fun saveNavBarLiquidGlassEffectSettings() {
         ensureLoaded()
-        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
-            encodeLiquidGlassEffectSettings(
-                _navBarLiquidGlassBarEffects.value,
-                LiquidGlassEffectDefaults.floatingBar,
-                LiquidGlassEffectDefaults.floatingBarLimits,
-            ),
+        val barEffects = _navBarLiquidGlassBarEffects.value.sanitized(
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
         )
-        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
-            encodeLiquidGlassEffectSettings(
-                _navBarLiquidGlassSelectionEffects.value,
-                LiquidGlassEffectDefaults.selectionLens,
-                LiquidGlassEffectDefaults.selectionLensLimits,
-            ),
+        val selectionEffects = _navBarLiquidGlassSelectionEffects.value.sanitized(
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
         )
-        _navBarLiquidGlassEffectsRevision.value += 1L
+        val persistedBarEffects = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+        val persistedSelectionEffects = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+        var changed = false
+
+        if (barEffects != persistedBarEffects) {
+            ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
+                encodeLiquidGlassEffectSettings(
+                    barEffects,
+                    LiquidGlassEffectDefaults.floatingBar,
+                    LiquidGlassEffectDefaults.floatingBarLimits,
+                ),
+            )
+            changed = true
+        }
+        if (selectionEffects != persistedSelectionEffects) {
+            ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
+                encodeLiquidGlassEffectSettings(
+                    selectionEffects,
+                    LiquidGlassEffectDefaults.selectionLens,
+                    LiquidGlassEffectDefaults.selectionLensLimits,
+                ),
+            )
+            changed = true
+        }
+
+        // ProfileSettingsSync observes this revision. Only bump it when the committed settings
+        // actually differ, otherwise merely opening and dismissing the sheet triggers a remote push.
+        if (changed) _navBarLiquidGlassEffectsRevision.value += 1L
     }
 
     fun setNavBarGlass(style: LiquidGlassStyle) {
