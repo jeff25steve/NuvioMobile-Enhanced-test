@@ -261,7 +261,7 @@ object ThemeSettingsRepository {
         _navBarLiquidGlassEnabled.value = enabled
     }
 
-    /** Updates the floating-bar draft; the UI persists it when an edit interaction finishes. */
+    /** Updates the floating-bar draft; it is persisted when the settings sheet closes. */
     internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassBarEffects.value = settings.sanitized(
@@ -270,7 +270,7 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Updates the lens draft without writing storage on every slider frame. */
+    /** Updates the lens draft without writing storage while the settings sheet remains open. */
     internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
@@ -279,7 +279,7 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Persists both effect groups after an edit interaction finishes or the settings sheet exits. */
+    /** Persists both effect groups once when the settings sheet exits. */
     internal fun saveNavBarLiquidGlassEffectSettings() {
         ensureLoaded()
         ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(

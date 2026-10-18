@@ -192,7 +192,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onReset = {
                                 onFloatingBarEffectsChanged(LiquidGlassEffectDefaults.floatingBar)
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         LiquidGlassEffectSlider(
@@ -202,7 +201,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 49,
                             valueLabel = "${floatingBarEffects.cornerRadiusPercent.roundToInt()}%",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onFloatingBarEffectsChanged(floatingBarEffects.copy(cornerRadiusPercent = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -212,7 +210,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 31,
                             valueLabel = "${floatingBarEffects.blurRadiusDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onFloatingBarEffectsChanged(floatingBarEffects.copy(blurRadiusDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -222,7 +219,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 47,
                             valueLabel = "${floatingBarEffects.refractionHeightDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onFloatingBarEffectsChanged(floatingBarEffects.copy(refractionHeightDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -232,7 +228,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 47,
                             valueLabel = "${floatingBarEffects.refractionAmountDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onFloatingBarEffectsChanged(floatingBarEffects.copy(refractionAmountDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -242,7 +237,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 19,
                             valueLabel = "${(floatingBarEffects.tintOpacity * 100f).roundToInt()}%",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onFloatingBarEffectsChanged(floatingBarEffects.copy(tintOpacity = it)) },
                         )
                         SettingsSwitchRow(
@@ -252,7 +246,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onFloatingBarEffectsChanged(floatingBarEffects.copy(chromaticAberration = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         SettingsSwitchRow(
@@ -262,7 +255,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onFloatingBarEffectsChanged(floatingBarEffects.copy(depthEffect = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
 
@@ -273,7 +265,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onReset = {
                                 onSelectionLensEffectsChanged(LiquidGlassEffectDefaults.selectionLens)
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         LiquidGlassEffectSlider(
@@ -283,7 +274,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 49,
                             valueLabel = "${selectionLensEffects.cornerRadiusPercent.roundToInt()}%",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onSelectionLensEffectsChanged(selectionLensEffects.copy(cornerRadiusPercent = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -293,7 +283,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 23,
                             valueLabel = "${selectionLensEffects.blurRadiusDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onSelectionLensEffectsChanged(selectionLensEffects.copy(blurRadiusDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -303,7 +292,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 31,
                             valueLabel = "${selectionLensEffects.refractionHeightDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onSelectionLensEffectsChanged(selectionLensEffects.copy(refractionHeightDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -313,7 +301,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 31,
                             valueLabel = "${selectionLensEffects.refractionAmountDp.roundToInt()} dp",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onSelectionLensEffectsChanged(selectionLensEffects.copy(refractionAmountDp = it)) },
                         )
                         LiquidGlassEffectSlider(
@@ -323,7 +310,6 @@ internal fun NavigationBarSettingsSheet(
                             steps = 19,
                             valueLabel = "${(selectionLensEffects.tintOpacity * 100f).roundToInt()}%",
                             isTablet = isTablet,
-                            onValueChangeFinished = onSaveLiquidGlassEffectSettings,
                             onValueChange = { onSelectionLensEffectsChanged(selectionLensEffects.copy(tintOpacity = it)) },
                         )
                         SettingsSwitchRow(
@@ -333,7 +319,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onSelectionLensEffectsChanged(selectionLensEffects.copy(chromaticAberration = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         SettingsSwitchRow(
@@ -343,7 +328,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onSelectionLensEffectsChanged(selectionLensEffects.copy(depthEffect = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         SettingsSwitchRow(
@@ -353,7 +337,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onSelectionLensEffectsChanged(selectionLensEffects.copy(affectTabIcons = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                         SettingsSwitchRow(
@@ -363,7 +346,6 @@ internal fun NavigationBarSettingsSheet(
                             isTablet = isTablet,
                             onCheckedChange = {
                                 onSelectionLensEffectsChanged(selectionLensEffects.copy(affectFloatingBar = it))
-                                onSaveLiquidGlassEffectSettings()
                             },
                         )
                     }
@@ -482,7 +464,6 @@ internal fun LiquidGlassEffectSlider(
     isTablet: Boolean,
     steps: Int = 0,
     onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
 ) {
     val safeValue = value.takeIf { it.isFinite() }?.coerceIn(valueRange) ?: valueRange.start
     Column(
@@ -514,7 +495,6 @@ internal fun LiquidGlassEffectSlider(
         Slider(
             value = safeValue,
             onValueChange = { onValueChange(it.coerceIn(valueRange)) },
-            onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             steps = steps,
             modifier = Modifier.semantics { contentDescription = title },

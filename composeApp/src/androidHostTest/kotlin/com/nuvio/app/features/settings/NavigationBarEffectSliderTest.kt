@@ -10,7 +10,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import kotlin.math.roundToInt
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.runner.RunWith
