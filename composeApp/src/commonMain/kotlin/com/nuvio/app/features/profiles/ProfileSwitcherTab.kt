@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -761,6 +762,7 @@ fun ActiveProfileMiniAvatar(
             imageVector = Icons.Rounded.Person,
             contentDescription = stringResource(Res.string.compose_nav_profile),
             modifier = Modifier.size(size.dp),
+            tint = defaultIconColorOverride ?: LocalContentColor.current,
         )
         return
     }

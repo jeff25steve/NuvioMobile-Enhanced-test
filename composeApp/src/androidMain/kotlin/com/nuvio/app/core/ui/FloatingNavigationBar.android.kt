@@ -42,7 +42,6 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.isRuntimeShaderSupported
 import com.nuvio.app.core.ui.glass.GlassBarSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
@@ -111,8 +110,7 @@ internal actual fun FloatingNavigationBar(
         backdrop != null &&
         floatingNavigationGlowSupported &&
         isLiquidGlassAvailable() &&
-        isLiquidRefractionSupported() &&
-        isRuntimeShaderSupported()
+        isLiquidRefractionSupported()
     val floatingBarEffects = liquidGlassBarEffects.sanitized(
         LiquidGlassEffectDefaults.floatingBar,
         LiquidGlassEffectDefaults.floatingBarLimits,
