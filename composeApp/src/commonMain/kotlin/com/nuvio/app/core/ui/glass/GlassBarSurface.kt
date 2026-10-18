@@ -220,6 +220,8 @@ internal fun LiquidGlassSelectionSurface(
         LiquidGlassEffectDefaults.selectionLens,
         LiquidGlassEffectDefaults.selectionLensLimits,
     )
+    // Match the floating glass surface: tint comes from Nuvio's active palette, not system appearance.
+    val containerColor = MaterialTheme.nuvio.colors.surface.copy(alpha = safeSettings.tintOpacity)
     Box(
         modifier
             .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
@@ -256,7 +258,7 @@ internal fun LiquidGlassSelectionSurface(
                 onDrawSurface = {
                     val progress = pressProgress().coerceIn(0f, 1f)
                     drawRect(
-                        Color.White.copy(alpha = safeSettings.tintOpacity),
+                        containerColor,
                         alpha = 1f - progress,
                     )
                     drawRect(Color.Black.copy(alpha = 0.03f * progress))
