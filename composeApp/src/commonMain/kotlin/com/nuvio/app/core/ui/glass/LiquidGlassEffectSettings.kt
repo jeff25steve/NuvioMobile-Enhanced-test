@@ -7,6 +7,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.roundToInt
 
 @Serializable
 internal data class LiquidGlassEffectSettings(
@@ -145,3 +146,10 @@ private fun kotlinx.serialization.json.JsonObject.booleanOrDefault(
     key: String,
     default: Boolean,
 ): Boolean = runCatching { this[key]?.jsonPrimitive?.booleanOrNull }.getOrNull() ?: default
+
+/**
+ * Normalize glass corner percentages to the integer value used by RoundedCornerShape.
+ * Clamp infinities to the supported range and map NaN to the fully rounded default.
+ */
+internal fun effectiveLiquidGlassCornerRadiusPercent(value: Float): Int =
+    (value.takeIf { !it.isNaN() } ?: 50f).coerceIn(0f, 50f).roundToInt()

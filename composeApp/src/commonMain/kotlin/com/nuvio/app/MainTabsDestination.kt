@@ -44,6 +44,7 @@ import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_nav_home
 import nuvio.composeapp.generated.resources.compose_nav_library
@@ -98,8 +99,6 @@ internal fun MainTabsDestination(
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val navBarGlass by ThemeSettingsRepository.navBarGlass.collectAsStateWithLifecycle()
         val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
-        val navBarLiquidGlassBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
-        val navBarLiquidGlassSelectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
         val navBarDefaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
         val navBarDefaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
         val navBarDefaultIconColorOverride = if (navBarDefaultIconColorEnabled) {
@@ -180,7 +179,7 @@ internal fun MainTabsDestination(
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
                         else -> {}
                     }
-                    FloatingNavigationBar(
+                    MainFloatingNavigationBar(
                         modifier = Modifier.align(if (floatingBarOnTop) Alignment.TopCenter else Alignment.BottomCenter),
                         scrollState = navBarScrollState,
                         backdrop = navBarBackdrop,
@@ -197,14 +196,48 @@ internal fun MainTabsDestination(
                         inlineLabels = isTabletLayout,
                         glassStyle = navBarGlass,
                         liquidGlassEnabled = navBarLiquidGlassEnabled,
-                        liquidGlassBarEffects = navBarLiquidGlassBarEffects,
-                        liquidGlassSelectionEffects = navBarLiquidGlassSelectionEffects,
                         defaultIconColorOverride = navBarDefaultIconColorOverride,
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * Keep the high-frequency glass-effect draft flows subscribed in the navigation-bar leaf.
+ * Dragging effect sliders then updates this bar without invalidating MainTabsDestination and its tab host.
+ */
+@Composable
+private fun MainFloatingNavigationBar(
+    modifier: Modifier,
+    scrollState: com.nuvio.app.core.ui.NuvioNavBarScrollState?,
+    backdrop: Backdrop?,
+    contentPadding: PaddingValues,
+    items: List<FloatingNavigationItem>,
+    glowEnabled: Boolean,
+    inlineLabels: Boolean,
+    glassStyle: LiquidGlassStyle,
+    liquidGlassEnabled: Boolean,
+    defaultIconColorOverride: Color?,
+) {
+    val liquidGlassBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val liquidGlassSelectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+
+    FloatingNavigationBar(
+        items = items,
+        modifier = modifier,
+        scrollState = scrollState,
+        backdrop = backdrop,
+        glassStyle = glassStyle,
+        contentPadding = contentPadding,
+        glowEnabled = glowEnabled,
+        liquidGlassEnabled = liquidGlassEnabled,
+        liquidGlassBarEffects = liquidGlassBarEffects,
+        liquidGlassSelectionEffects = liquidGlassSelectionEffects,
+        inlineLabels = inlineLabels,
+        defaultIconColorOverride = defaultIconColorOverride,
+    )
 }
 
 @Composable

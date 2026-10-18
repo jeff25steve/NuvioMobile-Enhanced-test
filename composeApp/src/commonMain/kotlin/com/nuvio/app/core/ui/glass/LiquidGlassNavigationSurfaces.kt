@@ -60,7 +60,7 @@ internal fun KeyedLiquidGlassRadius(
     cornerRadiusPercent: Float,
     content: @Composable () -> Unit,
 ) {
-    key(cornerRadiusPercent.roundToInt()) {
+    key(effectiveLiquidGlassCornerRadiusPercent(cornerRadiusPercent)) {
         content()
     }
 }
@@ -122,13 +122,14 @@ internal fun LiquidGlassFrostedBar(
     // Nuvio owns its palette independently from Android/iOS system appearance.
     // Tint the glass with the active Nuvio surface, not the device's light/dark setting.
     val containerColor = MaterialTheme.nuvio.colors.surface.copy(alpha = safeSettings.tintOpacity)
-    val cornerShape = RoundedCornerShape(safeSettings.cornerRadiusPercent.roundToInt())
+    val cornerRadiusPercent = effectiveLiquidGlassCornerRadiusPercent(safeSettings.cornerRadiusPercent)
+    val cornerShape = RoundedCornerShape(cornerRadiusPercent)
 
     Box(
         modifier
             // drawBackdrop caches its clip Shape in a measured graphics layer.
             // A radius edit does not change constraints, so refresh that layer immediately.
-            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
+            .remeasureOnKeyChange(cornerRadiusPercent)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { cornerShape },
@@ -149,7 +150,7 @@ internal fun LiquidGlassFrostedBar(
                 onDrawSurface = {
                     // The optional layerBackdrop captures this rendered child separately, so
                     // draw the tint with capsule geometry instead of relying on an outer clip.
-                    val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
+                    val cornerRadius = size.minDimension * (cornerRadiusPercent / 100f)
                     drawRoundRect(
                         color = containerColor,
                         cornerRadius = CornerRadius(cornerRadius),
@@ -159,7 +160,7 @@ internal fun LiquidGlassFrostedBar(
                     // Keep the rim in this rendered child so the optional layerBackdrop source
                     // captures the complete visible floating-bar glass surface.
                     val width = 0.75.dp.toPx()
-                    val cornerRadius = size.minDimension * safeSettings.cornerRadiusPercent / 100f
+                    val cornerRadius = size.minDimension * (cornerRadiusPercent / 100f)
                     drawRoundRect(
                         brush = LiquidGlassBarEdgeBrush,
                         topLeft = Offset(width / 2, width / 2),
@@ -194,7 +195,7 @@ internal fun LiquidGlassSelectionSurface(
     val containerColor = MaterialTheme.nuvio.colors.surface.copy(alpha = safeSettings.tintOpacity)
     Box(
         modifier
-            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
+            .remeasureOnKeyChange(effectiveLiquidGlassCornerRadiusPercent(safeSettings.cornerRadiusPercent))
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = shape,
@@ -257,7 +258,7 @@ internal fun LiquidGlassIconRefractionSurface(
     )
     Box(
         modifier
-            .remeasureOnKeyChange(safeSettings.cornerRadiusPercent.roundToInt())
+            .remeasureOnKeyChange(effectiveLiquidGlassCornerRadiusPercent(safeSettings.cornerRadiusPercent))
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = shape,

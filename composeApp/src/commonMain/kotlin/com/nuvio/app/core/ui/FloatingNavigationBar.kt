@@ -28,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -182,11 +181,21 @@ internal fun FloatingNavigationBar(
     } else {
         null
     }
-    val floatingBarShape = remember(useLiquidGlassMaterial, floatingBarEffects.cornerRadiusPercent) {
-        RoundedCornerShape(if (useLiquidGlassMaterial) floatingBarEffects.cornerRadiusPercent.roundToInt() else 50)
+    val floatingBarCornerRadiusPercent = if (useLiquidGlassMaterial) {
+        effectiveLiquidGlassCornerRadiusPercent(floatingBarEffects.cornerRadiusPercent)
+    } else {
+        50
     }
-    val selectionLensShape = remember(useLiquidGlassMaterial, selectionLensEffects.cornerRadiusPercent) {
-        RoundedCornerShape(if (useLiquidGlassMaterial) selectionLensEffects.cornerRadiusPercent.roundToInt() else 50)
+    val selectionLensCornerRadiusPercent = if (useLiquidGlassMaterial) {
+        effectiveLiquidGlassCornerRadiusPercent(selectionLensEffects.cornerRadiusPercent)
+    } else {
+        50
+    }
+    val floatingBarShape = remember(floatingBarCornerRadiusPercent) {
+        RoundedCornerShape(floatingBarCornerRadiusPercent)
+    }
+    val selectionLensShape = remember(selectionLensCornerRadiusPercent) {
+        RoundedCornerShape(selectionLensCornerRadiusPercent)
     }
     // The primary lens always samples the screen. Only the optional floating-bar source is
     // composited into this pass; tab icons use a separate refraction-only overlay below so the
@@ -202,7 +211,7 @@ internal fun FloatingNavigationBar(
         null
     }
     val selectionPillCornerRadiusPercent =
-        if (liquidGlassSelectionBackdrop != null) selectionLensEffects.cornerRadiusPercent else 50f
+        if (liquidGlassSelectionBackdrop != null) selectionLensCornerRadiusPercent.toFloat() else 50f
     val currentItems by rememberUpdatedState(items)
     val currentIsRtl by rememberUpdatedState(isRtl)
     val density = LocalDensity.current
@@ -290,11 +299,7 @@ internal fun FloatingNavigationBar(
                     ) {
                         Box(Modifier.matchParentSize()) {
                             KeyedLiquidGlassRadius(
-                                cornerRadiusPercent = if (useLiquidGlassMaterial) {
-                                    floatingBarEffects.cornerRadiusPercent
-                                } else {
-                                    50f
-                                },
+                                cornerRadiusPercent = floatingBarCornerRadiusPercent.toFloat(),
                             ) {
                                 Box(
                                     Modifier.matchParentSize()
@@ -425,7 +430,9 @@ internal fun FloatingNavigationBar(
                         }
                         if (selectedIndex >= 0) {
                             if (liquidGlassSelectionBackdrop != null) {
-                                key(selectionLensEffects.cornerRadiusPercent) {
+                                KeyedLiquidGlassRadius(
+                                    cornerRadiusPercent = selectionLensCornerRadiusPercent.toFloat(),
+                                ) {
                                     Box(
                                         Modifier
                                             .width(liquidGlassSelectionTabWidth)
