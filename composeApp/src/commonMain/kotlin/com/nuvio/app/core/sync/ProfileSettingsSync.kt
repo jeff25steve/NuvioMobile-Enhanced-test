@@ -188,7 +188,6 @@ object ProfileSettingsSync {
             ThemeSettingsRepository.amoledEnabled.map { "amoled" },
             ThemeSettingsRepository.liquidGlassNativeTabBarEnabled.map { "liquid_glass_tab_bar" },
             ThemeSettingsRepository.navBarGlowEnabled.map { "nav_bar_glow_enabled" },
-            // Color changes are drafts while the picker is open; serialize the settings blob only on commit.
             ThemeSettingsRepository.navBarLiquidGlassEnabled.map { "nav_bar_liquid_glass_enabled" },
             // Draft StateFlows update on every slider frame; observe only the persistence revision so
             // profile-sync never serializes the full settings blob while someone is dragging a slider.
