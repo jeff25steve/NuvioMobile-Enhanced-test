@@ -1,6 +1,7 @@
 package com.nuvio.app.core.ui
 
 import com.nuvio.app.core.ui.jelly.JellyMotion
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,64 +17,35 @@ class FloatingNavigationBarRtlTest {
     }
 
     @Test
-    fun `navigation glass uses its own toggle and runtime capabilities`() {
-        // The app-wide LiquidGlassSettings flag is deliberately not an input to this gate.
-        assertTrue(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = true,
-                hasBackdrop = true,
-                glassAvailable = true,
-                refractionSupported = true,
-                runtimeShaderSupported = true,
-            ),
-        )
+    fun `navigation glass remains eligible when global glass is disabled`() {
+        val previousGlobalValue = LiquidGlassSettings.enabled
+        try {
+            LiquidGlassSettings.enabled = false
+            assertTrue(isNavigationGlassEligible())
+        } finally {
+            LiquidGlassSettings.enabled = previousGlobalValue
+        }
 
-        assertFalse(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = false,
-                hasBackdrop = true,
-                glassAvailable = true,
-                refractionSupported = true,
-                runtimeShaderSupported = true,
-            ),
-        )
-        assertFalse(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = true,
-                hasBackdrop = false,
-                glassAvailable = true,
-                refractionSupported = true,
-                runtimeShaderSupported = true,
-            ),
-        )
-        assertFalse(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = true,
-                hasBackdrop = true,
-                glassAvailable = false,
-                refractionSupported = true,
-                runtimeShaderSupported = true,
-            ),
-        )
-        assertFalse(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = true,
-                hasBackdrop = true,
-                glassAvailable = true,
-                refractionSupported = false,
-                runtimeShaderSupported = true,
-            ),
-        )
-        assertFalse(
-            shouldEnableNavigationLiquidGlass(
-                navBarEnabled = true,
-                hasBackdrop = true,
-                glassAvailable = true,
-                refractionSupported = true,
-                runtimeShaderSupported = false,
-            ),
-        )
+        assertFalse(isNavigationGlassEligible(navBarEnabled = false))
+        assertFalse(isNavigationGlassEligible(hasBackdrop = false))
+        assertFalse(isNavigationGlassEligible(glassAvailable = false))
+        assertFalse(isNavigationGlassEligible(refractionSupported = false))
+        assertFalse(isNavigationGlassEligible(runtimeShaderSupported = false))
     }
+
+    private fun isNavigationGlassEligible(
+        navBarEnabled: Boolean = true,
+        hasBackdrop: Boolean = true,
+        glassAvailable: Boolean = true,
+        refractionSupported: Boolean = true,
+        runtimeShaderSupported: Boolean = true,
+    ): Boolean = shouldEnableNavigationLiquidGlass(
+        navBarEnabled = navBarEnabled,
+        hasBackdrop = hasBackdrop,
+        glassAvailable = glassAvailable,
+        refractionSupported = refractionSupported,
+        runtimeShaderSupported = runtimeShaderSupported,
+    )
 
     @Test
     fun `visualNavIndex maps LTR destinations to identity positions`() {
