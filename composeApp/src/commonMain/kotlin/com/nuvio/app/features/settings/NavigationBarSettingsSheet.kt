@@ -529,13 +529,7 @@ private fun NavigationBarGlassSettings(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
         )
         Text(
-            text = stringResource(
-                if (showLegacyControls) {
-                    Res.string.settings_nav_bar_glass_legacy_description
-                } else {
-                    Res.string.settings_nav_bar_glass_legacy_inactive_description
-                },
-            ),
+            text = stringResource(Res.string.settings_nav_bar_glass_legacy_description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
