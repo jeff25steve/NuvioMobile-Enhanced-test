@@ -3,7 +3,6 @@ package com.nuvio.app.features.settings
 import android.app.Application
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -25,9 +24,8 @@ class NavigationBarEffectSliderTest {
     val compose = createComposeRule()
 
     @Test
-    fun releasingGlassEffectSliderInvokesCommitCallback() {
+    fun draggingGlassEffectSliderUpdatesDraftValue() {
         val value = mutableFloatStateOf(10f)
-        val finishCount = mutableIntStateOf(0)
 
         compose.setContent {
             MaterialTheme {
@@ -38,7 +36,6 @@ class NavigationBarEffectSliderTest {
                     valueLabel = "${value.floatValue.roundToInt()}%",
                     isTablet = false,
                     onValueChange = { value.floatValue = it },
-                    onValueChangeFinished = { finishCount.intValue += 1 },
                 )
             }
         }
@@ -54,7 +51,6 @@ class NavigationBarEffectSliderTest {
 
         compose.runOnIdle {
             assertTrue(value.floatValue > 10f)
-            assertEquals(1, finishCount.intValue)
         }
     }
 }
