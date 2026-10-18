@@ -2846,9 +2846,6 @@
     <string name="profile_enable_biometric_for">Enable biometric unlock for %1$s</string>
     <string name="profile_disable_biometric_for">Disable biometric unlock for %1$s</string>
     <string name="profile_pin_clear_cleanup_failed">Your profile PIN was removed from your account, but Nuvio couldn't confirm removal of all local profile-lock data. Biometric unlock or saved offline PIN data may still be present; reopen Profile Security and try again.</string>
-    <string name="settings_licenses_attributions_backdrop_title">Backdrop (Liquid Glass)</string>
-    <string name="settings_licenses_attributions_backdrop_body">Liquid Glass effect library by Kyant0, used for the floating navigation bar material.</string>
-    <string name="settings_licenses_attributions_backdrop_license">Apache License, Version 2.0</string>
     <string name="settings_nav_bar_liquid_glass">Liquid Glass material</string>
     <string name="settings_nav_bar_liquid_glass_description">Adds refraction and blur to the floating navigation bar.</string>
     <string name="settings_nav_bar_liquid_glass_unsupported_description">Requires Android 13 or later. This device will keep the existing glass style.</string>
