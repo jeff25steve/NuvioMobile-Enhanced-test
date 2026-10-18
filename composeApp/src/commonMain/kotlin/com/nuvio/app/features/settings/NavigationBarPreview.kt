@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -33,14 +34,28 @@ import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.core.ui.NuvioClassicNavigationBar
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.kyant.backdrop.Backdrop
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEnabled: Boolean) {
+internal fun NavigationBarPreview(
+    style: NavBarStyle,
+    isTablet: Boolean,
+    glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean = false,
+    floatingBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
+    selectionLensEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
+    defaultIconColorOverride: Color? = null,
+) {
     val tokens = MaterialTheme.nuvio
+    val backdrop = if (liquidGlassEnabled) rememberNuvioBackdrop() else null
     val hazeState = rememberHazeState()
     val barScrollState = remember(style, isTablet) {
         NuvioNavBarScrollState().apply {
@@ -59,6 +74,7 @@ internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEna
             Column(
                 Modifier.matchParentSize()
                     .hazeSource(hazeState)
+                    .then(backdrop?.let { Modifier.nuvioBackdropSource(it) } ?: Modifier)
                     .then(if (!isTablet && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)
@@ -102,9 +118,14 @@ internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEna
                         .then(if (isTablet) Modifier.widthIn(max = 416.dp) else Modifier),
                     scrollState = barScrollState,
                     hazeState = hazeState,
+                    backdrop = backdrop,
                     contentPadding = PaddingValues(vertical = 16.dp),
                     compactSize = isTablet,
                     glowEnabled = glowEnabled,
+                    liquidGlassEnabled = liquidGlassEnabled,
+                    liquidGlassBarEffects = floatingBarEffects,
+                    liquidGlassSelectionEffects = selectionLensEffects,
+                    defaultIconColorOverride = defaultIconColorOverride,
                 )
             }
         }
