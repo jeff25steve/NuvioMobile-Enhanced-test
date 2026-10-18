@@ -24,6 +24,18 @@ internal class FloatingNavigationItem(
 
 internal expect val floatingNavigationGlowSupported: Boolean
 
+/**
+ * Navigation material owns its own toggle. Do not couple this eligibility gate to a global glass
+ * setting; missing backdrop or unsupported rendering capabilities always selects the fallback.
+ */
+internal fun shouldEnableNavigationLiquidGlass(
+    navBarEnabled: Boolean,
+    hasBackdrop: Boolean = true,
+    glassAvailable: Boolean = true,
+    refractionSupported: Boolean = true,
+    runtimeShaderSupported: Boolean = true,
+): Boolean = navBarEnabled && hasBackdrop && glassAvailable && refractionSupported && runtimeShaderSupported
+
 @Composable
 internal expect fun FloatingNavigationBar(
     items: List<FloatingNavigationItem>,
