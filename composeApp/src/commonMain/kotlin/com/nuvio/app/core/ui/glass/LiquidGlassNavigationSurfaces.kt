@@ -23,7 +23,6 @@ import androidx.compose.ui.node.invalidateMeasurementForSubtree
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -45,7 +44,6 @@ private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
  */
 internal fun Modifier.remeasureOnKeyChange(key: Int): Modifier =
     this then RemeasureOnKeyChangeElement(key)
-
 
 /**
  * Recreate radius-dependent glass layers when their effective corner radius changes.
