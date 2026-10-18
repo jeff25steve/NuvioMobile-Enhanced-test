@@ -48,6 +48,7 @@ import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.isIos
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -401,7 +402,7 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC) {
+                AnimatedVisibility(!isIos && selectedStyle != NavBarStyle.CLASSIC) {
                     Column {
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
