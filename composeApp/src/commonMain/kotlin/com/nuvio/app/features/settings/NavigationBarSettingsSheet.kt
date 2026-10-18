@@ -3,9 +3,7 @@ package com.nuvio.app.features.settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -41,7 +39,6 @@ import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.core.ui.formatHexColor
 import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
-import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import kotlinx.coroutines.launch
@@ -77,11 +74,11 @@ internal fun NavigationBarSettingsSheet(
     fun commitDrafts() {
         ThemeSettingsRepository.setNavBarLiquidGlassBarEffects(draftBarEffects)
         ThemeSettingsRepository.setNavBarLiquidGlassSelectionEffects(draftLensEffects)
-        if (parsedIconColor != null) {
-            ThemeSettingsRepository.setNavBarDefaultIconColor(parsedIconColor)
-            ThemeSettingsRepository.setNavBarDefaultIconColorEnabled(draftIconColorEnabled)
-        } else {
+        if (!draftIconColorEnabled) {
             ThemeSettingsRepository.setNavBarDefaultIconColorEnabled(false)
+        } else if (parsedIconColor != null) {
+            ThemeSettingsRepository.setNavBarDefaultIconColor(parsedIconColor)
+            ThemeSettingsRepository.setNavBarDefaultIconColorEnabled(true)
         }
     }
 
