@@ -310,7 +310,7 @@ internal actual fun FloatingNavigationBar(
                                         )
                                     }
                                 }
-                                if (iconsBackdrop != null && motion.dragging) {
+                                if (iconsBackdrop != null && motion.tabIconRefractionActive) {
                                     Box(Modifier.width(selectionTabWidth).height(trackHeight - 8.dp)) {
                                         LiquidGlassIconRefractionSurface(
                                             backdrop = iconsBackdrop,
@@ -351,7 +351,7 @@ internal actual fun FloatingNavigationBar(
                                     ) {
                                         JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize())
                                     }
-                                } else if (iconsBackdrop == null || !motion.dragging) {
+                                } else if (iconsBackdrop == null || !motion.tabIconRefractionActive) {
                                     Box(
                                         Modifier.matchParentSize()
                                             .clearAndSetSemantics {}

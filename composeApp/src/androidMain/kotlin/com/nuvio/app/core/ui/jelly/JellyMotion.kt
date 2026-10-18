@@ -55,6 +55,8 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
 
     var dragging = false
         private set
+    var tabIconRefractionActive by mutableStateOf(false)
+        private set
     var running by mutableStateOf(false)
         private set
     var frame by mutableStateOf(JellyFrame(position.value.toFloat()))
@@ -71,6 +73,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
 
     fun select(index: Int) {
         dragging = false
+        tabIconRefractionActive = false
         if (index >= 0) target = index.coerceAtMost(maxIndex).toDouble()
         releasePending = true
         pressTarget = 0.0
@@ -87,6 +90,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         if (tabWidth > 0) target = indexAt(downX).toDouble()
         dragStartTarget = target
         dragStartPanel = panel.value
+        tabIconRefractionActive = false
         dragging = true
         releasePending = false
         pressTarget = 1.0
@@ -99,6 +103,8 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         if (!dragging || tabWidth <= 0) return
         val dx = x.toDouble()
         val dy = y.toDouble()
+        // Vertical scrolling should not refract icons; wait for deliberate horizontal movement.
+        if (abs(dx) >= 4.0) tabIconRefractionActive = true
         target = (dragStartTarget + dx / tabWidth).coerceIn(0.0, maxIndex.toDouble())
         panel.snapTo(dragStartPanel + dx)
         trackY.snapTo(dragStartY + jellyRubberBand(dy, height) * 0.25)
@@ -112,6 +118,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         val index = if (movedDistance < 4 && tabWidth > 0) indexAt(downX)
         else floor(target + 0.5).toInt().coerceIn(0, maxIndex)
         dragging = false
+        tabIconRefractionActive = false
         panel.velocity = 0.0
         target = index.toDouble()
         releasePending = true
@@ -121,6 +128,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
 
     fun cancel(selectedIndex: Int) {
         dragging = false
+        tabIconRefractionActive = false
         panel.velocity = 0.0
         select(selectedIndex)
     }
