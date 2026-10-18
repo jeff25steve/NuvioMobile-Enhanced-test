@@ -2,7 +2,6 @@ package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import com.kyant.backdrop.isRuntimeShaderSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
@@ -42,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -55,6 +55,8 @@ import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.formatHexColor
 import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
+import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
+import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioPrimaryButton
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
@@ -665,12 +667,20 @@ private fun NavigationBarPreviewStickyHeader(
             }
     }
 
-    // Keep the pinned preview opaque while the settings list scrolls. The gate emits a one-shot
-    // request at each top-boundary crossing, which is handled by the preview bar's JellyMotion springs.
+    val sheetBackdrop = LocalNuvioSheetBackdrop.current?.backdrop
+    val sheetContainerColor = MaterialTheme.nuvio.colors.surfaceSheet
+
+    // Keep the pinned preview opaque during scrolling while matching the shared sheet blur and tint.
+    // The gate emits a one-shot request at each top-boundary crossing for the preview bar's JellyMotion springs.
     Column(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.nuvio.colors.surfaceSheet),
+            .nuvioSheetSurface(
+                backdrop = sheetBackdrop,
+                shape = RectangleShape,
+                containerColor = sheetContainerColor,
+                withHighlight = false,
+            ),
     ) {
         Text(
             text = stringResource(Res.string.settings_appearance_nav_bar_style),
