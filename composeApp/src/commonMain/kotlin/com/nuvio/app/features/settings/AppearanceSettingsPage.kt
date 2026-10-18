@@ -487,6 +487,8 @@ private fun NavigationBarSettingsSheetHost(
     // invalidates the containing Appearance settings section, including all of its rows.
     val liquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
     val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
+    val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
+    val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
     val floatingBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionLensEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
 
@@ -499,6 +501,11 @@ private fun NavigationBarSettingsSheetHost(
         onStyleSelected = onStyleSelected,
         glowEnabled = glowEnabled,
         onGlowChanged = onGlowChanged,
+        defaultIconColorEnabled = defaultIconColorEnabled,
+        onDefaultIconColorEnabledChanged = ThemeSettingsRepository::setNavBarDefaultIconColorEnabled,
+        defaultIconColor = defaultIconColor,
+        onDefaultIconColorChanged = ThemeSettingsRepository::updateNavBarDefaultIconColor,
+        onSaveDefaultIconColor = ThemeSettingsRepository::saveNavBarDefaultIconColorSettings,
         liquidGlassEnabled = liquidGlassEnabled,
         onLiquidGlassChanged = onLiquidGlassChanged,
         floatingBarEffects = floatingBarEffects,
