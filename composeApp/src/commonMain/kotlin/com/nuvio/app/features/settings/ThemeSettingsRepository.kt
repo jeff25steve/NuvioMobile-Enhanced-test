@@ -4,16 +4,18 @@ import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings
+import com.nuvio.app.core.ui.formatHexColor
+import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
-import com.nuvio.app.core.ui.formatHexColor
-import com.nuvio.app.core.ui.parseHexColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,7 +24,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// Matches NuvioTokens.textMuted (0xFF969CA3) so enabling the override does not shift the default grey.
 internal const val DEFAULT_NAV_BAR_ICON_COLOR = 0x969CA3
 
 object ThemeSettingsRepository {
@@ -43,7 +44,6 @@ object ThemeSettingsRepository {
     private val _tabBarBehavior = MutableStateFlow(NuvioTabBarBehavior.Default)
     val tabBarBehavior: StateFlow<NuvioTabBarBehavior> = _tabBarBehavior.asStateFlow()
 
-    /** Derived from [tabBarBehavior]; kept so existing call sites keep reading a single boolean. */
     private val _liquidGlassNativeTabBarEnabled = MutableStateFlow(NuvioTabBarBehavior.Default.isEnabled)
     val liquidGlassNativeTabBarEnabled: StateFlow<Boolean> = _liquidGlassNativeTabBarEnabled.asStateFlow()
 
@@ -72,28 +72,26 @@ object ThemeSettingsRepository {
     val navBarDefaultIconColor: StateFlow<Int> = _navBarDefaultIconColor.asStateFlow()
 
     private val _navBarDefaultIconColorRevision = MutableStateFlow(0L)
-    internal val navBarDefaultIconColorRevision: StateFlow<Long> =
-        _navBarDefaultIconColorRevision.asStateFlow()
+    internal val navBarDefaultIconColorRevision: StateFlow<Long> = _navBarDefaultIconColorRevision.asStateFlow()
     private var navBarDefaultIconColorDraftDirty = false
 
     private val _navBarLiquidGlassEnabled = MutableStateFlow(false)
     val navBarLiquidGlassEnabled: StateFlow<Boolean> = _navBarLiquidGlassEnabled.asStateFlow()
 
-    private val _navBarLiquidGlassBarEffects =
-        MutableStateFlow(LiquidGlassEffectDefaults.floatingBar)
-    internal val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> =
-        _navBarLiquidGlassBarEffects.asStateFlow()
+    private val _navBarLiquidGlassBarEffects = MutableStateFlow(LiquidGlassEffectDefaults.floatingBar)
+    internal val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> = _navBarLiquidGlassBarEffects.asStateFlow()
 
-    private val _navBarLiquidGlassSelectionEffects =
-        MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
-    internal val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
-        _navBarLiquidGlassSelectionEffects.asStateFlow()
+    private val _navBarLiquidGlassSelectionEffects = MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
+    internal val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> = _navBarLiquidGlassSelectionEffects.asStateFlow()
 
-    // Signals that the effect drafts were committed to persistent storage. ProfileSettingsSync
-    // observes this because slider edits change the draft flows before the stored payload changes.
     private val _navBarLiquidGlassEffectsRevision = MutableStateFlow(0L)
-    internal val navBarLiquidGlassEffectsRevision: StateFlow<Long> =
-        _navBarLiquidGlassEffectsRevision.asStateFlow()
+    internal val navBarLiquidGlassEffectsRevision: StateFlow<Long> = _navBarLiquidGlassEffectsRevision.asStateFlow()
+
+    private val _navBarGlass = MutableStateFlow(LiquidGlassStyle.Default)
+    val navBarGlass: StateFlow<LiquidGlassStyle> = _navBarGlass.asStateFlow()
+
+    private val _liquidGlassEffectsEnabled = MutableStateFlow(true)
+    val liquidGlassEffectsEnabled: StateFlow<Boolean> = _liquidGlassEffectsEnabled.asStateFlow()
 
     private var hasLoaded = false
     private var observesMembership = false
@@ -135,6 +133,8 @@ object ThemeSettingsRepository {
         _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
         _navBarStyle.value = NavBarStyle.ADAPTIVE
         _navBarPosition.value = NavBarPosition.BOTTOM
+        _navBarGlass.value = LiquidGlassStyle.Default
+        applyLiquidGlassEffectsEnabled(true)
     }
 
     private fun loadFromDisk() {
@@ -153,7 +153,6 @@ object ThemeSettingsRepository {
         _customThemePreference.value = CustomThemeColors.decode(ThemeSettingsStorage.loadCustomThemeColors())
         applyEffectiveTheme()
         _amoledEnabled.value = ThemeSettingsStorage.loadAmoledEnabled() ?: false
-        // The four-way behavior replaced the old on/off toggle; fall back to it for existing profiles.
         val behavior = NuvioTabBarBehavior.fromKey(ThemeSettingsStorage.loadTabBarBehavior())
             ?: NuvioTabBarBehavior.fromLegacyEnabled(
                 ThemeSettingsStorage.loadLiquidGlassNativeTabBarEnabled(),
@@ -167,11 +166,11 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
         _navBarGlowEnabled.value = ThemeSettingsStorage.loadNavBarGlowEnabled() ?: true
-        _navBarDefaultIconColorEnabled.value =
-            ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled() ?: false
+        _navBarStyle.value = NavBarStyle.fromKey(ThemeSettingsStorage.loadNavBarStyle())
+        _navBarPosition.value = NavBarPosition.fromKey(ThemeSettingsStorage.loadNavBarPosition())
+        _navBarDefaultIconColorEnabled.value = ThemeSettingsStorage.loadNavBarDefaultIconColorEnabled() ?: false
         _navBarDefaultIconColor.value = ThemeSettingsStorage.loadNavBarDefaultIconColor()
-            ?.let(::parseHexColor)
-            ?: DEFAULT_NAV_BAR_ICON_COLOR
+            ?.let(::parseHexColor) ?: DEFAULT_NAV_BAR_ICON_COLOR
         navBarDefaultIconColorDraftDirty = false
         _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: false
         _navBarLiquidGlassBarEffects.value = decodeLiquidGlassEffectSettings(
@@ -184,8 +183,8 @@ object ThemeSettingsRepository {
             LiquidGlassEffectDefaults.selectionLens,
             LiquidGlassEffectDefaults.selectionLensLimits,
         )
-        _navBarStyle.value = NavBarStyle.fromKey(ThemeSettingsStorage.loadNavBarStyle())
-        _navBarPosition.value = NavBarPosition.fromKey(ThemeSettingsStorage.loadNavBarPosition())
+        _navBarGlass.value = LiquidGlassStyle.decode(ThemeSettingsStorage.loadNavBarGlass())
+        applyLiquidGlassEffectsEnabled(ThemeSettingsStorage.loadLiquidGlassEffectsEnabled() ?: true)
     }
 
     fun setCustomTheme(colors: CustomThemeColors) {
@@ -221,9 +220,9 @@ object ThemeSettingsRepository {
         if (_tabBarBehavior.value == behavior) return
         applyTabBarBehavior(behavior)
         ThemeSettingsStorage.saveTabBarBehavior(behavior.key)
-        // Keep the legacy key in step so a downgrade, or an older device syncing this profile,
-        // still sees the right on/off state.
-        ThemeSettingsStorage.saveLiquidGlassNativeTabBarEnabled(behavior.isEnabled)
+        if (!ThemeSettingsStorage.isTabBarBehaviorDeviceLocal()) {
+            ThemeSettingsStorage.saveLiquidGlassNativeTabBarEnabled(behavior.isEnabled)
+        }
     }
 
     private fun applyTabBarBehavior(behavior: NuvioTabBarBehavior) {
@@ -272,10 +271,8 @@ object ThemeSettingsRepository {
     fun setNavBarGlowEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_navBarGlowEnabled.value == enabled) return
-        // Persist before emitting: ProfileSettingsSync recomputes its signature from storage when
-        // this flow changes, so emitting first could race with an older persisted value.
-        ThemeSettingsStorage.saveNavBarGlowEnabled(enabled)
         _navBarGlowEnabled.value = enabled
+        ThemeSettingsStorage.saveNavBarGlowEnabled(enabled)
     }
 
     fun setNavBarDefaultIconColorEnabled(enabled: Boolean) {
@@ -285,7 +282,6 @@ object ThemeSettingsRepository {
         _navBarDefaultIconColorEnabled.value = enabled
     }
 
-    /** Updates the live RGB draft. It is committed once when the Navigation Bar settings sheet closes. */
     internal fun updateNavBarDefaultIconColor(color: Int) {
         ensureLoaded()
         val safeColor = color.coerceIn(0, 0xFFFFFF)
@@ -297,9 +293,7 @@ object ThemeSettingsRepository {
     internal fun saveNavBarDefaultIconColorSettings() {
         ensureLoaded()
         if (!navBarDefaultIconColorDraftDirty) return
-        ThemeSettingsStorage.saveNavBarDefaultIconColor(
-            formatHexColor(_navBarDefaultIconColor.value),
-        )
+        ThemeSettingsStorage.saveNavBarDefaultIconColor(formatHexColor(_navBarDefaultIconColor.value))
         navBarDefaultIconColorDraftDirty = false
         _navBarDefaultIconColorRevision.value += 1L
     }
@@ -307,12 +301,10 @@ object ThemeSettingsRepository {
     fun setNavBarLiquidGlassEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_navBarLiquidGlassEnabled.value == enabled) return
-        // The same ordering ensures the sync observer sees the new toggle value.
         ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(enabled)
         _navBarLiquidGlassEnabled.value = enabled
     }
 
-    /** Updates the floating-bar draft; it is persisted when the settings sheet closes. */
     internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassBarEffects.value = settings.sanitized(
@@ -321,7 +313,6 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Updates the lens draft without writing storage while the settings sheet remains open. */
     internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
         ensureLoaded()
         _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
@@ -330,7 +321,6 @@ object ThemeSettingsRepository {
         )
     }
 
-    /** Persists both effect groups once when the settings sheet exits. */
     internal fun saveNavBarLiquidGlassEffectSettings() {
         ensureLoaded()
         ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
@@ -348,6 +338,25 @@ object ThemeSettingsRepository {
             ),
         )
         _navBarLiquidGlassEffectsRevision.value += 1L
+    }
+
+    fun setNavBarGlass(style: LiquidGlassStyle) {
+        ensureLoaded()
+        if (_navBarGlass.value == style) return
+        _navBarGlass.value = style
+        ThemeSettingsStorage.saveNavBarGlass(style.encode())
+    }
+
+    fun setLiquidGlassEffectsEnabled(enabled: Boolean) {
+        ensureLoaded()
+        if (_liquidGlassEffectsEnabled.value == enabled) return
+        applyLiquidGlassEffectsEnabled(enabled)
+        ThemeSettingsStorage.saveLiquidGlassEffectsEnabled(enabled)
+    }
+
+    private fun applyLiquidGlassEffectsEnabled(enabled: Boolean) {
+        _liquidGlassEffectsEnabled.value = enabled
+        LiquidGlassSettings.enabled = enabled
     }
 
     private fun observeMembership() {

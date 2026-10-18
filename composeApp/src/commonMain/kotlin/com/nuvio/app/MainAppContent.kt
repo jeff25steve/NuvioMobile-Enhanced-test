@@ -1,8 +1,5 @@
 package com.nuvio.app
 
-import com.kyant.backdrop.isRuntimeShaderSupported
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.MutableTransitionState
@@ -168,7 +165,6 @@ import com.nuvio.app.features.settings.LicensesAttributionsSettingsScreen
 import com.nuvio.app.features.settings.MetaScreenSettingsScreen
 import com.nuvio.app.features.settings.PluginsSettingsScreen
 import com.nuvio.app.features.settings.SupportersContributorsSettingsScreen
-import com.nuvio.app.features.settings.NavBarStyle
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.whatsnew.WhatsNewSettingsScreen
 import com.nuvio.app.features.streams.BingeGroupCacheRepository
@@ -197,8 +193,8 @@ import com.nuvio.app.features.watchprogress.continueWatchingItemKey
 import com.nuvio.app.features.watchprogress.nextUpDismissKey
 import com.nuvio.app.features.watchprogress.toContinueWatchingItem
 import com.nuvio.app.navigation.*
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.servers.ServerMatcher
 import com.nuvio.app.features.servers.ServerRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -295,7 +291,7 @@ internal fun MainAppContent(
         var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
         var selectedPosterActionTarget by remember { mutableStateOf<PosterActionTarget?>(null) }
         var selectedPosterAnchor by remember { mutableStateOf<PosterZoomAnchor?>(null) }
-        val posterOverlayHazeState = rememberHazeState()
+        val posterOverlayBackdrop = rememberNuvioBackdrop()
         var selectedContinueWatchingForActions by remember { mutableStateOf<ContinueWatchingItem?>(null) }
         var selectedContinueWatchingZoomAnchor by remember { mutableStateOf<PosterZoomAnchor?>(null) }
         val libraryDisintegrationRequests = remember { DisintegrationRequestController<String>() }
@@ -1535,21 +1531,7 @@ internal fun MainAppContent(
         ) {
             val nativeTabBarOwnsChrome = useNativeNavigation && useNativeTabBar
             val settingsRouteBarVisible = currentRoute is SettingsDestinationRoute && !nativeTabBarOwnsChrome
-            val settingsRouteBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
-            val settingsRouteBarStyle by ThemeSettingsRepository.navBarStyle.collectAsStateWithLifecycle()
-            val settingsRouteBarUsesFloatingBar =
-                settingsRouteBarVisible && settingsRouteBarStyle != NavBarStyle.CLASSIC
-            val settingsRouteBarHazeState =
-                if (settingsRouteBarUsesFloatingBar) rememberHazeState() else null
-            val settingsRouteBarLiquidGlassBackdrop = if (
-                settingsRouteBarUsesFloatingBar &&
-                settingsRouteBarLiquidGlassEnabled &&
-                isRuntimeShaderSupported()
-            ) {
-                rememberLayerBackdrop()
-            } else {
-                null
-            }
+            val settingsRouteBarBackdrop = rememberNuvioBackdrop()
             var settingsRouteBarOverlay by remember { mutableStateOf(0.dp) }
             val settingsRouteBottomOverlay = when {
                 currentRoute !is SettingsDestinationRoute -> 0.dp
@@ -1566,7 +1548,7 @@ internal fun MainAppContent(
                     .fillMaxSize()
                     .then(
                         if (selectedPosterActionTarget != null || selectedContinueWatchingZoomAnchor != null) {
-                            Modifier.hazeSource(state = posterOverlayHazeState)
+                            Modifier.nuvioBackdropSource(posterOverlayBackdrop)
                         } else {
                             Modifier
                         },
@@ -1584,8 +1566,7 @@ internal fun MainAppContent(
                     backStack = navBackStack,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(settingsRouteBarHazeState?.let { Modifier.hazeSource(state = it) } ?: Modifier)
-                        .then(settingsRouteBarLiquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
+                        .then(if (settingsRouteBarVisible) Modifier.nuvioBackdropSource(settingsRouteBarBackdrop) else Modifier),
                     onBack = { navController.popBackStack() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
@@ -2012,9 +1993,7 @@ internal fun MainAppContent(
                     SettingsRouteNavigationBar(
                         isTabletLayout = useTabletFloatingTabBar || maxWidth >= 768.dp,
                         showLiveTv = showLiveTvInNavigation,
-                        hazeState = settingsRouteBarHazeState,
-                        liquidGlassBackdrop = settingsRouteBarLiquidGlassBackdrop,
-                        liquidGlassEnabled = settingsRouteBarLiquidGlassEnabled,
+                        backdrop = settingsRouteBarBackdrop,
                         onTabSelected = ::selectTabFromSettingsRoute,
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,
@@ -2203,7 +2182,7 @@ internal fun MainAppContent(
                                 },
                             ),
                         ),
-                        hazeState = posterOverlayHazeState,
+                        backdrop = posterOverlayBackdrop,
                         onDismissed = {
                             selectedPosterActionTarget = null
                             selectedPosterAnchor = null
@@ -2273,7 +2252,7 @@ internal fun MainAppContent(
                                     ),
                                 )
                             },
-                            hazeState = posterOverlayHazeState,
+                            backdrop = posterOverlayBackdrop,
                             onDismissed = {
                                 selectedContinueWatchingForActions = null
                                 selectedContinueWatchingZoomAnchor = null

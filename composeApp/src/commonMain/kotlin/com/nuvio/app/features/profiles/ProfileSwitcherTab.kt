@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,8 +54,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -76,7 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.NuvioAsyncImage
-import dev.chrisbanes.haze.HazeState
+import com.kyant.backdrop.Backdrop
 import com.nuvio.app.isIos
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -94,7 +95,7 @@ fun ProfileSwitcherTab(
     onAddProfileRequested: () -> Unit,
     triggerContent: (@Composable (selected: Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = null,
+    backdrop: Backdrop? = null,
     popupBelowAnchor: Boolean = false,
     defaultIconColorOverride: Color? = null,
 ) {
@@ -286,7 +287,7 @@ fun ProfileSwitcherTab(
                 avatars = avatars,
                 selected = selected,
                 size = 28,
-                defaultIconColorOverride = defaultIconColorOverride,
+                iconColorOverride = defaultIconColorOverride,
             )
         }
 
@@ -316,7 +317,7 @@ fun ProfileSwitcherTab(
                     activeProfileIndex = activeProfile?.profileIndex,
                     hoveredProfileIndex = dragTargetProfileIndex,
                     pinProfile = pinProfile,
-                    hazeState = hazeState,
+                    backdrop = backdrop,
                     opensBelow = opensBelow,
                     availableHeight = availableHeight,
                     modifier = Modifier.graphicsLayer {
@@ -831,30 +832,20 @@ internal fun LayoutCoordinates.boundsOnScreen(): Rect {
     )
 }
 
-internal fun resolveProfileAvatarBorderColor(
-    selected: Boolean,
-    avatarColor: Color,
-    selectedBorderColor: Color,
-    defaultIconColorOverride: Color?,
-): Color = if (selected) {
-    selectedBorderColor
-} else {
-    defaultIconColorOverride ?: avatarColor.copy(alpha = 0.5f)
-}
-
 @Composable
 fun ActiveProfileMiniAvatar(
     profile: NuvioProfile?,
     avatars: List<AvatarCatalogItem>,
     selected: Boolean,
     size: Int = 24,
-    defaultIconColorOverride: Color? = null,
+    iconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     if (profile == null) {
         Icon(
             imageVector = Icons.Rounded.Person,
             contentDescription = stringResource(Res.string.compose_nav_profile),
+            tint = iconColorOverride ?: LocalContentColor.current,
             modifier = Modifier.size(size.dp),
         )
         return
@@ -868,12 +859,11 @@ fun ActiveProfileMiniAvatar(
         profileAvatarImageUrl(profile, avatarItem)
     }
 
-    val borderColor = resolveProfileAvatarBorderColor(
-        selected = selected,
-        avatarColor = avatarColor,
-        selectedBorderColor = tokens.colors.borderSelected,
-        defaultIconColorOverride = defaultIconColorOverride,
-    )
+    val borderColor = if (selected) {
+        tokens.colors.borderSelected
+    } else {
+        avatarColor.copy(alpha = 0.5f)
+    }
 
     Box(
         modifier = Modifier

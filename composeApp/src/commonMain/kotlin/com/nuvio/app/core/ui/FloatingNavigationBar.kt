@@ -5,6 +5,10 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.isRuntimeShaderSupported
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.InnerShadow
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -44,12 +48,18 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
+import com.nuvio.app.core.ui.glass.GlassBarShape
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
@@ -64,7 +74,6 @@ import com.nuvio.app.core.ui.jelly.JellyTabTargets
 import com.nuvio.app.core.ui.jelly.drawJellyGlow
 import com.nuvio.app.core.ui.jelly.drawJellyPill
 import com.nuvio.app.core.ui.jelly.jellyPillPath
-import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -100,12 +109,12 @@ internal fun FloatingNavigationBar(
     items: List<FloatingNavigationItem>,
     modifier: Modifier = Modifier,
     scrollState: NuvioNavBarScrollState? = null,
-    hazeState: HazeState? = null,
+    backdrop: Backdrop? = null,
+    glassStyle: LiquidGlassStyle = LiquidGlassStyle.Default,
     contentPadding: PaddingValues = floatingNavigationBarPadding(),
     compactSize: Boolean = false,
     glowEnabled: Boolean = true,
     liquidGlassEnabled: Boolean = false,
-    liquidGlassBackdrop: Backdrop? = null,
     liquidGlassBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     liquidGlassSelectionEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     inlineLabels: Boolean = false,
@@ -140,7 +149,13 @@ internal fun FloatingNavigationBar(
         motion.bounce(scrollBounceDirection)
     }
     val useLiquidGlassMaterial =
-        liquidGlassEnabled && liquidGlassBackdrop != null && isRuntimeShaderSupported()
+        liquidGlassEnabled && backdrop != null && isLiquidGlassSupported() &&
+            isLiquidRefractionSupported() && isRuntimeShaderSupported()
+    val upstreamSelectionLensActive =
+        !useLiquidGlassMaterial && backdrop != null && selectedIndex >= 0 &&
+            glassStyle.usesBackdrop && glassStyle.selectionLens &&
+            isLiquidGlassSupported() && isLiquidRefractionSupported()
+    val upstreamBarBackdrop = if (upstreamSelectionLensActive) rememberLayerBackdrop() else null
     val floatingBarEffects = liquidGlassBarEffects.sanitized(
         LiquidGlassEffectDefaults.floatingBar,
         LiquidGlassEffectDefaults.floatingBarLimits,
@@ -171,7 +186,7 @@ internal fun FloatingNavigationBar(
     // composited into this pass; tab icons use a separate refraction-only overlay below so the
     // selected-lens blur cannot smear glyphs when icon refraction is enabled.
     val liquidGlassSelectionBackdrop = if (useLiquidGlassMaterial) {
-        val screenBackdrop = liquidGlassBackdrop!!
+        val screenBackdrop = backdrop!!
         if (liquidGlassBarBackdrop != null) {
             rememberCombinedBackdrop(screenBackdrop, liquidGlassBarBackdrop)
         } else {
@@ -278,7 +293,7 @@ internal fun FloatingNavigationBar(
                             ) {
                                 if (useLiquidGlassMaterial) {
                                     LiquidGlassFrostedBar(
-                                        backdrop = liquidGlassBackdrop!!,
+                                        backdrop = backdrop!!,
                                         modifier = Modifier.matchParentSize(),
                                         glowStrength = glowStrength,
                                         settings = floatingBarEffects,
@@ -293,7 +308,7 @@ internal fun FloatingNavigationBar(
                                                 .layerBackdrop(liquidGlassBarBackdrop),
                                         ) {
                                             LiquidGlassFrostedBar(
-                                                backdrop = liquidGlassBackdrop!!,
+                                                backdrop = backdrop!!,
                                                 modifier = Modifier.matchParentSize(),
                                                 glowStrength = glowStrength,
                                                 settings = floatingBarEffects,
@@ -302,7 +317,7 @@ internal fun FloatingNavigationBar(
                                         }
                                     }
                                 } else {
-                                    GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
+                                    GlassBarSurface(backdrop, Modifier.matchParentSize(), style = glassStyle, exportedBackdrop = upstreamBarBackdrop)
                                 }
                             }
                             Box(
@@ -427,6 +442,14 @@ internal fun FloatingNavigationBar(
                                         )
                                     }
                                 }
+                            } else if (upstreamSelectionLensActive && backdrop != null && upstreamBarBackdrop != null) {
+                                JellySelectionLens(
+                                    backdrop = rememberCombinedBackdrop(backdrop, upstreamBarBackdrop),
+                                    motion = motion,
+                                    count = items.size,
+                                    style = glassStyle,
+                                    modifier = Modifier.matchParentSize(),
+                                )
                             }
 
                             // Keep icon refraction separate from the main screen/bar lens: the
@@ -466,7 +489,7 @@ internal fun FloatingNavigationBar(
                                     Modifier.matchParentSize()
                                         .clearAndSetSemantics {}
                                         .then(
-                                            if (liquidGlassSelectionBackdrop != null) {
+                                            if (liquidGlassSelectionBackdrop != null || upstreamSelectionLensActive) {
                                                 Modifier.drawWithContent {
                                                     clipPath(
                                                         jellyPillPath(
@@ -508,6 +531,55 @@ internal fun FloatingNavigationBar(
             }
         }
     }
+}
+
+
+private val SelectionLensHighlight: () -> Highlight? = { Highlight.Default.copy(alpha = 0.7f) }
+private val SelectionLensInnerShadow: () -> InnerShadow? = { InnerShadow(radius = 6.dp, alpha = 0.5f) }
+
+@Composable
+private fun JellySelectionLens(
+    backdrop: Backdrop,
+    motion: JellyMotion,
+    count: Int,
+    style: LiquidGlassStyle,
+    modifier: Modifier,
+) {
+    Box(
+        modifier
+            .clearAndSetSemantics {}
+            .layout { measurable, constraints ->
+                val frame = motion.frame
+                val inset = 4.dp.toPx()
+                val tabWidth = (constraints.maxWidth - 2 * inset) / count
+                val itemHeight = constraints.maxHeight - 2 * inset
+                val width = (tabWidth * frame.pillScaleX).roundToInt().coerceAtLeast(0)
+                val height = (itemHeight * frame.pillScaleY).roundToInt().coerceAtLeast(0)
+                val centerX = inset + (frame.position + 0.5f) * tabWidth
+                val placeable = measurable.measure(Constraints.fixed(width, height))
+                layout(constraints.maxWidth, constraints.maxHeight) {
+                    placeable.place(
+                        (centerX - width / 2f).roundToInt(),
+                        ((constraints.maxHeight - height) / 2f).roundToInt(),
+                    )
+                }
+            }
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { GlassBarShape },
+                effects = {
+                    lens(
+                        refractionHeight = size.minDimension * 0.3f,
+                        refractionAmount = size.minDimension * 0.5f,
+                        depthEffect = true,
+                        chromaticAberration = style.chromaticAberration,
+                    )
+                },
+                highlight = if (style.edgeHighlight) SelectionLensHighlight else null,
+                shadow = null,
+                innerShadow = SelectionLensInnerShadow,
+            ),
+    )
 }
 
 

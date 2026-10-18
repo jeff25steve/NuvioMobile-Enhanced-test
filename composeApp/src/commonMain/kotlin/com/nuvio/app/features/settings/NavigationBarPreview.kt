@@ -1,8 +1,6 @@
 package com.nuvio.app.features.settings
 
 import com.kyant.backdrop.isRuntimeShaderSupported
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,14 +33,16 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.AppScreenTab
 import com.nuvio.app.TabletFloatingTopBar
 import com.nuvio.app.core.ui.NuvioClassicNavigationBar
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
 import com.nuvio.app.core.ui.nuvio
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -59,12 +59,12 @@ internal fun NavigationBarPreview(
     scrollBounceTrigger: Int = 0,
     scrollBounceDirection: Float = 0f,
     defaultIconColorOverride: Color? = null,
+    glassStyle: LiquidGlassStyle = LiquidGlassStyle.Default,
 ) {
     val tokens = MaterialTheme.nuvio
-    val hazeState = rememberHazeState()
-    val effectiveLiquidGlassEnabled = liquidGlassEnabled && style != NavBarStyle.CLASSIC && isRuntimeShaderSupported()
-    val liquidGlassBackdrop =
-        if (effectiveLiquidGlassEnabled) rememberLayerBackdrop() else null
+    val previewBackdrop = rememberNuvioBackdrop()
+    val effectiveLiquidGlassEnabled = liquidGlassEnabled && style != NavBarStyle.CLASSIC &&
+        isLiquidGlassSupported() && isRuntimeShaderSupported()
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
     val topPill = isTablet
     val pillOnTop = topPill || (style != NavBarStyle.CLASSIC && position == NavBarPosition.TOP)
@@ -88,8 +88,7 @@ internal fun NavigationBarPreview(
         ) {
             Column(
                 Modifier.matchParentSize()
-                    .hazeSource(hazeState)
-                    .then(liquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
+                    .nuvioBackdropSource(previewBackdrop)
                     .then(if (!topPill && style == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(barScrollState.nestedScrollConnection) else Modifier)
                     .verticalScroll(rememberScrollState())
                     .background(tokens.colors.surfaceCard)
@@ -143,16 +142,16 @@ internal fun NavigationBarPreview(
                     modifier = Modifier.align(if (pillOnTop) Alignment.TopCenter else Alignment.BottomCenter)
                         .then(if (topPill) Modifier.widthIn(max = 416.dp) else Modifier),
                     scrollState = barScrollState,
-                    hazeState = hazeState,
+                    backdrop = previewBackdrop,
                     contentPadding = PaddingValues(vertical = 16.dp),
                     compactSize = topPill,
                     glowEnabled = glowEnabled,
                     liquidGlassEnabled = effectiveLiquidGlassEnabled,
-                    liquidGlassBackdrop = liquidGlassBackdrop,
                     liquidGlassBarEffects = floatingBarEffects,
                     liquidGlassSelectionEffects = selectionLensEffects,
                     inlineLabels = tabletLayout,
                     defaultIconColorOverride = defaultIconColorOverride,
+                    glassStyle = glassStyle,
                     scrollBounceTrigger = scrollBounceTrigger,
                     scrollBounceDirection = scrollBounceDirection,
                 )
