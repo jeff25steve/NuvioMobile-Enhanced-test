@@ -93,7 +93,6 @@ internal fun MainTabsDestination(
         }
         val tabsRouteActive = rootRouteActive
         val navBarScrollState = rememberNuvioNavBarScrollState()
-        val navBarBackdrop = rememberNuvioBackdrop()
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
@@ -109,6 +108,7 @@ internal fun MainTabsDestination(
         val floatingBarOnTop = navBarStyleSetting != NavBarStyle.CLASSIC && navBarPosition == NavBarPosition.TOP
         // The backdrop source is only consumed by the custom floating bar, not native or CLASSIC navigation.
         val floatingBarVisible = tabsRouteActive && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC
+        val navBarBackdrop = if (floatingBarVisible) rememberNuvioBackdrop() else null
         val floatingNavigationItems = mainFloatingNavigationItems(
             highlightedTab = highlightedTab,
             showLiveTv = showLiveTvInNavigation,
@@ -156,7 +156,13 @@ internal fun MainTabsDestination(
                         actions = tabActions,
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(if (floatingBarVisible) Modifier.nuvioBackdropSource(navBarBackdrop) else Modifier)
+                            .then(
+                                if (floatingBarVisible) {
+                                    navBarBackdrop?.let { Modifier.nuvioBackdropSource(it) } ?: Modifier
+                                } else {
+                                    Modifier
+                                },
+                            )
                             .then(if (tabsRouteActive && navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
                             .padding(innerPadding),
                     )
