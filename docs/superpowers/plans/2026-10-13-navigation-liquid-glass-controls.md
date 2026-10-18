@@ -13,10 +13,10 @@
 ## Global Constraints
 
 - Work only on `feature/navigation-liquid-glass-clean-port-20261018`; do not overwrite or rebase existing branch work.
-- Add no new dependency.
+- Keep the dependency surface minimal; the one new dependency is the explicitly scoped Kyant `io.github.kyant0:backdrop:2.0.1` library required for this feature. Do not add any other dependency.
 - Preserve existing navigation routes, order, icons, labels, RTL mapping, gestures, style/position/glow settings, native iOS bar, and regular frosted fallback.
 - New saved configuration remains profile-scoped and round-trips through settings sync.
-- Controls are editable only while the Liquid Glass material is enabled.
+- Liquid Glass effect controls are editable only while the Liquid Glass material is enabled and supported. The separate default inactive-icon-colour setting remains available for non-Classic floating navigation even when Liquid Glass is off.
 - The two reset icon buttons affect separate settings groups; changes are saved on every sheet exit path, with no separate Save action.
 - Do not start GitHub Actions while the account quota is exhausted. Do not report a build/test/device pass without fresh verification evidence.
 
@@ -104,7 +104,27 @@
 - [x] Wire draft updates without per-frame persistence and commit both groups through a single exit callback.
 - [x] Verify Done and modal dismissal paths use the same save-before-dismiss callback by source inspection.
 
-### Task 5: Final regression and verification pass
+### Task 5: Preserve the existing navigation icon-colour setting
+
+**Files:**
+- Modify `composeApp/src/commonMain/kotlin/com/nuvio/app/MainTabsDestination.kt`, `core/ui/FloatingNavigationBar.kt`, `core/ui/jelly/JellyTabs.kt`, and `features/profiles/ProfileSwitcherTab.kt`.
+- Modify `composeApp/src/commonMain/kotlin/com/nuvio/app/features/settings/NavigationBarSettingsSheet.kt`, `AppearanceSettingsPage.kt`, and `NavigationBarPreview.kt`.
+- Modify `ThemeSettingsRepository.kt`, common/Android/iOS `ThemeSettingsStorage`, `ProfileSettingsSync.kt`, and the English fallback resources.
+- Add/update repository, storage/sync and profile-avatar regression tests.
+
+**Behavior:**
+- Keep the setting disabled by default with the existing muted-grey value `#969CA3`; override only inactive floating-navigation icons/labels and the inactive profile-switcher avatar border.
+- Keep it independent from Liquid Glass effects and the selected-tab accent. Reuse the existing theme colour picker and validated hex parser.
+- Keep the enable switch on the existing immediate-persistence path; treat colour changes as a draft and save them once when the settings sheet exits.
+- Keep the value profile-scoped and included in existing sync payloads. Observe the committed colour revision, not each draft frame.
+- Do not affect the native iOS tab bar or unrelated theme colours.
+
+- [x] Restore the setting and preview wiring on the clean-port branch.
+- [x] Restore profile-scoped Android/iOS storage and committed-colour sync observation.
+- [x] Add regression-test sources for repository draft/commit, profile sync/profile isolation, and profile avatar border resolution.
+- [ ] Run focused tests and platform builds; not run in this connector-only session.
+
+### Task 6: Final regression and verification pass
 
 **Files:**
 - Review all files changed by Tasks 1–4 and any directly needed test changes.
@@ -129,4 +149,4 @@
 - Navigation-settings UX follow-up (2026-10-16): moved the title and interactive navigation preview into an opaque `LazyColumn.stickyHeader`, so settings scroll beneath it without text showing through. A `LazyListState.canScrollBackward` transition gate emits one bounce on leaving the top and one on returning to the top; repeated updates and tab touches do not trigger it. The outline alone animates in the draw phase, leaving preview content and tab touch/JellyMotion behavior unchanged. A focused gate regression test was added; Android/iOS build and visual verification remain unrun in this connector-only session.
 - Idle playback/rendering follow-up (2026-10-16): `MainTabsDestination` already gates `FloatingNavigationBar` on the current root route being `TabsRoute`; `PlayerRoute` and detail/trailer routes therefore do not compose the tabs bar. After confirming Kyant Backdrop 2.0.1's `rememberLayerBackdrop` allocates a `GraphicsLayer` and capture only occurs when `layerBackdrop` is attached, the owning allocations were tightened: the main-tabs source now exists only while the custom floating bar is active and Liquid Glass is enabled/supported; the standalone settings-route source exists only while that floating bar is visible with Liquid Glass enabled/supported; the settings preview source exists only when its glass preview is enabled and shader support exists. Haze state is retained only where its non-Liquid-Glass floating-bar fallback needs it. The existing navigation motion loop is inside the bar's composition and is cancelled when that composable leaves composition. Build/device verification remains outstanding.
 
-- Navigation icon-colour integration (2026-10-18): brought the existing optional default inactive-icon colour setting into the clean port alongside Liquid Glass, including the settings toggle/editor and live preview, muted-grey default (`#969CA3`), profile-switcher inactive accent, profile-scoped Android/iOS storage, committed-colour sync revision, English fallback labels and repository/storage/profile-avatar regression test sources. The colour remains independent from glass-effect sliders, and the pre-existing glow toggle is retained. Source-level checks found consistent call sites, platform storage declarations, sync observer and unique resource names; Android/iOS tests and builds have **not** been run.
+- Navigation icon-colour integration (2026-10-18): the existing optional default inactive-icon colour setting is included alongside Liquid Glass, including the settings toggle/editor and live preview, muted-grey default (`#969CA3`), profile-switcher inactive border, profile-scoped Android/iOS storage, committed-colour sync revision, English fallback labels and repository/storage/profile-avatar regression-test sources. The colour remains independent from glass-effect sliders, and the pre-existing glow toggle is retained. Source-level checks found consistent call sites, platform storage declarations, sync observer and unique resource names; Android/iOS tests and builds have **not** been run.
