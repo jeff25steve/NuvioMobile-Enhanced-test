@@ -79,6 +79,10 @@ actual object ThemeSettingsStorage {
         }
     }
 
+    actual fun saveNavBarGlowEnabled(enabled: Boolean) {
+        NSUserDefaults.standardUserDefaults.setBool(enabled, forKey = ProfileScopedKey.of(navBarGlowEnabledKey))
+    }
+
     actual fun loadNavBarLiquidGlassEnabled(): Boolean? {
         val defaults = NSUserDefaults.standardUserDefaults
         val key = ProfileScopedKey.of(navBarLiquidGlassEnabledKey)
