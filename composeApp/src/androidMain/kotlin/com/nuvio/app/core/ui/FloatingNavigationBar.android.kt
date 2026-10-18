@@ -5,10 +5,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,7 +38,22 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.isRuntimeShaderSupported
 import com.nuvio.app.core.ui.glass.GlassBarSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
+import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
+import com.nuvio.app.core.ui.glass.KeyedLiquidGlassRadius
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
+import com.nuvio.app.core.ui.glass.shouldCaptureFloatingBar
+import com.nuvio.app.core.ui.glass.shouldCaptureTabIcons
 import com.nuvio.app.core.ui.jelly.JellyMotion
 import com.nuvio.app.core.ui.jelly.JellyTabRow
 import com.nuvio.app.core.ui.jelly.JellyTabTargets
@@ -55,9 +73,14 @@ internal actual fun FloatingNavigationBar(
     modifier: Modifier,
     scrollState: NuvioNavBarScrollState?,
     hazeState: HazeState?,
+    backdrop: Backdrop?,
     contentPadding: PaddingValues,
     compactSize: Boolean,
     glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean,
+    liquidGlassBarEffects: LiquidGlassEffectSettings,
+    liquidGlassSelectionEffects: LiquidGlassEffectSettings,
+    defaultIconColorOverride: Color?,
 ) {
     if (items.isEmpty()) return
     val showGlow = !floatingNavigationGlowSupported || glowEnabled
@@ -84,6 +107,37 @@ internal actual fun FloatingNavigationBar(
     val density = LocalDensity.current
     val trackHeight = 48.dp + (if (compactSize) 8.dp else 16.dp) * labelFraction
     val horizontalPadding = 58.dp - 30.dp * labelFraction
+    val useLiquidGlassMaterial = liquidGlassEnabled &&
+        backdrop != null &&
+        floatingNavigationGlowSupported &&
+        isLiquidGlassAvailable() &&
+        isLiquidRefractionSupported() &&
+        isRuntimeShaderSupported()
+    val floatingBarEffects = liquidGlassBarEffects.sanitized(
+        LiquidGlassEffectDefaults.floatingBar,
+        LiquidGlassEffectDefaults.floatingBarLimits,
+    )
+    val selectionLensEffects = liquidGlassSelectionEffects.sanitized(
+        LiquidGlassEffectDefaults.selectionLens,
+        LiquidGlassEffectDefaults.selectionLensLimits,
+    )
+    val floatingBarCornerRadiusPercent = if (useLiquidGlassMaterial) {
+        com.nuvio.app.core.ui.glass.effectiveLiquidGlassCornerRadiusPercent(floatingBarEffects.cornerRadiusPercent)
+    } else 50
+    val selectionLensCornerRadiusPercent = if (useLiquidGlassMaterial) {
+        com.nuvio.app.core.ui.glass.effectiveLiquidGlassCornerRadiusPercent(selectionLensEffects.cornerRadiusPercent)
+    } else 50
+    val floatingBarShape = remember(floatingBarCornerRadiusPercent) { RoundedCornerShape(floatingBarCornerRadiusPercent) }
+    val selectionLensShape = remember(selectionLensCornerRadiusPercent) { RoundedCornerShape(selectionLensCornerRadiusPercent) }
+    val floatingBarBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.shouldCaptureFloatingBar()) {
+        rememberLayerBackdrop()
+    } else null
+    val iconsBackdrop = if (useLiquidGlassMaterial && selectionLensEffects.shouldCaptureTabIcons()) {
+        rememberLayerBackdrop()
+    } else null
+    val selectionBackdrop = if (useLiquidGlassMaterial) {
+        if (floatingBarBackdrop != null) rememberCombinedBackdrop(backdrop!!, floatingBarBackdrop) else backdrop
+    } else null
 
     LaunchedEffect(visualSelectedIndex, items.size) {
         motion.select(visualSelectedIndex)
@@ -147,44 +201,171 @@ internal actual fun FloatingNavigationBar(
                     ) {
                         Box(
                             Modifier.matchParentSize()
-                                .clip(RoundedCornerShape(50))
+                                .clip(if (useLiquidGlassMaterial) floatingBarShape else RoundedCornerShape(50))
                                 .drawWithContent {
                                     drawContent()
                                     drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
                                 },
                         ) {
-                            GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
-                        }
-                        Box(
-                            Modifier.matchParentSize().drawWithContent {
-                                if (selectedIndex >= 0) {
-                                    clipPath(jellyPillPath(motion.frame, items.size), ClipOp.Difference) {
-                                        this@drawWithContent.drawContent()
+                            if (useLiquidGlassMaterial && backdrop != null) {
+                                KeyedLiquidGlassRadius(floatingBarCornerRadiusPercent.toFloat()) {
+                                    LiquidGlassFrostedBar(
+                                        backdrop = backdrop,
+                                        modifier = Modifier.matchParentSize(),
+                                        glowStrength = glowStrength,
+                                        settings = floatingBarEffects,
+                                    )
+                                    if (floatingBarBackdrop != null) {
+                                        Box(
+                                            Modifier.matchParentSize()
+                                                .graphicsLayer { alpha = 0f }
+                                                .layerBackdrop(floatingBarBackdrop),
+                                        ) {
+                                            LiquidGlassFrostedBar(
+                                                backdrop = backdrop,
+                                                modifier = Modifier.matchParentSize(),
+                                                glowStrength = glowStrength,
+                                                settings = floatingBarEffects,
+                                                includeRefraction = false,
+                                            )
+                                        }
                                     }
-                                } else {
-                                    drawContent()
                                 }
-                            },
-                        ) {
-                            JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize())
-                        }
-                        if (selectedIndex >= 0) {
-                            Box(
-                                Modifier.matchParentSize()
-                                    .clearAndSetSemantics {}
-                                    .drawWithContent {
-                                        drawJellyPill(
-                                            motion.frame,
-                                            items.size,
-                                            selectedSurface,
-                                            accentColor.copy(alpha = accentColor.alpha * glowStrength),
-                                        ) { drawContent() }
-                                    },
-                            ) {
-                                JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize())
+                            } else {
+                                GlassBarSurface(hazeState, Modifier.matchParentSize(), glowStrength)
                             }
                         }
-                        JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize())
+                        BoxWithConstraints(Modifier.matchParentSize()) {
+                            val selectionTabWidth = ((maxWidth - 8.dp) / items.size).coerceAtLeast(0.dp)
+                            Box(
+                                Modifier.matchParentSize().drawWithContent {
+                                    if (selectedIndex >= 0) {
+                                        clipPath(
+                                            jellyPillPath(motion.frame, items.size, selectionLensCornerRadiusPercent.toFloat()),
+                                            ClipOp.Difference,
+                                        ) { this@drawWithContent.drawContent() }
+                                    } else drawContent()
+                                },
+                            ) {
+                                JellyTabRow(
+                                    items, labelFraction, motion, active = false,
+                                    compactSize = compactSize, modifier = Modifier.matchParentSize(),
+                                    inactiveColorOverride = defaultIconColorOverride,
+                                )
+                            }
+                            if (iconsBackdrop != null) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .clearAndSetSemantics {}
+                                        .graphicsLayer { alpha = 0f }
+                                        .layerBackdrop(iconsBackdrop),
+                                ) {
+                                    Box(Modifier.matchParentSize().drawWithContent {
+                                        if (selectedIndex >= 0) {
+                                            clipPath(jellyPillPath(motion.frame, items.size, selectionLensCornerRadiusPercent.toFloat()), ClipOp.Difference) {
+                                                this@drawWithContent.drawContent()
+                                            }
+                                        } else drawContent()
+                                    }) {
+                                        JellyTabRow(
+                                            items, labelFraction, motion, active = false,
+                                            compactSize = compactSize, modifier = Modifier.matchParentSize(),
+                                            inactiveColorOverride = defaultIconColorOverride,
+                                        )
+                                    }
+                                    Box(Modifier.matchParentSize().drawWithContent {
+                                        if (selectedIndex >= 0) {
+                                            clipPath(jellyPillPath(motion.frame, items.size, selectionLensCornerRadiusPercent.toFloat())) {
+                                                this@drawWithContent.drawContent()
+                                            }
+                                        } else drawContent()
+                                    }) {
+                                        JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize())
+                                    }
+                                }
+                            }
+                            if (selectedIndex >= 0 && useLiquidGlassMaterial && selectionBackdrop != null) {
+                                KeyedLiquidGlassRadius(selectionLensCornerRadiusPercent.toFloat()) {
+                                    Box(Modifier.width(selectionTabWidth).height(trackHeight - 8.dp)) {
+                                        LiquidGlassSelectionSurface(
+                                            backdrop = selectionBackdrop,
+                                            pressProgress = { ((motion.frame.contentScale - 1f) / 0.2f).coerceIn(0f, 1f) },
+                                            shape = { selectionLensShape },
+                                            modifier = Modifier.matchParentSize(),
+                                            settings = selectionLensEffects,
+                                            layerBlock = {
+                                                val frame = motion.frame
+                                                translationX = liquidGlassSelectionTranslationX(
+                                                    position = frame.position,
+                                                    count = items.size,
+                                                    tabWidthPx = selectionTabWidth.toPx(),
+                                                    insetPx = 4.dp.toPx(),
+                                                    isRtl = isRtl,
+                                                )
+                                                translationY = 4.dp.toPx()
+                                                scaleX = frame.pillScaleX
+                                                scaleY = frame.pillScaleY
+                                            },
+                                        )
+                                    }
+                                }
+                                if (iconsBackdrop != null && motion.dragging) {
+                                    Box(Modifier.width(selectionTabWidth).height(trackHeight - 8.dp)) {
+                                        LiquidGlassIconRefractionSurface(
+                                            backdrop = iconsBackdrop,
+                                            shape = { selectionLensShape },
+                                            modifier = Modifier.matchParentSize(),
+                                            settings = selectionLensEffects,
+                                            layerBlock = {
+                                                val frame = motion.frame
+                                                translationX = liquidGlassSelectionTranslationX(
+                                                    position = frame.position,
+                                                    count = items.size,
+                                                    tabWidthPx = selectionTabWidth.toPx(),
+                                                    insetPx = 4.dp.toPx(),
+                                                    isRtl = isRtl,
+                                                )
+                                                translationY = 4.dp.toPx()
+                                                scaleX = frame.pillScaleX
+                                                scaleY = frame.pillScaleY
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            if (selectedIndex >= 0) {
+                                if (!useLiquidGlassMaterial) {
+                                    Box(
+                                        Modifier.matchParentSize()
+                                            .clearAndSetSemantics {}
+                                            .drawWithContent {
+                                                drawJellyPill(
+                                                    motion.frame,
+                                                    items.size,
+                                                    selectedSurface,
+                                                    accentColor.copy(alpha = accentColor.alpha * glowStrength),
+                                                    cornerRadiusPercent = 50f,
+                                                ) { this@drawWithContent.drawContent() }
+                                            },
+                                    ) {
+                                        JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize())
+                                    }
+                                } else if (iconsBackdrop == null || !motion.dragging) {
+                                    Box(
+                                        Modifier.matchParentSize()
+                                            .clearAndSetSemantics {}
+                                            .drawWithContent {
+                                                clipPath(jellyPillPath(motion.frame, items.size, selectionLensCornerRadiusPercent.toFloat())) {
+                                                    this@drawWithContent.drawContent()
+                                                }
+                                            },
+                                    ) {
+                                        JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize())
+                                    }
+                                }
+                            }
+                            JellyTabTargets(items, labelFraction, motion, compactSize, Modifier.matchParentSize())
+                        }
                     }
                 }
             }
@@ -197,6 +378,18 @@ internal fun visualNavIndex(logicalIndex: Int, count: Int, isRtl: Boolean): Int 
 
 internal fun logicalNavIndex(visualIndex: Int, count: Int, isRtl: Boolean): Int =
     if (visualIndex in 0 until count && isRtl) count - 1 - visualIndex else visualIndex
+
+internal fun liquidGlassSelectionTranslationX(
+    position: Float,
+    count: Int,
+    tabWidthPx: Float,
+    insetPx: Float,
+    isRtl: Boolean,
+): Float = if (isRtl) {
+    -insetPx - tabWidthPx * (count - 1 - position)
+} else {
+    insetPx + tabWidthPx * position
+}
 
 internal suspend fun PointerInputScope.detectJellyTabGestures(
     motion: JellyMotion,
