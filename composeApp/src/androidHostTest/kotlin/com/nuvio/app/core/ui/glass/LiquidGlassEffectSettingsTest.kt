@@ -58,6 +58,14 @@ class LiquidGlassEffectSettingsTest {
     }
 
     @Test
+    fun effectiveCornerRadiusPercentMatchesRoundedShapeGeometry() {
+        assertEquals(8, effectiveLiquidGlassCornerRadiusPercent(8.4f))
+        assertEquals(9, effectiveLiquidGlassCornerRadiusPercent(8.5f))
+        assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(Float.NEGATIVE_INFINITY))
+        assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.NaN))
+    }
+
+    @Test
     fun sanitizingClampsOutOfRangeValuesAndRestoresNonFiniteValues() {
         val defaults = LiquidGlassEffectDefaults.floatingBar
         val value = defaults.copy(
