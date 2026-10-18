@@ -125,18 +125,30 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
-    fun savingUnchangedLiquidGlassEffectDefaultsDoesNotWriteOrBumpSyncRevision() {
+    fun savingUnchangedLiquidGlassEffectsIsIdempotent() {
         ThemeSettingsRepository.ensureLoaded()
         val revision = ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value
 
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
 
+        // Dismissing the sheet without editing either group must not persist defaults or trigger sync.
         ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
-
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
         assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
         assertEquals(revision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+
+        // A changed group commits once; dismissing again with identical values is a no-op.
+        ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(
+            LiquidGlassEffectDefaults.floatingBar.copy(blurRadiusDp = 6f),
+        )
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+        val committedRevision = revision + 1L
+        assertEquals(committedRevision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+        assertEquals(committedRevision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
     }
 
     @Test
