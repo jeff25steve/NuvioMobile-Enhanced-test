@@ -188,8 +188,6 @@ object ProfileSettingsSync {
             ThemeSettingsRepository.liquidGlassNativeTabBarEnabled.map { "liquid_glass_tab_bar" },
             ThemeSettingsRepository.navBarGlowEnabled.map { "nav_bar_glow_enabled" },
             ThemeSettingsRepository.navBarLiquidGlassEnabled.map { "nav_bar_liquid_glass_enabled" },
-            ThemeSettingsRepository.navBarLiquidGlassBarEffects.map { "nav_bar_liquid_glass_bar_effects" },
-            ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.map { "nav_bar_liquid_glass_selection_effects" },
             ThemeSettingsRepository.navBarDefaultIconColorEnabled.map { "nav_bar_default_icon_color_enabled" },
             // The colour value is edited as a draft; sync only after the editor commits it.
             ThemeSettingsRepository.navBarDefaultIconColorRevision.map { "nav_bar_default_icon_color_committed" },
