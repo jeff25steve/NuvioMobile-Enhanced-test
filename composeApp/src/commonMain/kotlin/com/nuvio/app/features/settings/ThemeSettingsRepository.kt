@@ -4,6 +4,10 @@ import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings
 import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
@@ -59,6 +63,22 @@ object ThemeSettingsRepository {
     private val _navBarLiquidGlassEnabled = MutableStateFlow(false)
     val navBarLiquidGlassEnabled: StateFlow<Boolean> = _navBarLiquidGlassEnabled.asStateFlow()
 
+    private val _navBarLiquidGlassBarEffects =
+        MutableStateFlow(LiquidGlassEffectDefaults.floatingBar)
+    internal val navBarLiquidGlassBarEffects: StateFlow<LiquidGlassEffectSettings> =
+        _navBarLiquidGlassBarEffects.asStateFlow()
+
+    private val _navBarLiquidGlassSelectionEffects =
+        MutableStateFlow(LiquidGlassEffectDefaults.selectionLens)
+    internal val navBarLiquidGlassSelectionEffects: StateFlow<LiquidGlassEffectSettings> =
+        _navBarLiquidGlassSelectionEffects.asStateFlow()
+
+    // Signals that the effect drafts were committed to persistent storage. ProfileSettingsSync
+    // observes this because slider edits change the draft flows before the stored payload changes.
+    private val _navBarLiquidGlassEffectsRevision = MutableStateFlow(0L)
+    internal val navBarLiquidGlassEffectsRevision: StateFlow<Long> =
+        _navBarLiquidGlassEffectsRevision.asStateFlow()
+
     private var hasLoaded = false
     private var observesMembership = false
 
@@ -91,6 +111,9 @@ object ThemeSettingsRepository {
         NativeTabBridge.publishLiquidGlassEnabled(NuvioTabBarBehavior.Default.isEnabled)
         _selectedAppLanguage.value = AppLanguage.DEVICE
         _navBarGlowEnabled.value = true
+        _navBarLiquidGlassEnabled.value = false
+        _navBarLiquidGlassBarEffects.value = LiquidGlassEffectDefaults.floatingBar
+        _navBarLiquidGlassSelectionEffects.value = LiquidGlassEffectDefaults.selectionLens
         _navBarStyle.value = NavBarStyle.ADAPTIVE
         _navBarPosition.value = NavBarPosition.BOTTOM
     }
@@ -126,6 +149,16 @@ object ThemeSettingsRepository {
         _selectedAppLanguage.value = appLanguage
         _navBarGlowEnabled.value = ThemeSettingsStorage.loadNavBarGlowEnabled() ?: true
         _navBarLiquidGlassEnabled.value = ThemeSettingsStorage.loadNavBarLiquidGlassEnabled() ?: false
+        _navBarLiquidGlassBarEffects.value = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+        _navBarLiquidGlassSelectionEffects.value = decodeLiquidGlassEffectSettings(
+            ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
         _navBarStyle.value = NavBarStyle.fromKey(ThemeSettingsStorage.loadNavBarStyle())
         _navBarPosition.value = NavBarPosition.fromKey(ThemeSettingsStorage.loadNavBarPosition())
     }
@@ -214,8 +247,56 @@ object ThemeSettingsRepository {
     fun setNavBarGlowEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_navBarGlowEnabled.value == enabled) return
-        _navBarGlowEnabled.value = enabled
+        // Persist before emitting: ProfileSettingsSync recomputes its signature from storage when
+        // this flow changes, so emitting first could race with an older persisted value.
         ThemeSettingsStorage.saveNavBarGlowEnabled(enabled)
+        _navBarGlowEnabled.value = enabled
+    }
+
+    fun setNavBarLiquidGlassEnabled(enabled: Boolean) {
+        ensureLoaded()
+        if (_navBarLiquidGlassEnabled.value == enabled) return
+        // The same ordering ensures the sync observer sees the new toggle value.
+        ThemeSettingsStorage.saveNavBarLiquidGlassEnabled(enabled)
+        _navBarLiquidGlassEnabled.value = enabled
+    }
+
+    /** Updates the floating-bar draft; the UI persists it when an edit interaction finishes. */
+    internal fun updateNavBarLiquidGlassBarEffects(settings: LiquidGlassEffectSettings) {
+        ensureLoaded()
+        _navBarLiquidGlassBarEffects.value = settings.sanitized(
+            LiquidGlassEffectDefaults.floatingBar,
+            LiquidGlassEffectDefaults.floatingBarLimits,
+        )
+    }
+
+    /** Updates the lens draft without writing storage on every slider frame. */
+    internal fun updateNavBarLiquidGlassSelectionEffects(settings: LiquidGlassEffectSettings) {
+        ensureLoaded()
+        _navBarLiquidGlassSelectionEffects.value = settings.sanitized(
+            LiquidGlassEffectDefaults.selectionLens,
+            LiquidGlassEffectDefaults.selectionLensLimits,
+        )
+    }
+
+    /** Persists both effect groups after an edit interaction finishes or the settings sheet exits. */
+    internal fun saveNavBarLiquidGlassEffectSettings() {
+        ensureLoaded()
+        ThemeSettingsStorage.saveNavBarLiquidGlassBarEffects(
+            encodeLiquidGlassEffectSettings(
+                _navBarLiquidGlassBarEffects.value,
+                LiquidGlassEffectDefaults.floatingBar,
+                LiquidGlassEffectDefaults.floatingBarLimits,
+            ),
+        )
+        ThemeSettingsStorage.saveNavBarLiquidGlassSelectionEffects(
+            encodeLiquidGlassEffectSettings(
+                _navBarLiquidGlassSelectionEffects.value,
+                LiquidGlassEffectDefaults.selectionLens,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ),
+        )
+        _navBarLiquidGlassEffectsRevision.value += 1L
     }
 
     private fun observeMembership() {

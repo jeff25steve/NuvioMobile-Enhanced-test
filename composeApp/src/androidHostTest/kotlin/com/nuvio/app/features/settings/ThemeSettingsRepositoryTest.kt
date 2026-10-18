@@ -5,6 +5,8 @@ import android.content.Context
 import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.MemberAssetStorage
 import org.junit.runner.RunWith
@@ -51,6 +53,134 @@ class ThemeSettingsRepositoryTest {
         ThemeSettingsStorage.replaceFromSyncPayload(kotlinx.serialization.json.buildJsonObject {})
         ThemeSettingsRepository.onProfileChanged()
         assertEquals(true, ThemeSettingsRepository.navBarGlowEnabled.value)
+    }
+
+    @Test
+    fun liquidGlassMaterialDefaultsOffAndRetainsItsPreferenceAcrossReloads() {
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+
+        ThemeSettingsRepository.setNavBarLiquidGlassEnabled(true)
+        ThemeSettingsRepository.setNavBarStyle(NavBarStyle.CLASSIC)
+        ThemeSettingsRepository.setNavBarStyle(NavBarStyle.COMPACT)
+        ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsRepository.ensureLoaded()
+
+        assertEquals(true, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+        assertEquals(NavBarStyle.COMPACT, ThemeSettingsRepository.navBarStyle.value)
+
+        ThemeSettingsStorage.replaceFromSyncPayload(kotlinx.serialization.json.buildJsonObject {})
+        ThemeSettingsRepository.onProfileChanged()
+        assertEquals(false, ThemeSettingsRepository.navBarLiquidGlassEnabled.value)
+    }
+
+    @Test
+    fun liquidGlassEffectDraftsPersistOnlyWhenCommittedAndReload() {
+        ThemeSettingsRepository.ensureLoaded()
+        val persistedRevision = ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value
+        val bar = LiquidGlassEffectDefaults.floatingBar.copy(
+            blurRadiusDp = 17f,
+            tintOpacity = 0.7f,
+        )
+        val lens = LiquidGlassEffectDefaults.selectionLens.copy(
+            cornerRadiusPercent = 23f,
+            chromaticAberration = false,
+        )
+
+        val defaultLens = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
+        ThemeSettingsRepository.updateNavBarLiquidGlassBarEffects(bar)
+        assertEquals(defaultLens, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+
+        ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(lens)
+        assertEquals(bar, ThemeSettingsRepository.navBarLiquidGlassBarEffects.value)
+
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects())
+        assertEquals(null, ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects())
+        assertEquals(persistedRevision, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+
+        ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+
+        assertEquals(persistedRevision + 1L, ThemeSettingsRepository.navBarLiquidGlassEffectsRevision.value)
+        assertEquals(
+            bar,
+            decodeLiquidGlassEffectSettings(
+                ThemeSettingsStorage.loadNavBarLiquidGlassBarEffects(),
+                LiquidGlassEffectDefaults.floatingBar,
+                LiquidGlassEffectDefaults.floatingBarLimits,
+            ),
+        )
+        assertEquals(
+            lens,
+            decodeLiquidGlassEffectSettings(
+                ThemeSettingsStorage.loadNavBarLiquidGlassSelectionEffects(),
+                LiquidGlassEffectDefaults.selectionLens,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ),
+        )
+
+        ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsRepository.ensureLoaded()
+        assertEquals(bar, ThemeSettingsRepository.navBarLiquidGlassBarEffects.value)
+        assertEquals(lens, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+    }
+
+    @Test
+    fun selectedLensBackdropEffectsDefaultOnAndPersistIndependently() {
+        ThemeSettingsRepository.ensureLoaded()
+        val loadedDefaults = ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value
+        assertEquals(50f, loadedDefaults.cornerRadiusPercent)
+        assertEquals(1f, loadedDefaults.blurRadiusDp)
+        assertEquals(6f, loadedDefaults.refractionHeightDp)
+        assertEquals(11f, loadedDefaults.refractionAmountDp)
+        assertEquals(0f, loadedDefaults.tintOpacity)
+        assertEquals(true, loadedDefaults.chromaticAberration)
+        assertEquals(true, loadedDefaults.depthEffect)
+        assertEquals(true, loadedDefaults.affectTabIcons)
+        assertEquals(true, loadedDefaults.affectFloatingBar)
+
+        // A custom theme must be unaffected by selected-lens-only settings.
+        ThemeSettingsRepository.setCustomTheme(CustomThemeColors.solid(0x2255AA))
+        val themePreferenceBefore = ThemeSettingsRepository.selectedThemePreference.value
+        val effectiveThemeBefore = ThemeSettingsRepository.selectedTheme.value
+        val themeColorsBefore = ThemeSettingsRepository.customThemeColors.value
+
+        val defaults = LiquidGlassEffectDefaults.selectionLens
+        assertEquals(
+            true,
+            decodeLiquidGlassEffectSettings(
+                """{"refractionAmountDp":10}""",
+                defaults,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ).affectTabIcons,
+        )
+        assertEquals(
+            true,
+            decodeLiquidGlassEffectSettings(
+                """{"refractionAmountDp":10}""",
+                defaults,
+                LiquidGlassEffectDefaults.selectionLensLimits,
+            ).affectFloatingBar,
+        )
+
+        val configurations = listOf(
+            defaults.copy(affectTabIcons = false, affectFloatingBar = true),
+            defaults.copy(affectTabIcons = true, affectFloatingBar = false),
+            defaults.copy(affectTabIcons = true, affectFloatingBar = true),
+        )
+        configurations.forEach { settings ->
+            ThemeSettingsRepository.updateNavBarLiquidGlassSelectionEffects(settings)
+            assertEquals(themePreferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+            assertEquals(effectiveThemeBefore, ThemeSettingsRepository.selectedTheme.value)
+            assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
+
+            ThemeSettingsRepository.saveNavBarLiquidGlassEffectSettings()
+            ThemeSettingsRepository.clearLocalState()
+            ThemeSettingsRepository.ensureLoaded()
+            assertEquals(settings, ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.value)
+            assertEquals(themePreferenceBefore, ThemeSettingsRepository.selectedThemePreference.value)
+            assertEquals(effectiveThemeBefore, ThemeSettingsRepository.selectedTheme.value)
+            assertEquals(themeColorsBefore, ThemeSettingsRepository.customThemeColors.value)
+        }
     }
 
     @Test
