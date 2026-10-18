@@ -39,9 +39,9 @@ private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
 )
 
 /**
- * Backdrop caches its clip Shape in a graphics layer during measurement. A radius-only settings
- * change doesn't alter constraints, so invalidate this small subtree to refresh the backdrop's
- * shape layer immediately instead of waiting for a later scroll/layout pass.
+ * Invalidate measurements below a stable Backdrop layer when its effective shape key changes.
+ * For the floating bar, also use [KeyedLiquidGlassRadius] around the complete visible/capture
+ * group: nested Backdrop layers can retain stale rounded geometry even after a local remeasure.
  */
 internal fun Modifier.remeasureOnKeyChange(key: Int): Modifier =
     this then RemeasureOnKeyChangeElement(key)
