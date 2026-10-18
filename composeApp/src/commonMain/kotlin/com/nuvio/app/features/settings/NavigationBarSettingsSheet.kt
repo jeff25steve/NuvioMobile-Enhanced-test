@@ -3,6 +3,7 @@ package com.nuvio.app.features.settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +82,7 @@ internal fun NavigationBarSettingsSheet(
     val defaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
     val defaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
     var draftIconColorEnabled by remember(defaultIconColorEnabled) { mutableStateOf(defaultIconColorEnabled) }
+    var defaultIconColorExpanded by rememberSaveable { mutableStateOf(false) }
     val liquidGlassSupported = floatingNavigationGlowSupported &&
         com.nuvio.app.core.ui.glass.isLiquidGlassAvailable() &&
         com.nuvio.app.core.ui.glass.isLiquidRefractionSupported()
@@ -406,17 +409,58 @@ internal fun NavigationBarSettingsSheet(
                             description = stringResource(Res.string.settings_nav_bar_default_icon_color_description),
                             checked = draftIconColorEnabled,
                             isTablet = isTablet,
-                            onCheckedChange = { enabled -> draftIconColorEnabled = enabled },
+                            onCheckedChange = { enabled ->
+                                if (!enabled) defaultIconColorExpanded = false
+                                draftIconColorEnabled = enabled
+                            },
                         )
-                        AnimatedVisibility(draftIconColorEnabled) {
-                            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                                NavigationBarIconColorEditor(
-                                    color = defaultIconColor,
-                                    isTablet = isTablet,
-                                    onColorChanged = ThemeSettingsRepository::updateNavBarDefaultIconColor,
+                    }
+                }
+            }
+            item {
+                AnimatedVisibility(selectedStyle != NavBarStyle.CLASSIC && draftIconColorEnabled) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = Role.Button) {
+                                    defaultIconColorExpanded = !defaultIconColorExpanded
+                                }
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.settings_nav_bar_default_icon_color_change),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = stringResource(
+                                        if (defaultIconColorExpanded) {
+                                            Res.string.settings_nav_bar_default_icon_color_collapse
+                                        } else {
+                                            Res.string.settings_nav_bar_default_icon_color_expand
+                                        },
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
+                        AnimatedVisibility(defaultIconColorExpanded) {
+                            NavigationBarIconColorEditor(
+                                color = defaultIconColor,
+                                isTablet = isTablet,
+                                onColorChanged = ThemeSettingsRepository::updateNavBarDefaultIconColor,
+                            )
+                        }
+                        NuvioBottomSheetDivider()
+                    }
                     }
                 }
             }

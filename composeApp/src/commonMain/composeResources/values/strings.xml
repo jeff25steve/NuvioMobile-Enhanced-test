@@ -689,7 +689,7 @@
     <string name="settings_nav_bar_glow_off">Glow off</string>
     <string name="settings_nav_bar_liquid_glass">Liquid Glass material</string>
     <string name="settings_nav_bar_liquid_glass_description">Enable the refractive Liquid Glass material for the floating navigation bar.</string>
-    <string name="settings_nav_bar_liquid_glass_unsupported_description">Requires Android 13 or later. This device will keep the existing glass style.</string>
+    <string name="settings_nav_bar_liquid_glass_unsupported_description">Requires Android 13 or later with runtime-shader support. This device will keep the existing navigation appearance.</string>
     <string name="settings_nav_bar_liquid_glass_floating_bar">Floating bar</string>
     <string name="settings_nav_bar_liquid_glass_selection_lens">Selected-tab lens</string>
     <string name="settings_nav_bar_liquid_glass_reset_bar">Reset floating bar effects to defaults</string>
@@ -708,7 +708,7 @@
     <string name="settings_nav_bar_glass_lens_affect_floating_bar">Lens affects floating bar</string>
     <string name="settings_nav_bar_glass_lens_affect_floating_bar_description">Refract the floating bar's glass surface as the lens moves.</string>
     <string name="settings_nav_bar_default_icon_color">Default icon color</string>
-    <string name="settings_nav_bar_default_icon_color_description">Override the default grey used by unselected navigation icons and labels.</string>
+    <string name="settings_nav_bar_default_icon_color_description">Override the default grey used by unselected navigation icons and labels, including the inactive profile avatar border.</string>
     <string name="settings_nav_bar_default_icon_color_change">Change default icon color</string>
     <string name="settings_nav_bar_default_icon_color_expand">Tap to expand the color picker.</string>
     <string name="settings_nav_bar_default_icon_color_collapse">Tap to collapse the color picker.</string>
