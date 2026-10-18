@@ -71,7 +71,7 @@ Persist the two effect configurations independently, with backward-compatible de
 
 - Keep the opt-in toggle, all existing navigation styles/positions, glow, compact/expanded behavior, drag-to-select, click targets, RTL mapping, tab identities/glyphs/labels, and Android/iOS navigation destinations unchanged. The Liquid Glass selected-content overlay is clipped to the selection shape; the regular non-Liquid-Glass styling remains unchanged.
 - When refraction height or amount is zero, disable that lens effect (as Kyant's API does); zero blur disables blur. Ranges/defaults must be monotonic and bounded.
-- Preserve Android API 32-and-below frosted fallback and existing runtime-shader support gating; no new dependency.
+- Preserve Android API 32-and-below frosted fallback and existing runtime-shader support gating. Use the explicitly scoped Kyant Backdrop 2.0.1 dependency required for Liquid Glass; add no further dependencies.
 - Do not alter the native iOS navigation bar or the separate native Liquid Glass tab-bar behavior.
 - Avoid per-frame disk writes. Never persist effect settings globally across profiles.
 - Do not start GitHub Actions for verification while the Actions quota is exhausted. Build/test verification must be reported honestly; source inspection is not a substitute for a successful build or device check.
