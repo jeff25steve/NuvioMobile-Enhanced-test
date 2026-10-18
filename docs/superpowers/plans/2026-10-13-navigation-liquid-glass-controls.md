@@ -41,7 +41,7 @@
 - Separate `FloatingBarDefaults` and `SelectionLensDefaults` define the documented values.
 - `sanitized()` clamps finite numeric values to their documented ranges and handles non-finite values safely.
 
-- [x] Add tests for defaults, both ends of each numeric range, non-finite and out-of-range inputs, and the distinct chromatic-aberration defaults.
+- [x] Add tests for defaults, both ends of each numeric range, non-finite and out-of-range inputs, and the documented chromatic-aberration defaults.
 - [ ] Run the new tests through the repository's native test environment. Test source and expectations were reviewed, but the build environment was unavailable in this session.
 - [x] Implement the model and keep UI-specific conversions (dp-to-px, rounded-corner percent) at the rendering boundary.
 
