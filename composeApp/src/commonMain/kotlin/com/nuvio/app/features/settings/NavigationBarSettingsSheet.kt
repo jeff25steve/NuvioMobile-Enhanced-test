@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioInputField
@@ -69,6 +70,19 @@ import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
+
+/**
+ * Keep high-frequency slider draft subscriptions inside the open settings-sheet subtree.
+ * Updating a glass effect should not recompose the Appearance settings item behind the modal.
+ */
+@Composable
+internal fun NavigationBarLiquidGlassEffectDrafts(
+    content: @Composable (LiquidGlassEffectSettings, LiquidGlassEffectSettings) -> Unit,
+) {
+    val floatingBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
+    val selectionLensEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
+    content(floatingBarEffects, selectionLensEffects)
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

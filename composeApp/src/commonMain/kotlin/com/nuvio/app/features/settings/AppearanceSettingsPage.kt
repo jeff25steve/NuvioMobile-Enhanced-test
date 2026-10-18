@@ -134,8 +134,6 @@ internal fun LazyListScope.appearanceSettingsContent(
         val navBarDefaultIconColorEnabled by ThemeSettingsRepository.navBarDefaultIconColorEnabled.collectAsStateWithLifecycle()
         val navBarDefaultIconColor by ThemeSettingsRepository.navBarDefaultIconColor.collectAsStateWithLifecycle()
         val navBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
-        val navBarLiquidGlassBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
-        val navBarLiquidGlassSelectionEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
         // Upstream pins tablets to COMPACT because there the bar is a top rail. This fork puts
         // the floating pill at the bottom on every size, so the chosen style still applies.
         val effectiveNavBarStyle = selectedNavBarStyle
@@ -277,7 +275,8 @@ internal fun LazyListScope.appearanceSettingsContent(
         }
 
         if (showNavBarStyleSheet) {
-            NavigationBarSettingsSheet(
+            NavigationBarLiquidGlassEffectDrafts { navBarLiquidGlassBarEffects, navBarLiquidGlassSelectionEffects ->
+                NavigationBarSettingsSheet(
                 // Passing false keeps the style list visible on tablets: the sheet hides it when
                 // isTablet is true, which only fits upstream's tablet top rail.
                 isTablet = false,
@@ -302,8 +301,9 @@ internal fun LazyListScope.appearanceSettingsContent(
                 selectionLensEffects = navBarLiquidGlassSelectionEffects,
                 onSelectionLensEffectsChanged = ThemeSettingsRepository::updateNavBarLiquidGlassSelectionEffects,
                 onSaveLiquidGlassEffectSettings = ThemeSettingsRepository::saveNavBarLiquidGlassEffectSettings,
-                onDismiss = { showNavBarStyleSheet = false },
-            )
+                    onDismiss = { showNavBarStyleSheet = false },
+                )
+            }
         }
     }
 
