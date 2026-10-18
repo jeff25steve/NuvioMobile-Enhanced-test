@@ -1,14 +1,16 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
@@ -22,9 +24,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +53,9 @@ import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.isIos
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -107,23 +114,43 @@ internal fun NavigationBarSettingsSheet(
     } else {
         null
     }
+    val listState = rememberLazyListState()
+    var bounceTrigger by remember { mutableIntStateOf(0) }
+    var bounceDirection by remember { mutableStateOf(0f) }
+
+    LaunchedEffect(listState) {
+        val gate = NavigationPreviewScrollBounceGate()
+        snapshotFlow { listState.canScrollBackward }
+            .distinctUntilChanged()
+            .collectLatest { canScrollBackward ->
+                val direction = gate.onScrollabilityChanged(canScrollBackward) ?: return@collectLatest
+                bounceDirection = direction
+                bounceTrigger = if (bounceTrigger == Int.MAX_VALUE) 1 else bounceTrigger + 1
+            }
+    }
 
     NuvioModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
-        LazyColumn(Modifier.fillMaxWidth()) {
-            item {
-                Text(
-                    text = stringResource(Res.string.settings_appearance_nav_bar_style),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                )
-                NavigationBarPreview(
-                    style = selectedStyle,
-                    isTablet = isTablet,
-                    glowEnabled = glowEnabled,
-                    liquidGlassEnabled = liquidGlassEnabled && liquidGlassSupported && (isTablet || selectedStyle != NavBarStyle.CLASSIC),
-                    defaultIconColorOverride = defaultIconColorOverride,
-                )
+        LazyColumn(Modifier.fillMaxWidth(), state = listState) {
+            stickyHeader(key = "navigation-bar-preview") {
+                Column(
+                    Modifier.fillMaxWidth().background(MaterialTheme.nuvio.colors.surfaceSheet),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_appearance_nav_bar_style),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                    NavigationBarPreview(
+                        style = selectedStyle,
+                        isTablet = isTablet,
+                        glowEnabled = glowEnabled,
+                        liquidGlassEnabled = liquidGlassEnabled && liquidGlassSupported && (isTablet || selectedStyle != NavBarStyle.CLASSIC),
+                        defaultIconColorOverride = defaultIconColorOverride,
+                        scrollBounceTrigger = bounceTrigger,
+                        scrollBounceDirection = bounceDirection,
+                    )
+                }
             }
             if (!isTablet) {
                 NavBarStyle.entries.forEach { style ->

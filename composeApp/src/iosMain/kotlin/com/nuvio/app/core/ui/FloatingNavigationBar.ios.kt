@@ -26,6 +26,8 @@ internal actual fun FloatingNavigationBar(
     liquidGlassBarEffects: LiquidGlassEffectSettings,
     liquidGlassSelectionEffects: LiquidGlassEffectSettings,
     defaultIconColorOverride: Color?,
+    scrollBounceTrigger: Int,
+    scrollBounceDirection: Float,
 ) {
     NuvioNavigationBar(modifier, scrollState, hazeState, contentPadding, compactSize) {
         items.forEach { item ->

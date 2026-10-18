@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
@@ -81,6 +82,8 @@ internal actual fun FloatingNavigationBar(
     liquidGlassBarEffects: LiquidGlassEffectSettings,
     liquidGlassSelectionEffects: LiquidGlassEffectSettings,
     defaultIconColorOverride: Color?,
+    scrollBounceTrigger: Int,
+    scrollBounceDirection: Float,
 ) {
     if (items.isEmpty()) return
     val showGlow = !floatingNavigationGlowSupported || glowEnabled
@@ -102,6 +105,12 @@ internal actual fun FloatingNavigationBar(
     val selectedIndex = items.indexOfFirst { it.selected }
     val visualSelectedIndex = visualNavIndex(selectedIndex, items.size, isRtl)
     val motion = remember(items.size, isRtl) { JellyMotion(visualSelectedIndex, items.size) }
+    val lastScrollBounceTrigger = remember(motion) { mutableIntStateOf(scrollBounceTrigger) }
+    LaunchedEffect(motion, scrollBounceTrigger) {
+        if (scrollBounceTrigger == lastScrollBounceTrigger.intValue) return@LaunchedEffect
+        lastScrollBounceTrigger.intValue = scrollBounceTrigger
+        motion.bounce(scrollBounceDirection)
+    }
     val currentItems by rememberUpdatedState(items)
     val currentIsRtl by rememberUpdatedState(isRtl)
     val density = LocalDensity.current

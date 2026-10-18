@@ -133,6 +133,20 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         select(selectedIndex)
     }
 
+    /**
+     * Reuses the track's spring physics for the navigation preview's top-boundary bounce.
+     * The selected destination and pointer state remain unchanged.
+     */
+    fun bounce(direction: Float) {
+        if (dragging || direction == 0f || !direction.isFinite()) return
+        originX = width / 2.0
+        trackY.velocity += (if (direction < 0f) -1.0 else 1.0) * height * 2.0
+        trackX.velocity -= 2.4
+        trackPress.velocity += 1.0
+        publish()
+        running = true
+    }
+
     fun advance(seconds: Double) {
         val delta = seconds.coerceIn(0.0, 0.064)
         target = target.coerceIn(0.0, maxIndex.toDouble())

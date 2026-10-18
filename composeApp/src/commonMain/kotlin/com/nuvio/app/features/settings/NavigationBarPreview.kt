@@ -49,6 +49,8 @@ internal fun NavigationBarPreview(
     glowEnabled: Boolean,
     liquidGlassEnabled: Boolean = false,
     defaultIconColorOverride: Color? = null,
+    scrollBounceTrigger: Int = 0,
+    scrollBounceDirection: Float = 0f,
 ) {
     val floatingBarEffects by ThemeSettingsRepository.navBarLiquidGlassBarEffects.collectAsStateWithLifecycle()
     val selectionLensEffects by ThemeSettingsRepository.navBarLiquidGlassSelectionEffects.collectAsStateWithLifecycle()
@@ -124,6 +126,8 @@ internal fun NavigationBarPreview(
                     liquidGlassBarEffects = floatingBarEffects,
                     liquidGlassSelectionEffects = selectionLensEffects,
                     defaultIconColorOverride = defaultIconColorOverride,
+                    scrollBounceTrigger = scrollBounceTrigger,
+                    scrollBounceDirection = scrollBounceDirection,
                 )
             }
         }

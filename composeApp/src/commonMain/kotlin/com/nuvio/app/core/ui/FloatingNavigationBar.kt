@@ -50,6 +50,8 @@ internal expect fun FloatingNavigationBar(
     liquidGlassBarEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.floatingBar,
     liquidGlassSelectionEffects: LiquidGlassEffectSettings = LiquidGlassEffectDefaults.selectionLens,
     defaultIconColorOverride: Color? = null,
+    scrollBounceTrigger: Int = 0,
+    scrollBounceDirection: Float = 0f,
 )
 
 @Composable
