@@ -2,7 +2,7 @@
 
 **Status:** Proposed design; awaiting review before implementation  
 **Date:** 2026-10-13  
-**Target branch:** `feature/navigation-liquid-glass`  
+**Target branch:** `feature/navigation-liquid-glass-clean-port-20261018`  
 **Reference implementations:** [Kyant0/AndroidLiquidGlass, KMP branch](https://github.com/Kyant0/AndroidLiquidGlass/tree/kmp) and [Kashif-E/KMPLiquidGlass](https://github.com/Kashif-E/KMPLiquidGlass/tree/master)
 
 ## Goal
