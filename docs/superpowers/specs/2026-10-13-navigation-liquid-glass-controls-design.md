@@ -7,7 +7,7 @@
 
 ## Goal
 
-Fix the visual and interaction defects in Nuvio's opt-in Liquid Glass floating navigation bar, and expose useful glass-effect controls without changing navigation behavior, icon/label content, tab ordering, gestures, existing style/position/glow settings, or the regular Enhanced navigation appearance.
+Fix the visual and interaction defects in Nuvio's opt-in Liquid Glass floating navigation bar, expose useful glass-effect controls, and preserve the existing optional inactive-icon-colour setting without changing navigation behavior, tab ordering, gestures, existing style/position/glow settings, or the regular Enhanced navigation appearance.
 
 ## Confirmed implementation findings
 
@@ -81,7 +81,7 @@ Persist the two effect configurations independently, with backward-compatible de
 1. With Liquid Glass enabled, the normal bar shows one set of tab labels/icons. Only the selected pill receives active treatment; text is never duplicated or globally accent-tinted by the hidden/reference layer.
 2. Changing each slider/switch changes its corresponding real surface effect in the correct direction, visibly and live in the preview and navigation bar (including selection-lens refraction at rest); it never changes the other surface's settings.
 3. Both reset icon buttons restore all values in their own group to the constants above and leave the other group's current custom values unchanged.
-4. Settings survive app restart and remain isolated per profile; sync export/import preserves both groups, and old/malformed payloads load safe defaults.
-5. Existing normal navigation behavior and frosted fallbacks remain intact.
-7. The separate default-icon-colour switch is off by default, overrides only inactive navigation/profile-switcher tint when enabled, stays profile-scoped, and saves the edited colour only when the settings sheet exits.
-6. Focused tests are added and run where available; Android/iOS builds and real-device rendering are explicitly marked unverified unless successfully executed.
+4. Effect settings survive app restart and remain isolated per profile; sync export/import preserves both groups, and old/malformed payloads load safe defaults.
+5. The optional default-icon-colour setting is off by default, overrides only inactive floating-navigation icons/labels and the inactive profile-switcher avatar border when enabled, remains profile-scoped, and saves the edited colour when the settings sheet exits. It does not change selected-tab treatment, the theme palette, or the native iOS tab bar.
+6. Existing normal navigation behavior and frosted fallbacks remain intact.
+7. Focused tests are added; Android/iOS builds, test execution and real-device rendering are explicitly marked unverified unless successfully executed.
