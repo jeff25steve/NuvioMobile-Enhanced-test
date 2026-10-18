@@ -461,7 +461,6 @@ internal fun NavigationBarSettingsSheet(
                         }
                         NuvioBottomSheetDivider()
                     }
-                    }
                 }
             }
             item {
