@@ -31,10 +31,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationBar
+import com.nuvio.app.core.ui.shouldEnableNavigationLiquidGlass
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
-import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.FloatingNavigationItem
@@ -63,8 +65,13 @@ internal fun NavigationBarPreview(
 ) {
     val tokens = MaterialTheme.nuvio
     val previewBackdrop = rememberNuvioBackdrop()
-    val effectiveLiquidGlassEnabled = liquidGlassEnabled && style != NavBarStyle.CLASSIC &&
-        isLiquidGlassSupported() && isRuntimeShaderSupported()
+    val effectiveLiquidGlassEnabled = style != NavBarStyle.CLASSIC && shouldEnableNavigationLiquidGlass(
+        navBarEnabled = liquidGlassEnabled,
+        hasBackdrop = true,
+        glassAvailable = isLiquidGlassAvailable(),
+        refractionSupported = isLiquidRefractionSupported(),
+        runtimeShaderSupported = isRuntimeShaderSupported(),
+    )
     val tabletClassic = style == NavBarStyle.CLASSIC && (isTablet || tabletLayout)
     val topPill = isTablet
     val pillOnTop = topPill || (style != NavBarStyle.CLASSIC && position == NavBarPosition.TOP)

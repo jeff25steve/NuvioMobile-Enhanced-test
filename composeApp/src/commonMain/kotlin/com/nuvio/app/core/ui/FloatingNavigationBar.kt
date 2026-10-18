@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.GlassBarSurface
 import com.nuvio.app.core.ui.glass.GlassBarShape
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
@@ -148,9 +149,13 @@ internal fun FloatingNavigationBar(
         lastScrollBounceTrigger.intValue = scrollBounceTrigger
         motion.bounce(scrollBounceDirection)
     }
-    val useLiquidGlassMaterial =
-        liquidGlassEnabled && backdrop != null && isLiquidGlassSupported() &&
-            isLiquidRefractionSupported() && isRuntimeShaderSupported()
+    val useLiquidGlassMaterial = shouldEnableNavigationLiquidGlass(
+        navBarEnabled = liquidGlassEnabled,
+        hasBackdrop = backdrop != null,
+        glassAvailable = isLiquidGlassAvailable(),
+        refractionSupported = isLiquidRefractionSupported(),
+        runtimeShaderSupported = isRuntimeShaderSupported(),
+    )
     val upstreamSelectionLensActive =
         !useLiquidGlassMaterial && backdrop != null && selectedIndex >= 0 &&
             glassStyle.usesBackdrop && glassStyle.selectionLens &&
@@ -582,6 +587,20 @@ private fun JellySelectionLens(
     )
 }
 
+
+/**
+ * Navigation owns a separate Liquid Glass toggle. Keep renderer eligibility based only on that
+ * toggle, a ready backdrop, and runtime capabilities; the app-wide glass setting is intentionally
+ * reserved for non-navigation surfaces and the upstream fallback lens.
+ */
+internal fun shouldEnableNavigationLiquidGlass(
+    navBarEnabled: Boolean,
+    hasBackdrop: Boolean,
+    glassAvailable: Boolean,
+    refractionSupported: Boolean,
+    runtimeShaderSupported: Boolean,
+): Boolean =
+    navBarEnabled && hasBackdrop && glassAvailable && refractionSupported && runtimeShaderSupported
 
 internal fun visualNavIndex(logicalIndex: Int, count: Int, isRtl: Boolean): Int =
     if (logicalIndex in 0 until count && isRtl) count - 1 - logicalIndex else logicalIndex

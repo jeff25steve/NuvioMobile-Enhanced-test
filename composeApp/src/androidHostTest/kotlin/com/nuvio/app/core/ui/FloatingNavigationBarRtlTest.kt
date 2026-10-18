@@ -4,6 +4,7 @@ import com.nuvio.app.core.ui.jelly.JellyMotion
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FloatingNavigationBarRtlTest {
@@ -12,6 +13,66 @@ class FloatingNavigationBarRtlTest {
         repeat(120) {
             motion.advance(1.0 / 60)
         }
+    }
+
+    @Test
+    fun `navigation glass uses its own toggle and runtime capabilities`() {
+        // The app-wide LiquidGlassSettings flag is deliberately not an input to this gate.
+        assertTrue(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = true,
+                hasBackdrop = true,
+                glassAvailable = true,
+                refractionSupported = true,
+                runtimeShaderSupported = true,
+            ),
+        )
+
+        assertFalse(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = false,
+                hasBackdrop = true,
+                glassAvailable = true,
+                refractionSupported = true,
+                runtimeShaderSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = true,
+                hasBackdrop = false,
+                glassAvailable = true,
+                refractionSupported = true,
+                runtimeShaderSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = true,
+                hasBackdrop = true,
+                glassAvailable = false,
+                refractionSupported = true,
+                runtimeShaderSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = true,
+                hasBackdrop = true,
+                glassAvailable = true,
+                refractionSupported = false,
+                runtimeShaderSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldEnableNavigationLiquidGlass(
+                navBarEnabled = true,
+                hasBackdrop = true,
+                glassAvailable = true,
+                refractionSupported = true,
+                runtimeShaderSupported = false,
+            ),
+        )
     }
 
     @Test
