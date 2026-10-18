@@ -63,6 +63,7 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
     func retry() { playerVC?.retryPlayback() }
     func isPictureInPictureSupported() -> Bool { playerVC?.isPictureInPictureSupported() ?? false }
     func startPictureInPicture() { playerVC?.startPictureInPicture() }
+    func setVideoZoom(scale: Double) { playerVC?.setVideoZoom(scale) }
     func setExperimentalSinglePrimaryPictureInPictureEnabled(enabled: Bool) {
         experimentalSinglePrimaryPictureInPictureEnabled = enabled
     }
@@ -398,6 +399,7 @@ final class MPVPlayerViewController: UIViewController {
     private var lastSubtitleStyle: SubtitleStyleSettings?
     private var lastAudioOutput: String?
     private var lastResizeMode: Int?
+    private var lastVideoZoom: Double?
     private var lastSubtitleDelayMs: Int?
     private var lastVolume: Float?
     private var lastMuted: Bool?
@@ -1255,6 +1257,7 @@ final class MPVPlayerViewController: UIViewController {
         }
         if let audioOutput = lastAudioOutput { setStringProperty("ao", audioOutput) }
         if let mode = lastResizeMode { setResize(mode) }
+        if let zoom = lastVideoZoom { setVideoZoom(zoom) }
         if let delay = lastSubtitleDelayMs { setSubtitleDelayMs(delay) }
         if let style = lastSubtitleStyle {
             applySubtitleStyle(
@@ -1397,19 +1400,27 @@ final class MPVPlayerViewController: UIViewController {
         setFlag("mute", muted)
     }
 
+    func setVideoZoom(_ scale: Double) {
+        let clamped = min(max(scale, 0.25), 4.0)
+        lastVideoZoom = clamped
+        guard mpv != nil else { return }
+        setDoubleProperty("video-zoom", log2(clamped))
+    }
+
     func setResize(_ mode: Int) {
         lastResizeMode = mode
         guard mpv != nil else { return }
+        setStringProperty("video-unscaled", "no")
         switch mode {
-        case 1: // Fill
-            setStringProperty("panscan", "1.0")
-            setStringProperty("video-unscaled", "no")
-        case 2: // Zoom
-            setStringProperty("panscan", "1.0")
-            setStringProperty("video-unscaled", "no")
-        default: // Fit
+        case 1: // Fill: stretch to the screen without cropping (ignores the aspect ratio)
+            setStringProperty("keepaspect", "no")
             setStringProperty("panscan", "0.0")
-            setStringProperty("video-unscaled", "no")
+        case 2: // Zoom: enlarge with the aspect ratio kept until the black bars are gone
+            setStringProperty("keepaspect", "yes")
+            setStringProperty("panscan", "1.0")
+        default: // Fit
+            setStringProperty("keepaspect", "yes")
+            setStringProperty("panscan", "0.0")
         }
     }
 

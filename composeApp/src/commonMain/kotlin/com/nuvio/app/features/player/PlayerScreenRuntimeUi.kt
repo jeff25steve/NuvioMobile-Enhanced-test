@@ -137,6 +137,10 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
         }
     }
     val gestureCallbacks = rememberSurfaceGestureCallbacks()
+    val onPinchZoom = rememberUpdatedState<(Float) -> Unit> { factor -> pinchVideoZoom(factor) }
+    LaunchedEffect(playerController) {
+        if (videoZoom != 1f) playerController?.setVideoZoom(videoZoom)
+    }
     val playbackGesturesEnabled = initialLoadCompleted && errorMessage == null
 
     LaunchedEffect(activeSourceUrl, activeSourceAudioUrl, activeSourceHeaders, activeTorrentInfoHash) {
@@ -256,6 +260,12 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
                 clearLiveGestureFeedbackState = gestureCallbacks.clearLiveGestureFeedback,
                 revealLockedOverlayState = gestureCallbacks.revealLockedOverlay,
                 commitHorizontalSeekState = gestureCallbacks.commitHorizontalSeek,
+            )
+            .playerSurfacePinchGestures(
+                playbackGesturesEnabled = playbackGesturesEnabled,
+                playerControlsLockedState = gestureCallbacks.playerControlsLocked,
+                touchGesturesEnabledState = gestureCallbacks.touchGesturesEnabled,
+                onPinchZoomState = onPinchZoom,
             ),
     ) {
         val playerSurfaceSourceUrl = if (isP2pPlaybackActive) p2pResolvedSourceUrl else activePlaybackSourceUrl
@@ -423,6 +433,8 @@ private fun PlayerScreenRuntime.RenderPlayerControls(isEpisode: Boolean) {
         exit = fadeOut(),
     ) {
         val displayedPositionMs = scrubbingPositionMs ?: playbackSnapshot.positionMs
+        val orientationToggleSupported = rememberPlayerOrientationToggleSupported()
+        val portraitPlayback by PlayerOrientationPreference.portrait.collectAsStateWithLifecycle()
         val pipAvailable = isIos && playerSettingsUiState.miniPlayerEnabled &&
             playerController?.isPictureInPictureSupported() == true
         PlayerControlsShell(
@@ -515,6 +527,13 @@ private fun PlayerScreenRuntime.RenderPlayerControls(isEpisode: Boolean) {
                 }
                 else -> null
             },
+            onOrientationToggleClick = if (orientationToggleSupported) {
+                {
+                    PlayerOrientationPreference.toggle()
+                    controlsActivityTick += 1
+                }
+            } else null,
+            isPortraitPlayback = portraitPlayback,
             onInfoClick = {
                 val selectedQuality = playerQualityState.selectedVariantFor(selectedPlayerQualityId)
                 InAppLogger.info(

@@ -11,6 +11,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
 import android.os.SystemClock
+import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.util.AttributeSet
 import androidx.compose.runtime.getValue
@@ -729,8 +730,6 @@ private fun ExoPlayerSurface(
                                 "ExoPlayer/Android",
                                 "Source error recovered by MIME probe mime=$probedMime url=${InAppLogger.redactUrl(sourceUrl)}",
                             )
-                            // buildUpon keeps the existing subtitle configurations, so the fork no
-                            // longer rebuilds them (and no longer probes each subtitle URL).
                             resolvedMediaItem = resolvedMediaItem.buildUpon()
                                 .setMimeType(probedMime)
                                 .build()
@@ -1010,6 +1009,16 @@ private fun ExoPlayerSurface(
                 override fun setPlaybackSpeed(speed: Float) {
                     InAppLogger.info("ExoPlayer/Android", "control speed=$speed")
                     exoPlayer.setPlaybackSpeed(speed)
+                }
+
+                override fun setVideoZoom(scale: Float) {
+                    val playerView = playerViewRef ?: return
+                    val target = playerView
+                        .findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)
+                        ?: playerView.videoSurfaceView
+                        ?: return
+                    target.scaleX = scale
+                    target.scaleY = scale
                 }
 
                 override fun updateNowPlayingMetadata(info: PlayerNowPlayingInfo) {
@@ -1992,15 +2001,18 @@ private class NuvioLibmpvView(
         executeMpv {
             when (resizeMode) {
                 PlayerResizeMode.Fit -> {
+                    mpv.setPropertyString("keepaspect", "yes")
                     mpv.setPropertyDouble("panscan", 0.0)
                     mpv.setPropertyString("video-aspect-override", "no")
                 }
                 PlayerResizeMode.Fill -> {
-                    mpv.setPropertyDouble("panscan", 1.0)
+                    mpv.setPropertyString("keepaspect", "no")
+                    mpv.setPropertyDouble("panscan", 0.0)
                     mpv.setPropertyString("video-aspect-override", "no")
                 }
                 PlayerResizeMode.Zoom -> {
-                    mpv.setPropertyDouble("panscan", 0.5)
+                    mpv.setPropertyString("keepaspect", "yes")
+                    mpv.setPropertyDouble("panscan", 1.0)
                     mpv.setPropertyString("video-aspect-override", "no")
                 }
             }
@@ -2056,6 +2068,11 @@ private class NuvioLibmpvView(
                 val target = speed.coerceIn(0.25f, 4f)
                 InAppLogger.info("MPV/Android", "control speed=$target")
                 executeMpv { mpv.setPropertyDouble("speed", target.toDouble()) }
+            }
+
+            override fun setVideoZoom(scale: Float) {
+                val zoom = kotlin.math.ln(scale.coerceIn(0.25f, 4f).toDouble()) / kotlin.math.ln(2.0)
+                executeMpv { mpv.setPropertyDouble("video-zoom", zoom) }
             }
 
             override fun updateNowPlayingMetadata(info: PlayerNowPlayingInfo) {
@@ -3187,7 +3204,6 @@ private class PlayerOutputAudioProcessor(
                     val magnitude = abs(boosted)
                     if (magnitude > peak) peak = magnitude
                 }
-                // Instant attack, smooth release: never exceed the ceiling, recover gradually.
                 if (peak * limiterGain > LIMITER_CEILING) {
                     limiterGain = LIMITER_CEILING / peak
                 } else {
