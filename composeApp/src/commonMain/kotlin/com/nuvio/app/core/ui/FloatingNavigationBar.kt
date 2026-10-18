@@ -62,6 +62,7 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.effectiveLiquidGlassCornerRadiusPercent
 import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
 import com.nuvio.app.core.ui.glass.KeyedLiquidGlassRadius
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
