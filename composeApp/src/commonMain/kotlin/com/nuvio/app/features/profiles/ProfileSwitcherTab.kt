@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -95,6 +96,7 @@ fun ProfileSwitcherTab(
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     popupBelowAnchor: Boolean = false,
+    defaultIconColorOverride: Color? = null,
 ) {
     val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -284,6 +286,7 @@ fun ProfileSwitcherTab(
                 avatars = avatars,
                 selected = selected,
                 size = 28,
+                defaultIconColorOverride = defaultIconColorOverride,
             )
         }
 
@@ -828,12 +831,24 @@ internal fun LayoutCoordinates.boundsOnScreen(): Rect {
     )
 }
 
+internal fun resolveProfileAvatarBorderColor(
+    selected: Boolean,
+    avatarColor: Color,
+    selectedBorderColor: Color,
+    defaultIconColorOverride: Color?,
+): Color = if (selected) {
+    selectedBorderColor
+} else {
+    defaultIconColorOverride ?: avatarColor.copy(alpha = 0.5f)
+}
+
 @Composable
 fun ActiveProfileMiniAvatar(
     profile: NuvioProfile?,
     avatars: List<AvatarCatalogItem>,
     selected: Boolean,
     size: Int = 24,
+    defaultIconColorOverride: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     if (profile == null) {
@@ -853,11 +868,12 @@ fun ActiveProfileMiniAvatar(
         profileAvatarImageUrl(profile, avatarItem)
     }
 
-    val borderColor = if (selected) {
-        tokens.colors.borderSelected
-    } else {
-        avatarColor.copy(alpha = 0.5f)
-    }
+    val borderColor = resolveProfileAvatarBorderColor(
+        selected = selected,
+        avatarColor = avatarColor,
+        selectedBorderColor = tokens.colors.borderSelected,
+        defaultIconColorOverride = defaultIconColorOverride,
+    )
 
     Box(
         modifier = Modifier
