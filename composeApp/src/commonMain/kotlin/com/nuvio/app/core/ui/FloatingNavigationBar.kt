@@ -64,6 +64,7 @@ import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassIconRefractionSurface
+import com.nuvio.app.core.ui.glass.KeyedLiquidGlassRadius
 import com.nuvio.app.core.ui.glass.LiquidGlassFrostedBar
 import com.nuvio.app.core.ui.glass.LiquidGlassSelectionSurface
 import com.nuvio.app.core.ui.glass.shouldCaptureFloatingBar
@@ -288,41 +289,49 @@ internal fun FloatingNavigationBar(
                             .graphicsLayer { translationX = motion.frame.panelOffset * density.density },
                     ) {
                         Box(Modifier.matchParentSize()) {
-                            Box(
-                                Modifier.matchParentSize()
-                                    .clip(floatingBarShape)
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
-                                    },
-                            ) {
-                                if (useLiquidGlassMaterial) {
-                                    LiquidGlassFrostedBar(
-                                        backdrop = backdrop!!,
-                                        modifier = Modifier.matchParentSize(),
-                                        glowStrength = glowStrength,
-                                        settings = floatingBarEffects,
-                                    )
-                                    if (liquidGlassBarBackdrop != null) {
-                                        // Capture the frosted glass surface without its own lens effect.
-                                        // The selected lens then refracts this source once, rather than
-                                        // sampling an already-refracted copy of the visible bar.
-                                        Box(
-                                            Modifier.matchParentSize()
-                                                .graphicsLayer { alpha = 0f }
-                                                .layerBackdrop(liquidGlassBarBackdrop),
-                                        ) {
-                                            LiquidGlassFrostedBar(
-                                                backdrop = backdrop!!,
-                                                modifier = Modifier.matchParentSize(),
-                                                glowStrength = glowStrength,
-                                                settings = floatingBarEffects,
-                                                includeRefraction = false,
-                                            )
-                                        }
-                                    }
+                            KeyedLiquidGlassRadius(
+                                cornerRadiusPercent = if (useLiquidGlassMaterial) {
+                                    floatingBarEffects.cornerRadiusPercent
                                 } else {
-                                    GlassBarSurface(backdrop, Modifier.matchParentSize(), style = glassStyle, exportedBackdrop = upstreamBarBackdrop)
+                                    50f
+                                },
+                            ) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .clip(floatingBarShape)
+                                        .drawWithContent {
+                                            drawContent()
+                                            drawJellyGlow(motion.frame, accentColor.copy(alpha = accentColor.alpha * glowStrength))
+                                        },
+                                ) {
+                                    if (useLiquidGlassMaterial) {
+                                        LiquidGlassFrostedBar(
+                                            backdrop = backdrop!!,
+                                            modifier = Modifier.matchParentSize(),
+                                            glowStrength = glowStrength,
+                                            settings = floatingBarEffects,
+                                        )
+                                        if (liquidGlassBarBackdrop != null) {
+                                            // Capture the frosted glass surface without its own lens effect.
+                                            // The selected lens then refracts this source once, rather than
+                                            // sampling an already-refracted copy of the visible bar.
+                                            Box(
+                                                Modifier.matchParentSize()
+                                                    .graphicsLayer { alpha = 0f }
+                                                    .layerBackdrop(liquidGlassBarBackdrop),
+                                            ) {
+                                                LiquidGlassFrostedBar(
+                                                    backdrop = backdrop!!,
+                                                    modifier = Modifier.matchParentSize(),
+                                                    glowStrength = glowStrength,
+                                                    settings = floatingBarEffects,
+                                                    includeRefraction = false,
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        GlassBarSurface(backdrop, Modifier.matchParentSize(), style = glassStyle, exportedBackdrop = upstreamBarBackdrop)
+                                    }
                                 }
                             }
                             Box(

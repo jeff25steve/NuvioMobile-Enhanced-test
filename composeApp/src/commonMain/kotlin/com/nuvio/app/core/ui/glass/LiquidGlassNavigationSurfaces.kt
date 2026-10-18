@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.geometry.CornerRadius
@@ -44,6 +45,25 @@ private val LiquidGlassBarEdgeBrush = Brush.verticalGradient(
  */
 internal fun Modifier.remeasureOnKeyChange(key: Int): Modifier =
     this then RemeasureOnKeyChangeElement(key)
+
+
+/**
+ * Recreate radius-dependent glass layers when their effective corner radius changes.
+ *
+ * Backdrop installs its clip shape into a measured graphics layer. Radius-only edits keep the
+ * same layout constraints, so a subtree remeasure can leave that layer stale on some frames.
+ * Key by the same rounded percent used by RoundedCornerShape: the visible surface and its
+ * optional capture copy are rebuilt together only when their rendered geometry changes.
+ */
+@Composable
+internal fun KeyedLiquidGlassRadius(
+    cornerRadiusPercent: Float,
+    content: @Composable () -> Unit,
+) {
+    key(cornerRadiusPercent.roundToInt()) {
+        content()
+    }
+}
 
 private class RemeasureOnKeyChangeElement(
     private val key: Int,
