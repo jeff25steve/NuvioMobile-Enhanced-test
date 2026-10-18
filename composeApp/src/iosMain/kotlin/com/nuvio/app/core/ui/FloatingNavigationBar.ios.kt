@@ -3,6 +3,10 @@ package com.nuvio.app.core.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.kyant.backdrop.Backdrop
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import dev.chrisbanes.haze.HazeState
 
 internal actual val floatingNavigationGlowSupported: Boolean
@@ -14,9 +18,14 @@ internal actual fun FloatingNavigationBar(
     modifier: Modifier,
     scrollState: NuvioNavBarScrollState?,
     hazeState: HazeState?,
+    backdrop: Backdrop?,
     contentPadding: PaddingValues,
     compactSize: Boolean,
     glowEnabled: Boolean,
+    liquidGlassEnabled: Boolean,
+    liquidGlassBarEffects: LiquidGlassEffectSettings,
+    liquidGlassSelectionEffects: LiquidGlassEffectSettings,
+    defaultIconColorOverride: Color?,
 ) {
     NuvioNavigationBar(modifier, scrollState, hazeState, contentPadding, compactSize) {
         items.forEach { item ->

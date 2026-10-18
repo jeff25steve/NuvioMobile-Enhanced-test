@@ -28,14 +28,18 @@ internal fun DrawScope.drawJellyGlow(frame: JellyFrame, color: Color) {
     )
 }
 
-internal fun DrawScope.jellyPillPath(frame: JellyFrame, count: Int): Path {
+internal fun DrawScope.jellyPillPath(
+    frame: JellyFrame,
+    count: Int,
+    cornerRadiusPercent: Float = 50f,
+): Path {
     val inset = 4.dp.toPx()
     val tabWidth = (size.width - 2 * inset) / count
     val itemHeight = size.height - 2 * inset
     val centerX = inset + (frame.position + 0.5f) * tabWidth
     val halfWidth = tabWidth * frame.pillScaleX / 2
     val halfHeight = itemHeight * frame.pillScaleY / 2
-    val radius = min(tabWidth, itemHeight) / 2
+    val radius = min(tabWidth, itemHeight) * (cornerRadiusPercent.takeIf { it.isFinite() }?.coerceIn(0f, 50f) ?: 50f) / 100f
     return Path().apply {
         addRoundRect(
             RoundRect(
@@ -54,9 +58,10 @@ internal fun DrawScope.drawJellyPill(
     count: Int,
     surfaceColor: Color,
     glowColor: Color,
+    cornerRadiusPercent: Float = 50f,
     content: () -> Unit,
 ) {
-    clipPath(jellyPillPath(frame, count)) {
+    clipPath(jellyPillPath(frame, count, cornerRadiusPercent)) {
         drawRect(
             color = surfaceColor,
             topLeft = Offset(-48.dp.toPx(), -16.dp.toPx()),
