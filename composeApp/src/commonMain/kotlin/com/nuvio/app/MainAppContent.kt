@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.kyant.backdrop.isRuntimeShaderSupported
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -167,6 +168,7 @@ import com.nuvio.app.features.settings.LicensesAttributionsSettingsScreen
 import com.nuvio.app.features.settings.MetaScreenSettingsScreen
 import com.nuvio.app.features.settings.PluginsSettingsScreen
 import com.nuvio.app.features.settings.SupportersContributorsSettingsScreen
+import com.nuvio.app.features.settings.NavBarStyle
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.whatsnew.WhatsNewSettingsScreen
 import com.nuvio.app.features.streams.BingeGroupCacheRepository
@@ -1533,7 +1535,21 @@ internal fun MainAppContent(
         ) {
             val nativeTabBarOwnsChrome = useNativeNavigation && useNativeTabBar
             val settingsRouteBarVisible = currentRoute is SettingsDestinationRoute && !nativeTabBarOwnsChrome
-            val settingsRouteBarHazeState = rememberHazeState()
+            val settingsRouteBarLiquidGlassEnabled by ThemeSettingsRepository.navBarLiquidGlassEnabled.collectAsStateWithLifecycle()
+            val settingsRouteBarStyle by ThemeSettingsRepository.navBarStyle.collectAsStateWithLifecycle()
+            val settingsRouteBarUsesFloatingBar =
+                settingsRouteBarVisible && settingsRouteBarStyle != NavBarStyle.CLASSIC
+            val settingsRouteBarHazeState =
+                if (settingsRouteBarUsesFloatingBar) rememberHazeState() else null
+            val settingsRouteBarLiquidGlassBackdrop = if (
+                settingsRouteBarUsesFloatingBar &&
+                settingsRouteBarLiquidGlassEnabled &&
+                isRuntimeShaderSupported()
+            ) {
+                rememberLayerBackdrop()
+            } else {
+                null
+            }
             var settingsRouteBarOverlay by remember { mutableStateOf(0.dp) }
             val settingsRouteBottomOverlay = when {
                 currentRoute !is SettingsDestinationRoute -> 0.dp
@@ -1568,8 +1584,8 @@ internal fun MainAppContent(
                     backStack = navBackStack,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (settingsRouteBarVisible) Modifier.hazeSource(state = settingsRouteBarHazeState) else Modifier)
-                        .then(if (settingsRouteBarVisible && settingsRouteBarLiquidGlassEnabled) Modifier.layerBackdrop(settingsRouteBarLiquidGlassBackdrop) else Modifier),
+                        .then(settingsRouteBarHazeState?.let { Modifier.hazeSource(state = it) } ?: Modifier)
+                        .then(settingsRouteBarLiquidGlassBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
                     onBack = { navController.popBackStack() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
@@ -1997,6 +2013,8 @@ internal fun MainAppContent(
                         isTabletLayout = useTabletFloatingTabBar || maxWidth >= 768.dp,
                         showLiveTv = showLiveTvInNavigation,
                         hazeState = settingsRouteBarHazeState,
+                        liquidGlassBackdrop = settingsRouteBarLiquidGlassBackdrop,
+                        liquidGlassEnabled = settingsRouteBarLiquidGlassEnabled,
                         onTabSelected = ::selectTabFromSettingsRoute,
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,
