@@ -2,7 +2,6 @@ package com.nuvio.app.core.ui.glass
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LiquidGlassEffectSettingsTest {
@@ -68,6 +67,6 @@ class LiquidGlassEffectSettingsTest {
         )
         assertTrue(defaults.affectTabIcons)
         assertTrue(defaults.affectFloatingBar)
-        assertFalse(defaults.sanitized(defaults, LiquidGlassEffectDefaults.selectionLensLimits).tintOpacity.isNaN())
+        assertEquals(0f, defaults.sanitized(defaults, LiquidGlassEffectDefaults.selectionLensLimits).tintOpacity)
     }
 }
