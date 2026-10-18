@@ -184,4 +184,33 @@ class FloatingNavigationBarRtlTest {
         assertEquals(3, rightVisual)
         assertEquals(3, logicalNavIndex(rightVisual, count, isRtl))
     }
+
+    @Test
+    fun liquidGlassSelectionLensTranslationMatchesLtrAndRtlVisualSlots() {
+        val count = 4
+        val tabWidthPx = 78f
+        val insetPx = 4f
+
+        assertEquals(
+            4f,
+            liquidGlassSelectionTranslationX(0f, count, tabWidthPx, insetPx, isRtl = false),
+            0.001f,
+        )
+        assertEquals(
+            238f,
+            liquidGlassSelectionTranslationX(3f, count, tabWidthPx, insetPx, isRtl = false),
+            0.001f,
+        )
+        assertEquals(
+            -238f,
+            liquidGlassSelectionTranslationX(0f, count, tabWidthPx, insetPx, isRtl = true),
+            0.001f,
+        )
+        assertEquals(
+            -4f,
+            liquidGlassSelectionTranslationX(3f, count, tabWidthPx, insetPx, isRtl = true),
+            0.001f,
+        )
+    }
+
 }
