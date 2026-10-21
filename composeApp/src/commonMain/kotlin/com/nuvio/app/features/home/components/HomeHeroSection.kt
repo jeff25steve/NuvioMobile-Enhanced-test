@@ -132,6 +132,20 @@ internal object HomeHeroTrailerPlaybackController {
     fun forceStop() {
         stopCallback?.invoke()
     }
+
+    private var playbackStartCallback: (() -> Unit)? = null
+
+    fun registerPlaybackStartObserver(callback: () -> Unit) {
+        playbackStartCallback = callback
+    }
+
+    fun unregisterPlaybackStartObserver(callback: () -> Unit) {
+        if (playbackStartCallback === callback) playbackStartCallback = null
+    }
+
+    fun notifyPlaybackStarting() {
+        playbackStartCallback?.invoke()
+    }
 }
 
 private object HomeHeroTrailerPlaybackPositionStore {
@@ -411,6 +425,7 @@ internal fun HomeHeroSection(
                 if (source == null) {
                     heroTrailerFinished = true
                 } else {
+                    HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                     heroTrailerPlaybackSource = source
                 }
             }
