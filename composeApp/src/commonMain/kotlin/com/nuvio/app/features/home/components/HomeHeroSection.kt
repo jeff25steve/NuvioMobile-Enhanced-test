@@ -120,6 +120,7 @@ private const val TABLET_LANDSCAPE_HERO_HEIGHT_MULTIPLIER = 1.5f
 
 internal object HomeHeroTrailerPlaybackController {
     private var stopCallback: (() -> Unit)? = null
+    private var inlineTrailerPlaybackActive = false
 
     fun register(stop: () -> Unit) {
         stopCallback = stop
@@ -130,7 +131,14 @@ internal object HomeHeroTrailerPlaybackController {
     }
 
     fun forceStop() {
+        inlineTrailerPlaybackActive = false
         stopCallback?.invoke()
+    }
+
+    fun isInlineTrailerPlaybackActive(): Boolean = inlineTrailerPlaybackActive
+
+    fun setInlineTrailerPlaybackActive(active: Boolean) {
+        inlineTrailerPlaybackActive = active
     }
 
     private var playbackStartCallback: (() -> Unit)? = null
@@ -387,6 +395,7 @@ internal fun HomeHeroSection(
             }
 
             val latestForceStopTrailer = rememberUpdatedState {
+                HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                 if (heroTrailerPlaybackSource != null || !heroTrailerFinished) {
                     heroTrailerPlaybackSource = null
                     heroTrailerReady = false
@@ -405,6 +414,7 @@ internal fun HomeHeroSection(
                 currentItem.id,
                 trailerStartDelaySeconds,
             ) {
+                HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                 heroTrailerPlaybackSource = null
                 heroTrailerReady = false
                 heroTrailerFinished = false
@@ -425,6 +435,7 @@ internal fun HomeHeroSection(
                 if (source == null) {
                     heroTrailerFinished = true
                 } else {
+                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(true)
                     HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                     heroTrailerPlaybackSource = source
                 }
@@ -517,11 +528,13 @@ internal fun HomeHeroSection(
                                     if (!heroTrailerFinished) heroTrailerReady = true
                                 },
                                 onEnded = {
+                                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                                     heroTrailerReady = false
                                     heroTrailerFinished = true
                                     HomeHeroTrailerPlaybackPositionStore.clear(heroTrailerItemKey)
                                 },
                                 onError = {
+                                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                                     heroTrailerReady = false
                                     heroTrailerFinished = true
                                     HomeHeroTrailerPlaybackPositionStore.clear(heroTrailerItemKey)
