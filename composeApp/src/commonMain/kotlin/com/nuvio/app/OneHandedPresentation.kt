@@ -224,8 +224,8 @@ internal fun OneHandedPresentation(
 
             AnimatedVisibility(
                 visible = reduceContent,
-                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMedium)),
-                exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+                enter = fadeIn(animationSpec = floatAnimationSpec),
+                exit = fadeOut(animationSpec = floatAnimationSpec),
                 modifier = Modifier.align(Alignment.TopCenter),
             ) {
                 Box(
