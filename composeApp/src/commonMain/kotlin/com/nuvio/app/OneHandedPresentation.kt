@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 private const val OneHandedScale = 0.66f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
+private const val OneHandedMinimumScale = 0.60f
 
 /**
  * Presents the existing UI tree as a single reduced, bottom-anchored surface.
@@ -210,7 +211,7 @@ internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
         OneHandedScale,
         OneHandedMaxWidthDp / widthDp,
         OneHandedMaxHeightDp / heightDp,
-    ).coerceIn(0.1f, OneHandedScale)
+    ).coerceIn(OneHandedMinimumScale, OneHandedScale)
 }
 
 /** Computes the scaled surface's horizontal edge for the same animated pivot used by graphicsLayer. */
