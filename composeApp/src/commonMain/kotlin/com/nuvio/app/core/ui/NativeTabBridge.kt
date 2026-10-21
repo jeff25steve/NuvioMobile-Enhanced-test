@@ -42,6 +42,9 @@ internal object NativeTabBridge {
     private val _requestedTabs = MutableSharedFlow<NativeNavigationTab>(extraBufferCapacity = 1)
     val requestedTabs: SharedFlow<NativeNavigationTab> = _requestedTabs.asSharedFlow()
 
+    private val _oneHandedModeToggleRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val oneHandedModeToggleRequests: SharedFlow<Unit> = _oneHandedModeToggleRequests.asSharedFlow()
+
     private val _activeTab = MutableStateFlow(NativeNavigationTab.Home)
     val activeTab: StateFlow<NativeNavigationTab> = _activeTab.asStateFlow()
 
@@ -55,6 +58,10 @@ internal object NativeTabBridge {
 
     fun requestTab(tabName: String) {
         _requestedTabs.tryEmit(NativeNavigationTab.fromName(tabName))
+    }
+
+    fun requestOneHandedModeToggle() {
+        _oneHandedModeToggleRequests.tryEmit(Unit)
     }
 
     fun publishSelectedTab(tab: NativeNavigationTab) {
@@ -248,6 +255,10 @@ fun observeNativePopToRoot(listener: (String) -> Unit) {
 
 fun nativeTabSelect(tabName: String) {
     NativeTabBridge.requestTab(tabName)
+}
+
+fun nativeTabToggleOneHandedMode() {
+    NativeTabBridge.requestOneHandedModeToggle()
 }
 
 fun publishProfileTabIconFrame(xDp: Float, yDp: Float, widthDp: Float, heightDp: Float) {
