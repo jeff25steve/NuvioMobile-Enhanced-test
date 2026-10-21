@@ -648,11 +648,16 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                     return@awaitEachGesture
                 }
                 if (currentEvent.changes.none { it.id == down.id && it.pressed }) {
+                    val upWasConsumed = currentEvent.changes
+                        .firstOrNull { it.id == down.id }
+                        ?.isConsumed == true
                     val visualIndex = motion.finish()
                     val items = currentItems()
                     val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
                     finished = true
-                    items.getOrNull(logicalIndex)?.onClick?.invoke()
+                    // A child selectable may already have handled the tap on Main pass.
+                    // Avoid invoking the same destination a second time.
+                    if (!upWasConsumed) items.getOrNull(logicalIndex)?.onClick?.invoke()
                     return@awaitEachGesture
                 }
                 // If the long-press was cancelled by movement past touch slop, continue into
