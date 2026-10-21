@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -78,6 +79,24 @@ class FloatingNavigationBarGestureTest {
                 assertEquals(listOf(2), clicks)
                 assertEquals(1, libraryHoldCount)
             }
+        }
+    }
+
+    @Test
+    fun dragStillSelectsTheDestinationWithoutInvokingLongPress() {
+        setContent()
+        reset(LayoutDirection.Ltr)
+
+        compose.onRoot().performTouchInput {
+            down(0, Offset(40f, 32f))
+            moveTo(0, Offset(280f, 32f), delayMillis = 100)
+            up(0)
+        }
+
+        assertSettlesAt(3)
+        compose.runOnIdle {
+            assertEquals(listOf(3), clicks)
+            assertEquals(0, libraryHoldCount)
         }
     }
 
