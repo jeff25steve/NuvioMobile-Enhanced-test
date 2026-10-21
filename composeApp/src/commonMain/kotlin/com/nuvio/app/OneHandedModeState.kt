@@ -35,15 +35,15 @@ internal class OneHandedModeController(
     val state: StateFlow<OneHandedModeState> = mutableState.asStateFlow()
 
     fun toggle() {
-        mutableState.update(OneHandedModeState::toggle)
+        mutableState.update { current -> current.toggle() }
     }
 
     fun dismissOutside() {
-        mutableState.update(OneHandedModeState::dismissOutside)
+        mutableState.update { current -> current.dismissOutside() }
     }
 
     fun disableForPlayerEntry() {
-        mutableState.update(OneHandedModeState::disableForPlayerEntry)
+        mutableState.update { current -> current.disableForPlayerEntry() }
     }
 }
 
