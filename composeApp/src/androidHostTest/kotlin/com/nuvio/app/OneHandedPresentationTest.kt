@@ -169,6 +169,50 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun outsideTapUsesLatestCallbackAfterRecomposition() {
+        var firstCallbackCount = 0
+        var latestCallbackCount = 0
+        val useLatestCallback = mutableStateOf(false)
+
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.size(320.dp, 568.dp)) {
+                    OneHandedPresentation(
+                        enabled = true,
+                        placement = OneHandedModePlacement.Right,
+                        forceNormalLayout = false,
+                        onOutsideTap = {
+                            if (useLatestCallback.value) {
+                                latestCallbackCount++
+                            } else {
+                                firstCallbackCount++
+                            }
+                        },
+                        onPlacementToggle = {},
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+
+        compose.runOnIdle {
+            useLatestCallback.value = true
+        }
+        compose.waitForIdle()
+
+        compose.onRoot().performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(0, firstCallbackCount)
+            assertEquals(1, latestCallbackCount)
+        }
+    }
+
+    @Test
     fun outsideTapDismissesWithoutActivatingUnderlyingContent() {
         setContent()
 
