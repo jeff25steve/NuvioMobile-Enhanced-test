@@ -15,12 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 private const val OneHandedScale = 0.66f
@@ -73,6 +75,7 @@ internal fun OneHandedPresentation(
         label = "one_handed_shadow",
     )
     val currentScale = rememberUpdatedState(scale)
+    val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
     val background = MaterialTheme.colorScheme.background
     val surface = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
@@ -111,19 +114,33 @@ internal fun OneHandedPresentation(
                         width - reducedWidth
                     }
                     val top = height - reducedHeight
-                    val insideReducedSurface =
-                        down.position.x >= left &&
-                            down.position.x <= left + reducedWidth &&
-                            down.position.y >= top &&
-                            down.position.y <= height
+                    val mappedX = (down.position.x - left) / gestureScale
+                    val mappedY = (down.position.y - top) / gestureScale
+                    val insideReducedSurface = isWithinRoundedRect(
+                        x = mappedX,
+                        y = mappedY,
+                        width = width,
+                        height = height,
+                        cornerRadius = currentCornerRadiusPx.value,
+                    )
 
                     if (!insideReducedSurface) {
                         down.consume()
+                        var tapCandidate = true
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.changes.count { it.pressed } > 1) {
+                                tapCandidate = false
+                            }
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            if (change == null) {
+                                tapCandidate = false
+                            } else if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                                tapCandidate = false
+                            }
                             event.changes.forEach { it.consume() }
-                            if (event.changes.none { it.pressed }) {
-                                onOutsideTap()
+                            if (change != null && !change.pressed) {
+                                if (tapCandidate) onOutsideTap()
                                 break
                             }
                         }
@@ -161,4 +178,25 @@ internal fun OneHandedPresentation(
         }
         content(contentModifier)
     }
+}
+
+
+/** Hit-tests the same rounded rectangle that clips the scaled app surface. */
+internal fun isWithinRoundedRect(
+    x: Float,
+    y: Float,
+    width: Float,
+    height: Float,
+    cornerRadius: Float,
+): Boolean {
+    if (x < 0f || y < 0f || x > width || y > height) return false
+    val radius = cornerRadius.coerceIn(0f, minOf(width, height) / 2f)
+    if (radius == 0f || (x >= radius && x <= width - radius) || (y >= radius && y <= height - radius)) {
+        return true
+    }
+    val centerX = if (x < radius) radius else width - radius
+    val centerY = if (y < radius) radius else height - radius
+    val dx = x - centerX
+    val dy = y - centerY
+    return dx * dx + dy * dy <= radius * radius
 }
