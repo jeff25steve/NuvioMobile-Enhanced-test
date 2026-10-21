@@ -138,6 +138,7 @@ internal fun MainTabsDestination(
                         onTabSelected = onTabSelected,
                         onProfileSelected = onProfileSelected,
                         onAddProfileRequested = onAddProfileRequested,
+                        onOneHandedModeToggle = onOneHandedModeToggle,
                     )
                 }
             },
@@ -324,6 +325,7 @@ internal fun MainClassicNavigationBar(
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
     modifier: Modifier = Modifier,
+    onOneHandedModeToggle: () -> Unit = {},
 ) {
     NuvioClassicNavigationBar(modifier) {
         NavItem(
@@ -343,6 +345,7 @@ internal fun MainClassicNavigationBar(
             onClick = { onTabSelected(AppScreenTab.Library) },
             icon = Res.drawable.sidebar_library,
             contentDescription = stringResource(Res.string.compose_nav_library),
+            onLongClick = onOneHandedModeToggle,
         )
         if (showLiveTv) {
             NavItem(
@@ -417,6 +420,7 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                     onTabSelected = onTabSelected,
                     onProfileSelected = onProfileSelected,
                     onAddProfileRequested = onAddProfileRequested,
+                    onOneHandedModeToggle = onOneHandedModeToggle,
                 )
             }
         }
