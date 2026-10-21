@@ -638,21 +638,14 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                     // Do not route a Library hold through the normal tab click path.
                     val items = currentItems()
                     val selectedIndex = items.indexOfFirst { it.selected }
+                    // Match JellyMotion.indexAt's inset and slot-width calculation exactly.
+                    val slotWidth = ((size.width / density) - 8f) / items.size.coerceAtLeast(1)
+                    val heldVisualIndex = ((down.position.x / density - 4f) / slotWidth)
+                        .toInt()
+                        .coerceIn(0, (items.size - 1).coerceAtLeast(0))
+                    val heldLogicalIndex = logicalNavIndex(heldVisualIndex, items.size, isRtl())
                     motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
                     finished = true
-                    val visualIndex = visualNavIndex(
-                        logicalNavIndex(motion.finish(), items.size, isRtl()),
-                        items.size,
-                        isRtl(),
-                    )
-                    // motion.cancel resets to the selected item; resolve the held item from the
-                    // original pointer coordinate instead of the spring's selected position.
-                    val itemWidth = (size.width / density) / items.size.coerceAtLeast(1)
-                    val heldLogicalIndex = logicalNavIndex(
-                        ((down.position.x / density) / itemWidth).toInt().coerceIn(0, items.lastIndex),
-                        items.size,
-                        isRtl(),
-                    )
                     items.getOrNull(heldLogicalIndex)?.onLongClick?.invoke()
                     // Consume the remainder of this press so release cannot become a tab tap.
                     while (true) {
