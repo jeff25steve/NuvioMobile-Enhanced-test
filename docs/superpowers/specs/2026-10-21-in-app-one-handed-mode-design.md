@@ -3,7 +3,7 @@
 **Date:** 2026-10-21  
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Implementation branch:** `one-hand-operation` (created from `enhanced`)  
-**Status:** Draft for user review; implementation awaits repository-maintainer approval
+**Status:** User-approved design; implementation awaits repository-maintainer approval
 
 ## 1. Goal
 
@@ -23,6 +23,7 @@ Add an optional, Samsung One-handed Mode-inspired presentation for Nuvio's ordin
 - Tapping outside the reduced app content exits one-handed mode.
 - **Opening any video or trailer disables one-handed mode immediately.** Playback uses the normal layout. Exiting playback must not re-enable one-handed mode automatically.
 - Playback state, progress, and player controls must not be reset or disrupted by the transition.
+- All feature processing stays on-device. Do not upload screenshots, UI pixels, layout state, or feature telemetry to any server; do not add a network dependency for this feature.
 - No background service, foreground service, persistent notification, overlay permission, system-wide manipulation, or background monitoring.
 - Keep the implementation scoped to the current app UI and avoid unrelated refactors.
 
@@ -103,7 +104,7 @@ The feature must not alter media selection, playback state, resume position, wat
 - Ensure orientation, window-size changes, and insets do not leave content clipped or unresponsive.
 - Do not allow outside-region taps to pass through and activate hidden content.
 - Avoid duplicate long-press handlers or gesture detectors that compete with the existing navigation bar.
-- Treat captured pixels as ephemeral UI resources: no disk writes, analytics uploads, logs, or persistent storage. Release promptly when no longer needed.
+- Keep all capture, blur, transform, gesture handling, and state transitions on-device. Treat captured pixels as ephemeral in-memory UI resources: no disk writes, network transmission, analytics uploads, logs, or persistent storage. Release promptly when no longer needed.
 - Avoid capture/blur for the player route and any secure/protected content.
 - Do not change product source code until the feature request has explicit repository-maintainer approval, as required by `CONTRIBUTING.md`.
 
