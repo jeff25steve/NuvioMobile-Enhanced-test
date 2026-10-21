@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.hasLongClickAction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -77,6 +79,13 @@ class FloatingNavigationBarGestureTest {
                 assertEquals(1, libraryHoldCount)
             }
         }
+    }
+
+    @Test
+    fun libraryLongPressIsExposedAsAnAccessibilityAction() {
+        setContent()
+
+        compose.onNodeWithContentDescription("Tab 2").assert(hasLongClickAction())
     }
 
     @Test
