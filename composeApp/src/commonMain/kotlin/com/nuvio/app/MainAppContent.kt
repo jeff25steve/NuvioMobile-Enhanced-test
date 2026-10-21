@@ -402,6 +402,7 @@ internal fun MainAppContent(
     val cloudLibraryPlayDisabledText = stringResource(Res.string.cloud_library_play_disabled)
     val cloudLibraryPlayNotConnectedText = stringResource(Res.string.cloud_library_play_not_connected)
     val nativeTabHomeTitle = stringResource(Res.string.compose_nav_home)
+    val oneHandedSwitchSideDescription = stringResource(Res.string.one_handed_switch_side)
     val nativeTabSearchTitle = stringResource(Res.string.compose_nav_search)
     val nativeTabLibraryTitle = stringResource(Res.string.compose_nav_library)
     val nativeTabProfileTitle = stringResource(Res.string.compose_nav_profile)
@@ -1606,6 +1607,8 @@ internal fun MainAppContent(
                     placement = oneHandedModeState.placement,
                     forceNormalLayout = playerPresentationActive,
                     onOutsideTap = dismissOneHandedMode,
+                    onPlacementToggle = { appOneHandedModeController.togglePlacement() },
+                    placementToggleDescription = oneHandedSwitchSideDescription,
                 ) { presentationModifier ->
                     Box(presentationModifier) {
                 CompositionLocalProvider(
