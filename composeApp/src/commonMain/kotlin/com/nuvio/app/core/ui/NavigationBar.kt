@@ -226,6 +226,7 @@ interface NuvioNavigationBarScope {
         contentDescription: String?,
         modifier: Modifier = Modifier,
         label: String? = null,
+        onLongClick: (() -> Unit)? = null,
     )
 
     @Composable
@@ -301,6 +302,7 @@ private class NuvioNavigationBarScopeImpl(
         contentDescription: String?,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
     ) {
         val tokens = MaterialTheme.nuvio
         val palette = MaterialTheme.themePalette
@@ -447,6 +449,7 @@ private class NuvioClassicNavigationBarScopeImpl(
         contentDescription: String?,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
     ) {
         val tokens = MaterialTheme.nuvio
         val palette = MaterialTheme.themePalette
@@ -480,6 +483,7 @@ private class NuvioClassicNavigationBarScopeImpl(
         contentDescription: String?,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
     ) {
         val tokens = MaterialTheme.nuvio
         val palette = MaterialTheme.themePalette
@@ -511,6 +515,7 @@ private class NuvioClassicNavigationBarScopeImpl(
         onClick: () -> Unit,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
         content: @Composable () -> Unit,
     ) {
         val tokens = MaterialTheme.nuvio
