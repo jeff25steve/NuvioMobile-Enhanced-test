@@ -275,6 +275,13 @@ internal fun MainAppContent(
         val disableOneHandedModeForPlayerEntry: () -> Unit = {
             oneHandedModeState = oneHandedModeState.disableForPlayerEntry()
         }
+        DisposableEffect(Unit) {
+            val callback: () -> Unit = disableOneHandedModeForPlayerEntry
+            HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(callback)
+            onDispose {
+                HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(callback)
+            }
+        }
         var searchFocusRequestCount by remember { mutableStateOf(0) }
         val homeScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
         val searchScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
