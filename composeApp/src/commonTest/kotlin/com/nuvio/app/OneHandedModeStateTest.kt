@@ -64,8 +64,10 @@ class OneHandedModeStateTest {
         assertFalse(afterPlayerEntry.disableForPlayerEntry().enabled)
     }
     @Test
-    fun responsiveScaleRespectsMinimumOnLargeScreens() {
-        assertEquals(0.66f, oneHandedScaleForViewport(360f, 800f))
+    fun compactPhonesKeepMoreUsableScaleWhileLargeScreensStayCapped() {
+        assertEquals(0.72f, oneHandedScaleForViewport(320f, 568f))
+        assertEquals(0.72f, oneHandedScaleForViewport(360f, 800f))
+        assertEquals(0.66f, oneHandedScaleForViewport(390f, 844f))
         assertEquals(0.6333333f, oneHandedScaleForViewport(800f, 1200f), 0.001f)
         assertEquals(0.60f, oneHandedScaleForViewport(1200f, 1600f), 0.001f)
     }
