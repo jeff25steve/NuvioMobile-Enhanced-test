@@ -103,6 +103,26 @@ class FloatingNavigationBarGestureTest {
     }
 
     @Test
+    fun multiMoveDragUsesIncrementalDeltasAndStopsAtIntendedTab() {
+        setContent()
+        reset(LayoutDirection.Ltr)
+
+        compose.onRoot().performTouchInput {
+            down(0, Offset(40f, 32f))
+            moveTo(0, Offset(100f, 32f), delayMillis = 40)
+            moveTo(0, Offset(160f, 32f), delayMillis = 40)
+            moveTo(0, Offset(180f, 32f), delayMillis = 40)
+            up(0)
+        }
+
+        assertSettlesAt(2)
+        compose.runOnIdle {
+            assertEquals(listOf(2), clicks)
+            assertEquals(0, libraryHoldCount)
+        }
+    }
+
+    @Test
     fun libraryLongPressAccessibilityActionInvokesToggleWithoutNavigating() {
         setContent()
 
