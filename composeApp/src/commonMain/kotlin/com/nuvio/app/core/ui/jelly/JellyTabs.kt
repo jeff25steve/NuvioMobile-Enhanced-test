@@ -142,24 +142,16 @@ internal fun JellyTabTargets(
             }
             Box(
                 modifier = Modifier.weight(1f).fillMaxHeight()
-                    .then(
-                        if (item.onLongClick != null) {
-                            Modifier.combinedClickable(
-                                interactionSource = null,
-                                indication = null,
-                                role = Role.Tab,
-                                onLongClick = item.onLongClick,
-                                onClick = onClick,
-                            )
-                        } else {
-                            Modifier.selectable(
-                                selected = item.selected,
-                                role = Role.Tab,
-                                interactionSource = null,
-                                indication = null,
-                                onClick = onClick,
-                            )
-                        },
+                    // The parent navigation gesture detector owns pointer long-press
+                    // recognition so it can coordinate it with drag-to-select. Keep this
+                    // target's built-in pointer handling click-only; long-press remains exposed
+                    // through the explicit semantics action below for accessibility.
+                    .selectable(
+                        selected = item.selected,
+                        role = Role.Tab,
+                        interactionSource = null,
+                        indication = null,
+                        onClick = onClick,
                     )
                     .clearAndSetSemantics {
                         role = Role.Tab
