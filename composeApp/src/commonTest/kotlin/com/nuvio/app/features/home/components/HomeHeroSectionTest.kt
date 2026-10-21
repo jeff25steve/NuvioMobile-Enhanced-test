@@ -101,4 +101,31 @@ class HomeHeroSectionTest {
             HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(second)
         }
     }
+
+    @Test
+    fun `playback start dispatch tolerates an observer unregistering itself`() {
+        val notifications = mutableListOf<String>()
+        lateinit var firstObserver: () -> Unit
+        firstObserver = {
+            notifications += "first"
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(firstObserver)
+        }
+        val secondObserver: () -> Unit = { notifications += "second" }
+
+        try {
+            HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(firstObserver)
+            HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(secondObserver)
+
+            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
+            assertEquals(listOf("first", "second"), notifications)
+
+            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
+            assertEquals(listOf("first", "second", "second"), notifications)
+        } finally {
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(firstObserver)
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(secondObserver)
+            HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
+        }
+    }
+
 }

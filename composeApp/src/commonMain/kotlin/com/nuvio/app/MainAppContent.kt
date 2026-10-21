@@ -365,16 +365,17 @@ internal fun MainAppContent(
     val topPlayerRoute = currentRoute as? PlayerRoute
     val hostedPlayerRoute = MiniPlayerController.hostedRoute(topPlayerRoute, miniPlayerHostEnabled)
     var streamLandscapeLoadingVisible by remember(currentRoute) { mutableStateOf(false) }
-    val playerPresentationActive =
-        currentRoute is PlayerRoute || visiblePlayerEntries > 0 || streamLandscapeLoadingVisible
+    val playerPresentationActive = isPlayerPresentationActive(
+        currentRoute = currentRoute,
+        visiblePlayerEntries = visiblePlayerEntries,
+        streamLandscapeLoadingVisible = streamLandscapeLoadingVisible,
+    )
     if (playerPresentationActive) {
         LockPlayerToLandscape()
         HidePlayerSystemBars()
     }
     SideEffect {
-        if (playerPresentationActive && oneHandedModeState.enabled) {
-            appOneHandedModeController.disableForPlayerEntry()
-        }
+        appOneHandedModeController.disableForPlayerPresentationIfActive(playerPresentationActive)
     }
     val p2pSettingsUiState by remember {
         P2pSettingsRepository.ensureLoaded()

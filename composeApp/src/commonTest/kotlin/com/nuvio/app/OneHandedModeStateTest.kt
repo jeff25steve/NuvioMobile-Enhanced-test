@@ -1,5 +1,7 @@
 package com.nuvio.app
 
+import com.nuvio.app.navigation.PlayerRoute
+import com.nuvio.app.navigation.TabsRoute
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -78,4 +80,71 @@ class OneHandedModeStateTest {
         assertEquals(340f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 1f))
         assertEquals(170f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 0.5f))
     }
+
+    @Test
+    fun playerRouteActivatesTheNormalPlayerPresentationGuard() {
+        assertTrue(
+            isPlayerPresentationActive(
+                currentRoute = PlayerRoute(launchId = 42L, title = "Test player"),
+                visiblePlayerEntries = 0,
+                streamLandscapeLoadingVisible = false,
+            ),
+        )
+    }
+
+    @Test
+    fun hostedPlayerAndLandscapeLoadingActivateThePresentationGuard() {
+        assertTrue(
+            isPlayerPresentationActive(
+                currentRoute = TabsRoute,
+                visiblePlayerEntries = 1,
+                streamLandscapeLoadingVisible = false,
+            ),
+        )
+        assertTrue(
+            isPlayerPresentationActive(
+                currentRoute = TabsRoute,
+                visiblePlayerEntries = 0,
+                streamLandscapeLoadingVisible = true,
+            ),
+        )
+        assertFalse(
+            isPlayerPresentationActive(
+                currentRoute = TabsRoute,
+                visiblePlayerEntries = 0,
+                streamLandscapeLoadingVisible = false,
+            ),
+        )
+    }
+
+    @Test
+    fun activePlayerPresentationDisablesModeAndPreservesPlacement() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Left,
+            ),
+        )
+
+        controller.disableForPlayerPresentationIfActive(isActive = true)
+
+        assertFalse(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+    }
+
+    @Test
+    fun inactivePlayerPresentationDoesNotChangeOneHandedMode() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+            ),
+        )
+
+        controller.disableForPlayerPresentationIfActive(isActive = false)
+
+        assertTrue(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
+    }
+
 }

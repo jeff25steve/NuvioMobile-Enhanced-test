@@ -1,5 +1,7 @@
 package com.nuvio.app
 
+import com.nuvio.app.navigation.AppRoute
+import com.nuvio.app.navigation.PlayerRoute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +37,21 @@ internal enum class OneHandedModePlacement {
     Right,
 }
 
+/**
+ * Identifies presentation states that must not apply the one-handed transform.
+ *
+ * Keep this decision pure so player route, hosted-player, and transitional loading
+ * guards can be covered without constructing the full app runtime in tests.
+ */
+internal fun isPlayerPresentationActive(
+    currentRoute: AppRoute?,
+    visiblePlayerEntries: Int,
+    streamLandscapeLoadingVisible: Boolean,
+): Boolean =
+    currentRoute is PlayerRoute ||
+        visiblePlayerEntries > 0 ||
+        streamLandscapeLoadingVisible
+
 /** One process-local source of truth shared by Android and all iOS tab compositions. */
 internal class OneHandedModeController(
     initialState: OneHandedModeState = OneHandedModeState(),
@@ -56,6 +73,13 @@ internal class OneHandedModeController(
 
     fun disableForPlayerEntry() {
         mutableState.update { current -> current.disableForPlayerEntry() }
+    }
+
+    fun disableForPlayerPresentationIfActive(isActive: Boolean) {
+        if (!isActive) return
+        mutableState.update { current ->
+            if (current.enabled) current.disableForPlayerEntry() else current
+        }
     }
 }
 

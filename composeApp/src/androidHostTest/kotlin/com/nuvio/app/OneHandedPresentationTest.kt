@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
@@ -22,8 +24,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -419,4 +425,154 @@ class OneHandedPresentationTest {
             }
         }
     }
+
+    @Test
+    fun dialogActionReceivesTapWithoutDismissingOneHandedMode() {
+        outsideDismissCount = 0
+        val dialogVisible = mutableStateOf(true)
+        var dialogActionCount = 0
+
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    OneHandedPresentation(
+                        enabled = true,
+                        placement = OneHandedModePlacement.Right,
+                        forceNormalLayout = false,
+                        onOutsideTap = { outsideDismissCount++ },
+                        onPlacementToggle = {},
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+
+                    if (dialogVisible.value) {
+                        Dialog(onDismissRequest = { dialogVisible.value = false }) {
+                            Button(
+                                onClick = {
+                                    dialogActionCount++
+                                    dialogVisible.value = false
+                                },
+                            ) {
+                                Text("Confirm dialog action")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("Confirm dialog action").performClick()
+
+        compose.runOnIdle {
+            assertEquals(1, dialogActionCount)
+            assertEquals(0, outsideDismissCount)
+        }
+
+        compose.onRoot().performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun popupActionReceivesTapWithoutDismissingOneHandedMode() {
+        outsideDismissCount = 0
+        val popupVisible = mutableStateOf(true)
+        var popupActionCount = 0
+
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    OneHandedPresentation(
+                        enabled = true,
+                        placement = OneHandedModePlacement.Right,
+                        forceNormalLayout = false,
+                        onOutsideTap = { outsideDismissCount++ },
+                        onPlacementToggle = {},
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+
+                    if (popupVisible.value) {
+                        Popup(
+                            alignment = Alignment.Center,
+                            onDismissRequest = { popupVisible.value = false },
+                            properties = PopupProperties(focusable = true),
+                        ) {
+                            Button(
+                                onClick = {
+                                    popupActionCount++
+                                    popupVisible.value = false
+                                },
+                            ) {
+                                Text("Choose popup action")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("Choose popup action").performClick()
+
+        compose.runOnIdle {
+            assertEquals(1, popupActionCount)
+            assertEquals(0, outsideDismissCount)
+        }
+
+        compose.onRoot().performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, outsideDismissCount)
+        }
+    }
+
+
+    @Test
+    fun inAppOverlayActionReceivesTapWithoutDismissingOneHandedMode() {
+        outsideDismissCount = 0
+        var overlayActionCount = 0
+
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    OneHandedPresentation(
+                        enabled = true,
+                        placement = OneHandedModePlacement.Right,
+                        forceNormalLayout = false,
+                        onOutsideTap = { outsideDismissCount++ },
+                        onPlacementToggle = {},
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+
+                    Box(
+                        Modifier
+                            .align(Alignment.Center)
+                            .size(160.dp)
+                            .clickable { overlayActionCount++ }
+                            .testTag("inAppOverlayAction"),
+                    ) {
+                        Text("In-app overlay action")
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithTag("inAppOverlayAction").performClick()
+
+        compose.runOnIdle {
+            assertEquals(1, overlayActionCount)
+            assertEquals(0, outsideDismissCount)
+        }
+    }
+
 }
