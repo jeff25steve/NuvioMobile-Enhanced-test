@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -286,6 +287,7 @@ internal fun TabletFloatingTopBar(
     onAddProfileRequested: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp? = null,
+    onOneHandedModeToggle: () -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
     val statusBarPadding = topInset ?: (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + NuvioTokens.Space.s10)
@@ -345,6 +347,7 @@ internal fun TabletFloatingTopBar(
                     label = stringResource(Res.string.compose_nav_library),
                     selected = selectedTab == AppScreenTab.Library,
                     onClick = { onTabSelected(AppScreenTab.Library) },
+                    onLongClick = onOneHandedModeToggle,
                     icon = {
                         Icon(
                             painter = painterResource(Res.drawable.sidebar_library),
@@ -421,14 +424,20 @@ private fun TabletTopPillItem(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     icon: @Composable () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val itemModifier = if (onLongClick == null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    }
     Surface(
         color = if (selected) tokens.colors.overlaySelected else tokens.colors.surface,
         shape = tokens.shapes.chip,
         tonalElevation = if (selected) tokens.elevation.raised else tokens.elevation.flat,
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = itemModifier,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = tokens.components.chipHorizontalPadding, vertical = NuvioTokens.Space.s10),
