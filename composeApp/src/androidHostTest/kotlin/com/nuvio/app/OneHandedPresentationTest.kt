@@ -5,14 +5,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -45,6 +48,34 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
             assertEquals(0, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun compactViewportStillDeliversInsideTapToAppContent() {
+        setContent(compactViewport = true)
+
+        compose.onNodeWithTag("compactViewport").performTouchInput {
+            click(Offset(size.width * 0.9f, size.height * 0.9f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, insideClickCount)
+            assertEquals(0, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun compactViewportOutsideTapDismissesWithoutActivatingContent() {
+        setContent(compactViewport = true)
+
+        compose.onNodeWithTag("compactViewport").performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(0, insideClickCount)
+            assertEquals(1, outsideDismissCount)
         }
     }
 
@@ -209,28 +240,39 @@ class OneHandedPresentationTest {
         assertEquals(false, disabled.disableForPlayerEntry().enabled)
     }
 
-    private fun setContent() {
+    private fun setContent(compactViewport: Boolean = false) {
         insideClickCount = 0
         outsideDismissCount = 0
         placementToggleCount = 0
         compose.setContent {
             MaterialTheme {
-                OneHandedPresentation(
-                    enabled = true,
-                    placement = OneHandedModePlacement.Right,
-                    forceNormalLayout = false,
-                    onOutsideTap = { outsideDismissCount++ },
-                    onPlacementToggle = { placementToggleCount++ },
-                    placementToggleDescription = "Move app to the other side",
-                ) { contentModifier ->
-                    Box(contentModifier) {
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .clickable { insideClickCount++ },
-                        )
+                if (compactViewport) {
+                    Box(Modifier.size(320.dp, 568.dp).testTag("compactViewport")) {
+                        presentationContent()
                     }
+                } else {
+                    presentationContent()
                 }
+            }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun presentationContent() {
+        OneHandedPresentation(
+            enabled = true,
+            placement = OneHandedModePlacement.Right,
+            forceNormalLayout = false,
+            onOutsideTap = { outsideDismissCount++ },
+            onPlacementToggle = { placementToggleCount++ },
+            placementToggleDescription = "Move app to the other side",
+        ) { contentModifier ->
+            Box(contentModifier) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clickable { insideClickCount++ },
+                )
             }
         }
     }
