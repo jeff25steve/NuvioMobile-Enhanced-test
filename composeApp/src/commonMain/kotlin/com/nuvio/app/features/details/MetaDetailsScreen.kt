@@ -126,6 +126,7 @@ import com.nuvio.app.features.details.components.TabletDetailHero
 import com.nuvio.app.features.details.components.TabletDetailHeroActions
 import com.nuvio.app.features.details.components.TrailerPlayerPopup
 import com.nuvio.app.features.home.MetaPreview
+import com.nuvio.app.features.home.components.HomeHeroTrailerPlaybackController
 import com.nuvio.app.features.mdblist.MdbListSettingsRepository
 import com.nuvio.app.features.library.LibraryRepository
 import com.nuvio.app.features.library.PendingTrackingMembershipRemoval
@@ -752,6 +753,7 @@ fun MetaDetailsScreen(
                     if (source == null) {
                         heroTrailerFinished = true
                     } else {
+                        HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                         heroTrailerPlaybackSource = source
                     }
                 }
@@ -766,6 +768,7 @@ fun MetaDetailsScreen(
                 }
                 val resolveTrailer: (MetaTrailer) -> Unit = remember(meta.id, inAppTrailerPlaybackEnabled, uriHandler) {
                     { trailer ->
+                        HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                         val youtubeUrl = trailer.youtubePlaybackUrl()
                         if (!inAppTrailerPlaybackEnabled) {
                             runCatching { uriHandler.openUri(youtubeUrl) }
