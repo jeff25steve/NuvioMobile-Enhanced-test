@@ -17,6 +17,14 @@ internal data class OneHandedModeState(
 ) {
     fun toggle(): OneHandedModeState = copy(enabled = !enabled)
 
+    fun togglePlacement(): OneHandedModeState = copy(
+        placement = if (placement == OneHandedModePlacement.Left) {
+            OneHandedModePlacement.Right
+        } else {
+            OneHandedModePlacement.Left
+        },
+    )
+
     fun dismissOutside(): OneHandedModeState = copy(enabled = false)
 
     fun disableForPlayerEntry(): OneHandedModeState = copy(enabled = false)
@@ -36,6 +44,10 @@ internal class OneHandedModeController(
 
     fun toggle() {
         mutableState.update { current -> current.toggle() }
+    }
+
+    fun togglePlacement() {
+        mutableState.update { current -> current.togglePlacement() }
     }
 
     fun dismissOutside() {
