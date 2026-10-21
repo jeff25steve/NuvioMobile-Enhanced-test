@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -180,6 +183,29 @@ fun NuvioNavigationBar(
     }
 }
 
+
+private fun navigationItemActivationModifier(
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+): Modifier = if (onLongClick == null) {
+    Modifier.selectable(
+        selected = selected,
+        enabled = true,
+        role = Role.Tab,
+        onClick = onClick,
+    )
+} else {
+    Modifier
+        .combinedClickable(
+            enabled = true,
+            role = Role.Tab,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+        .semantics { this.selected = selected }
+}
+
 interface NuvioNavigationBarScope {
     @Composable
     fun NavItem(
@@ -189,6 +215,7 @@ interface NuvioNavigationBarScope {
         contentDescription: String?,
         modifier: Modifier = Modifier,
         label: String? = null,
+        onLongClick: (() -> Unit)? = null,
     )
 
     @Composable
@@ -207,6 +234,7 @@ interface NuvioNavigationBarScope {
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
         label: String? = null,
+        onLongClick: (() -> Unit)? = null,
         content: @Composable () -> Unit,
     )
 }
@@ -227,6 +255,7 @@ private class NuvioNavigationBarScopeImpl(
         contentDescription: String?,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
     ) {
         val tokens = MaterialTheme.nuvio
         val palette = MaterialTheme.themePalette
@@ -247,12 +276,7 @@ private class NuvioNavigationBarScopeImpl(
                     .weight(1f)
                     .clip(RoundedCornerShape(NuvioTokens.Radius.full))
                     .background(selectedBgColor)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(vertical = itemVerticalPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -296,12 +320,7 @@ private class NuvioNavigationBarScopeImpl(
                     .weight(1f)
                     .clip(RoundedCornerShape(NuvioTokens.Radius.full))
                     .background(selectedBgColor)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(vertical = itemVerticalPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -324,6 +343,7 @@ private class NuvioNavigationBarScopeImpl(
         onClick: () -> Unit,
         modifier: Modifier,
         label: String?,
+        onLongClick: (() -> Unit)?,
         content: @Composable () -> Unit,
     ) {
         val tokens = MaterialTheme.nuvio
@@ -343,12 +363,7 @@ private class NuvioNavigationBarScopeImpl(
                     .weight(1f)
                     .clip(RoundedCornerShape(NuvioTokens.Radius.full))
                     .background(selectedBgColor)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(vertical = itemVerticalPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -446,12 +461,7 @@ private class NuvioClassicNavigationBarScopeImpl(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .clip(tokens.components.navItemShape)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(NuvioTokens.Space.s10)
                     .size(tokens.components.navIconSize)
                     .then(if (selected) Modifier.gradientMask(palette.accentBrush()) else Modifier),
@@ -484,12 +494,7 @@ private class NuvioClassicNavigationBarScopeImpl(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .clip(tokens.components.navItemShape)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(NuvioTokens.Space.s10)
                     .size(tokens.components.navIconSize)
                     .then(if (selected) Modifier.gradientMask(palette.accentBrush()) else Modifier),
@@ -516,12 +521,7 @@ private class NuvioClassicNavigationBarScopeImpl(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
                     .clip(tokens.components.navItemShape)
-                    .selectable(
-                        selected = selected,
-                        enabled = true,
-                        role = Role.Tab,
-                        onClick = onClick,
-                    )
+                    .then(navigationItemActivationModifier(selected, onClick, onLongClick))
                     .padding(NuvioTokens.Space.s10),
                 contentAlignment = Alignment.Center,
             ) {
