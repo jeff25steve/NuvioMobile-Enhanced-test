@@ -17,6 +17,19 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun placementToggleSwitchesSidesWithoutDisablingMode() {
+        val enabled = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Right)
+
+        val movedLeft = enabled.togglePlacement()
+        val movedRight = movedLeft.togglePlacement()
+
+        assertTrue(movedLeft.enabled)
+        assertEquals(OneHandedModePlacement.Left, movedLeft.placement)
+        assertTrue(movedRight.enabled)
+        assertEquals(OneHandedModePlacement.Right, movedRight.placement)
+    }
+
+    @Test
     fun outsideTapDisablesModeWithoutChangingPlacement() {
         val enabled = OneHandedModeState(
             enabled = true,
