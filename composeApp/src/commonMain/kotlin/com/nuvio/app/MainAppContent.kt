@@ -631,6 +631,7 @@ internal fun MainAppContent(
         profileSwitchLoading,
         useNativeNavigation,
         ownsAppRuntime,
+        oneHandedModeState.enabled,
     ) {
         if (useNativeNavigation && !ownsAppRuntime) return@LaunchedEffect
 
@@ -638,6 +639,7 @@ internal fun MainAppContent(
             liquidGlassNativeTabBarEnabled &&
             initialHomeReady &&
             !profileSwitchLoading &&
+            !oneHandedModeState.enabled &&
             currentRoute is TabsRoute
         NativeTabBridge.publishTabBarVisible(visible)
     }
@@ -1571,7 +1573,8 @@ internal fun MainAppContent(
             controller = appUpdaterController,
             modifier = Modifier.fillMaxSize(),
         ) {
-            val nativeTabBarOwnsChrome = useNativeNavigation && useNativeTabBar
+            val nativeTabBarOwnsChrome =
+                useNativeNavigation && useNativeTabBar && !oneHandedModeState.enabled
             val settingsRouteBarVisible = currentRoute is SettingsDestinationRoute && !nativeTabBarOwnsChrome
             val settingsRouteBarBackdrop = rememberNuvioBackdrop()
             var settingsRouteBarOverlay by remember { mutableStateOf(0.dp) }
@@ -1810,6 +1813,7 @@ internal fun MainAppContent(
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,
                         onOneHandedModeToggle = toggleOneHandedMode,
+                        oneHandedModeEnabled = oneHandedModeState.enabled,
                     )
                 }
                 entry<DetailRoute> { route ->
