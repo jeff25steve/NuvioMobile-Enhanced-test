@@ -12,7 +12,10 @@
 
 ## Global Constraints
 
-- All feature processing stays on-device; no feature-related network requests or transmission of UI pixels/state.
+- **Context7 is mandatory before each code change:** before implementing, adding, changing, or deleting code, resolve the correct Context7 library ID and query current official documentation for the API/library relevant to that edit. Repeat when moving to a materially different API/library or platform surface; do not assume one lookup covers the entire feature.
+- **Exa is used when necessary:** use Exa for current external research, upstream repository behavior, platform limitations, issue/discussion corroboration, or when official docs do not resolve an implementation question. Prefer Context7/official documentation for API contracts and Exa for broader corroboration. Do not use Exa as a substitute for inspecting the actual repository code.
+- If Context7 or Exa is unavailable or fails, stop before the affected code change, report the blocker, and do not silently replace current-library verification with memory or guesswork.
+- All feature processing stays on-device; no feature-related network requests or transmission of UI pixels/state. Developer research tooling is only for researching implementation contracts; the shipped feature must not communicate UI pixels/state or feature telemetry externally.
 - No background/foreground service, persistent notification, overlay permission, accessibility service, polling, or background monitoring.
 - Normal Library tap continues navigating; Library press-and-hold toggles one-handed mode directly without a popup.
 - Existing profile-button press-and-hold popup and behavior remain unchanged.
