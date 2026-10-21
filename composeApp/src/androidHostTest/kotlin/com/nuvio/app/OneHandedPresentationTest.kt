@@ -181,12 +181,10 @@ class OneHandedPresentationTest {
                         enabled = true,
                         placement = OneHandedModePlacement.Right,
                         forceNormalLayout = false,
-                        onOutsideTap = {
-                            if (useLatestCallback.value) {
-                                latestCallbackCount++
-                            } else {
-                                firstCallbackCount++
-                            }
+                        onOutsideTap = if (useLatestCallback.value) {
+                            { latestCallbackCount++ }
+                        } else {
+                            { firstCallbackCount++ }
                         },
                         onPlacementToggle = {},
                         placementToggleDescription = "Move app to the other side",
