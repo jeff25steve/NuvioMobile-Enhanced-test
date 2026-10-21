@@ -200,9 +200,10 @@ internal fun OneHandedPresentation(
 }
 
 /**
- * Caps the reduced surface on larger viewports without shrinking below a touch-usable scale.
+ * Caps the reduced surface on larger viewports, but limits additional shrinkage to 60%.
  * On very large screens the surface may exceed the preferred footprint rather than making every
- * control smaller than the minimum scale allows.
+ * control excessively small. Scaling still reduces effective touch-target size, so device testing
+ * remains necessary.
  */
 internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
     if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
