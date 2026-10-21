@@ -87,6 +87,34 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun compactViewportLeftPlacementStillDeliversInsideTap() {
+        setContent(compactViewport = true, placement = OneHandedModePlacement.Left)
+
+        compose.onNodeWithTag("compactViewport").performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.9f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, insideClickCount)
+            assertEquals(0, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun compactViewportLeftPlacementDismissesOutsideTapWithoutActivatingContent() {
+        setContent(compactViewport = true, placement = OneHandedModePlacement.Left)
+
+        compose.onNodeWithTag("compactViewport").performTouchInput {
+            click(Offset(size.width * 0.9f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(0, insideClickCount)
+            assertEquals(1, outsideDismissCount)
+        }
+    }
+
+    @Test
     fun compactViewportContentCanStillScroll() {
         setContent(compactViewport = true, scrollableContent = true)
 
@@ -317,7 +345,7 @@ class OneHandedPresentationTest {
     ) {
         OneHandedPresentation(
             enabled = true,
-            placement = OneHandedModePlacement.Right,
+            placement = placement,
             forceNormalLayout = forceNormalLayout,
             onOutsideTap = { outsideDismissCount++ },
             onPlacementToggle = { placementToggleCount++ },
