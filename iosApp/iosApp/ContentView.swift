@@ -1342,6 +1342,7 @@ struct TabContentView: View {
                 appCoordinator.isMainContentVisible &&
                 coordinator.path.keepsTabBar &&
                 !appCoordinator.usesGlassTabBarOverlay &&
+                !appCoordinator.isOneHandedModeEnabled &&
                 appCoordinator.isNativeTabBarVisible
                 ? Visibility.visible
                 : Visibility.hidden,
@@ -1430,6 +1431,7 @@ private struct DetailDestinationView: View {
             usesNativeTabBar &&
                 wrapper.route.keepsTabBar &&
                 !appCoordinator.usesGlassTabBarOverlay &&
+                !appCoordinator.isOneHandedModeEnabled &&
                 appCoordinator.isNativeTabBarVisible
                 ? Visibility.visible
                 : Visibility.hidden,
