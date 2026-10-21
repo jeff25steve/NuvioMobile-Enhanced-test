@@ -282,6 +282,11 @@ internal fun MainAppContent(
                 HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(callback)
             }
         }
+        LaunchedEffect(Unit) {
+            NativeTabBridge.oneHandedModeToggleRequests.collectLatest {
+                toggleOneHandedMode()
+            }
+        }
         var searchFocusRequestCount by remember { mutableStateOf(0) }
         val homeScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
         val searchScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
