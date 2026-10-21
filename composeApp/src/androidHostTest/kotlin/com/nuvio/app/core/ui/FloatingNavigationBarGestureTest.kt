@@ -12,11 +12,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.hasLongClickAction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
@@ -101,10 +103,20 @@ class FloatingNavigationBarGestureTest {
     }
 
     @Test
-    fun libraryLongPressIsExposedAsAnAccessibilityAction() {
+    fun libraryLongPressAccessibilityActionInvokesToggleWithoutNavigating() {
         setContent()
 
-        compose.onNodeWithContentDescription("Tab 2").assert(hasLongClickAction())
+        compose.onNodeWithContentDescription("Tab 2")
+            .assert(hasLongClickAction())
+            .performSemanticsAction(SemanticsActions.OnLongClick) { action ->
+                assertTrue(action())
+            }
+
+        compose.runOnIdle {
+            assertEquals(1, libraryHoldCount)
+            assertTrue(clicks.isEmpty())
+            assertFalse(profilePopupOpened)
+        }
     }
 
     @Test
