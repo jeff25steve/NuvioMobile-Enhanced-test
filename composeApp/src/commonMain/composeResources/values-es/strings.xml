@@ -1,4 +1,5 @@
 <resources>
+    <string name="one_handed_switch_side">Mover la aplicación al otro lado</string>
     <string name="theme_gold">Oro</string>
     <string name="theme_jade">Jade</string>
     <string name="theme_rose_gold">Oro rosa</string>
