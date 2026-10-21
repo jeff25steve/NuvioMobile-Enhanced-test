@@ -1611,6 +1611,7 @@ internal fun MainAppContent(
                     onOutsideTap = dismissOneHandedMode,
                     onPlacementToggle = { appOneHandedModeController.togglePlacement() },
                     placementToggleDescription = oneHandedSwitchSideDescription,
+                    onExit = dismissOneHandedMode,
                 ) { presentationModifier ->
                     Box(presentationModifier) {
                 CompositionLocalProvider(
