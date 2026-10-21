@@ -112,8 +112,9 @@ class OneHandedPresentationTest {
         setContent()
 
         compose.onRoot().performTouchInput {
-            val left = size.width * (1f - 0.66f)
-            val top = size.height * (1f - 0.66f)
+            val compactScale = oneHandedScaleForViewport(360f, 800f)
+            val left = size.width * (1f - compactScale)
+            val top = size.height * (1f - compactScale)
             click(Offset(left + 2f, top + 2f))
         }
 
