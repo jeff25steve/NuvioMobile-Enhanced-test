@@ -1,5 +1,9 @@
 package com.nuvio.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -40,6 +44,9 @@ private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
 private const val OneHandedMinimumScale = 0.60f
 
+private const val OneHandedSpringDamping = Spring.DampingRatioNoBouncy
+private const val OneHandedSpringStiffness = Spring.StiffnessMedium
+
 /**
  * Presents the existing UI tree as a single reduced, bottom-anchored surface.
  *
@@ -58,38 +65,35 @@ internal fun OneHandedPresentation(
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
-    // Use one restrained, near-critically-damped spring for the scale, backdrop and side anchor.
-    // The higher damping avoids a rubber-band overshoot when the user switches sides, while the
-    // moderate stiffness keeps the response immediate enough to feel intentional.
-    val animationSpec = spring<Float>(
-        dampingRatio = 0.92f,
-        stiffness = 400f,
+    // Reuse a restrained no-bounce spring across related properties. Compose springs retain
+    // velocity when targets change mid-flight, keeping rapid side switches continuous.
+    val floatAnimationSpec = spring<Float>(
+        dampingRatio = OneHandedSpringDamping,
+        stiffness = OneHandedSpringStiffness,
+    )
+    val dpAnimationSpec = spring<androidx.compose.ui.unit.Dp>(
+        dampingRatio = OneHandedSpringDamping,
+        stiffness = OneHandedSpringStiffness,
     )
     val backdropAlpha by animateFloatAsState(
         targetValue = if (reduceContent) 1f else 0f,
-        animationSpec = animationSpec,
+        animationSpec = floatAnimationSpec,
         label = "one_handed_backdrop",
     )
     val cornerRadius by animateDpAsState(
         targetValue = if (reduceContent) 28.dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = 0.92f,
-            stiffness = 400f,
-        ),
+        animationSpec = dpAnimationSpec,
         label = "one_handed_corner_radius",
     )
     val shadowElevation by animateDpAsState(
         targetValue = if (reduceContent) 18.dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = 0.92f,
-            stiffness = 400f,
-        ),
+        animationSpec = dpAnimationSpec,
         label = "one_handed_shadow",
     )
     val targetPivot = if (placement == OneHandedModePlacement.Left) 0f else 1f
     val pivotFraction by animateFloatAsState(
         targetValue = targetPivot,
-        animationSpec = animationSpec,
+        animationSpec = floatAnimationSpec,
         label = "one_handed_horizontal_anchor",
     )
     val background = MaterialTheme.colorScheme.background
@@ -119,7 +123,7 @@ internal fun OneHandedPresentation(
         }
         val scale by animateFloatAsState(
             targetValue = if (reduceContent) targetScale else 1f,
-            animationSpec = animationSpec,
+            animationSpec = floatAnimationSpec,
             label = "one_handed_scale",
         )
         val currentScale = rememberUpdatedState(scale)
@@ -218,10 +222,14 @@ internal fun OneHandedPresentation(
             }
             content(contentModifier)
 
-            if (reduceContent) {
+            AnimatedVisibility(
+                visible = reduceContent,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+                exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
                         .padding(top = 12.dp)
                         .size(48.dp)
                         .background(
