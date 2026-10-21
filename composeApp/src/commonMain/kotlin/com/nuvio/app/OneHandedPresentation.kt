@@ -58,11 +58,12 @@ internal fun OneHandedPresentation(
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
-    // A shared, slightly underdamped spring coordinates scale, backdrop and anchor on Android and iOS.
-    // Keep the overshoot restrained so the large app surface never feels rubbery.
+    // Use one restrained, near-critically-damped spring for the scale, backdrop and side anchor.
+    // The higher damping avoids a rubber-band overshoot when the user switches sides, while the
+    // moderate stiffness keeps the response immediate enough to feel intentional.
     val animationSpec = spring<Float>(
-        dampingRatio = 0.86f,
-        stiffness = 500f,
+        dampingRatio = 0.92f,
+        stiffness = 400f,
     )
     val backdropAlpha by animateFloatAsState(
         targetValue = if (reduceContent) 1f else 0f,
@@ -72,16 +73,16 @@ internal fun OneHandedPresentation(
     val cornerRadius by animateDpAsState(
         targetValue = if (reduceContent) 28.dp else 0.dp,
         animationSpec = spring(
-            dampingRatio = 0.86f,
-            stiffness = 500f,
+            dampingRatio = 0.92f,
+            stiffness = 400f,
         ),
         label = "one_handed_corner_radius",
     )
     val shadowElevation by animateDpAsState(
         targetValue = if (reduceContent) 18.dp else 0.dp,
         animationSpec = spring(
-            dampingRatio = 0.86f,
-            stiffness = 500f,
+            dampingRatio = 0.92f,
+            stiffness = 400f,
         ),
         label = "one_handed_shadow",
     )
