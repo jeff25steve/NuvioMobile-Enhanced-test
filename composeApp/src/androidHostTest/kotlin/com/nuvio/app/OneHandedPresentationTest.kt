@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -31,6 +33,7 @@ class OneHandedPresentationTest {
 
     private var insideClickCount = 0
     private var outsideDismissCount = 0
+    private var placementToggleCount = 0
 
     @Test
     fun tapInsideReducedSurfaceStillReachesAppContent() {
@@ -43,6 +46,19 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
             assertEquals(0, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun placementControlReceivesTapWithoutDismissingMode() {
+        setContent()
+
+        compose.onNodeWithContentDescription("Move app to the other side").performClick()
+
+        compose.runOnIdle {
+            assertEquals(1, placementToggleCount)
+            assertEquals(0, outsideDismissCount)
+            assertEquals(0, insideClickCount)
         }
     }
 
@@ -197,6 +213,7 @@ class OneHandedPresentationTest {
     private fun setContent() {
         insideClickCount = 0
         outsideDismissCount = 0
+        placementToggleCount = 0
         compose.setContent {
             MaterialTheme {
                 OneHandedPresentation(
@@ -204,6 +221,8 @@ class OneHandedPresentationTest {
                     placement = OneHandedModePlacement.Right,
                     forceNormalLayout = false,
                     onOutsideTap = { outsideDismissCount++ },
+                    onPlacementToggle = { placementToggleCount++ },
+                    placementToggleDescription = "Move app to the other side",
                 ) { contentModifier ->
                     Box(contentModifier) {
                         Box(
