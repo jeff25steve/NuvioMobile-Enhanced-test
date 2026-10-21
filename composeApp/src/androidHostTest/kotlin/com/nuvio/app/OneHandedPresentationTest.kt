@@ -333,7 +333,7 @@ class OneHandedPresentationTest {
                         presentationContent(scrollableContent, forceNormalLayout, placement)
                     }
                 } else {
-                    presentationContent(scrollableContent, forceNormalLayout)
+                    presentationContent(scrollableContent, forceNormalLayout, placement)
                 }
             }
         }
