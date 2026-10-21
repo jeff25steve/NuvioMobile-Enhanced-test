@@ -64,7 +64,7 @@ class OneHandedModeStateTest {
         assertFalse(afterPlayerEntry.disableForPlayerEntry().enabled)
     }
     @Test
-    fun responsiveScaleStaysComfortableAcrossPhoneTabletAndLargeScreens() {
+    fun responsiveScaleRespectsMinimumOnLargeScreens() {
         assertEquals(0.66f, oneHandedScaleForViewport(360f, 800f))
         assertEquals(0.6333333f, oneHandedScaleForViewport(800f, 1200f), 0.001f)
         assertEquals(0.60f, oneHandedScaleForViewport(1200f, 1600f), 0.001f)
