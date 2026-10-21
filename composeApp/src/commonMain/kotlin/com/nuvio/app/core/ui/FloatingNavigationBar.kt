@@ -609,32 +609,105 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         var claimed = false
         var finished = false
         try {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                if (!motion.dragging) {
-                    finished = true
-                    break
+            // Resolve a tap, drag, or long-press before entering the existing drag loop.
+            // The timeout is the same Compose long-press threshold used by the profile
+            // switcher's detectDragGesturesAfterLongPress implementation.
+            val preflight = kotlinx.coroutines.withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id }
+                        ?: return@withTimeoutOrNull 3 // pointer cancelled
+                    if (event.changes.count { it.pressed } > 1) {
+                        return@withTimeoutOrNull 3
+                    }
+                    if (!change.pressed) {
+                        change.consume()
+                        return@withTimeoutOrNull 1 // released before long-press
+                    }
+                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                        return@withTimeoutOrNull 2 // movement belongs to drag-to-select
+                    }
                 }
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                if (event.changes.count { it.pressed } > 1) break
-                val delta = change.position - down.position
-                if (max(abs(delta.x), abs(delta.y)) > viewConfiguration.touchSlop) claimed = true
-                if (claimed) change.consume()
-                awaitPointerEvent(PointerEventPass.Main)
-                if (!motion.dragging) {
+                @Suppress("UNREACHABLE_CODE")
+                3
+            }
+
+            when (preflight) {
+                null -> {
+                    // The pointer remained within touch slop for the full long-press timeout.
+                    // Do not route a Library hold through the normal tab click path.
+                    val items = currentItems()
+                    val selectedIndex = items.indexOfFirst { it.selected }
+                    motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
                     finished = true
-                    break
+                    val visualIndex = visualNavIndex(
+                        logicalNavIndex(motion.finish(), items.size, isRtl()),
+                        items.size,
+                        isRtl(),
+                    )
+                    // motion.cancel resets to the selected item; resolve the held item from the
+                    // original pointer coordinate instead of the spring's selected position.
+                    val itemWidth = (size.width / density) / items.size.coerceAtLeast(1)
+                    val heldLogicalIndex = logicalNavIndex(
+                        ((down.position.x / density) / itemWidth).toInt().coerceIn(0, items.lastIndex),
+                        items.size,
+                        isRtl(),
+                    )
+                    items.getOrNull(heldLogicalIndex)?.onLongClick?.invoke()
+                    // Consume the remainder of this press so release cannot become a tab tap.
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        event.changes.forEach { it.consume() }
+                        if (event.changes.none { it.pressed }) break
+                    }
                 }
-                if (change.isConsumed && !claimed) break
-                motion.drag(delta.x / density, delta.y / density)
-                if (!change.pressed) {
+                1 -> {
                     val visualIndex = motion.finish()
                     val items = currentItems()
                     val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
                     finished = true
                     items.getOrNull(logicalIndex)?.onClick?.invoke()
-                    change.consume()
-                    break
+                }
+                3 -> {
+                    val items = currentItems()
+                    val selectedIndex = items.indexOfFirst { it.selected }
+                    motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
+                    finished = true
+                }
+                else -> {
+                    // Movement crossed touch slop. Continue with the existing gesture path so
+                    // drag-to-select retains its spring physics and commit semantics.
+                }
+            }
+
+            if (preflight == 2) {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (!motion.dragging) {
+                        finished = true
+                        break
+                    }
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (event.changes.count { it.pressed } > 1) break
+                    val delta = change.position - down.position
+                    if (max(abs(delta.x), abs(delta.y)) > viewConfiguration.touchSlop) claimed = true
+                    if (claimed) change.consume()
+                    awaitPointerEvent(PointerEventPass.Main)
+                    if (!motion.dragging) {
+                        finished = true
+                        break
+                    }
+                    if (change.isConsumed && !claimed) break
+                    motion.drag(delta.x / density, delta.y / density)
+                    if (!change.pressed) {
+                        val visualIndex = motion.finish()
+                        val items = currentItems()
+                        val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
+                        finished = true
+                        items.getOrNull(logicalIndex)?.onClick?.invoke()
+                        change.consume()
+                        break
+                    }
                 }
             }
         } finally {
