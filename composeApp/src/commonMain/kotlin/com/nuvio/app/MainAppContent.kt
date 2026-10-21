@@ -1011,8 +1011,8 @@ internal fun MainAppContent(
                 initialProgressFraction = resumeEntry?.progressFraction?.takeIf { it > 0f },
             )
             if (playerSettingsUiState.externalPlayerEnabled) {
-                coroutineScope.launch { disableOneHandedModeForPlayerEntry()
-                openExternalPlayback(playerLaunch) }
+                disableOneHandedModeForPlayerEntry()
+                coroutineScope.launch { openExternalPlayback(playerLaunch) }
                 return
             }
             val launchId = PlayerLaunchStore.put(playerLaunch)
@@ -1065,7 +1065,7 @@ internal fun MainAppContent(
                     )
                     if (playerSettingsUiState.externalPlayerEnabled) {
                         disableOneHandedModeForPlayerEntry()
-                openExternalPlayback(playerLaunch)
+                        openExternalPlayback(playerLaunch)
                         true
                     } else {
                         val launchId = PlayerLaunchStore.put(playerLaunch)
@@ -1139,8 +1139,8 @@ internal fun MainAppContent(
                         initialProgressFraction = targetResumeProgressFraction,
                     )
                     if (forceExternalPlayer || playerSettingsUiState.externalPlayerEnabled) {
-                        coroutineScope.launch { disableOneHandedModeForPlayerEntry()
-                openExternalPlayback(playerLaunch) }
+                        disableOneHandedModeForPlayerEntry()
+                        coroutineScope.launch { openExternalPlayback(playerLaunch) }
                         return
                     }
                     val launchId = PlayerLaunchStore.put(playerLaunch)
