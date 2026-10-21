@@ -13,7 +13,10 @@ Add an optional, Samsung One-handed Mode-inspired presentation for Nuvio's ordin
 
 - The normal tap on the Library navigation item continues to navigate to Library.
 - Long-pressing Library toggles one-handed mode.
-- The existing profile-button long-press for profile switching must remain independent and unchanged.
+- The existing profile-button press-and-hold interaction is the reference implementation: inspect and reuse its actual gesture timing, pointer handling, and interaction conventions rather than inventing a second long-press detector.
+- Long-pressing Library uses that same proven press-and-hold recognition, but its action is to toggle one-handed mode directly—not to show the profile-selection popup or any new popup. A normal tap on Library still navigates to Library.
+- Keep the profile button's current press-and-hold profile-switching popup and behaviour unchanged.
+- The floating navigation bar has a custom drag-to-select gesture detector (`detectJellyTabGestures`). Integrate the Library hold action into the existing gesture flow (or a demonstrably non-competing extension of it); do not stack a competing pointer-input detector or break drag-to-select. If the current profile hold uses a separate proven mechanism, adapt its timing/semantics while preserving the nav bar's drag and tap paths.
 - The app's ordinary UI is proportionally reduced and aligned near the bottom, leaving a tappable outside region above it.
 - The reduced interface remains fully interactive: taps, scrolling, navigation, dialogs, popups, and Liquid Glass effects must behave correctly.
 - Provide left/right positioning if it can be implemented without compromising existing layout or gestures.
@@ -69,7 +72,7 @@ If route state can briefly report a player after its UI starts, explicitly disab
 ## 6. Interaction and visual requirements
 
 - Preserve the existing Library tap and drag-to-select navigation behaviour.
-- Add long-press recognition without stealing ordinary taps or breaking the custom navigation bar's drag gesture. Inspect the existing pointer-input gesture detector before choosing an implementation.
+- Match the existing profile press-and-hold interaction's timing and pointer semantics, but route the Library hold directly to one-handed-mode toggle (no profile popup or other popup). Preserve normal Library taps and integrate with `detectJellyTabGestures` so its drag-to-select remains intact; avoid competing pointer-input detectors.
 - Taps on content within the reduced region must reach the correct controls; do not rely on a visual-only scale.
 - Taps in the outside region dismiss the mode without accidentally activating underlying UI.
 - Existing dialogs and popup menus should remain legible and anchored to the correct controls. If a platform dialog or popup cannot safely participate in the transform, document and handle it deliberately rather than allowing misaligned coordinates.
