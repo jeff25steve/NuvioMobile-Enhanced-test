@@ -76,6 +76,7 @@ internal class FloatingNavigationItem(
     val label: String,
     val selected: Boolean,
     val onClick: () -> Unit,
+    val onLongClick: (() -> Unit)? = null,
     val icon: ImageVector? = null,
     val drawable: DrawableResource? = null,
     val content: (@Composable (onClick: () -> Unit, defaultIconColorOverride: Color?) -> Unit)? = null,
