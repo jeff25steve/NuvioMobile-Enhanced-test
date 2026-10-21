@@ -79,6 +79,7 @@ internal fun MainTabsDestination(
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
     onOneHandedModeToggle: () -> Unit,
+    oneHandedModeEnabled: Boolean,
 ) {
     PlatformBackHandler(enabled = true, onBack = onBack)
 
@@ -88,9 +89,12 @@ internal fun MainTabsDestination(
         val highlightedTab = if (useNativeNavigation) nativeActiveTab.toAppScreenTab() else selectedTab
         val tabActions = remember(actions, isTabletLayout) { actions(isTabletLayout) }
         val useNativeBottomTabs = if (useNativeNavigation) {
-            useNativeTabBar
+            useNativeTabBar && !oneHandedModeEnabled
         } else {
-            liquidGlassNativeTabBarSupported && liquidGlassNativeTabBarEnabled && initialHomeReady
+            liquidGlassNativeTabBarSupported &&
+                liquidGlassNativeTabBarEnabled &&
+                initialHomeReady &&
+                !oneHandedModeEnabled
         }
         val tabsRouteActive = rootRouteActive
         val navBarScrollState = rememberNuvioNavBarScrollState()
