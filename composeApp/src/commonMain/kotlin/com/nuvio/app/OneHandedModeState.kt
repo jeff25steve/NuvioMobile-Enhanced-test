@@ -15,9 +15,6 @@ internal data class OneHandedModeState(
     fun dismissOutside(): OneHandedModeState = copy(enabled = false)
 
     fun disableForPlayerEntry(): OneHandedModeState = copy(enabled = false)
-
-    fun withPlacement(newPlacement: OneHandedModePlacement): OneHandedModeState =
-        copy(placement = newPlacement)
 }
 
 internal enum class OneHandedModePlacement {
