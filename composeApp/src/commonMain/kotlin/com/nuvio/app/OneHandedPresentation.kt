@@ -200,8 +200,9 @@ internal fun OneHandedPresentation(
 }
 
 /**
- * Keeps the reduced app surface within a comfortable maximum footprint on larger screens.
- * The same scale policy is shared by phones, tablets and landscape layouts.
+ * Caps the reduced surface on larger viewports without shrinking below a touch-usable scale.
+ * On very large screens the surface may exceed the preferred footprint rather than making every
+ * control smaller than the minimum scale allows.
  */
 internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
     if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
