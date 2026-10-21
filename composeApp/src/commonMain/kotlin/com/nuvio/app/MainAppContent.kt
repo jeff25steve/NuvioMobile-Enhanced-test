@@ -267,7 +267,9 @@ internal fun MainAppContent(
         var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
         var oneHandedModeState by remember { mutableStateOf(OneHandedModeState()) }
         val toggleOneHandedMode: () -> Unit = {
-            oneHandedModeState = oneHandedModeState.toggle()
+            if (!HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()) {
+                oneHandedModeState = oneHandedModeState.toggle()
+            }
         }
         val dismissOneHandedMode: () -> Unit = {
             oneHandedModeState = oneHandedModeState.dismissOutside()
