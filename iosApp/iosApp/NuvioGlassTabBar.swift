@@ -166,8 +166,15 @@ struct NuvioGlassTabBar: View {
                 NativeTabBridgeKt.nativeTabSelect(tabName: tabs[index].rawValue)
             },
             onLongPress: { index in
-                guard tabs.indices.contains(index), tabs[index] == .settings, appCoordinator.isAppReady else { return }
-                appCoordinator.isProfileSwitcherPresented = true
+                guard tabs.indices.contains(index), appCoordinator.isAppReady else { return }
+                switch tabs[index] {
+                case .library:
+                    NativeTabBridgeKt.nativeTabToggleOneHandedMode()
+                case .settings:
+                    appCoordinator.isProfileSwitcherPresented = true
+                default:
+                    break
+                }
             },
             onCollapsedTap: {
                 if Self.tapHapticsEnabled {
