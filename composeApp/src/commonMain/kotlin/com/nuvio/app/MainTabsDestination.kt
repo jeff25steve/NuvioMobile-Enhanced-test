@@ -78,6 +78,7 @@ internal fun MainTabsDestination(
     onTabSelected: (AppScreenTab) -> Unit,
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
+    onOneHandedModeToggle: () -> Unit,
 ) {
     PlatformBackHandler(enabled = true, onBack = onBack)
 
@@ -114,6 +115,7 @@ internal fun MainTabsDestination(
             onTabSelected = onTabSelected,
             onProfileSelected = onProfileSelected,
             onAddProfileRequested = onAddProfileRequested,
+            onOneHandedModeToggle = onOneHandedModeToggle,
             backdrop = navBarBackdrop,
             defaultIconColorOverride = navBarDefaultIconColorOverride,
         )
@@ -251,6 +253,7 @@ internal fun mainFloatingNavigationItems(
     onTabSelected: (AppScreenTab) -> Unit,
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
+    onOneHandedModeToggle: () -> Unit = {},
     backdrop: Backdrop?,
     defaultIconColorOverride: Color? = null,
 ): List<FloatingNavigationItem> = buildList {
@@ -274,6 +277,7 @@ internal fun mainFloatingNavigationItems(
         FloatingNavigationItem(
             selected = highlightedTab == AppScreenTab.Library,
             onClick = { onTabSelected(AppScreenTab.Library) },
+            onLongClick = onOneHandedModeToggle,
             drawable = Res.drawable.sidebar_library,
             label = stringResource(Res.string.compose_nav_library),
         ),
