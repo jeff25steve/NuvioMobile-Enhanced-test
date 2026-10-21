@@ -40,6 +40,7 @@ class FloatingNavigationBarGestureTest {
     private lateinit var motion: JellyMotion
     private val clicks = mutableListOf<Int>()
     private var profilePopupOpened = false
+    private var libraryHoldCount = 0
 
     @Test
     fun tapsKeepTheirDestinationBeforeSelectionRecomposes() {
@@ -50,7 +51,31 @@ class FloatingNavigationBarGestureTest {
                 compose.onNodeWithContentDescription("Tab $index").performTouchInput { click() }
                 assertSettlesAt(index)
             }
-            compose.runOnIdle { assertEquals(listOf(2, 1, 3, 0), clicks) }
+            compose.runOnIdle {
+                assertEquals(listOf(2, 1, 3, 0), clicks)
+                assertEquals(0, libraryHoldCount)
+            }
+        }
+    }
+
+    @Test
+    fun libraryHoldTogglesWithoutNavigatingAndTapStillNavigates() {
+        setContent()
+        for (layoutDirection in listOf(LayoutDirection.Ltr, LayoutDirection.Rtl)) {
+            reset(layoutDirection)
+            compose.onNodeWithContentDescription("Tab 2").performTouchInput { longClick() }
+            assertSettlesAt(0)
+            compose.runOnIdle {
+                assertEquals(1, libraryHoldCount)
+                assertTrue(clicks.isEmpty())
+                assertFalse(profilePopupOpened)
+            }
+            compose.onNodeWithContentDescription("Tab 2").performTouchInput { click() }
+            assertSettlesAt(2)
+            compose.runOnIdle {
+                assertEquals(listOf(2), clicks)
+                assertEquals(1, libraryHoldCount)
+            }
         }
     }
 
@@ -63,6 +88,7 @@ class FloatingNavigationBarGestureTest {
             assertSettlesAt(0)
             compose.runOnIdle {
                 assertTrue(profilePopupOpened)
+                assertEquals(0, libraryHoldCount)
                 assertTrue(clicks.isEmpty())
             }
             compose.onNodeWithContentDescription("Tab 1").performTouchInput { click() }
@@ -80,6 +106,7 @@ class FloatingNavigationBarGestureTest {
                     label = "Tab $index",
                     selected = index == 0,
                     onClick = { clicks += index },
+                    onLongClick = if (index == 2) ({ libraryHoldCount++ }) else null,
                     content = if (index == 3) {
                         { onClick ->
                             Box(
@@ -117,6 +144,7 @@ class FloatingNavigationBarGestureTest {
         compose.runOnIdle {
             direction.value = layoutDirection
             clicks.clear()
+            libraryHoldCount = 0
             profilePopupOpened = false
             motion.select(visualNavIndex(0, 4, layoutDirection == LayoutDirection.Rtl))
             repeat(240) { motion.advance(1.0 / 60) }
