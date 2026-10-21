@@ -3,10 +3,15 @@ package com.nuvio.app
 import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -87,6 +92,67 @@ class OneHandedPresentationTest {
         }
     }
 
+
+    @Test
+    fun allTabConsumersObserveTheSameControllerState() {
+        val controller = OneHandedModeController()
+
+        compose.setContent {
+            val state by controller.state.collectAsState()
+            MaterialTheme {
+                Column {
+                    Text("first:${state.enabled}")
+                    Text("second:${state.enabled}")
+                }
+            }
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("first:false").fetchSemanticsNodes().size)
+            assertEquals(1, compose.onNodeWithText("second:false").fetchSemanticsNodes().size)
+            controller.toggle()
+        }
+
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("first:true").fetchSemanticsNodes().size)
+            assertEquals(1, compose.onNodeWithText("second:true").fetchSemanticsNodes().size)
+            controller.dismissOutside()
+        }
+
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("first:false").fetchSemanticsNodes().size)
+            assertEquals(1, compose.onNodeWithText("second:false").fetchSemanticsNodes().size)
+        }
+    }
+
+    @Test
+    fun playerEntryDisablesSharedControllerForEveryConsumer() {
+        val controller = OneHandedModeController()
+        controller.toggle()
+
+        compose.setContent {
+            val state by controller.state.collectAsState()
+            MaterialTheme {
+                Column {
+                    Text("first:${state.enabled}")
+                    Text("second:${state.enabled}")
+                }
+            }
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("first:true").fetchSemanticsNodes().size)
+            controller.disableForPlayerEntry()
+        }
+
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("first:false").fetchSemanticsNodes().size)
+            assertEquals(1, compose.onNodeWithText("second:false").fetchSemanticsNodes().size)
+        }
+    }
 
     @Test
     fun modeStartsDisabledAndToggleAlternatesEnabledState() {
