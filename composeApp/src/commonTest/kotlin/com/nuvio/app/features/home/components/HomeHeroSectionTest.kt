@@ -79,4 +79,26 @@ class HomeHeroSectionTest {
         assertEquals(false, layout.isTablet)
         assertEquals(268f, layout.heroHeight.value, 0.001f)
     }
+
+    @Test
+    fun `playback start notifies every registered observer until it is unregistered`() {
+        val notifications = mutableListOf<String>()
+        val first: () -> Unit = { notifications += "first" }
+        val second: () -> Unit = { notifications += "second" }
+
+        HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(first)
+        HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(second)
+        try {
+            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
+            assertEquals(listOf("first", "second"), notifications)
+
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(first)
+            notifications.clear()
+            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
+            assertEquals(listOf("second"), notifications)
+        } finally {
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(first)
+            HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(second)
+        }
+    }
 }
