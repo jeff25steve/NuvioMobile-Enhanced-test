@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -94,23 +95,26 @@ class OneHandedPresentationTest {
 
 
     @Test
-    fun allTabConsumersObserveTheSameControllerState() {
+    fun aTabMountedAfterToggleReceivesCurrentOneHandedState() {
         val controller = OneHandedModeController()
+        val showSecondConsumer = mutableStateOf(false)
 
         compose.setContent {
             val state by controller.state.collectAsState()
             MaterialTheme {
                 Column {
                     Text("first:${state.enabled}")
-                    Text("second:${state.enabled}")
+                    if (showSecondConsumer.value) {
+                        Text("second:${state.enabled}")
+                    }
                 }
             }
         }
 
         compose.runOnIdle {
             assertEquals(1, compose.onNodeWithText("first:false").fetchSemanticsNodes().size)
-            assertEquals(1, compose.onNodeWithText("second:false").fetchSemanticsNodes().size)
             controller.toggle()
+            showSecondConsumer.value = true
         }
 
         compose.waitForIdle()
