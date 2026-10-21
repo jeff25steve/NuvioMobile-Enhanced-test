@@ -632,7 +632,7 @@ internal fun MainAppContent(
         oneHandedModeState.enabled,
         nativeActiveTab,
     ) {
-        if (useNativeNavigation && initialTab.name != nativeActiveTab.name) return@LaunchedEffect
+        if (useNativeNavigation && initialTab != nativeActiveTab.toAppScreenTab()) return@LaunchedEffect
 
         NativeTabBridge.publishOneHandedModeEnabled(oneHandedModeState.enabled)
         val visible = liquidGlassNativeTabBarSupported &&
