@@ -69,6 +69,10 @@ internal object NativeTabBridge {
         publishNativeSelectedTab(tab.name)
     }
 
+    fun publishOneHandedModeEnabled(enabled: Boolean) {
+        swiftOneHandedModeListener?.invoke(enabled)
+    }
+
     fun publishTabBarVisible(visible: Boolean) {
         val supported = isLiquidGlassNativeTabBarSupported()
         swiftTabBarVisibilityListener?.invoke(visible && supported)
@@ -243,6 +247,12 @@ class NativeProfileSwitcherController {
 }
 
 private var swiftTabBarVisibilityListener: ((Boolean) -> Unit)? = null
+private var swiftOneHandedModeListener: ((Boolean) -> Unit)? = null
+
+fun observeNativeOneHandedModeEnabled(listener: (Boolean) -> Unit) {
+    swiftOneHandedModeListener = listener
+    listener(appOneHandedModeController.state.value.enabled)
+}
 
 fun observeNativeTabBarVisible(listener: (Boolean) -> Unit) {
     swiftTabBarVisibilityListener = listener
