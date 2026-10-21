@@ -87,6 +87,43 @@ class OneHandedPresentationTest {
         }
     }
 
+
+    @Test
+    fun modeStartsDisabledAndToggleAlternatesEnabledState() {
+        val initial = OneHandedModeState()
+
+        assertEquals(false, initial.enabled)
+        assertEquals(true, initial.toggle().enabled)
+        assertEquals(false, initial.toggle().toggle().enabled)
+    }
+
+    @Test
+    fun outsideDismissalDisablesModeAndPreservesPlacement() {
+        val enabled = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left)
+
+        val dismissed = enabled.dismissOutside()
+
+        assertEquals(false, dismissed.enabled)
+        assertEquals(OneHandedModePlacement.Left, dismissed.placement)
+    }
+
+    @Test
+    fun playerEntryDisablesModeAndDoesNotChangePlacement() {
+        val enabled = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left)
+
+        val afterPlayerEntry = enabled.disableForPlayerEntry()
+
+        assertEquals(false, afterPlayerEntry.enabled)
+        assertEquals(OneHandedModePlacement.Left, afterPlayerEntry.placement)
+    }
+
+    @Test
+    fun playerEntryFromDisabledStateDoesNotEnableMode() {
+        val disabled = OneHandedModeState()
+
+        assertEquals(false, disabled.disableForPlayerEntry().enabled)
+    }
+
     private fun setContent() {
         insideClickCount = 0
         outsideDismissCount = 0
