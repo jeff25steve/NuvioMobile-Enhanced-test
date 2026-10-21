@@ -265,6 +265,16 @@ internal fun MainAppContent(
         val uriHandler = LocalUriHandler.current
         val coroutineScope = rememberCoroutineScope()
         var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
+        var oneHandedModeState by remember { mutableStateOf(OneHandedModeState()) }
+        val toggleOneHandedMode: () -> Unit = {
+            oneHandedModeState = oneHandedModeState.toggle()
+        }
+        val dismissOneHandedMode: () -> Unit = {
+            oneHandedModeState = oneHandedModeState.dismissOutside()
+        }
+        val disableOneHandedModeForPlayerEntry: () -> Unit = {
+            oneHandedModeState = oneHandedModeState.disableForPlayerEntry()
+        }
         var searchFocusRequestCount by remember { mutableStateOf(0) }
         val homeScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
         val searchScrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
@@ -344,9 +354,16 @@ internal fun MainAppContent(
     val topPlayerRoute = currentRoute as? PlayerRoute
     val hostedPlayerRoute = MiniPlayerController.hostedRoute(topPlayerRoute, miniPlayerHostEnabled)
     var streamLandscapeLoadingVisible by remember(currentRoute) { mutableStateOf(false) }
-    if (currentRoute is PlayerRoute || visiblePlayerEntries > 0 || streamLandscapeLoadingVisible) {
+    val playerPresentationActive =
+        currentRoute is PlayerRoute || visiblePlayerEntries > 0 || streamLandscapeLoadingVisible
+    if (playerPresentationActive) {
         LockPlayerToLandscape()
         HidePlayerSystemBars()
+    }
+    SideEffect {
+        if (playerPresentationActive && oneHandedModeState.enabled) {
+            oneHandedModeState = oneHandedModeState.disableForPlayerEntry()
+        }
     }
     val p2pSettingsUiState by remember {
         P2pSettingsRepository.ensureLoaded()
@@ -994,10 +1011,12 @@ internal fun MainAppContent(
                 initialProgressFraction = resumeEntry?.progressFraction?.takeIf { it > 0f },
             )
             if (playerSettingsUiState.externalPlayerEnabled) {
-                coroutineScope.launch { openExternalPlayback(playerLaunch) }
+                coroutineScope.launch { disableOneHandedModeForPlayerEntry()
+                openExternalPlayback(playerLaunch) }
                 return
             }
             val launchId = PlayerLaunchStore.put(playerLaunch)
+            disableOneHandedModeForPlayerEntry()
             navController.navigate(PlayerRoute(launchId = launchId, title = playerLaunch.title))
         }
 
@@ -1045,10 +1064,12 @@ internal fun MainAppContent(
                         initialProgressFraction = if (startFromBeginning) null else resumeProgressFraction,
                     )
                     if (playerSettingsUiState.externalPlayerEnabled) {
-                        openExternalPlayback(playerLaunch)
+                        disableOneHandedModeForPlayerEntry()
+                openExternalPlayback(playerLaunch)
                         true
                     } else {
                         val launchId = PlayerLaunchStore.put(playerLaunch)
+                        disableOneHandedModeForPlayerEntry()
                         navController.navigate(PlayerRoute(launchId = launchId, title = playerLaunch.title))
                         true
                     }
@@ -1118,10 +1139,12 @@ internal fun MainAppContent(
                         initialProgressFraction = targetResumeProgressFraction,
                     )
                     if (forceExternalPlayer || playerSettingsUiState.externalPlayerEnabled) {
-                        coroutineScope.launch { openExternalPlayback(playerLaunch) }
+                        coroutineScope.launch { disableOneHandedModeForPlayerEntry()
+                openExternalPlayback(playerLaunch) }
                         return
                     }
                     val launchId = PlayerLaunchStore.put(playerLaunch)
+                    disableOneHandedModeForPlayerEntry()
                     navController.navigate(PlayerRoute(launchId = launchId, title = playerLaunch.title))
                     return
                 }
@@ -1158,6 +1181,7 @@ internal fun MainAppContent(
                     forceExternalPlayer = forceExternalPlayer,
                 ),
             )
+            disableOneHandedModeForPlayerEntry()
             navController.navigate(
                 StreamRoute(launchId = streamLaunchId, title = title),
             )
@@ -1503,6 +1527,7 @@ internal fun MainAppContent(
         }
 
         val onLiveTvChannelClick: (LiveTvChannel) -> Unit = { channel ->
+            disableOneHandedModeForPlayerEntry()
             coroutineScope.launch {
                 val playableChannel = runCatching {
                     LiveTvRepository.prepareForPlayback(channel)
@@ -1525,6 +1550,7 @@ internal fun MainAppContent(
                         parentMetaType = "live",
                     ),
                 )
+                disableOneHandedModeForPlayerEntry()
                 navController.navigate(PlayerRoute(launchId = launchId))
             }
         }
@@ -1560,6 +1586,13 @@ internal fun MainAppContent(
                     .background(MaterialTheme.nuvio.colors.background),
             ) {
             SharedTransitionLayout {
+                OneHandedPresentation(
+                    enabled = oneHandedModeState.enabled,
+                    placement = oneHandedModeState.placement,
+                    forceNormalLayout = playerPresentationActive,
+                    onOutsideTap = dismissOneHandedMode,
+                ) { presentationModifier ->
+                    Box(presentationModifier) {
                 CompositionLocalProvider(
                     LocalNuvioBottomNavigationOverlayPadding provides settingsRouteBottomOverlay,
                     LocalPosterClickAnchor provides if (posterNavigationEnabled) posterNavigation::prepare else null,
@@ -1764,6 +1797,7 @@ internal fun MainAppContent(
                         onTabSelected = ::handleRootTabClick,
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,
+                        onOneHandedModeToggle = toggleOneHandedMode,
                     )
                 }
                 entry<DetailRoute> { route ->
@@ -2002,15 +2036,21 @@ internal fun MainAppContent(
                         onProfileSelected = onNavigationProfileSelected,
                         onAddProfileRequested = onSwitchProfile,
                         onBottomOverlayChanged = { settingsRouteBarOverlay = it },
+                        onOneHandedModeToggle = toggleOneHandedMode,
                     )
                 }
-            }
+                }
+                    }
+                }
             }
 
             MiniPlayerHost(
                 hostedRoute = hostedPlayerRoute,
                 topPlayerRoute = topPlayerRoute,
-                onExpand = { route -> navController.navigate(route) },
+                onExpand = { route ->
+                    disableOneHandedModeForPlayerEntry()
+                    navController.navigate(route)
+                },
             ) { route ->
                 PlayerDestination(
                     route = route,
