@@ -1,6 +1,5 @@
 package com.nuvio.app
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -29,7 +28,6 @@ import androidx.compose.ui.unit.dp
 private const val OneHandedScale = 0.66f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
-private const val OneHandedAnimationMillis = 360
 
 /**
  * Presents the existing UI tree as a single reduced, bottom-anchored surface.
