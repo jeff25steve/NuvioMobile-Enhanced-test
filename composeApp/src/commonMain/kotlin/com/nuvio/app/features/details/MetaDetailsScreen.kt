@@ -735,6 +735,7 @@ fun MetaDetailsScreen(
                     deferredMetaWorkAllowed,
                     heroTrailerStartDelaySeconds,
                 ) {
+                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                     heroTrailerPlaybackSource = null
                     heroTrailerReady = false
                     heroTrailerFinished = false
@@ -753,11 +754,13 @@ fun MetaDetailsScreen(
                     if (source == null) {
                         heroTrailerFinished = true
                     } else {
+                        HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(true)
                         HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                         heroTrailerPlaybackSource = source
                     }
                 }
                 val stopHeroTrailerForNavigation: () -> Unit = {
+                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                     isLeavingDetails = true
                     heroTrailerReady = false
                     heroTrailerFinished = true
@@ -768,11 +771,13 @@ fun MetaDetailsScreen(
                 }
                 val resolveTrailer: (MetaTrailer) -> Unit = remember(meta.id, inAppTrailerPlaybackEnabled, uriHandler) {
                     { trailer ->
-                        HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                         val youtubeUrl = trailer.youtubePlaybackUrl()
                         if (!inAppTrailerPlaybackEnabled) {
+                            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                             runCatching { uriHandler.openUri(youtubeUrl) }
                         } else {
+                            HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(true)
+                            HomeHeroTrailerPlaybackController.notifyPlaybackStarting()
                             selectedTrailer = trailer
                             trailerPlaybackSource = null
                             trailerErrorMessage = null
@@ -1192,6 +1197,7 @@ fun MetaDetailsScreen(
                         }
                     }
                     val onHeroTrailerFinished: () -> Unit = {
+                        HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                         heroTrailerReady = false
                         heroTrailerFinished = true
                     }
@@ -1676,6 +1682,7 @@ fun MetaDetailsScreen(
                                 isLoading = trailerLoading,
                                 errorMessage = trailerErrorMessage,
                                 onDismiss = {
+                                    HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(false)
                                     trailerRequestToken += 1
                                     trailerLoading = false
                                     trailerPlaybackSource = null
