@@ -58,6 +58,21 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun forcedNormalLayoutKeepsFullScreenInteractionAndHidesPlacementControl() {
+        setContent(forceNormalLayout = true)
+
+        compose.onRoot().performTouchInput {
+            click(Offset(size.width * 0.1f, size.height * 0.1f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(1, insideClickCount)
+            assertEquals(0, outsideDismissCount)
+            assertEquals(0, placementToggleCount)
+        }
+    }
+
+    @Test
     fun compactViewportStillDeliversInsideTapToAppContent() {
         setContent(compactViewport = true)
 
@@ -274,7 +289,11 @@ class OneHandedPresentationTest {
         assertEquals(false, disabled.disableForPlayerEntry().enabled)
     }
 
-    private fun setContent(compactViewport: Boolean = false, scrollableContent: Boolean = false) {
+    private fun setContent(
+        compactViewport: Boolean = false,
+        scrollableContent: Boolean = false,
+        forceNormalLayout: Boolean = false,
+    ) {
         insideClickCount = 0
         outsideDismissCount = 0
         placementToggleCount = 0
@@ -282,21 +301,24 @@ class OneHandedPresentationTest {
             MaterialTheme {
                 if (compactViewport) {
                     Box(Modifier.size(320.dp, 568.dp).testTag("compactViewport")) {
-                        presentationContent(scrollableContent)
+                        presentationContent(scrollableContent, forceNormalLayout)
                     }
                 } else {
-                    presentationContent(scrollableContent)
+                    presentationContent(scrollableContent, forceNormalLayout)
                 }
             }
         }
     }
 
     @androidx.compose.runtime.Composable
-    private fun presentationContent(scrollableContent: Boolean = false) {
+    private fun presentationContent(
+        scrollableContent: Boolean = false,
+        forceNormalLayout: Boolean = false,
+    ) {
         OneHandedPresentation(
             enabled = true,
             placement = OneHandedModePlacement.Right,
-            forceNormalLayout = false,
+            forceNormalLayout = forceNormalLayout,
             onOutsideTap = { outsideDismissCount++ },
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
