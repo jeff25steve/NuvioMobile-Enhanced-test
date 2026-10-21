@@ -189,7 +189,7 @@ internal fun OneHandedPresentation(
                                 }
                                 event.changes.forEach { it.consume() }
                                 if (change != null && !change.pressed) {
-                                    if (tapCandidate) onOutsideTap()
+                                    if (tapCandidate) currentOnOutsideTap.value()
                                     break
                                 }
                             }
