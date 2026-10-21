@@ -54,6 +54,39 @@ class OneHandedPresentationTest {
         }
     }
 
+    @Test
+    fun roundedCornerOutsideSurfaceDismisses() {
+        setContent()
+
+        compose.onRoot().performTouchInput {
+            val left = size.width * (1f - 0.66f)
+            val top = size.height * (1f - 0.66f)
+            click(Offset(left + 2f, top + 2f))
+        }
+
+        compose.runOnIdle {
+            assertEquals(0, insideClickCount)
+            assertEquals(1, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun outsideDragDoesNotDismissOrActivateContent() {
+        setContent()
+
+        compose.onRoot().performTouchInput {
+            val start = Offset(size.width * 0.1f, size.height * 0.1f)
+            down(0, start)
+            moveTo(0, Offset(size.width * 0.2f, size.height * 0.2f), delayMillis = 100)
+            up(0)
+        }
+
+        compose.runOnIdle {
+            assertEquals(0, insideClickCount)
+            assertEquals(0, outsideDismissCount)
+        }
+    }
+
     private fun setContent() {
         insideClickCount = 0
         outsideDismissCount = 0
