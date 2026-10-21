@@ -5,6 +5,17 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +53,8 @@ internal fun OneHandedPresentation(
     placement: OneHandedModePlacement,
     forceNormalLayout: Boolean,
     onOutsideTap: () -> Unit,
+    onPlacementToggle: () -> Unit,
+    placementToggleDescription: String,
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
@@ -123,6 +136,14 @@ internal fun OneHandedPresentation(
                         val gestureScale = currentScale.value
                         if (!enabled && gestureScale >= 0.999f) return@awaitEachGesture
 
+                        // Leave the dedicated side-switch target unconsumed so its clickable child
+                        // receives the gesture instead of the outside-tap dismiss handler.
+                        val switchTargetSize = 48.dp.toPx()
+                        val switchTop = 12.dp.toPx()
+                        if (enabled && down.position.x in ((size.width - switchTargetSize) / 2f)..((size.width + switchTargetSize) / 2f) &&
+                            down.position.y in switchTop..(switchTop + switchTargetSize)
+                        ) return@awaitEachGesture
+
                         val width = size.width.toFloat()
                         val height = size.height.toFloat()
                         val horizontalOffset = oneHandedHorizontalOffsetPx(
@@ -195,6 +216,31 @@ internal fun OneHandedPresentation(
                     }
             }
             content(contentModifier)
+
+            if (reduceContent) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp)
+                        .size(48.dp)
+                        .background(
+                            color = surfaceVariant.copy(alpha = 0.96f),
+                            shape = CircleShape,
+                        )
+                        .clickable(onClick = onPlacementToggle)
+                        .semantics {
+                            contentDescription = placementToggleDescription
+                            role = Role.Button
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "↔",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
