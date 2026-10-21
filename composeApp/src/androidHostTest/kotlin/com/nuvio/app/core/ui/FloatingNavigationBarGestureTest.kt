@@ -108,7 +108,7 @@ class FloatingNavigationBarGestureTest {
                     onClick = { clicks += index },
                     onLongClick = if (index == 2) ({ libraryHoldCount++ }) else null,
                     content = if (index == 3) {
-                        { onClick ->
+                        { onClick, _ ->
                             Box(
                                 Modifier.size(28.dp)
                                     .clickable(onClick = onClick)
