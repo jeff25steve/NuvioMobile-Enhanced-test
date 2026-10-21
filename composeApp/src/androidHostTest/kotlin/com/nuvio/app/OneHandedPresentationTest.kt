@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -39,6 +41,7 @@ class OneHandedPresentationTest {
     private var insideClickCount = 0
     private var outsideDismissCount = 0
     private var placementToggleCount = 0
+    private var scrollState: ScrollState? = null
 
     @Test
     fun tapInsideReducedSurfaceStillReachesAppContent() {
@@ -78,7 +81,7 @@ class OneHandedPresentationTest {
 
         compose.waitForIdle()
         compose.runOnIdle {
-            assertEquals(1, compose.onNodeWithText("Scrollable item 20").fetchSemanticsNodes().size)
+            assertTrue((scrollState?.value ?: 0) > 0, "Scrolling should advance the content position")
         }
     }
 
@@ -299,10 +302,12 @@ class OneHandedPresentationTest {
             placementToggleDescription = "Move app to the other side",
         ) { contentModifier ->
             if (scrollableContent) {
+                val state = rememberScrollState()
+                scrollState = state
                 Column(
                     modifier = contentModifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(state)
                         .testTag("scrollableContent"),
                 ) {
                     repeat(30) { index ->
