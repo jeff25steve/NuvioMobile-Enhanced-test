@@ -321,6 +321,7 @@ class OneHandedPresentationTest {
         compactViewport: Boolean = false,
         scrollableContent: Boolean = false,
         forceNormalLayout: Boolean = false,
+        placement: OneHandedModePlacement = OneHandedModePlacement.Right,
     ) {
         insideClickCount = 0
         outsideDismissCount = 0
@@ -329,7 +330,7 @@ class OneHandedPresentationTest {
             MaterialTheme {
                 if (compactViewport) {
                     Box(Modifier.size(320.dp, 568.dp).testTag("compactViewport")) {
-                        presentationContent(scrollableContent, forceNormalLayout)
+                        presentationContent(scrollableContent, forceNormalLayout, placement)
                     }
                 } else {
                     presentationContent(scrollableContent, forceNormalLayout)
@@ -342,6 +343,7 @@ class OneHandedPresentationTest {
     private fun presentationContent(
         scrollableContent: Boolean = false,
         forceNormalLayout: Boolean = false,
+        placement: OneHandedModePlacement = OneHandedModePlacement.Right,
     ) {
         OneHandedPresentation(
             enabled = true,
