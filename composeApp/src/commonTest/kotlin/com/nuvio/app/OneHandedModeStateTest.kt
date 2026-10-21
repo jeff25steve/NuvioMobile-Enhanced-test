@@ -38,4 +38,17 @@ class OneHandedModeStateTest {
         assertFalse(afterPlayerEntry.enabled)
         assertFalse(afterPlayerEntry.disableForPlayerEntry().enabled)
     }
+    @Test
+    fun responsiveScaleStaysComfortableAcrossPhoneTabletAndLargeScreens() {
+        assertEquals(0.66f, oneHandedScaleForViewport(360f, 800f))
+        assertEquals(0.6333333f, oneHandedScaleForViewport(800f, 1200f), 0.001f)
+        assertEquals(0.475f, oneHandedScaleForViewport(1200f, 1600f), 0.001f)
+    }
+
+    @Test
+    fun horizontalOffsetTracksLeftRightAndIntermediateAnchors() {
+        assertEquals(0f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 0f))
+        assertEquals(340f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 1f))
+        assertEquals(170f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 0.5f))
+    }
 }
