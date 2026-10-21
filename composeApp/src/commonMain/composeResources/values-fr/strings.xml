@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="one_handed_switch_side">Déplacer l’application de l’autre côté</string>
     <string name="about_licenses_attributions_subtitle">Sources de données, remerciements et licences de plateforme</string>
     <string name="about_supporters_contributors_subtitle">Reconnaissance et crédits du projet</string>
     <string name="action_back">Retour</string>
