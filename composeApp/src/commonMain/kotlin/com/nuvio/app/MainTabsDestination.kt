@@ -184,6 +184,7 @@ internal fun MainTabsDestination(
                         onTabSelected = onTabSelected,
                         onProfileSelected = onProfileSelected,
                         onAddProfileRequested = onAddProfileRequested,
+                        onOneHandedModeToggle = onOneHandedModeToggle,
                     )
                 }
 
@@ -406,6 +407,7 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                 onProfileSelected = onProfileSelected,
                 onAddProfileRequested = onAddProfileRequested,
                 modifier = Modifier.align(Alignment.TopCenter),
+                onOneHandedModeToggle = onOneHandedModeToggle,
             )
         }
         style == NavBarStyle.CLASSIC -> {
