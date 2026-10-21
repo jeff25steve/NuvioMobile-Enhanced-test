@@ -67,6 +67,19 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun compactViewportPlacementControlStillReceivesTap() {
+        setContent(compactViewport = true)
+
+        compose.onNodeWithContentDescription("Move app to the other side").performTouchInput { click() }
+
+        compose.runOnIdle {
+            assertEquals(1, placementToggleCount)
+            assertEquals(0, outsideDismissCount)
+            assertEquals(0, insideClickCount)
+        }
+    }
+
+    @Test
     fun compactViewportOutsideTapDismissesWithoutActivatingContent() {
         setContent(compactViewport = true)
 
