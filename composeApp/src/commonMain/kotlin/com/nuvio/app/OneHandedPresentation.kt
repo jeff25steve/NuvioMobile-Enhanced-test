@@ -43,6 +43,9 @@ private const val OneHandedScale = 0.66f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
 private const val OneHandedMinimumScale = 0.60f
+private const val OneHandedCompactScale = 0.72f
+private const val OneHandedCompactWidthDp = 360f
+private const val OneHandedCompactHeightDp = 640f
 
 private const val OneHandedSpringDamping = Spring.DampingRatioNoBouncy
 private const val OneHandedSpringStiffness = Spring.StiffnessMedium
@@ -255,20 +258,27 @@ internal fun OneHandedPresentation(
 }
 
 /**
- * Caps the reduced surface on larger viewports, but limits additional shrinkage to 60%.
- * On very large screens the surface may exceed the preferred footprint rather than making every
- * control excessively small. Scaling still reduces effective touch-target size, so device testing
- * remains necessary.
+ * Keeps a little more of the original size on compact phones to protect touch usability, while
+ * capping the reduced surface on larger viewports. On very large screens the surface may exceed
+ * the preferred footprint rather than making every control excessively small. Scaling still
+ * reduces effective touch-target size, so device testing remains necessary.
  */
 internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
     if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
         return OneHandedScale
     }
+    val preferredScale = if (
+        widthDp <= OneHandedCompactWidthDp || heightDp <= OneHandedCompactHeightDp
+    ) {
+        OneHandedCompactScale
+    } else {
+        OneHandedScale
+    }
     return minOf(
-        OneHandedScale,
+        preferredScale,
         OneHandedMaxWidthDp / widthDp,
         OneHandedMaxHeightDp / heightDp,
-    ).coerceIn(OneHandedMinimumScale, OneHandedScale)
+    ).coerceIn(OneHandedMinimumScale, preferredScale)
 }
 
 /** Computes the scaled surface's horizontal edge for the same animated pivot used by graphicsLayer. */
