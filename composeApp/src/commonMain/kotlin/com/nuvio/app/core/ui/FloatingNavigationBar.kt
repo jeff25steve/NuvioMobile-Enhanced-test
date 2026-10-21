@@ -620,67 +620,71 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         var claimed = false
         var finished = false
         try {
-            // Use Compose's native long-press recognizer so the timeout and cancellation
-            // semantics match the existing profile hold. Movement past touch slop falls
-            // through to the original drag-to-select path.
-            val longPress = awaitLongPressOrCancellation(down.id)
-            if (longPress != null) {
-                val items = currentItems()
-                val selectedIndex = items.indexOfFirst { it.selected }
-                val slotWidth = ((size.width / density) - 8f) / items.size.coerceAtLeast(1)
-                val heldVisualIndex = ((down.position.x / density - 4f) / slotWidth)
-                    .toInt()
-                    .coerceIn(0, (items.size - 1).coerceAtLeast(0))
-                val heldLogicalIndex = logicalNavIndex(heldVisualIndex, items.size, isRtl())
-                motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
-                finished = true
-                if (items.getOrNull(heldLogicalIndex)?.onLongClick != null) {
+            val itemsAtDown = currentItems()
+            val slotWidth = ((size.width / density) - 8f) / itemsAtDown.size.coerceAtLeast(1)
+            val heldVisualIndex = ((down.position.x / density - 4f) / slotWidth)
+                .toInt()
+                .coerceIn(0, (itemsAtDown.size - 1).coerceAtLeast(0))
+            val heldLogicalIndex = logicalNavIndex(heldVisualIndex, itemsAtDown.size, isRtl())
+            val longPressAction = itemsAtDown.getOrNull(heldLogicalIndex)?.onLongClick
+
+            // Only intercept long-press on items that explicitly provide a hold action.
+            // In particular, the profile item keeps its own proven drag-after-long-press
+            // recognizer and popup behavior unchanged.
+            if (longPressAction != null) {
+                val longPress = awaitLongPressOrCancellation(down.id)
+                if (longPress != null) {
+                    val selectedIndex = currentItems().indexOfFirst { it.selected }
+                    motion.cancel(visualNavIndex(selectedIndex, currentItems().size, isRtl()))
                     onLongPressHaptic()
-                    items[heldLogicalIndex].onLongClick?.invoke()
+                    longPressAction()
+                    finished = true
+                    // Consume the rest of the held press so release cannot also navigate.
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        event.changes.forEach { it.consume() }
+                        if (event.changes.none { it.pressed }) break
+                    }
+                    return@awaitEachGesture
                 }
-                // A hold is a distinct action. Consume until release so it cannot also
-                // navigate to Library or be interpreted as a second gesture.
-                while (true) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    event.changes.forEach { it.consume() }
-                    if (event.changes.none { it.pressed }) break
+                if (currentEvent.changes.none { it.id == down.id && it.pressed }) {
+                    val visualIndex = motion.finish()
+                    val items = currentItems()
+                    val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
+                    finished = true
+                    items.getOrNull(logicalIndex)?.onClick?.invoke()
+                    return@awaitEachGesture
                 }
-            } else if (currentEvent.changes.none { it.id == down.id && it.pressed }) {
-                // Released before the long-press threshold: preserve normal tab activation.
-                val visualIndex = motion.finish()
-                val items = currentItems()
-                val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
-                finished = true
-                items.getOrNull(logicalIndex)?.onClick?.invoke()
-            } else {
-                // Movement crossed touch slop. Keep the original jelly drag/commit behavior.
-                while (true) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    if (!motion.dragging) {
-                        finished = true
-                        break
-                    }
-                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (event.changes.count { it.pressed } > 1) break
-                    val delta = change.position - down.position
-                    if (max(abs(delta.x), abs(delta.y)) > viewConfiguration.touchSlop) claimed = true
-                    if (claimed) change.consume()
-                    awaitPointerEvent(PointerEventPass.Main)
-                    if (!motion.dragging) {
-                        finished = true
-                        break
-                    }
-                    if (change.isConsumed && !claimed) break
-                    motion.drag(delta.x / density, delta.y / density)
-                    if (!change.pressed) {
-                        val visualIndex = motion.finish()
-                        val items = currentItems()
-                        val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
-                        finished = true
-                        items.getOrNull(logicalIndex)?.onClick?.invoke()
-                        change.consume()
-                        break
-                    }
+                // If the long-press was cancelled by movement past touch slop, continue into
+                // the original drag-to-select path below.
+            }
+
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (!motion.dragging) {
+                    finished = true
+                    break
+                }
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (event.changes.count { it.pressed } > 1) break
+                val delta = change.position - down.position
+                if (max(abs(delta.x), abs(delta.y)) > viewConfiguration.touchSlop) claimed = true
+                if (claimed) change.consume()
+                awaitPointerEvent(PointerEventPass.Main)
+                if (!motion.dragging) {
+                    finished = true
+                    break
+                }
+                if (change.isConsumed && !claimed) break
+                motion.drag(delta.x / density, delta.y / density)
+                if (!change.pressed) {
+                    val visualIndex = motion.finish()
+                    val items = currentItems()
+                    val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
+                    finished = true
+                    items.getOrNull(logicalIndex)?.onClick?.invoke()
+                    change.consume()
+                    break
                 }
             }
         } finally {
