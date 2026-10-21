@@ -12,6 +12,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -39,11 +41,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
-private const val OneHandedScale = 0.66f
+private const val OneHandedScale = 0.72f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
 private const val OneHandedMinimumScale = 0.60f
-private const val OneHandedCompactScale = 0.72f
+private const val OneHandedCompactScale = 0.76f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
 
@@ -65,6 +67,8 @@ internal fun OneHandedPresentation(
     onOutsideTap: () -> Unit,
     onPlacementToggle: () -> Unit,
     placementToggleDescription: String,
+    onExit: () -> Unit = {},
+    exitDescription: String = "Exit one-handed mode",
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
@@ -147,10 +151,11 @@ internal fun OneHandedPresentation(
 
                         // Leave the dedicated side-switch target unconsumed so its clickable child
                         // receives the gesture instead of the outside-tap dismiss handler.
-                        val switchTargetSize = 48.dp.toPx()
-                        val switchTop = 12.dp.toPx()
-                        if (enabled && down.position.x in ((size.width - switchTargetSize) / 2f)..((size.width + switchTargetSize) / 2f) &&
-                            down.position.y in switchTop..(switchTop + switchTargetSize)
+                        // Keep both floating actions out of the outside-tap dismiss region.
+                        val controlGroupWidth = 104.dp.toPx()
+                        val controlTop = 12.dp.toPx()
+                        if (enabled && down.position.x in ((size.width - controlGroupWidth) / 2f)..((size.width + controlGroupWidth) / 2f) &&
+                            down.position.y in controlTop..(controlTop + 48.dp.toPx())
                         ) return@awaitEachGesture
 
                         val width = size.width.toFloat()
@@ -230,28 +235,54 @@ internal fun OneHandedPresentation(
                 visible = reduceContent,
                 enter = fadeIn(animationSpec = floatAnimationSpec),
                 exit = fadeOut(animationSpec = floatAnimationSpec),
-                modifier = Modifier.align(Alignment.TopCenter),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .size(48.dp)
-                        .background(
-                            color = surfaceVariant.copy(alpha = 0.96f),
-                            shape = CircleShape,
-                        )
-                        .clickable(onClick = onPlacementToggle)
-                        .semantics {
-                            contentDescription = placementToggleDescription
-                            role = Role.Button
-                        },
-                    contentAlignment = Alignment.Center,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "↔",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = surfaceVariant.copy(alpha = 0.96f),
+                                shape = CircleShape,
+                            )
+                            .clickable(onClick = onExit)
+                            .semantics {
+                                contentDescription = exitDescription
+                                role = Role.Button
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "×",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = surfaceVariant.copy(alpha = 0.96f),
+                                shape = CircleShape,
+                            )
+                            .clickable(onClick = onPlacementToggle)
+                            .semantics {
+                                contentDescription = placementToggleDescription
+                                role = Role.Button
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "↔",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
