@@ -47,6 +47,7 @@ class OneHandedPresentationTest {
     private var insideClickCount = 0
     private var outsideDismissCount = 0
     private var placementToggleCount = 0
+    private var exitCount = 0
     private var scrollState: ScrollState? = null
 
     @Test
@@ -158,6 +159,19 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
             assertEquals(1, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun explicitExitControlDisablesModeWithoutOutsideDismissal() {
+        setContent()
+
+        compose.onNodeWithContentDescription("Exit one-handed mode").performTouchInput { click() }
+
+        compose.runOnIdle {
+            assertEquals(1, exitCount)
+            assertEquals(0, outsideDismissCount)
+            assertEquals(0, insideClickCount)
         }
     }
 
@@ -374,6 +388,7 @@ class OneHandedPresentationTest {
         insideClickCount = 0
         outsideDismissCount = 0
         placementToggleCount = 0
+        exitCount = 0
         compose.setContent {
             MaterialTheme {
                 if (compactViewport) {
@@ -400,6 +415,8 @@ class OneHandedPresentationTest {
             onOutsideTap = { outsideDismissCount++ },
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
+            onExit = { exitCount++ },
+            exitDescription = "Exit one-handed mode",
         ) { contentModifier ->
             if (scrollableContent) {
                 val state = rememberScrollState()
