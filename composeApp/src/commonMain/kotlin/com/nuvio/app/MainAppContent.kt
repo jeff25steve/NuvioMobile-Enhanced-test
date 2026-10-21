@@ -265,28 +265,24 @@ internal fun MainAppContent(
         val uriHandler = LocalUriHandler.current
         val coroutineScope = rememberCoroutineScope()
         var selectedTab by rememberSaveable(initialTab) { mutableStateOf(initialTab) }
-        var oneHandedModeState by remember { mutableStateOf(OneHandedModeState()) }
+        val oneHandedModeState by appOneHandedModeController.state.collectAsStateWithLifecycle()
+        val nativeActiveTab by NativeTabBridge.activeTab.collectAsStateWithLifecycle()
         val toggleOneHandedMode: () -> Unit = {
             if (!HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()) {
-                oneHandedModeState = oneHandedModeState.toggle()
+                appOneHandedModeController.toggle()
             }
         }
         val dismissOneHandedMode: () -> Unit = {
-            oneHandedModeState = oneHandedModeState.dismissOutside()
+            appOneHandedModeController.dismissOutside()
         }
         val disableOneHandedModeForPlayerEntry: () -> Unit = {
-            oneHandedModeState = oneHandedModeState.disableForPlayerEntry()
+            appOneHandedModeController.disableForPlayerEntry()
         }
         DisposableEffect(Unit) {
             val callback: () -> Unit = disableOneHandedModeForPlayerEntry
             HomeHeroTrailerPlaybackController.registerPlaybackStartObserver(callback)
             onDispose {
                 HomeHeroTrailerPlaybackController.unregisterPlaybackStartObserver(callback)
-            }
-        }
-        LaunchedEffect(Unit) {
-            NativeTabBridge.oneHandedModeToggleRequests.collectLatest {
-                toggleOneHandedMode()
             }
         }
         var searchFocusRequestCount by remember { mutableStateOf(0) }
@@ -634,8 +630,9 @@ internal fun MainAppContent(
         useNativeNavigation,
         ownsAppRuntime,
         oneHandedModeState.enabled,
+        nativeActiveTab,
     ) {
-        if (useNativeNavigation && !ownsAppRuntime) return@LaunchedEffect
+        if (useNativeNavigation && initialTab.name != nativeActiveTab.name) return@LaunchedEffect
 
         val visible = liquidGlassNativeTabBarSupported &&
             liquidGlassNativeTabBarEnabled &&
