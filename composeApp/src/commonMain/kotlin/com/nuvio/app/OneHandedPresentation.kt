@@ -113,6 +113,7 @@ internal fun OneHandedPresentation(
             ),
         )
     }
+    val currentOnOutsideTap = rememberUpdatedState(onOutsideTap)
     val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
