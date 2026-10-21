@@ -4,7 +4,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -20,7 +19,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -94,12 +92,6 @@ internal fun OneHandedPresentation(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .drawBehind {
-                if (!forceNormalLayout && backdropAlpha > 0f) {
-                    drawRect(brush = backgroundBrush, alpha = backdropAlpha)
-                    drawRect(color = scrim.copy(alpha = 0.22f * backdropAlpha))
-                }
-            }
             .pointerInput(enabled, placement, forceNormalLayout) {
                 awaitEachGesture {
                     if (forceNormalLayout) return@awaitEachGesture
