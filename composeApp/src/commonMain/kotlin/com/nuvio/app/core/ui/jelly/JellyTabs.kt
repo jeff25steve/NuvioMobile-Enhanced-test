@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Icon
@@ -21,6 +22,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -146,6 +148,18 @@ internal fun JellyTabTargets(
                         interactionSource = null,
                         indication = null,
                         onClick = onClick,
+                    )
+                    .then(
+                        if (item.onLongClick != null) {
+                            Modifier.pointerInput(item.label) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { item.onLongClick.invoke() },
+                                    onDrag = { change, _ -> change.consume() },
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
                     )
                     .clearAndSetSemantics {
                         role = Role.Tab
