@@ -1,5 +1,7 @@
 package com.nuvio.app.core.ui
 
+import com.nuvio.app.appOneHandedModeController
+import com.nuvio.app.features.home.components.HomeHeroTrailerPlaybackController
 import com.nuvio.app.features.settings.NuvioTabBarBehavior
 import com.nuvio.app.features.profiles.AvatarRepository
 import com.nuvio.app.features.profiles.AvatarCatalogItem
@@ -42,9 +44,6 @@ internal object NativeTabBridge {
     private val _requestedTabs = MutableSharedFlow<NativeNavigationTab>(extraBufferCapacity = 1)
     val requestedTabs: SharedFlow<NativeNavigationTab> = _requestedTabs.asSharedFlow()
 
-    private val _oneHandedModeToggleRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val oneHandedModeToggleRequests: SharedFlow<Unit> = _oneHandedModeToggleRequests.asSharedFlow()
-
     private val _activeTab = MutableStateFlow(NativeNavigationTab.Home)
     val activeTab: StateFlow<NativeNavigationTab> = _activeTab.asStateFlow()
 
@@ -61,7 +60,9 @@ internal object NativeTabBridge {
     }
 
     fun requestOneHandedModeToggle() {
-        _oneHandedModeToggleRequests.tryEmit(Unit)
+        if (!HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()) {
+            appOneHandedModeController.toggle()
+        }
     }
 
     fun publishSelectedTab(tab: NativeNavigationTab) {
