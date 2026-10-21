@@ -372,7 +372,7 @@ internal fun MainAppContent(
     }
     SideEffect {
         if (playerPresentationActive && oneHandedModeState.enabled) {
-            oneHandedModeState = oneHandedModeState.disableForPlayerEntry()
+            appOneHandedModeController.disableForPlayerEntry()
         }
     }
     val p2pSettingsUiState by remember {
