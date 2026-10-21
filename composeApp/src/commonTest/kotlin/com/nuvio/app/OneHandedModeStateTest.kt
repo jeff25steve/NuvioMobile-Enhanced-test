@@ -30,6 +30,18 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun controllerPublishesPlacementChangesToSharedState() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Right),
+        )
+
+        controller.togglePlacement()
+
+        assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+        assertTrue(controller.state.value.enabled)
+    }
+
+    @Test
     fun outsideTapDisablesModeWithoutChangingPlacement() {
         val enabled = OneHandedModeState(
             enabled = true,
