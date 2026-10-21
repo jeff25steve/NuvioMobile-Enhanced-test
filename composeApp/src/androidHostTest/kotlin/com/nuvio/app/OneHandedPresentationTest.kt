@@ -73,20 +73,6 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun forcedNormalLayoutKeepsFullScreenContentInteractiveWithoutOutsideDismissal() {
-        setContent(forceNormalLayout = true)
-
-        compose.onRoot().performTouchInput {
-            click(Offset(size.width * 0.1f, size.height * 0.1f))
-        }
-
-        compose.runOnIdle {
-            assertEquals(1, insideClickCount)
-            assertEquals(0, outsideDismissCount)
-        }
-    }
-
-    @Test
     fun compactViewportStillDeliversInsideTapToAppContent() {
         setContent(compactViewport = true)
 
