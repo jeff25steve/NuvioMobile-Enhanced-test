@@ -609,8 +609,13 @@ final class NativeTabIconStore: ObservableObject {
 @MainActor
 final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognizerDelegate {
     var onLongPress: (() -> Void)?
+    var onLibraryLongPress: (() -> Void)?
+    var tabOrder: (() -> [NuvioAppTab])?
     private(set) var isHandlingLongPress = false
     private(set) var suppressesProfileSelection = false
+    private(set) var suppressesLibrarySelection = false
+    private var longPressTarget: NuvioAppTab?
+
     func setSuppressesProfileSelection(_ enabled: Bool) {
         suppressesProfileSelection = enabled
     }
@@ -776,13 +781,27 @@ final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognize
     ) -> Bool {
         guard gestureRecognizer === recognizer,
               let tabBar = tabBarController?.tabBar,
-              let profileItem = tabBar.items?.last else {
+              let items = tabBar.items,
+              let tabs = tabOrder?() else {
             return false
         }
         competingRecognizers.removeAllObjects()
-        guard #available(iOS 17.0, *),
-              let profileFrame = profileItem.frame(in: tabBar) else { return false }
-        return profileFrame.contains(touch.location(in: tabBar))
+        guard #available(iOS 17.0, *) else { return false }
+
+        // The same native recognizer supports the profile popup and Library's one-handed
+        // shortcut. Resolve the actual tab item rather than assuming the profile is the only
+        // eligible target; live-TV visibility can change the item order/count.
+        let touchLocation = touch.location(in: tabBar)
+        for (index, tab) in tabs.enumerated() where tab == .library || tab == .settings {
+            guard items.indices.contains(index),
+                  let frame = items[index].frame(in: tabBar) else { continue }
+            if frame.contains(touchLocation) {
+                longPressTarget = tab
+                return true
+            }
+        }
+        longPressTarget = nil
+        return false
     }
 
     func gestureRecognizer(
@@ -801,11 +820,20 @@ final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognize
     @objc private func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
         switch recognizer.state {
         case .began:
+            guard let target = longPressTarget else { return }
             selectedIndexBeforeLongPress = tabBarController?.selectedIndex
             isHandlingLongPress = true
-            suppressesProfileSelection = true
+            suppressesProfileSelection = target == .settings
+            suppressesLibrarySelection = target == .library
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            onLongPress?()
+            switch target {
+            case .library:
+                onLibraryLongPress?()
+            case .settings:
+                onLongPress?()
+            default:
+                break
+            }
             competingRecognizers.allObjects.forEach { competingRecognizer in
                 competingRecognizer.isEnabled = false
                 competingRecognizer.isEnabled = true
@@ -823,6 +851,8 @@ final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognize
                 }
                 self.selectedIndexBeforeLongPress = nil
                 self.suppressesProfileSelection = false
+                self.suppressesLibrarySelection = false
+                self.longPressTarget = nil
             }
         default:
             break
@@ -909,8 +939,15 @@ final class AppNavigationCoordinator: ObservableObject {
                 self?.refreshSelectedTabDepth()
             }
         }
+        profileTabInteraction.tabOrder = { [weak self] in
+            self?.availableTabs ?? []
+        }
         profileTabInteraction.onAttached = { [weak self] in
             DispatchQueue.main.async { self?.refreshNativeTabBarMetrics() }
+        }
+        profileTabInteraction.onLibraryLongPress = { [weak self] in
+            guard let self, self.isAppReady else { return }
+            NativeTabBridgeKt.nativeTabToggleOneHandedMode()
         }
         profileTabInteraction.onLongPress = { [weak self] in
             guard let self, self.isAppReady else { return }
@@ -1708,8 +1745,10 @@ struct NativeNavContentView: View {
         Binding(
             get: { appCoordinator.selectedTab },
             set: { newTab in
-                if newTab == .settings &&
-                    appCoordinator.profileTabInteraction.suppressesProfileSelection {
+                if (newTab == .settings &&
+                    appCoordinator.profileTabInteraction.suppressesProfileSelection) ||
+                    (newTab == .library &&
+                        appCoordinator.profileTabInteraction.suppressesLibrarySelection) {
                     return
                 }
                 if newTab == appCoordinator.selectedTab {

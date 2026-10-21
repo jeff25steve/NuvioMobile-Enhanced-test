@@ -141,18 +141,20 @@ internal object HomeHeroTrailerPlaybackController {
         inlineTrailerPlaybackActive = active
     }
 
-    private var playbackStartCallback: (() -> Unit)? = null
+    private val playbackStartObservers = linkedSetOf<() -> Unit>()
 
     fun registerPlaybackStartObserver(callback: () -> Unit) {
-        playbackStartCallback = callback
+        playbackStartObservers.add(callback)
     }
 
     fun unregisterPlaybackStartObserver(callback: () -> Unit) {
-        if (playbackStartCallback === callback) playbackStartCallback = null
+        playbackStartObservers.remove(callback)
     }
 
     fun notifyPlaybackStarting() {
-        playbackStartCallback?.invoke()
+        // A playback callback may dispose its composition and unregister itself. Notify a
+        // stable snapshot so observers can safely change registration during dispatch.
+        playbackStartObservers.toList().forEach { observer -> observer() }
     }
 }
 
