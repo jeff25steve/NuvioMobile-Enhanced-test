@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
@@ -63,6 +65,20 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
             assertEquals(0, outsideDismissCount)
+        }
+    }
+
+    @Test
+    fun compactViewportContentCanStillScroll() {
+        setContent(compactViewport = true, scrollableContent = true)
+
+        compose.onNodeWithTag("scrollableContent").performTouchInput {
+            swipeUp()
+        }
+
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1, compose.onNodeWithText("Scrollable item 20").fetchSemanticsNodes().size)
         }
     }
 
@@ -255,7 +271,7 @@ class OneHandedPresentationTest {
         assertEquals(false, disabled.disableForPlayerEntry().enabled)
     }
 
-    private fun setContent(compactViewport: Boolean = false) {
+    private fun setContent(compactViewport: Boolean = false, scrollableContent: Boolean = false) {
         insideClickCount = 0
         outsideDismissCount = 0
         placementToggleCount = 0
@@ -263,17 +279,17 @@ class OneHandedPresentationTest {
             MaterialTheme {
                 if (compactViewport) {
                     Box(Modifier.size(320.dp, 568.dp).testTag("compactViewport")) {
-                        presentationContent()
+                        presentationContent(scrollableContent)
                     }
                 } else {
-                    presentationContent()
+                    presentationContent(scrollableContent)
                 }
             }
         }
     }
 
     @androidx.compose.runtime.Composable
-    private fun presentationContent() {
+    private fun presentationContent(scrollableContent: Boolean = false) {
         OneHandedPresentation(
             enabled = true,
             placement = OneHandedModePlacement.Right,
@@ -282,12 +298,25 @@ class OneHandedPresentationTest {
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
         ) { contentModifier ->
-            Box(contentModifier) {
-                Box(
-                    Modifier
+            if (scrollableContent) {
+                Column(
+                    modifier = contentModifier
                         .fillMaxSize()
-                        .clickable { insideClickCount++ },
-                )
+                        .verticalScroll(rememberScrollState())
+                        .testTag("scrollableContent"),
+                ) {
+                    repeat(30) { index ->
+                        Text("Scrollable item $index", modifier = Modifier.clickable { insideClickCount++ })
+                    }
+                }
+            } else {
+                Box(contentModifier) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .clickable { insideClickCount++ },
+                    )
+                }
             }
         }
     }
