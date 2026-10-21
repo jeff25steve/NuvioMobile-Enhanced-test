@@ -371,6 +371,7 @@ internal fun BoxScope.SettingsRouteNavigationBar(
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
     onBottomOverlayChanged: (Dp) -> Unit,
+    onOneHandedModeToggle: () -> Unit = {},
 ) {
     val style by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
     val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
@@ -425,6 +426,7 @@ internal fun BoxScope.SettingsRouteNavigationBar(
                     onTabSelected = onTabSelected,
                     onProfileSelected = onProfileSelected,
                     onAddProfileRequested = onAddProfileRequested,
+                    onOneHandedModeToggle = onOneHandedModeToggle,
                     backdrop = backdrop,
                     defaultIconColorOverride = defaultIconColorOverride,
                 ),
