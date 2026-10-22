@@ -272,7 +272,7 @@ internal fun MainAppContent(
             NativeTabBridge.requestOneHandedModeToggle()
         }
         val exitOneHandedMode: () -> Unit = {
-            appOneHandedModeController.disableForPlayerEntry()
+            appOneHandedModeController.disable()
         }
         val disableOneHandedModeForPlayerEntry: () -> Unit = {
             appOneHandedModeController.disableForPlayerEntry()
