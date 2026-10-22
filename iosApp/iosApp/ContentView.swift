@@ -1342,8 +1342,7 @@ struct TabContentView: View {
                 appCoordinator.isMainContentVisible &&
                 coordinator.path.keepsTabBar &&
                 !appCoordinator.usesGlassTabBarOverlay &&
-                !appCoordinator.isOneHandedModeEnabled &&
-                appCoordinator.isNativeTabBarVisible
+                                appCoordinator.isNativeTabBarVisible
                 ? Visibility.visible
                 : Visibility.hidden,
             for: .tabBar
@@ -1431,8 +1430,7 @@ private struct DetailDestinationView: View {
             usesNativeTabBar &&
                 wrapper.route.keepsTabBar &&
                 !appCoordinator.usesGlassTabBarOverlay &&
-                !appCoordinator.isOneHandedModeEnabled &&
-                appCoordinator.isNativeTabBarVisible
+                                appCoordinator.isNativeTabBarVisible
                 ? Visibility.visible
                 : Visibility.hidden,
             for: .tabBar
@@ -1868,8 +1866,7 @@ struct NativeNavContentView: View {
         )
         .overlay(alignment: .bottom) {
             if appCoordinator.usesGlassTabBarOverlay &&
-                !appCoordinator.isOneHandedModeEnabled &&
-                appCoordinator.isAppReady &&
+                                appCoordinator.isAppReady &&
                 appCoordinator.isSelectedTabAtRoot {
                 GeometryReader { proxy in
                     NuvioGlassTabBar(
