@@ -208,7 +208,6 @@ private fun LiquidGlassSurfaceListItem(
     onToggle: (Boolean) -> Unit,
 ) {
     val enabled = overrides.enabled ?: surface.defaultEnabled
-    val recipe = remember(surface) { surfacePreviewRecipe(surface) }
     val title = liquidGlassSurfaceTitle(surface)
     Surface(
         modifier = Modifier
@@ -247,14 +246,6 @@ private fun LiquidGlassSurfaceListItem(
                     checked = enabled,
                     onCheckedChange = onToggle,
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpen)
-                    .padding(horizontal = 12.dp),
-            ) {
-                LiquidGlassSurfacePreview(surface = surface, recipe = recipe)
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
