@@ -132,6 +132,8 @@ internal fun OneHandedPresentation(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
     ) {
+        val viewportHeightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+        val currentViewportHeightPx = rememberUpdatedState(viewportHeightPx)
         val targetScale = if (forceNormalLayout) {
             1f
         } else {
@@ -254,9 +256,9 @@ internal fun OneHandedPresentation(
                                 detectVerticalDragGestures(
                                     onVerticalDrag = { change, dragAmount ->
                                         change.consume()
-                                        val viewportHeightPx = size.height.toFloat().coerceAtLeast(1f)
+                                        val availableHeightPx = currentViewportHeightPx.value
                                         val nextMultiplier = (
-                                            currentScaleMultiplier.value - dragAmount / viewportHeightPx
+                                            currentScaleMultiplier.value - dragAmount / availableHeightPx
                                         ).coerceIn(
                                             OneHandedMinimumScaleMultiplier,
                                             OneHandedMaximumScaleMultiplier,
