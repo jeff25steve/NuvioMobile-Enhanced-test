@@ -103,7 +103,7 @@ internal fun Modifier.playerLiquidGlass(
             depthEffect = overrides.depthEffect ?: false,
         )
     }
-    return if (rim) glass.border(0.75.dp, PlayerGlassRim, effectiveShape) else glass
+    return if (rim && enabled) glass.border(0.75.dp, PlayerGlassRim, effectiveShape) else glass
 }
 
 // Keep the captured frame identical to the real picture so the glass reads as transparent (no dimming).
