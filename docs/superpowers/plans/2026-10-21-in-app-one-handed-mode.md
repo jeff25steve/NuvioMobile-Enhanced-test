@@ -72,7 +72,7 @@
 
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
 - [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; vertical grip dragging moves the pill with a same-size outline preview while the live surface stays still, then commits vertical position on release. A separate top-corner drag hides the pill/arrow, previews uniform resizing with old/target corner markers, and commits scale plus position atomically on release. The side arrow alone switches left/right; a grip tap alone is inert.
-- [x] Add a small directional side-switch arrow outside the surface at mid-height; keep both floating controls excluded from the outside-touch interceptor.
+- [x] Add a dark circular side-switch button with a slim chevron outside the surface at mid-height; scale its visual with the window while keeping a generous independent tap target. Keep all controls excluded from the outside-touch interceptor.
 - [x] Keep drag input captured, clamp scale and vertical position to the usable viewport, preserve the anchored bottom corner during resize, commit scale/position in one state update, and keep hit boxes aligned to visual controls (runtime verification pending).
 - [x] Add scale-bound, vertical-position-bound, vertical-grip drag, corner-resize, grip-tap inertness, side-arrow and outside-touch test cases (not yet executed).
 - [x] Match the video’s approximate 78% scale and tighter 16dp corner radius (not yet visually/device-verified).
