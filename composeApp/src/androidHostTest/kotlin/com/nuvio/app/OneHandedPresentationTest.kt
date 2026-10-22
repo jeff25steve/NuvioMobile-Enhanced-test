@@ -154,17 +154,22 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun topHandleDragResizesContinuouslyWithinBounds() {
-        val multiplier = mutableStateOf(1f)
+    fun topHandleDragMovesWindowUpWithoutResizing() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true),
+        )
         compose.setContent {
+            val modeState by controller.state.collectAsState()
             MaterialTheme {
                 OneHandedPresentation(
-                    enabled = true,
-                    placement = OneHandedModePlacement.Right,
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
                     forceNormalLayout = false,
-                    scaleMultiplier = multiplier.value,
-                    onScaleMultiplierChange = { multiplier.value = it },
-                    onPlacementToggle = {},
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    verticalPosition = modeState.verticalPosition,
+                    onVerticalPositionChange = controller::updateVerticalPosition,
+                    onPlacementToggle = controller::togglePlacement,
                     placementToggleDescription = "Move app to the other side",
                 ) { contentModifier ->
                     Box(contentModifier.fillMaxSize())
@@ -173,14 +178,59 @@ class OneHandedPresentationTest {
         }
 
         compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
-            down(0, Offset(size.width / 2f, size.height / 2f))
-            moveTo(0, Offset(size.width / 2f, size.height / 2f - 48f), delayMillis = 100)
+            val start = Offset(size.width / 2f, size.height / 2f)
+            down(0, start)
+            moveTo(0, Offset(start.x, start.y - 48f), delayMillis = 100)
             up(0)
         }
 
         compose.runOnIdle {
-            assertTrue(multiplier.value > 1f, "Dragging the top handle upward should enlarge the app")
-            assertTrue(multiplier.value <= OneHandedMaximumScaleMultiplier)
+            assertTrue(controller.state.value.verticalPosition > 0f)
+            assertTrue(controller.state.value.verticalPosition <= 1f)
+            assertEquals(1f, controller.state.value.scaleMultiplier)
+            assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
+        }
+    }
+
+    @Test
+    fun resizingCornerChangesScaleWithoutMovingItsAnchor() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+            ),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
+                    forceNormalLayout = false,
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    verticalPosition = modeState.verticalPosition,
+                    onVerticalPositionChange = controller::updateVerticalPosition,
+                    onPlacementToggle = controller::togglePlacement,
+                    placementToggleDescription = "Move app to the other side",
+                ) { contentModifier ->
+                    Box(contentModifier.fillMaxSize())
+                }
+            }
+        }
+
+        compose.onNodeWithContentDescription("Resize one-handed mode").performTouchInput {
+            val start = Offset(size.width / 2f, size.height / 2f)
+            down(0, start)
+            moveTo(0, Offset(start.x - 48f, start.y - 48f), delayMillis = 100)
+            up(0)
+        }
+
+        compose.runOnIdle {
+            assertTrue(controller.state.value.scaleMultiplier > 1f)
+            assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
+            assertEquals(0f, controller.state.value.verticalPosition)
+            assertTrue(controller.state.value.enabled)
         }
     }
 
@@ -220,12 +270,9 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun draggingTopHandleHorizontallySwitchesSideWithoutExiting() {
+    fun topHandleHorizontalDragDoesNotResizeOrSwitchSide() {
         val controller = OneHandedModeController(
-            initialState = OneHandedModeState(
-                enabled = true,
-                placement = OneHandedModePlacement.Right,
-            ),
+            initialState = OneHandedModeState(enabled = true),
         )
         compose.setContent {
             val modeState by controller.state.collectAsState()
@@ -236,6 +283,8 @@ class OneHandedPresentationTest {
                     forceNormalLayout = false,
                     scaleMultiplier = modeState.scaleMultiplier,
                     onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    verticalPosition = modeState.verticalPosition,
+                    onVerticalPositionChange = controller::updateVerticalPosition,
                     onPlacementToggle = controller::togglePlacement,
                     placementToggleDescription = "Move app to the other side",
                 ) { contentModifier ->
@@ -247,13 +296,15 @@ class OneHandedPresentationTest {
         compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
-            moveTo(0, Offset(start.x - size.width * 1.6f, start.y), delayMillis = 100)
+            moveTo(0, Offset(start.x + 80f, start.y), delayMillis = 100)
             up(0)
         }
 
         compose.runOnIdle {
             assertTrue(controller.state.value.enabled)
-            assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+            assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
+            assertEquals(1f, controller.state.value.scaleMultiplier)
+            assertEquals(0f, controller.state.value.verticalPosition)
         }
     }
 
