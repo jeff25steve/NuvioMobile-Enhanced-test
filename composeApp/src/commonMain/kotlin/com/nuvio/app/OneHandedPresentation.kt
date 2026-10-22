@@ -50,6 +50,10 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.one_handed_move_window
+import nuvio.composeapp.generated.resources.one_handed_resize
+import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -151,6 +155,8 @@ internal fun OneHandedPresentation(
     placementToggleDescription: String,
     content: @Composable (Modifier) -> Unit,
 ) {
+    val moveWindowDescription = stringResource(Res.string.one_handed_move_window)
+    val resizeDescription = stringResource(Res.string.one_handed_resize)
     val reduceContent = enabled && !forceNormalLayout
     // Reuse a restrained no-bounce spring across related properties. Compose springs retain
     // velocity when targets change mid-flight, keeping rapid side switches continuous.
@@ -549,7 +555,7 @@ internal fun OneHandedPresentation(
                                 }
                             }
                             .semantics {
-                                contentDescription = "Move window vertically"
+                                contentDescription = moveWindowDescription
                             },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -671,7 +677,7 @@ internal fun OneHandedPresentation(
                             }
                         }
                         .semantics {
-                            contentDescription = "Resize one-handed mode"
+                            contentDescription = resizeDescription
                         },
                 )
 

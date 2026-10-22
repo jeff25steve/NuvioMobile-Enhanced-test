@@ -2690,6 +2690,8 @@
     <string name="compose_player_show_remaining_time">Show remaining time</string>
     <string name="compose_player_brightness">Brightness</string>
     <string name="compose_player_volume">Volume</string>
+    <string name="one_handed_move_window">Move window vertically</string>
+    <string name="one_handed_resize">Resize one-handed mode</string>
     <string name="one_handed_switch_side">Move app to the other side</string>
     <string name="settings_nav_bar_position">Position</string>
     <string name="settings_nav_bar_position_bottom">Bottom</string>
