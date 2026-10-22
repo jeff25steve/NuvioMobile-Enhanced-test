@@ -12,6 +12,22 @@
 
 ## Global Constraints
 
+## Mandatory Kotlin Compile and Regression Gate
+
+- **Before every code edit:** inspect the current branch, working-tree/remote state when available, recent relevant diff, and build configuration. Run the appropriate Kotlin/Gradle compile task on the untouched baseline first (for Android, use the repository's documented Android compile/build task; also compile/test the relevant KMP target when the change affects shared or iOS code). Record the exact command and exit result.
+- **Do not begin implementation if the baseline compile has not been attempted.** If no local checkout/toolchain/network is available, explicitly record that as blocked and do not describe compilation as checked; do not substitute GitHub source inspection or CI status for a compiler run.
+- **After each coding change:** rerun the same compile task and relevant focused tests, then run the broader relevant test/build checks before claiming completion. Inspect the full diff and ensure only intended files changed.
+- Treat compiler output as evidence: resolve the first/root compile error, rerun compilation, and repeat until clean or until a specific external blocker is demonstrated. Do not guess at follow-on errors from stale logs.
+- Never claim a build/test passed unless the command ran in this work session and its exit status/output was inspected. Clearly distinguish compile success, tests, device checks, and unverified items.
+
+## Original Enhanced Navigation Bar Is a Hard Compatibility Constraint
+
+- Preserve the original `enhanced` branch navigation bar's appearance, implementation, layout, gesture handling, visibility, Liquid Glass behavior, and platform-native integration when one-handed mode is **off**. Treat `enhanced` as the source of truth for ordinary navigation behavior.
+- One-handed mode must not redesign, replace, hide, or globally alter the navigation bar to make its scaled presentation easier. Do not switch the normal iOS tab bar to a custom SwiftUI bar, add a different navigation implementation, or change normal tab behavior as a workaround.
+- Before changing any navigation-related code, compare the target branch against `enhanced` and identify the exact one-handed-only boundary. Prefer the smallest scoped change that leaves disabled-mode behavior identical.
+- If exact one-handed visual parity conflicts with preserving the original navigation bar, stop and report the platform limitation and options instead of silently changing navigation behavior. Obtain explicit user approval before any trade-off that changes the original Enhanced navigation experience.
+- Add/retain regression checks for normal navigation when one-handed mode is disabled, including Library tap, profile hold/popup, drag-to-select, native iOS tab integration, and Liquid Glass behavior where applicable.
+
 - Keep work on branch `one-hand-operation`; inspect the head and current file blob SHA before each GitHub contents write.
 - Use the existing nav architecture and restore no behavior outside the one-handed feature.
 - The normal Library tap navigates normally; Library press-and-hold toggles one-handed mode without a popup.

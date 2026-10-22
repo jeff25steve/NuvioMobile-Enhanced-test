@@ -95,6 +95,20 @@ The video/trailer entry path is a hard boundary. Before playback is shown, one-h
 
 The feature must not alter media selection, playback state, resume position, watched state, or mini-player ownership. If the app can host a mini-player while ordinary browsing continues, verify the intended player route/host behaviour explicitly and ensure one-handed mode does not keep the player surface scaled, captured, or touch-transformed.
 
+## 7A. Mandatory build discipline and navigation compatibility
+
+### Compile before and after coding
+- Before modifying source, run the relevant Kotlin/Gradle compile task against the current, untouched branch state and record the exact command and result. Inspect the working tree, existing changes, branch head, and recent diff before editing.
+- After every code change, rerun the same compile task and relevant focused tests. Before completion, run the broader relevant test/build checks that the environment supports.
+- If a baseline compile cannot be run because a checkout, network, or toolchain is unavailable, state that limitation explicitly before editing. Source inspection is not a compile, and CI status is not a substitute for a local compile. Never report a compile/build as passing without fresh command output and exit status.
+- Fix errors from observed compiler output, one root cause at a time, and rerun. Do not infer additional errors without evidence.
+
+### Preserve original Enhanced navigation behavior
+- The `enhanced` branch is authoritative for normal navigation. When one-handed mode is disabled, navigation must remain behaviorally and visually identical to Enhanced: same bar, Liquid Glass, layout, gestures, native integration, visibility, and tab behavior.
+- Do not replace, hide, redesign, or globally modify the original navigation bar as a one-handed-mode workaround. In particular, do not force the iOS system/native tab bar to become a custom bar in normal operation.
+- Any navigation-related change must be isolated to the enabled one-handed presentation and must be compared with the original Enhanced implementation first.
+- If iOS architecture prevents exact parity without changing the original navigation experience, document the limitation and ask the user before making a trade-off. Do not silently change navigation behavior.
+- Verify ordinary Library taps, profile long-press popup, drag-to-select, Liquid Glass, and iOS native tab behavior remain unchanged with one-handed mode off.
 ## 8. Non-goals
 
 - Android system-wide One-handed Mode or changing device settings.
