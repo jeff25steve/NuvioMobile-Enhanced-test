@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
+import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
@@ -105,6 +106,13 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val customizableSurfaces = remember {
+        if (usesNativeNuvioBottomSheet) {
+            LiquidGlassSurface.entries.filter { it != LiquidGlassSurface.BOTTOM_SHEETS }
+        } else {
+            LiquidGlassSurface.entries
+        }
+    }
     val dismiss: () -> Unit = {
         // Persist before starting the dismiss animation, which can dispose the sheet immediately.
         onSave()
@@ -141,7 +149,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             }
-            items(LiquidGlassSurface.entries, key = { it.name }) { surface ->
+            items(customizableSurfaces, key = { it.name }) { surface ->
                 LiquidGlassSurfaceSettingsCard(
                     surface = surface,
                     overrides = settings.forSurface(surface),
