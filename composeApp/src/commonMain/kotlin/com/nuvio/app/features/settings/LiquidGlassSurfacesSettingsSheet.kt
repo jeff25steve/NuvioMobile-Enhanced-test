@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,19 +17,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +69,7 @@ import nuvio.composeapp.generated.resources.settings_nav_bar_glass_depth_effect
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_depth_effect_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_color
 import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_color_description
+import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_default
@@ -106,7 +112,11 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val customizableSurfaces = remember {
+    var selectedSurfaceName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedSurface = selectedSurfaceName?.let { name ->
+        LiquidGlassSurface.entries.firstOrNull { it.name == name }
+    }
+    val customizableSurfaces = remember(usesNativeNuvioBottomSheet) {
         if (usesNativeNuvioBottomSheet) {
             LiquidGlassSurface.entries.filter { it != LiquidGlassSurface.BOTTOM_SHEETS }
         } else {
@@ -127,35 +137,50 @@ internal fun LiquidGlassSurfacesSettingsSheet(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                Column(
-                    modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_customize),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_customize_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_global_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (selectedSurface == null) {
+                item {
+                    Column(
+                        modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.settings_liquid_glass_customize),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(Res.string.settings_liquid_glass_customize_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(Res.string.settings_liquid_glass_global_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                items(customizableSurfaces, key = { it.name }) { surface ->
+                    LiquidGlassSurfaceListItem(
+                        surface = surface,
+                        overrides = settings.forSurface(surface),
+                        isTablet = isTablet,
+                        onOpen = { selectedSurfaceName = surface.name },
+                        onToggle = { enabled ->
+                            onSurfaceChanged(surface, settings.forSurface(surface).copy(enabled = enabled))
+                        },
                     )
                 }
-            }
-            items(customizableSurfaces, key = { it.name }) { surface ->
-                LiquidGlassSurfaceSettingsCard(
-                    surface = surface,
-                    overrides = settings.forSurface(surface),
-                    isTablet = isTablet,
-                    onChanged = { onSurfaceChanged(surface, it) },
-                )
+            } else {
+                item {
+                    LiquidGlassSurfaceEditor(
+                        surface = selectedSurface,
+                        overrides = settings.forSurface(selectedSurface),
+                        isTablet = isTablet,
+                        onBack = { selectedSurfaceName = null },
+                        onChanged = { onSurfaceChanged(selectedSurface, it) },
+                    )
+                }
             }
             item {
                 Row(
@@ -175,32 +200,20 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 }
 
 @Composable
-private fun LiquidGlassSurfaceSettingsCard(
+private fun LiquidGlassSurfaceListItem(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
     isTablet: Boolean,
-    onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
+    onOpen: () -> Unit,
+    onToggle: (Boolean) -> Unit,
 ) {
     val enabled = overrides.enabled ?: surface.defaultEnabled
-    val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface) { surfacePreviewRecipe(surface) }
-    val title = stringResource(
-        when (surface) {
-            LiquidGlassSurface.PLAYER -> Res.string.settings_liquid_glass_surface_player
-            LiquidGlassSurface.STREAM_SELECTION -> Res.string.settings_liquid_glass_surface_stream_selection
-            LiquidGlassSurface.DETAILS -> Res.string.settings_liquid_glass_surface_details
-            LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
-            LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
-            LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
-            LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
-        },
-    )
-    val horizontalPadding = if (isTablet) 24.dp else 16.dp
-
+    val title = liquidGlassSurfaceTitle(surface)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = horizontalPadding),
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
@@ -209,12 +222,16 @@ private fun LiquidGlassSurfaceSettingsCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onOpen)
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -228,126 +245,208 @@ private fun LiquidGlassSurfaceSettingsCard(
                 }
                 androidx.compose.material3.Switch(
                     checked = enabled,
-                    onCheckedChange = { onChanged(overrides.copy(enabled = it)) },
+                    onCheckedChange = onToggle,
                 )
             }
-
-            LiquidGlassSurfacePreview(
-                surface = surface,
-                recipe = recipe,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
-
-            AnimatedVisibility(visible = enabled) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LiquidGlassEffectSlider(
-                        title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
-                        value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
-                        valueRange = 0f..50f,
-                        valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
-                        isTablet = isTablet,
-                        steps = 49,
-                        onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
-                    )
-                    LiquidGlassEffectSlider(
-                        title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
-                        value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
-                        valueRange = 0f..32f,
-                        valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
-                        isTablet = isTablet,
-                        steps = 31,
-                        onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
-                    )
-                    if (refractionSupported) {
-                        LiquidGlassEffectSlider(
-                            title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
-                            value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
-                            valueRange = 0f..48f,
-                            valueLabel = overrides.refractionHeightDp?.let { "${it.roundToInt()} dp" }
-                                ?: stringResource(Res.string.settings_liquid_glass_default),
-                            isTablet = isTablet,
-                            steps = 47,
-                            onValueChange = { onChanged(overrides.copy(refractionHeightDp = it)) },
-                        )
-                        LiquidGlassEffectSlider(
-                            title = stringResource(Res.string.settings_nav_bar_glass_refraction_amount),
-                            value = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
-                            valueRange = 0f..48f,
-                            valueLabel = overrides.refractionAmountDp?.let { "${it.roundToInt()} dp" }
-                                ?: stringResource(Res.string.settings_liquid_glass_default),
-                            isTablet = isTablet,
-                            steps = 47,
-                            onValueChange = { onChanged(overrides.copy(refractionAmountDp = it)) },
-                        )
-                    }
-                    LiquidGlassEffectSlider(
-                        title = stringResource(Res.string.settings_nav_bar_glass_tint_opacity),
-                        value = overrides.tintOpacity ?: recipe.tintOpacity,
-                        valueRange = 0f..1f,
-                        valueLabel = overrides.tintOpacity?.let { "${(it * 100f).roundToInt()}%" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
-                        isTablet = isTablet,
-                        steps = 19,
-                        onValueChange = { onChanged(overrides.copy(tintOpacity = it)) },
-                    )
-                    if (refractionSupported) {
-                        SettingsSwitchRow(
-                            title = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration),
-                            description = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration_description),
-                            checked = overrides.chromaticAberration ?: false,
-                            isTablet = isTablet,
-                            onCheckedChange = { onChanged(overrides.copy(chromaticAberration = it)) },
-                        )
-                        SettingsSwitchRow(
-                            title = stringResource(Res.string.settings_nav_bar_glass_depth_effect),
-                            description = stringResource(Res.string.settings_nav_bar_glass_depth_effect_description),
-                            checked = overrides.depthEffect ?: false,
-                            isTablet = isTablet,
-                            onCheckedChange = { onChanged(overrides.copy(depthEffect = it)) },
-                        )
-                    }
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
-                        description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
-                        checked = overrides.defaultIconColorArgb != null,
-                        isTablet = isTablet,
-                        onCheckedChange = {
-                            onChanged(
-                                overrides.copy(
-                                    defaultIconColorArgb = if (it) {
-                                        overrides.defaultIconColorArgb ?: 0xFFB7C6E5.toInt()
-                                    } else {
-                                        null
-                                    },
-                                ),
-                            )
-                        },
-                    )
-                    overrides.defaultIconColorArgb?.let { color ->
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            ThemeColorPicker(
-                                color = color,
-                                colorIndex = surface.ordinal,
-                                onColorChanged = { onChanged(overrides.copy(defaultIconColorArgb = it)) },
-                            )
-                        }
-                    }
-                }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpen)
+                    .padding(horizontal = 12.dp),
+            ) {
+                LiquidGlassSurfacePreview(surface = surface, recipe = recipe)
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
-                    Text(stringResource(Res.string.settings_liquid_glass_reset))
+                TextButton(onClick = onOpen) {
+                    Text(stringResource(Res.string.settings_liquid_glass_customize))
                 }
             }
         }
     }
     NuvioBottomSheetDivider()
 }
+
+@Composable
+private fun LiquidGlassSurfaceEditor(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides,
+    isTablet: Boolean,
+    onBack: () -> Unit,
+    onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
+) {
+    val enabled = overrides.enabled ?: surface.defaultEnabled
+    val refractionSupported = isLiquidRefractionSupported()
+    val recipe = remember(surface) { surfacePreviewRecipe(surface) }
+    val title = liquidGlassSurfaceTitle(surface)
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 20.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(Res.string.action_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(Res.string.settings_liquid_glass_surface_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        LiquidGlassSurfacePreview(
+            surface = surface,
+            recipe = recipe,
+            modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+        )
+
+        SettingsSwitchRow(
+            title = title,
+            description = stringResource(Res.string.settings_liquid_glass_surface_description),
+            checked = enabled,
+            isTablet = isTablet,
+            onCheckedChange = { onChanged(overrides.copy(enabled = it)) },
+        )
+
+        AnimatedVisibility(visible = enabled) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LiquidGlassEffectSlider(
+                    title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
+                    value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
+                    valueRange = 0f..50f,
+                    valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
+                        ?: stringResource(Res.string.settings_liquid_glass_default),
+                    isTablet = isTablet,
+                    steps = 49,
+                    onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
+                )
+                LiquidGlassEffectSlider(
+                    title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
+                    value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
+                    valueRange = 0f..32f,
+                    valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
+                        ?: stringResource(Res.string.settings_liquid_glass_default),
+                    isTablet = isTablet,
+                    steps = 31,
+                    onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
+                )
+                if (refractionSupported) {
+                    LiquidGlassEffectSlider(
+                        title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
+                        value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
+                        valueRange = 0f..48f,
+                        valueLabel = overrides.refractionHeightDp?.let { "${it.roundToInt()} dp" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        isTablet = isTablet,
+                        steps = 47,
+                        onValueChange = { onChanged(overrides.copy(refractionHeightDp = it)) },
+                    )
+                    LiquidGlassEffectSlider(
+                        title = stringResource(Res.string.settings_nav_bar_glass_refraction_amount),
+                        value = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
+                        valueRange = 0f..48f,
+                        valueLabel = overrides.refractionAmountDp?.let { "${it.roundToInt()} dp" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        isTablet = isTablet,
+                        steps = 47,
+                        onValueChange = { onChanged(overrides.copy(refractionAmountDp = it)) },
+                    )
+                }
+                LiquidGlassEffectSlider(
+                    title = stringResource(Res.string.settings_nav_bar_glass_tint_opacity),
+                    value = overrides.tintOpacity ?: recipe.tintOpacity,
+                    valueRange = 0f..1f,
+                    valueLabel = overrides.tintOpacity?.let { "${(it * 100f).roundToInt()}%" }
+                        ?: stringResource(Res.string.settings_liquid_glass_default),
+                    isTablet = isTablet,
+                    steps = 19,
+                    onValueChange = { onChanged(overrides.copy(tintOpacity = it)) },
+                )
+                if (refractionSupported) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration),
+                        description = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration_description),
+                        checked = overrides.chromaticAberration ?: false,
+                        isTablet = isTablet,
+                        onCheckedChange = { onChanged(overrides.copy(chromaticAberration = it)) },
+                    )
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_nav_bar_glass_depth_effect),
+                        description = stringResource(Res.string.settings_nav_bar_glass_depth_effect_description),
+                        checked = overrides.depthEffect ?: false,
+                        isTablet = isTablet,
+                        onCheckedChange = { onChanged(overrides.copy(depthEffect = it)) },
+                    )
+                }
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
+                    description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
+                    checked = overrides.defaultIconColorArgb != null,
+                    isTablet = isTablet,
+                    onCheckedChange = {
+                        onChanged(
+                            overrides.copy(
+                                defaultIconColorArgb = if (it) {
+                                    overrides.defaultIconColorArgb ?: 0xFFB7C6E5.toInt()
+                                } else {
+                                    null
+                                },
+                            ),
+                        )
+                    },
+                )
+                overrides.defaultIconColorArgb?.let { color ->
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        ThemeColorPicker(
+                            color = color,
+                            colorIndex = surface.ordinal,
+                            onColorChanged = { onChanged(overrides.copy(defaultIconColorArgb = it)) },
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
+                        Text(stringResource(Res.string.settings_liquid_glass_reset))
+                    }
+                }
+            }
+        }
+    }
+    NuvioBottomSheetDivider()
+}
+
+@Composable
+private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
+    stringResource(
+        when (surface) {
+            LiquidGlassSurface.PLAYER -> Res.string.settings_liquid_glass_surface_player
+            LiquidGlassSurface.STREAM_SELECTION -> Res.string.settings_liquid_glass_surface_stream_selection
+            LiquidGlassSurface.DETAILS -> Res.string.settings_liquid_glass_surface_details
+            LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
+            LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
+            LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
+            LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
+        },
+    )
 
 @Composable
 private fun LiquidGlassSurfacePreview(
