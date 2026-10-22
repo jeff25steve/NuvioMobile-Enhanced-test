@@ -54,6 +54,9 @@ import com.kyant.backdrop.shadow.Shadow
 
 object LiquidGlassSettings {
     var enabled: Boolean by mutableStateOf(true)
+
+    /** Profile-scoped per-area overrides; null fields preserve each original component recipe. */
+    var surfaceOverrides: LiquidGlassSurfacesSettings by mutableStateOf(LiquidGlassSurfacesSettings())
 }
 
 fun isLiquidGlassAvailable(): Boolean = isRenderEffectSupported()
@@ -273,6 +276,8 @@ internal fun Modifier.liquidGlassSurface(
     withShadow: Boolean = false,
     fallbackBrush: Brush? = null,
     backdropOpacity: Float = 1f,
+    chromaticAberration: Boolean = false,
+    depthEffect: Boolean = false,
 ): Modifier =
     if (backdrop == null || !isLiquidGlassSupported()) {
         if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback)
@@ -287,6 +292,8 @@ internal fun Modifier.liquidGlassSurface(
                     lens(
                         refractionHeight = refractionHeight.toPx().coerceAtMost(size.minDimension / 2f),
                         refractionAmount = refractionAmount.toPx(),
+                        chromaticAberration = chromaticAberration,
+                        depthEffect = depthEffect,
                     )
                 }
                 if (backdropOpacity < 1f) opacity(backdropOpacity.coerceIn(0f, 1f))
@@ -337,6 +344,8 @@ internal fun Modifier.ambientLiquidGlass(
     withShadow: Boolean = false,
     fallbackBrush: Brush? = null,
     backdropOpacity: Float = 1f,
+    chromaticAberration: Boolean = false,
+    depthEffect: Boolean = false,
 ): Modifier {
     val backdrop = LocalLiquidGlassBackdrop.current
     val host = backdrop as? LiquidGlassBackdropHost
@@ -360,5 +369,7 @@ internal fun Modifier.ambientLiquidGlass(
         withShadow = withShadow,
         fallbackBrush = fallbackBrush,
         backdropOpacity = backdropOpacity,
+        chromaticAberration = chromaticAberration,
+        depthEffect = depthEffect,
     )
 }

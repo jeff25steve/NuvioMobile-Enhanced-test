@@ -8,6 +8,11 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
+import com.nuvio.app.core.ui.glass.decodeLiquidGlassSurfaceSettings
+import com.nuvio.app.core.ui.glass.encodeLiquidGlassSurfaceSettings
 import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.encodeLiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.migrateLegacyNavBarGlassEffects
@@ -88,6 +93,10 @@ object ThemeSettingsRepository {
     private val _navBarGlass = MutableStateFlow(LiquidGlassStyle.Default)
     val navBarGlass: StateFlow<LiquidGlassStyle> = _navBarGlass.asStateFlow()
 
+    private val _liquidGlassSurfaceSettings = MutableStateFlow(LiquidGlassSurfacesSettings())
+    internal val liquidGlassSurfaceSettings: StateFlow<LiquidGlassSurfacesSettings> =
+        _liquidGlassSurfaceSettings.asStateFlow()
+
     private val _liquidGlassEffectsEnabled = MutableStateFlow(true)
     val liquidGlassEffectsEnabled: StateFlow<Boolean> = _liquidGlassEffectsEnabled.asStateFlow()
 
@@ -131,6 +140,8 @@ object ThemeSettingsRepository {
         _navBarStyle.value = NavBarStyle.ADAPTIVE
         _navBarPosition.value = NavBarPosition.BOTTOM
         _navBarGlass.value = LiquidGlassStyle.Default
+        _liquidGlassSurfaceSettings.value = LiquidGlassSurfacesSettings()
+        LiquidGlassSettings.surfaceOverrides = LiquidGlassSurfacesSettings()
         applyLiquidGlassEffectsEnabled(true)
     }
 
@@ -182,6 +193,11 @@ object ThemeSettingsRepository {
         val storedNavBarGlass = ThemeSettingsStorage.loadNavBarGlass()
         _navBarGlass.value = LiquidGlassStyle.decode(storedNavBarGlass)
         migrateLegacyNavBarGlass(storedNavBarGlass)
+
+        val surfaceSettings = decodeLiquidGlassSurfaceSettings(ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
+        _liquidGlassSurfaceSettings.value = surfaceSettings
+        LiquidGlassSettings.surfaceOverrides = surfaceSettings
+
         applyLiquidGlassEffectsEnabled(ThemeSettingsStorage.loadLiquidGlassEffectsEnabled() ?: true)
     }
 
@@ -392,6 +408,28 @@ object ThemeSettingsRepository {
     private fun applyLiquidGlassEffectsEnabled(enabled: Boolean) {
         _liquidGlassEffectsEnabled.value = enabled
         LiquidGlassSettings.enabled = enabled
+    }
+
+    internal fun updateLiquidGlassSurfaceOverrides(
+        surface: LiquidGlassSurface,
+        overrides: LiquidGlassSurfaceOverrides,
+    ) {
+        ensureLoaded()
+        val updated = _liquidGlassSurfaceSettings.value.withSurface(surface, overrides).sanitized()
+        if (updated == _liquidGlassSurfaceSettings.value) return
+        _liquidGlassSurfaceSettings.value = updated
+        LiquidGlassSettings.surfaceOverrides = updated
+    }
+
+    internal fun saveLiquidGlassSurfaceSettings() {
+        ensureLoaded()
+        val settings = _liquidGlassSurfaceSettings.value.sanitized()
+        val encoded = encodeLiquidGlassSurfaceSettings(settings)
+        if (ThemeSettingsStorage.loadLiquidGlassSurfaceSettings() != encoded) {
+            ThemeSettingsStorage.saveLiquidGlassSurfaceSettings(encoded)
+        }
+        _liquidGlassSurfaceSettings.value = settings
+        LiquidGlassSettings.surfaceOverrides = settings
     }
 
     private fun observeMembership() {
