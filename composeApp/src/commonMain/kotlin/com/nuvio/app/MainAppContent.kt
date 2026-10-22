@@ -1603,6 +1603,8 @@ internal fun MainAppContent(
                     enabled = oneHandedModeState.enabled,
                     placement = oneHandedModeState.placement,
                     forceNormalLayout = playerPresentationActive,
+                    scaleMultiplier = oneHandedModeState.scaleMultiplier,
+                    onScaleMultiplierChange = { appOneHandedModeController.updateScaleMultiplier(it) },
                     onPlacementToggle = { appOneHandedModeController.togglePlacement() },
                     placementToggleDescription = oneHandedSwitchSideDescription,
                     onExit = exitOneHandedMode,
