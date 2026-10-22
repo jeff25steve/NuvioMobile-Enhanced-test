@@ -71,7 +71,7 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
-- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; vertical dragging resizes continuously and horizontal dragging switches the left/right anchor. A tap on the grip alone is inert.
+- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; a transient rounded outline previews vertical resize/horizontal side placement during drag and the real surface animates to the target on release. A tap on the grip alone is inert.
 - [x] Add a small directional side-switch arrow outside the surface at mid-height; keep both floating controls excluded from the outside-touch interceptor.
 - [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
 - [x] Add lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
