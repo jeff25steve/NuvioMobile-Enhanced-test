@@ -645,7 +645,6 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         var claimed = false
         var finished = false
         try {
-            var previousPosition = down.position
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 if (!motion.dragging) {
@@ -654,10 +653,7 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                 }
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (event.changes.count { it.pressed } > 1) break
-                // Use incremental movement, not total displacement from the initial down.
-                // Reapplying cumulative displacement on every event makes the selection overshoot.
-                val delta = change.position - previousPosition
-                previousPosition = change.position
+                // JellyMotion.drag expects displacement from the original down point, not a delta.
                 val totalDisplacement = change.position - down.position
                 if (max(abs(totalDisplacement.x), abs(totalDisplacement.y)) > viewConfiguration.touchSlop) claimed = true
                 if (claimed) change.consume()
@@ -682,7 +678,7 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                     continue
                 }
                 if (change.isConsumed && !claimed) break
-                motion.drag(delta.x / density, delta.y / density)
+                motion.drag(totalDisplacement.x / density, totalDisplacement.y / density)
                 if (!change.pressed) {
                     val visualIndex = motion.finish()
                     val items = currentItems()
