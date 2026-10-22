@@ -210,14 +210,34 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun outsideTapIsConsumedWithoutActivatingUnderlyingContent() {
-        setContent()
+    fun outsideTapKeepsModeEnabledAndDoesNotActivateUnderlyingContent() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
+                    forceNormalLayout = false,
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    onPlacementToggle = { controller.togglePlacement() },
+                    placementToggleDescription = "Move app to the other side",
+                    onExit = { controller.disableForPlayerEntry() },
+                ) { contentModifier ->
+                    Box(contentModifier.clickable { insideClickCount++ }.fillMaxSize())
+                }
+            }
+        }
 
         compose.onRoot().performTouchInput {
             click(Offset(size.width * 0.1f, size.height * 0.1f))
         }
 
         compose.runOnIdle {
+            assertTrue(controller.state.value.enabled)
             assertEquals(0, insideClickCount)
         }
     }
