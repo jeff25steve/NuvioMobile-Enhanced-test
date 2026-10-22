@@ -9,12 +9,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -45,6 +47,8 @@ private const val OneHandedScale = 0.72f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
 private const val OneHandedMinimumScale = 0.60f
+internal const val OneHandedMinimumViewportScale = 0.42f
+internal const val OneHandedMaximumViewportScale = 0.86f
 private const val OneHandedCompactScale = 0.76f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
@@ -64,10 +68,13 @@ internal fun OneHandedPresentation(
     enabled: Boolean,
     placement: OneHandedModePlacement,
     forceNormalLayout: Boolean,
+    scaleMultiplier: Float = 1f,
+    onScaleMultiplierChange: (Float) -> Unit = {},
     onPlacementToggle: () -> Unit,
     placementToggleDescription: String,
     onExit: () -> Unit = {},
     exitDescription: String = "Exit one-handed mode",
+    resizeHandleDescription: String = "Resize one-handed mode",
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
@@ -116,6 +123,9 @@ internal fun OneHandedPresentation(
         )
     }
     val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
+    val currentScaleMultiplier = rememberUpdatedState(scaleMultiplier)
+    val currentOnScaleMultiplierChange = rememberUpdatedState(onScaleMultiplierChange)
+    val density = LocalDensity.current
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
 
@@ -125,7 +135,7 @@ internal fun OneHandedPresentation(
         val targetScale = if (forceNormalLayout) {
             1f
         } else {
-            oneHandedScaleForViewport(maxWidth.value, maxHeight.value)
+            oneHandedScaleForViewport(maxWidth.value, maxHeight.value, scaleMultiplier)
         }
         val scale by animateFloatAsState(
             targetValue = if (reduceContent) targetScale else 1f,
@@ -147,9 +157,7 @@ internal fun OneHandedPresentation(
                         val gestureScale = currentScale.value
                         if (!enabled && gestureScale >= 0.999f) return@awaitEachGesture
 
-                        // Leave the dedicated side-switch target unconsumed so its clickable child
-                        // receives the gesture instead of the outside-tap dismiss handler.
-                        // Keep both floating actions out of the outside-tap dismiss region.
+                        // Leave the exit and side-switch targets for their child click handlers.
                         val controlGroupWidth = 104.dp.toPx()
                         val controlTop = 12.dp.toPx()
                         if (enabled && down.position.x in ((size.width - controlGroupWidth) / 2f)..((size.width + controlGroupWidth) / 2f) &&
@@ -165,6 +173,14 @@ internal fun OneHandedPresentation(
                         )
                         val reducedHeight = height * gestureScale
                         val top = height - reducedHeight
+                        val resizeHandleCenterX = width * (
+                            currentPivotFraction.value * (1f - gestureScale) + gestureScale / 2f
+                        )
+                        val resizeHandleHalfWidth = 44.dp.toPx()
+                        val resizeHandleHalfHeight = 22.dp.toPx()
+                        if (enabled && down.position.x in (resizeHandleCenterX - resizeHandleHalfWidth)..(resizeHandleCenterX + resizeHandleHalfWidth) &&
+                            down.position.y in (top - resizeHandleHalfHeight)..(top + resizeHandleHalfHeight)
+                        ) return@awaitEachGesture
                         val mappedX = (down.position.x - horizontalOffset) / gestureScale
                         val mappedY = (down.position.y - top) / gestureScale
                         val insideReducedSurface = isWithinRoundedRect(
@@ -217,6 +233,61 @@ internal fun OneHandedPresentation(
                     }
             }
             content(contentModifier)
+
+            if (reduceContent) {
+                // This handle floats over the top edge of the transformed surface. Keep gesture
+                // keys stable while its position follows scale changes, so a resize drag continues.
+                val handleX = maxWidth * (
+                    pivotFraction * (1f - scale) + scale / 2f
+                ) - 44.dp
+                val handleY = maxHeight * (1f - scale) - 20.dp
+                Box(
+                    modifier = Modifier
+                        .offset(x = handleX, y = handleY)
+                        .size(width = 88.dp, height = 40.dp)
+                        .background(
+                            color = surfaceVariant.copy(alpha = 0.96f),
+                            shape = RoundedCornerShape(20.dp),
+                        )
+                        .pointerInput(enabled, forceNormalLayout) {
+                            if (enabled && !forceNormalLayout) {
+                                detectVerticalDragGestures(
+                                    onVerticalDrag = { change, dragAmount ->
+                                        change.consume()
+                                        val viewportHeightPx = size.height.toFloat().coerceAtLeast(1f)
+                                        val nextMultiplier = (
+                                            currentScaleMultiplier.value - dragAmount / viewportHeightPx
+                                        ).coerceIn(
+                                            OneHandedMinimumScaleMultiplier,
+                                            OneHandedMaximumScaleMultiplier,
+                                        )
+                                        currentOnScaleMultiplierChange.value(nextMultiplier)
+                                    },
+                                )
+                            }
+                        }
+                        .semantics {
+                            contentDescription = resizeHandleDescription
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        repeat(3) {
+                            Box(
+                                Modifier
+                                    .size(width = 3.dp, height = 12.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                        shape = CircleShape,
+                                    ),
+                            )
+                        }
+                    }
+                }
+            }
 
             AnimatedVisibility(
                 visible = reduceContent,
@@ -282,9 +353,17 @@ internal fun OneHandedPresentation(
  * the preferred footprint rather than making every control excessively small. Scaling still
  * reduces effective touch-target size, so device testing remains necessary.
  */
-internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
+internal fun oneHandedScaleForViewport(
+    widthDp: Float,
+    heightDp: Float,
+    scaleMultiplier: Float = 1f,
+): Float {
+    val multiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier)
     if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
-        return OneHandedScale
+        return (OneHandedScale * multiplier).coerceIn(
+            OneHandedMinimumViewportScale,
+            OneHandedMaximumViewportScale,
+        )
     }
     val preferredScale = if (
         widthDp <= OneHandedCompactWidthDp || heightDp <= OneHandedCompactHeightDp
@@ -293,11 +372,20 @@ internal fun oneHandedScaleForViewport(widthDp: Float, heightDp: Float): Float {
     } else {
         OneHandedScale
     }
-    return minOf(
+    val baseScale = minOf(
         preferredScale,
         OneHandedMaxWidthDp / widthDp,
         OneHandedMaxHeightDp / heightDp,
     ).coerceIn(OneHandedMinimumScale, preferredScale)
+    val viewportMaximumScale = minOf(
+        OneHandedMaximumViewportScale,
+        OneHandedMaxWidthDp / widthDp,
+        OneHandedMaxHeightDp / heightDp,
+    ).coerceAtLeast(OneHandedMinimumViewportScale)
+    return (baseScale * multiplier).coerceIn(
+        OneHandedMinimumViewportScale,
+        viewportMaximumScale,
+    )
 }
 
 /** Computes the scaled surface's horizontal edge for the same animated pivot used by graphicsLayer. */
