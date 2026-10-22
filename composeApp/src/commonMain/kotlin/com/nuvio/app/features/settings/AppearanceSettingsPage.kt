@@ -78,6 +78,8 @@ import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 
 internal fun LazyListScope.appearanceSettingsContent(
     isTablet: Boolean,
@@ -125,6 +127,7 @@ internal fun LazyListScope.appearanceSettingsContent(
         var showLanguageRestartDialog by remember { mutableStateOf(false) }
         val layoutDirection = LocalLayoutDirection.current
         var showNavBarStyleSheet by remember { mutableStateOf(false) }
+        var showLiquidGlassSurfacesSheet by remember { mutableStateOf(false) }
         var showTabBarBehaviorSheet by remember { mutableStateOf(false) }
         var showAppIconPicker by remember { mutableStateOf(false) }
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
@@ -174,6 +177,13 @@ internal fun LazyListScope.appearanceSettingsContent(
                         checked = liquidGlassEffectsEnabled,
                         isTablet = isTablet,
                         onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_liquid_glass_customize),
+                        description = stringResource(Res.string.settings_liquid_glass_customize_description),
+                        isTablet = isTablet,
+                        onClick = { showLiquidGlassSurfacesSheet = true },
                     )
                 }
                 if (liquidGlassNativeTabBarSupported) {
@@ -271,6 +281,18 @@ internal fun LazyListScope.appearanceSettingsContent(
                     showAppIconPicker = false
                 },
             )
+        }
+
+        if (showLiquidGlassSurfacesSheet) {
+            LiquidGlassSurfaceSettingsDrafts { surfaceSettings ->
+                LiquidGlassSurfacesSettingsSheet(
+                    isTablet = isTablet,
+                    settings = surfaceSettings,
+                    onSurfaceChanged = ThemeSettingsRepository::updateLiquidGlassSurfaceOverrides,
+                    onSave = ThemeSettingsRepository::saveLiquidGlassSurfaceSettings,
+                    onDismiss = { showLiquidGlassSurfacesSheet = false },
+                )
+            }
         }
 
         if (showNavBarStyleSheet) {
