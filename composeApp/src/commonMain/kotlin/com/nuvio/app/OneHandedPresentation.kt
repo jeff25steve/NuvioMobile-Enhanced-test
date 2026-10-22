@@ -779,7 +779,7 @@ internal fun oneHandedScaleMultiplierBounds(
     val maximumMultiplier = (
         oneHandedMaximumScaleForViewport(widthDp, heightDp) / baseScale
         ).coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
-    return minimumMultiplier..maximumOf(minimumMultiplier, maximumMultiplier)
+    return minimumMultiplier..maxOf(minimumMultiplier, maximumMultiplier)
 }
 
 /** Computes the scaled surface's horizontal edge for the same animated pivot used by graphicsLayer. */

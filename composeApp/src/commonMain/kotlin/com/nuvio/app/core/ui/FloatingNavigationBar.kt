@@ -261,7 +261,7 @@ internal fun FloatingNavigationBar(
                 .onSizeChanged {
                     motion.resize(it.width / density.density, it.height / density.density, items.size)
                 }
-                .pointerInput(motion, density, items.size, isRtl, hapticFeedback) {
+                .pointerInput(motion, density, items.size, isRtl) {
                     detectJellyTabGestures(
                         motion,
                         density.density,
