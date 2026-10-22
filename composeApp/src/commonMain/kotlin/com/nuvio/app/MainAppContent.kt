@@ -269,9 +269,7 @@ internal fun MainAppContent(
         val oneHandedModeState by appOneHandedModeController.state.collectAsStateWithLifecycle()
         val nativeActiveTab by NativeTabBridge.activeTab.collectAsStateWithLifecycle()
         val toggleOneHandedMode: () -> Unit = {
-            if (!HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()) {
-                appOneHandedModeController.toggle()
-            }
+            NativeTabBridge.requestOneHandedModeToggle()
         }
         val dismissOneHandedMode: () -> Unit = {
             appOneHandedModeController.dismissOutside()
