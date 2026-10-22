@@ -1,5 +1,6 @@
 package com.nuvio.app.core.ui.jelly
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,12 +16,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -131,8 +135,10 @@ internal fun JellyTabTargets(
     defaultIconColorOverride: Color? = null,
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val hapticFeedback = LocalHapticFeedback.current
     Row(modifier.padding(horizontal = 4.dp).selectableGroup()) {
         items.forEachIndexed { index, item ->
+            val currentOnLongClick = rememberUpdatedState(item.onLongClick)
             val visualIndex = visualNavIndex(index, items.size, isRtl)
             val onClick = {
                 JellySelectionSource.lastDragCommit = null
@@ -152,6 +158,20 @@ internal fun JellyTabTargets(
                         indication = null,
                         onClick = onClick,
                     )
+                    // Use the same long-press-and-drag recognizer as ProfileSwitcherTab.
+                    // The outer bar detector remains responsible only for tap/drag-to-select;
+                    // this target consumes a recognized hold so release cannot also navigate.
+                    .pointerInput(item.label, item.onLongClick != null) {
+                        if (item.onLongClick != null) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    currentOnLongClick.value?.invoke()
+                                },
+                                onDrag = { change, _ -> change.consume() },
+                            )
+                        }
+                    }
                     .clearAndSetSemantics {
                         role = Role.Tab
                         selected = item.selected
