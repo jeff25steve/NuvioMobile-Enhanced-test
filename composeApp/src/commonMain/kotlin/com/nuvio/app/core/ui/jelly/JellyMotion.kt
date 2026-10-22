@@ -59,6 +59,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
 
     var dragging = false
         private set
+    private var longPressHandled = false
     var tabIconRefractionActive by mutableStateOf(false)
         private set
     var running by mutableStateOf(false)
@@ -97,6 +98,7 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
     }
 
     fun begin(x: Float, y: Float) {
+        longPressHandled = false
         downX = x.toDouble()
         downY = y.toDouble().coerceIn(0.0, height)
         originX = downX.coerceIn(0.0, width)
@@ -112,6 +114,16 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         shapeTarget = 1.3
         panel.velocity = 0.0
         running = true
+    }
+
+    fun markLongPressHandled() {
+        longPressHandled = true
+    }
+
+    fun hasHandledLongPress(): Boolean = longPressHandled
+
+    fun clearHandledLongPress() {
+        longPressHandled = false
     }
 
     fun drag(x: Float, y: Float) {
