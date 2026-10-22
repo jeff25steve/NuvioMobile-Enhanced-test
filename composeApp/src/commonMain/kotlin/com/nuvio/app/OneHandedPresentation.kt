@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -696,11 +697,26 @@ internal fun OneHandedPresentation(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = if (placement == OneHandedModePlacement.Right) "◀" else "▶",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.9f),
-                        )
+                        // Match the reference's circular side-switch button. Its visual
+                        // size follows the reduced window, while the surrounding 40×56dp target
+                        // remains large enough to tap reliably.
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp * scale)
+                                .background(
+                                    color = surfaceVariant.copy(alpha = 0.78f),
+                                    shape = CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (placement == OneHandedModePlacement.Right) "‹" else "›",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontSize = MaterialTheme.typography.titleMedium.fontSize * scale,
+                                ),
+                                color = Color.White.copy(alpha = 0.96f),
+                            )
+                        }
                     }
                 }
             }
