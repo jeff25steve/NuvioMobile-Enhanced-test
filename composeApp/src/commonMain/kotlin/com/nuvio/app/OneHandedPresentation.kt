@@ -124,7 +124,9 @@ private class OneHandedLiveBackdrop(
 }
 
 /**
- * Presents the existing UI tree as a single reduced, bottom-anchored surface.
+ * Presents the existing UI tree as a single reduced, bottom-anchored-by-default surface.
+ * A separate top grip moves the window vertically, a top-corner drag resizes it, and the side
+ * arrow changes its left/right anchor.
  *
  * When the renderer supports it, an offscreen GraphicsLayer records the already-composed app
  * content at normal size and renders it behind the reduced UI with blur and dimming. This is a
