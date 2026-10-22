@@ -18,11 +18,11 @@ Add an optional, Samsung One-handed Mode-inspired presentation for Nuvio's ordin
 - Keep the profile button's current press-and-hold profile-switching popup and behaviour unchanged.
 - The floating navigation bar has a custom drag-to-select gesture detector (`detectJellyTabGestures`). Integrate the Library hold action into the existing gesture flow (or a demonstrably non-competing extension of it); do not stack a competing pointer-input detector or break drag-to-select. If the current profile hold uses a separate proven mechanism, adapt its timing/semantics while preserving the nav bar's drag and tap paths.
 - The app's ordinary UI is proportionally reduced and aligned near the bottom, leaving an outside region above it that does not dismiss one-handed mode when tapped.
-- Outside taps must not activate hidden underlying UI; exit is explicit via the close control or Library long-press.
-- The reduced surface has a user-adjustable size with a visible drag handle, continuous resizing feedback, and sensible minimum/maximum bounds.
+- Outside taps must not activate hidden underlying UI; exit is explicit by tapping the thin top handle or long-pressing Library.
+- The reduced surface has a user-adjustable size with a slim horizontal top handle, continuous resizing feedback, and sensible minimum/maximum bounds. The top handle is tappable to exit and draggable vertically to resize.
 - Android and iOS use the same user-facing layout, visual styling, gestures, resize rules, controls, and state transitions wherever platform capabilities permit.
 - The reduced interface remains fully interactive: taps, scrolling, navigation, dialogs, popups, and Liquid Glass effects must behave correctly.
-- Provide left/right positioning if it can be implemented without compromising existing layout or gestures.
+- Provide left/right positioning if it can be implemented without compromising existing layout or gestures. Match the supplied reference video: about 78% viewport scale, roughly 16dp surface corners, a 40×3dp light pill above the surface, and a small directional arrow outside the surface at its vertical midpoint. Do not use large circular X/↔ controls or a chunky resize grip.
 - Tapping outside the reduced app content leaves one-handed mode active and must not trigger underlying controls.
 - **Opening any video or trailer disables one-handed mode immediately.** Playback uses the normal layout. Exiting playback must not re-enable one-handed mode automatically.
 - Playback state, progress, and player controls must not be reset or disrupted by the transition.
@@ -66,7 +66,7 @@ An app-level boundary is more consistent than scaling each screen separately and
 ## 5. State and transitions
 
 - **Disabled → Enabled:** long-press Library while on ordinary app UI.
-- **Enabled → Disabled:** long-press Library again, use the explicit exit control, or initiate opening any video/trailer.
+- **Enabled → Disabled:** tap the thin top handle, long-press Library again, or initiate opening any video/trailer.
 - **Playback:** disable one-handed mode and release the snapshot before the player becomes visible; player uses the normal, unscaled layout.
 - **After playback:** remain disabled. Do not restore the prior enabled state.
 - **Navigation between ordinary screens:** retain the enabled state unless a disable trigger occurs. If the page changes while mode remains enabled, ensure the backdrop cannot display stale content; refresh it only at a well-defined foreground transition if needed, or use the fallback.
@@ -82,9 +82,9 @@ If route state can briefly report a player after its UI starts, explicitly disab
 - Taps in the outside region do not dismiss the mode and never activate underlying UI.
 - Existing dialogs and popup menus should remain legible and anchored to the correct controls. If a platform dialog or popup cannot safely participate in the transform, document and handle it deliberately rather than allowing misaligned coordinates.
 - Preserve current Liquid Glass appearance, shape clipping, backdrop/effect bounds, and hit areas. No new background rendering loop or continuous polling.
-- Left/right positioning must not mirror content or change navigation order; it changes placement only.
+- Left/right positioning must not mirror content or change navigation order; it changes placement only. Use a small directional arrow outside the reduced surface at its vertical midpoint; the arrow direction indicates the side to switch to.
 - Outside backdrop blur/dimming should be subtle and theme-aware. Prefer a live page when it can be rendered safely and efficiently; otherwise use an ephemeral snapshot, then a consistent frosted-glass fallback. The background must not receive user interaction.
-- Provide a visible resize handle. Dragging it changes scale continuously within explicit min/max bounds; it must not trigger page scrolling or side switching. Resizing must not recapture the backdrop.
+- Provide the video-matched thin top pill as both the explicit tap-to-exit control and vertical resize handle. Dragging it changes scale continuously within explicit min/max bounds; it must not trigger page scrolling or side switching. Resizing must not recapture the backdrop.
 - On capture failure, invalid dimensions, or resource pressure, fall back to the frosted-glass treatment and retain a fully usable normal or reduced UI rather than crashing.
 
 ## 7. Video and trailer compatibility
