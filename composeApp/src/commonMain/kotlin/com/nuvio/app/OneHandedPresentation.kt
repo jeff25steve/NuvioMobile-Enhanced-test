@@ -218,9 +218,9 @@ internal fun OneHandedPresentation(
                         ) return@awaitEachGesture
 
                         val sideSwitchCenterX = if (currentPlacement.value == OneHandedModePlacement.Right) {
-                            horizontalOffset - 24.dp.toPx()
+                            width * (1f - gestureScale) - 24.dp.toPx()
                         } else {
-                            horizontalOffset + width * gestureScale + 24.dp.toPx()
+                            width * gestureScale + 24.dp.toPx()
                         }
                         val sideSwitchCenterY = top + reducedHeight / 2f
                         if (enabled &&
