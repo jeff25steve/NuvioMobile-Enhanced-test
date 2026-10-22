@@ -47,7 +47,6 @@ class OneHandedPresentationTest {
 
     private var insideClickCount = 0
     private var placementToggleCount = 0
-    private var exitCount = 0
     private var scrollState: ScrollState? = null
 
     @Test
@@ -423,7 +422,6 @@ class OneHandedPresentationTest {
     ) {
         insideClickCount = 0
         placementToggleCount = 0
-        exitCount = 0
         compose.setContent {
             MaterialTheme {
                 if (compactViewport) {
@@ -449,7 +447,6 @@ class OneHandedPresentationTest {
             forceNormalLayout = forceNormalLayout,
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
-            onExit = { exitCount++ },
             exitDescription = "Exit one-handed mode",
         ) { contentModifier ->
             if (scrollableContent) {
