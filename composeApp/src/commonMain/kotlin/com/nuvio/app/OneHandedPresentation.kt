@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -41,6 +42,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -92,6 +95,28 @@ private data class OneHandedDragPreview(
 
 private const val OneHandedSpringDamping = Spring.DampingRatioNoBouncy
 private const val OneHandedSpringStiffness = Spring.StiffnessMedium
+
+private val OneHandedSwitchArrowIcon = ImageVector.Builder(
+    name = "OneHandedSwitchArrow",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f,
+).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(20f, 12f)
+        lineTo(20f, 10f)
+        lineTo(7.83f, 10f)
+        lineTo(13.42f, 4.41f)
+        lineTo(12f, 3f)
+        lineTo(3f, 12f)
+        lineTo(12f, 21f)
+        lineTo(13.41f, 19.59f)
+        lineTo(7.83f, 14f)
+        lineTo(20f, 14f)
+        close()
+    }
+}.build()
 
 private fun Modifier.topCornerMarker(placement: OneHandedModePlacement): Modifier =
     drawBehind {
@@ -789,10 +814,15 @@ internal fun OneHandedPresentation(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = if (placement == OneHandedModePlacement.Right) "◀" else "▶",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.9f),
+                        Icon(
+                            imageVector = OneHandedSwitchArrowIcon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .graphicsLayer(
+                                    scaleX = if (placement == OneHandedModePlacement.Right) 1f else -1f,
+                                ),
+                            tint = Color.White.copy(alpha = 0.9f),
                         )
                     }
                 }
