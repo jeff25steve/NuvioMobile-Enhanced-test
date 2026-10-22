@@ -67,7 +67,13 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurfaceOverrides(enabled = true, defaultIconColorArgb = 0xFF336699.toInt()),
         ).withSurface(
             LiquidGlassSurface.BOTTOM_SHEETS,
-            LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 22f),
+            LiquidGlassSurfaceOverrides(
+                enabled = false,
+                cornerRadiusPercent = 22f,
+                withVibrancy = false,
+                withHighlight = false,
+                withShadow = true,
+            ),
         )
 
         val encoded = encodeLiquidGlassSurfaceSettings(settings)

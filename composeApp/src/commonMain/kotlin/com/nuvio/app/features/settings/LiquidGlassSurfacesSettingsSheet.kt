@@ -63,6 +63,12 @@ import nuvio.composeapp.generated.resources.settings_nav_bar_glass_blur_radius
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_height
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_amount
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_tint_opacity
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_highlight
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_highlight_description
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_vibrancy
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_vibrancy_description
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_shadow
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_shadow_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_chromatic_aberration
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_chromatic_aberration_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_depth_effect
@@ -317,6 +323,13 @@ private fun LiquidGlassSurfaceEditor(
 
         AnimatedVisibility(visible = enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_highlight),
+                    description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
+                    checked = overrides.withHighlight ?: true,
+                    isTablet = isTablet,
+                    onCheckedChange = { onChanged(overrides.copy(withHighlight = it)) },
+                )
                 LiquidGlassEffectSlider(
                     title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
                     value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
@@ -368,6 +381,20 @@ private fun LiquidGlassSurfaceEditor(
                     isTablet = isTablet,
                     steps = 19,
                     onValueChange = { onChanged(overrides.copy(tintOpacity = it)) },
+                )
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_vibrancy),
+                    description = stringResource(Res.string.settings_nav_bar_glass_vibrancy_description),
+                    checked = overrides.withVibrancy ?: true,
+                    isTablet = isTablet,
+                    onCheckedChange = { onChanged(overrides.copy(withVibrancy = it)) },
+                )
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_nav_bar_glass_shadow),
+                    description = stringResource(Res.string.settings_nav_bar_glass_shadow_description),
+                    checked = overrides.withShadow ?: false,
+                    isTablet = isTablet,
+                    onCheckedChange = { onChanged(overrides.copy(withShadow = it)) },
                 )
                 if (refractionSupported) {
                     SettingsSwitchRow(
