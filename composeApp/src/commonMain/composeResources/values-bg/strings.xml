@@ -2270,4 +2270,6 @@
     <string name="stream_info_subtitle_source_addon">Добавка</string>
     <string name="stream_info_subtitle_source_embedded">Вградени</string>
     <string name="stream_info_player_engine">Двигател на плейъра</string>
+    <string name="one_handed_move_window">Преместване на прозореца вертикално</string>
+    <string name="one_handed_resize">Преоразмеряване на режима с една ръка</string>
 </resources>

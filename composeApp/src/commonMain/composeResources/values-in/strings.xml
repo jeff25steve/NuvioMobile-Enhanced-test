@@ -1483,4 +1483,6 @@
     <string name="stream_info_subtitle_source_addon">Addon</string>
     <string name="stream_info_subtitle_source_embedded">Tertanam</string>
     <string name="stream_info_player_engine">Mesin Pemutar</string>
+    <string name="one_handed_move_window">Pindahkan jendela secara vertikal</string>
+    <string name="one_handed_resize">Ubah ukuran mode satu tangan</string>
 </resources>

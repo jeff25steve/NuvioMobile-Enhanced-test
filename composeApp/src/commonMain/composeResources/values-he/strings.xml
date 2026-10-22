@@ -773,4 +773,6 @@
     <string name="stream_info_subtitle_source_addon">תוסף</string>
     <string name="stream_info_subtitle_source_embedded">מוטמע</string>
     <string name="stream_info_player_engine">מנוע נגן</string>
+    <string name="one_handed_move_window">הזזת החלון אנכית</string>
+    <string name="one_handed_resize">שינוי גודל מצב ביד אחת</string>
 </resources>

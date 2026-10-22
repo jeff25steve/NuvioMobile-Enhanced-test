@@ -2411,4 +2411,6 @@
     <string name="movie_status_rumored">Govorka se</string>
     <string name="movie_status_in_production">U produkciji</string>
     <string name="movie_status_post_production">Postprodukcija</string>
+    <string name="one_handed_move_window">Pomakni prozor okomito</string>
+    <string name="one_handed_resize">Promijeni veličinu načina rada jednom rukom</string>
 </resources>

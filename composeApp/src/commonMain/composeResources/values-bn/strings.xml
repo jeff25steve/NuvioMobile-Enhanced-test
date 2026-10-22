@@ -2472,4 +2472,6 @@
         <item quantity="one">%1$dটি সিজন</item>
         <item quantity="other">%1$dটি সিজন</item>
     </plurals>
+    <string name="one_handed_move_window">উইন্ডোটি উল্লম্বভাবে সরান</string>
+    <string name="one_handed_resize">এক হাতে ব্যবহারের মোডের আকার পরিবর্তন করুন</string>
 </resources>

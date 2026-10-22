@@ -2292,4 +2292,6 @@
     <string name="stream_info_subtitle_source_addon">Doplněk</string>
     <string name="stream_info_subtitle_source_embedded">Vložené</string>
     <string name="stream_info_player_engine">Engine přehrávače</string>
+    <string name="one_handed_move_window">Posunout okno svisle</string>
+    <string name="one_handed_resize">Změnit velikost režimu jednou rukou</string>
 </resources>
