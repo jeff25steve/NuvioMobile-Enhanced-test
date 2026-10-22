@@ -54,6 +54,7 @@ import com.kyant.backdrop.effects.blur
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 
 private const val OneHandedScale = 0.72f
 private const val OneHandedMaxWidthDp = 600f
@@ -161,7 +162,7 @@ internal fun OneHandedPresentation(
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     // The backdrop records the existing content layer, not a second active app composition.
     // It is only retained while the reduced presentation is visible and is never used for playback.
-    val backdropSource = if (reduceContent) rememberNuvioBackdrop() else null
+    val backdropSource = if (reduceContent && isLiquidGlassAvailable()) rememberNuvioBackdrop() else null
     val liveBackdrop = remember(backdropSource) {
         backdropSource?.let(::OneHandedLiveBackdrop)
     }
@@ -247,7 +248,7 @@ internal fun OneHandedPresentation(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (reduceContent && liveBackdrop != null) {
+                        if (liveBackdrop != null) {
                             Modifier.drawBackdrop(
                                 backdrop = liveBackdrop,
                                 shape = { RectangleShape },
