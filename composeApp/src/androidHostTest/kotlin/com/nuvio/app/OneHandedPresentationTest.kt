@@ -177,7 +177,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
+        compose.onNodeWithContentDescription("Move window vertically").performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
             moveTo(0, Offset(start.x, start.y - 48f), delayMillis = 100)
@@ -259,7 +259,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move or resize one-handed mode")
+        compose.onNodeWithContentDescription("Move window vertically")
             .performTouchInput { click() }
 
         compose.runOnIdle {
@@ -293,7 +293,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
+        compose.onNodeWithContentDescription("Move window vertically").performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
             moveTo(0, Offset(start.x + 80f, start.y), delayMillis = 100)
