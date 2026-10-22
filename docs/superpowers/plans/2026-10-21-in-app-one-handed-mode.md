@@ -108,7 +108,7 @@
 
 **Files:** Only directly affected source and tests from Tasks 1–4.
 
-- [x] Compared the focused implementation diff and verified that one-handed-specific native tab-bar visibility gates are absent; Liquid Glass source files were not changed.
+- [x] Compared the focused implementation diff and verified no one-handed-specific native tab-bar visibility gates were added. The existing Glass bar is transformed only at its wrapper while one-handed mode is enabled; its normal material/effect implementation remains unchanged.
 - [ ] Run the focused tests and platform build only if a local checkout/build environment is available; do not use CI/workflows.
 - [x] Added a transient Kotlin-to-SwiftUI state bridge so the existing native iOS tab bar and optional Glass overlay follow the same viewport scale, horizontal anchor, and vertical offset as the Compose surface; original native components are restored when one-handed mode turns off (runtime verification pending).
 - [x] No PR was created and no workflow/release config was touched by this implementation pass.

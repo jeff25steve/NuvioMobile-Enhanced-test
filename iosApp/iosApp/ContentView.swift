@@ -1986,7 +1986,7 @@ struct NativeNavContentView: View {
                     .offset(y: transform.verticalOffset)
                     .animation(
                         .spring(response: 0.34, dampingFraction: 0.88),
-                        value: appCoordinator.oneHandedPresentation
+                        value: transform
                     )
                     .onChange(of: proxy.size) { _ in
                         DispatchQueue.main.async {
@@ -2037,6 +2037,11 @@ struct NativeNavContentView: View {
             )
         ) { _ in
             appCoordinator.reloadLiveTvTabVisibility()
+        }
+        .onChange(of: appCoordinator.usesNativeTabBar) { _ in
+            DispatchQueue.main.async {
+                appCoordinator.refreshNativeTabBarMetrics()
+            }
         }
     }
 }

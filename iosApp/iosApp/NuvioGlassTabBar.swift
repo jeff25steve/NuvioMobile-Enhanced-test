@@ -12,7 +12,7 @@ struct NuvioOneHandedPresentationState: Equatable {
 }
 
 /// Geometry shared by the SwiftUI glass overlay and the existing UIKit tab bar.
-struct NuvioOneHandedTabBarTransform {
+struct NuvioOneHandedTabBarTransform: Equatable {
     let scale: CGFloat
     let verticalOffset: CGFloat
     let isLeftAnchored: Bool
