@@ -3,7 +3,7 @@
 **Date:** 2026-10-21  
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Implementation branch:** `one-hand-operation` (created from `enhanced`)  
-**Status:** Revised design incorporates the user's latest requirements; pending spec review
+**Status:** User-directed implementation in progress; code is on `one-hand-operation`, runtime verification pending
 
 ## 1. Goal
 
@@ -111,7 +111,6 @@ The feature must not alter media selection, playback state, resume position, wat
 - Avoid duplicate long-press handlers or gesture detectors that compete with the existing navigation bar.
 - Keep all capture, blur, transform, gesture handling, and state transitions on-device. Treat captured pixels as ephemeral in-memory UI resources: no disk writes, network transmission, analytics uploads, logs, or persistent storage. Release promptly when no longer needed.
 - Avoid capture/blur for the player route and any secure/protected content.
-- Do not change product source code until the feature request has explicit repository-maintainer approval, as required by `CONTRIBUTING.md`.
 
 ## 10. Verification plan
 
