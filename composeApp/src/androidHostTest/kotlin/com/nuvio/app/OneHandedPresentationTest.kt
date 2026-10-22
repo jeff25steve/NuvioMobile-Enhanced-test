@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -233,7 +234,7 @@ class OneHandedPresentationTest {
         }
 
         val moveHandle = compose.onNodeWithTag("oneHandedMoveWindowHandle")
-        val initialActions = moveHandle.fetchSemanticsNode().config[SemanticsProperties.CustomActions]
+        val initialActions = moveHandle.fetchSemanticsNode().config[SemanticsActions.CustomActions]
         assertTrue(initialActions.any { it.label == "Move window to top" })
         assertTrue(initialActions.any { it.label == "Move window to bottom" })
 
@@ -243,7 +244,7 @@ class OneHandedPresentationTest {
         compose.runOnIdle { assertEquals(1f, controller.state.value.verticalPosition) }
 
         val moveToBottom = moveHandle.fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .first { it.label == "Move window to bottom" }
         compose.runOnIdle { assertTrue(moveToBottom.action()) }
         compose.waitForIdle()
@@ -339,7 +340,7 @@ class OneHandedPresentationTest {
         }
 
         val resizeHandle = compose.onNodeWithTag("oneHandedResizeHandle")
-        val initialActions = resizeHandle.fetchSemanticsNode().config[SemanticsProperties.CustomActions]
+        val initialActions = resizeHandle.fetchSemanticsNode().config[SemanticsActions.CustomActions]
         assertTrue(initialActions.any { it.label == "Increase one-handed window size" })
         assertTrue(initialActions.any { it.label == "Decrease one-handed window size" })
         val increaseSize = initialActions.first { it.label == "Increase one-handed window size" }
@@ -352,7 +353,7 @@ class OneHandedPresentationTest {
         }
 
         val decreaseSize = resizeHandle.fetchSemanticsNode()
-            .config[SemanticsProperties.CustomActions]
+            .config[SemanticsActions.CustomActions]
             .first { it.label == "Decrease one-handed window size" }
         compose.runOnIdle { assertTrue(decreaseSize.action()) }
         compose.waitForIdle()
