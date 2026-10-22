@@ -127,7 +127,6 @@ internal fun FloatingNavigationBar(
     )
     val tokens = MaterialTheme.nuvio
     val accentColor = tokens.colors.accent
-    val selectedSurface = accentColor.copy(alpha = NuvioTokens.Opacity.selected)
     val selectionHighlightBase = tokens.colors.surface.copy(alpha = NuvioTokens.Opacity.medium)
     val selectionHighlightFill = accentColor.copy(alpha = accentColor.alpha * 0.2f)
     val selectionHighlightRim = remember(accentColor) {
@@ -543,9 +542,14 @@ internal fun FloatingNavigationBar(
                                                     drawJellyPill(
                                                         motion.frame,
                                                         items.size,
-                                                        selectedSurface,
+                                                        SolidSelectionPillFill,
                                                         accentColor.copy(alpha = accentColor.alpha * glowStrength),
                                                     ) { this@drawWithContent.drawContent() }
+                                                    drawPath(
+                                                        path = jellyPillPath(motion.frame, items.size),
+                                                        color = SolidSelectionPillEdge,
+                                                        style = Stroke(1.dp.toPx()),
+                                                    )
                                                 }
                                             },
                                         ),
@@ -700,3 +704,6 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         }
     }
 }
+
+private val SolidSelectionPillFill = Color.Black.copy(alpha = 0.34f)
+private val SolidSelectionPillEdge = Color.White.copy(alpha = 0.28f)
