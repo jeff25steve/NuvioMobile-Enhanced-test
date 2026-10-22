@@ -763,6 +763,35 @@ internal fun oneHandedScaleForViewport(
 }
 
 /**
+ * Shared viewport geometry for the iOS native tab bar. The mode state itself remains in memory;
+ * this value is calculated on demand and is never persisted.
+ */
+data class NativeOneHandedTabBarGeometry(
+    val scale: Float,
+    val verticalOffsetDp: Float,
+)
+
+/**
+ * Keeps iOS navigation chrome aligned with the reduced Compose surface without replacing its
+ * native implementation or changing its normal (disabled-mode) behavior.
+ */
+fun nativeOneHandedTabBarGeometry(
+    widthDp: Float,
+    heightDp: Float,
+    scaleMultiplier: Float,
+    verticalPosition: Float,
+): NativeOneHandedTabBarGeometry {
+    val scale = oneHandedScaleForViewport(widthDp, heightDp, scaleMultiplier)
+    val availableVerticalTravel = (
+        heightDp * (1f - scale) - OneHandedTopHandleGapDp
+    ).coerceAtLeast(0f)
+    return NativeOneHandedTabBarGeometry(
+        scale = scale,
+        verticalOffsetDp = -availableVerticalTravel * normalizedOneHandedVerticalPosition(verticalPosition),
+    )
+}
+
+/**
  * Restricts resize gestures to multiplier values that produce a visible scale on this viewport.
  * The main scale calculation clamps to viewport min/max, so using the global multiplier limits
  * directly would otherwise create a drag dead zone after reaching either visual size limit.

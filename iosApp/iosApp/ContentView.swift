@@ -621,6 +621,8 @@ final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognize
     }
 
     private weak var tabBarController: UITabBarController?
+    private var originalTabBarTransform: CGAffineTransform?
+    private var hasAppliedOneHandedTransform = false
     private var selectedIndexBeforeLongPress: Int?
     private let competingRecognizers = NSHashTable<UIGestureRecognizer>.weakObjects()
     private lazy var recognizer: UILongPressGestureRecognizer = {
@@ -636,11 +638,81 @@ final class NativeProfileTabInteractionCoordinator: NSObject, UIGestureRecognize
 
     func attach(to tabBarController: UITabBarController) {
         guard self.tabBarController !== tabBarController else { return }
+        if let previousTabBar = self.tabBarController?.tabBar {
+            previousTabBar.transform = originalTabBarTransform ?? .identity
+        }
         self.tabBarController?.tabBar.removeGestureRecognizer(recognizer)
         tabBarController.tabBar.addGestureRecognizer(recognizer)
         self.tabBarController = tabBarController
+        originalTabBarTransform = tabBarController.tabBar.transform
+        hasAppliedOneHandedTransform = false
         publishIconFrame()
         onAttached?()
+    }
+
+    func applyOneHandedPresentation(
+        state: NuvioOneHandedPresentationState,
+        shouldTransform: Bool
+    ) {
+        guard let tabBar = tabBarController?.tabBar else { return }
+
+        guard shouldTransform, state.enabled else {
+            if hasAppliedOneHandedTransform {
+                let original = originalTabBarTransform ?? .identity
+                UIView.animate(
+                    withDuration: 0.28,
+                    delay: 0,
+                    usingSpringWithDamping: 0.88,
+                    initialSpringVelocity: 0,
+                    options: [.beginFromCurrentState, .allowUserInteraction]
+                ) {
+                    tabBar.transform = original
+                }
+                hasAppliedOneHandedTransform = false
+            } else {
+                // Keep the normal UIKit transform as the baseline while one-handed mode is off.
+                originalTabBarTransform = tabBar.transform
+            }
+            return
+        }
+
+        guard let window = tabBar.window,
+              tabBar.bounds.width > 0,
+              tabBar.bounds.height > 0 else { return }
+
+        if !hasAppliedOneHandedTransform {
+            originalTabBarTransform = tabBar.transform
+        }
+        let baseline = originalTabBarTransform ?? .identity
+        let geometry = NuvioOneHandedTabBarTransform.resolve(
+            state: state,
+            viewportSize: window.bounds.size
+        )
+        let horizontalOffset = (geometry.isLeftAnchored ? -1 : 1) *
+            tabBar.bounds.width * (1 - geometry.scale) / 2
+        // UIView.transform scales around the view center. This translation makes the result
+        // equivalent to a bottom-left/bottom-right anchor plus the shared vertical offset.
+        let verticalOffset = tabBar.bounds.height * (1 - geometry.scale) / 2 +
+            geometry.verticalOffset
+        let relativeTransform = CGAffineTransform(
+            a: geometry.scale,
+            b: 0,
+            c: 0,
+            d: geometry.scale,
+            tx: horizontalOffset,
+            ty: verticalOffset
+        )
+        let targetTransform = baseline.concatenating(relativeTransform)
+        UIView.animate(
+            withDuration: 0.28,
+            delay: 0,
+            usingSpringWithDamping: 0.88,
+            initialSpringVelocity: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            tabBar.transform = targetTransform
+        }
+        hasAppliedOneHandedTransform = true
     }
 
     var onAttached: (() -> Void)?
@@ -888,6 +960,10 @@ final class AppNavigationCoordinator: ObservableObject {
     }
 
     func refreshNativeTabBarMetrics() {
+        profileTabInteraction.applyOneHandedPresentation(
+            state: oneHandedPresentation,
+            shouldTransform: usesNativeTabBar
+        )
         guard isNativeTabBarVisible,
               let metrics = profileTabInteraction.measureNativeTabBarMetrics() else { return }
         let key = NuvioTabBarMetrics.key(for: metrics.windowSize)
@@ -901,6 +977,7 @@ final class AppNavigationCoordinator: ObservableObject {
     @Published private(set) var localizedSwitchProfileTitle = ""
     @Published private(set) var localizedAddProfileTitle = ""
     @Published var isProfileSwitcherPresented = false
+    @Published private(set) var oneHandedPresentation = NuvioOneHandedPresentationState()
 
     private var tabBarTransitionTask: Task<Void, Never>?
 
@@ -949,6 +1026,19 @@ final class AppNavigationCoordinator: ObservableObject {
             guard let self, self.isAppReady else { return }
             self.isProfileSwitcherPresented = true
         }
+        NativeTabBridgeKt.observeNativeOneHandedPresentation { [weak self] enabled, scaleMultiplier, verticalPosition, placement in
+            let state = NuvioOneHandedPresentationState(
+                enabled: enabled.boolValue,
+                scaleMultiplier: scaleMultiplier.floatValue,
+                verticalPosition: verticalPosition.floatValue,
+                placement: placement
+            )
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.oneHandedPresentation = state
+                self.refreshNativeTabBarMetrics()
+            }
+        }
     }
 
     private var allCoordinators: [TabNavigationCoordinator] {
@@ -957,6 +1047,15 @@ final class AppNavigationCoordinator: ObservableObject {
 
     var availableTabs: [NuvioAppTab] {
         NuvioAppTab.allCases.filter { $0 != .liveTv || isLiveTvTabVisible }
+    }
+
+    var usesNativeTabBar: Bool {
+        let idiom = UIDevice.current.userInterfaceIdiom
+        guard idiom == .phone || idiom == .pad else { return false }
+        if #available(iOS 26.0, *) {
+            return tabBarBehavior.isEnabled
+        }
+        return false
     }
 
     var usesGlassTabBarOverlay: Bool {
@@ -1723,14 +1822,7 @@ struct NativeNavContentView: View {
     @StateObject private var iconStore = NativeTabIconStore()
 
     private var usesNativeTabBar: Bool {
-        let idiom = UIDevice.current.userInterfaceIdiom
-        guard idiom == .phone || idiom == .pad else {
-            return false
-        }
-        if #available(iOS 26.0, *) {
-            return appCoordinator.tabBarBehavior.isEnabled
-        }
-        return false
+        appCoordinator.usesNativeTabBar
     }
 
     private var usesTabletFloatingTabBar: Bool {
@@ -1860,17 +1952,47 @@ struct NativeNavContentView: View {
         .tabBarMinimizeBehavior(
             appCoordinator.tabBarBehavior == .autoHide ? .onScrollDown : .never
         )
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            appCoordinator.refreshNativeTabBarMetrics()
+                        }
+                    }
+                    .onChange(of: proxy.size) { _ in
+                        DispatchQueue.main.async {
+                            appCoordinator.refreshNativeTabBarMetrics()
+                        }
+                    }
+            }
+        }
         .overlay(alignment: .bottom) {
             if appCoordinator.usesGlassTabBarOverlay &&
                                 appCoordinator.isAppReady &&
                 appCoordinator.isSelectedTabAtRoot {
                 GeometryReader { proxy in
+                    let transform = NuvioOneHandedTabBarTransform.resolve(
+                        state: appCoordinator.oneHandedPresentation,
+                        viewportSize: proxy.size
+                    )
                     NuvioGlassTabBar(
                         appCoordinator: appCoordinator,
                         iconStore: iconStore
                     )
                     .frame(width: proxy.size.width)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .scaleEffect(transform.scale, anchor: transform.anchor)
+                    .offset(y: transform.verticalOffset)
+                    .animation(
+                        .spring(response: 0.34, dampingFraction: 0.88),
+                        value: appCoordinator.oneHandedPresentation
+                    )
+                    .onChange(of: proxy.size) { _ in
+                        DispatchQueue.main.async {
+                            appCoordinator.refreshNativeTabBarMetrics()
+                        }
+                    }
                 }
                 .ignoresSafeArea(.all)
             }

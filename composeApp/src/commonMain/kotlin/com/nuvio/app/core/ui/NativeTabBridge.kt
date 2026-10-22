@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -46,6 +47,23 @@ internal object NativeTabBridge {
 
     private val _activeTab = MutableStateFlow(NativeNavigationTab.Home)
     val activeTab: StateFlow<NativeNavigationTab> = _activeTab.asStateFlow()
+
+    private val oneHandedPresentationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var oneHandedPresentationJob: Job? = null
+
+    fun observeOneHandedPresentation(listener: (Boolean, Float, Float, String) -> Unit) {
+        oneHandedPresentationJob?.cancel()
+        oneHandedPresentationJob = oneHandedPresentationScope.launch {
+            appOneHandedModeController.state.collect { state ->
+                listener(
+                    state.enabled,
+                    state.scaleMultiplier,
+                    state.verticalPosition,
+                    state.placement.name,
+                )
+            }
+        }
+    }
 
     fun markActiveTab(tab: NativeNavigationTab) {
         _activeTab.value = tab
@@ -266,6 +284,10 @@ fun nativeTabSelect(tabName: String) {
 
 fun nativeTabToggleOneHandedMode() {
     NativeTabBridge.requestOneHandedModeToggle()
+}
+
+fun observeNativeOneHandedPresentation(listener: (Boolean, Float, Float, String) -> Unit) {
+    NativeTabBridge.observeOneHandedPresentation(listener)
 }
 
 fun publishProfileTabIconFrame(xDp: Float, yDp: Float, widthDp: Float, heightDp: Float) {

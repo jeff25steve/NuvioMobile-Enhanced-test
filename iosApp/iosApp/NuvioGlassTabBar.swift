@@ -2,6 +2,56 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
+/// Process-local mode state mirrored from the shared Kotlin controller. It is intentionally not
+/// persisted in UserDefaults or sent over the network.
+struct NuvioOneHandedPresentationState: Equatable {
+    var enabled = false
+    var scaleMultiplier: Float = 1
+    var verticalPosition: Float = 0
+    var placement = "Right"
+}
+
+/// Geometry shared by the SwiftUI glass overlay and the existing UIKit tab bar.
+struct NuvioOneHandedTabBarTransform {
+    let scale: CGFloat
+    let verticalOffset: CGFloat
+    let isLeftAnchored: Bool
+
+    var anchor: UnitPoint {
+        isLeftAnchored ? .bottomLeading : .bottomTrailing
+    }
+
+    static func resolve(
+        state: NuvioOneHandedPresentationState,
+        viewportSize: CGSize
+    ) -> NuvioOneHandedTabBarTransform {
+        let isLeftAnchored = state.placement == "Left"
+        guard state.enabled,
+              viewportSize.width.isFinite,
+              viewportSize.height.isFinite,
+              viewportSize.width > 0,
+              viewportSize.height > 0 else {
+            return NuvioOneHandedTabBarTransform(
+                scale: 1,
+                verticalOffset: 0,
+                isLeftAnchored: isLeftAnchored
+            )
+        }
+
+        let geometry = OneHandedPresentationKt.nativeOneHandedTabBarGeometry(
+            widthDp: Float(viewportSize.width),
+            heightDp: Float(viewportSize.height),
+            scaleMultiplier: state.scaleMultiplier,
+            verticalPosition: state.verticalPosition
+        )
+        return NuvioOneHandedTabBarTransform(
+            scale: CGFloat(geometry.scale),
+            verticalOffset: CGFloat(geometry.verticalOffsetDp),
+            isLeftAnchored: isLeftAnchored
+        )
+    }
+}
+
 enum NuvioTabBarBehavior: String, CaseIterable {
     case off
     case `static`

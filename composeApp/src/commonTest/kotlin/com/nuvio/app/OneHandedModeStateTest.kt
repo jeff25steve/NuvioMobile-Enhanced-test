@@ -154,6 +154,43 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun nativeTabBarGeometryMatchesComposeScaleAndVerticalPosition() {
+        val bottomAnchored = nativeOneHandedTabBarGeometry(
+            widthDp = 393f,
+            heightDp = 852f,
+            scaleMultiplier = 1f,
+            verticalPosition = 0f,
+        )
+        assertEquals(0.78f, bottomAnchored.scale, 0.001f)
+        assertEquals(0f, bottomAnchored.verticalOffsetDp, 0.001f)
+
+        val topPosition = nativeOneHandedTabBarGeometry(
+            widthDp = 393f,
+            heightDp = 852f,
+            scaleMultiplier = 1f,
+            verticalPosition = 1f,
+        )
+        assertEquals(-162.44f, topPosition.verticalOffsetDp, 0.02f)
+
+        val resized = nativeOneHandedTabBarGeometry(
+            widthDp = 393f,
+            heightDp = 852f,
+            scaleMultiplier = 1.25f,
+            verticalPosition = 0.5f,
+        )
+        assertEquals(0.86f, resized.scale, 0.001f)
+        assertEquals(-47.14f, resized.verticalOffsetDp, 0.02f)
+
+        val largeViewport = nativeOneHandedTabBarGeometry(
+            widthDp = 1200f,
+            heightDp = 1600f,
+            scaleMultiplier = 1f,
+            verticalPosition = 0f,
+        )
+        assertEquals(0.475f, largeViewport.scale, 0.001f)
+    }
+
+    @Test
     fun resizeMultiplierBoundsMatchReachableScaleOnPhonesAndLargeScreens() {
         val phoneWidth = 393f
         val phoneHeight = 852f

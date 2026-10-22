@@ -110,6 +110,6 @@
 
 - [x] Compared the focused implementation diff and verified that one-handed-specific native tab-bar visibility gates are absent; Liquid Glass source files were not changed.
 - [ ] Run the focused tests and platform build only if a local checkout/build environment is available; do not use CI/workflows.
-- [ ] Resolve/test the iOS native navigation-bar scale mismatch without changing the original bar behavior when one-handed mode is off.
+- [x] Added a transient Kotlin-to-SwiftUI state bridge so the existing native iOS tab bar and optional Glass overlay follow the same viewport scale, horizontal anchor, and vertical offset as the Compose surface; original native components are restored when one-handed mode turns off (runtime verification pending).
 - [x] No PR was created and no workflow/release config was touched by this implementation pass.
 - [ ] Report exactly what was checked and what remains unverified.

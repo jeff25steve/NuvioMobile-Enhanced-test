@@ -59,7 +59,7 @@ The presentation boundary must coordinate:
 
 Verify actual Compose/KMP ownership boundaries in `MainAppContent.kt`, `RootTabHost.kt`, `FloatingNavigationBar.kt`, and the player route/host code before deciding where the transform and snapshot belong. Do not assume every overlay or player surface is a descendant of one transform.
 
-**iOS parity risk confirmed by source inspection:** `ContentView.swift` overlays the iOS 26 `NuvioGlassTabBar` at the SwiftUI `TabView` level, while `OneHandedPresentation` scales the Compose content inside each tab. The native/SwiftUI navigation chrome therefore sits outside that transform. Do not solve this by permanently hiding or replacing the original tab bar; determine a platform-correct way to make the enabled one-handed presentation match the reference while leaving normal navigation unchanged. This remains unverified until a native iOS build and device/simulator test are available.
+**iOS parity risk and implementation:** `ContentView.swift` overlays the iOS 26 `NuvioGlassTabBar` at the SwiftUI `TabView` level, while `OneHandedPresentation` scales the Compose content inside each tab. The branch now mirrors the shared in-memory scale/position/placement into both the existing UIKit tab bar and the existing SwiftUI Glass overlay only while one-handed mode is enabled. It restores the UIKit bar's original transform when the mode is disabled and does not replace or hide the normal navigation implementation. The geometry is computed by a shared Kotlin helper and has focused common tests. This source-level implementation remains unverified until Kotlin/iOS builds and device/simulator tests are available.
 
 ### Why this approach
 
