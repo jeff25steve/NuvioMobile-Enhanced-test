@@ -40,14 +40,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
-import com.nuvio.app.core.ui.glass.liquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 
 private val SheetShape = RoundedCornerShape(NuvioTokens.Space.s28)
 
 // Keep the sheet background treatment consistent between the sheet and pinned content inside it.
+@Composable
 internal fun Modifier.nuvioSheetSurface(
     backdrop: NuvioBackdrop?,
     shape: Shape,
@@ -55,8 +59,8 @@ internal fun Modifier.nuvioSheetSurface(
     withHighlight: Boolean = true,
 ): Modifier {
     val readyBackdrop = backdrop?.takeIf { it.isReady && isLiquidGlassSupported() }
-    return liquidGlassSurface(
-        backdrop = readyBackdrop,
+    return liquidGlassForSurface(
+        surface = LiquidGlassSurface.BOTTOM_SHEETS,
         shape = shape,
         tint = containerColor.copy(alpha = containerColor.alpha * 0.65f),
         fallback = containerColor,
@@ -64,6 +68,8 @@ internal fun Modifier.nuvioSheetSurface(
         refractionHeight = 16.dp,
         refractionAmount = 32.dp,
         withHighlight = withHighlight,
+        explicitBackdrop = readyBackdrop,
+        useExplicitBackdrop = true,
     )
 }
 
@@ -83,7 +89,16 @@ fun NuvioSheetBackdropHost(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (sheetBackdrop.activeSheets > 0 && isLiquidGlassSupported()) Modifier.nuvioBackdropSource(sheetBackdrop.backdrop) else Modifier),
+                .then(
+                    if (sheetBackdrop.activeSheets > 0 &&
+                        isLiquidGlassSupported() &&
+                        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+                    ) {
+                        Modifier.nuvioBackdropSource(sheetBackdrop.backdrop)
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             content()
         }
@@ -121,7 +136,14 @@ fun NuvioModalBottomSheet(
                 onDispose { sheetBackdrop.activeSheets -= 1 }
             }
         }
-        val sheetGlassReady = sheetBackdrop != null && sheetBackdrop.backdrop.isReady && isLiquidGlassSupported()
+        val sheetGlassEnabled = isLiquidGlassSupported() &&
+            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+        val sheetGlassReady = sheetBackdrop != null && sheetBackdrop.backdrop.isReady && sheetGlassEnabled
+        val effectiveSheetShape = if (sheetGlassEnabled) {
+            liquidGlassShape(LiquidGlassSurface.BOTTOM_SHEETS, SheetShape)
+        } else {
+            SheetShape
+        }
         ModalBottomSheet(
             onDismissRequest = onDismissRequest,
             sheetState = sheetState,
@@ -135,13 +157,12 @@ fun NuvioModalBottomSheet(
                 Column(
                     modifier = modifier
                         .padding(NuvioTokens.Space.s10)
-                        .clip(SheetShape)
                         .nuvioSheetSurface(
                             backdrop = sheetBackdrop?.backdrop,
                             shape = SheetShape,
                             containerColor = containerColor,
                         )
-                        .then(if (sheetGlassReady) Modifier else Modifier.border(tokens.borders.thin, SurfaceEdge, SheetShape)),
+                        .then(if (sheetGlassReady) Modifier else Modifier.border(tokens.borders.thin, SurfaceEdge, effectiveSheetShape)),
                 ) {
                     if (showDragHandle) {
                         NuvioBottomSheetDragHandle(Modifier.align(Alignment.CenterHorizontally))

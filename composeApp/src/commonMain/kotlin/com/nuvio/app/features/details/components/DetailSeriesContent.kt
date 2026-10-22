@@ -103,7 +103,9 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 private val log = Logger.withTag("SeriesContent")
 
@@ -586,8 +588,8 @@ private fun SeasonViewModeToggle(
     val isPosters = mode == SeasonViewMode.Posters
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAILS,
                 shape = RoundedCornerShape(8.dp),
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -596,7 +598,7 @@ private fun SeasonViewModeToggle(
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(8.dp),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, RoundedCornerShape(8.dp)),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -652,13 +654,20 @@ private fun SeasonTextChipScrollRow(
     ) {
         items(seasons, key = { season -> season }) { season ->
             val isSelected = season == currentSeason
+            val defaultSeasonChipShape = RoundedCornerShape(sizing.seasonChipRadius)
+            val seasonChipShape = if (isSelected) {
+                liquidGlassShape(LiquidGlassSurface.DETAILS, defaultSeasonChipShape)
+            } else {
+                defaultSeasonChipShape
+            }
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(sizing.seasonChipRadius))
+                    .clip(seasonChipShape)
                     .then(
                         if (isSelected) {
-                            Modifier.ambientLiquidGlass(
-                                shape = RoundedCornerShape(sizing.seasonChipRadius),
+                            Modifier.liquidGlassForSurface(
+                                surface = LiquidGlassSurface.DETAILS,
+                                shape = defaultSeasonChipShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                             )
@@ -967,15 +976,15 @@ private fun EpisodeHorizontalCard(
         modifier = Modifier
             .width(metrics.cardWidth)
             .height(metrics.cardHeight)
-            .clip(cardShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAILS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 blurRadius = 18.dp,
             )
             .nuvioCardDepth(
-                shape = cardShape,
+                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, cardShape),
                 surface = NuvioCardDepthSurface.EpisodeCards,
                 fallbackBorderAlpha = 0.12f,
             )
@@ -1423,8 +1432,8 @@ private fun EpisodeListCard(
         modifier = modifier
             .fillMaxWidth()
             .height(sizing.cardHeight)
-            .clip(cardShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAILS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -1433,7 +1442,7 @@ private fun EpisodeListCard(
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.1f),
-                shape = cardShape,
+                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, cardShape),
             )
             .combinedClickable(
                 enabled = onClick != null || onLongPress != null,

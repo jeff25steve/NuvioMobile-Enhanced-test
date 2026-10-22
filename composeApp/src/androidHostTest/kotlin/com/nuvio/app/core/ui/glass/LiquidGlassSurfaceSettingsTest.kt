@@ -12,6 +12,7 @@ class LiquidGlassSurfaceSettingsTest {
         assertTrue(LiquidGlassSurface.PLAYER.defaultEnabled)
         assertTrue(LiquidGlassSurface.STREAM_SELECTION.defaultEnabled)
         assertTrue(LiquidGlassSurface.DETAILS.defaultEnabled)
+        assertTrue(LiquidGlassSurface.BOTTOM_SHEETS.defaultEnabled)
 
         assertFalse(LiquidGlassSurface.SEARCH.defaultEnabled)
         assertFalse(LiquidGlassSurface.LIBRARY.defaultEnabled)
@@ -64,6 +65,9 @@ class LiquidGlassSurfaceSettingsTest {
         ).withSurface(
             LiquidGlassSurface.LIBRARY,
             LiquidGlassSurfaceOverrides(enabled = true, defaultIconColorArgb = 0xFF336699.toInt()),
+        ).withSurface(
+            LiquidGlassSurface.BOTTOM_SHEETS,
+            LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 22f),
         )
 
         val encoded = encodeLiquidGlassSurfaceSettings(settings)

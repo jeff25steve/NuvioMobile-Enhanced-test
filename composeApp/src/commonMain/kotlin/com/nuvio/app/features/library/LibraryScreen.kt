@@ -885,7 +885,24 @@ private fun LazyListScope.cloudLibraryContent(
                         onProviderSelected = onProviderSelected,
                         onTypeSelected = onTypeSelected,
                         onRefresh = onRefresh,
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .then(
+                                if (libraryGlassEnabled) {
+                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(20.dp))
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY,
+                                        shape = shape,
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+                                        fallback = MaterialTheme.colorScheme.surface,
+                                        blurRadius = 14.dp,
+                                        refractionHeight = 8.dp,
+                                        refractionAmount = 12.dp,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     )
                 }
 
@@ -893,7 +910,24 @@ private fun LazyListScope.cloudLibraryContent(
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .then(
+                                if (libraryGlassEnabled) {
+                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(12.dp))
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY,
+                                        shape = shape,
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                        blurRadius = 14.dp,
+                                        refractionHeight = 8.dp,
+                                        refractionAmount = 12.dp,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     )
                 }
 
@@ -972,6 +1006,7 @@ private fun CloudLibrarySearchField(
             Icon(
                 imageVector = Icons.Rounded.Search,
                 contentDescription = null,
+                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
             )
         },
         trailingIcon = {
@@ -980,6 +1015,7 @@ private fun CloudLibrarySearchField(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(Res.string.compose_search_clear),
+                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
                     )
                 }
             }
@@ -1137,7 +1173,7 @@ private fun CloudLibraryToolbar(
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
                     contentDescription = stringResource(Res.string.cloud_library_refresh),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
                 )
             }
         }

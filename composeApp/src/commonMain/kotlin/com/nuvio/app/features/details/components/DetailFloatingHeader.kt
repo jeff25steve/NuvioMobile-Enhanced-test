@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,7 +46,9 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import com.kyant.backdrop.Backdrop
-import com.nuvio.app.core.ui.glass.liquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 internal fun detailFloatingHeaderHeight(): Dp {
@@ -102,14 +103,15 @@ fun DetailFloatingHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clipToBounds()
-                .liquidGlassSurface(
-                    backdrop = glassBackdrop,
+                .liquidGlassForSurface(
+                    surface = LiquidGlassSurface.DETAILS,
                     shape = RectangleShape,
                     tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.7f),
                     fallback = surfaceColor,
                     blurRadius = 24.dp,
                     withHighlight = false,
+                    explicitBackdrop = glassBackdrop,
+                    useExplicitBackdrop = true,
                 ),
         ) {
             Row(
@@ -204,7 +206,7 @@ private fun DetailFloatingHeaderAction(
             Icon(
                 painter = painterResource(Res.drawable.sidebar_library),
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onBackground,
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
             )
         } else {
             Icon(

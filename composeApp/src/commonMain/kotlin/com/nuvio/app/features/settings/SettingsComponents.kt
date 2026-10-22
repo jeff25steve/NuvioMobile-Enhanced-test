@@ -586,7 +586,7 @@ internal fun HomescreenCatalogRow(
                         Icon(
                             imageVector = Icons.Rounded.Lock,
                             contentDescription = stringResource(Res.string.settings_homescreen_pinned),
-                            tint = tokens.colors.textMuted.copy(alpha = tokens.opacity.medium),
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted.copy(alpha = tokens.opacity.medium)),
                         )
                     }
                 } else {
@@ -606,7 +606,7 @@ internal fun HomescreenCatalogRow(
                         Icon(
                             imageVector = Icons.Rounded.Menu,
                             contentDescription = stringResource(Res.string.settings_homescreen_reorder),
-                            tint = tokens.colors.textMuted,
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
                         )
                     }
                 }

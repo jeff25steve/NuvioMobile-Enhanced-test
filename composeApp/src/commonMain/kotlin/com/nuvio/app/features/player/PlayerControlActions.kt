@@ -63,6 +63,8 @@ import com.nuvio.app.core.ui.AppIconResource
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.appIconPainter
 import com.nuvio.app.core.ui.nuvioTypeScale
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -117,7 +119,7 @@ internal fun PlayerToolbar(
                     description = stringResource(Res.string.party_title),
                     icon = Icons.Rounded.Groups,
                     onClick = onPartyClick,
-                    tint = if (partyActive) MaterialTheme.colorScheme.primary else Color.White,
+                    tint = if (partyActive) MaterialTheme.colorScheme.primary else liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                 )
             }
             onCastClick?.let {
@@ -141,7 +143,7 @@ internal fun PlayerToolbar(
             modifier = Modifier.playerLiquidGlass(CircleShape, refractionHeight = 8.dp, refractionAmount = 12.dp),
             shape = CircleShape,
             containerColor = Color.Transparent,
-            contentColor = Color.White,
+            contentColor = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
             buttonSize = 48.dp,
             iconSize = 24.dp,
             contentDescription = stringResource(Res.string.compose_player_close),
@@ -378,11 +380,12 @@ private fun PlayerAction(
     iconSize: Dp = 24.dp,
     tint: Color = Color.White,
 ) {
+    val resolvedTint = if (tint == Color.White) liquidGlassIconTint(LiquidGlassSurface.PLAYER, tint) else tint
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
         if (painter != null) {
-            Icon(painter, description, tint = tint, modifier = Modifier.size(iconSize))
+            Icon(painter, description, tint = resolvedTint, modifier = Modifier.size(iconSize))
         } else if (icon != null) {
-            Icon(icon, description, tint = tint, modifier = Modifier.size(iconSize))
+            Icon(icon, description, tint = resolvedTint, modifier = Modifier.size(iconSize))
         }
     }
 }

@@ -1,11 +1,16 @@
 package com.nuvio.app.core.ui.glass
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.onDispose
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import com.kyant.backdrop.Backdrop
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
@@ -24,11 +29,12 @@ internal enum class LiquidGlassSurface {
     DETAILS,
     SEARCH,
     LIBRARY,
-    SETTINGS;
+    SETTINGS,
+    BOTTOM_SHEETS;
 
     val defaultEnabled: Boolean
         get() = when (this) {
-            PLAYER, STREAM_SELECTION, DETAILS -> true
+            PLAYER, STREAM_SELECTION, DETAILS, BOTTOM_SHEETS -> true
             SEARCH, LIBRARY, SETTINGS -> false
         }
 }
@@ -71,6 +77,7 @@ internal data class LiquidGlassSurfacesSettings(
     val search: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val library: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val bottomSheets: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
 ) {
     fun forSurface(surface: LiquidGlassSurface): LiquidGlassSurfaceOverrides = when (surface) {
         LiquidGlassSurface.PLAYER -> player
@@ -79,6 +86,7 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.SEARCH -> search
         LiquidGlassSurface.LIBRARY -> library
         LiquidGlassSurface.SETTINGS -> settings
+        LiquidGlassSurface.BOTTOM_SHEETS -> bottomSheets
     }
 
     fun withSurface(
@@ -93,6 +101,7 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.SEARCH -> copy(search = safe)
             LiquidGlassSurface.LIBRARY -> copy(library = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
+            LiquidGlassSurface.BOTTOM_SHEETS -> copy(bottomSheets = safe)
         }
     }
 
@@ -103,6 +112,7 @@ internal data class LiquidGlassSurfacesSettings(
         search = search.sanitized(),
         library = library.sanitized(),
         settings = settings.sanitized(),
+        bottomSheets = bottomSheets.sanitized(),
     )
 }
 
@@ -127,11 +137,21 @@ internal fun decodeLiquidGlassSurfaceSettings(raw: String?): LiquidGlassSurfaces
  * recipes therefore remain pixel-for-pixel unchanged until that area is customized.
  */
 @Composable
-internal fun liquidGlassShape(surface: LiquidGlassSurface, defaultShape: Shape): Shape =
-    LiquidGlassSettings.surfaceOverrides.forSurface(surface).cornerRadiusPercent?.let { percent ->
+internal fun liquidGlassShape(
+    surface: LiquidGlassSurface,
+    defaultShape: Shape,
+    preview: Boolean = false,
+): Shape {
+    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) {
+        return defaultShape
+    }
+    return overrides.cornerRadiusPercent?.let { percent ->
         RoundedCornerShape(percent = percent.roundToInt())
     } ?: defaultShape
+}
 
+@Composable
 internal fun Modifier.liquidGlassForSurface(
     surface: LiquidGlassSurface,
     shape: Shape,
@@ -144,29 +164,70 @@ internal fun Modifier.liquidGlassForSurface(
     withHighlight: Boolean = true,
     withShadow: Boolean = false,
     backdropOpacity: Float = 1f,
+    fallbackBrush: Brush? = null,
+    explicitBackdrop: Backdrop? = null,
+    useExplicitBackdrop: Boolean = false,
     preview: Boolean = false,
 ): Modifier {
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) return this
+    val enabled = preview || (LiquidGlassSettings.enabled && (overrides.enabled ?: surface.defaultEnabled))
+    val effectiveShape = if (enabled) liquidGlassShape(surface, shape, preview = preview) else shape
+    if (!enabled) {
+        return if (fallbackBrush != null) {
+            this.clip(effectiveShape).background(fallbackBrush, effectiveShape)
+        } else {
+            this.clip(effectiveShape).background(fallback, effectiveShape)
+        }
+    }
 
-    val effectiveShape = liquidGlassShape(surface, shape)
     val effectiveTint = overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint
+    val effectiveBlur = overrides.blurRadiusDp?.dp ?: blurRadius
+    val effectiveRefractionHeight = overrides.refractionHeightDp?.dp ?: refractionHeight
+    val effectiveRefractionAmount = overrides.refractionAmountDp?.dp ?: refractionAmount
+    val effectiveBackdropOpacity = backdropOpacity
+    val effectiveFallbackBrush = fallbackBrush
 
-    val baseModifier = if (overrides.cornerRadiusPercent != null) this.clip(effectiveShape) else this
-    return baseModifier.ambientLiquidGlass(
-        shape = effectiveShape,
-        tint = effectiveTint,
-        fallback = fallback,
-        blurRadius = overrides.blurRadiusDp?.dp ?: blurRadius,
-        refractionHeight = overrides.refractionHeightDp?.dp ?: refractionHeight,
-        refractionAmount = overrides.refractionAmountDp?.dp ?: refractionAmount,
-        withVibrancy = withVibrancy,
-        withHighlight = withHighlight,
-        withShadow = withShadow,
-        backdropOpacity = backdropOpacity,
-        chromaticAberration = overrides.chromaticAberration ?: false,
-        depthEffect = overrides.depthEffect ?: false,
-    )
+    return if (useExplicitBackdrop) {
+        val host = explicitBackdrop as? LiquidGlassBackdropHost
+        if (host != null) {
+            DisposableEffect(host) {
+                host.acquire()
+                onDispose { host.release() }
+            }
+        }
+        liquidGlassSurface(
+            backdrop = explicitBackdrop?.takeIf { (host?.isReady ?: true) },
+            shape = effectiveShape,
+            tint = effectiveTint,
+            fallback = fallback,
+            blurRadius = effectiveBlur,
+            refractionHeight = effectiveRefractionHeight,
+            refractionAmount = effectiveRefractionAmount,
+            withVibrancy = withVibrancy,
+            withHighlight = withHighlight,
+            withShadow = withShadow,
+            fallbackBrush = effectiveFallbackBrush,
+            backdropOpacity = effectiveBackdropOpacity,
+            chromaticAberration = overrides.chromaticAberration ?: false,
+            depthEffect = overrides.depthEffect ?: false,
+        ).let { this.clip(effectiveShape).then(it) }
+    } else {
+        this.clip(effectiveShape).ambientLiquidGlass(
+            shape = effectiveShape,
+            tint = effectiveTint,
+            fallback = fallback,
+            blurRadius = effectiveBlur,
+            refractionHeight = effectiveRefractionHeight,
+            refractionAmount = effectiveRefractionAmount,
+            withVibrancy = withVibrancy,
+            withHighlight = withHighlight,
+            withShadow = withShadow,
+            fallbackBrush = effectiveFallbackBrush,
+            backdropOpacity = effectiveBackdropOpacity,
+            chromaticAberration = overrides.chromaticAberration ?: false,
+            depthEffect = overrides.depthEffect ?: false,
+        )
+    }
 }
 
 @Composable
