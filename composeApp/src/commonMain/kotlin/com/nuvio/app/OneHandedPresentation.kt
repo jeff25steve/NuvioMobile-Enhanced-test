@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,12 +37,23 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.nuvio.app.core.ui.glass.NuvioBackdrop
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 
 private const val OneHandedScale = 0.72f
 private const val OneHandedMaxWidthDp = 600f
@@ -55,6 +67,25 @@ private const val OneHandedCompactHeightDp = 640f
 
 private const val OneHandedSpringDamping = Spring.DampingRatioNoBouncy
 private const val OneHandedSpringStiffness = Spring.StiffnessMedium
+
+/**
+ * Draws the current, unscaled app layer at viewport origin. The source is recorded by
+ * NuvioBackdropSourceNode from the existing UI tree; this adapter deliberately ignores the
+ * transformed source coordinates because the recorded layer represents the full viewport.
+ */
+private class OneHandedLiveBackdrop(
+    private val source: NuvioBackdrop,
+) : Backdrop {
+    override val isCoordinatesDependent: Boolean = false
+
+    override fun DrawScope.drawBackdrop(
+        density: Density,
+        coordinates: LayoutCoordinates?,
+        layerBlock: (GraphicsLayerScope.() -> Unit)?,
+    ) {
+        drawLayer(source.graphicsLayer)
+    }
+}
 
 /**
  * Presents the existing UI tree as a single reduced, bottom-anchored surface.
@@ -128,6 +159,12 @@ internal fun OneHandedPresentation(
     val density = LocalDensity.current
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
+    // The backdrop records the existing content layer, not a second active app composition.
+    // It is only retained while the reduced presentation is visible and is never used for playback.
+    val backdropSource = if (reduceContent) rememberNuvioBackdrop() else null
+    val liveBackdrop = remember(backdropSource) {
+        backdropSource?.let(::OneHandedLiveBackdrop)
+    }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -209,10 +246,26 @@ internal fun OneHandedPresentation(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(
+                        if (reduceContent && liveBackdrop != null) {
+                            Modifier.drawBackdrop(
+                                backdrop = liveBackdrop,
+                                shape = { RectangleShape },
+                                effects = { blur(18.dp.toPx()) },
+                                onDrawSurface = { drawRect(surface.copy(alpha = 0.08f)) },
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .drawBehind {
                         if (!forceNormalLayout && backdropAlpha > 0f) {
-                            drawRect(brush = backgroundBrush, alpha = backdropAlpha)
-                            drawRect(color = scrim.copy(alpha = 0.22f * backdropAlpha))
+                            // Keep a small theme tint under the live copy to avoid a blank first frame.
+                            drawRect(
+                                brush = backgroundBrush,
+                                alpha = backdropAlpha * if (liveBackdrop != null) 0.12f else 1f,
+                            )
+                            drawRect(color = scrim.copy(alpha = 0.24f * backdropAlpha))
                         }
                     },
             )
@@ -233,6 +286,15 @@ internal fun OneHandedPresentation(
                         clip = true
                         this.shadowElevation = shadowElevation.toPx()
                     }
+                    // Keep capture inside the transform layer so the recorded layer stays at
+                    // normal viewport size while the visible content is scaled.
+                    .then(
+                        if (reduceContent && backdropSource != null) {
+                            Modifier.nuvioBackdropSource(backdropSource)
+                        } else {
+                            Modifier
+                        },
+                    )
             }
             content(contentModifier)
 
