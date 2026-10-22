@@ -163,6 +163,37 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun resizeHandleUpdatesScaleContinuouslyWithinBounds() {
+        val multiplier = mutableStateOf(1f)
+        compose.setContent {
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = true,
+                    placement = OneHandedModePlacement.Right,
+                    forceNormalLayout = false,
+                    scaleMultiplier = multiplier.value,
+                    onScaleMultiplierChange = { multiplier.value = it },
+                    onPlacementToggle = {},
+                    placementToggleDescription = "Move app to the other side",
+                ) { contentModifier ->
+                    Box(contentModifier.fillMaxSize())
+                }
+            }
+        }
+
+        compose.onNodeWithContentDescription("Resize one-handed mode").performTouchInput {
+            down(0, Offset(size.width / 2f, size.height / 2f))
+            moveTo(0, Offset(size.width / 2f, size.height / 2f - 48f), delayMillis = 100)
+            up(0)
+        }
+
+        compose.runOnIdle {
+            assertTrue(multiplier.value > 1f, "Dragging the resize handle upward should enlarge the app")
+            assertTrue(multiplier.value <= OneHandedMaximumScaleMultiplier)
+        }
+    }
+
+    @Test
     fun explicitExitControlDisablesModeWithoutOutsideDismissal() {
         setContent()
 
