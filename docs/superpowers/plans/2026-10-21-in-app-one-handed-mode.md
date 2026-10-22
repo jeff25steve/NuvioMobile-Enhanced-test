@@ -18,7 +18,7 @@
 - Match the profile hold's gesture recognition and cancellation semantics. Preserve the profile popup and drag-to-select gestures.
 - Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit via tapping the thin top handle or Library hold.
 - The reduced app stays interactive; placement can switch left/right and resizing is continuous and bounded.
-- Android and iOS share the same visible controls, visual treatment, and interaction rules; platform-specific implementation is acceptable only where required.
+- Android and iOS share the same handle/arrow controls and interaction rules. Preserve the normal navigation bar; any one-handed-only iOS adjustment must be verified not to regress ordinary tab navigation.
 - Disable one-handed mode before video/trailer presentation; release backdrop resources and do not restore mode automatically after playback.
 - No overlay/accessibility permission, background service, polling, persistent screenshot, telemetry, or network transfer of UI pixels/state.
 - Do not use GitHub Actions/workflows; run local tests/builds if a local checkout becomes available and report any verification limitation.
@@ -32,6 +32,7 @@
 - Outside taps: no mode dismissal, no hidden content activation, and no interception of the top handle or side-switch arrow.
 - Resizing: pointer stays captured while the surface edge moves; lower/upper viewport bounds remain valid under rotation and compact dimensions.
 - Backdrop and playback: no duplicate navigation composition, stale snapshot, captured protected video, or automatic reactivation after player exit.
+- iOS parity: verify how the SwiftUI `TabView`/`NuvioGlassTabBar` overlay behaves relative to the Compose transform; it is currently outside that transform in source.
 
 ---
 
@@ -93,5 +94,6 @@
 
 - [x] Compared the focused implementation diff and verified that one-handed-specific native tab-bar visibility gates are absent; Liquid Glass source files were not changed.
 - [ ] Run the focused tests and platform build only if a local checkout/build environment is available; do not use CI/workflows.
+- [ ] Resolve/test the iOS native navigation-bar scale mismatch without changing the original bar behavior when one-handed mode is off.
 - [x] No PR was created and no workflow/release config was touched by this implementation pass.
 - [ ] Report exactly what was checked and what remains unverified.
