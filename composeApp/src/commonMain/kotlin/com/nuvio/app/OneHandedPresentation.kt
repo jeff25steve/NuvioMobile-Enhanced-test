@@ -220,8 +220,8 @@ internal fun OneHandedPresentation(
                         }
                         val sideSwitchCenterY = top + reducedHeight / 2f
                         if (enabled &&
-                            down.position.x in (sideSwitchCenterX - 24.dp.toPx())..(sideSwitchCenterX + 24.dp.toPx()) &&
-                            down.position.y in (sideSwitchCenterY - 32.dp.toPx())..(sideSwitchCenterY + 32.dp.toPx())
+                            down.position.x in (sideSwitchCenterX - 20.dp.toPx())..(sideSwitchCenterX + 20.dp.toPx()) &&
+                            down.position.y in (sideSwitchCenterY - 28.dp.toPx())..(sideSwitchCenterY + 28.dp.toPx())
                         ) return@awaitEachGesture
                         val mappedX = (down.position.x - horizontalOffset) / gestureScale
                         val mappedY = (down.position.y - top) / gestureScale
