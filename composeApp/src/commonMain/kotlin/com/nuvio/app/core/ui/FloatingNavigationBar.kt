@@ -671,7 +671,10 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                     // hold from becoming a tab drag or tap when the pointer is released.
                     change.consume()
                     if (!change.pressed) {
-                        motion.finish()
+                        val items = currentItems()
+                        val selectedIndex = items.indexOfFirst { it.selected }.coerceAtLeast(0)
+                        motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
+                        JellySelectionSource.lastDragCommit = null
                         motion.clearHandledLongPress()
                         finished = true
                         break
