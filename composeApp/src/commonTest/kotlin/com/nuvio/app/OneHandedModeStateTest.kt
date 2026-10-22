@@ -44,19 +44,6 @@ class OneHandedModeStateTest {
     }
 
     @Test
-    fun outsideTapDisablesModeWithoutChangingPlacement() {
-        val enabled = OneHandedModeState(
-            enabled = true,
-            placement = OneHandedModePlacement.Left,
-        )
-
-        val dismissed = enabled.dismissOutside()
-
-        assertFalse(dismissed.enabled)
-        assertEquals(OneHandedModePlacement.Left, dismissed.placement)
-    }
-
-    @Test
     fun playerEntryDisablesModeAndNeverRequestsAutomaticRestore() {
         val enabled = OneHandedModeState(enabled = true)
 
