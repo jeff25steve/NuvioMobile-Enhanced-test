@@ -696,8 +696,10 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         } finally {
             if (!finished) {
                 val items = currentItems()
-                val selectedIndex = items.indexOfFirst { it.selected }
+                val selectedIndex = items.indexOfFirst { it.selected }.coerceAtLeast(0)
                 motion.cancel(visualNavIndex(selectedIndex, items.size, isRtl()))
+                motion.clearHandledLongPress()
+                JellySelectionSource.lastDragCommit = null
             }
         }
     }
