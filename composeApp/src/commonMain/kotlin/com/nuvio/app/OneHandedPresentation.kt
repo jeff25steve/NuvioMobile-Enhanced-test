@@ -546,8 +546,12 @@ internal fun OneHandedPresentation(
                     modifier = Modifier
                         .offset(x = resizeTargetLeft, y = currentSurfaceTop - 24.dp)
                         .size(48.dp)
-                        .pointerInput(enabled, forceNormalLayout, placement) {
+                        .pointerInput(enabled, forceNormalLayout, placement, maxWidth, maxHeight) {
                             if (enabled && !forceNormalLayout) {
+                                val multiplierBounds = oneHandedScaleMultiplierBounds(
+                                    maxWidth.value,
+                                    maxHeight.value,
+                                )
                                 var draggedScaleMultiplier = currentScaleMultiplier.value
                                 var draggedVerticalPosition = currentAnimatedVerticalPosition.value
                                 var initialScale = currentScale.value
@@ -555,7 +559,9 @@ internal fun OneHandedPresentation(
                                 var initialPlacement = currentPlacement.value
                                 detectDragGestures(
                                     onDragStart = {
-                                        draggedScaleMultiplier = currentScaleMultiplier.value
+                                        draggedScaleMultiplier = normalizedOneHandedScaleMultiplier(
+                                            currentScaleMultiplier.value,
+                                        ).coerceIn(multiplierBounds.start, multiplierBounds.endInclusive)
                                         initialScale = currentScale.value
                                         initialVerticalPosition = currentAnimatedVerticalPosition.value
                                         initialPlacement = currentPlacement.value
@@ -589,7 +595,7 @@ internal fun OneHandedPresentation(
                                         ) / baseScale
                                         draggedScaleMultiplier = normalizedOneHandedScaleMultiplier(
                                             draggedScaleMultiplier + scaleMultiplierDelta,
-                                        )
+                                        ).coerceIn(multiplierBounds.start, multiplierBounds.endInclusive)
                                         val previewScale = oneHandedScaleForViewport(
                                             maxWidth.value,
                                             maxHeight.value,
@@ -697,6 +703,28 @@ internal fun oneHandedScaleForViewport(
         OneHandedMinimumViewportScale,
         viewportMaximumScale,
     )
+}
+
+/**
+ * Restricts resize gestures to multiplier values that produce a visible scale on this viewport.
+ * The main scale calculation clamps to viewport min/max, so using the global multiplier limits
+ * directly would otherwise create a drag dead zone after reaching either visual size limit.
+ */
+internal fun oneHandedScaleMultiplierBounds(
+    widthDp: Float,
+    heightDp: Float,
+): ClosedFloatingPointRange<Float> {
+    val scaleAtUnitMultiplier = oneHandedScaleForViewport(widthDp, heightDp, 1f)
+        .coerceAtLeast(0.001f)
+    val minimumMultiplier = (
+        oneHandedScaleForViewport(widthDp, heightDp, OneHandedMinimumScaleMultiplier) /
+            scaleAtUnitMultiplier
+        ).coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
+    val maximumMultiplier = (
+        oneHandedScaleForViewport(widthDp, heightDp, OneHandedMaximumScaleMultiplier) /
+            scaleAtUnitMultiplier
+        ).coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
+    return minimumMultiplier..maximumOf(minimumMultiplier, maximumMultiplier)
 }
 
 /** Computes the scaled surface's horizontal edge for the same animated pivot used by graphicsLayer. */
