@@ -236,14 +236,17 @@ internal fun OneHandedPresentation(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
     ) {
-        val viewportWidthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
-        val viewportHeightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+        // Capture constraints before entering nested layout scopes, which hide the outer receiver.
+        val viewportWidth = maxWidth
+        val viewportHeight = maxHeight
+        val viewportWidthPx = with(density) { viewportWidth.toPx() }.coerceAtLeast(1f)
+        val viewportHeightPx = with(density) { viewportHeight.toPx() }.coerceAtLeast(1f)
         val currentViewportWidthPx = rememberUpdatedState(viewportWidthPx)
         val currentViewportHeightPx = rememberUpdatedState(viewportHeightPx)
         val targetScale = if (forceNormalLayout) {
             1f
         } else {
-            oneHandedScaleForViewport(maxWidth.value, maxHeight.value, scaleMultiplier)
+            oneHandedScaleForViewport(viewportWidth.value, viewportHeight.value, scaleMultiplier)
         }
         val scale by animateFloatAsState(
             targetValue = if (reduceContent) targetScale else 1f,
@@ -263,7 +266,7 @@ internal fun OneHandedPresentation(
         fun resizeFromAccessibility(increase: Boolean): Boolean {
             if (!reduceContent) return false
 
-            val multiplierBounds = oneHandedScaleMultiplierBounds(maxWidth.value, maxHeight.value)
+            val multiplierBounds = oneHandedScaleMultiplierBounds(viewportWidth.value, viewportHeight.value)
             val currentMultiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier)
                 .coerceIn(multiplierBounds.start, multiplierBounds.endInclusive)
             val targetMultiplier = if (increase) {
@@ -276,13 +279,13 @@ internal fun OneHandedPresentation(
             if (targetMultiplier == currentMultiplier) return false
 
             val currentSurfaceScale = oneHandedScaleForViewport(
-                maxWidth.value,
-                maxHeight.value,
+                viewportWidth.value,
+                viewportHeight.value,
                 currentMultiplier,
             )
             val targetSurfaceScale = oneHandedScaleForViewport(
-                maxWidth.value,
-                maxHeight.value,
+                viewportWidth.value,
+                viewportHeight.value,
                 targetMultiplier,
             )
             val topHandleGapFraction = currentTopHandleGapPx.value / viewportHeightPx
@@ -461,14 +464,14 @@ internal fun OneHandedPresentation(
                         scale
                     } else {
                         oneHandedScaleForViewport(
-                            widthDp = maxWidth.value,
-                            heightDp = maxHeight.value,
+                            widthDp = viewportWidth.value,
+                            heightDp = viewportHeight.value,
                             scaleMultiplier = preview.scaleMultiplier,
                         )
                     }
-                    val previewLeft = maxWidth * (1f - previewScale) *
+                    val previewLeft = viewportWidth * (1f - previewScale) *
                         if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
-                    val previewFreeSpace = maxHeight * (1f - previewScale)
+                    val previewFreeSpace = viewportHeight * (1f - previewScale)
                     val previewTravel = (previewFreeSpace - OneHandedTopHandleGapDp.dp)
                         .coerceAtLeast(0.dp)
                     val previewTop = previewFreeSpace - previewTravel * preview.verticalPosition
@@ -476,8 +479,8 @@ internal fun OneHandedPresentation(
                         modifier = Modifier
                             .offset(x = previewLeft, y = previewTop)
                             .size(
-                                width = maxWidth * previewScale,
-                                height = maxHeight * previewScale,
+                                width = viewportWidth * previewScale,
+                                height = viewportHeight * previewScale,
                             )
                             .background(
                                 color = Color.White.copy(alpha = 0.14f),
@@ -493,7 +496,7 @@ internal fun OneHandedPresentation(
                     if (preview.kind == OneHandedDragKind.Position) {
                         // Only the visual pill follows the outline. Its pointer input target stays
                         // fixed at the original grip so moving the visual cannot distort drag deltas.
-                        val previewHandleCenterX = maxWidth * (
+                        val previewHandleCenterX = viewportWidth * (
                             pivotFraction * (1f - previewScale) + previewScale / 2f
                         )
                         Box(
@@ -514,13 +517,13 @@ internal fun OneHandedPresentation(
                     }
 
                     if (preview.kind == OneHandedDragKind.Resize) {
-                        val currentFreeSpace = maxHeight * (1f - scale)
+                        val currentFreeSpace = viewportHeight * (1f - scale)
                         val currentTravel = (currentFreeSpace - OneHandedTopHandleGapDp.dp)
                             .coerceAtLeast(0.dp)
                         val currentTop = currentFreeSpace -
                             currentTravel * currentAnimatedVerticalPosition.value
-                        val currentLeft = maxWidth * (1f - scale) * pivotFraction
-                        val currentRight = currentLeft + maxWidth * scale
+                        val currentLeft = viewportWidth * (1f - scale) * pivotFraction
+                        val currentRight = currentLeft + viewportWidth * scale
                         val currentCornerX = if (placement == OneHandedModePlacement.Right) {
                             currentLeft
                         } else {
@@ -533,7 +536,7 @@ internal fun OneHandedPresentation(
                                 .topCornerMarker(placement),
                         )
 
-                        val previewRight = previewLeft + maxWidth * previewScale
+                        val previewRight = previewLeft + viewportWidth * previewScale
                         val previewCornerX = if (preview.placement == OneHandedModePlacement.Right) {
                             previewLeft
                         } else {
@@ -552,12 +555,12 @@ internal fun OneHandedPresentation(
             if (reduceContent) {
                 // The top pill moves the window vertically; it does not resize or switch sides.
                 // The target is generous to keep the thin visual pill easy to grab.
-                val currentFreeSpace = maxHeight * (1f - scale)
+                val currentFreeSpace = viewportHeight * (1f - scale)
                 val currentVerticalTravel = (currentFreeSpace - OneHandedTopHandleGapDp.dp)
                     .coerceAtLeast(0.dp)
                 val currentSurfaceTop = currentFreeSpace -
                     currentVerticalTravel * animatedVerticalPosition
-                val handleCenterX = maxWidth * (
+                val handleCenterX = viewportWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
                 )
                 // Keep the pointer-input target fixed at the live grip while its visual pill
@@ -567,7 +570,7 @@ internal fun OneHandedPresentation(
                         modifier = Modifier
                             .offset(x = handleCenterX - 28.dp, y = currentSurfaceTop - 25.dp)
                             .size(width = 56.dp, height = 40.dp)
-                            .pointerInput(enabled, forceNormalLayout, maxWidth, maxHeight) {
+                            .pointerInput(enabled, forceNormalLayout, viewportWidth, viewportHeight) {
                                 if (enabled && !forceNormalLayout) {
                                     var draggedVerticalPosition = currentAnimatedVerticalPosition.value
                                     var startingScale = currentScale.value
@@ -649,8 +652,8 @@ internal fun OneHandedPresentation(
 
                 // Resizing is a separate gesture from the corner opposite the selected anchor.
                 // The surface's bottom corner stays fixed while its scale is previewed.
-                val surfaceLeft = maxWidth * (1f - scale) * pivotFraction
-                val surfaceRight = surfaceLeft + maxWidth * scale
+                val surfaceLeft = viewportWidth * (1f - scale) * pivotFraction
+                val surfaceRight = surfaceLeft + viewportWidth * scale
                 val resizeCornerX = if (placement == OneHandedModePlacement.Right) {
                     surfaceLeft
                 } else {
@@ -665,11 +668,11 @@ internal fun OneHandedPresentation(
                     modifier = Modifier
                         .offset(x = resizeTargetLeft, y = currentSurfaceTop - 24.dp)
                         .size(48.dp)
-                        .pointerInput(enabled, forceNormalLayout, placement, maxWidth, maxHeight) {
+                        .pointerInput(enabled, forceNormalLayout, placement, viewportWidth, viewportHeight) {
                             if (enabled && !forceNormalLayout) {
                                 val multiplierBounds = oneHandedScaleMultiplierBounds(
-                                    maxWidth.value,
-                                    maxHeight.value,
+                                    viewportWidth.value,
+                                    viewportHeight.value,
                                 )
                                 var draggedScaleMultiplier = currentScaleMultiplier.value
                                 var draggedVerticalPosition = currentAnimatedVerticalPosition.value
@@ -704,8 +707,8 @@ internal fun OneHandedPresentation(
                                             dragAmount.x
                                         }
                                         val baseScale = oneHandedScaleForViewport(
-                                            maxWidth.value,
-                                            maxHeight.value,
+                                            viewportWidth.value,
+                                            viewportHeight.value,
                                             scaleMultiplier = 1f,
                                         ).coerceAtLeast(OneHandedMinimumViewportScale)
                                         val scaleMultiplierDelta = (
@@ -716,8 +719,8 @@ internal fun OneHandedPresentation(
                                             draggedScaleMultiplier + scaleMultiplierDelta,
                                         ).coerceIn(multiplierBounds.start, multiplierBounds.endInclusive)
                                         val previewScale = oneHandedScaleForViewport(
-                                            maxWidth.value,
-                                            maxHeight.value,
+                                            viewportWidth.value,
+                                            viewportHeight.value,
                                             draggedScaleMultiplier,
                                         )
                                         val topHandleGapFraction =
@@ -768,13 +771,13 @@ internal fun OneHandedPresentation(
                 // Keep side switching separate from moving/resizing; only show the arrow when
                 // no outline preview is active, matching the reference's focused drag controls.
                 if (dragPreview == null) {
-                    val surfaceCurrentLeft = maxWidth * (1f - scale) * pivotFraction
+                    val surfaceCurrentLeft = viewportWidth * (1f - scale) * pivotFraction
                     val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
                         surfaceCurrentLeft - 24.dp
                     } else {
-                        surfaceCurrentLeft + maxWidth * scale + 24.dp
+                        surfaceCurrentLeft + viewportWidth * scale + 24.dp
                     }
-                    val sideSwitchCenterY = currentSurfaceTop + maxHeight * scale / 2f
+                    val sideSwitchCenterY = currentSurfaceTop + viewportHeight * scale / 2f
                     Box(
                         modifier = Modifier
                             .offset(x = sideSwitchCenterX - 20.dp, y = sideSwitchCenterY - 28.dp)
