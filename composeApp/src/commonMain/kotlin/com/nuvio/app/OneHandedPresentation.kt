@@ -472,7 +472,7 @@ internal fun OneHandedPresentation(
                     modifier = Modifier
                         .offset(x = handleCenterX - 28.dp, y = handleTop)
                         .size(width = 56.dp, height = 40.dp)
-                        .pointerInput(enabled, forceNormalLayout) {
+                        .pointerInput(enabled, forceNormalLayout, maxWidth, maxHeight) {
                             if (enabled && !forceNormalLayout) {
                                 var draggedVerticalPosition = currentAnimatedVerticalPosition.value
                                 var startingScale = currentScale.value
