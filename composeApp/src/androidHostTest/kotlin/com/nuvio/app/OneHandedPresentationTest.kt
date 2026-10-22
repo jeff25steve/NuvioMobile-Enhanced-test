@@ -563,6 +563,7 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(1, compose.onNodeWithText("first:true").fetchSemanticsNodes().size)
             assertEquals(1, compose.onNodeWithText("second:true").fetchSemanticsNodes().size)
+            controller.toggle()
         }
 
         compose.waitForIdle()
