@@ -91,9 +91,10 @@ private class OneHandedLiveBackdrop(
 /**
  * Presents the existing UI tree as a single reduced, bottom-anchored surface.
  *
- * No duplicate composition or screenshot is retained. The outside area uses a theme-aware
- * frosted gradient fallback, so it remains safe for protected video surfaces and works on
- * Android and iOS without platform screenshot permissions or APIs.
+ * When the renderer supports it, an offscreen GraphicsLayer records the already-composed app
+ * content at normal size and renders it behind the reduced UI with blur and dimming. This is a
+ * live render layer, not a second composition or persisted screenshot. It is only active while
+ * the reduced app is visible; playback and unsupported rendering targets use the theme fallback.
  */
 @Composable
 internal fun OneHandedPresentation(
@@ -413,9 +414,8 @@ internal fun OneHandedPresentation(
 }
 
 /**
- * Keeps a little more of the original size on compact phones to protect touch usability, while
- * capping the reduced surface on larger viewports. On very large screens the surface may exceed
- * the preferred footprint rather than making every control excessively small. Scaling still
+ * Keeps a little more of the original size on compact phones while respecting usable viewport
+ * bounds. The user-controlled multiplier is clamped independently of the viewport cap. Scaling
  * reduces effective touch-target size, so device testing remains necessary.
  */
 internal fun oneHandedScaleForViewport(
