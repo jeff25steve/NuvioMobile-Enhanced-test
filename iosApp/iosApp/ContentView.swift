@@ -878,7 +878,6 @@ final class AppNavigationCoordinator: ObservableObject {
     @Published private(set) var isMainContentMounted = false
     @Published private(set) var isMainContentVisible = false
     @Published private(set) var isAppReady = false
-    @Published private(set) var isOneHandedModeEnabled = false
     @Published private(set) var isTabBarVisible = true
     @Published private(set) var isNativeTabBarVisible = true
     @Published private(set) var isCompactPillHidden = true
@@ -919,9 +918,6 @@ final class AppNavigationCoordinator: ObservableObject {
         setTabBarVisible(true)
         reloadTabBarBehavior()
         reloadLiveTvTabVisibility()
-        NativeTabBridgeKt.observeNativeOneHandedModeEnabled { [weak self] enabled in
-            self?.isOneHandedModeEnabled = enabled.boolValue
-        }
         NativeTabBridgeKt.observeNativePopToRoot { [weak self] tabName in
             guard let self, let tab = NuvioAppTab.from(kotlinName: tabName) else { return }
             self.coordinator(for: tab).popToRoot()
