@@ -236,7 +236,7 @@ internal fun liquidGlassIconTint(
     default: Color,
     preview: Boolean = false,
 ): Color {
-    if (!preview && !isLiquidGlassSupported()) return default
+    if (!preview && (!isLiquidGlassSupported() || !LiquidGlassSettings.enabled)) return default
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     if (!preview && !(overrides.enabled ?: surface.defaultEnabled)) return default
     return overrides.defaultIconColorArgb?.let { Color(it).copy(alpha = default.alpha) } ?: default

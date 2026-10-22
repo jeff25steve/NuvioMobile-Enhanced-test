@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -58,7 +59,10 @@ internal fun Modifier.nuvioSheetSurface(
     containerColor: Color,
     withHighlight: Boolean = true,
 ): Modifier {
-    val readyBackdrop = backdrop?.takeIf { it.isReady && isLiquidGlassSupported() }
+    val surfaceGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSupported() &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+    val readyBackdrop = backdrop?.takeIf { it.isReady && surfaceGlassEnabled }
     return liquidGlassForSurface(
         surface = LiquidGlassSurface.BOTTOM_SHEETS,
         shape = shape,
@@ -130,14 +134,15 @@ fun NuvioModalBottomSheet(
     } else {
         val tokens = MaterialTheme.nuvio
         val sheetBackdrop = LocalNuvioSheetBackdrop.current
-        if (sheetBackdrop != null) {
+        val sheetGlassEnabled = LiquidGlassSettings.enabled &&
+            isLiquidGlassSupported() &&
+            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+        if (sheetBackdrop != null && sheetGlassEnabled) {
             DisposableEffect(sheetBackdrop) {
                 sheetBackdrop.activeSheets += 1
                 onDispose { sheetBackdrop.activeSheets -= 1 }
             }
         }
-        val sheetGlassEnabled = isLiquidGlassSupported() &&
-            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
         val sheetGlassReady = sheetBackdrop != null && sheetBackdrop.backdrop.isReady && sheetGlassEnabled
         val effectiveSheetShape = if (sheetGlassEnabled) {
             liquidGlassShape(LiquidGlassSurface.BOTTOM_SHEETS, SheetShape)
