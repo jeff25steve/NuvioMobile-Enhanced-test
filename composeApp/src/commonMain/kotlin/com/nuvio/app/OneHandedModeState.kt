@@ -35,7 +35,9 @@ internal data class OneHandedModeState(
         scaleMultiplier = normalizedOneHandedScaleMultiplier(value),
     )
 
-    fun disableForPlayerEntry(): OneHandedModeState = copy(enabled = false)
+    fun disable(): OneHandedModeState = copy(enabled = false)
+
+    fun disableForPlayerEntry(): OneHandedModeState = disable()
 }
 
 internal fun normalizedOneHandedScaleMultiplier(value: Float): Float =
@@ -82,6 +84,10 @@ internal class OneHandedModeController(
 
     fun updateScaleMultiplier(value: Float) {
         mutableState.update { current -> current.withScaleMultiplier(value) }
+    }
+
+    fun disable() {
+        mutableState.update { current -> current.disable() }
     }
 
     fun disableForPlayerEntry() {
