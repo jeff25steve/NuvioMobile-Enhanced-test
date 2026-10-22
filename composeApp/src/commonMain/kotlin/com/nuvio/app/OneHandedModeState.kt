@@ -20,6 +20,8 @@ internal data class OneHandedModeState(
     val enabled: Boolean = false,
     val placement: OneHandedModePlacement = OneHandedModePlacement.Right,
     val scaleMultiplier: Float = 1f,
+    /** 0 keeps the surface at the bottom; 1 moves it to the top of its available range. */
+    val verticalPosition: Float = 0f,
 ) {
     fun toggle(): OneHandedModeState = copy(enabled = !enabled)
 
@@ -35,6 +37,10 @@ internal data class OneHandedModeState(
         scaleMultiplier = normalizedOneHandedScaleMultiplier(value),
     )
 
+    fun withVerticalPosition(value: Float): OneHandedModeState = copy(
+        verticalPosition = normalizedOneHandedVerticalPosition(value),
+    )
+
     fun disable(): OneHandedModeState = copy(enabled = false)
 
     fun disableForPlayerEntry(): OneHandedModeState = disable()
@@ -46,6 +52,10 @@ internal fun normalizedOneHandedScaleMultiplier(value: Float): Float =
     } else {
         1f
     }
+
+/** Position is normalized to the vertical free space left by the reduced surface. */
+internal fun normalizedOneHandedVerticalPosition(value: Float): Float =
+    if (value.isFinite()) value.coerceIn(0f, 1f) else 0f
 
 internal enum class OneHandedModePlacement {
     Left,
@@ -84,6 +94,10 @@ internal class OneHandedModeController(
 
     fun updateScaleMultiplier(value: Float) {
         mutableState.update { current -> current.withScaleMultiplier(value) }
+    }
+
+    fun updateVerticalPosition(value: Float) {
+        mutableState.update { current -> current.withVerticalPosition(value) }
     }
 
     fun disable() {
