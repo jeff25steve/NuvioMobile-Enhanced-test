@@ -36,7 +36,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -173,7 +172,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Exit one-handed mode, drag to resize").performTouchInput {
+        compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
             down(0, Offset(size.width / 2f, size.height / 2f))
             moveTo(0, Offset(size.width / 2f, size.height / 2f - 48f), delayMillis = 100)
             up(0)
@@ -186,9 +185,12 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun tappingTopHandleExplicitlyDisablesOneHandedMode() {
+    fun tappingTopHandleDoesNotExitOrChangePlacement() {
         val controller = OneHandedModeController(
-            initialState = OneHandedModeState(enabled = true),
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+            ),
         )
         compose.setContent {
             val modeState by controller.state.collectAsState()
@@ -201,19 +203,57 @@ class OneHandedPresentationTest {
                     onScaleMultiplierChange = controller::updateScaleMultiplier,
                     onPlacementToggle = { controller.togglePlacement() },
                     placementToggleDescription = "Move app to the other side",
-                    onExit = controller::disable,
                 ) { contentModifier ->
                     Box(contentModifier.fillMaxSize())
                 }
             }
         }
 
-        compose.onNodeWithContentDescription("Exit one-handed mode, drag to resize")
+        compose.onNodeWithContentDescription("Move or resize one-handed mode")
             .performTouchInput { click() }
 
         compose.runOnIdle {
-            assertFalse(controller.state.value.enabled)
+            assertTrue(controller.state.value.enabled)
+            assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
             assertEquals(1f, controller.state.value.scaleMultiplier)
+        }
+    }
+
+    @Test
+    fun draggingTopHandleHorizontallySwitchesSideWithoutExiting() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+            ),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
+                    forceNormalLayout = false,
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    onPlacementToggle = controller::togglePlacement,
+                    placementToggleDescription = "Move app to the other side",
+                ) { contentModifier ->
+                    Box(contentModifier.fillMaxSize())
+                }
+            }
+        }
+
+        compose.onNodeWithContentDescription("Move or resize one-handed mode").performTouchInput {
+            val start = Offset(size.width / 2f, size.height / 2f)
+            down(0, start)
+            moveTo(0, Offset(start.x - size.width * 1.6f, start.y), delayMillis = 100)
+            up(0)
+        }
+
+        compose.runOnIdle {
+            assertTrue(controller.state.value.enabled)
+            assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
         }
     }
 
@@ -236,7 +276,6 @@ class OneHandedPresentationTest {
                     onScaleMultiplierChange = controller::updateScaleMultiplier,
                     onPlacementToggle = controller::togglePlacement,
                     placementToggleDescription = "Move app to the other side",
-                    onExit = controller::disable,
                 ) { contentModifier ->
                     Box(contentModifier.fillMaxSize())
                 }
@@ -268,7 +307,6 @@ class OneHandedPresentationTest {
                     onScaleMultiplierChange = controller::updateScaleMultiplier,
                     onPlacementToggle = { controller.togglePlacement() },
                     placementToggleDescription = "Move app to the other side",
-                    onExit = { controller.disableForPlayerEntry() },
                 ) { contentModifier ->
                     Box(contentModifier.clickable { insideClickCount++ }.fillMaxSize())
                 }
@@ -447,7 +485,6 @@ class OneHandedPresentationTest {
             forceNormalLayout = forceNormalLayout,
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
-            exitDescription = "Exit one-handed mode",
         ) { contentModifier ->
             if (scrollableContent) {
                 val state = rememberScrollState()
