@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNotEquals
 
 class OneHandedModeStateTest {
 
@@ -66,6 +67,39 @@ class OneHandedModeStateTest {
         assertEquals(0f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 0f))
         assertEquals(340f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 1f))
         assertEquals(170f, oneHandedHorizontalOffsetPx(1000f, 0.66f, 0.5f))
+    }
+
+    @Test
+    fun scaleMultiplierIsClampedToTheSupportedRange() {
+        assertEquals(OneHandedMinimumScaleMultiplier, normalizedOneHandedScaleMultiplier(-10f))
+        assertEquals(OneHandedMaximumScaleMultiplier, normalizedOneHandedScaleMultiplier(10f))
+        assertEquals(1f, normalizedOneHandedScaleMultiplier(Float.NaN))
+        assertEquals(1f, normalizedOneHandedScaleMultiplier(Float.POSITIVE_INFINITY))
+    }
+
+    @Test
+    fun controllerUpdatesScaleMultiplierWithoutDisablingModeOrChangingPlacement() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left),
+        )
+
+        controller.updateScaleMultiplier(1.2f)
+
+        assertTrue(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+        assertEquals(1.2f, controller.state.value.scaleMultiplier)
+    }
+
+    @Test
+    fun viewportScaleChangesContinuouslyWithTheMultiplierWithinSafeBounds() {
+        val baseScale = oneHandedScaleForViewport(393f, 852f)
+        val smallerScale = oneHandedScaleForViewport(393f, 852f, 0.7f)
+        val largerScale = oneHandedScaleForViewport(393f, 852f, 1.2f)
+
+        assertTrue(smallerScale < baseScale)
+        assertTrue(largerScale > baseScale)
+        assertTrue(largerScale <= OneHandedMaximumViewportScale)
+        assertTrue(smallerScale >= OneHandedMinimumViewportScale)
     }
 
     @Test
