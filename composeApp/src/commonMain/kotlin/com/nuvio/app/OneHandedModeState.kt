@@ -41,6 +41,11 @@ internal data class OneHandedModeState(
         verticalPosition = normalizedOneHandedVerticalPosition(value),
     )
 
+    fun withResize(scaleMultiplier: Float, verticalPosition: Float): OneHandedModeState = copy(
+        scaleMultiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier),
+        verticalPosition = normalizedOneHandedVerticalPosition(verticalPosition),
+    )
+
     fun disable(): OneHandedModeState = copy(enabled = false)
 
     fun disableForPlayerEntry(): OneHandedModeState = disable()
@@ -98,6 +103,12 @@ internal class OneHandedModeController(
 
     fun updateVerticalPosition(value: Float) {
         mutableState.update { current -> current.withVerticalPosition(value) }
+    }
+
+    fun updateResize(scaleMultiplier: Float, verticalPosition: Float) {
+        mutableState.update { current ->
+            current.withResize(scaleMultiplier, verticalPosition)
+        }
     }
 
     fun disable() {
