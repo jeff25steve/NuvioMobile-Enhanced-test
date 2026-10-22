@@ -16,7 +16,7 @@
 - Use the existing nav architecture and restore no behavior outside the one-handed feature.
 - The normal Library tap navigates normally; Library press-and-hold toggles one-handed mode without a popup.
 - Match the profile hold's gesture recognition and cancellation semantics. Preserve the profile popup and drag-to-select gestures.
-- Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit only via the explicit exit control or Library hold.
+- Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit via tapping the thin top handle or Library hold.
 - The reduced app stays interactive; placement can switch left/right and resizing is continuous and bounded.
 - Android and iOS share the same visible controls, visual treatment, and interaction rules; platform-specific implementation is acceptable only where required.
 - Disable one-handed mode before video/trailer presentation; release backdrop resources and do not restore mode automatically after playback.
@@ -29,7 +29,7 @@
 
 - Library tap vs hold vs drag: one hold toggles once, tap navigates once, movement cancellation returns to drag-to-select, RTL works.
 - Profile hold: popup/drag selection still behaves exactly as before and never toggles one-handed mode.
-- Outside taps: no mode dismissal, no hidden content activation, and no interception of the close/placement/resize handles.
+- Outside taps: no mode dismissal, no hidden content activation, and no interception of the top handle or side-switch arrow.
 - Resizing: pointer stays captured while the surface edge moves; lower/upper viewport bounds remain valid under rotation and compact dimensions.
 - Backdrop and playback: no duplicate navigation composition, stale snapshot, captured protected video, or automatic reactivation after player exit.
 
@@ -70,9 +70,11 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
-- [x] Add an accessible visible drag handle near the top edge of the reduced surface; dragging up enlarges and dragging down reduces it continuously.
+- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; tapping exits, vertical dragging resizes continuously.
+- [x] Add a small directional side-switch arrow outside the surface at mid-height; keep both floating controls excluded from the outside-touch interceptor.
 - [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
-- [x] Added lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
+- [x] Add lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
+- [x] Match the video’s approximate 78% scale and tighter 16dp corner radius (not yet visually/device-verified).
 
 ### Task 4: Use the safest available backdrop on both platforms
 
