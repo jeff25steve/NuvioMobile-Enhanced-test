@@ -64,7 +64,6 @@ internal fun OneHandedPresentation(
     enabled: Boolean,
     placement: OneHandedModePlacement,
     forceNormalLayout: Boolean,
-    onOutsideTap: () -> Unit,
     onPlacementToggle: () -> Unit,
     placementToggleDescription: String,
     onExit: () -> Unit = {},
@@ -116,7 +115,6 @@ internal fun OneHandedPresentation(
             ),
         )
     }
-    val currentOnOutsideTap = rememberUpdatedState(onOutsideTap)
     val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
@@ -178,24 +176,13 @@ internal fun OneHandedPresentation(
                         )
 
                         if (!insideReducedSurface) {
+                            // The outside region is deliberately inert: keep the gesture consumed
+                            // so hidden app content cannot activate, but never exit one-handed mode.
                             down.consume()
-                            var tapCandidate = true
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
-                                if (event.changes.count { it.pressed } > 1) {
-                                    tapCandidate = false
-                                }
-                                val change = event.changes.firstOrNull { it.id == down.id }
-                                if (change == null) {
-                                    tapCandidate = false
-                                } else if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
-                                    tapCandidate = false
-                                }
                                 event.changes.forEach { it.consume() }
-                                if (change != null && !change.pressed) {
-                                    if (tapCandidate) currentOnOutsideTap.value()
-                                    break
-                                }
+                                if (event.changes.none { it.pressed }) break
                             }
                         }
                     }
