@@ -1,137 +1,95 @@
 # In-App One-Handed Mode Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an entirely on-device, in-app one-handed presentation toggled by the existing Library press-and-hold gesture without disturbing profile switching, navigation gestures, Liquid Glass, or playback.
+**Goal:** Make Nuvio's in-app one-handed mode behave consistently on Android and iOS, with profile-matched Library hold recognition, Samsung-inspired positioning and resize controls, a safe blurred backdrop, and intact playback/navigation.
 
-**Architecture:** Keep one-handed mode state scoped to the root app composition and apply one shared presentation boundary to ordinary app UI only. Integrate Library hold recognition with the existing floating navigation gesture flow by matching the current profile hold semantics and preserving drag-to-select. Use an ephemeral, one-time in-memory snapshot only if safe and performant; otherwise use a theme-aware frosted-glass fallback. Player entry must synchronously disable the mode and release captured pixels.
+**Architecture:** Keep one shared in-memory mode state. Apply a single transform to the existing interactive app UI; do not mount a second active copy of navigation/screens to simulate a live backdrop. Prefer a safe live backdrop only if the current rendering layer supports it without duplicate composition or state/network work. Otherwise use an ephemeral in-memory snapshot if there is a supported cross-platform path, then a theme-aware blurred/frosted fallback. Player and navigation ownership remain unchanged.
 
-**Tech Stack:** Kotlin Multiplatform, Compose Multiplatform, existing Nuvio navigation/player architecture, existing Liquid Glass/backdrop APIs.
+**Tech Stack:** Kotlin Multiplatform, Compose Multiplatform, UIKit native tab integration, existing Liquid Glass and navigation components.
 
 **Spec:** `docs/superpowers/specs/2026-10-21-in-app-one-handed-mode-design.md`
 
 ## Global Constraints
 
-- **Context7 is mandatory before each code change:** before implementing, adding, changing, or deleting code, resolve the correct Context7 library ID and query current official documentation for the API/library relevant to that edit. Repeat when moving to a materially different API/library or platform surface; do not assume one lookup covers the entire feature.
-- **Exa is used when necessary:** use Exa for current external research, upstream repository behavior, platform limitations, issue/discussion corroboration, or when official docs do not resolve an implementation question. Prefer Context7/official documentation for API contracts and Exa for broader corroboration. Do not use Exa as a substitute for inspecting the actual repository code.
-- If Context7 or Exa is unavailable or fails, stop before the affected code change, report the blocker, and do not silently replace current-library verification with memory or guesswork.
-- All feature processing stays on-device; no feature-related network requests or transmission of UI pixels/state. Developer research tooling is only for researching implementation contracts; the shipped feature must not communicate UI pixels/state or feature telemetry externally.
-- No background/foreground service, persistent notification, overlay permission, accessibility service, polling, or background monitoring.
-- Normal Library tap continues navigating; Library press-and-hold toggles one-handed mode directly without a popup.
-- Existing profile-button press-and-hold popup and behavior remain unchanged.
-- Existing drag-to-select behavior and all transformed touch interactions must remain correct.
-- Opening any video/trailer disables mode and releases the snapshot before player presentation; playback exit never restores mode automatically.
-- No playback state/progress/control changes and no protected player surface capture.
-- Snapshot is ephemeral in-memory only, never persisted, logged, or uploaded; release promptly.
-- Do not change product source until repository-maintainer approval of the feature request is explicit.
-- Do not use GitHub Actions/workflows before the user's previously specified quota-reset date has passed; use local/device checks where available and report limitations honestly.
+- Keep work on branch `one-hand-operation`; inspect the head and current file blob SHA before each GitHub contents write.
+- Use the existing nav architecture and restore no behavior outside the one-handed feature.
+- The normal Library tap navigates normally; Library press-and-hold toggles one-handed mode without a popup.
+- Match the profile hold's gesture recognition and cancellation semantics. Preserve the profile popup and drag-to-select gestures.
+- Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit only via the explicit exit control or Library hold.
+- The reduced app stays interactive; placement can switch left/right and resizing is continuous and bounded.
+- Android and iOS share the same visible controls, visual treatment, and interaction rules; platform-specific implementation is acceptable only where required.
+- Disable one-handed mode before video/trailer presentation; release backdrop resources and do not restore mode automatically after playback.
+- No overlay/accessibility permission, background service, polling, persistent screenshot, telemetry, or network transfer of UI pixels/state.
+- Do not use GitHub Actions/workflows; run local tests/builds if a local checkout becomes available and report any verification limitation.
+- Context7 must be consulted before each code edit for the API/library involved; use Exa when current platform limitations remain unclear.
+- Do not create a PR.
 
 ## Review Focus
 
-- Long-press versus normal tap/drag on Library — test tap navigation, hold toggle, and drag-to-select separately.
-- Existing profile hold — regression test profile switching and confirm it never toggles one-handed mode.
-- Scaled hit testing and overlays — exercise scrolling, buttons, dialogs, menus, and Liquid Glass interactions.
-- Player transition and mini-player ownership — test synchronous disablement, snapshot release, unchanged playback position, and no automatic re-enable.
-- Snapshot failure/resource pressure and lifecycle changes — test fallback, rotation/insets, disposal, and no stale backdrop.
+- Library tap vs hold vs drag: one hold toggles once, tap navigates once, movement cancellation returns to drag-to-select, RTL works.
+- Profile hold: popup/drag selection still behaves exactly as before and never toggles one-handed mode.
+- Outside taps: no mode dismissal, no hidden content activation, and no interception of the close/placement/resize handles.
+- Resizing: pointer stays captured while the surface edge moves; lower/upper viewport bounds remain valid under rotation and compact dimensions.
+- Backdrop and playback: no duplicate navigation composition, stale snapshot, captured protected video, or automatic reactivation after player exit.
 
 ---
 
-### Task 1: Trace existing gesture, root layout, and player boundaries
+### Task 1: Reuse the profile hold gesture pattern for Library
 
 **Files:**
-- Inspect: `composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt`
-- Inspect: `composeApp/src/commonMain/kotlin/com/nuvio/app/RootTabHost.kt`
-- Inspect: `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/FloatingNavigationBar.kt`
-- Inspect: `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/NavigationBar.kt`
-- Inspect: current profile press-and-hold implementation and all video/trailer navigation entry points.
-- Inspect: platform-specific capture/rendering APIs and existing tests.
-
-**Interfaces:**
-- Produces a verified map of root content, navigation items, profile hold implementation, player routes/hosts, and safe platform-specific capabilities. No product behavior changes in this task.
-
-- [ ] Read the exact profile-button hold code and record its timing, cancellation, and popup semantics.
-- [ ] Trace all video/trailer entry points, including mini-player/hosted-player routes.
-- [ ] Identify the narrowest shared boundary containing ordinary app content while excluding player surfaces and platform dialogs that cannot participate safely.
-- [ ] Identify existing test targets and on-device build/run commands from repository configuration.
-- [ ] Confirm maintainer-approved feature-request issue exists before any product-source modification.
-
-### Task 2: Add a small, testable one-handed mode state model
-
-**Files:**
-- Create or modify: a focused commonMain UI state/controller file beside existing app-level UI state, path chosen after Task 1.
-- Test: matching commonTest or existing unit-test location.
-
-**Interfaces:**
-- Define a small state model with enabled/disabled state, horizontal placement (only if supported cleanly), and an explicit disable transition for player entry.
-- Keep state UI-scoped and non-persistent for the first version.
-
-- [ ] Write tests for disabled → enabled → disabled, outside-tap dismissal, and repeated toggle behavior.
-- [ ] Run the focused test and confirm the expected pre-implementation failure.
-- [ ] Implement the minimal state model without service, storage, networking, or background work.
-- [ ] Run the focused test and confirm it passes.
-- [ ] Commit the state-model change with a focused message.
-
-### Task 3: Integrate Library press-and-hold without breaking the navigation slider
-
-**Files:**
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/jelly/JellyTabs.kt`
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/FloatingNavigationBar.kt`
-- Modify the narrow caller/item model that constructs Library and profile items, identified in Task 1.
-- Test: gesture/state tests at existing supported test layer.
+- Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/core/ui/FloatingNavigationBarGestureTest.kt`
 
-**Interfaces:**
-- Extend `FloatingNavigationItem` or the existing gesture callback contract with a distinct hold action only if the current architecture needs it; preserve current tap callback and item identity.
-- Keep `detectJellyTabGestures` as the single coordinated gesture path unless code inspection proves a non-competing existing mechanism is safe.
+- [ ] Move Library hold recognition onto its own tab target using the same `detectDragGesturesAfterLongPress` mechanism and long-press haptic as `ProfileSwitcherTab`.
+- [ ] Remove the separate parent-level long-press recognizer for Library so it cannot race the target recognizer.
+- [ ] Retain the accessibility `onLongClick` semantic and keep the current selected index stable after hold.
+- [ ] Verify tests for tap, hold, RTL and drag-to-select; profile hold must still open its popup only.
 
-- [ ] Add failing tests or deterministic gesture/state tests for normal tap, hold, drag, cancellation, and profile-hold independence.
-- [ ] Reuse the profile hold's exact threshold and cancellation semantics; Library hold invokes only the one-handed toggle and shows no popup.
-- [ ] Ensure a hold is consumed once, does not also invoke Library navigation on release, and a drag still selects the intended tab.
-- [ ] Run focused gesture tests and confirm pass.
-- [ ] Commit the navigation gesture change.
-
-### Task 4: Apply one-handed presentation to ordinary app content
+### Task 2: Make outside taps inert and preserve explicit exit
 
 **Files:**
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedPresentation.kt`
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt`
-- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/RootTabHost.kt` only if Task 1 confirms the root presentation boundary requires it.
-- Create: a focused presentation/backdrop composable if needed, in the nearest existing app UI package.
-- Test: state/layout tests in existing test structure.
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedModeState.kt`
+- Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
+- Test: `composeApp/src/commonTest/kotlin/com/nuvio/app/OneHandedModeStateTest.kt`
 
-**Interfaces:**
-- One root-owned state/controller feeds a single presentation boundary; do not add independent flags to individual screens.
-- Reduced content remains the only interactive UI in its region. Outside-region taps dismiss mode and cannot pass through to hidden controls.
+- [ ] Keep the outer pointer gate consuming taps outside the reduced rounded surface but do not call a dismiss callback.
+- [ ] Remove obsolete outside-dismiss state and callback plumbing where no longer used.
+- [ ] Update tests to require the mode stay enabled after outside tap while hidden content remains untouched; explicit exit must still work.
 
-- [ ] Write tests for enabled/disabled layout state, bottom alignment, left/right placement where supported, and dismissal behavior.
-- [ ] Implement proportional scaling and placement with correct transformed pointer coordinates; do not rely on visual-only graphics scaling.
-- [ ] Verify dialogs, menus, scroll, focus, insets, orientation, and Liquid Glass/backdrop bounds; handle unsupported platform popups deliberately.
-- [ ] Add an on-device, one-time snapshot path only if safe and supported by existing platform APIs. Capture once, blur/dim in memory, do not recapture continuously, and promptly dispose.
-- [ ] If capture is unsupported, unsafe, too costly, or fails, use theme-aware frosted-glass/gradient fallback without crashing.
-- [ ] Run focused tests and manual device checks; commit the presentation change.
-
-### Task 5: Disable mode before video/trailer presentation
+### Task 3: Add bounded live resize of the reduced surface
 
 **Files:**
-- Modify: the verified video/trailer navigation actions and player route/host boundary identified in Task 1.
-- Test: existing player/navigation test targets or focused state transition tests.
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedModeState.kt`
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedPresentation.kt`
+- Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt`
+- Test: `composeApp/src/commonTest/kotlin/com/nuvio/app/OneHandedModeStateTest.kt`
+- Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
-**Interfaces:**
-- Player entry calls the mode controller's explicit disable transition synchronously before player visibility; route detection is a defensive second guard.
-- The player remains outside the transformed/captured subtree.
+- [ ] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
+- [ ] Add an accessible visible drag handle near the top edge of the reduced surface; dragging up enlarges and dragging down reduces it continuously.
+- [ ] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing.
+- [ ] Cover lower/upper bounds and drag interaction; mode exits and player entry must not reset unrelated app/player state.
 
-- [ ] Add failing tests for each supported video/trailer entry route and for remaining disabled after playback exit.
-- [ ] Implement pre-navigation disablement and snapshot release; retain existing player/mini-player ownership.
-- [ ] Verify media selection, playback progress, resume state, controls, orientation, and insets remain unchanged.
-- [ ] Run focused tests and manual device playback checks; commit the player-boundary change.
-
-### Task 6: Final privacy, regression, and device verification
+### Task 4: Use the safest available backdrop on both platforms
 
 **Files:**
-- Modify only files justified by a failing verification.
-- Add/update tests only where they directly protect the agreed behavior.
+- Inspect and modify only if supported: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedPresentation.kt` and existing platform capture/rendering utilities.
 
-- [ ] Verify no new permissions, services, workers, persistent notifications, network calls, analytics, screenshot files, or logs are introduced.
-- [ ] Verify snapshot release on mode exit, capture failure, screen disposal, and player entry.
-- [ ] Verify Library tap/hold/drag, profile hold, scrolling, dialogs/popups, Liquid Glass, left/right placement, and outside dismissal on device.
-- [ ] Verify every video/trailer path disables mode before player presentation and playback exit does not restore it.
-- [ ] Run applicable common tests and platform builds using available local tooling; do not invoke GitHub Actions/workflows before the user's stated quota-reset date.
-- [ ] Record the exact device, tests, builds, and outcomes; do not claim checks that were not run.
-- [ ] Commit any final targeted fixes and perform a whole-branch review against the approved spec.
+- [ ] Confirm current Compose Multiplatform APIs available to this project for safe layer capture, blur, and release on Android and iOS.
+- [ ] Use a live backdrop only if it can be derived from existing rendering without duplicating the active app tree or player surface.
+- [ ] Otherwise use a supported ephemeral snapshot, blur/dim it, refresh only at well-defined foreground/page changes, and release on exit/player/disposal.
+- [ ] If safe cross-platform capture cannot be established, use a matching frosted/glass fallback rather than inventing unverified capture APIs.
+- [ ] Do not add loops, screenshot persistence, permissions, background work, or feature network activity.
+
+### Task 5: Final regression review
+
+**Files:** Only directly affected source and tests from Tasks 1–4.
+
+- [ ] Review the complete branch diff against the current branch base and ensure the navigation bar visibility fix and Liquid Glass code remain intact.
+- [ ] Run the focused tests and platform build only if a local checkout/build environment is available; do not use CI/workflows.
+- [ ] Verify no PR was created, no release/workflow config changed, and no unrelated files changed.
+- [ ] Report exactly what was checked and what remains unverified.
