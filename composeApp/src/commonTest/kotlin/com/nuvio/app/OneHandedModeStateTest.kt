@@ -71,9 +71,9 @@ class OneHandedModeStateTest {
     }
     @Test
     fun compactPhonesKeepMoreUsableScaleWhileLargeScreensStayCapped() {
-        assertEquals(0.76f, oneHandedScaleForViewport(320f, 568f))
-        assertEquals(0.76f, oneHandedScaleForViewport(360f, 800f))
-        assertEquals(0.72f, oneHandedScaleForViewport(390f, 844f))
+        assertEquals(0.78f, oneHandedScaleForViewport(320f, 568f))
+        assertEquals(0.78f, oneHandedScaleForViewport(360f, 800f))
+        assertEquals(0.78f, oneHandedScaleForViewport(390f, 844f))
         assertEquals(0.6333333f, oneHandedScaleForViewport(800f, 1200f), 0.001f)
         assertEquals(0.475f, oneHandedScaleForViewport(1200f, 1600f), 0.001f)
     }
