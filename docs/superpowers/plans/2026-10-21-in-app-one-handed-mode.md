@@ -16,7 +16,7 @@
 - Use the existing nav architecture and restore no behavior outside the one-handed feature.
 - The normal Library tap navigates normally; Library press-and-hold toggles one-handed mode without a popup.
 - Match the profile hold's gesture recognition and cancellation semantics. Preserve the profile popup and drag-to-select gestures.
-- Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit via tapping the thin top handle or Library hold.
+- Outside taps must be consumed and must neither dismiss the mode nor activate hidden UI. Exit via Library hold; the top grip is for dragging only and tapping it is inert.
 - The reduced app stays interactive; placement can switch left/right and resizing is continuous and bounded.
 - Android and iOS share the same handle/arrow controls and interaction rules. Preserve the normal navigation bar; any one-handed-only iOS adjustment must be verified not to regress ordinary tab navigation.
 - Disable one-handed mode before video/trailer presentation; release backdrop resources and do not restore mode automatically after playback.
@@ -71,7 +71,7 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
-- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; tapping exits, vertical dragging resizes continuously.
+- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; vertical dragging resizes continuously and horizontal dragging switches the left/right anchor. A tap on the grip alone is inert.
 - [x] Add a small directional side-switch arrow outside the surface at mid-height; keep both floating controls excluded from the outside-touch interceptor.
 - [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
 - [x] Add lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
