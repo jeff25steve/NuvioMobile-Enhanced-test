@@ -20,7 +20,7 @@ internal data class OneHandedModeState(
     val enabled: Boolean = false,
     val placement: OneHandedModePlacement = OneHandedModePlacement.Right,
     val scaleMultiplier: Float = 1f,
-    /** 0 keeps the surface at the bottom; 1 moves it to the top of its available range. */
+    /** 0 keeps the surface at the bottom; 1 moves it to the highest position that preserves the grip gap. */
     val verticalPosition: Float = 0f,
 ) {
     fun toggle(): OneHandedModeState = copy(enabled = !enabled)
