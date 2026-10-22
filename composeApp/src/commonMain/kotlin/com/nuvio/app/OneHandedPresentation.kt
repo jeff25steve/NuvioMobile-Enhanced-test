@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -556,7 +557,8 @@ internal fun OneHandedPresentation(
                             }
                             .semantics {
                                 contentDescription = moveWindowDescription
-                            },
+                            }
+                            .testTag("oneHandedMoveWindowHandle"),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (dragPreview?.kind != OneHandedDragKind.Position) {
@@ -678,7 +680,8 @@ internal fun OneHandedPresentation(
                         }
                         .semantics {
                             contentDescription = resizeDescription
-                        },
+                        }
+                        .testTag("oneHandedResizeHandle"),
                 )
 
                 // Keep side switching separate from moving/resizing; only show the arrow when

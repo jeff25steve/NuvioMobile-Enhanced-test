@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -178,8 +179,13 @@ class OneHandedPresentationTest {
         }
 
         compose.waitForIdle()
-        val handle = compose.onNodeWithContentDescription("Move window vertically")
-        val startingHandleTop = handle.fetchSemanticsNode().boundsInRoot.top
+        val handle = compose.onNodeWithTag("oneHandedMoveWindowHandle")
+        val handleNode = handle.fetchSemanticsNode()
+        assertTrue(
+            handleNode.config[SemanticsProperties.ContentDescription].any { it.isNotBlank() },
+            "The move handle must keep a localized accessibility description",
+        )
+        val startingHandleTop = handleNode.boundsInRoot.top
 
         handle.performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
@@ -231,7 +237,12 @@ class OneHandedPresentationTest {
         val resizeSurface = compose.onNodeWithTag("resizeSurface")
         val originalBounds = resizeSurface.fetchSemanticsNode().boundsInRoot
 
-        compose.onNodeWithContentDescription("Resize one-handed mode").performTouchInput {
+        val resizeHandle = compose.onNodeWithTag("oneHandedResizeHandle")
+        assertTrue(
+            resizeHandle.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].any { it.isNotBlank() },
+            "The resize handle must keep a localized accessibility description",
+        )
+        resizeHandle.performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
             moveTo(0, Offset(start.x - 48f, start.y - 48f), delayMillis = 100)
@@ -276,7 +287,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move window vertically")
+        compose.onNodeWithTag("oneHandedMoveWindowHandle")
             .performTouchInput { click() }
 
         compose.runOnIdle {
@@ -310,7 +321,7 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move window vertically").performTouchInput {
+        compose.onNodeWithTag("oneHandedMoveWindowHandle").performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
             moveTo(0, Offset(start.x + 80f, start.y), delayMillis = 100)
