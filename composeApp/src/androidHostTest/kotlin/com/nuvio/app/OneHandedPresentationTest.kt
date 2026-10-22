@@ -36,6 +36,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -186,15 +187,34 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun tappingTopHandleExplicitlyExitsOneHandedMode() {
-        setContent()
+    fun tappingTopHandleExplicitlyDisablesOneHandedMode() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
+                    forceNormalLayout = false,
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    onPlacementToggle = { controller.togglePlacement() },
+                    placementToggleDescription = "Move app to the other side",
+                    onExit = controller::disable,
+                ) { contentModifier ->
+                    Box(contentModifier.fillMaxSize())
+                }
+            }
+        }
 
         compose.onNodeWithContentDescription("Exit one-handed mode, drag to resize")
             .performTouchInput { click() }
 
         compose.runOnIdle {
-            assertEquals(1, exitCount)
-            assertEquals(0, insideClickCount)
+            assertFalse(controller.state.value.enabled)
+            assertEquals(1f, controller.state.value.scaleMultiplier)
         }
     }
 
