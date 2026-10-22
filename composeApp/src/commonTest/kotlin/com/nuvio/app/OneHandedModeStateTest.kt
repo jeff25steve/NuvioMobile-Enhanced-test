@@ -96,6 +96,25 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun controllerCommitsResizeScaleAndVerticalPositionTogether() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Left,
+                scaleMultiplier = 1f,
+                verticalPosition = 0.2f,
+            ),
+        )
+
+        controller.updateResize(scaleMultiplier = 1.08f, verticalPosition = 0.6f)
+
+        assertTrue(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+        assertEquals(1.08f, controller.state.value.scaleMultiplier)
+        assertEquals(0.6f, controller.state.value.verticalPosition)
+    }
+
+    @Test
     fun controllerUpdatesVerticalPositionWithoutChangingScaleOrPlacement() {
         val controller = OneHandedModeController(
             initialState = OneHandedModeState(
