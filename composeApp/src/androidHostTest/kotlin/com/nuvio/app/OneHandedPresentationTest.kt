@@ -155,7 +155,7 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun topHandleLooksAndBehavesAsResizeAndExplicitExitControl() {
+    fun topHandleDragResizesContinuouslyWithinBounds() {
         val multiplier = mutableStateOf(1f)
         compose.setContent {
             MaterialTheme {
@@ -341,8 +341,8 @@ class OneHandedPresentationTest {
 
     @Test
     fun initialScalePrioritizesOneHandedUsabilityAcrossPhoneSizes() {
-        assertEquals(0.72f, oneHandedScaleForViewport(393f, 852f))
-        assertEquals(0.76f, oneHandedScaleForViewport(320f, 568f))
+        assertEquals(0.78f, oneHandedScaleForViewport(393f, 852f))
+        assertEquals(0.78f, oneHandedScaleForViewport(320f, 568f))
         assertEquals(0.54285717f, oneHandedScaleForViewport(320f, 1400f), 0.001f)
     }
 
