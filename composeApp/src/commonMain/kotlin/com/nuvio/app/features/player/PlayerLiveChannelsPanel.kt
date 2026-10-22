@@ -86,6 +86,7 @@ import nuvio.composeapp.generated.resources.live_tv_search_placeholder
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 fun PlayerLiveChannelsPanel(
@@ -341,7 +342,7 @@ private fun PlayerLiveChannelSearchField(
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, MaterialTheme.colorScheme.onSurfaceVariant),
                         )
                     }
                 }

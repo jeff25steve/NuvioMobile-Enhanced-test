@@ -44,6 +44,9 @@ import nuvio.composeapp.generated.resources.player_skip_recap
 import nuvio.composeapp.generated.resources.player_skip_movie_credits
 import nuvio.composeapp.generated.resources.player_skip_to_post_credits
 import org.jetbrains.compose.resources.stringResource
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 fun SkipIntroButton(
@@ -128,7 +131,7 @@ fun SkipIntroButton(
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
