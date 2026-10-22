@@ -271,6 +271,9 @@ internal fun MainAppContent(
         val toggleOneHandedMode: () -> Unit = {
             NativeTabBridge.requestOneHandedModeToggle()
         }
+        val exitOneHandedMode: () -> Unit = {
+            appOneHandedModeController.disableForPlayerEntry()
+        }
         val disableOneHandedModeForPlayerEntry: () -> Unit = {
             appOneHandedModeController.disableForPlayerEntry()
         }
@@ -1602,7 +1605,7 @@ internal fun MainAppContent(
                     forceNormalLayout = playerPresentationActive,
                     onPlacementToggle = { appOneHandedModeController.togglePlacement() },
                     placementToggleDescription = oneHandedSwitchSideDescription,
-                    onExit = dismissOneHandedMode,
+                    onExit = exitOneHandedMode,
                 ) { presentationModifier ->
                     Box(presentationModifier) {
                 CompositionLocalProvider(
