@@ -27,8 +27,6 @@ internal data class OneHandedModeState(
         },
     )
 
-    fun dismissOutside(): OneHandedModeState = copy(enabled = false)
-
     fun disableForPlayerEntry(): OneHandedModeState = copy(enabled = false)
 }
 
@@ -65,10 +63,6 @@ internal class OneHandedModeController(
 
     fun togglePlacement() {
         mutableState.update { current -> current.togglePlacement() }
-    }
-
-    fun dismissOutside() {
-        mutableState.update { current -> current.dismissOutside() }
     }
 
     fun disableForPlayerEntry() {
