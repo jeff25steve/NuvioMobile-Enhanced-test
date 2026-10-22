@@ -222,10 +222,14 @@ class OneHandedPresentationTest {
                     onPlacementToggle = controller::togglePlacement,
                     placementToggleDescription = "Move app to the other side",
                 ) { contentModifier ->
-                    Box(contentModifier.fillMaxSize())
+                    Box(contentModifier.fillMaxSize().testTag("resizeSurface"))
                 }
             }
         }
+
+        compose.waitForIdle()
+        val resizeSurface = compose.onNodeWithTag("resizeSurface")
+        val originalBounds = resizeSurface.fetchSemanticsNode().boundsInRoot
 
         compose.onNodeWithContentDescription("Resize one-handed mode").performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
@@ -234,11 +238,16 @@ class OneHandedPresentationTest {
             up(0)
         }
 
+        compose.waitForIdle()
+        val resizedBounds = resizeSurface.fetchSemanticsNode().boundsInRoot
+
         compose.runOnIdle {
             assertTrue(controller.state.value.scaleMultiplier > 1f)
             assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
             assertEquals(0f, controller.state.value.verticalPosition)
             assertTrue(controller.state.value.enabled)
+            assertEquals(originalBounds.right, resizedBounds.right, 1f)
+            assertEquals(originalBounds.bottom, resizedBounds.bottom, 1f)
         }
     }
 
