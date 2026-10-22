@@ -44,12 +44,13 @@ class OneHandedModeStateTest {
     }
 
     @Test
-    fun explicitDisablePreservesPlacementAndUserScale() {
+    fun explicitDisablePreservesPlacementScaleAndVerticalPosition() {
         val controller = OneHandedModeController(
             initialState = OneHandedModeState(
                 enabled = true,
                 placement = OneHandedModePlacement.Left,
                 scaleMultiplier = 1.2f,
+                verticalPosition = 0.65f,
             ),
         )
 
@@ -58,6 +59,7 @@ class OneHandedModeStateTest {
         assertFalse(controller.state.value.enabled)
         assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
         assertEquals(1.2f, controller.state.value.scaleMultiplier)
+        assertEquals(0.65f, controller.state.value.verticalPosition)
     }
 
     @Test
