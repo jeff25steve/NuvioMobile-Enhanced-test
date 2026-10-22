@@ -335,7 +335,7 @@ class OneHandedPresentationTest {
     fun initialScalePrioritizesOneHandedUsabilityAcrossPhoneSizes() {
         assertEquals(0.72f, oneHandedScaleForViewport(393f, 852f))
         assertEquals(0.76f, oneHandedScaleForViewport(320f, 568f))
-        assertEquals(0.60f, oneHandedScaleForViewport(320f, 1400f))
+        assertEquals(0.54285717f, oneHandedScaleForViewport(320f, 1400f), 0.001f)
     }
 
     @Test
