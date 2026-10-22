@@ -666,6 +666,18 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
                     finished = true
                     break
                 }
+                if (motion.hasHandledLongPress()) {
+                    // The child used the same profile-style long-press recognizer. Keep the
+                    // hold from becoming a tab drag or tap when the pointer is released.
+                    change.consume()
+                    if (!change.pressed) {
+                        motion.finish()
+                        motion.clearHandledLongPress()
+                        finished = true
+                        break
+                    }
+                    continue
+                }
                 if (change.isConsumed && !claimed) break
                 motion.drag(delta.x / density, delta.y / density)
                 if (!change.pressed) {
