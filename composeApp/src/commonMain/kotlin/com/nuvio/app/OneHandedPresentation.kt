@@ -666,9 +666,9 @@ internal fun OneHandedPresentation(
 }
 
 /**
- * Keeps a little more of the original size on compact phones while respecting usable viewport
- * bounds. The user-controlled multiplier is clamped independently of the viewport cap. Scaling
- * reduces effective touch-target size, so device testing remains necessary.
+ * Keeps a usable initial size on compact phones while respecting viewport bounds. Interactive
+ * resize gestures use only multiplier values that map to visible sizes in the current viewport;
+ * this avoids dead zones when either scale limit is reached.
  */
 private fun oneHandedBaseScaleForViewport(
     widthDp: Float,
