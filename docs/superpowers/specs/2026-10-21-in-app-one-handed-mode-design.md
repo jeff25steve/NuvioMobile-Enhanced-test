@@ -68,7 +68,7 @@ An app-level boundary is more consistent than scaling each screen separately and
 ## 5. State and transitions
 
 - **Disabled → Enabled:** long-press Library while on ordinary app UI.
-- **Enabled → Disabled:** tap the thin top handle, long-press Library again, or initiate opening any video/trailer.
+- **Enabled → Disabled:** long-press Library again or initiate opening any video/trailer. Tapping the grip alone is inert; it is a drag control, not an exit button.
 - **Playback:** disable one-handed mode and release the snapshot before the player becomes visible; player uses the normal, unscaled layout.
 - **After playback:** remain disabled. Do not restore the prior enabled state.
 - **Navigation between ordinary screens:** retain the enabled state unless a disable trigger occurs. If the page changes while mode remains enabled, ensure the backdrop cannot display stale content; refresh it only at a well-defined foreground transition if needed, or use the fallback.
@@ -86,7 +86,7 @@ If route state can briefly report a player after its UI starts, explicitly disab
 - Preserve current Liquid Glass appearance, shape clipping, backdrop/effect bounds, and hit areas. No new background rendering loop or continuous polling.
 - Left/right positioning must not mirror content or change navigation order; it changes placement only. Use a small directional arrow outside the reduced surface at its vertical midpoint; the arrow direction indicates the side to switch to.
 - Outside backdrop blur/dimming should be subtle and theme-aware. Prefer a live page when it can be rendered safely and efficiently; otherwise use an ephemeral snapshot, then a consistent frosted-glass fallback. The background must not receive user interaction.
-- Provide the video-matched thin top pill as both the explicit tap-to-exit control and vertical resize handle. Dragging it changes scale continuously within explicit min/max bounds; it must not trigger page scrolling or side switching. Resizing must not recapture the backdrop.
+- Provide the video-matched thin top pill on a generous transparent drag target. Vertical drag resizes continuously within explicit min/max bounds; horizontal drag toward the opposite side switches left/right placement; diagonal drag can do both. A tap on the grip alone is inert, and resizing must not recapture the backdrop. The separate side arrow remains a tap-to-switch control.
 - On capture failure, invalid dimensions, or resource pressure, fall back to the frosted-glass treatment and retain a fully usable normal or reduced UI rather than crashing.
 
 ## 7. Video and trailer compatibility
@@ -121,10 +121,10 @@ The feature must not alter media selection, playback state, resume position, wat
 - Profile long-press still switches profiles and does not toggle one-handed mode.
 - Drag-to-select navigation remains functional.
 - Left/right placement works without mirroring or reordering content.
-- Outside-region tap dismisses mode and does not trigger underlying controls.
+- Outside-region taps do not dismiss mode and do not trigger underlying controls.
 - Scrolling, buttons, navigation, dialogs, popup menus, and Liquid Glass controls work at transformed coordinates.
 - Live backdrop tracks visible page changes without receiving touch; when live rendering is unsafe, the snapshot visually matches the normal-size page at activation, is blurred/dimmed, and does not intercept touch.
-- Resize handle changes size continuously within bounds and preserves correct touch mapping.
+- Vertical grip drag changes size continuously within bounds and preserves correct touch mapping; horizontal grip drag switches sides without exiting; a grip tap alone changes no state.
 - Outside taps do not exit one-handed mode or activate underlying controls.
 - Android and iOS use the same handle and side-arrow controls. Full-screen parity still needs platform verification: iOS's SwiftUI `TabView`/`NuvioGlassTabBar` is outside the Compose `OneHandedPresentation` transform in the current architecture.
 - Snapshot is disposed on exit, page/lifecycle teardown, and video/trailer launch; fallback works when capture fails.
