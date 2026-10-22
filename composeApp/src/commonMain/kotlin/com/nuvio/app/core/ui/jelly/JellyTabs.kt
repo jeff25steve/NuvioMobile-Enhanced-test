@@ -165,6 +165,9 @@ internal fun JellyTabTargets(
                         if (item.onLongClick != null) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
+                                    // Tell the parent jelly selector this gesture became a hold;
+                                    // it must not turn the same release into a tab click or drag commit.
+                                    motion.markLongPressHandled()
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                     currentOnLongClick.value?.invoke()
                                 },
