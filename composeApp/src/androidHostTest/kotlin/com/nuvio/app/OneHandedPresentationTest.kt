@@ -177,14 +177,20 @@ class OneHandedPresentationTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Move window vertically").performTouchInput {
+        val handle = compose.onNodeWithContentDescription("Move window vertically")
+        val startingHandleTop = handle.fetchSemanticsNode().boundsInRoot.top
+
+        handle.performTouchInput {
             val start = Offset(size.width / 2f, size.height / 2f)
             down(0, start)
             moveTo(0, Offset(start.x, start.y - 48f), delayMillis = 100)
             up(0)
         }
+        compose.waitForIdle()
+        val finalHandleTop = handle.fetchSemanticsNode().boundsInRoot.top
 
         compose.runOnIdle {
+            assertTrue(finalHandleTop < startingHandleTop, "The grip should settle at the new window position")
             assertTrue(controller.state.value.verticalPosition > 0f)
             assertTrue(controller.state.value.verticalPosition <= 1f)
             assertEquals(1f, controller.state.value.scaleMultiplier)
