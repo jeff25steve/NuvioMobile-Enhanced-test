@@ -391,11 +391,15 @@ internal fun OneHandedPresentation(
             // live content stays put, then the committed state animates the surface on release.
             if (reduceContent) {
                 dragPreview?.let { preview ->
-                    val previewScale = oneHandedScaleForViewport(
-                        widthDp = maxWidth.value,
-                        heightDp = maxHeight.value,
-                        scaleMultiplier = preview.scaleMultiplier,
-                    )
+                    val previewScale = if (preview.kind == OneHandedDragKind.Position) {
+                        scale
+                    } else {
+                        oneHandedScaleForViewport(
+                            widthDp = maxWidth.value,
+                            heightDp = maxHeight.value,
+                            scaleMultiplier = preview.scaleMultiplier,
+                        )
+                    }
                     val previewLeft = maxWidth * (1f - previewScale) *
                         if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
                     val previewFreeSpace = maxHeight * (1f - previewScale)
@@ -464,68 +468,77 @@ internal fun OneHandedPresentation(
                     .coerceAtLeast(0.dp)
                 val currentSurfaceTop = currentFreeSpace -
                     currentVerticalTravel * animatedVerticalPosition
+                val positionPreview = dragPreview?.takeIf {
+                    it.kind == OneHandedDragKind.Position
+                }
+                val handleSurfaceTop = positionPreview?.let { preview ->
+                    currentFreeSpace - currentVerticalTravel * preview.verticalPosition
+                } ?: currentSurfaceTop
                 val handleCenterX = maxWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
                 )
-                val handleTop = currentSurfaceTop - 25.dp
-                Box(
-                    modifier = Modifier
-                        .offset(x = handleCenterX - 28.dp, y = handleTop)
-                        .size(width = 56.dp, height = 40.dp)
-                        .pointerInput(enabled, forceNormalLayout, maxWidth, maxHeight) {
-                            if (enabled && !forceNormalLayout) {
-                                var draggedVerticalPosition = currentAnimatedVerticalPosition.value
-                                var startingScale = currentScale.value
-                                detectDragGestures(
-                                    onDragStart = {
-                                        draggedVerticalPosition = currentAnimatedVerticalPosition.value
-                                        startingScale = currentScale.value
-                                        dragPreview = OneHandedDragPreview(
-                                            scaleMultiplier = currentScaleMultiplier.value,
-                                            placement = currentPlacement.value,
-                                            verticalPosition = draggedVerticalPosition,
-                                            kind = OneHandedDragKind.Position,
-                                        )
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
-                                        val availableTravelPx = (
-                                            currentViewportHeightPx.value * (1f - startingScale) -
-                                                currentTopHandleGapPx.value
-                                        ).coerceAtLeast(1f)
-                                        draggedVerticalPosition = normalizedOneHandedVerticalPosition(
-                                            draggedVerticalPosition - dragAmount.y / availableTravelPx,
-                                        )
-                                        dragPreview = OneHandedDragPreview(
-                                            scaleMultiplier = currentScaleMultiplier.value,
-                                            placement = currentPlacement.value,
-                                            verticalPosition = draggedVerticalPosition,
-                                            kind = OneHandedDragKind.Position,
-                                        )
-                                    },
-                                    onDragEnd = {
-                                        currentOnVerticalPositionChange.value(draggedVerticalPosition)
-                                        dragPreview = null
-                                    },
-                                    onDragCancel = {
-                                        dragPreview = null
-                                    },
-                                )
-                            }
-                        }
-                        .semantics {
-                            contentDescription = "Move window vertically"
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
+                // During a position drag, the pill follows the preview outline. During corner
+                // resize the corner markers take focus, so hide the pill until the gesture ends.
+                if (dragPreview?.kind != OneHandedDragKind.Resize) {
                     Box(
-                        Modifier
-                            .size(width = 40.dp, height = 3.dp)
-                            .background(
-                                color = Color.White.copy(alpha = 0.88f),
-                                shape = RoundedCornerShape(3.dp),
-                            ),
-                    )
+                        modifier = Modifier
+                            .offset(x = handleCenterX - 28.dp, y = handleSurfaceTop - 25.dp)
+                            .size(width = 56.dp, height = 40.dp)
+                            .pointerInput(enabled, forceNormalLayout, maxWidth, maxHeight) {
+                                if (enabled && !forceNormalLayout) {
+                                    var draggedVerticalPosition = currentAnimatedVerticalPosition.value
+                                    var startingScale = currentScale.value
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            draggedVerticalPosition = currentAnimatedVerticalPosition.value
+                                            startingScale = currentScale.value
+                                            dragPreview = OneHandedDragPreview(
+                                                scaleMultiplier = currentScaleMultiplier.value,
+                                                placement = currentPlacement.value,
+                                                verticalPosition = draggedVerticalPosition,
+                                                kind = OneHandedDragKind.Position,
+                                            )
+                                        },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            val availableTravelPx = (
+                                                currentViewportHeightPx.value * (1f - startingScale) -
+                                                    currentTopHandleGapPx.value
+                                            ).coerceAtLeast(1f)
+                                            draggedVerticalPosition = normalizedOneHandedVerticalPosition(
+                                                draggedVerticalPosition - dragAmount.y / availableTravelPx,
+                                            )
+                                            dragPreview = OneHandedDragPreview(
+                                                scaleMultiplier = currentScaleMultiplier.value,
+                                                placement = currentPlacement.value,
+                                                verticalPosition = draggedVerticalPosition,
+                                                kind = OneHandedDragKind.Position,
+                                            )
+                                        },
+                                        onDragEnd = {
+                                            currentOnVerticalPositionChange.value(draggedVerticalPosition)
+                                            dragPreview = null
+                                        },
+                                        onDragCancel = {
+                                            dragPreview = null
+                                        },
+                                    )
+                                }
+                            }
+                            .semantics {
+                                contentDescription = "Move window vertically"
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(width = 40.dp, height = 3.dp)
+                                .background(
+                                    color = Color.White.copy(alpha = 0.88f),
+                                    shape = RoundedCornerShape(3.dp),
+                                ),
+                        )
+                    }
                 }
 
                 // Resizing is a separate gesture from the corner opposite the selected anchor.
@@ -635,30 +648,33 @@ internal fun OneHandedPresentation(
                         },
                 )
 
-                // Side arrow remains the independent left/right positioning action.
-                val surfaceCurrentLeft = maxWidth * (1f - scale) * pivotFraction
-                val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
-                    surfaceCurrentLeft - 24.dp
-                } else {
-                    surfaceCurrentLeft + maxWidth * scale + 24.dp
-                }
-                val sideSwitchCenterY = currentSurfaceTop + maxHeight * scale / 2f
-                Box(
-                    modifier = Modifier
-                        .offset(x = sideSwitchCenterX - 20.dp, y = sideSwitchCenterY - 28.dp)
-                        .size(width = 40.dp, height = 56.dp)
-                        .clickable(onClick = onPlacementToggle)
-                        .semantics {
-                            contentDescription = placementToggleDescription
-                            role = Role.Button
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (placement == OneHandedModePlacement.Right) "◀" else "▶",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.9f),
-                    )
+                // Keep side switching separate from moving/resizing; only show the arrow when
+                // no outline preview is active, matching the reference's focused drag controls.
+                if (dragPreview == null) {
+                    val surfaceCurrentLeft = maxWidth * (1f - scale) * pivotFraction
+                    val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
+                        surfaceCurrentLeft - 24.dp
+                    } else {
+                        surfaceCurrentLeft + maxWidth * scale + 24.dp
+                    }
+                    val sideSwitchCenterY = currentSurfaceTop + maxHeight * scale / 2f
+                    Box(
+                        modifier = Modifier
+                            .offset(x = sideSwitchCenterX - 20.dp, y = sideSwitchCenterY - 28.dp)
+                            .size(width = 40.dp, height = 56.dp)
+                            .clickable(onClick = onPlacementToggle)
+                            .semantics {
+                                contentDescription = placementToggleDescription
+                                role = Role.Button
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (placement == OneHandedModePlacement.Right) "◀" else "▶",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                        )
+                    }
                 }
             }
         }
