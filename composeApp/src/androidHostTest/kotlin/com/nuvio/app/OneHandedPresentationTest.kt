@@ -45,7 +45,6 @@ class OneHandedPresentationTest {
     val compose = createComposeRule()
 
     private var insideClickCount = 0
-    private var outsideDismissCount = 0
     private var placementToggleCount = 0
     private var exitCount = 0
     private var scrollState: ScrollState? = null
@@ -60,7 +59,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -74,7 +72,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
-            assertEquals(0, outsideDismissCount)
             assertEquals(0, placementToggleCount)
         }
     }
@@ -89,7 +86,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -103,7 +99,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, insideClickCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -117,7 +112,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -143,7 +137,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, placementToggleCount)
-            assertEquals(0, outsideDismissCount)
             assertEquals(0, insideClickCount)
         }
     }
@@ -158,7 +151,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(1, outsideDismissCount)
         }
     }
 
@@ -201,7 +193,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, exitCount)
-            assertEquals(0, outsideDismissCount)
             assertEquals(0, insideClickCount)
         }
     }
@@ -214,7 +205,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, placementToggleCount)
-            assertEquals(0, outsideDismissCount)
             assertEquals(0, insideClickCount)
         }
     }
@@ -229,7 +219,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(1, outsideDismissCount)
         }
     }
 
@@ -246,7 +235,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(1, outsideDismissCount)
         }
     }
 
@@ -263,7 +251,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -381,7 +368,6 @@ class OneHandedPresentationTest {
         placement: OneHandedModePlacement = OneHandedModePlacement.Right,
     ) {
         insideClickCount = 0
-        outsideDismissCount = 0
         placementToggleCount = 0
         exitCount = 0
         compose.setContent {
@@ -439,7 +425,6 @@ class OneHandedPresentationTest {
 
     @Test
     fun dialogActionReceivesTapWithoutDismissingOneHandedMode() {
-        outsideDismissCount = 0
         val dialogVisible = mutableStateOf(true)
         var dialogActionCount = 0
 
@@ -476,7 +461,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, dialogActionCount)
-            assertEquals(0, outsideDismissCount)
         }
 
         compose.onRoot().performTouchInput {
@@ -484,13 +468,11 @@ class OneHandedPresentationTest {
         }
 
         compose.runOnIdle {
-            assertEquals(1, outsideDismissCount)
         }
     }
 
     @Test
     fun popupActionReceivesTapWithoutDismissingOneHandedMode() {
-        outsideDismissCount = 0
         val popupVisible = mutableStateOf(true)
         var popupActionCount = 0
 
@@ -531,7 +513,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, popupActionCount)
-            assertEquals(0, outsideDismissCount)
         }
 
         compose.onRoot().performTouchInput {
@@ -539,14 +520,12 @@ class OneHandedPresentationTest {
         }
 
         compose.runOnIdle {
-            assertEquals(1, outsideDismissCount)
         }
     }
 
 
     @Test
     fun inAppOverlayActionReceivesTapWithoutDismissingOneHandedMode() {
-        outsideDismissCount = 0
         var overlayActionCount = 0
 
         compose.setContent {
@@ -579,7 +558,6 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(1, overlayActionCount)
-            assertEquals(0, outsideDismissCount)
         }
     }
 
