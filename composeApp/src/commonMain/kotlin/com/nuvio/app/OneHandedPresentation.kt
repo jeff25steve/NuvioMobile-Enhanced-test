@@ -56,13 +56,13 @@ import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 
-private const val OneHandedScale = 0.72f
+private const val OneHandedScale = 0.78f
 private const val OneHandedMaxWidthDp = 600f
 private const val OneHandedMaxHeightDp = 760f
 private const val OneHandedMinimumScale = 0.60f
 internal const val OneHandedMinimumViewportScale = 0.42f
 internal const val OneHandedMaximumViewportScale = 0.86f
-private const val OneHandedCompactScale = 0.76f
+private const val OneHandedCompactScale = 0.78f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
 
@@ -127,7 +127,7 @@ internal fun OneHandedPresentation(
         label = "one_handed_backdrop",
     )
     val cornerRadius by animateDpAsState(
-        targetValue = if (reduceContent) 28.dp else 0.dp,
+        targetValue = if (reduceContent) 16.dp else 0.dp,
         animationSpec = dpAnimationSpec,
         label = "one_handed_corner_radius",
     )
@@ -198,13 +198,6 @@ internal fun OneHandedPresentation(
                         val gestureScale = currentScale.value
                         if (!enabled && gestureScale >= 0.999f) return@awaitEachGesture
 
-                        // Leave the exit and side-switch targets for their child click handlers.
-                        val controlGroupWidth = 104.dp.toPx()
-                        val controlTop = 12.dp.toPx()
-                        if (enabled && down.position.x in ((size.width - controlGroupWidth) / 2f)..((size.width + controlGroupWidth) / 2f) &&
-                            down.position.y in controlTop..(controlTop + 48.dp.toPx())
-                        ) return@awaitEachGesture
-
                         val width = size.width.toFloat()
                         val height = size.height.toFloat()
                         val horizontalOffset = oneHandedHorizontalOffsetPx(
@@ -214,13 +207,28 @@ internal fun OneHandedPresentation(
                         )
                         val reducedHeight = height * gestureScale
                         val top = height - reducedHeight
-                        val resizeHandleCenterX = width * (
+
+                        // Keep the thin top handle tappable/draggable, and keep the side arrow
+                        // interactive even though both touch targets sit outside the reduced app.
+                        val handleCenterX = width * (
                             currentPivotFraction.value * (1f - gestureScale) + gestureScale / 2f
                         )
-                        val resizeHandleHalfWidth = 44.dp.toPx()
-                        val resizeHandleHalfHeight = 22.dp.toPx()
-                        if (enabled && down.position.x in (resizeHandleCenterX - resizeHandleHalfWidth)..(resizeHandleCenterX + resizeHandleHalfWidth) &&
-                            down.position.y in (top - resizeHandleHalfHeight)..(top + resizeHandleHalfHeight)
+                        val handleHalfWidth = 28.dp.toPx()
+                        val handleHalfHeight = 20.dp.toPx()
+                        if (enabled &&
+                            down.position.x in (handleCenterX - handleHalfWidth)..(handleCenterX + handleHalfWidth) &&
+                            down.position.y in (top - 25.dp.toPx())..(top + 15.dp.toPx())
+                        ) return@awaitEachGesture
+
+                        val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
+                            horizontalOffset - 24.dp.toPx()
+                        } else {
+                            horizontalOffset + width * gestureScale + 24.dp.toPx()
+                        }
+                        val sideSwitchCenterY = top + reducedHeight / 2f
+                        if (enabled &&
+                            down.position.x in (sideSwitchCenterX - 24.dp.toPx())..(sideSwitchCenterX + 24.dp.toPx()) &&
+                            down.position.y in (sideSwitchCenterY - 32.dp.toPx())..(sideSwitchCenterY + 32.dp.toPx())
                         ) return@awaitEachGesture
                         val mappedX = (down.position.x - horizontalOffset) / gestureScale
                         val mappedY = (down.position.y - top) / gestureScale
@@ -301,20 +309,17 @@ internal fun OneHandedPresentation(
             content(contentModifier)
 
             if (reduceContent) {
-                // This handle floats over the top edge of the transformed surface. Keep gesture
-                // keys stable while its position follows scale changes, so a resize drag continues.
-                val handleX = maxWidth * (
+                // Match the reference: a fine pill just above the scaled surface. The broad
+                // transparent target remains easy to touch; tap exits, vertical drag resizes.
+                val handleCenterX = maxWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
-                ) - 44.dp
-                val handleY = maxHeight * (1f - scale) - 20.dp
+                )
+                val handleTop = maxHeight * (1f - scale) - 25.dp
                 Box(
                     modifier = Modifier
-                        .offset(x = handleX, y = handleY)
-                        .size(width = 88.dp, height = 40.dp)
-                        .background(
-                            color = surfaceVariant.copy(alpha = 0.96f),
-                            shape = RoundedCornerShape(20.dp),
-                        )
+                        .offset(x = handleCenterX - 28.dp, y = handleTop)
+                        .size(width = 56.dp, height = 40.dp)
+                        .clickable(onClick = onExit)
                         .pointerInput(enabled, forceNormalLayout) {
                             if (enabled && !forceNormalLayout) {
                                 detectVerticalDragGestures(
@@ -333,80 +338,45 @@ internal fun OneHandedPresentation(
                             }
                         }
                         .semantics {
-                            contentDescription = resizeHandleDescription
+                            contentDescription = "$exitDescription, drag to resize"
+                            role = Role.Button
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        repeat(3) {
-                            Box(
-                                Modifier
-                                    .size(width = 3.dp, height = 12.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                                        shape = CircleShape,
-                                    ),
-                            )
-                        }
-                    }
+                    Box(
+                        Modifier
+                            .size(width = 40.dp, height = 3.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.88f),
+                                shape = RoundedCornerShape(3.dp),
+                            ),
+                    )
                 }
-            }
 
-            AnimatedVisibility(
-                visible = reduceContent,
-                enter = fadeIn(animationSpec = floatAnimationSpec),
-                exit = fadeOut(animationSpec = floatAnimationSpec),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Samsung-inspired side arrow, placed just outside the reduced surface's
+                // vertical midpoint. Direction always indicates the side the surface can move to.
+                val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
+                    maxWidth * (1f - scale) - 24.dp
+                } else {
+                    maxWidth * scale + 24.dp
+                }
+                val sideSwitchCenterY = maxHeight * (1f - scale / 2f)
+                Box(
+                    modifier = Modifier
+                        .offset(x = sideSwitchCenterX - 20.dp, y = sideSwitchCenterY - 28.dp)
+                        .size(width = 40.dp, height = 56.dp)
+                        .clickable(onClick = onPlacementToggle)
+                        .semantics {
+                            contentDescription = placementToggleDescription
+                            role = Role.Button
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = surfaceVariant.copy(alpha = 0.96f),
-                                shape = CircleShape,
-                            )
-                            .clickable(onClick = onExit)
-                            .semantics {
-                                contentDescription = exitDescription
-                                role = Role.Button
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "×",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = surfaceVariant.copy(alpha = 0.96f),
-                                shape = CircleShape,
-                            )
-                            .clickable(onClick = onPlacementToggle)
-                            .semantics {
-                                contentDescription = placementToggleDescription
-                                role = Role.Button
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "↔",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = if (placement == OneHandedModePlacement.Right) "◀" else "▶",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White.copy(alpha = 0.9f),
+                    )
                 }
             }
         }
