@@ -3,6 +3,7 @@ package com.nuvio.app.core.ui
 import com.nuvio.app.appOneHandedModeController
 import com.nuvio.app.features.home.components.HomeHeroTrailerPlaybackController
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -23,15 +24,21 @@ class OneHandedNativeTabIntegrationTest {
     }
 
     @Test
-    fun nativeTabToggleIsBlockedWhileInlineTrailerPlaybackIsActive() {
+    fun nativeTabToggleStopsInlineTrailerAndEnablesMode() {
         resetSharedState()
+        var stopCount = 0
+        val stopCallback: () -> Unit = { stopCount++ }
+        HomeHeroTrailerPlaybackController.register(stopCallback)
         try {
             HomeHeroTrailerPlaybackController.setInlineTrailerPlaybackActive(true)
 
             nativeTabToggleOneHandedMode()
 
-            assertFalse(appOneHandedModeController.state.value.enabled)
+            assertFalse(HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive())
+            assertEquals(1, stopCount)
+            assertTrue(appOneHandedModeController.state.value.enabled)
         } finally {
+            HomeHeroTrailerPlaybackController.unregister(stopCallback)
             resetSharedState()
         }
     }
