@@ -8,7 +8,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,13 +42,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
@@ -214,7 +211,6 @@ internal fun FloatingNavigationBar(
     val selectionPillCornerRadiusPercent = selectionLensCornerRadiusPercent.toFloat()
     val currentItems by rememberUpdatedState(items)
     val currentIsRtl by rememberUpdatedState(isRtl)
-    val hapticFeedback = LocalHapticFeedback.current
     val density = LocalDensity.current
     val trackHeight = if (inlineLabels) 48.dp + 4.dp * labelFraction
     else 48.dp + (if (compactSize) 8.dp else 16.dp) * labelFraction
@@ -271,7 +267,6 @@ internal fun FloatingNavigationBar(
                         density.density,
                         { currentItems },
                         { currentIsRtl },
-                        onLongPressHaptic = { hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress) },
                     )
                 },
             contentAlignment = Alignment.TopStart,
@@ -643,7 +638,6 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
     density: Float,
     currentItems: () -> List<FloatingNavigationItem>,
     isRtl: () -> Boolean,
-    onLongPressHaptic: () -> Unit = {},
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -651,50 +645,6 @@ internal suspend fun PointerInputScope.detectJellyTabGestures(
         var claimed = false
         var finished = false
         try {
-            val itemsAtDown = currentItems()
-            val slotWidth = ((size.width / density) - 8f) / itemsAtDown.size.coerceAtLeast(1)
-            val heldVisualIndex = ((down.position.x / density - 4f) / slotWidth)
-                .toInt()
-                .coerceIn(0, (itemsAtDown.size - 1).coerceAtLeast(0))
-            val heldLogicalIndex = logicalNavIndex(heldVisualIndex, itemsAtDown.size, isRtl())
-            val longPressAction = itemsAtDown.getOrNull(heldLogicalIndex)?.onLongClick
-
-            // Only intercept long-press on items that explicitly provide a hold action.
-            // In particular, the profile item keeps its own proven drag-after-long-press
-            // recognizer and popup behavior unchanged.
-            if (longPressAction != null) {
-                val longPress = awaitLongPressOrCancellation(down.id)
-                if (longPress != null) {
-                    val selectedIndex = currentItems().indexOfFirst { it.selected }
-                    motion.cancel(visualNavIndex(selectedIndex, currentItems().size, isRtl()))
-                    onLongPressHaptic()
-                    longPressAction()
-                    finished = true
-                    // Consume the rest of the held press so release cannot also navigate.
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        event.changes.forEach { it.consume() }
-                        if (event.changes.none { it.pressed }) break
-                    }
-                    return@awaitEachGesture
-                }
-                if (currentEvent.changes.none { it.id == down.id && it.pressed }) {
-                    val upWasConsumed = currentEvent.changes
-                        .firstOrNull { it.id == down.id }
-                        ?.isConsumed == true
-                    val visualIndex = motion.finish()
-                    val items = currentItems()
-                    val logicalIndex = logicalNavIndex(visualIndex, items.size, isRtl())
-                    finished = true
-                    // A child selectable may already have handled the tap on Main pass.
-                    // Avoid invoking the same destination a second time.
-                    if (!upWasConsumed) items.getOrNull(logicalIndex)?.onClick?.invoke()
-                    return@awaitEachGesture
-                }
-                // If the long-press was cancelled by movement past touch slop, continue into
-                // the original drag-to-select path below.
-            }
-
             var previousPosition = down.position
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
