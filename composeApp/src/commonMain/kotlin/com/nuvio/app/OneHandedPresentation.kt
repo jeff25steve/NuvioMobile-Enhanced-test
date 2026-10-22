@@ -15,8 +15,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Box
@@ -53,6 +55,10 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.one_handed_move_window
+import nuvio.composeapp.generated.resources.one_handed_move_to_top
+import nuvio.composeapp.generated.resources.one_handed_move_to_bottom
+import nuvio.composeapp.generated.resources.one_handed_increase_size
+import nuvio.composeapp.generated.resources.one_handed_decrease_size
 import nuvio.composeapp.generated.resources.one_handed_resize
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
@@ -70,6 +76,7 @@ private const val OneHandedCompactScale = 0.78f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
 private const val OneHandedTopHandleGapDp = 25f
+private const val OneHandedAccessibilityResizeStep = 0.1f
 
 private enum class OneHandedDragKind {
     Position,
@@ -157,6 +164,10 @@ internal fun OneHandedPresentation(
     content: @Composable (Modifier) -> Unit,
 ) {
     val moveWindowDescription = stringResource(Res.string.one_handed_move_window)
+    val moveWindowToTopDescription = stringResource(Res.string.one_handed_move_to_top)
+    val moveWindowToBottomDescription = stringResource(Res.string.one_handed_move_to_bottom)
+    val increaseSizeDescription = stringResource(Res.string.one_handed_increase_size)
+    val decreaseSizeDescription = stringResource(Res.string.one_handed_decrease_size)
     val resizeDescription = stringResource(Res.string.one_handed_resize)
     val reduceContent = enabled && !forceNormalLayout
     // Reuse a restrained no-bounce spring across related properties. Compose springs retain
@@ -246,6 +257,48 @@ internal fun OneHandedPresentation(
         )
         val currentAnimatedVerticalPosition = rememberUpdatedState(animatedVerticalPosition)
         val currentScale = rememberUpdatedState(scale)
+
+        // Keep the viewport-aware bottom anchor stable when screen-reader actions resize the
+        // surface, matching the geometry used by the drag gesture.
+        fun resizeFromAccessibility(increase: Boolean): Boolean {
+            if (!reduceContent) return false
+
+            val multiplierBounds = oneHandedScaleMultiplierBounds(maxWidth.value, maxHeight.value)
+            val currentMultiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier)
+                .coerceIn(multiplierBounds.start, multiplierBounds.endInclusive)
+            val targetMultiplier = if (increase) {
+                (currentMultiplier + OneHandedAccessibilityResizeStep)
+                    .coerceAtMost(multiplierBounds.endInclusive)
+            } else {
+                (currentMultiplier - OneHandedAccessibilityResizeStep)
+                    .coerceAtLeast(multiplierBounds.start)
+            }
+            if (targetMultiplier == currentMultiplier) return false
+
+            val currentSurfaceScale = oneHandedScaleForViewport(
+                maxWidth.value,
+                maxHeight.value,
+                currentMultiplier,
+            )
+            val targetSurfaceScale = oneHandedScaleForViewport(
+                maxWidth.value,
+                maxHeight.value,
+                targetMultiplier,
+            )
+            val topHandleGapFraction = currentTopHandleGapPx.value / viewportHeightPx
+            val fixedBottomOffsetFraction = (
+                (1f - currentSurfaceScale) - topHandleGapFraction
+            ).coerceAtLeast(0f) * normalizedOneHandedVerticalPosition(verticalPosition)
+            val targetVerticalTravelFraction = (
+                (1f - targetSurfaceScale) - topHandleGapFraction
+            ).coerceAtLeast(0.001f)
+            val targetVerticalPosition = normalizedOneHandedVerticalPosition(
+                fixedBottomOffsetFraction / targetVerticalTravelFraction,
+            )
+
+            currentOnResizeCommit.value(targetMultiplier, targetVerticalPosition)
+            return true
+        }
 
         Box(
             modifier = Modifier
@@ -557,6 +610,26 @@ internal fun OneHandedPresentation(
                             }
                             .semantics {
                                 contentDescription = moveWindowDescription
+                                customActions = listOf(
+                                    CustomAccessibilityAction(label = moveWindowToTopDescription) {
+                                        val currentPosition = normalizedOneHandedVerticalPosition(verticalPosition)
+                                        if (!reduceContent || currentPosition >= 1f) {
+                                            false
+                                        } else {
+                                            currentOnVerticalPositionChange.value(1f)
+                                            true
+                                        }
+                                    },
+                                    CustomAccessibilityAction(label = moveWindowToBottomDescription) {
+                                        val currentPosition = normalizedOneHandedVerticalPosition(verticalPosition)
+                                        if (!reduceContent || currentPosition <= 0f) {
+                                            false
+                                        } else {
+                                            currentOnVerticalPositionChange.value(0f)
+                                            true
+                                        }
+                                    },
+                                )
                             }
                             .testTag("oneHandedMoveWindowHandle"),
                         contentAlignment = Alignment.Center,
@@ -680,6 +753,14 @@ internal fun OneHandedPresentation(
                         }
                         .semantics {
                             contentDescription = resizeDescription
+                            customActions = listOf(
+                                CustomAccessibilityAction(label = increaseSizeDescription) {
+                                    resizeFromAccessibility(increase = true)
+                                },
+                                CustomAccessibilityAction(label = decreaseSizeDescription) {
+                                    resizeFromAccessibility(increase = false)
+                                },
+                            )
                         }
                         .testTag("oneHandedResizeHandle"),
                 )

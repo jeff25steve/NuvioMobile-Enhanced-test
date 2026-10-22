@@ -206,6 +206,51 @@ class OneHandedPresentationTest {
     }
 
     @Test
+    fun moveHandleAccessibilityActionsMoveWindowToTopAndBottom() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(enabled = true, verticalPosition = 0f),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                Box(Modifier.size(320.dp, 568.dp)) {
+                    OneHandedPresentation(
+                        enabled = modeState.enabled,
+                        placement = modeState.placement,
+                        forceNormalLayout = false,
+                        scaleMultiplier = modeState.scaleMultiplier,
+                        onScaleMultiplierChange = controller::updateScaleMultiplier,
+                        verticalPosition = modeState.verticalPosition,
+                        onVerticalPositionChange = controller::updateVerticalPosition,
+                        onResizeCommit = controller::updateResize,
+                        onPlacementToggle = controller::togglePlacement,
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+
+        val moveHandle = compose.onNodeWithTag("oneHandedMoveWindowHandle")
+        val initialActions = moveHandle.fetchSemanticsNode().config[SemanticsProperties.CustomActions]
+        assertTrue(initialActions.any { it.label == "Move window to top" })
+        assertTrue(initialActions.any { it.label == "Move window to bottom" })
+
+        val moveToTop = initialActions.first { it.label == "Move window to top" }
+        compose.runOnIdle { assertTrue(moveToTop.action()) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(1f, controller.state.value.verticalPosition) }
+
+        val moveToBottom = moveHandle.fetchSemanticsNode()
+            .config[SemanticsProperties.CustomActions]
+            .first { it.label == "Move window to bottom" }
+        compose.runOnIdle { assertTrue(moveToBottom.action()) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(0f, controller.state.value.verticalPosition) }
+    }
+
+    @Test
     fun resizingCornerChangesScaleWithoutMovingItsAnchor() {
         val controller = OneHandedModeController(
             initialState = OneHandedModeState(
@@ -259,6 +304,61 @@ class OneHandedPresentationTest {
             assertTrue(controller.state.value.enabled)
             assertEquals(originalBounds.right, resizedBounds.right, 1f)
             assertEquals(originalBounds.bottom, resizedBounds.bottom, 1f)
+        }
+    }
+
+    @Test
+    fun resizeHandleAccessibilityActionsAdjustSizeAndPreserveAnchor() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                verticalPosition = 0.35f,
+                scaleMultiplier = 1f,
+            ),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                Box(Modifier.size(320.dp, 568.dp)) {
+                    OneHandedPresentation(
+                        enabled = modeState.enabled,
+                        placement = modeState.placement,
+                        forceNormalLayout = false,
+                        scaleMultiplier = modeState.scaleMultiplier,
+                        onScaleMultiplierChange = controller::updateScaleMultiplier,
+                        verticalPosition = modeState.verticalPosition,
+                        onVerticalPositionChange = controller::updateVerticalPosition,
+                        onResizeCommit = controller::updateResize,
+                        onPlacementToggle = controller::togglePlacement,
+                        placementToggleDescription = "Move app to the other side",
+                    ) { contentModifier ->
+                        Box(contentModifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+
+        val resizeHandle = compose.onNodeWithTag("oneHandedResizeHandle")
+        val initialActions = resizeHandle.fetchSemanticsNode().config[SemanticsProperties.CustomActions]
+        assertTrue(initialActions.any { it.label == "Increase one-handed window size" })
+        assertTrue(initialActions.any { it.label == "Decrease one-handed window size" })
+        val increaseSize = initialActions.first { it.label == "Increase one-handed window size" }
+
+        compose.runOnIdle { assertTrue(increaseSize.action()) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue(controller.state.value.scaleMultiplier > 1f)
+            assertTrue(controller.state.value.verticalPosition > 0.35f)
+        }
+
+        val decreaseSize = resizeHandle.fetchSemanticsNode()
+            .config[SemanticsProperties.CustomActions]
+            .first { it.label == "Decrease one-handed window size" }
+        compose.runOnIdle { assertTrue(decreaseSize.action()) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1f, controller.state.value.scaleMultiplier)
+            assertEquals(0.35f, controller.state.value.verticalPosition, 0.01f)
         }
     }
 
