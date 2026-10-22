@@ -103,7 +103,7 @@ class FloatingNavigationBarGestureTest {
     }
 
     @Test
-    fun multiMoveDragUsesIncrementalDeltasAndStopsAtIntendedTab() {
+    fun multiMoveDragUsesCumulativeDisplacementAndStopsAtIntendedTab() {
         setContent()
         reset(LayoutDirection.Ltr)
 
