@@ -3,7 +3,7 @@
 **Date:** 2026-10-21  
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Implementation branch:** `one-hand-operation` (created from `enhanced`)  
-**Status:** User-approved design; implementation awaits repository-maintainer approval
+**Status:** Revised design incorporates the user's latest requirements; pending spec review
 
 ## 1. Goal
 
@@ -17,10 +17,13 @@ Add an optional, Samsung One-handed Mode-inspired presentation for Nuvio's ordin
 - Long-pressing Library uses that same proven press-and-hold recognition, but its action is to toggle one-handed mode directly—not to show the profile-selection popup or any new popup. A normal tap on Library still navigates to Library.
 - Keep the profile button's current press-and-hold profile-switching popup and behaviour unchanged.
 - The floating navigation bar has a custom drag-to-select gesture detector (`detectJellyTabGestures`). Integrate the Library hold action into the existing gesture flow (or a demonstrably non-competing extension of it); do not stack a competing pointer-input detector or break drag-to-select. If the current profile hold uses a separate proven mechanism, adapt its timing/semantics while preserving the nav bar's drag and tap paths.
-- The app's ordinary UI is proportionally reduced and aligned near the bottom, leaving a tappable outside region above it.
+- The app's ordinary UI is proportionally reduced and aligned near the bottom, leaving an outside region above it that does not dismiss one-handed mode when tapped.
+- Outside taps must not activate hidden underlying UI; exit is explicit via the close control or Library long-press.
+- The reduced surface has a user-adjustable size with a visible drag handle, continuous resizing feedback, and sensible minimum/maximum bounds.
+- Android and iOS use the same user-facing layout, visual styling, gestures, resize rules, controls, and state transitions wherever platform capabilities permit.
 - The reduced interface remains fully interactive: taps, scrolling, navigation, dialogs, popups, and Liquid Glass effects must behave correctly.
 - Provide left/right positioning if it can be implemented without compromising existing layout or gestures.
-- Tapping outside the reduced app content exits one-handed mode.
+- Tapping outside the reduced app content leaves one-handed mode active and must not trigger underlying controls.
 - **Opening any video or trailer disables one-handed mode immediately.** Playback uses the normal layout. Exiting playback must not re-enable one-handed mode automatically.
 - Playback state, progress, and player controls must not be reset or disrupted by the transition.
 - All feature processing stays on-device. Do not upload screenshots, UI pixels, layout state, or feature telemetry to any server; do not add a network dependency for this feature.
@@ -29,14 +32,14 @@ Add an optional, Samsung One-handed Mode-inspired presentation for Nuvio's ordin
 
 ## 3. Outside-region backdrop design
 
-**Chosen direction: a one-time snapshot of the current page, blurred and dimmed behind the reduced interactive UI, with an adaptive frosted-glass fallback.**
+**Chosen direction: prefer a live full-screen backdrop behind the reduced interactive UI, with a one-time snapshot fallback and an adaptive frosted-glass fallback. Android and iOS should share the same visible treatment.**
 
 When one-handed mode is enabled:
-1. Capture the currently visible app page once, if the existing Compose/platform rendering architecture offers a safe, supported capture path.
-2. Display the snapshot only as a non-interactive background in the outside region and apply a restrained blur plus dimming so it complements the current page without competing with the scaled interface.
-3. Keep the reduced app UI as the only interactive content in the reduced region. The snapshot must not become a duplicate screen, retain an active composition, or intercept gestures.
-4. Release the snapshot promptly when one-handed mode is disabled, a video/trailer is opened, the screen is disposed, or the capture is replaced.
-5. If safe capture is unavailable, too expensive, unsupported on a target platform, or risks capturing protected video content, use a static/adaptive frosted-glass material and subtle theme-aware gradient instead.
+1. First evaluate whether the existing UI can remain live at normal size behind the reduced interactive surface without duplicating expensive composition or changing navigation/player ownership. The live backdrop must update naturally as the visible page changes.
+2. Apply the same restrained blur and dimming treatment on Android and iOS. Keep the backdrop non-interactive so touches outside the reduced surface are consumed without activating hidden content.
+3. If a live backdrop would require a second active composition, disrupt state, cause unacceptable GPU/memory/battery cost, or conflict with protected video surfaces, prefer a one-time in-memory capture of the normal-size page before scaling.
+4. If safe capture is unavailable or fails, use a static/adaptive frosted-glass material and subtle theme-aware gradient as a consistent fallback.
+5. Do not continuously recapture or blur in a background loop. Release snapshots promptly on exit, player entry, disposal, or replacement.
 
 The snapshot must not be continuously refreshed or blurred in a background loop. Do not add an accessibility service, overlay permission, background service, or persistent worker to support it. Avoid retaining large bitmap resources longer than necessary. Prefer platform-supported, lifecycle-aware capture and a modest blur implementation; assess memory cost and rendering performance before choosing the concrete mechanism. Never capture protected player surfaces or compromise secure content.
 
@@ -46,12 +49,13 @@ Use a single app-level presentation boundary to apply the one-handed transform c
 
 The presentation boundary must coordinate:
 1. normal content layout and proportional scale;
-2. bottom alignment and optional left/right alignment;
-3. touch-coordinate mapping and outside-region dismissal;
+2. bottom alignment and left/right alignment;
+3. touch-coordinate mapping and non-dismissing outside-region input handling;
+4. live backdrop, snapshot fallback, blur, dimming and resource lifecycle;
+5. continuous user-driven resize state and bounds;
 4. existing navigation gestures and scroll interactions;
 5. dialogs, menus, popups, and Liquid Glass rendering;
-6. page snapshot lifecycle and fallback background;
-7. player-route detection and synchronous mode disablement before entering video/trailer playback.
+6. player-route detection and synchronous mode disablement before entering video/trailer playback.
 
 Verify actual Compose/KMP ownership boundaries in `MainAppContent.kt`, `RootTabHost.kt`, `FloatingNavigationBar.kt`, and the player route/host code before deciding where the transform and snapshot belong. Do not assume every overlay or player surface is a descendant of one transform.
 
@@ -62,7 +66,7 @@ An app-level boundary is more consistent than scaling each screen separately and
 ## 5. State and transitions
 
 - **Disabled → Enabled:** long-press Library while on ordinary app UI.
-- **Enabled → Disabled:** long-press Library again, tap outside the reduced content, or initiate opening any video/trailer.
+- **Enabled → Disabled:** long-press Library again, use the explicit exit control, or initiate opening any video/trailer.
 - **Playback:** disable one-handed mode and release the snapshot before the player becomes visible; player uses the normal, unscaled layout.
 - **After playback:** remain disabled. Do not restore the prior enabled state.
 - **Navigation between ordinary screens:** retain the enabled state unless a disable trigger occurs. If the page changes while mode remains enabled, ensure the backdrop cannot display stale content; refresh it only at a well-defined foreground transition if needed, or use the fallback.
@@ -75,11 +79,12 @@ If route state can briefly report a player after its UI starts, explicitly disab
 - Preserve the existing Library tap and drag-to-select navigation behaviour.
 - Match the existing profile press-and-hold interaction's timing and pointer semantics, but route the Library hold directly to one-handed-mode toggle (no profile popup or other popup). Preserve normal Library taps and integrate with `detectJellyTabGestures` so its drag-to-select remains intact; avoid competing pointer-input detectors.
 - Taps on content within the reduced region must reach the correct controls; do not rely on a visual-only scale.
-- Taps in the outside region dismiss the mode without accidentally activating underlying UI.
+- Taps in the outside region do not dismiss the mode and never activate underlying UI.
 - Existing dialogs and popup menus should remain legible and anchored to the correct controls. If a platform dialog or popup cannot safely participate in the transform, document and handle it deliberately rather than allowing misaligned coordinates.
 - Preserve current Liquid Glass appearance, shape clipping, backdrop/effect bounds, and hit areas. No new background rendering loop or continuous polling.
 - Left/right positioning must not mirror content or change navigation order; it changes placement only.
-- Outside backdrop blur/dimming should be subtle, theme-aware, and use the captured page only as a static visual. The background must not receive user interaction.
+- Outside backdrop blur/dimming should be subtle and theme-aware. Prefer a live page when it can be rendered safely and efficiently; otherwise use an ephemeral snapshot, then a consistent frosted-glass fallback. The background must not receive user interaction.
+- Provide a visible resize handle. Dragging it changes scale continuously within explicit min/max bounds; it must not trigger page scrolling or side switching. Resizing must not recapture the backdrop.
 - On capture failure, invalid dimensions, or resource pressure, fall back to the frosted-glass treatment and retain a fully usable normal or reduced UI rather than crashing.
 
 ## 7. Video and trailer compatibility
@@ -117,7 +122,10 @@ The feature must not alter media selection, playback state, resume position, wat
 - Left/right placement works without mirroring or reordering content.
 - Outside-region tap dismisses mode and does not trigger underlying controls.
 - Scrolling, buttons, navigation, dialogs, popup menus, and Liquid Glass controls work at transformed coordinates.
-- Background snapshot visually matches the current page at activation, is blurred/dimmed, and does not intercept touch.
+- Live backdrop tracks visible page changes without receiving touch; when live rendering is unsafe, the snapshot visually matches the normal-size page at activation, is blurred/dimmed, and does not intercept touch.
+- Resize handle changes size continuously within bounds and preserves correct touch mapping.
+- Outside taps do not exit one-handed mode or activate underlying controls.
+- Android and iOS match the same visual and interaction specification, with documented platform limitations only where required.
 - Snapshot is disposed on exit, page/lifecycle teardown, and video/trailer launch; fallback works when capture fails.
 - Opening each supported video/trailer route disables mode and releases backdrop before player presentation.
 - Player remains unscaled and uncaptured; controls and playback continue normally.
