@@ -44,6 +44,23 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun explicitDisablePreservesPlacementAndUserScale() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Left,
+                scaleMultiplier = 1.2f,
+            ),
+        )
+
+        controller.disable()
+
+        assertFalse(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+        assertEquals(1.2f, controller.state.value.scaleMultiplier)
+    }
+
+    @Test
     fun playerEntryDisablesModeAndNeverRequestsAutomaticRestore() {
         val enabled = OneHandedModeState(enabled = true)
 
