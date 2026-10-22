@@ -51,7 +51,6 @@ import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
-import kotlin.math.abs
 
 private const val OneHandedScale = 0.78f
 private const val OneHandedMaxWidthDp = 600f
@@ -210,13 +209,12 @@ internal fun OneHandedPresentation(
                         val reducedHeight = height * gestureScale
                         val top = height - reducedHeight
 
-                        // Keep the thin top handle tappable/draggable, and keep the side arrow
+                        // Keep the thin top drag target, and keep the side arrow
                         // interactive even though both touch targets sit outside the reduced app.
                         val handleCenterX = width * (
                             currentPivotFraction.value * (1f - gestureScale) + gestureScale / 2f
                         )
                         val handleHalfWidth = 28.dp.toPx()
-                        val handleHalfHeight = 20.dp.toPx()
                         if (enabled &&
                             down.position.x in (handleCenterX - handleHalfWidth)..(handleCenterX + handleHalfWidth) &&
                             down.position.y in (top - 25.dp.toPx())..(top + 15.dp.toPx())
