@@ -13,9 +13,13 @@ import kotlinx.coroutines.flow.update
  * The immutable state is shared by every tab composition, especially on iOS where each native
  * tab owns a separate Compose root. It remains in memory only and is never persisted.
  */
+internal const val OneHandedMinimumScaleMultiplier = 0.55f
+internal const val OneHandedMaximumScaleMultiplier = 1.25f
+
 internal data class OneHandedModeState(
     val enabled: Boolean = false,
     val placement: OneHandedModePlacement = OneHandedModePlacement.Right,
+    val scaleMultiplier: Float = 1f,
 ) {
     fun toggle(): OneHandedModeState = copy(enabled = !enabled)
 
@@ -27,8 +31,19 @@ internal data class OneHandedModeState(
         },
     )
 
+    fun withScaleMultiplier(value: Float): OneHandedModeState = copy(
+        scaleMultiplier = normalizedOneHandedScaleMultiplier(value),
+    )
+
     fun disableForPlayerEntry(): OneHandedModeState = copy(enabled = false)
 }
+
+internal fun normalizedOneHandedScaleMultiplier(value: Float): Float =
+    if (value.isFinite()) {
+        value.coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
+    } else {
+        1f
+    }
 
 internal enum class OneHandedModePlacement {
     Left,
@@ -63,6 +78,10 @@ internal class OneHandedModeController(
 
     fun togglePlacement() {
         mutableState.update { current -> current.togglePlacement() }
+    }
+
+    fun updateScaleMultiplier(value: Float) {
+        mutableState.update { current -> current.withScaleMultiplier(value) }
     }
 
     fun disableForPlayerEntry() {
