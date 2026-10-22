@@ -59,6 +59,8 @@ The presentation boundary must coordinate:
 
 Verify actual Compose/KMP ownership boundaries in `MainAppContent.kt`, `RootTabHost.kt`, `FloatingNavigationBar.kt`, and the player route/host code before deciding where the transform and snapshot belong. Do not assume every overlay or player surface is a descendant of one transform.
 
+**iOS parity risk confirmed by source inspection:** `ContentView.swift` overlays the iOS 26 `NuvioGlassTabBar` at the SwiftUI `TabView` level, while `OneHandedPresentation` scales the Compose content inside each tab. The native/SwiftUI navigation chrome therefore sits outside that transform. Do not solve this by permanently hiding or replacing the original tab bar; determine a platform-correct way to make the enabled one-handed presentation match the reference while leaving normal navigation unchanged. This remains unverified until a native iOS build and device/simulator test are available.
+
 ### Why this approach
 
 An app-level boundary is more consistent than scaling each screen separately and less invasive than rebuilding the app inside a second miniature UI tree. A single boundary also centralizes hit testing, mode lifecycle, and backdrop disposal. The transform and snapshot should exist only while normal app content is displayed; neither should create work that continues in the background.
@@ -124,7 +126,7 @@ The feature must not alter media selection, playback state, resume position, wat
 - Live backdrop tracks visible page changes without receiving touch; when live rendering is unsafe, the snapshot visually matches the normal-size page at activation, is blurred/dimmed, and does not intercept touch.
 - Resize handle changes size continuously within bounds and preserves correct touch mapping.
 - Outside taps do not exit one-handed mode or activate underlying controls.
-- Android and iOS match the same visual and interaction specification, with documented platform limitations only where required.
+- Android and iOS use the same handle and side-arrow controls. Full-screen parity still needs platform verification: iOS's SwiftUI `TabView`/`NuvioGlassTabBar` is outside the Compose `OneHandedPresentation` transform in the current architecture.
 - Snapshot is disposed on exit, page/lifecycle teardown, and video/trailer launch; fallback works when capture fails.
 - Opening each supported video/trailer route disables mode and releases backdrop before player presentation.
 - Player remains unscaled and uncaptured; controls and playback continue normally.
