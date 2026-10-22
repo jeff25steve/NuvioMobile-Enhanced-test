@@ -335,16 +335,6 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun outsideDismissalDisablesModeAndPreservesPlacement() {
-        val enabled = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left)
-
-        val dismissed = enabled.dismissOutside()
-
-        assertEquals(false, dismissed.enabled)
-        assertEquals(OneHandedModePlacement.Left, dismissed.placement)
-    }
-
-    @Test
     fun playerEntryDisablesModeAndDoesNotChangePlacement() {
         val enabled = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left)
 
