@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.offset
@@ -25,6 +26,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -59,6 +62,11 @@ internal const val OneHandedMaximumViewportScale = 0.86f
 private const val OneHandedCompactScale = 0.78f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
+
+private data class OneHandedDragPreview(
+    val scaleMultiplier: Float,
+    val placement: OneHandedModePlacement,
+)
 
 private const val OneHandedSpringDamping = Spring.DampingRatioNoBouncy
 private const val OneHandedSpringStiffness = Spring.StiffnessMedium
@@ -160,6 +168,7 @@ internal fun OneHandedPresentation(
     val liveBackdrop = remember(backdropSource) {
         backdropSource?.let(::OneHandedLiveBackdrop)
     }
+    var dragPreview by remember { mutableStateOf<OneHandedDragPreview?>(null) }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
@@ -301,6 +310,32 @@ internal fun OneHandedPresentation(
             }
             content(contentModifier)
 
+            // Keep the live app untouched while the user positions/resizes it. This transient
+            // outline previews the target bounds under the drag and disappears when released.
+            dragPreview?.let { preview ->
+                val previewScale = oneHandedScaleForViewport(
+                    widthDp = maxWidth.value,
+                    heightDp = maxHeight.value,
+                    scaleMultiplier = preview.scaleMultiplier,
+                )
+                val previewPivot = if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
+                val previewLeft = maxWidth * (1f - previewScale) * previewPivot
+                val previewTop = maxHeight * (1f - previewScale)
+                Box(
+                    modifier = Modifier
+                        .offset(x = previewLeft, y = previewTop)
+                        .size(
+                            width = maxWidth * previewScale,
+                            height = maxHeight * previewScale,
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.84f),
+                            shape = RoundedCornerShape(16.dp),
+                        ),
+                )
+            }
+
             if (reduceContent) {
                 // Match the reference's grip interaction: the visible pill is tiny, but its
                 // transparent target is generous. Vertical movement continuously resizes the
@@ -316,15 +351,21 @@ internal fun OneHandedPresentation(
                         .size(width = 56.dp, height = 40.dp)
                         .pointerInput(enabled, forceNormalLayout) {
                             if (enabled && !forceNormalLayout) {
+                                var originalPlacement = currentPlacement.value
+                                var draggedPlacement = originalPlacement
                                 var totalHorizontalDragPx = 0f
                                 var draggedScaleMultiplier = currentScaleMultiplier.value
-                                var placementSwitched = false
                                 val sideSwitchThresholdPx = with(density) { 48.dp.toPx() }
                                 detectDragGestures(
                                     onDragStart = {
+                                        originalPlacement = currentPlacement.value
+                                        draggedPlacement = originalPlacement
                                         totalHorizontalDragPx = 0f
                                         draggedScaleMultiplier = currentScaleMultiplier.value
-                                        placementSwitched = false
+                                        dragPreview = OneHandedDragPreview(
+                                            scaleMultiplier = draggedScaleMultiplier,
+                                            placement = draggedPlacement,
+                                        )
                                     },
                                     onDrag = { change, dragAmount ->
                                         change.consume()
@@ -336,23 +377,29 @@ internal fun OneHandedPresentation(
                                             OneHandedMinimumScaleMultiplier,
                                             OneHandedMaximumScaleMultiplier,
                                         )
-                                        currentOnScaleMultiplierChange.value(draggedScaleMultiplier)
 
                                         totalHorizontalDragPx += dragAmount.x
-                                        if (!placementSwitched &&
-                                            abs(totalHorizontalDragPx) >= sideSwitchThresholdPx
-                                        ) {
-                                            val activePlacement = currentPlacement.value
-                                            val draggedTowardOtherSide =
-                                                (activePlacement == OneHandedModePlacement.Right &&
-                                                    totalHorizontalDragPx < 0f) ||
-                                                    (activePlacement == OneHandedModePlacement.Left &&
-                                                        totalHorizontalDragPx > 0f)
-                                            if (draggedTowardOtherSide) {
-                                                currentOnPlacementToggle.value()
-                                                placementSwitched = true
-                                            }
+                                        draggedPlacement = when {
+                                            totalHorizontalDragPx <= -sideSwitchThresholdPx ->
+                                                OneHandedModePlacement.Left
+                                            totalHorizontalDragPx >= sideSwitchThresholdPx ->
+                                                OneHandedModePlacement.Right
+                                            else -> originalPlacement
                                         }
+                                        dragPreview = OneHandedDragPreview(
+                                            scaleMultiplier = draggedScaleMultiplier,
+                                            placement = draggedPlacement,
+                                        )
+                                    },
+                                    onDragEnd = {
+                                        currentOnScaleMultiplierChange.value(draggedScaleMultiplier)
+                                        if (draggedPlacement != currentPlacement.value) {
+                                            currentOnPlacementToggle.value()
+                                        }
+                                        dragPreview = null
+                                    },
+                                    onDragCancel = {
+                                        dragPreview = null
                                     },
                                 )
                             }
