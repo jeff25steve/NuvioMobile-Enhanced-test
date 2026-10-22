@@ -2928,5 +2928,6 @@
     <string name="settings_liquid_glass_custom_icon_color_description">Use this color for neutral action icons where supported.</string>
     <string name="settings_liquid_glass_reset">Reset this area</string>
     <string name="settings_liquid_glass_done">Done</string>
+    <string name="settings_liquid_glass_default">Default</string>
 
 </resources>

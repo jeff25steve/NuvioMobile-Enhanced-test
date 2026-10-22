@@ -47,6 +47,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -66,6 +67,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_color_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_default
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
@@ -167,6 +169,7 @@ private fun LiquidGlassSurfaceSettingsCard(
     onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
 ) {
     val enabled = overrides.enabled ?: surface.defaultEnabled
+    val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface) { surfacePreviewRecipe(surface) }
     val title = stringResource(
         when (surface) {
@@ -185,7 +188,7 @@ private fun LiquidGlassSurfaceSettingsCard(
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding),
         shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp),
@@ -227,7 +230,8 @@ private fun LiquidGlassSurfaceSettingsCard(
                         title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
                         value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
                         valueRange = 0f..50f,
-                        valueLabel = "${(overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent).roundToInt()}%",
+                        valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
                         isTablet = isTablet,
                         steps = 49,
                         onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
@@ -236,52 +240,60 @@ private fun LiquidGlassSurfaceSettingsCard(
                         title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
                         value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
                         valueRange = 0f..32f,
-                        valueLabel = "${(overrides.blurRadiusDp ?: recipe.blurRadiusDp).roundToInt()} dp",
+                        valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
                         isTablet = isTablet,
                         steps = 31,
                         onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
                     )
-                    LiquidGlassEffectSlider(
-                        title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
-                        value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
-                        valueRange = 0f..48f,
-                        valueLabel = "${(overrides.refractionHeightDp ?: recipe.refractionHeightDp).roundToInt()} dp",
-                        isTablet = isTablet,
-                        steps = 47,
-                        onValueChange = { onChanged(overrides.copy(refractionHeightDp = it)) },
-                    )
-                    LiquidGlassEffectSlider(
-                        title = stringResource(Res.string.settings_nav_bar_glass_refraction_amount),
-                        value = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
-                        valueRange = 0f..48f,
-                        valueLabel = "${(overrides.refractionAmountDp ?: recipe.refractionAmountDp).roundToInt()} dp",
-                        isTablet = isTablet,
-                        steps = 47,
-                        onValueChange = { onChanged(overrides.copy(refractionAmountDp = it)) },
-                    )
+                    if (refractionSupported) {
+                        LiquidGlassEffectSlider(
+                            title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
+                            value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
+                            valueRange = 0f..48f,
+                            valueLabel = overrides.refractionHeightDp?.let { "${it.roundToInt()} dp" }
+                                ?: stringResource(Res.string.settings_liquid_glass_default),
+                            isTablet = isTablet,
+                            steps = 47,
+                            onValueChange = { onChanged(overrides.copy(refractionHeightDp = it)) },
+                        )
+                        LiquidGlassEffectSlider(
+                            title = stringResource(Res.string.settings_nav_bar_glass_refraction_amount),
+                            value = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
+                            valueRange = 0f..48f,
+                            valueLabel = overrides.refractionAmountDp?.let { "${it.roundToInt()} dp" }
+                                ?: stringResource(Res.string.settings_liquid_glass_default),
+                            isTablet = isTablet,
+                            steps = 47,
+                            onValueChange = { onChanged(overrides.copy(refractionAmountDp = it)) },
+                        )
+                    }
                     LiquidGlassEffectSlider(
                         title = stringResource(Res.string.settings_nav_bar_glass_tint_opacity),
                         value = overrides.tintOpacity ?: recipe.tintOpacity,
                         valueRange = 0f..1f,
-                        valueLabel = "${((overrides.tintOpacity ?: recipe.tintOpacity) * 100f).roundToInt()}%",
+                        valueLabel = overrides.tintOpacity?.let { "${(it * 100f).roundToInt()}%" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
                         isTablet = isTablet,
                         steps = 19,
                         onValueChange = { onChanged(overrides.copy(tintOpacity = it)) },
                     )
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration),
-                        description = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration_description),
-                        checked = overrides.chromaticAberration ?: false,
-                        isTablet = isTablet,
-                        onCheckedChange = { onChanged(overrides.copy(chromaticAberration = it)) },
-                    )
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_nav_bar_glass_depth_effect),
-                        description = stringResource(Res.string.settings_nav_bar_glass_depth_effect_description),
-                        checked = overrides.depthEffect ?: false,
-                        isTablet = isTablet,
-                        onCheckedChange = { onChanged(overrides.copy(depthEffect = it)) },
-                    )
+                    if (refractionSupported) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration),
+                            description = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration_description),
+                            checked = overrides.chromaticAberration ?: false,
+                            isTablet = isTablet,
+                            onCheckedChange = { onChanged(overrides.copy(chromaticAberration = it)) },
+                        )
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_nav_bar_glass_depth_effect),
+                            description = stringResource(Res.string.settings_nav_bar_glass_depth_effect_description),
+                            checked = overrides.depthEffect ?: false,
+                            isTablet = isTablet,
+                            onCheckedChange = { onChanged(overrides.copy(depthEffect = it)) },
+                        )
+                    }
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
                         description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
@@ -308,14 +320,14 @@ private fun LiquidGlassSurfaceSettingsCard(
                             )
                         }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
-                            Text(stringResource(Res.string.settings_liquid_glass_reset))
-                        }
-                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
+                    Text(stringResource(Res.string.settings_liquid_glass_reset))
                 }
             }
         }
@@ -400,13 +412,14 @@ private fun SurfacePreviewIcon(
                 refractionAmount = recipe.refractionAmountDp.dp,
                 withVibrancy = true,
                 withHighlight = true,
+                preview = true,
             ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = liquidGlassIconTint(surface, Color.White),
+            tint = liquidGlassIconTint(surface, Color.White, preview = true),
             modifier = Modifier.size(20.dp),
         )
     }

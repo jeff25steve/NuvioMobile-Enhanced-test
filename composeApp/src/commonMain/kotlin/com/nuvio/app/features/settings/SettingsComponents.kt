@@ -58,6 +58,12 @@ import com.nuvio.app.core.ui.gradientMask
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.home.HomeCatalogSettingsItem
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_homescreen_collection_with_addon
@@ -79,10 +85,32 @@ private fun SettingsCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val defaultCardShape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard
+    val glassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
+    val cardShape = if (glassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape)
+    } else {
+        defaultCardShape
+    }
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = tokens.colors.surface,
-        shape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard,
+        modifier = modifier.fillMaxWidth().then(
+            if (glassEnabled) {
+                Modifier.liquidGlassForSurface(
+                    surface = LiquidGlassSurface.SETTINGS,
+                    shape = cardShape,
+                    tint = tokens.colors.surface.copy(alpha = 0.45f),
+                    fallback = tokens.colors.surface,
+                    blurRadius = 14.dp,
+                    refractionHeight = 8.dp,
+                    refractionAmount = 12.dp,
+                )
+            } else {
+                Modifier
+            },
+        ),
+        color = if (glassEnabled) Color.Transparent else tokens.colors.surface,
+        shape = cardShape,
         border = BorderStroke(
             tokens.borders.hairline,
             tokens.colors.borderSubtle,
@@ -198,7 +226,7 @@ internal fun SettingsSidebarItem(
                     } else {
                         Modifier
                     },
-                    tint = if (selected) primary else contentColor,
+                    tint = if (selected) primary else liquidGlassIconTint(LiquidGlassSurface.SETTINGS, contentColor),
                 )
             }
         }

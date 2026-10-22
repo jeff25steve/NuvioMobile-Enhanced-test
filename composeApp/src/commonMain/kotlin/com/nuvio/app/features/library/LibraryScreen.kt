@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -68,6 +69,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.runtime.getValue
@@ -98,6 +100,15 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.i18n.localizedMonthName
 import com.nuvio.app.core.i18n.localizedShortMonthName
 import com.nuvio.app.core.ui.ScreenActivityEffect
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.i18n.localizedByteUnit
 import com.nuvio.app.core.format.resolveReleaseInfoForDisplay
 import com.nuvio.app.core.network.NetworkCondition
@@ -441,7 +452,22 @@ fun LibraryScreen(
         emptyList()
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    val libraryBackdrop = rememberNuvioBackdrop()
+    val libraryGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
+    Box(modifier = modifier.fillMaxSize()) {
+        if (libraryGlassEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .nuvioBackdropSource(libraryBackdrop),
+            )
+        }
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides if (libraryGlassEnabled) libraryBackdrop else null,
+        ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             androidx.compose.foundation.layout.Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -467,7 +493,24 @@ fun LibraryScreen(
                     onModeSelected = { mode ->
                         sourceModeName = mode.name
                     },
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .then(
+                            if (libraryGlassEnabled) {
+                                val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(20.dp))
+                                Modifier.liquidGlassForSurface(
+                                    surface = LiquidGlassSurface.LIBRARY,
+                                    shape = shape,
+                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+                                    fallback = MaterialTheme.colorScheme.surface,
+                                    blurRadius = 14.dp,
+                                    refractionHeight = 8.dp,
+                                    refractionAmount = 12.dp,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
                 ) {
                     if (sourceMode == LibraryViewMode.Saved) {
                         LibraryListManagementButton()
@@ -497,7 +540,7 @@ fun LibraryScreen(
                                     } else {
                                         stringResource(Res.string.library_layout_show_horizontal)
                                     },
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
                                 )
                             }
                         }
@@ -512,7 +555,7 @@ fun LibraryScreen(
                         ) {
                             LibraryCalendarGlyph(
                                 modifier = Modifier.size(19.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
                                 cutoutColor = MaterialTheme.colorScheme.background,
                             )
                         }
@@ -711,6 +754,8 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
+    }
         }
     }
     }

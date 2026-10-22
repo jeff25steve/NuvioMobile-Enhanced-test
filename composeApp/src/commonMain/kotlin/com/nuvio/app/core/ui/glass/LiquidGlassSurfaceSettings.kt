@@ -3,8 +3,8 @@ package com.nuvio.app.core.ui.glass
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -60,7 +60,7 @@ internal data class LiquidGlassSurfaceOverrides(
     )
 
     private fun Float?.inheritOrClamp(minimum: Float, maximum: Float): Float? =
-        this?.takeIf(Float::isFinite)?.coerceIn(minimum, maximum)
+        this?.takeIf { it.isFinite() }?.coerceIn(minimum, maximum)
 }
 
 @Serializable
@@ -127,6 +127,11 @@ internal fun decodeLiquidGlassSurfaceSettings(raw: String?): LiquidGlassSurfaces
  * recipes therefore remain pixel-for-pixel unchanged until that area is customized.
  */
 @Composable
+internal fun liquidGlassShape(surface: LiquidGlassSurface, defaultShape: Shape): Shape =
+    LiquidGlassSettings.surfaceOverrides.forSurface(surface).cornerRadiusPercent?.let { percent ->
+        RoundedCornerShape(percent = percent.roundToInt())
+    } ?: defaultShape
+
 internal fun Modifier.liquidGlassForSurface(
     surface: LiquidGlassSurface,
     shape: Shape,
@@ -139,16 +144,16 @@ internal fun Modifier.liquidGlassForSurface(
     withHighlight: Boolean = true,
     withShadow: Boolean = false,
     backdropOpacity: Float = 1f,
+    preview: Boolean = false,
 ): Modifier {
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (!(overrides.enabled ?: surface.defaultEnabled)) return this
+    if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) return this
 
-    val effectiveShape = overrides.cornerRadiusPercent?.let { percent ->
-        RoundedCornerShape(percent = percent.roundToInt())
-    } ?: shape
-    val effectiveTint = overrides.tintOpacity?.let(tint::copyAlpha) ?: tint
+    val effectiveShape = liquidGlassShape(surface, shape)
+    val effectiveTint = overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint
 
-    return ambientLiquidGlass(
+    val baseModifier = if (overrides.cornerRadiusPercent != null) this.clip(effectiveShape) else this
+    return baseModifier.ambientLiquidGlass(
         shape = effectiveShape,
         tint = effectiveTint,
         fallback = fallback,
@@ -164,14 +169,16 @@ internal fun Modifier.liquidGlassForSurface(
     )
 }
 
-private fun Color.copyAlpha(alphaOverride: Float): Color = copy(alpha = alphaOverride)
-
 @Composable
-internal fun liquidGlassIconTint(surface: LiquidGlassSurface, default: Color): Color {
-    if (!LiquidGlassSettings.enabled) return default
+internal fun liquidGlassIconTint(
+    surface: LiquidGlassSurface,
+    default: Color,
+    preview: Boolean = false,
+): Color {
+    if (!preview && !LiquidGlassSettings.enabled) return default
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (!(overrides.enabled ?: surface.defaultEnabled)) return default
-    return overrides.defaultIconColorArgb?.let(::Color) ?: default
+    if (!preview && !(overrides.enabled ?: surface.defaultEnabled)) return default
+    return overrides.defaultIconColorArgb?.let { Color(it).copy(alpha = default.alpha) } ?: default
 }
 
 /** Used by components that need to fall back to their original control when a surface is disabled. */

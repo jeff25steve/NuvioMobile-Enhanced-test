@@ -96,7 +96,12 @@ import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 import com.nuvio.app.core.ui.NuvioTokens
 import androidx.compose.material3.OutlinedTextField
@@ -611,13 +616,30 @@ internal fun ResumeBanner(
         else -> null
     } ?: return
 
+    val defaultShape = RoundedCornerShape(18.dp)
+    val glassAllowed = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)
+    val shape = if (glassAllowed) {
+        liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape)
+    } else {
+        defaultShape
+    }
+    val fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .ambientLiquidGlass(
-                shape = RoundedCornerShape(18.dp),
-                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            .then(
+                if (glassAllowed) {
+                    Modifier
+                        .clip(shape)
+                        .liquidGlassForSurface(
+                            surface = LiquidGlassSurface.STREAM_SELECTION,
+                            shape = shape,
+                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                            fallback = fallback,
+                        )
+                } else {
+                    Modifier.clip(shape).background(fallback, shape)
+                },
             )
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -1409,7 +1431,7 @@ private fun EmptyStateBlock(
             imageVector = Icons.Rounded.SearchOff,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = liquidGlassIconTint(LiquidGlassSurface.STREAM_SELECTION, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -1501,12 +1523,12 @@ internal fun StreamSearchField(
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.streams_search_clear),
-                    tint = MaterialTheme.nuvio.colors.textMuted,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.STREAM_SELECTION, MaterialTheme.nuvio.colors.textMuted),
                 )
             }
         }
     }
-    if (!isAmbientLiquidGlassActive()) {
+    if (!isAmbientLiquidGlassActive() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,
@@ -1517,12 +1539,16 @@ internal fun StreamSearchField(
         return
     }
     val tokens = MaterialTheme.nuvio
-    val fieldShape = RoundedCornerShape(NuvioTokens.Radius.lg)
+    val fieldShape = liquidGlassShape(
+        LiquidGlassSurface.STREAM_SELECTION,
+        RoundedCornerShape(NuvioTokens.Radius.lg),
+    )
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(fieldShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.STREAM_SELECTION,
                 shape = fieldShape,
                 tint = Color.White.copy(alpha = 0.05f).compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)),
                 fallback = tokens.colors.surfaceCard,

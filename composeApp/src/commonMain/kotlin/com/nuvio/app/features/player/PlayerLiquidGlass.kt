@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
@@ -29,6 +31,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import kotlin.math.roundToInt
 
@@ -72,19 +76,34 @@ internal fun Modifier.playerLiquidGlass(
     backdropOpacity: Float = PlayerGlassBackdropOpacity,
     rim: Boolean = true,
 ): Modifier {
-    val glass = clip(shape).ambientLiquidGlass(
-        shape = shape,
-        tint = tint,
-        fallback = fallback,
-        blurRadius = blurRadius,
-        refractionHeight = refractionHeight,
-        refractionAmount = refractionAmount,
-        withVibrancy = true,
-        withHighlight = true,
-        withShadow = false,
-        backdropOpacity = backdropOpacity,
-    )
-    return if (rim) glass.border(0.75.dp, PlayerGlassRim, shape) else glass
+    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+    val enabled = LiquidGlassSettings.enabled && (overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled)
+    val effectiveShape = if (enabled) {
+        overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) } ?: shape
+    } else {
+        shape
+    }
+    val effectiveTint = if (enabled) overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint else tint
+    val glass = if (!enabled) {
+        // The master switch and this area's switch both restore the original fallback appearance.
+        clip(shape).background(fallback, shape)
+    } else {
+        clip(effectiveShape).ambientLiquidGlass(
+            shape = effectiveShape,
+            tint = effectiveTint,
+            fallback = fallback,
+            blurRadius = overrides.blurRadiusDp?.dp ?: blurRadius,
+            refractionHeight = overrides.refractionHeightDp?.dp ?: refractionHeight,
+            refractionAmount = overrides.refractionAmountDp?.dp ?: refractionAmount,
+            withVibrancy = true,
+            withHighlight = true,
+            withShadow = false,
+            backdropOpacity = backdropOpacity,
+            chromaticAberration = overrides.chromaticAberration ?: false,
+            depthEffect = overrides.depthEffect ?: false,
+        )
+    }
+    return if (rim) glass.border(0.75.dp, PlayerGlassRim, effectiveShape) else glass
 }
 
 // Keep the captured frame identical to the real picture so the glass reads as transparent (no dimming).

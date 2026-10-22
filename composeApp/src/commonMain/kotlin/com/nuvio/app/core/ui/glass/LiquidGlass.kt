@@ -56,7 +56,7 @@ object LiquidGlassSettings {
     var enabled: Boolean by mutableStateOf(true)
 
     /** Profile-scoped per-area overrides; null fields preserve each original component recipe. */
-    var surfaceOverrides: LiquidGlassSurfacesSettings by mutableStateOf(LiquidGlassSurfacesSettings())
+    internal var surfaceOverrides: LiquidGlassSurfacesSettings by mutableStateOf(LiquidGlassSurfacesSettings())
 }
 
 fun isLiquidGlassAvailable(): Boolean = isRenderEffectSupported()
@@ -288,7 +288,7 @@ internal fun Modifier.liquidGlassSurface(
             effects = {
                 if (withVibrancy) vibrancy()
                 if (blurRadius > 0.dp) blur(blurRadius.toPx())
-                if (shape is CornerBasedShape && refractionHeight > 0.dp && refractionAmount > 0.dp) {
+                if (shape is CornerBasedShape && refractionHeight > 0.dp && refractionAmount > 0.dp && isLiquidRefractionSupported()) {
                     lens(
                         refractionHeight = refractionHeight.toPx().coerceAtMost(size.minDimension / 2f),
                         refractionAmount = refractionAmount.toPx(),
