@@ -108,7 +108,7 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun compactViewportLeftPlacementDismissesOutsideTapWithoutActivatingContent() {
+    fun compactViewportLeftPlacementDoesNotDismissOrActivateOutsideContent() {
         setContent(compactViewport = true, placement = OneHandedModePlacement.Left)
 
         compose.onNodeWithTag("compactViewport").performTouchInput {
@@ -117,7 +117,7 @@ class OneHandedPresentationTest {
 
         compose.runOnIdle {
             assertEquals(0, insideClickCount)
-            assertEquals(1, outsideDismissCount)
+            assertEquals(0, outsideDismissCount)
         }
     }
 
@@ -149,7 +149,7 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun compactViewportOutsideTapDismissesWithoutActivatingContent() {
+    fun compactViewportOutsideTapDoesNotDismissOrActivateContent() {
         setContent(compactViewport = true)
 
         compose.onNodeWithTag("compactViewport").performTouchInput {
@@ -189,49 +189,7 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun outsideTapUsesLatestCallbackAfterRecomposition() {
-        var firstCallbackCount = 0
-        var latestCallbackCount = 0
-        val useLatestCallback = mutableStateOf(false)
-
-        compose.setContent {
-            MaterialTheme {
-                Box(Modifier.size(320.dp, 568.dp)) {
-                    OneHandedPresentation(
-                        enabled = true,
-                        placement = OneHandedModePlacement.Right,
-                        forceNormalLayout = false,
-                        onOutsideTap = if (useLatestCallback.value) {
-                            { latestCallbackCount++ }
-                        } else {
-                            { firstCallbackCount++ }
-                        },
-                        onPlacementToggle = {},
-                        placementToggleDescription = "Move app to the other side",
-                    ) { contentModifier ->
-                        Box(contentModifier.fillMaxSize())
-                    }
-                }
-            }
-        }
-
-        compose.runOnIdle {
-            useLatestCallback.value = true
-        }
-        compose.waitForIdle()
-
-        compose.onRoot().performTouchInput {
-            click(Offset(size.width * 0.1f, size.height * 0.1f))
-        }
-
-        compose.runOnIdle {
-            assertEquals(0, firstCallbackCount)
-            assertEquals(1, latestCallbackCount)
-        }
-    }
-
-    @Test
-    fun outsideTapDismissesWithoutActivatingUnderlyingContent() {
+    fun outsideTapIsConsumedWithoutActivatingUnderlyingContent() {
         setContent()
 
         compose.onRoot().performTouchInput {
@@ -245,7 +203,7 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun roundedCornerOutsideSurfaceDismisses() {
+    fun roundedCornerOutsideTapDoesNotActivateContent() {
         setContent()
 
         compose.onRoot().performTouchInput {
@@ -306,7 +264,6 @@ class OneHandedPresentationTest {
         compose.runOnIdle {
             assertEquals(1, compose.onNodeWithText("first:true").fetchSemanticsNodes().size)
             assertEquals(1, compose.onNodeWithText("second:true").fetchSemanticsNodes().size)
-            controller.dismissOutside()
         }
 
         compose.waitForIdle()
@@ -419,7 +376,6 @@ class OneHandedPresentationTest {
             enabled = true,
             placement = placement,
             forceNormalLayout = forceNormalLayout,
-            onOutsideTap = { outsideDismissCount++ },
             onPlacementToggle = { placementToggleCount++ },
             placementToggleDescription = "Move app to the other side",
             onExit = { exitCount++ },
@@ -463,7 +419,6 @@ class OneHandedPresentationTest {
                         enabled = true,
                         placement = OneHandedModePlacement.Right,
                         forceNormalLayout = false,
-                        onOutsideTap = { outsideDismissCount++ },
                         onPlacementToggle = {},
                         placementToggleDescription = "Move app to the other side",
                     ) { contentModifier ->
@@ -515,7 +470,6 @@ class OneHandedPresentationTest {
                         enabled = true,
                         placement = OneHandedModePlacement.Right,
                         forceNormalLayout = false,
-                        onOutsideTap = { outsideDismissCount++ },
                         onPlacementToggle = {},
                         placementToggleDescription = "Move app to the other side",
                     ) { contentModifier ->
@@ -571,7 +525,6 @@ class OneHandedPresentationTest {
                         enabled = true,
                         placement = OneHandedModePlacement.Right,
                         forceNormalLayout = false,
-                        onOutsideTap = { outsideDismissCount++ },
                         onPlacementToggle = {},
                         placementToggleDescription = "Move app to the other side",
                     ) { contentModifier ->
