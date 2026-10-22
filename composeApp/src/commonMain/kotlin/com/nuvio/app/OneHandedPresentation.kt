@@ -6,7 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
@@ -48,6 +48,7 @@ import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import kotlin.math.abs
 
 private const val OneHandedScale = 0.78f
 private const val OneHandedMaxWidthDp = 600f
@@ -98,8 +99,6 @@ internal fun OneHandedPresentation(
     onScaleMultiplierChange: (Float) -> Unit = {},
     onPlacementToggle: () -> Unit,
     placementToggleDescription: String,
-    onExit: () -> Unit = {},
-    exitDescription: String = "Exit one-handed mode",
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
@@ -150,6 +149,7 @@ internal fun OneHandedPresentation(
     val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
     val currentScaleMultiplier = rememberUpdatedState(scaleMultiplier)
     val currentOnScaleMultiplierChange = rememberUpdatedState(onScaleMultiplierChange)
+    val currentOnPlacementToggle = rememberUpdatedState(onPlacementToggle)
     val density = LocalDensity.current
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val currentPlacement = rememberUpdatedState(placement)
@@ -302,8 +302,10 @@ internal fun OneHandedPresentation(
             content(contentModifier)
 
             if (reduceContent) {
-                // Match the reference: a fine pill just above the scaled surface. The broad
-                // transparent target remains easy to touch; tap exits, vertical drag resizes.
+                // Match the reference's grip interaction: the visible pill is tiny, but its
+                // transparent target is generous. Vertical movement continuously resizes the
+                // bottom-anchored surface; a deliberate horizontal drag snaps it to the other side.
+                // A tap alone is inert, so this control never accidentally exits the mode.
                 val handleCenterX = maxWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
                 )
@@ -312,27 +314,51 @@ internal fun OneHandedPresentation(
                     modifier = Modifier
                         .offset(x = handleCenterX - 28.dp, y = handleTop)
                         .size(width = 56.dp, height = 40.dp)
-                        .clickable(onClick = onExit)
                         .pointerInput(enabled, forceNormalLayout) {
                             if (enabled && !forceNormalLayout) {
-                                detectVerticalDragGestures(
-                                    onVerticalDrag = { change, dragAmount ->
+                                var totalHorizontalDragPx = 0f
+                                var draggedScaleMultiplier = currentScaleMultiplier.value
+                                var placementSwitched = false
+                                val sideSwitchThresholdPx = with(density) { 48.dp.toPx() }
+                                detectDragGestures(
+                                    onDragStart = {
+                                        totalHorizontalDragPx = 0f
+                                        draggedScaleMultiplier = currentScaleMultiplier.value
+                                        placementSwitched = false
+                                    },
+                                    onDrag = { change, dragAmount ->
                                         change.consume()
-                                        val availableHeightPx = currentViewportHeightPx.value
-                                        val nextMultiplier = (
-                                            currentScaleMultiplier.value - dragAmount / availableHeightPx
+                                        val availableHeightPx =
+                                            currentViewportHeightPx.value.coerceAtLeast(1f)
+                                        draggedScaleMultiplier = (
+                                            draggedScaleMultiplier - dragAmount.y / availableHeightPx
                                         ).coerceIn(
                                             OneHandedMinimumScaleMultiplier,
                                             OneHandedMaximumScaleMultiplier,
                                         )
-                                        currentOnScaleMultiplierChange.value(nextMultiplier)
+                                        currentOnScaleMultiplierChange.value(draggedScaleMultiplier)
+
+                                        totalHorizontalDragPx += dragAmount.x
+                                        if (!placementSwitched &&
+                                            abs(totalHorizontalDragPx) >= sideSwitchThresholdPx
+                                        ) {
+                                            val activePlacement = currentPlacement.value
+                                            val draggedTowardOtherSide =
+                                                (activePlacement == OneHandedModePlacement.Right &&
+                                                    totalHorizontalDragPx < 0f) ||
+                                                    (activePlacement == OneHandedModePlacement.Left &&
+                                                        totalHorizontalDragPx > 0f)
+                                            if (draggedTowardOtherSide) {
+                                                currentOnPlacementToggle.value()
+                                                placementSwitched = true
+                                            }
+                                        }
                                     },
                                 )
                             }
                         }
                         .semantics {
-                            contentDescription = "$exitDescription, drag to resize"
-                            role = Role.Button
+                            contentDescription = "Move or resize one-handed mode"
                         },
                     contentAlignment = Alignment.Center,
                 ) {
