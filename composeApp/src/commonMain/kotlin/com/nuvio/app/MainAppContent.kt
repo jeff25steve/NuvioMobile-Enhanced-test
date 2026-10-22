@@ -1604,6 +1604,9 @@ internal fun MainAppContent(
                     onScaleMultiplierChange = { appOneHandedModeController.updateScaleMultiplier(it) },
                     verticalPosition = oneHandedModeState.verticalPosition,
                     onVerticalPositionChange = { appOneHandedModeController.updateVerticalPosition(it) },
+                    onResizeCommit = { scale, position ->
+                        appOneHandedModeController.updateResize(scale, position)
+                    },
                     onPlacementToggle = { appOneHandedModeController.togglePlacement() },
                     placementToggleDescription = oneHandedSwitchSideDescription,
                 ) { presentationModifier ->
