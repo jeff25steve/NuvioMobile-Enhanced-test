@@ -177,6 +177,7 @@ class OneHandedPresentationTest {
             }
         }
 
+        compose.waitForIdle()
         val handle = compose.onNodeWithContentDescription("Move window vertically")
         val startingHandleTop = handle.fetchSemanticsNode().boundsInRoot.top
 
