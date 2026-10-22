@@ -135,6 +135,39 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun resizeMultiplierBoundsMatchReachableScaleOnPhonesAndLargeScreens() {
+        val phoneWidth = 393f
+        val phoneHeight = 852f
+        val phoneBounds = oneHandedScaleMultiplierBounds(phoneWidth, phoneHeight)
+        assertEquals(
+            oneHandedScaleForViewport(phoneWidth, phoneHeight, OneHandedMinimumScaleMultiplier),
+            oneHandedScaleForViewport(phoneWidth, phoneHeight, phoneBounds.start),
+            0.001f,
+        )
+        assertEquals(
+            oneHandedScaleForViewport(phoneWidth, phoneHeight, OneHandedMaximumScaleMultiplier),
+            oneHandedScaleForViewport(phoneWidth, phoneHeight, phoneBounds.endInclusive),
+            0.001f,
+        )
+        assertTrue(phoneBounds.endInclusive < OneHandedMaximumScaleMultiplier)
+
+        val tabletWidth = 1200f
+        val tabletHeight = 1600f
+        val tabletBounds = oneHandedScaleMultiplierBounds(tabletWidth, tabletHeight)
+        assertEquals(
+            oneHandedScaleForViewport(tabletWidth, tabletHeight, OneHandedMinimumScaleMultiplier),
+            oneHandedScaleForViewport(tabletWidth, tabletHeight, tabletBounds.start),
+            0.001f,
+        )
+        assertEquals(
+            oneHandedScaleForViewport(tabletWidth, tabletHeight, OneHandedMaximumScaleMultiplier),
+            oneHandedScaleForViewport(tabletWidth, tabletHeight, tabletBounds.endInclusive),
+            0.001f,
+        )
+        assertTrue(tabletBounds.endInclusive <= 1f)
+    }
+
+    @Test
     fun viewportScaleChangesContinuouslyWithTheMultiplierWithinSafeBounds() {
         val baseScale = oneHandedScaleForViewport(393f, 852f)
         val smallerScale = oneHandedScaleForViewport(393f, 852f, 0.7f)
