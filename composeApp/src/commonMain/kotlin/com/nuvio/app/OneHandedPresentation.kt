@@ -670,17 +670,12 @@ internal fun OneHandedPresentation(
  * bounds. The user-controlled multiplier is clamped independently of the viewport cap. Scaling
  * reduces effective touch-target size, so device testing remains necessary.
  */
-internal fun oneHandedScaleForViewport(
+private fun oneHandedBaseScaleForViewport(
     widthDp: Float,
     heightDp: Float,
-    scaleMultiplier: Float = 1f,
 ): Float {
-    val multiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier)
     if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
-        return (OneHandedScale * multiplier).coerceIn(
-            OneHandedMinimumViewportScale,
-            OneHandedMaximumViewportScale,
-        )
+        return OneHandedScale
     }
     val preferredScale = if (
         widthDp <= OneHandedCompactWidthDp || heightDp <= OneHandedCompactHeightDp
@@ -689,16 +684,35 @@ internal fun oneHandedScaleForViewport(
     } else {
         OneHandedScale
     }
-    val baseScale = minOf(
+    return minOf(
         preferredScale,
         OneHandedMaxWidthDp / widthDp,
         OneHandedMaxHeightDp / heightDp,
     ).coerceIn(OneHandedMinimumScale, preferredScale)
-    val viewportMaximumScale = minOf(
+}
+
+private fun oneHandedMaximumScaleForViewport(
+    widthDp: Float,
+    heightDp: Float,
+): Float {
+    if (!widthDp.isFinite() || !heightDp.isFinite() || widthDp <= 0f || heightDp <= 0f) {
+        return OneHandedMaximumViewportScale
+    }
+    return minOf(
         OneHandedMaximumViewportScale,
         OneHandedMaxWidthDp / widthDp,
         OneHandedMaxHeightDp / heightDp,
     ).coerceAtLeast(OneHandedMinimumViewportScale)
+}
+
+internal fun oneHandedScaleForViewport(
+    widthDp: Float,
+    heightDp: Float,
+    scaleMultiplier: Float = 1f,
+): Float {
+    val multiplier = normalizedOneHandedScaleMultiplier(scaleMultiplier)
+    val baseScale = oneHandedBaseScaleForViewport(widthDp, heightDp)
+    val viewportMaximumScale = oneHandedMaximumScaleForViewport(widthDp, heightDp)
     return (baseScale * multiplier).coerceIn(
         OneHandedMinimumViewportScale,
         viewportMaximumScale,
@@ -714,15 +728,13 @@ internal fun oneHandedScaleMultiplierBounds(
     widthDp: Float,
     heightDp: Float,
 ): ClosedFloatingPointRange<Float> {
-    val scaleAtUnitMultiplier = oneHandedScaleForViewport(widthDp, heightDp, 1f)
+    val baseScale = oneHandedBaseScaleForViewport(widthDp, heightDp)
         .coerceAtLeast(0.001f)
     val minimumMultiplier = (
-        oneHandedScaleForViewport(widthDp, heightDp, OneHandedMinimumScaleMultiplier) /
-            scaleAtUnitMultiplier
+        OneHandedMinimumViewportScale / baseScale
         ).coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
     val maximumMultiplier = (
-        oneHandedScaleForViewport(widthDp, heightDp, OneHandedMaximumScaleMultiplier) /
-            scaleAtUnitMultiplier
+        oneHandedMaximumScaleForViewport(widthDp, heightDp) / baseScale
         ).coerceIn(OneHandedMinimumScaleMultiplier, OneHandedMaximumScaleMultiplier)
     return minimumMultiplier..maximumOf(minimumMultiplier, maximumMultiplier)
 }
