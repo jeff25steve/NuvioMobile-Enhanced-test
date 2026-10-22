@@ -429,6 +429,29 @@ internal fun OneHandedPresentation(
                             ),
                     )
 
+                    if (preview.kind == OneHandedDragKind.Position) {
+                        // Only the visual pill follows the outline. Its pointer input target stays
+                        // fixed at the original grip so moving the visual cannot distort drag deltas.
+                        val previewHandleCenterX = maxWidth * (
+                            pivotFraction * (1f - previewScale) + previewScale / 2f
+                        )
+                        Box(
+                            modifier = Modifier
+                                .offset(x = previewHandleCenterX - 28.dp, y = previewTop - 25.dp)
+                                .size(width = 56.dp, height = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(width = 40.dp, height = 3.dp)
+                                    .background(
+                                        color = Color.White.copy(alpha = 0.88f),
+                                        shape = RoundedCornerShape(3.dp),
+                                    ),
+                            )
+                        }
+                    }
+
                     if (preview.kind == OneHandedDragKind.Resize) {
                         val currentFreeSpace = maxHeight * (1f - scale)
                         val currentTravel = (currentFreeSpace - OneHandedTopHandleGapDp.dp)
@@ -473,21 +496,15 @@ internal fun OneHandedPresentation(
                     .coerceAtLeast(0.dp)
                 val currentSurfaceTop = currentFreeSpace -
                     currentVerticalTravel * animatedVerticalPosition
-                val positionPreview = dragPreview?.takeIf {
-                    it.kind == OneHandedDragKind.Position
-                }
-                val handleSurfaceTop = positionPreview?.let { preview ->
-                    currentFreeSpace - currentVerticalTravel * preview.verticalPosition
-                } ?: currentSurfaceTop
                 val handleCenterX = maxWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
                 )
-                // During a position drag, the pill follows the preview outline. During corner
-                // resize the corner markers take focus, so hide the pill until the gesture ends.
+                // Keep the pointer-input target fixed at the live grip while its visual pill
+                // follows the independent drag-preview outline.
                 if (dragPreview?.kind != OneHandedDragKind.Resize) {
                     Box(
                         modifier = Modifier
-                            .offset(x = handleCenterX - 28.dp, y = handleSurfaceTop - 25.dp)
+                            .offset(x = handleCenterX - 28.dp, y = currentSurfaceTop - 25.dp)
                             .size(width = 56.dp, height = 40.dp)
                             .pointerInput(enabled, forceNormalLayout, maxWidth, maxHeight) {
                                 if (enabled && !forceNormalLayout) {
@@ -535,14 +552,16 @@ internal fun OneHandedPresentation(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            Modifier
-                                .size(width = 40.dp, height = 3.dp)
-                                .background(
-                                    color = Color.White.copy(alpha = 0.88f),
-                                    shape = RoundedCornerShape(3.dp),
-                                ),
-                        )
+                        if (dragPreview?.kind != OneHandedDragKind.Position) {
+                            Box(
+                                Modifier
+                                    .size(width = 40.dp, height = 3.dp)
+                                    .background(
+                                        color = Color.White.copy(alpha = 0.88f),
+                                        shape = RoundedCornerShape(3.dp),
+                                    ),
+                            )
+                        }
                     }
                 }
 
