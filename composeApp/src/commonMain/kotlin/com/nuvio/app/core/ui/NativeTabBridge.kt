@@ -60,9 +60,16 @@ internal object NativeTabBridge {
     }
 
     fun requestOneHandedModeToggle() {
-        if (!HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()) {
-            appOneHandedModeController.toggle()
+        // Starting one-handed mode while a home hero trailer is already active used to be a
+        // silent no-op. Stop that existing inline playback first; the playback-start observer
+        // still disables one-handed mode if a trailer starts after the mode is enabled.
+        if (
+            !appOneHandedModeController.state.value.enabled &&
+            HomeHeroTrailerPlaybackController.isInlineTrailerPlaybackActive()
+        ) {
+            HomeHeroTrailerPlaybackController.forceStop()
         }
+        appOneHandedModeController.toggle()
     }
 
     fun publishSelectedTab(tab: NativeNavigationTab) {
