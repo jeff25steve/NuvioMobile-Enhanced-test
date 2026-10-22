@@ -217,6 +217,7 @@ class OneHandedPresentationTest {
                     onScaleMultiplierChange = controller::updateScaleMultiplier,
                     verticalPosition = modeState.verticalPosition,
                     onVerticalPositionChange = controller::updateVerticalPosition,
+                    onResizeCommit = controller::updateResize,
                     onPlacementToggle = controller::togglePlacement,
                     placementToggleDescription = "Move app to the other side",
                 ) { contentModifier ->
