@@ -219,14 +219,37 @@ class OneHandedPresentationTest {
     }
 
     @Test
-    fun placementControlReceivesTapWithoutDismissingMode() {
-        setContent()
+    fun sideArrowSwitchesPlacementWithoutDisablingMode() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+            ),
+        )
+        compose.setContent {
+            val modeState by controller.state.collectAsState()
+            MaterialTheme {
+                OneHandedPresentation(
+                    enabled = modeState.enabled,
+                    placement = modeState.placement,
+                    forceNormalLayout = false,
+                    scaleMultiplier = modeState.scaleMultiplier,
+                    onScaleMultiplierChange = controller::updateScaleMultiplier,
+                    onPlacementToggle = controller::togglePlacement,
+                    placementToggleDescription = "Move app to the other side",
+                    onExit = controller::disable,
+                ) { contentModifier ->
+                    Box(contentModifier.fillMaxSize())
+                }
+            }
+        }
 
-        compose.onNodeWithContentDescription("Move app to the other side").performTouchInput { click() }
+        compose.onNodeWithContentDescription("Move app to the other side")
+            .performTouchInput { click() }
 
         compose.runOnIdle {
-            assertEquals(1, placementToggleCount)
-            assertEquals(0, insideClickCount)
+            assertEquals(OneHandedModePlacement.Left, controller.state.value.placement)
+            assertTrue(controller.state.value.enabled)
         }
     }
 
