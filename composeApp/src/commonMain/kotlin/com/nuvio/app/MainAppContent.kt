@@ -1602,6 +1602,8 @@ internal fun MainAppContent(
                     forceNormalLayout = playerPresentationActive,
                     scaleMultiplier = oneHandedModeState.scaleMultiplier,
                     onScaleMultiplierChange = { appOneHandedModeController.updateScaleMultiplier(it) },
+                    verticalPosition = oneHandedModeState.verticalPosition,
+                    onVerticalPositionChange = { appOneHandedModeController.updateVerticalPosition(it) },
                     onPlacementToggle = { appOneHandedModeController.togglePlacement() },
                     placementToggleDescription = oneHandedSwitchSideDescription,
                 ) { presentationModifier ->
