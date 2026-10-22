@@ -29,7 +29,7 @@
 
 - Library tap vs hold vs drag: one hold toggles once, tap navigates once, movement cancellation returns to drag-to-select, RTL works.
 - Profile hold: popup/drag selection still behaves exactly as before and never toggles one-handed mode.
-- Outside taps: no mode dismissal, no hidden content activation, and no interception of the top handle or side-switch arrow.
+- Outside taps: no mode dismissal, no hidden content activation, and no interception of the vertical-move grip, top-corner resize target, or side-switch arrow.
 - Resizing: pointer stays captured while the surface edge moves; lower/upper viewport bounds remain valid under rotation and compact dimensions.
 - Backdrop and playback: no duplicate navigation composition, stale snapshot, captured protected video, or automatic reactivation after player exit.
 - iOS parity: verify how the SwiftUI `TabView`/`NuvioGlassTabBar` overlay behaves relative to the Compose transform; it is currently outside that transform in source.
@@ -61,7 +61,7 @@
 - [x] Remove obsolete outside-dismiss state and callback plumbing where no longer used.
 - [x] Updated tests to assert outside taps keep mode enabled and hidden content untouched; explicit exit and scale state are covered in source tests (not yet executed).
 
-### Task 3: Add bounded live resize of the reduced surface
+### Task 3: Add vertical positioning and corner resize of the reduced surface
 
 **Files:**
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedModeState.kt`
@@ -71,10 +71,10 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
-- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; a transient rounded outline previews vertical resize/horizontal side placement during drag and the real surface animates to the target on release. A tap on the grip alone is inert.
+- [x] Match the reference video with a slim 40×3dp pill on a larger transparent target above the surface; vertical grip dragging previews a same-size outline and commits vertical position on release. A separate top-corner drag previews uniform resizing with old/target corner markers and commits size on release. The side arrow alone switches left/right; a grip tap alone is inert.
 - [x] Add a small directional side-switch arrow outside the surface at mid-height; keep both floating controls excluded from the outside-touch interceptor.
-- [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
-- [x] Add lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
+- [x] Keep drag input captured, clamp scale and vertical position to the usable viewport, preserve the anchored bottom corner during resize, and keep the grip/corner/arrow hit boxes aligned to their visual positions (runtime verification pending).
+- [x] Add scale-bound, vertical-position-bound, vertical-grip drag, corner-resize, grip-tap inertness, side-arrow and outside-touch test cases (not yet executed).
 - [x] Match the video’s approximate 78% scale and tighter 16dp corner radius (not yet visually/device-verified).
 
 ### Task 4: Use the safest available backdrop on both platforms
