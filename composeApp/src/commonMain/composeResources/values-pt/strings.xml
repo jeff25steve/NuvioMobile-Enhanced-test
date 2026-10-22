@@ -1887,4 +1887,6 @@
     <string name="settings_mdblist_library_lists_description">Escolhe que listas do MDBList aparecem na Biblioteca e em Gerir Listas. A Watchlist aparece sempre.</string>
     <string name="settings_mdblist_library_lists_summary">%1$d de %2$d visíveis</string>
     <string name="settings_mdblist_library_lists_empty">Ainda não foram encontradas listas na tua conta MDBList. Sincroniza para as carregar.</string>
+    <string name="one_handed_move_window">Mover a janela verticalmente</string>
+    <string name="one_handed_resize">Redimensionar o modo de uma mão</string>
 </resources>

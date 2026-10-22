@@ -2446,4 +2446,6 @@
         <item quantity="one">%d titolo</item>
         <item quantity="other">%d titoli</item>
     </plurals>
+    <string name="one_handed_move_window">Sposta la finestra verticalmente</string>
+    <string name="one_handed_resize">Ridimensiona la modalità a una mano</string>
 </resources>

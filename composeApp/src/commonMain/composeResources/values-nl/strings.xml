@@ -2297,4 +2297,6 @@
     <string name="stream_info_subtitle_source_addon">Add-on</string>
     <string name="stream_info_subtitle_source_embedded">Ingesloten</string>
     <string name="stream_info_player_engine">Spelerengine</string>
+    <string name="one_handed_move_window">Venster verticaal verplaatsen</string>
+    <string name="one_handed_resize">De grootte van de eenhandige modus wijzigen</string>
 </resources>

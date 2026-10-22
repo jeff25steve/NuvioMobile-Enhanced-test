@@ -2464,4 +2464,6 @@
     <string name="stream_info_subtitle_source_embedded">Nhúng</string>
     <string name="stream_info_player_engine">Lõi trình phát</string>
     <string name="stream_info_server">Máy chủ</string>
+    <string name="one_handed_move_window">Di chuyển cửa sổ theo chiều dọc</string>
+    <string name="one_handed_resize">Thay đổi kích thước chế độ một tay</string>
 </resources>

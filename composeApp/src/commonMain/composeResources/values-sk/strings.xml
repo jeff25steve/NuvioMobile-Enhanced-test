@@ -2410,4 +2410,6 @@
     <string name="stream_info_subtitle_source_addon">Doplnok</string>
     <string name="stream_info_subtitle_source_embedded">Vstavané</string>
     <string name="stream_info_player_engine">Engine prehrávača</string>
+    <string name="one_handed_move_window">Presunúť okno zvisle</string>
+    <string name="one_handed_resize">Zmeniť veľkosť režimu ovládania jednou rukou</string>
 </resources>

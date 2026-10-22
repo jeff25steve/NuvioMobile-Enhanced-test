@@ -2334,4 +2334,6 @@
     <string name="stream_info_subtitle_source_addon">Dodatek</string>
     <string name="stream_info_subtitle_source_embedded">Wbudowane</string>
     <string name="stream_info_player_engine">Silnik odtwarzacza</string>
+    <string name="one_handed_move_window">Przesuń okno w pionie</string>
+    <string name="one_handed_resize">Zmień rozmiar trybu obsługi jedną ręką</string>
 </resources>

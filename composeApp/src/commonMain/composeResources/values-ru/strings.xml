@@ -2284,4 +2284,6 @@
     <string name="stream_info_subtitle_source_addon">Аддон</string>
     <string name="stream_info_subtitle_source_embedded">Вшитые</string>
     <string name="stream_info_player_engine">Движок плеера</string>
+    <string name="one_handed_move_window">Переместить окно по вертикали</string>
+    <string name="one_handed_resize">Изменить размер режима одной рукой</string>
 </resources>

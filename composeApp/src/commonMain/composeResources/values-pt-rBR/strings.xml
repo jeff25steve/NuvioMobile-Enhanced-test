@@ -2665,6 +2665,8 @@
     <string name="compose_player_show_remaining_time">Mostrar tempo restante</string>
     <string name="compose_player_brightness">Brilho</string>
     <string name="compose_player_volume">Volume</string>
+    <string name="one_handed_move_window">Mover a janela verticalmente</string>
+    <string name="one_handed_resize">Redimensionar o modo de uma mão</string>
     <string name="settings_nav_bar_position">Posição</string>
     <string name="settings_nav_bar_position_bottom">Inferior</string>
     <string name="settings_nav_bar_position_top">Superior</string>
