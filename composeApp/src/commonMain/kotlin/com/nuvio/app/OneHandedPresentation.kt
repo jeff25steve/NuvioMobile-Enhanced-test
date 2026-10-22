@@ -191,7 +191,6 @@ internal fun OneHandedPresentation(
     val currentCornerRadiusPx = rememberUpdatedState(with(LocalDensity.current) { cornerRadius.toPx() })
     val currentScaleMultiplier = rememberUpdatedState(scaleMultiplier)
     val currentOnScaleMultiplierChange = rememberUpdatedState(onScaleMultiplierChange)
-    val currentVerticalPosition = rememberUpdatedState(normalizedOneHandedVerticalPosition(verticalPosition))
     val currentOnVerticalPositionChange = rememberUpdatedState(onVerticalPositionChange)
     val currentOnPlacementToggle = rememberUpdatedState(onPlacementToggle)
     val density = LocalDensity.current
@@ -209,7 +208,9 @@ internal fun OneHandedPresentation(
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize(),
     ) {
+        val viewportWidthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         val viewportHeightPx = with(density) { maxHeight.toPx() }.coerceAtLeast(1f)
+        val currentViewportWidthPx = rememberUpdatedState(viewportWidthPx)
         val currentViewportHeightPx = rememberUpdatedState(viewportHeightPx)
         val targetScale = if (forceNormalLayout) {
             1f
