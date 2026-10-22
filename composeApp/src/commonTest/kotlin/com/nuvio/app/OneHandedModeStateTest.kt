@@ -94,6 +94,32 @@ class OneHandedModeStateTest {
     }
 
     @Test
+    fun controllerUpdatesVerticalPositionWithoutChangingScaleOrPlacement() {
+        val controller = OneHandedModeController(
+            initialState = OneHandedModeState(
+                enabled = true,
+                placement = OneHandedModePlacement.Right,
+                scaleMultiplier = 1.1f,
+            ),
+        )
+
+        controller.updateVerticalPosition(0.65f)
+
+        assertTrue(controller.state.value.enabled)
+        assertEquals(OneHandedModePlacement.Right, controller.state.value.placement)
+        assertEquals(1.1f, controller.state.value.scaleMultiplier)
+        assertEquals(0.65f, controller.state.value.verticalPosition)
+    }
+
+    @Test
+    fun verticalPositionIsClampedAndInvalidValuesResetToBottom() {
+        assertEquals(0f, normalizedOneHandedVerticalPosition(-1f))
+        assertEquals(1f, normalizedOneHandedVerticalPosition(2f))
+        assertEquals(0f, normalizedOneHandedVerticalPosition(Float.NaN))
+        assertEquals(0f, normalizedOneHandedVerticalPosition(Float.POSITIVE_INFINITY))
+    }
+
+    @Test
     fun controllerUpdatesScaleMultiplierWithoutDisablingModeOrChangingPlacement() {
         val controller = OneHandedModeController(
             initialState = OneHandedModeState(enabled = true, placement = OneHandedModePlacement.Left),
