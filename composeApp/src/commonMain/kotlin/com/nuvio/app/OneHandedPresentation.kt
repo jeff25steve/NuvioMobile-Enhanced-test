@@ -107,7 +107,6 @@ internal fun OneHandedPresentation(
     placementToggleDescription: String,
     onExit: () -> Unit = {},
     exitDescription: String = "Exit one-handed mode",
-    resizeHandleDescription: String = "Resize one-handed mode",
     content: @Composable (Modifier) -> Unit,
 ) {
     val reduceContent = enabled && !forceNormalLayout
@@ -160,6 +159,7 @@ internal fun OneHandedPresentation(
     val currentOnScaleMultiplierChange = rememberUpdatedState(onScaleMultiplierChange)
     val density = LocalDensity.current
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
+    val currentPlacement = rememberUpdatedState(placement)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     // The backdrop records the existing content layer, not a second active app composition.
     // It is only retained while the reduced presentation is visible and is never used for playback.
@@ -220,7 +220,7 @@ internal fun OneHandedPresentation(
                             down.position.y in (top - 25.dp.toPx())..(top + 15.dp.toPx())
                         ) return@awaitEachGesture
 
-                        val sideSwitchCenterX = if (placement == OneHandedModePlacement.Right) {
+                        val sideSwitchCenterX = if (currentPlacement.value == OneHandedModePlacement.Right) {
                             horizontalOffset - 24.dp.toPx()
                         } else {
                             horizontalOffset + width * gestureScale + 24.dp.toPx()
