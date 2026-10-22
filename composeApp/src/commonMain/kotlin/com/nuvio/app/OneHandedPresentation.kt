@@ -310,28 +310,30 @@ internal fun OneHandedPresentation(
 
             // Keep the live app untouched while the user positions/resizes it. This transient
             // outline previews the target bounds under the drag and disappears when released.
-            dragPreview?.let { preview ->
-                val previewScale = oneHandedScaleForViewport(
-                    widthDp = maxWidth.value,
-                    heightDp = maxHeight.value,
-                    scaleMultiplier = preview.scaleMultiplier,
-                )
-                val previewPivot = if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
-                val previewLeft = maxWidth * (1f - previewScale) * previewPivot
-                val previewTop = maxHeight * (1f - previewScale)
-                Box(
-                    modifier = Modifier
-                        .offset(x = previewLeft, y = previewTop)
-                        .size(
-                            width = maxWidth * previewScale,
-                            height = maxHeight * previewScale,
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.84f),
-                            shape = RoundedCornerShape(16.dp),
-                        ),
-                )
+            if (reduceContent) {
+                dragPreview?.let { preview ->
+                    val previewScale = oneHandedScaleForViewport(
+                        widthDp = maxWidth.value,
+                        heightDp = maxHeight.value,
+                        scaleMultiplier = preview.scaleMultiplier,
+                    )
+                    val previewPivot = if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
+                    val previewLeft = maxWidth * (1f - previewScale) * previewPivot
+                    val previewTop = maxHeight * (1f - previewScale)
+                    Box(
+                        modifier = Modifier
+                            .offset(x = previewLeft, y = previewTop)
+                            .size(
+                                width = maxWidth * previewScale,
+                                height = maxHeight * previewScale,
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.84f),
+                                shape = RoundedCornerShape(16.dp),
+                            ),
+                    )
+                }
             }
 
             if (reduceContent) {
