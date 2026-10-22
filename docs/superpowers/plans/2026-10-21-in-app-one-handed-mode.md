@@ -45,7 +45,7 @@
 - [x] Move Library hold recognition onto its own tab target using the same `detectDragGesturesAfterLongPress` mechanism and long-press haptic as `ProfileSwitcherTab` (source updated; runtime behavior still needs test execution).
 - [x] Remove the separate parent-level long-press recognizer for Library; the parent gesture loop suppresses click/drag commit after a child hold.
 - [x] Retain the accessibility `onLongClick` semantic and keep the current selected index stable after hold.
-- [ ] Verify tests for tap, hold, RTL and drag-to-select; profile hold must still open its popup only.
+- [ ] Existing source tests cover tap, hold, RTL, and drag-to-select, including Profile hold remaining profile-only; test execution remains pending.
 
 ### Task 2: Make outside taps inert and preserve explicit exit
 
@@ -58,7 +58,7 @@
 
 - [x] Keep the outer pointer gate consuming taps outside the reduced rounded surface but do not call a dismiss callback.
 - [x] Remove obsolete outside-dismiss state and callback plumbing where no longer used.
-- [ ] Update tests to require the mode stay enabled after outside tap while hidden content remains untouched; explicit exit must still work.
+- [x] Updated tests to assert outside taps keep mode enabled and hidden content untouched; explicit exit and scale state are covered in source tests (not yet executed).
 
 ### Task 3: Add bounded live resize of the reduced surface
 
@@ -72,7 +72,7 @@
 - [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
 - [x] Add an accessible visible drag handle near the top edge of the reduced surface; dragging up enlarges and dragging down reduces it continuously.
 - [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
-- [ ] Cover lower/upper bounds and drag interaction; mode exits and player entry must not reset unrelated app/player state.
+- [x] Added lower/upper scale-bound, continuous resize-drag, and state-preservation test cases (not yet executed).
 
 ### Task 4: Use the safest available backdrop on both platforms
 
@@ -83,7 +83,7 @@
 - [x] Wired a live backdrop to the already-composed app layer without mounting a duplicate composition; visually/performance behavior is not yet device-verified.
 - [x] Used live layer capture instead of adding a separate persisted snapshot path; unsupported rendering targets keep the existing theme-aware fallback.
 - [x] Retained the theme-aware frosted gradient fallback when the renderer reports no live effect support.
-- [ ] Do not add loops, screenshot persistence, permissions, background work, or feature network activity.
+- [x] No polling/refresh loop, screenshot persistence, new permissions, background work, or feature network activity was added.
 
 ### Task 5: Final regression review
 
