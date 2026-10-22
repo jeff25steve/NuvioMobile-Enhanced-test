@@ -63,6 +63,7 @@ internal const val OneHandedMaximumViewportScale = 0.86f
 private const val OneHandedCompactScale = 0.78f
 private const val OneHandedCompactWidthDp = 360f
 private const val OneHandedCompactHeightDp = 640f
+private const val OneHandedTopHandleGapDp = 25f
 
 private enum class OneHandedDragKind {
     Position,
@@ -194,6 +195,7 @@ internal fun OneHandedPresentation(
     val currentOnVerticalPositionChange = rememberUpdatedState(onVerticalPositionChange)
     val currentOnPlacementToggle = rememberUpdatedState(onPlacementToggle)
     val density = LocalDensity.current
+    val currentTopHandleGapPx = rememberUpdatedState(with(density) { OneHandedTopHandleGapDp.dp.toPx() })
     val currentPivotFraction = rememberUpdatedState(pivotFraction)
     val currentPlacement = rememberUpdatedState(placement)
     val surfaceShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
@@ -251,8 +253,10 @@ internal fun OneHandedPresentation(
                             pivotFraction = currentPivotFraction.value,
                         )
                         val reducedHeight = height * gestureScale
-                        val verticalOffset = height * (1f - gestureScale) *
-                            currentAnimatedVerticalPosition.value
+                        val availableVerticalTravel = (
+                            height * (1f - gestureScale) - currentTopHandleGapPx.value
+                        ).coerceAtLeast(0f)
+                        val verticalOffset = availableVerticalTravel * currentAnimatedVerticalPosition.value
                         val top = height - reducedHeight - verticalOffset
                         val surfaceLeft = horizontalOffset
                         val surfaceRight = surfaceLeft + width * gestureScale
@@ -274,8 +278,18 @@ internal fun OneHandedPresentation(
                             surfaceRight
                         }
                         val resizeCornerHalfSize = 24.dp.toPx()
+                        val resizeCornerMinX = if (currentPlacement.value == OneHandedModePlacement.Right) {
+                            resizeCornerCenterX - 2f * resizeCornerHalfSize
+                        } else {
+                            resizeCornerCenterX
+                        }
+                        val resizeCornerMaxX = if (currentPlacement.value == OneHandedModePlacement.Right) {
+                            resizeCornerCenterX
+                        } else {
+                            resizeCornerCenterX + 2f * resizeCornerHalfSize
+                        }
                         if (enabled &&
-                            down.position.x in (resizeCornerCenterX - resizeCornerHalfSize)..(resizeCornerCenterX + resizeCornerHalfSize) &&
+                            down.position.x in resizeCornerMinX..resizeCornerMaxX &&
                             down.position.y in (top - resizeCornerHalfSize)..(top + resizeCornerHalfSize)
                         ) return@awaitEachGesture
 
@@ -351,8 +365,10 @@ internal fun OneHandedPresentation(
                             pivotFractionX = pivotFraction,
                             pivotFractionY = 1f,
                         )
-                        translationY = -size.height * (1f - scale) *
-                            animatedVerticalPosition
+                        val availableVerticalTravel = (
+                            size.height * (1f - scale) - currentTopHandleGapPx.value
+                        ).coerceAtLeast(0f)
+                        translationY = -availableVerticalTravel * animatedVerticalPosition
                         shape = surfaceShape
                         clip = true
                         this.shadowElevation = shadowElevation.toPx()
@@ -380,14 +396,20 @@ internal fun OneHandedPresentation(
                     )
                     val previewLeft = maxWidth * (1f - previewScale) *
                         if (preview.placement == OneHandedModePlacement.Left) 0f else 1f
-                    val previewTop = maxHeight * (1f - previewScale) *
-                        (1f - preview.verticalPosition)
+                    val previewFreeSpace = maxHeight * (1f - previewScale)
+                    val previewTravel = (previewFreeSpace - OneHandedTopHandleGapDp.dp)
+                        .coerceAtLeast(0.dp)
+                    val previewTop = previewFreeSpace - previewTravel * preview.verticalPosition
                     Box(
                         modifier = Modifier
                             .offset(x = previewLeft, y = previewTop)
                             .size(
                                 width = maxWidth * previewScale,
                                 height = maxHeight * previewScale,
+                            )
+                            .background(
+                                color = Color.White.copy(alpha = 0.14f),
+                                shape = RoundedCornerShape(16.dp),
                             )
                             .border(
                                 width = 1.dp,
@@ -397,8 +419,11 @@ internal fun OneHandedPresentation(
                     )
 
                     if (preview.kind == OneHandedDragKind.Resize) {
-                        val currentTop = maxHeight * (1f - scale) *
-                            (1f - currentAnimatedVerticalPosition.value)
+                        val currentFreeSpace = maxHeight * (1f - scale)
+                        val currentTravel = (currentFreeSpace - OneHandedTopHandleGapDp.dp)
+                            .coerceAtLeast(0.dp)
+                        val currentTop = currentFreeSpace -
+                            currentTravel * currentAnimatedVerticalPosition.value
                         val currentLeft = maxWidth * (1f - scale) * pivotFraction
                         val currentRight = currentLeft + maxWidth * scale
                         val currentCornerX = if (placement == OneHandedModePlacement.Right) {
@@ -432,8 +457,11 @@ internal fun OneHandedPresentation(
             if (reduceContent) {
                 // The top pill moves the window vertically; it does not resize or switch sides.
                 // The target is generous to keep the thin visual pill easy to grab.
-                val currentSurfaceTop = maxHeight * (1f - scale) *
-                    (1f - animatedVerticalPosition)
+                val currentFreeSpace = maxHeight * (1f - scale)
+                val currentVerticalTravel = (currentFreeSpace - OneHandedTopHandleGapDp.dp)
+                    .coerceAtLeast(0.dp)
+                val currentSurfaceTop = currentFreeSpace -
+                    currentVerticalTravel * animatedVerticalPosition
                 val handleCenterX = maxWidth * (
                     pivotFraction * (1f - scale) + scale / 2f
                 )
@@ -460,7 +488,8 @@ internal fun OneHandedPresentation(
                                     onDrag = { change, dragAmount ->
                                         change.consume()
                                         val availableTravelPx = (
-                                            currentViewportHeightPx.value * (1f - startingScale)
+                                            currentViewportHeightPx.value * (1f - startingScale) -
+                                                currentTopHandleGapPx.value
                                         ).coerceAtLeast(1f)
                                         draggedVerticalPosition = normalizedOneHandedVerticalPosition(
                                             draggedVerticalPosition - dragAmount.y / availableTravelPx,
@@ -506,9 +535,14 @@ internal fun OneHandedPresentation(
                 } else {
                     surfaceRight
                 }
+                val resizeTargetLeft = if (placement == OneHandedModePlacement.Right) {
+                    resizeCornerX - 48.dp
+                } else {
+                    resizeCornerX
+                }
                 Box(
                     modifier = Modifier
-                        .offset(x = resizeCornerX - 24.dp, y = currentSurfaceTop - 24.dp)
+                        .offset(x = resizeTargetLeft, y = currentSurfaceTop - 24.dp)
                         .size(48.dp)
                         .pointerInput(enabled, forceNormalLayout, placement) {
                             if (enabled && !forceNormalLayout) {
@@ -559,11 +593,16 @@ internal fun OneHandedPresentation(
                                             maxHeight.value,
                                             draggedScaleMultiplier,
                                         )
-                                        val fixedBottomOffsetFraction =
-                                            (1f - initialScale) * initialVerticalPosition
+                                        val topHandleGapFraction =
+                                            currentTopHandleGapPx.value / heightPx
+                                        val fixedBottomOffsetFraction = (
+                                            (1f - initialScale) - topHandleGapFraction
+                                        ).coerceAtLeast(0f) * initialVerticalPosition
+                                        val targetVerticalTravelFraction = (
+                                            (1f - previewScale) - topHandleGapFraction
+                                        ).coerceAtLeast(0.001f)
                                         draggedVerticalPosition = normalizedOneHandedVerticalPosition(
-                                            fixedBottomOffsetFraction /
-                                                (1f - previewScale).coerceAtLeast(0.001f),
+                                            fixedBottomOffsetFraction / targetVerticalTravelFraction,
                                         )
                                         dragPreview = OneHandedDragPreview(
                                             scaleMultiplier = draggedScaleMultiplier,
@@ -585,7 +624,6 @@ internal fun OneHandedPresentation(
                         }
                         .semantics {
                             contentDescription = "Resize one-handed mode"
-                            role = Role.Button
                         },
                 )
 
