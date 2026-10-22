@@ -42,9 +42,9 @@
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/FloatingNavigationBar.kt`
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/core/ui/FloatingNavigationBarGestureTest.kt`
 
-- [ ] Move Library hold recognition onto its own tab target using the same `detectDragGesturesAfterLongPress` mechanism and long-press haptic as `ProfileSwitcherTab`.
-- [ ] Remove the separate parent-level long-press recognizer for Library so it cannot race the target recognizer.
-- [ ] Retain the accessibility `onLongClick` semantic and keep the current selected index stable after hold.
+- [x] Move Library hold recognition onto its own tab target using the same `detectDragGesturesAfterLongPress` mechanism and long-press haptic as `ProfileSwitcherTab` (source updated; runtime behavior still needs test execution).
+- [x] Remove the separate parent-level long-press recognizer for Library; the parent gesture loop suppresses click/drag commit after a child hold.
+- [x] Retain the accessibility `onLongClick` semantic and keep the current selected index stable after hold.
 - [ ] Verify tests for tap, hold, RTL and drag-to-select; profile hold must still open its popup only.
 
 ### Task 2: Make outside taps inert and preserve explicit exit
@@ -56,8 +56,8 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 - Test: `composeApp/src/commonTest/kotlin/com/nuvio/app/OneHandedModeStateTest.kt`
 
-- [ ] Keep the outer pointer gate consuming taps outside the reduced rounded surface but do not call a dismiss callback.
-- [ ] Remove obsolete outside-dismiss state and callback plumbing where no longer used.
+- [x] Keep the outer pointer gate consuming taps outside the reduced rounded surface but do not call a dismiss callback.
+- [x] Remove obsolete outside-dismiss state and callback plumbing where no longer used.
 - [ ] Update tests to require the mode stay enabled after outside tap while hidden content remains untouched; explicit exit must still work.
 
 ### Task 3: Add bounded live resize of the reduced surface
@@ -69,9 +69,9 @@
 - Test: `composeApp/src/commonTest/kotlin/com/nuvio/app/OneHandedModeStateTest.kt`
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/OneHandedPresentationTest.kt`
 
-- [ ] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
-- [ ] Add an accessible visible drag handle near the top edge of the reduced surface; dragging up enlarges and dragging down reduces it continuously.
-- [ ] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing.
+- [x] Add a small in-memory scale value with a documented lower and upper bound and a controller update method.
+- [x] Add an accessible visible drag handle near the top edge of the reduced surface; dragging up enlarges and dragging down reduces it continuously.
+- [x] Keep the pointer detector alive while the scale state changes, cap dimensions to the viewport, and maintain correct side anchoring/hit testing (needs runtime verification).
 - [ ] Cover lower/upper bounds and drag interaction; mode exits and player entry must not reset unrelated app/player state.
 
 ### Task 4: Use the safest available backdrop on both platforms
@@ -79,17 +79,17 @@
 **Files:**
 - Inspect and modify only if supported: `composeApp/src/commonMain/kotlin/com/nuvio/app/OneHandedPresentation.kt` and existing platform capture/rendering utilities.
 
-- [ ] Confirm current Compose Multiplatform APIs available to this project for safe layer capture, blur, and release on Android and iOS.
-- [ ] Use a live backdrop only if it can be derived from existing rendering without duplicating the active app tree or player surface.
-- [ ] Otherwise use a supported ephemeral snapshot, blur/dim it, refresh only at well-defined foreground/page changes, and release on exit/player/disposal.
-- [ ] If safe cross-platform capture cannot be established, use a matching frosted/glass fallback rather than inventing unverified capture APIs.
+- [x] Confirmed the existing `NuvioBackdrop`/`GraphicsLayer.record` mechanism and current Kyant `drawBackdrop` blur API from repository code and official library documentation.
+- [x] Wired a live backdrop to the already-composed app layer without mounting a duplicate composition; visually/performance behavior is not yet device-verified.
+- [x] Used live layer capture instead of adding a separate persisted snapshot path; unsupported rendering targets keep the existing theme-aware fallback.
+- [x] Retained the theme-aware frosted gradient fallback when the renderer reports no live effect support.
 - [ ] Do not add loops, screenshot persistence, permissions, background work, or feature network activity.
 
 ### Task 5: Final regression review
 
 **Files:** Only directly affected source and tests from Tasks 1–4.
 
-- [ ] Review the complete branch diff against the current branch base and ensure the navigation bar visibility fix and Liquid Glass code remain intact.
+- [x] Compared the focused implementation diff and verified that one-handed-specific native tab-bar visibility gates are absent; Liquid Glass source files were not changed.
 - [ ] Run the focused tests and platform build only if a local checkout/build environment is available; do not use CI/workflows.
-- [ ] Verify no PR was created, no release/workflow config changed, and no unrelated files changed.
+- [x] No PR was created and no workflow/release config was touched by this implementation pass.
 - [ ] Report exactly what was checked and what remains unverified.
