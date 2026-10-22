@@ -142,6 +142,10 @@ internal fun OneHandedPresentation(
     onScaleMultiplierChange: (Float) -> Unit = {},
     verticalPosition: Float = 0f,
     onVerticalPositionChange: (Float) -> Unit = {},
+    onResizeCommit: (Float, Float) -> Unit = { newScale, newVerticalPosition ->
+        onScaleMultiplierChange(newScale)
+        onVerticalPositionChange(newVerticalPosition)
+    },
     onPlacementToggle: () -> Unit,
     placementToggleDescription: String,
     content: @Composable (Modifier) -> Unit,
@@ -195,6 +199,7 @@ internal fun OneHandedPresentation(
     val currentScaleMultiplier = rememberUpdatedState(scaleMultiplier)
     val currentOnScaleMultiplierChange = rememberUpdatedState(onScaleMultiplierChange)
     val currentOnVerticalPositionChange = rememberUpdatedState(onVerticalPositionChange)
+    val currentOnResizeCommit = rememberUpdatedState(onResizeCommit)
     val currentOnPlacementToggle = rememberUpdatedState(onPlacementToggle)
     val density = LocalDensity.current
     val currentTopHandleGapPx = rememberUpdatedState(with(density) { OneHandedTopHandleGapDp.dp.toPx() })
@@ -633,8 +638,10 @@ internal fun OneHandedPresentation(
                                         )
                                     },
                                     onDragEnd = {
-                                        currentOnScaleMultiplierChange.value(draggedScaleMultiplier)
-                                        currentOnVerticalPositionChange.value(draggedVerticalPosition)
+                                        currentOnResizeCommit.value(
+                                            draggedScaleMultiplier,
+                                            draggedVerticalPosition,
+                                        )
                                         dragPreview = null
                                     },
                                     onDragCancel = {
