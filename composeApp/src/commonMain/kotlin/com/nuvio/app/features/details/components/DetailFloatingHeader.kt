@@ -130,7 +130,7 @@ fun DetailFloatingHeader(
                         onClick = onBack,
                         modifier = Modifier.size(40.dp),
                         containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.onBackground,
+                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
                         buttonSize = 40.dp,
                         iconSize = 24.dp,
                     )
@@ -214,7 +214,7 @@ private fun DetailFloatingHeaderAction(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onBackground,
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
             )
         }
     }
