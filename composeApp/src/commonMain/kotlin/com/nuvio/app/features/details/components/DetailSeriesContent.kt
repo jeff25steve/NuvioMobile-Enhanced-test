@@ -986,6 +986,60 @@ private fun EpisodeHorizontalRow(
     }
 }
 
+/**
+ * A scaled production episode card used for the independent content-card glass recipe.
+ * Geometry is computed by the same responsive metrics used by the real episode list.
+ */
+@Composable
+internal fun DetailGlassContentCardPreview(modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val metrics = rememberEpisodeHorizontalCardMetrics(maxWidth.value)
+        val scale = minOf(
+            (maxWidth.value / metrics.cardWidth.value).coerceAtLeast(0f),
+            (maxHeight.value / metrics.cardHeight.value).coerceAtLeast(0f),
+            1f,
+        )
+        val sample = remember {
+            MetaVideo(
+                id = "glass-preview-s1e1",
+                title = "Pilot",
+                released = "2024-09-26",
+                season = 1,
+                episode = 1,
+                overview = "Joanne navigates a new relationship while her friends weigh in.",
+                runtime = 27,
+                tmdbRating = 7.7,
+            )
+        }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            EpisodeHorizontalCard(
+                video = sample,
+                fallbackImage = null,
+                progressEntry = null,
+                tmdbRating = sample.tmdbRating,
+                imdbRating = sample.imdbRating,
+                isWatched = false,
+                episodeRatingsVisibility = EpisodeRatingsVisibility.SHOW_ALL,
+                blurUnwatchedEpisodes = false,
+                metrics = metrics,
+                onClick = {},
+                onLongPress = {},
+                preview = true,
+                modifier = Modifier
+                    .requiredSize(metrics.cardWidth, metrics.cardHeight)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin.Center
+                    },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeHorizontalCard(
@@ -1001,6 +1055,8 @@ private fun EpisodeHorizontalCard(
     metrics: EpisodeHorizontalCardMetrics,
     onClick: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
+    preview: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val cardShape = RoundedCornerShape(metrics.cornerRadius)
     val showsRating = episodeRatingsVisibility.showRating(isWatched)
@@ -1024,7 +1080,7 @@ private fun EpisodeHorizontalCard(
         metrics.contentBottomPadding
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .width(metrics.cardWidth)
             .height(metrics.cardHeight)
             .liquidGlassForSurface(
@@ -1033,9 +1089,10 @@ private fun EpisodeHorizontalCard(
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 blurRadius = 18.dp,
+                preview = preview,
             )
             .nuvioCardDepth(
-                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape, preview = preview),
                 surface = NuvioCardDepthSurface.EpisodeCards,
                 fallbackBorderAlpha = 0.12f,
             )
