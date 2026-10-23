@@ -64,7 +64,12 @@ import nuvio.composeapp.generated.resources.streams_pinned_source
 import nuvio.composeapp.generated.resources.streams_refresh
 import nuvio.composeapp.generated.resources.streams_unpin_source
 import org.jetbrains.compose.resources.stringResource
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 @Composable
 internal fun ProviderFilterRow(
@@ -76,8 +81,9 @@ internal fun ProviderFilterRow(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     spacing: Dp = 8.dp,
+    preview: Boolean = false,
     refreshChip: @Composable (Boolean, () -> Unit) -> Unit = { isLoading, onClick ->
-        RefreshChip(isLoading = isLoading, onClick = onClick)
+        RefreshChip(isLoading = isLoading, onClick = onClick, preview = preview)
     },
     filterChip: (@Composable (AddonStreamGroup?, Boolean, () -> Unit) -> Unit)? = null,
 ) {
@@ -89,9 +95,12 @@ internal fun ProviderFilterRow(
             FilterChip(
                 label = group?.addonName ?: stringResource(Res.string.collections_tab_all),
                 isSelected = isSelected,
-                isPinned = group != null && group.soleSourcePin()?.key in pinnedSourceIds,
+                isPinned = !preview && group != null && group.soleSourcePin()?.key in pinnedSourceIds,
                 onClick = onClick,
-                onLongClick = group?.let { pinnedGroup -> { pinSheetTarget = pinnedGroup.soleSourcePin() } },
+                onLongClick = if (preview) null else group?.let { pinnedGroup ->
+                    { pinSheetTarget = pinnedGroup.soleSourcePin() }
+                },
+                preview = preview,
             )
         }
     LaunchedEffect(addonGroups, selectedFilter) {
@@ -117,10 +126,12 @@ internal fun ProviderFilterRow(
         }
     }
 
-    StreamSourcePinSheet(
-        target = pinSheetTarget,
-        onDismiss = { pinSheetTarget = null },
-    )
+    if (!preview) {
+        StreamSourcePinSheet(
+            target = pinSheetTarget,
+            onDismiss = { pinSheetTarget = null },
+        )
+    }
 }
 
 @Composable
@@ -227,6 +238,7 @@ private fun remainingTurn(rotation: Float) =
 private fun RefreshChip(
     isLoading: Boolean,
     onClick: () -> Unit,
+    preview: Boolean = false,
 ) {
     val rotation = rememberRefreshRotation(isLoading)
     FilterChip(
@@ -235,6 +247,7 @@ private fun RefreshChip(
         iconModifier = Modifier.graphicsLayer { rotationZ = rotation.value },
         isSelected = false,
         onClick = onClick,
+        preview = preview,
     )
 }
 
@@ -248,6 +261,7 @@ private fun FilterChip(
     isPinned: Boolean = false,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    preview: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -274,6 +288,17 @@ private fun FilterChip(
         animationSpec = tween(durationMillis = 180),
         label = "filter_chip_content",
     )
+    val defaultShape = RoundedCornerShape(16.dp)
+    val glassAllowed = preview || (
+        LiquidGlassSettings.enabled &&
+            isLiquidGlassSupported() &&
+            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_FILTERS)
+        )
+    val chipShape = if (glassAllowed) {
+        liquidGlassShape(LiquidGlassSurface.STREAM_FILTERS, defaultShape, preview = preview)
+    } else {
+        defaultShape
+    }
     Box(
         modifier = Modifier
             .graphicsLayer {
@@ -281,13 +306,22 @@ private fun FilterChip(
                 scaleY = scale
             }
             .height(36.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .ambientLiquidGlass(
-                shape = RoundedCornerShape(16.dp),
-                tint = containerColor,
-                fallback = containerColor,
-                blurRadius = 14.dp,
-                refractionHeight = 8.dp,
+            .clip(chipShape)
+            .then(
+                if (glassAllowed) {
+                    Modifier.liquidGlassForSurface(
+                        surface = LiquidGlassSurface.STREAM_FILTERS,
+                        shape = chipShape,
+                        tint = containerColor,
+                        fallback = containerColor,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                        preview = preview,
+                    )
+                } else {
+                    Modifier.background(containerColor, chipShape)
+                },
             )
             .combinedClickable(
                 interactionSource = interactionSource,
