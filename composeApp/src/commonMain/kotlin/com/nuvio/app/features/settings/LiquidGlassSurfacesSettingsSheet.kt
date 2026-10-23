@@ -583,11 +583,11 @@ private fun LiquidGlassSurfacePreview(
         val previewHeight = when (surface) {
             LiquidGlassSurface.PLAYER -> liquidGlassPlayerPreviewHeight(previewWidth)
             LiquidGlassSurface.SEARCH -> 176.dp
-            LiquidGlassSurface.DETAIL_HEADER -> 70.dp
+            LiquidGlassSurface.DETAIL_HEADER -> 90.dp
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
-            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> 132.dp
+            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> 116.dp
             LiquidGlassSurface.STREAM_RESULTS -> 212.dp
             else -> 88.dp
