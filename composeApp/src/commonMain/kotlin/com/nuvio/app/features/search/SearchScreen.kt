@@ -243,7 +243,13 @@ fun SearchScreen(
                 }
             }
 
-             BoxWithConstraints(
+            NetworkCondition.Unknown,
+            NetworkCondition.Checking,
+            -> Unit
+        }
+    }
+
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
         val discoverColumns = remember(maxWidth) {
