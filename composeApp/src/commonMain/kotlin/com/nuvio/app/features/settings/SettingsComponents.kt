@@ -82,12 +82,13 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 private fun SettingsCard(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
     val defaultCardShape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard
-    val glassEnabled = LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
+    val glassEnabled = previewGlass || (LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS))
     val cardShape = if (glassEnabled) {
         liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape)
     } else {
@@ -104,6 +105,7 @@ private fun SettingsCard(
                     blurRadius = 14.dp,
                     refractionHeight = 8.dp,
                     refractionAmount = 12.dp,
+                    preview = previewGlass,
                 )
             } else {
                 Modifier
@@ -124,11 +126,13 @@ private fun SettingsCard(
 internal fun SettingsGroup(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SettingsCard(
         isTablet = isTablet,
         modifier = modifier,
+        previewGlass = previewGlass,
     ) {
         Column(content = content)
     }
