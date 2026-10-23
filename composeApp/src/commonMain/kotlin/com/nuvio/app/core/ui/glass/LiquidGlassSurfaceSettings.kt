@@ -26,6 +26,7 @@ import kotlin.math.roundToInt
 @Serializable
 internal enum class LiquidGlassSurface {
     PLAYER,
+    STREAM_FILTERS,
     STREAM_SELECTION,
     STREAM_RESULTS,
     DETAILS,
@@ -41,6 +42,7 @@ internal enum class LiquidGlassSurface {
     val defaultEnabled: Boolean
         get() = when (this) {
             PLAYER,
+            STREAM_FILTERS,
             STREAM_SELECTION,
             STREAM_RESULTS,
             DETAILS,
@@ -85,11 +87,50 @@ internal data class LiquidGlassSurfaceOverrides(
 
     private fun Float?.inheritOrClamp(minimum: Float, maximum: Float): Float? =
         this?.takeIf { it.isFinite() }?.coerceIn(minimum, maximum)
+
+    /**
+     * Links material behavior while deliberately preserving component-specific geometry and icon
+     * color. Play buttons, chips, cards, and rectangular headers keep their original silhouettes.
+     */
+    fun withGlassEffectFrom(shared: LiquidGlassSurfaceOverrides): LiquidGlassSurfaceOverrides = copy(
+        enabled = shared.enabled,
+        blurRadiusDp = shared.blurRadiusDp,
+        refractionHeightDp = shared.refractionHeightDp,
+        refractionAmountDp = shared.refractionAmountDp,
+        tintOpacity = shared.tintOpacity,
+        withVibrancy = shared.withVibrancy,
+        withHighlight = shared.withHighlight,
+        withShadow = shared.withShadow,
+        chromaticAberration = shared.chromaticAberration,
+        depthEffect = shared.depthEffect,
+    ).sanitized()
+}
+
+/** A composite, production-shaped preview that lets users tune related surfaces together. */
+internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurface>) {
+    DETAIL_PAGE(
+        listOf(
+            LiquidGlassSurface.DETAIL_HEADER,
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.DETAIL_CHIPS,
+            LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+        ),
+    ),
+    STREAM_PICKER(
+        listOf(
+            LiquidGlassSurface.STREAM_FILTERS,
+            LiquidGlassSurface.STREAM_SELECTION,
+            LiquidGlassSurface.STREAM_RESULTS,
+        ),
+    ),
 }
 
 @Serializable
 internal data class LiquidGlassSurfacesSettings(
     val player: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    // Provider chips already used glass by default; this separate setting preserves that behavior.
+    val streamFilters: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val streamSelection: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val details: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     // Missing fields in existing saved JSON inherit the old shared recipe during deserialization.
@@ -105,6 +146,7 @@ internal data class LiquidGlassSurfacesSettings(
 ) {
     fun forSurface(surface: LiquidGlassSurface): LiquidGlassSurfaceOverrides = when (surface) {
         LiquidGlassSurface.PLAYER -> player
+        LiquidGlassSurface.STREAM_FILTERS -> streamFilters
         LiquidGlassSurface.STREAM_SELECTION -> streamSelection
         LiquidGlassSurface.STREAM_RESULTS -> streamResults
         LiquidGlassSurface.DETAILS -> details
@@ -125,6 +167,7 @@ internal data class LiquidGlassSurfacesSettings(
         val safe = overrides.sanitized()
         return when (surface) {
             LiquidGlassSurface.PLAYER -> copy(player = safe)
+            LiquidGlassSurface.STREAM_FILTERS -> copy(streamFilters = safe)
             LiquidGlassSurface.STREAM_SELECTION -> copy(streamSelection = safe)
             LiquidGlassSurface.STREAM_RESULTS -> copy(streamResults = safe)
             LiquidGlassSurface.DETAILS -> copy(details = safe)
@@ -141,6 +184,7 @@ internal data class LiquidGlassSurfacesSettings(
 
     fun sanitized(): LiquidGlassSurfacesSettings = LiquidGlassSurfacesSettings(
         player = player.sanitized(),
+        streamFilters = streamFilters.sanitized(),
         streamSelection = streamSelection.sanitized(),
         details = details.sanitized(),
         detailHeader = detailHeader.sanitized(),
