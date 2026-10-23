@@ -172,6 +172,7 @@ fun DetailFloatingHeader(
                 DetailFloatingHeaderAction(
                     isSaved = isSaved,
                     enabled = interactive,
+                    previewGlass = previewGlass,
                     onClick = onToggleSaved,
                 )
             }
@@ -193,6 +194,7 @@ fun DetailFloatingHeader(
 private fun DetailFloatingHeaderAction(
     isSaved: Boolean,
     enabled: Boolean,
+    previewGlass: Boolean,
     onClick: () -> Unit,
 ) {
     Box(

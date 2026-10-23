@@ -107,6 +107,7 @@ import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.action_play
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_corner_radius
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_blur_radius
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_height
@@ -1337,8 +1338,8 @@ private fun LiquidGlassSurfacePreview(
             )
 
             else -> {
-                val previewBackdrop = LocalNuvioSheetBackdrop.current?.backdrop?.takeIf { it.isReady }
-                    ?: LocalLiquidGlassBackdrop.current
+                val previewSheetBackdrop = LocalNuvioSheetBackdrop.current?.backdrop?.takeIf { it.isReady }
+                val previewBackdrop = previewSheetBackdrop ?: LocalLiquidGlassBackdrop.current
                 CompositionLocalProvider(LocalLiquidGlassBackdrop provides previewBackdrop) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -1470,7 +1471,7 @@ private fun LiquidGlassSurfacePreview(
                                         .fillMaxWidth()
                                         .padding(horizontal = 12.dp)
                                         .nuvioSheetSurface(
-                                            backdrop = previewBackdrop,
+                                            backdrop = previewSheetBackdrop,
                                             shape = RoundedCornerShape(28.dp),
                                             containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
                                             preview = true,

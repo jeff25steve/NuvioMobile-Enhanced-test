@@ -95,7 +95,7 @@ data class DetailSecondaryAction(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun DetailActionButtons(
+internal fun DetailActionButtons(
     modifier: Modifier = Modifier,
     playLabel: String = stringResource(Res.string.action_play),
     playEnabled: Boolean = true,
@@ -398,7 +398,7 @@ fun DetailActionButtons(
 // Fork additions: download / play from start / external player in the icon row, the icon-row
 // layout itself, the user rating stars, and the fork's watched/library icons.
 @Composable
-fun DetailActions(
+internal fun DetailActions(
     playLabel: String,
     playEnabled: Boolean,
     isSaved: Boolean,
