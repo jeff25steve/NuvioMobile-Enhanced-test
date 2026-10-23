@@ -51,6 +51,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
@@ -1053,6 +1055,9 @@ private fun GlassPreviewHotspot(
                 color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.16f),
                 shape = RoundedCornerShape(8.dp),
             )
+            .semantics {
+                contentDescription = liquidGlassSurfaceTitle(surface)
+            }
             .clickable(
                 onClickLabel = liquidGlassSurfaceTitle(surface),
                 role = Role.Button,
