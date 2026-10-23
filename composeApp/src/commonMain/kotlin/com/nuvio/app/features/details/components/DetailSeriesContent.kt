@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -60,6 +61,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -579,11 +582,56 @@ private fun SeriesSeasonSelector(
     }
 }
 
+/**
+ * Settings preview that reuses the production season view-mode toggle and horizontally scrolling chips.
+ */
+@Composable
+internal fun DetailGlassChipsPreview(modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val sizing = remember(maxWidth) { seriesContentSizing(maxWidth.value) }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(Res.string.details_seasons),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = sizing.seasonHeaderSize,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                SeasonViewModeToggle(
+                    mode = SeasonViewMode.Posters,
+                    sizing = sizing,
+                    onClick = {},
+                    preview = true,
+                )
+            }
+            SeasonTextChipScrollRow(
+                seasons = listOf(1, 2, 3, 4),
+                currentSeason = 2,
+                sizing = sizing,
+                horizontalScrollPadding = 0.dp,
+                onSelect = {},
+                onLongPress = null,
+                preview = true,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SeasonViewModeToggle(
     mode: SeasonViewMode,
     sizing: SeriesContentSizing,
     onClick: () -> Unit,
+    preview: Boolean = false,
 ) {
     val isPosters = mode == SeasonViewMode.Posters
     Box(
@@ -594,11 +642,12 @@ private fun SeasonViewModeToggle(
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 refractionHeight = 6.dp,
+                preview = preview,
             )
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.2f),
-                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, RoundedCornerShape(8.dp)),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, RoundedCornerShape(8.dp), preview = preview),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -628,6 +677,7 @@ private fun SeasonTextChipScrollRow(
     horizontalScrollPadding: Dp,
     onSelect: (Int) -> Unit,
     onLongPress: ((Int) -> Unit)?,
+    preview: Boolean = false,
 ) {
     val seasonListState = rememberLazyListState()
     var hasPositionedSeasonRow by remember(seasons) { mutableStateOf(false) }
@@ -656,7 +706,7 @@ private fun SeasonTextChipScrollRow(
             val isSelected = season == currentSeason
             val defaultSeasonChipShape = RoundedCornerShape(sizing.seasonChipRadius)
             val seasonChipShape = if (isSelected) {
-                liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, defaultSeasonChipShape)
+                liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, defaultSeasonChipShape, preview = preview)
             } else {
                 defaultSeasonChipShape
             }
@@ -670,6 +720,7 @@ private fun SeasonTextChipScrollRow(
                                 shape = defaultSeasonChipShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                preview = preview,
                             )
                         } else {
                             Modifier.background(Color.Transparent)
