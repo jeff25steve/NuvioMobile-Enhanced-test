@@ -504,258 +504,136 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
 private fun LiquidGlassSurfacePreview(
     surface: LiquidGlassSurface,
     recipe: LiquidGlassSurfaceRecipe,
+    isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val backdrop = rememberNuvioBackdrop()
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(82.dp)
-            .clip(RoundedCornerShape(20.dp)),
-    ) {
-        Row(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color(0xFF22344D),
-                            Color(0xFF536C89),
-                            Color(0xFF332F4F),
+    // Prefer the real app content captured behind this sheet. Do not invent a gradient or fake
+    // controls: if a platform cannot provide a backdrop, the production glass fallback is shown.
+    val previewBackdrop = LocalNuvioSheetBackdrop.current?.backdrop?.takeIf { it.isReady }
+        ?: LocalLiquidGlassBackdrop.current
+
+    CompositionLocalProvider(LocalLiquidGlassBackdrop provides previewBackdrop) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(88.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (surface) {
+                LiquidGlassSurface.PLAYER -> PlayerToolbar(
+                    isLocked = false,
+                    onLockToggle = {},
+                    onBack = {},
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                )
+
+                LiquidGlassSurface.STREAM_SELECTION -> StreamSearchField(
+                    query = "",
+                    onQueryChange = {},
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    preview = true,
+                )
+
+                LiquidGlassSurface.DETAILS -> DetailActionButtons(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    isTablet = isTablet,
+                    secondaryActions = listOf(
+                        DetailSecondaryAction(
+                            label = stringResource(Res.string.details_actions_menu_label),
+                            icon = Icons.Rounded.Settings,
                         ),
                     ),
                 )
-                .nuvioBackdropSource(backdrop),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(5) { index ->
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = if (index % 2 == 0) 0.16f else 0.07f)),
-                )
+
+                LiquidGlassSurface.SEARCH -> {
+                    val shape = RoundedCornerShape(percent = recipe.cornerRadiusPercent.roundToInt())
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .liquidGlassForSurface(
+                                surface = LiquidGlassSurface.SEARCH,
+                                shape = shape,
+                                tint = MaterialTheme.colorScheme.surface.copy(alpha = recipe.tintOpacity),
+                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                blurRadius = recipe.blurRadiusDp.dp,
+                                refractionHeight = recipe.refractionHeightDp.dp,
+                                refractionAmount = recipe.refractionAmountDp.dp,
+                                preview = true,
+                            )
+                            .padding(horizontal = 8.dp),
+                    ) {
+                        NuvioInputField(
+                            value = "",
+                            onValueChange = {},
+                            placeholder = stringResource(Res.string.compose_search_placeholder),
+                            modifier = Modifier.fillMaxWidth(),
+                            containerColor = Color.Transparent,
+                        )
+                    }
+                }
+
+                LiquidGlassSurface.LIBRARY -> {
+                    val shape = RoundedCornerShape(12.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .liquidGlassForSurface(
+                                surface = LiquidGlassSurface.LIBRARY,
+                                shape = shape,
+                                tint = MaterialTheme.colorScheme.surface.copy(alpha = recipe.tintOpacity),
+                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                blurRadius = recipe.blurRadiusDp.dp,
+                                refractionHeight = recipe.refractionHeightDp.dp,
+                                refractionAmount = recipe.refractionAmountDp.dp,
+                                preview = true,
+                            ),
+                    ) {
+                        CloudLibrarySearchField(
+                            query = "",
+                            onQueryChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            transparentContainer = true,
+                        )
+                    }
+                }
+
+                LiquidGlassSurface.SETTINGS -> SettingsGroup(
+                    isTablet = isTablet,
+                    previewGlass = true,
+                ) {
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.compose_settings_page_appearance),
+                        description = stringResource(Res.string.compose_settings_root_appearance_description),
+                        icon = Icons.Rounded.Settings,
+                        isTablet = isTablet,
+                        onClick = {},
+                    )
+                }
+
+                LiquidGlassSurface.BOTTOM_SHEETS -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .nuvioSheetSurface(
+                                backdrop = previewBackdrop,
+                                shape = RoundedCornerShape(28.dp),
+                                containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
+                                withHighlight = false,
+                                preview = true,
+                            ),
+                    ) {
+                        NuvioBottomSheetActionRow(
+                            title = stringResource(Res.string.compose_settings_page_appearance),
+                            icon = Icons.Rounded.Settings,
+                            onClick = {},
+                        )
+                    }
+                }
             }
         }
-        androidx.compose.runtime.CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
-            when (surface) {
-                LiquidGlassSurface.PLAYER -> Row(
-                    modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 18.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SurfacePreviewIcon(surface, Icons.Rounded.Close, CircleShape, recipe)
-                    SurfacePreviewIcon(surface, Icons.Rounded.PlayArrow, CircleShape, recipe)
-                    SurfacePreviewIcon(surface, Icons.Rounded.Settings, RoundedCornerShape(14.dp), recipe)
-                }
-
-                LiquidGlassSurface.STREAM_SELECTION -> Row(
-                    modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.Search, stringResource(Res.string.streams_search_placeholder),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    SurfacePreviewIcon(surface, Icons.Rounded.Close, CircleShape, recipe)
-                }
-
-                LiquidGlassSurface.DETAILS -> Row(
-                    modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.PlayArrow, stringResource(Res.string.action_play),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.Settings, stringResource(Res.string.details_actions_menu_label),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                LiquidGlassSurface.SEARCH -> Row(
-                    modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.Search, stringResource(Res.string.compose_search_placeholder),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    SurfacePreviewIcon(surface, Icons.Rounded.Close, CircleShape, recipe)
-                }
-
-                LiquidGlassSurface.LIBRARY -> Row(
-                    modifier = Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.PlayArrow, stringResource(Res.string.library_source_saved),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    SurfacePreviewPill(
-                        surface, recipe, Icons.Rounded.Search, stringResource(Res.string.library_source_cloud),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f),
-                    )
-                    SurfacePreviewIcon(surface, Icons.Rounded.Settings, CircleShape, recipe)
-                }
-
-                LiquidGlassSurface.SETTINGS -> SurfacePreviewCard(
-                    surface = surface,
-                    recipe = recipe,
-                    title = stringResource(Res.string.settings_liquid_glass_surface_settings),
-                    subtitle = stringResource(Res.string.settings_liquid_glass_surface_description),
-                    icon = Icons.Rounded.Settings,
-                )
-
-                LiquidGlassSurface.BOTTOM_SHEETS -> SurfacePreviewCard(
-                    surface = surface,
-                    recipe = recipe,
-                    title = stringResource(Res.string.settings_liquid_glass_surface_bottom_sheets),
-                    subtitle = stringResource(Res.string.settings_liquid_glass_surface_description),
-                    icon = Icons.Rounded.Search,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SurfacePreviewPill(
-    surface: LiquidGlassSurface,
-    recipe: LiquidGlassSurfaceRecipe,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    shape: Shape,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .liquidGlassForSurface(
-                surface = surface,
-                shape = shape,
-                tint = Color.White.copy(alpha = recipe.tintOpacity),
-                fallback = Color.White.copy(alpha = 0.12f),
-                blurRadius = recipe.blurRadiusDp.dp,
-                refractionHeight = recipe.refractionHeightDp.dp,
-                refractionAmount = recipe.refractionAmountDp.dp,
-                withVibrancy = true,
-                withHighlight = true,
-                preview = true,
-            )
-            .padding(horizontal = 9.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = liquidGlassIconTint(surface, Color.White, preview = true),
-            modifier = Modifier.size(16.dp),
-        )
-        Text(
-            text = label,
-            color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun SurfacePreviewCard(
-    surface: LiquidGlassSurface,
-    recipe: LiquidGlassSurfaceRecipe,
-    title: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(70.dp)
-            .padding(horizontal = 12.dp)
-            .liquidGlassForSurface(
-                surface = surface,
-                shape = shape,
-                tint = Color.White.copy(alpha = recipe.tintOpacity),
-                fallback = Color.White.copy(alpha = 0.12f),
-                blurRadius = recipe.blurRadiusDp.dp,
-                refractionHeight = recipe.refractionHeightDp.dp,
-                refractionAmount = recipe.refractionAmountDp.dp,
-                withVibrancy = true,
-                withHighlight = true,
-                preview = true,
-            )
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SurfacePreviewIcon(surface, icon, RoundedCornerShape(12.dp), recipe)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            Text(subtitle, color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-        }
-        Box(
-            modifier = Modifier
-                .size(width = 34.dp, height = 20.dp)
-                .clip(RoundedCornerShape(percent = 50))
-                .background(Color.White.copy(alpha = 0.22f)),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(2.dp)
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SurfacePreviewIcon(
-    surface: LiquidGlassSurface,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    shape: Shape,
-    recipe: LiquidGlassSurfaceRecipe,
-) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .liquidGlassForSurface(
-                surface = surface,
-                shape = shape,
-                tint = Color.White.copy(alpha = recipe.tintOpacity),
-                fallback = Color.White.copy(alpha = 0.12f),
-                blurRadius = recipe.blurRadiusDp.dp,
-                refractionHeight = recipe.refractionHeightDp.dp,
-                refractionAmount = recipe.refractionAmountDp.dp,
-                withVibrancy = true,
-                withHighlight = true,
-                preview = true,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = liquidGlassIconTint(surface, Color.White, preview = true),
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 
