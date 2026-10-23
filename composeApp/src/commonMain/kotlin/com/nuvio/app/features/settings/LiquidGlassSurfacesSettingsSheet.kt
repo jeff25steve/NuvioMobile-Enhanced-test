@@ -483,6 +483,7 @@ private fun LiquidGlassSurfaceGroupListItem(
 private fun LiquidGlassSurfaceEditorHeader(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
+    settings: LiquidGlassSurfacesSettings,
     isTablet: Boolean,
     onBack: () -> Unit,
 ) {
@@ -529,6 +530,7 @@ private fun LiquidGlassSurfaceEditorHeader(
             surface = surface,
             recipe = recipe,
             overrides = overrides,
+            settings = settings,
             isTablet = isTablet,
             modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
         )
@@ -541,6 +543,8 @@ private fun LiquidGlassSurfaceEditorControls(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
     isTablet: Boolean,
+    linkGlassEffects: Boolean = false,
+    onLinkGlassEffectsChanged: ((Boolean) -> Unit)? = null,
     onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
 ) {
     val title = liquidGlassSurfaceTitle(surface)
@@ -549,6 +553,15 @@ private fun LiquidGlassSurfaceEditorControls(
     val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        onLinkGlassEffectsChanged?.let { onLinkChanged ->
+            SettingsSwitchRow(
+                title = stringResource(Res.string.settings_liquid_glass_link_effects),
+                description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
+                checked = linkGlassEffects,
+                isTablet = isTablet,
+                onCheckedChange = onLinkChanged,
+            )
+        }
         SettingsSwitchRow(
             title = title,
             description = stringResource(Res.string.settings_liquid_glass_surface_description),
@@ -715,9 +728,11 @@ private fun LiquidGlassSurfacePreview(
     surface: LiquidGlassSurface,
     recipe: LiquidGlassSurfaceRecipe,
     overrides: LiquidGlassSurfaceOverrides,
+    settings: LiquidGlassSurfacesSettings,
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides settings) {
     BoxWithConstraints(
         modifier = modifier
             .then(
@@ -772,6 +787,10 @@ private fun LiquidGlassSurfacePreview(
                         contentAlignment = Alignment.Center,
                     ) {
                         when (surface) {
+                            LiquidGlassSurface.STREAM_FILTERS -> LiquidGlassStreamFiltersPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
                             LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassStreamSearchPreview(
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -917,6 +936,7 @@ private fun LiquidGlassSurfacePreview(
             }
         }
         }
+    }
     }
 }
 
