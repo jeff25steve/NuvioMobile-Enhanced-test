@@ -134,4 +134,27 @@ class ThemeSettingsStorageTest {
         assertEquals("WHITE", ThemeSettingsStorage.loadSelectedTheme())
         assertEquals("#111111,#222222,#333333", preferences.getString(otherProfileKey, null))
     }
+
+    @Test
+    fun liquidGlassSurfaceSettingsSurviveReloadRemainProfileScopedAndStayOutOfSync() {
+        val context = RuntimeEnvironment.getApplication()
+        val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val settings = """{"search":{"enabled":true,"blurRadiusDp":12.0}}"""
+        val settingsKey = "enhanced_local_liquid_glass_surface_settings"
+        val currentProfileKey = ProfileScopedKey.of(settingsKey)
+        val otherProfileKey = ProfileScopedKey.of(settingsKey, 99)
+
+        ThemeSettingsStorage.saveLiquidGlassSurfaceSettings(settings)
+        ThemeSettingsStorage.initialize(context)
+
+        assertEquals(settings, ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
+        assertEquals(settings, preferences.getString(currentProfileKey, null))
+        assertNull(preferences.getString(otherProfileKey, null))
+        assertTrue(ThemeSettingsStorage.exportToSyncPayload().keys.none { "surface_settings" in it })
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertEquals(settings, ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
+    }
+
 }

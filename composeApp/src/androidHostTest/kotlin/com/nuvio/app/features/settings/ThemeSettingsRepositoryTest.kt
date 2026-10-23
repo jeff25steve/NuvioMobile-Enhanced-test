@@ -6,6 +6,8 @@ import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.decodeLiquidGlassEffectSettings
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.MemberAssetStorage
@@ -17,6 +19,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -283,4 +287,33 @@ class ThemeSettingsRepositoryTest {
         assertEquals(saved, ThemeSettingsRepository.customThemePreference.value)
         assertEquals(saved.encode(), ThemeSettingsStorage.exportToSyncPayload().decodeSyncString("custom_theme_colors"))
     }
+
+    @Test
+    fun liquidGlassSurfaceDraftUpdatesLivePersistsOnSaveAndReloads() {
+        ThemeSettingsRepository.ensureLoaded()
+        val surface = LiquidGlassSurface.SEARCH
+        val overrides = LiquidGlassSurfaceOverrides(
+            enabled = true,
+            blurRadiusDp = 15f,
+        )
+
+        ThemeSettingsRepository.updateLiquidGlassSurfaceOverrides(surface, overrides)
+
+        assertEquals(overrides, ThemeSettingsRepository.liquidGlassSurfaceSettings.value.forSurface(surface))
+        assertNull(ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
+
+        ThemeSettingsRepository.saveLiquidGlassSurfaceSettings()
+
+        assertEquals(
+            overrides,
+            ThemeSettingsRepository.liquidGlassSurfaceSettings.value.forSurface(surface),
+        )
+        assertTrue(ThemeSettingsStorage.loadLiquidGlassSurfaceSettings() != null)
+
+        ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsRepository.ensureLoaded()
+
+        assertEquals(overrides, ThemeSettingsRepository.liquidGlassSurfaceSettings.value.forSurface(surface))
+    }
+
 }
