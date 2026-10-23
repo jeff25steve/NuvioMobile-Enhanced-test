@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [feature/liquid-glass-studio-surface-selection]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -30,6 +32,17 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      - name: Constrain Gradle memory for the hosted Linux runner
+        run: |
+          gradle_user_home="${GRADLE_USER_HOME:-${HOME}/.gradle}"
+          mkdir -p "${gradle_user_home}"
+          {
+            echo "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+            echo "kotlin.daemon.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+            echo "org.gradle.parallel=false"
+            echo "org.gradle.workers.max=2"
+          } >> "${gradle_user_home}/gradle.properties"
 
       - name: Prepare runtime properties
         env:
