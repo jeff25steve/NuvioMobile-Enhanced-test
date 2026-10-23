@@ -3,6 +3,7 @@ package com.nuvio.app.core.ui.glass
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -117,6 +118,12 @@ internal data class LiquidGlassSurfacesSettings(
         bottomSheets = bottomSheets.sanitized(),
     )
 }
+
+/**
+ * Non-persistent preview-only overrides let production controls render their exact shapes and
+ * material values inside the editor without mutating the real app-wide settings.
+ */
+internal val LocalLiquidGlassPreviewOverrides = staticCompositionLocalOf<LiquidGlassSurfaceOverrides?> { null }
 
 private val liquidGlassSettingsJson = Json {
     ignoreUnknownKeys = true
