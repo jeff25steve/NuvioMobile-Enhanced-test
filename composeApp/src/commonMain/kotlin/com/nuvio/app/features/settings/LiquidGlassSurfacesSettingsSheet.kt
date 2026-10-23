@@ -136,12 +136,18 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         scope.launch { dismissNuvioBottomSheet(sheetState, onDismiss) }
     }
 
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedSurfaceName) {
+        listState.scrollToItem(0)
+    }
+
     NuvioModalBottomSheet(
         onDismissRequest = dismiss,
         sheetState = sheetState,
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (selectedSurface == null) {
@@ -179,12 +185,18 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             } else {
-                item {
-                    LiquidGlassSurfaceEditor(
+                stickyHeader(key = "liquid-glass-preview-${selectedSurface.name}") {
+                    LiquidGlassSurfaceEditorHeader(
+                        surface = selectedSurface,
+                        isTablet = isTablet,
+                        onBack = { selectedSurfaceName = null },
+                    )
+                }
+                item(key = "liquid-glass-controls-${selectedSurface.name}") {
+                    LiquidGlassSurfaceEditorControls(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        onBack = { selectedSurfaceName = null },
                         onChanged = { onSurfaceChanged(selectedSurface, it) },
                     )
                 }
