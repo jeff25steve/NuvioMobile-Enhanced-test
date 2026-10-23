@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -139,6 +140,16 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     val listState = rememberLazyListState()
     LaunchedEffect(selectedSurfaceName) {
         listState.scrollToItem(0)
+    }
+
+    val previewCaptureOwner = LocalNuvioSheetBackdrop.current
+    DisposableEffect(previewCaptureOwner) {
+        previewCaptureOwner?.let { it.activeGlassPreviews += 1 }
+        onDispose {
+            previewCaptureOwner?.let {
+                it.activeGlassPreviews = (it.activeGlassPreviews - 1).coerceAtLeast(0)
+            }
+        }
     }
 
     NuvioModalBottomSheet(
