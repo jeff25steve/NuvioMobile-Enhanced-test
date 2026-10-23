@@ -870,6 +870,7 @@ private fun LiquidGlassStreamPickerPreview(
     modifier: Modifier = Modifier,
 ) {
     val groups = remember { liquidGlassPreviewStreamGroups() }
+    val backdrop = rememberNuvioBackdrop()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -879,15 +880,20 @@ private fun LiquidGlassStreamPickerPreview(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(Color(0xFF17212F), Color(0xFF334454), Color(0xFF1B1A24), MaterialTheme.colorScheme.background),
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF17212F), Color(0xFF334454), Color(0xFF1B1A24), MaterialTheme.colorScheme.background),
+                        ),
                     ),
-                )
-                .nuvioBackdropSource(rememberNuvioBackdrop()),
-        )
+            )
+        }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides LocalLiquidGlassBackdrop.current,
+            LocalLiquidGlassBackdrop provides backdrop,
             LocalLiquidGlassPreviewSettings provides settings,
         ) {
             Column(
@@ -1433,6 +1439,26 @@ private fun LiquidGlassSurfacePreview(
         }
         }
     }
+    }
+}
+
+@Composable
+private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
+    val groups = remember { liquidGlassPreviewStreamGroups() }
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        ProviderFilterRow(
+            groups = groups,
+            selectedFilter = "preview:torrentio",
+            onFilterSelected = {},
+            onRefresh = {},
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
+            spacing = 6.dp,
+            preview = true,
+        )
     }
 }
 
@@ -2043,6 +2069,7 @@ private fun surfacePreviewRecipe(
 ): LiquidGlassSurfaceRecipe {
     val defaults = when (surface) {
         LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 6f, 8f, 12f, 0.08f)
+        LiquidGlassSurface.STREAM_FILTERS -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.22f)
         LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.28f)
         LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassSurfaceRecipe(15f, 18f, 10f, 16f, 0.10f)
         LiquidGlassSurface.DETAILS -> LiquidGlassSurfaceRecipe(50f, 16f, 10f, 16f, 0.30f)
@@ -2062,6 +2089,29 @@ private fun surfacePreviewRecipe(
         refractionAmountDp = overrides.refractionAmountDp ?: defaults.refractionAmountDp,
         tintOpacity = overrides.tintOpacity ?: defaults.tintOpacity,
     )
+}
+
+private fun resolvedGlassEffects(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides,
+): LiquidGlassSurfaceOverrides {
+    val recipe = surfacePreviewRecipe(surface, overrides)
+    return overrides.copy(
+        enabled = overrides.enabled ?: surface.defaultEnabled,
+        blurRadiusDp = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
+        refractionHeightDp = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
+        refractionAmountDp = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
+        tintOpacity = overrides.tintOpacity ?: recipe.tintOpacity,
+        withVibrancy = overrides.withVibrancy ?: true,
+        // The detail header and sheet material deliberately omit the directional rim highlight.
+        withHighlight = overrides.withHighlight ?: (
+            surface != LiquidGlassSurface.DETAIL_HEADER &&
+                surface != LiquidGlassSurface.BOTTOM_SHEETS
+            ),
+        withShadow = overrides.withShadow ?: false,
+        chromaticAberration = overrides.chromaticAberration ?: false,
+        depthEffect = overrides.depthEffect ?: false,
+    ).sanitized()
 }
 
 /** The preview shape follows the current live override; null continues to use this surface's recipe. */
