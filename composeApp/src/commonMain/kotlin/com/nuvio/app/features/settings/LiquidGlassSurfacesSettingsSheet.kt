@@ -546,20 +546,32 @@ private fun LiquidGlassSurfacePreview(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val sizeModifier = when (surface) {
-        LiquidGlassSurface.PLAYER -> Modifier.widthIn(max = LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp)
-            .aspectRatio(16f / 9f)
-        LiquidGlassSurface.SEARCH -> Modifier.height(176.dp)
-        LiquidGlassSurface.DETAILS -> Modifier.height(120.dp)
-        else -> Modifier.height(88.dp)
-    }
-
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .then(sizeModifier)
-            .clip(RoundedCornerShape(14.dp)),
+            .then(
+                if (surface == LiquidGlassSurface.PLAYER) {
+                    Modifier.widthIn(max = LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp)
+                } else {
+                    Modifier
+                },
+            ),
     ) {
+        val previewWidth = maxWidth
+        val previewHeight = when (surface) {
+            LiquidGlassSurface.PLAYER -> liquidGlassPlayerPreviewHeight(previewWidth)
+            LiquidGlassSurface.SEARCH -> 176.dp
+            LiquidGlassSurface.DETAILS -> 120.dp
+            else -> 88.dp
+        }
+
+        Box(
+            modifier = Modifier
+                .width(previewWidth)
+                .height(previewHeight)
+                .clip(RoundedCornerShape(14.dp))
+                .align(Alignment.Center),
+        ) {
         when (surface) {
             LiquidGlassSurface.PLAYER -> LiquidGlassPlayerPreview(
                 overrides = overrides,
@@ -661,6 +673,7 @@ private fun LiquidGlassSurfacePreview(
                     }
                 }
             }
+        }
         }
     }
 }
