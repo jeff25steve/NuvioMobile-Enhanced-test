@@ -36,6 +36,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import kotlin.math.roundToInt
 
 internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
@@ -81,8 +82,12 @@ internal fun Modifier.playerLiquidGlass(
     val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
         ?: LocalLiquidGlassPreviewOverrides.current
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
-    val enabled = previewOverrides != null ||
-        (LiquidGlassSettings.enabled && (overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled))
+    val enabled = shouldRenderLiquidGlassSurface(
+        surface = LiquidGlassSurface.PLAYER,
+        overrides = overrides,
+        preview = previewOverrides != null,
+        masterEnabled = LiquidGlassSettings.enabled,
+    )
     val effectiveShape = if (enabled) {
         overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) } ?: shape
     } else {

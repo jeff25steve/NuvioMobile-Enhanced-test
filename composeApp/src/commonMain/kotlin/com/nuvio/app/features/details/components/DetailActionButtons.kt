@@ -79,6 +79,7 @@ import nuvio.composeapp.generated.resources.streams_open_external_player
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
@@ -113,8 +114,17 @@ fun DetailActionButtons(
     previewGlassSurface: LiquidGlassSurface? = null,
     previewGlassAll: Boolean = false,
 ) {
-    val previewDetailsGlass = previewGlassAll || previewGlassSurface == LiquidGlassSurface.DETAILS;
-    val previewPrimaryGlass = previewGlassAll || previewGlassSurface == LiquidGlassSurface.DETAIL_PRIMARY_ACTION;
+    val isGlassPreview = previewGlassAll || previewGlassSurface != null
+    val previewDetailsGlass = if (isGlassPreview) {
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS, preview = true)
+    } else {
+        false
+    }
+    val previewPrimaryGlass = if (isGlassPreview) {
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, preview = true)
+    } else {
+        false
+    }
     val playPainter = appIconPainter(AppIconResource.PlayerPlay)
     val buttonHeight = if (isTablet) 56.dp else 52.dp
     val iconButtonSize = buttonHeight
@@ -153,6 +163,7 @@ fun DetailActionButtons(
                     preferredSpacing = if (isTablet) 20.dp else 16.dp,
                     modifier = Modifier.fillMaxWidth(),
                     previewGlass = previewDetailsGlass,
+                    previewMode = isGlassPreview,
                 )
             }
             onRateClick?.let { rate ->
@@ -202,6 +213,7 @@ fun DetailActionButtons(
                         pinnedAction.onClick()
                     },
                     previewGlass = previewDetailsGlass,
+                    previewMode = isGlassPreview,
                 )
             }
 
@@ -236,6 +248,7 @@ fun DetailActionButtons(
                                     }
                                 },
                                 previewGlass = previewDetailsGlass,
+                    previewMode = isGlassPreview,
                             )
                         }
                     }
@@ -248,7 +261,12 @@ fun DetailActionButtons(
             }
 
             if (hasSecondaryActions) {
-                val moreGlassActive = !actionsExpanded && (previewDetailsGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)))
+                val moreGlassEnabled = if (isGlassPreview) {
+                    previewDetailsGlass
+                } else {
+                    isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS)
+                }
+                val moreGlassActive = !actionsExpanded && moreGlassEnabled
                 val moreSurfaceShape = if (moreGlassActive) {
                     liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
                 } else {
@@ -264,7 +282,7 @@ fun DetailActionButtons(
                                     shape = moreSurfaceShape,
                                     tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                     fallback = Color.Transparent,
-                                    preview = previewDetailsGlass,
+                                    preview = isGlassPreview,
                                 )
                             } else {
                                 Modifier
@@ -281,7 +299,7 @@ fun DetailActionButtons(
                     contentColor = if (actionsExpanded) {
                         MaterialTheme.colorScheme.background
                     } else {
-                        liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface, preview = previewDetailsGlass)
+                        liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface, preview = isGlassPreview)
                     },
                 ) {
                     Box(
@@ -309,9 +327,13 @@ fun DetailActionButtons(
     }
 
         if (onDownloadClick != null) {
-            val downloadGlassActive = previewPrimaryGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION))
+            val downloadGlassActive = if (isGlassPreview) {
+                previewPrimaryGlass
+            } else {
+                isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
+            }
             val downloadSurfaceShape = if (downloadGlassActive) {
-                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape, preview = previewPrimaryGlass)
+                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape, preview = isGlassPreview)
             } else {
                 playShape
             }
@@ -326,7 +348,7 @@ fun DetailActionButtons(
                                 shape = downloadSurfaceShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 fallback = Color.Transparent,
-                                preview = previewPrimaryGlass,
+                                preview = isGlassPreview,
                             )
                         } else {
                             Modifier
@@ -334,7 +356,7 @@ fun DetailActionButtons(
                     ),
                 shape = downloadSurfaceShape,
                 color = if (downloadGlassActive) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, MaterialTheme.colorScheme.onSurface, preview = previewPrimaryGlass),
+                contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, MaterialTheme.colorScheme.onSurface, preview = isGlassPreview),
             ) {
                 Row(
                     modifier = Modifier
@@ -629,6 +651,7 @@ private fun DetailIconActionRow(
     modifier: Modifier = Modifier,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
     previewGlass: Boolean = false,
+    previewMode: Boolean = false,
 ) {
     if (actions.isEmpty()) {
         Spacer(modifier = modifier)
@@ -662,6 +685,7 @@ private fun DetailIconActionRow(
                     onClick = action.onClick,
                     onLongClick = action.onLongClick,
                     previewGlass = previewGlass,
+                    previewMode = previewMode,
                 )
             }
         }
@@ -681,10 +705,17 @@ internal fun DetailIconAction(
     drawable: DrawableResource? = null,
     onLongClick: (() -> Unit)? = null,
     previewGlass: Boolean = false,
+    previewMode: Boolean = false,
 ) {
-    val glassActive = !active && (previewGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)))
+    val glassActive = !active && (
+        if (previewMode) {
+            previewGlass
+        } else {
+            isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS)
+        }
+    )
     val actionSurfaceShape = if (glassActive) {
-        liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewGlass)
+        liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewMode)
     } else {
         CircleShape
     }
@@ -702,7 +733,7 @@ internal fun DetailIconAction(
                         shape = actionSurfaceShape,
                         tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         fallback = Color.Transparent,
-                        preview = previewGlass,
+                        preview = previewMode,
                     )
                 } else {
                     Modifier
@@ -719,7 +750,7 @@ internal fun DetailIconAction(
         contentColor = if (active) {
             MaterialTheme.colorScheme.background
         } else {
-            liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface, preview = previewGlass)
+            liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface, preview = previewMode)
         },
         tonalElevation = 6.dp,
     ) {
