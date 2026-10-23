@@ -68,6 +68,10 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.details.components.DetailActionButtons
+import com.nuvio.app.features.details.components.DetailFloatingHeader
+import com.nuvio.app.features.details.components.DetailGlassChipsPreview
+import com.nuvio.app.features.details.components.DetailGlassContentCardPreview
+import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.player.PlayerChapter
 import com.nuvio.app.features.player.PlayerControlsShell
@@ -75,6 +79,10 @@ import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
 import com.nuvio.app.features.streams.StreamSearchField
+import com.nuvio.app.features.streams.StreamCard
+import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.StreamBadge
+import com.nuvio.app.features.streams.StreamBadgePlacement
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
@@ -113,6 +121,11 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_done
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_player
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_stream_selection
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_stream_results
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_header
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_chips
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_content_cards
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_primary_action
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_details
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
@@ -530,7 +543,12 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
         when (surface) {
             LiquidGlassSurface.PLAYER -> Res.string.settings_liquid_glass_surface_player
             LiquidGlassSurface.STREAM_SELECTION -> Res.string.settings_liquid_glass_surface_stream_selection
+            LiquidGlassSurface.STREAM_RESULTS -> Res.string.settings_liquid_glass_surface_stream_results
             LiquidGlassSurface.DETAILS -> Res.string.settings_liquid_glass_surface_details
+            LiquidGlassSurface.DETAIL_HEADER -> Res.string.settings_liquid_glass_surface_detail_header
+            LiquidGlassSurface.DETAIL_CHIPS -> Res.string.settings_liquid_glass_surface_detail_chips
+            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> Res.string.settings_liquid_glass_surface_detail_content_cards
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> Res.string.settings_liquid_glass_surface_detail_primary_action
             LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
             LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
@@ -561,7 +579,13 @@ private fun LiquidGlassSurfacePreview(
         val previewHeight = when (surface) {
             LiquidGlassSurface.PLAYER -> liquidGlassPlayerPreviewHeight(previewWidth)
             LiquidGlassSurface.SEARCH -> 176.dp
-            LiquidGlassSurface.DETAILS -> 120.dp
+            LiquidGlassSurface.DETAIL_HEADER -> 70.dp
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
+            LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
+            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> 132.dp
+            LiquidGlassSurface.STREAM_SELECTION -> 116.dp
+            LiquidGlassSurface.STREAM_RESULTS -> 212.dp
             else -> 88.dp
         }
 
@@ -1007,7 +1031,12 @@ private fun surfacePreviewRecipe(
     val defaults = when (surface) {
         LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 6f, 8f, 12f, 0.08f)
         LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.28f)
-        LiquidGlassSurface.DETAILS -> LiquidGlassSurfaceRecipe(40f, 16f, 10f, 16f, 0.30f)
+        LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassSurfaceRecipe(15f, 18f, 10f, 16f, 0.10f)
+        LiquidGlassSurface.DETAILS -> LiquidGlassSurfaceRecipe(50f, 16f, 10f, 16f, 0.30f)
+        LiquidGlassSurface.DETAIL_HEADER -> LiquidGlassSurfaceRecipe(0f, 24f, 6f, 10f, 0.30f)
+        LiquidGlassSurface.DETAIL_CHIPS -> LiquidGlassSurfaceRecipe(25f, 14f, 6f, 8f, 0.25f)
+        LiquidGlassSurface.DETAIL_CONTENT_CARDS -> LiquidGlassSurfaceRecipe(15f, 18f, 10f, 16f, 0.30f)
+        LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> LiquidGlassSurfaceRecipe(50f, 16f, 10f, 16f, 0.30f)
         LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
