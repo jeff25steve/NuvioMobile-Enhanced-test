@@ -249,7 +249,7 @@ fun DetailActionButtons(
             if (hasSecondaryActions) {
                 val moreGlassActive = !actionsExpanded && (previewDetailsGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)))
                 val moreSurfaceShape = if (moreGlassActive) {
-                    liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape)
+                    liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
                 } else {
                     CircleShape
                 }
@@ -310,7 +310,7 @@ fun DetailActionButtons(
         if (onDownloadClick != null) {
             val downloadGlassActive = previewPrimaryGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION))
             val downloadSurfaceShape = if (downloadGlassActive) {
-                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape)
+                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape, preview = previewPrimaryGlass)
             } else {
                 playShape
             }
@@ -395,6 +395,7 @@ fun DetailActions(
     iconActionRow: Boolean = false,
     userRating: Int? = null,
     onRateClick: (() -> Unit)? = null,
+    previewGlassSurface: LiquidGlassSurface? = null,
 ) {
     val actionSet = detailActionSet(
         isSaved = isSaved,
@@ -429,6 +430,7 @@ fun DetailActions(
         onPlayLongClick = onPlayLongClick,
         userRating = userRating,
         onRateClick = onRateClick,
+        previewGlassSurface = previewGlassSurface,
     )
 }
 
