@@ -2920,8 +2920,8 @@
     <string name="settings_liquid_glass_preview_detail_page_description">Tap the header, action buttons, season controls or episode cards to edit that part.</string>
     <string name="settings_liquid_glass_preview_stream_picker">Stream picker preview</string>
     <string name="settings_liquid_glass_preview_stream_picker_description">Tap provider filters, search and resume, or a stream card to edit it separately.</string>
-    <string name="settings_liquid_glass_link_effects">Link glass effects across this page</string>
-    <string name="settings_liquid_glass_link_effects_description">Keep blur, tint, refraction and lighting in sync. Each component keeps its own shape and icon colour.</string>
+    <string name="settings_liquid_glass_link_effects">Link effects while editing</string>
+    <string name="settings_liquid_glass_link_effects_description">Changes to blur, tint, refraction and lighting update every glass element in this preview. Each keeps its own shape and icon colour. Values are saved per element.</string>
     <string name="settings_liquid_glass_tap_to_edit_component">Tap a highlighted glass element to edit it.</string>
     <string name="settings_liquid_glass_global_note">The master Liquid Glass switch still controls every area. Unchanged controls keep their original per-component defaults.</string>
     <string name="settings_liquid_glass_surface_description">Customize this area without changing the other areas.</string>
