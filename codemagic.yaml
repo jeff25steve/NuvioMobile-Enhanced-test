@@ -8,9 +8,6 @@ workflows:
       java: 17
       vars:
         NUVIO_BUILD_CHANNEL: "beta"
-        # Avoid recursively fetching the legacy libass-android gitlink,
-        # which has no matching URL entry in .gitmodules.
-        CM_RECURSIVE_SUBMODULE_INIT: "false"
 
     scripts:
       - name: Configure Android build
