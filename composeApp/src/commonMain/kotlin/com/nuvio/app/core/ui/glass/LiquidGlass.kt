@@ -195,6 +195,7 @@ private class NuvioBackdropSourceNode(
     }
 }
 
+@kotlinx.serialization.Serializable
 enum class LiquidGlassMaterial(val key: String) {
     LIQUID("liquid"),
     FROSTED("frosted"),

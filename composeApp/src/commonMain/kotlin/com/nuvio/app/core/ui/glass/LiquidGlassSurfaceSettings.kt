@@ -63,6 +63,7 @@ internal enum class LiquidGlassSurface {
 @Serializable
 internal data class LiquidGlassSurfaceOverrides(
     val enabled: Boolean? = null,
+    val material: LiquidGlassMaterial? = null,
     val cornerRadiusPercent: Float? = null,
     val blurRadiusDp: Float? = null,
     val refractionHeightDp: Float? = null,
@@ -77,6 +78,7 @@ internal data class LiquidGlassSurfaceOverrides(
     val defaultIconColorArgb: Int? = null,
 ) {
     fun sanitized(): LiquidGlassSurfaceOverrides = copy(
+        material = material?.takeUnless { it == LiquidGlassMaterial.SOLID },
         cornerRadiusPercent = cornerRadiusPercent.inheritOrClamp(0f, 50f),
         blurRadiusDp = blurRadiusDp.inheritOrClamp(0f, 32f),
         refractionHeightDp = refractionHeightDp.inheritOrClamp(0f, 48f),
@@ -94,6 +96,7 @@ internal data class LiquidGlassSurfaceOverrides(
      */
     fun withGlassEffectFrom(shared: LiquidGlassSurfaceOverrides): LiquidGlassSurfaceOverrides = copy(
         enabled = shared.enabled,
+        material = shared.material,
         blurRadiusDp = shared.blurRadiusDp,
         refractionHeightDp = shared.refractionHeightDp,
         refractionAmountDp = shared.refractionAmountDp,
@@ -294,7 +297,9 @@ internal fun Modifier.liquidGlassForSurface(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    val enabled = shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)
+    val materialStyle = LiquidGlassStyle(material = overrides.material ?: LiquidGlassMaterial.LIQUID)
+    val enabled = shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled) &&
+        materialStyle.usesBackdrop
     val effectiveShape = if (enabled) liquidGlassShape(surface, shape, preview = preview) else shape
     if (!enabled) {
         return if (fallbackBrush != null) {
@@ -305,9 +310,21 @@ internal fun Modifier.liquidGlassForSurface(
     }
 
     val effectiveTint = overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint
-    val effectiveBlur = overrides.blurRadiusDp?.dp ?: blurRadius
-    val effectiveRefractionHeight = overrides.refractionHeightDp?.dp ?: refractionHeight
-    val effectiveRefractionAmount = overrides.refractionAmountDp?.dp ?: refractionAmount
+    val effectiveBlur = if (materialStyle.usesBlur) {
+        overrides.blurRadiusDp?.dp ?: blurRadius
+    } else {
+        0.dp
+    }
+    val effectiveRefractionHeight = if (materialStyle.usesLens) {
+        overrides.refractionHeightDp?.dp ?: refractionHeight
+    } else {
+        0.dp
+    }
+    val effectiveRefractionAmount = if (materialStyle.usesLens) {
+        overrides.refractionAmountDp?.dp ?: refractionAmount
+    } else {
+        0.dp
+    }
     val effectiveBackdropOpacity = backdropOpacity
     val effectiveFallbackBrush = fallbackBrush
 

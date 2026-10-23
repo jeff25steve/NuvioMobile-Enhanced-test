@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -94,6 +97,8 @@ import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamBadge
 import com.nuvio.app.features.streams.StreamBadgePlacement
+import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
@@ -108,6 +113,10 @@ import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_clear
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_frosted
+import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_liquid
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_corner_radius
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_blur_radius
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_height
@@ -129,6 +138,7 @@ import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_default
+import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
@@ -1131,6 +1141,62 @@ private fun LiquidGlassSurfaceEditorControls(
 
         AnimatedVisibility(visible = enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val activeMaterial = overrides.material ?: LiquidGlassMaterial.LIQUID
+                val materialStyle = LiquidGlassStyle(material = activeMaterial)
+                Text(
+                    text = stringResource(Res.string.settings_nav_bar_glass),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
+                )
+                listOf(
+                    LiquidGlassMaterial.LIQUID,
+                    LiquidGlassMaterial.FROSTED,
+                    LiquidGlassMaterial.CLEAR,
+                ).forEach { material ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(role = Role.RadioButton) {
+                                onChanged(overrides.copy(material = material))
+                            }
+                            .semantics {
+                                role = Role.RadioButton
+                                selected = material == activeMaterial
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    when (material) {
+                                        LiquidGlassMaterial.LIQUID -> Res.string.settings_nav_bar_glass_material_liquid
+                                        LiquidGlassMaterial.FROSTED -> Res.string.settings_nav_bar_glass_material_frosted
+                                        LiquidGlassMaterial.CLEAR -> Res.string.settings_nav_bar_glass_material_clear
+                                        LiquidGlassMaterial.SOLID -> Res.string.settings_nav_bar_glass_material_liquid
+                                    },
+                                ),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (material == LiquidGlassMaterial.CLEAR) {
+                                Text(
+                                    text = stringResource(Res.string.settings_liquid_glass_suggested),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (material == activeMaterial) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_highlight),
                     description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
@@ -1150,17 +1216,19 @@ private fun LiquidGlassSurfaceEditorControls(
                         onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
                     )
                 }
-                LiquidGlassEffectSlider(
-                    title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
-                    value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
-                    valueRange = 0f..32f,
-                    valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
-                        ?: stringResource(Res.string.settings_liquid_glass_default),
-                    isTablet = isTablet,
-                    steps = 31,
-                    onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
-                )
-                if (refractionSupported) {
+                if (materialStyle.usesBlur) {
+                    LiquidGlassEffectSlider(
+                        title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
+                        value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
+                        valueRange = 0f..32f,
+                        valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        isTablet = isTablet,
+                        steps = 31,
+                        onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
+                    )
+                }
+                if (refractionSupported && materialStyle.usesLens) {
                     LiquidGlassEffectSlider(
                         title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
                         value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,

@@ -183,6 +183,43 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun surfaceMaterialSelectionIsIndependentAndRoundTrips() {
+        val initial = LiquidGlassSurfacesSettings()
+        assertEquals(null, initial.forSurface(LiquidGlassSurface.SEARCH).material)
+
+        val selected = initial.withSurface(
+            LiquidGlassSurface.SEARCH,
+            LiquidGlassSurfaceOverrides(material = LiquidGlassMaterial.CLEAR),
+        )
+
+        assertEquals(LiquidGlassMaterial.CLEAR, selected.forSurface(LiquidGlassSurface.SEARCH).material)
+        assertEquals(null, selected.forSurface(LiquidGlassSurface.LIBRARY).material)
+        assertEquals(selected, decodeLiquidGlassSurfaceSettings(encodeLiquidGlassSurfaceSettings(selected)))
+    }
+
+    @Test
+    fun solidMaterialIsNotAvailableForSurfaceOverrides() {
+        assertEquals(
+            null,
+            LiquidGlassSurfaceOverrides(material = LiquidGlassMaterial.SOLID).sanitized().material,
+        )
+    }
+
+    @Test
+    fun materialModesMatchNavigationBarBlurAndRefractionRules() {
+        val liquid = LiquidGlassStyle(material = LiquidGlassMaterial.LIQUID)
+        val frosted = LiquidGlassStyle(material = LiquidGlassMaterial.FROSTED)
+        val clear = LiquidGlassStyle(material = LiquidGlassMaterial.CLEAR)
+
+        assertEquals(true, liquid.usesBlur)
+        assertEquals(true, liquid.usesLens)
+        assertEquals(true, frosted.usesBlur)
+        assertEquals(false, frosted.usesLens)
+        assertEquals(false, clear.usesBlur)
+        assertEquals(true, clear.usesLens)
+    }
+
+    @Test
     fun unsetOverridesInheritTheOriginalRecipeAndCanBeResetIndependently() {
         val initial = LiquidGlassSurfacesSettings()
         assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.PLAYER))
