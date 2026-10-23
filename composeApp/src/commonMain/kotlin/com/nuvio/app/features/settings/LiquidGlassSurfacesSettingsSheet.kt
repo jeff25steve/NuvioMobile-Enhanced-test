@@ -48,7 +48,6 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.details.components.DetailActionButtons
-import com.nuvio.app.features.details.components.DetailSecondaryAction
 import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.player.PlayerToolbar
 import com.nuvio.app.features.streams.StreamSearchField
@@ -92,7 +91,6 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_settings
 import nuvio.composeapp.generated.resources.compose_search_placeholder
-import nuvio.composeapp.generated.resources.details_actions_menu_label
 import nuvio.composeapp.generated.resources.compose_settings_page_appearance
 import nuvio.composeapp.generated.resources.compose_settings_root_appearance_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom_sheets
@@ -547,12 +545,7 @@ private fun LiquidGlassSurfacePreview(
                 LiquidGlassSurface.DETAILS -> DetailActionButtons(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     isTablet = isTablet,
-                    secondaryActions = listOf(
-                        DetailSecondaryAction(
-                            label = stringResource(Res.string.details_actions_menu_label),
-                            icon = Icons.Rounded.Settings,
-                        ),
-                    ),
+                    onDownloadClick = {},
                 )
 
                 LiquidGlassSurface.SEARCH -> {
