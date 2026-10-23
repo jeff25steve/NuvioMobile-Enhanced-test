@@ -281,19 +281,24 @@ private fun LiquidGlassSurfaceListItem(
 }
 
 @Composable
-private fun LiquidGlassSurfaceEditor(
+private fun LiquidGlassSurfaceEditorHeader(
     surface: LiquidGlassSurface,
-    overrides: LiquidGlassSurfaceOverrides,
     isTablet: Boolean,
     onBack: () -> Unit,
-    onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
 ) {
-    val enabled = overrides.enabled ?: surface.defaultEnabled
-    val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface) { surfacePreviewRecipe(surface) }
     val title = liquidGlassSurfaceTitle(surface)
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .nuvioSheetSurface(
+                backdrop = LocalNuvioSheetBackdrop.current?.backdrop,
+                shape = RectangleShape,
+                containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
+                withHighlight = false,
+            ),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 20.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -323,9 +328,25 @@ private fun LiquidGlassSurfaceEditor(
         LiquidGlassSurfacePreview(
             surface = surface,
             recipe = recipe,
+            isTablet = isTablet,
             modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
         )
 
+    }
+}
+
+@Composable
+private fun LiquidGlassSurfaceEditorControls(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides,
+    isTablet: Boolean,
+    onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
+) {
+    val enabled = overrides.enabled ?: surface.defaultEnabled
+    val refractionSupported = isLiquidRefractionSupported()
+    val recipe = remember(surface) { surfacePreviewRecipe(surface) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingsSwitchRow(
             title = title,
             description = stringResource(Res.string.settings_liquid_glass_surface_description),
