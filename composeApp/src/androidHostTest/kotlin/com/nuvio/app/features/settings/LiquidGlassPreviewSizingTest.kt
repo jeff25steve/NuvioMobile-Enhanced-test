@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -16,5 +17,17 @@ class LiquidGlassPreviewSizingTest {
         assertEquals(0.4f, liquidGlassPlayerPreviewScale(320.dp), 0.001f)
         assertEquals(0.45f, liquidGlassPlayerPreviewScale(360.dp), 0.001f)
         assertEquals(1f, liquidGlassPlayerPreviewScale(800.dp), 0.001f)
+    }
+
+    @Test
+    fun detailActionPreviewTargetsMatchTheConfiguredProductionActionLayout() {
+        assertEquals(
+            setOf(LiquidGlassSurface.DETAILS),
+            liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow = true),
+        )
+        assertEquals(
+            setOf(LiquidGlassSurface.DETAILS, LiquidGlassSurface.DETAIL_PRIMARY_ACTION),
+            liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow = false),
+        )
     }
 }

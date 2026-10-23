@@ -138,16 +138,6 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
-    fun detailPageGroupExposesPrimaryActionAndSecondaryActionsAsDistinctEditableSurfaces() {
-        val group = LiquidGlassSurfaceGroup.DETAIL_PAGE
-
-        assertTrue(LiquidGlassSurface.DETAIL_PRIMARY_ACTION in group.surfaces)
-        assertTrue(LiquidGlassSurface.DETAILS in group.surfaces)
-        assertFalse(group.surfaces.indexOf(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) ==
-            group.surfaces.indexOf(LiquidGlassSurface.DETAILS))
-    }
-
-    @Test
     fun linkedGlassEffectLeavesEachComponentShapeAndIconColorIndependent() {
         val local = LiquidGlassSurfaceOverrides(
             enabled = true,

@@ -76,6 +76,7 @@ import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
 import com.nuvio.app.features.details.components.DetailGlassContentCardPreview
 import com.nuvio.app.features.details.MetaDetails
+import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.player.PlayerChapter
 import com.nuvio.app.features.player.PlayerControlsShell
@@ -173,6 +174,10 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val detailScreenSettings by remember {
+        MetaScreenSettingsRepository.ensureLoaded()
+        MetaScreenSettingsRepository.uiState
+    }.collectAsStateWithLifecycle()
     var selectedSurfaceName by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPreviewLayoutName by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSurface = selectedSurfaceName?.let { name ->
@@ -289,6 +294,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         settings = settings,
                         selectedSurface = selectedSurface,
                         isTablet = isTablet,
+                        iconActionRow = detailScreenSettings.iconActionRow,
                         onSelectSurface = { selectedSurfaceName = it.name },
                         onBack = {
                             selectedPreviewLayoutName = null
@@ -552,6 +558,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
     isTablet: Boolean,
+    iconActionRow: Boolean,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -606,6 +613,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
                 settings = settings,
                 selectedSurface = selectedSurface,
                 isTablet = isTablet,
+                iconActionRow = iconActionRow,
                 onSelectSurface = onSelectSurface,
                 modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
             )
@@ -624,10 +632,15 @@ private fun LiquidGlassDetailPagePreview(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
     isTablet: Boolean,
+    iconActionRow: Boolean,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
+    val actionButtonHeight = if (isTablet) 56.dp else 52.dp
+    val selectableActionSurfaces = remember(iconActionRow) {
+        liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow)
+    }
     val meta = remember {
         MetaDetails(
             id = "liquid-glass-detail-preview",
@@ -746,26 +759,44 @@ private fun LiquidGlassDetailPagePreview(
                         onDownloadClick = {},
                         onPlayFromStartClick = null,
                         onPlayExternallyClick = {},
-                        iconActionRow = true,
-                        previewGlassSurface = selectedSurface.takeIf {
-                            it == LiquidGlassSurface.DETAILS || it == LiquidGlassSurface.DETAIL_PRIMARY_ACTION
-                        },
+                        iconActionRow = iconActionRow,
+                        previewGlassAll = true,
                     )
-                    // Keep each independently configurable production surface selectable in the
-                    // combined preview: the primary play action is above the secondary icon row.
+                    // Hit targets follow the production action layout. Play is accent-filled;
+                    // DETAIL_PRIMARY_ACTION belongs to the separate Download CTA shown only when
+                    // the icon action row is disabled.
                     Column(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
-                        GlassPreviewHotspot(
-                            modifier = Modifier.fillMaxWidth().height((if (isTablet) 56 else 52).dp),
-                            surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
-                            selectedSurface = selectedSurface,
-                            onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) },
-                        )
-                        GlassPreviewHotspot(
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            surface = LiquidGlassSurface.DETAILS,
-                            selectedSurface = selectedSurface,
-                            onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
-                        )
+                        if (iconActionRow) {
+                            Box(modifier = Modifier.fillMaxWidth().height(actionButtonHeight + 12.dp))
+                            if (LiquidGlassSurface.DETAILS in selectableActionSurfaces) {
+                                GlassPreviewHotspot(
+                                    modifier = Modifier.fillMaxWidth().height(actionButtonHeight),
+                                    surface = LiquidGlassSurface.DETAILS,
+                                    selectedSurface = selectedSurface,
+                                    onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
+                                )
+                            }
+                        } else {
+                            if (LiquidGlassSurface.DETAILS in selectableActionSurfaces) {
+                                Box(modifier = Modifier.fillMaxWidth().height(actionButtonHeight)) {
+                                    GlassPreviewHotspot(
+                                        modifier = Modifier.align(Alignment.CenterEnd).size(actionButtonHeight),
+                                        surface = LiquidGlassSurface.DETAILS,
+                                        selectedSurface = selectedSurface,
+                                        onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
+                                    )
+                                }
+                            }
+                            if (LiquidGlassSurface.DETAIL_PRIMARY_ACTION in selectableActionSurfaces) {
+                                Box(modifier = Modifier.fillMaxWidth().height(12.dp))
+                                GlassPreviewHotspot(
+                                    modifier = Modifier.fillMaxWidth().height(actionButtonHeight),
+                                    surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                                    selectedSurface = selectedSurface,
+                                    onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) },
+                                )
+                            }
+                        }
                     }
                 }
 

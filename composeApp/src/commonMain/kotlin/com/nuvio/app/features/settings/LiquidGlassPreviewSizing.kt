@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 
 internal const val LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP = 800f
 
@@ -15,3 +16,16 @@ internal fun liquidGlassPlayerPreviewHeight(width: Dp): Dp =
  */
 internal fun liquidGlassPlayerPreviewScale(width: Dp): Float =
     (width.value / LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP).coerceIn(0f, 1f)
+
+
+/**
+ * Surface targets present in the actual detail-action layout. The separate primary download
+ * action is absent when the detail page uses the icon action row.
+ */
+internal fun liquidGlassDetailActionPreviewSelectableSurfaces(
+    iconActionRow: Boolean,
+): Set<LiquidGlassSurface> = if (iconActionRow) {
+    setOf(LiquidGlassSurface.DETAILS)
+} else {
+    setOf(LiquidGlassSurface.DETAILS, LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
+}
