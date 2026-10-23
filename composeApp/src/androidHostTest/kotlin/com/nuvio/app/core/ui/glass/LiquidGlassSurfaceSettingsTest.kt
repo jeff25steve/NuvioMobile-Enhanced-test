@@ -55,6 +55,67 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun detailAndStreamSurfacesCanBeCustomizedIndependently() {
+        val initial = LiquidGlassSurfacesSettings()
+        val customized = initial
+            .withSurface(
+                LiquidGlassSurface.DETAILS,
+                LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 50f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_HEADER,
+                LiquidGlassSurfaceOverrides(enabled = true, blurRadiusDp = 10f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_CHIPS,
+                LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 24f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+                LiquidGlassSurfaceOverrides(enabled = true, cornerRadiusPercent = 16f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                LiquidGlassSurfaceOverrides(enabled = true, cornerRadiusPercent = 50f),
+            )
+            .withSurface(
+                LiquidGlassSurface.STREAM_SELECTION,
+                LiquidGlassSurfaceOverrides(enabled = false, blurRadiusDp = 4f),
+            )
+            .withSurface(
+                LiquidGlassSurface.STREAM_RESULTS,
+                LiquidGlassSurfaceOverrides(enabled = true, blurRadiusDp = 20f),
+            )
+
+        assertEquals(false, customized.forSurface(LiquidGlassSurface.DETAILS).enabled)
+        assertEquals(10f, customized.forSurface(LiquidGlassSurface.DETAIL_HEADER).blurRadiusDp)
+        assertEquals(24f, customized.forSurface(LiquidGlassSurface.DETAIL_CHIPS).cornerRadiusPercent)
+        assertEquals(16f, customized.forSurface(LiquidGlassSurface.DETAIL_CONTENT_CARDS).cornerRadiusPercent)
+        assertEquals(50f, customized.forSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION).cornerRadiusPercent)
+        assertEquals(4f, customized.forSurface(LiquidGlassSurface.STREAM_SELECTION).blurRadiusDp)
+        assertEquals(20f, customized.forSurface(LiquidGlassSurface.STREAM_RESULTS).blurRadiusDp)
+        assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.STREAM_RESULTS))
+    }
+
+    @Test
+    fun olderSettingsMigrateDetailAndStreamOverridesToNewlySplitSurfaces() {
+        val legacyJson = """
+            {
+              "details": {"enabled": false, "blurRadiusDp": 11.0, "cornerRadiusPercent": 32.0},
+              "streamSelection": {"enabled": false, "blurRadiusDp": 7.0}
+            }
+        """.trimIndent()
+
+        val restored = decodeLiquidGlassSurfaceSettings(legacyJson)
+
+        assertEquals(restored.details, restored.detailHeader)
+        assertEquals(restored.details, restored.detailChips)
+        assertEquals(restored.details, restored.detailContentCards)
+        assertEquals(restored.details, restored.detailPrimaryAction)
+        assertEquals(restored.streamSelection, restored.streamResults)
+    }
+
+    @Test
     fun sanitizingClampsNumericValuesWithoutInventingOverrides() {
         val sanitized = LiquidGlassSurfaceOverrides(
             cornerRadiusPercent = 80f,
