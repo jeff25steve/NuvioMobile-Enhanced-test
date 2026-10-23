@@ -603,6 +603,7 @@ internal fun ResumeBanner(
     positionMs: Long?,
     progressFraction: Float? = null,
     modifier: Modifier = Modifier,
+    preview: Boolean = false,
 ) {
     val resumeText = when {
         progressFraction != null && progressFraction > 0f -> stringResource(
@@ -617,10 +618,10 @@ internal fun ResumeBanner(
     } ?: return
 
     val defaultShape = RoundedCornerShape(18.dp)
-    val glassAllowed = LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)
+    val glassAllowed = preview || (LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))
     val shape = if (glassAllowed) {
-        liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape)
+        liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape, preview = preview)
     } else {
         defaultShape
     }
@@ -636,6 +637,7 @@ internal fun ResumeBanner(
                             shape = shape,
                             tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                             fallback = fallback,
+                            preview = preview,
                         )
                 } else {
                     Modifier.clip(shape).background(fallback, shape)
