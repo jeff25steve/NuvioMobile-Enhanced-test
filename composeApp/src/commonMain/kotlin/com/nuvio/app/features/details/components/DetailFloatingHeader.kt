@@ -71,6 +71,7 @@ fun DetailFloatingHeader(
     onToggleSaved: () -> Unit,
     modifier: Modifier = Modifier,
     glassBackdrop: Backdrop? = null,
+    previewGlass: Boolean = false,
 ) {
     val useNativeNavigation = LocalUseNativeNavigation.current
     val safeAreaTop = if (useNativeNavigation) {
@@ -114,6 +115,7 @@ fun DetailFloatingHeader(
                     withHighlight = false,
                     explicitBackdrop = glassBackdrop,
                     useExplicitBackdrop = true,
+                    preview = previewGlass,
                 ),
         ) {
             Row(
@@ -130,7 +132,7 @@ fun DetailFloatingHeader(
                         onClick = onBack,
                         modifier = Modifier.size(40.dp),
                         containerColor = Color.Transparent,
-                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
+                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
                         buttonSize = 40.dp,
                         iconSize = 24.dp,
                     )
@@ -208,13 +210,13 @@ private fun DetailFloatingHeaderAction(
             Icon(
                 painter = painterResource(Res.drawable.sidebar_library),
                 contentDescription = contentDescription,
-                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
             )
         } else {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = contentDescription,
-                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
             )
         }
     }
