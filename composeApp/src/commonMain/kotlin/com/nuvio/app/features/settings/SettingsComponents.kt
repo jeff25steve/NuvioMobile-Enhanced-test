@@ -58,9 +58,9 @@ import com.nuvio.app.core.ui.gradientMask
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
-import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
-import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -87,8 +87,11 @@ private fun SettingsCard(
 ) {
     val tokens = MaterialTheme.nuvio
     val defaultCardShape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard
-    val glassEnabled = previewGlass || (LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS))
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        preview = previewGlass,
+        platformSupported = isLiquidGlassSupported(),
+    )
     val cardShape = if (glassEnabled) {
         liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape, preview = previewGlass)
     } else {
