@@ -99,6 +99,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
@@ -1528,7 +1529,7 @@ internal fun StreamSearchField(
             }
         }
     }
-    if (!preview && !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)) {
+    if (!preview && (!isLiquidGlassSupported() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,
