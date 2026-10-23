@@ -2925,7 +2925,7 @@
     <string name="settings_liquid_glass_surface_detail_header">Poster detail header</string>
     <string name="settings_liquid_glass_surface_detail_chips">Season and view chips</string>
     <string name="settings_liquid_glass_surface_detail_content_cards">Episode and content cards</string>
-    <string name="settings_liquid_glass_surface_detail_primary_action">Primary detail action</string>
+    <string name="settings_liquid_glass_surface_detail_primary_action">Download action</string>
     <string name="settings_liquid_glass_surface_search">Search</string>
     <string name="settings_liquid_glass_surface_library">Library</string>
     <string name="settings_liquid_glass_surface_settings">Settings</string>
