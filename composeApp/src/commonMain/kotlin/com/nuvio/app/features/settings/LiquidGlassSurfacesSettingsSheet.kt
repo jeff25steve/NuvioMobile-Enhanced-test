@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -381,7 +382,7 @@ private fun LiquidGlassSurfaceEditorControls(
     val title = liquidGlassSurfaceTitle(surface)
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val refractionSupported = isLiquidRefractionSupported()
-    val recipe = remember(surface) { surfacePreviewRecipe(surface) }
+    val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingsSwitchRow(
@@ -670,7 +671,6 @@ private fun LiquidGlassPlayerPreview(
     modifier: Modifier = Modifier,
 ) {
     val previewBackdrop = rememberNuvioBackdrop()
-    val scale = liquidGlassPlayerPreviewScale(maxWidth = androidx.compose.ui.unit.Dp.Unspecified)
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val previewScale = liquidGlassPlayerPreviewScale(maxWidth)
