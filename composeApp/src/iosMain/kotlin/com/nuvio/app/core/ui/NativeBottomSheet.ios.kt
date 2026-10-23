@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.uikit.LocalUIViewController
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.ComposeUIViewController
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
 import platform.UIKit.UIColor
 import platform.UIKit.UIModalPresentationPageSheet
@@ -76,6 +77,7 @@ internal actual fun NuvioNativeModalBottomSheet(
         val contentController = ComposeUIViewController {
             CompositionLocalProvider(
                 LocalNuvioSheetBackdrop provides sheetBackdrop,
+                LocalLiquidGlassBackdrop provides sheetBackdrop?.backdrop,
                 LocalDensity provides Density(
                     density = latestDensity.value.density,
                     fontScale = latestDensity.value.fontScale,
