@@ -272,7 +272,7 @@ fun SearchScreen(
                     .fillMaxSize()
                     .then(if (searchGlassEnabled) Modifier.nuvioBackdropSource(searchBackdrop) else Modifier),
             ) {
-            NuvioScreen(
+                NuvioScreen(
                     horizontalPadding = 0.dp,
                     topPadding = searchHeaderHeight,
                     listState = listState,
@@ -447,52 +447,64 @@ fun SearchScreen(
                         ),
                 ) {
 
-            Box(modifier = Modifier.fillMaxWidth()) {
-                    androidx.compose.foundation.layout.Column(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        NuvioScreenHeader(
-                            title = headerTitle,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            val defaultSearchFieldShape = RoundedCornerShape(18.dp)
-                            val searchFieldShape = if (searchGlassEnabled) {
-                                liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
-                            } else {
-                                defaultSearchFieldShape
-                            }
-                            val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
-                                {
-                                    IconButton(onClick = { query = "" }) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = stringResource(Res.string.compose_search_clear),
-                                            tint = liquidGlassIconTint(
-                                                LiquidGlassSurface.SEARCH,
-                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        androidx.compose.foundation.layout.Column(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            NuvioScreenHeader(
+                                title = headerTitle,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
+                            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                val defaultSearchFieldShape = RoundedCornerShape(18.dp)
+                                val searchFieldShape = if (searchGlassEnabled) {
+                                    liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
+                                } else {
+                                    defaultSearchFieldShape
+                                }
+                                val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
+                                    {
+                                        IconButton(onClick = { query = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = stringResource(Res.string.compose_search_clear),
+                                                tint = liquidGlassIconTint(
+                                                    LiquidGlassSurface.SEARCH,
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                                ),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                }
+                                if (searchGlassEnabled) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .liquidGlassForSurface(
+                                                surface = LiquidGlassSurface.SEARCH,
+                                                shape = searchFieldShape,
+                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                                blurRadius = 14.dp,
+                                                refractionHeight = 8.dp,
+                                                refractionAmount = 12.dp,
                                             ),
+                                    ) {
+                                        NuvioInputField(
+                                            value = query,
+                                            onValueChange = { query = it },
+                                            placeholder = stringResource(Res.string.compose_search_placeholder),
+                                            modifier = Modifier
+                                                .focusRequester(focusRequester)
+                                                .onFocusChanged { isSearchFocused = it.isFocused },
+                                            trailingContent = trailingContent,
+                                            containerColor = Color.Transparent,
                                         )
                                     }
-                                }
-                            } else {
-                                null
-                            }
-                            if (searchGlassEnabled) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .liquidGlassForSurface(
-                                            surface = LiquidGlassSurface.SEARCH,
-                                            shape = searchFieldShape,
-                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-                                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                            blurRadius = 14.dp,
-                                            refractionHeight = 8.dp,
-                                            refractionAmount = 12.dp,
-                                        ),
-                                ) {
+                                } else {
                                     NuvioInputField(
                                         value = query,
                                         onValueChange = { query = it },
@@ -501,24 +513,12 @@ fun SearchScreen(
                                             .focusRequester(focusRequester)
                                             .onFocusChanged { isSearchFocused = it.isFocused },
                                         trailingContent = trailingContent,
-                                        containerColor = Color.Transparent,
                                     )
                                 }
-                            } else {
-                                NuvioInputField(
-                                    value = query,
-                                    onValueChange = { query = it },
-                                    placeholder = stringResource(Res.string.compose_search_placeholder),
-                                    modifier = Modifier
-                                        .focusRequester(focusRequester)
-                                        .onFocusChanged { isSearchFocused = it.isFocused },
-                                    trailingContent = trailingContent,
-                                )
                             }
+                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
                         }
-                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
                     }
-                }
                 }
             }
         }
