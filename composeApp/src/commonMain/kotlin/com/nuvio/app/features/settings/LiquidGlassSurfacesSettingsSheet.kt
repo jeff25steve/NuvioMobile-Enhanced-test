@@ -1247,14 +1247,14 @@ private fun LiquidGlassSurfaceEditorControls(
                         )
                     }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
-                        Text(stringResource(Res.string.settings_liquid_glass_reset))
-                    }
-                }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
+                Text(stringResource(Res.string.settings_liquid_glass_reset))
             }
         }
     }

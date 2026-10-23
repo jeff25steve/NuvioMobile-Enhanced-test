@@ -410,11 +410,41 @@ internal fun Modifier.liquidGlassBlur(
             )
     }
 
+internal fun shouldUseLiquidGlassBackdrop(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides,
+    preview: Boolean,
+    masterEnabled: Boolean,
+    platformSupported: Boolean,
+    backdropReady: Boolean,
+): Boolean = platformSupported && backdropReady &&
+    shouldRenderLiquidGlassSurface(
+        surface = surface,
+        overrides = overrides,
+        preview = preview,
+        masterEnabled = masterEnabled,
+        platformSupported = platformSupported,
+    )
+
 @Composable
 internal fun isAmbientLiquidGlassActive(): Boolean {
     val backdrop = LocalLiquidGlassBackdrop.current ?: return false
     val host = backdrop as? LiquidGlassBackdropHost
-    return isLiquidGlassSupported() && (host?.isReady ?: true)
+    val previewSettings = LocalLiquidGlassPreviewSettings.current
+    val previewOverrides = LocalLiquidGlassPreviewOverrides.current
+    val preview = previewSettings != null || previewOverrides != null
+    val overrides = previewSettings?.forSurface(LiquidGlassSurface.PLAYER)
+        ?: previewOverrides
+        ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+
+    return shouldUseLiquidGlassBackdrop(
+        surface = LiquidGlassSurface.PLAYER,
+        overrides = overrides,
+        preview = preview,
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = isLiquidGlassAvailable(),
+        backdropReady = host?.isReady ?: true,
+    )
 }
 
 @Composable

@@ -87,6 +87,63 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun playerGlassBackdropActivityRespectsPreviewTogglePlatformAndReadiness() {
+        val enabled = LiquidGlassSurfaceOverrides(enabled = true)
+        val disabled = LiquidGlassSurfaceOverrides(enabled = false)
+
+        assertTrue(
+            shouldUseLiquidGlassBackdrop(
+                surface = LiquidGlassSurface.PLAYER,
+                overrides = enabled,
+                preview = true,
+                masterEnabled = false,
+                platformSupported = true,
+                backdropReady = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassBackdrop(
+                surface = LiquidGlassSurface.PLAYER,
+                overrides = disabled,
+                preview = true,
+                masterEnabled = true,
+                platformSupported = true,
+                backdropReady = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassBackdrop(
+                surface = LiquidGlassSurface.PLAYER,
+                overrides = enabled,
+                preview = false,
+                masterEnabled = false,
+                platformSupported = true,
+                backdropReady = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassBackdrop(
+                surface = LiquidGlassSurface.PLAYER,
+                overrides = enabled,
+                preview = true,
+                masterEnabled = false,
+                platformSupported = false,
+                backdropReady = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassBackdrop(
+                surface = LiquidGlassSurface.PLAYER,
+                overrides = enabled,
+                preview = true,
+                masterEnabled = false,
+                platformSupported = true,
+                backdropReady = false,
+            ),
+        )
+    }
+
+    @Test
     fun previewMayBypassTheMasterSwitchButNeverPlatformSupport() {
         assertTrue(
             shouldUseLiquidGlassRenderer(
