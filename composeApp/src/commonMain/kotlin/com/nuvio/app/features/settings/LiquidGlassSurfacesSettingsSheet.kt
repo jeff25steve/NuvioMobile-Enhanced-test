@@ -548,14 +548,14 @@ private fun LiquidGlassSurfacePreview(
 ) {
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxWidth()
             .then(
                 if (surface == LiquidGlassSurface.PLAYER) {
                     Modifier.widthIn(max = LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp)
                 } else {
                     Modifier
                 },
-            ),
+            )
+            .fillMaxWidth(),
     ) {
         val previewWidth = maxWidth
         val previewHeight = when (surface) {
