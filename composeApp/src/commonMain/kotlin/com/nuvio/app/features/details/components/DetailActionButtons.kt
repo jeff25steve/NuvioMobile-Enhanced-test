@@ -111,9 +111,10 @@ fun DetailActionButtons(
     userRating: Int? = null,
     onRateClick: (() -> Unit)? = null,
     previewGlassSurface: LiquidGlassSurface? = null,
+    previewGlassAll: Boolean = false,
 ) {
-    val previewDetailsGlass = previewGlassSurface == LiquidGlassSurface.DETAILS;
-    val previewPrimaryGlass = previewGlassSurface == LiquidGlassSurface.DETAIL_PRIMARY_ACTION;
+    val previewDetailsGlass = previewGlassAll || previewGlassSurface == LiquidGlassSurface.DETAILS;
+    val previewPrimaryGlass = previewGlassAll || previewGlassSurface == LiquidGlassSurface.DETAIL_PRIMARY_ACTION;
     val playPainter = appIconPainter(AppIconResource.PlayerPlay)
     val buttonHeight = if (isTablet) 56.dp else 52.dp
     val iconButtonSize = buttonHeight
@@ -396,6 +397,7 @@ fun DetailActions(
     userRating: Int? = null,
     onRateClick: (() -> Unit)? = null,
     previewGlassSurface: LiquidGlassSurface? = null,
+    previewGlassAll: Boolean = false,
 ) {
     val actionSet = detailActionSet(
         isSaved = isSaved,
@@ -431,6 +433,7 @@ fun DetailActions(
         userRating = userRating,
         onRateClick = onRateClick,
         previewGlassSurface = previewGlassSurface,
+        previewGlassAll = previewGlassAll,
     )
 }
 
