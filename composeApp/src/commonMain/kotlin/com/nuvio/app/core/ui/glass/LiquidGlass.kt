@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.findRootCoordinates
@@ -263,6 +264,26 @@ internal val DefaultGlassHighlight: () -> Highlight? = { Highlight.Default }
 
 internal val DefaultGlassShadow: () -> Shadow? = { Shadow.Default }
 
+/**
+ * Small adaptive light/dark film that keeps regular glass legible when the sampled backdrop has
+ * almost no detail (notably AMOLED black). It complements, rather than replaces, backdrop blur,
+ * refraction, and the shape highlight.
+ */
+internal data class LiquidGlassAdaptiveFilm(
+    val topSheenAlpha: Float,
+    val bottomShadeAlpha: Float,
+)
+
+internal fun liquidGlassAdaptiveFilm(background: Color): LiquidGlassAdaptiveFilm {
+    // Transparent fallbacks do not describe the pixels sampled by the backdrop. Bias slightly dark
+    // so translucent controls retain a restrained edge sheen without assuming a remote wallpaper.
+    val luminance = if (background.alpha < 0.05f) 0.2f else background.luminance()
+    return LiquidGlassAdaptiveFilm(
+        topSheenAlpha = ((0.58f - luminance) / 0.58f).coerceIn(0f, 1f) * 0.14f,
+        bottomShadeAlpha = ((luminance - 0.42f) / 0.58f).coerceIn(0f, 1f) * 0.08f,
+    )
+}
+
 internal fun Modifier.liquidGlassSurface(
     backdrop: Backdrop?,
     shape: Shape,
@@ -282,6 +303,7 @@ internal fun Modifier.liquidGlassSurface(
     if (backdrop == null || !isLiquidGlassSupported()) {
         if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback)
     } else {
+        val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
         drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
@@ -300,10 +322,21 @@ internal fun Modifier.liquidGlassSurface(
             },
             highlight = if (withHighlight) DefaultGlassHighlight else null,
             shadow = if (withShadow) DefaultGlassShadow else null,
-            onDrawSurface = if (tint.alpha > 0f) {
-                { drawRect(tint) }
-            } else {
-                null
+            onDrawSurface = {
+                if (tint.alpha > 0f) drawRect(tint)
+                // Regular glass must remain perceptible even when the sampled page is pure black.
+                // The subtle film adapts in the opposite direction on bright fallbacks for contrast.
+                if (adaptiveFilm.topSheenAlpha > 0f || adaptiveFilm.bottomShadeAlpha > 0f) {
+                    drawRect(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = adaptiveFilm.topSheenAlpha),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = adaptiveFilm.bottomShadeAlpha),
+                            ),
+                        ),
+                    )
+                }
             },
         )
     }
