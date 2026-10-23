@@ -64,6 +64,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -912,6 +913,7 @@ private fun LazyListScope.cloudLibraryContent(
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
+                        transparentContainer = libraryGlassEnabled,
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .then(
@@ -992,10 +994,11 @@ private fun LazyListScope.cloudLibraryContent(
 }
 
 @Composable
-private fun CloudLibrarySearchField(
+internal fun CloudLibrarySearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    transparentContainer: Boolean = false,
 ) {
     OutlinedTextField(
         value = query,
@@ -1021,6 +1024,15 @@ private fun CloudLibrarySearchField(
                     )
                 }
             }
+        },
+        colors = if (transparentContainer) {
+            OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+            )
+        } else {
+            OutlinedTextFieldDefaults.colors()
         },
     )
 }
