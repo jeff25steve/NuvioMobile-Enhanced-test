@@ -68,6 +68,7 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.details.components.DetailActionButtons
+import com.nuvio.app.features.details.components.DetailActions
 import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
 import com.nuvio.app.features.details.components.DetailGlassContentCardPreview
@@ -79,6 +80,7 @@ import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
 import com.nuvio.app.features.streams.StreamSearchField
+import com.nuvio.app.features.streams.ResumeBanner
 import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamBadge
@@ -617,17 +619,64 @@ private fun LiquidGlassSurfacePreview(
                         contentAlignment = Alignment.Center,
                     ) {
                         when (surface) {
-                            LiquidGlassSurface.STREAM_SELECTION -> StreamSearchField(
-                                query = "",
-                                onQueryChange = {},
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                                preview = true,
+                            LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassStreamSearchPreview(
+                                modifier = Modifier.fillMaxSize(),
                             )
 
-                            LiquidGlassSurface.DETAILS -> DetailActionButtons(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassStreamResultsPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            LiquidGlassSurface.DETAIL_HEADER -> LiquidGlassDetailHeaderPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            LiquidGlassSurface.DETAILS -> DetailActions(
+                                playLabel = stringResource(Res.string.action_play),
+                                playEnabled = true,
+                                isSaved = false,
+                                isWatched = false,
                                 isTablet = isTablet,
+                                shuffleEnabled = false,
+                                onPlayClick = {},
+                                onPlayLongClick = null,
+                                onShuffleClick = null,
+                                onWatchedClick = {},
+                                onSaveClick = {},
+                                onSaveLongClick = null,
                                 onDownloadClick = {},
+                                onPlayFromStartClick = null,
+                                onPlayExternallyClick = {},
+                                iconActionRow = true,
+                                previewGlassSurface = surface,
+                            )
+
+                            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> DetailActions(
+                                playLabel = stringResource(Res.string.action_play),
+                                playEnabled = true,
+                                isSaved = false,
+                                isWatched = false,
+                                isTablet = isTablet,
+                                shuffleEnabled = false,
+                                onPlayClick = {},
+                                onPlayLongClick = null,
+                                onShuffleClick = null,
+                                onWatchedClick = {},
+                                onSaveClick = {},
+                                onSaveLongClick = null,
+                                onDownloadClick = {},
+                                onPlayFromStartClick = null,
+                                onPlayExternallyClick = {},
+                                iconActionRow = false,
+                                previewGlassSurface = surface,
+                            )
+
+                            LiquidGlassSurface.DETAIL_CHIPS -> DetailGlassChipsPreview(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            )
+
+                            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> DetailGlassContentCardPreview(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                             )
 
                             LiquidGlassSurface.LIBRARY -> {
