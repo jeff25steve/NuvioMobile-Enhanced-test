@@ -87,8 +87,8 @@ workflows:
 
           cd "$CM_BUILD_DIR"
 
-          # Disable nested submodule recursion for the iOS-only build. The root
-          # gitlinks are mapped in .gitmodules; iOS explicitly ensures MPVKit is present.
+          # Disable automatic recursive submodule checkout for this iOS-only build.
+          # The root gitlinks have URLs in .gitmodules; this workflow initializes MPVKit explicitly.
           cd "$CM_BUILD_DIR"
           git submodule sync -- MPVKit
           git submodule update --init --depth 1 MPVKit
