@@ -417,16 +417,18 @@ private fun LiquidGlassSurfaceEditorControls(
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withHighlight = it)) },
                 )
-                LiquidGlassEffectSlider(
-                    title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
-                    value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
-                    valueRange = 0f..50f,
-                    valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
-                        ?: stringResource(Res.string.settings_liquid_glass_default),
-                    isTablet = isTablet,
-                    steps = 49,
-                    onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
-                )
+                if (surface != LiquidGlassSurface.DETAIL_HEADER) {
+                    LiquidGlassEffectSlider(
+                        title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
+                        value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
+                        valueRange = 0f..50f,
+                        valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
+                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        isTablet = isTablet,
+                        steps = 49,
+                        onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
+                    )
+                }
                 LiquidGlassEffectSlider(
                     title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
                     value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
