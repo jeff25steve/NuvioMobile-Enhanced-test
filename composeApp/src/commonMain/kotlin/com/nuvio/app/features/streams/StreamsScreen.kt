@@ -99,6 +99,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -618,8 +619,10 @@ internal fun ResumeBanner(
     } ?: return
 
     val defaultShape = RoundedCornerShape(18.dp)
-    val glassAllowed = preview || (LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_SELECTION,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
     val shape = if (glassAllowed) {
         liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape, preview = preview)
     } else {
@@ -1526,12 +1529,20 @@ internal fun StreamSearchField(
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.streams_search_clear),
-                    tint = liquidGlassIconTint(LiquidGlassSurface.STREAM_SELECTION, MaterialTheme.nuvio.colors.textMuted),
+                    tint = liquidGlassIconTint(
+                        LiquidGlassSurface.STREAM_SELECTION,
+                        MaterialTheme.nuvio.colors.textMuted,
+                        preview = preview,
+                    ),
                 )
             }
         }
     }
-    if (!preview && (!isLiquidGlassSupported() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))) {
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_SELECTION,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
+    if (!glassAllowed) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,

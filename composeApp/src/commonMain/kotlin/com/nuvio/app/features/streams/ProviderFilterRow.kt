@@ -68,6 +68,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 
@@ -289,11 +290,10 @@ private fun FilterChip(
         label = "filter_chip_content",
     )
     val defaultShape = RoundedCornerShape(16.dp)
-    val glassAllowed = preview || (
-        LiquidGlassSettings.enabled &&
-            isLiquidGlassSupported() &&
-            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_FILTERS)
-        )
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_FILTERS,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
     val chipShape = if (glassAllowed) {
         liquidGlassShape(LiquidGlassSurface.STREAM_FILTERS, defaultShape, preview = preview)
     } else {

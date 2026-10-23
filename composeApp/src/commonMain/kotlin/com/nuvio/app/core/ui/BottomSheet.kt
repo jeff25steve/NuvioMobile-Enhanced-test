@@ -45,6 +45,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -60,9 +61,10 @@ internal fun Modifier.nuvioSheetSurface(
     withHighlight: Boolean = true,
     preview: Boolean = false,
 ): Modifier {
-    val surfaceGlassEnabled = preview || (LiquidGlassSettings.enabled &&
-        isLiquidGlassSupported() &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS))
+    val surfaceGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.BOTTOM_SHEETS,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
     val readyBackdrop = backdrop?.takeIf { it.isReady && surfaceGlassEnabled }
     return liquidGlassForSurface(
         surface = LiquidGlassSurface.BOTTOM_SHEETS,

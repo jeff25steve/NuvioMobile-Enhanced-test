@@ -48,6 +48,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -81,9 +82,10 @@ internal fun StreamCard(
 ) {
     val partyLabel = if (isCurrent) null else LocalStreamHighlight.current(stream)
     val defaultCardShape = RoundedCornerShape(12.dp)
-    val glassAllowed = preview || (LiquidGlassSettings.enabled &&
-        isLiquidGlassSupported() &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS))
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_RESULTS,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
     val cardShape = if (glassAllowed) {
         liquidGlassShape(LiquidGlassSurface.STREAM_RESULTS, defaultCardShape, preview = preview)
     } else {
@@ -353,8 +355,11 @@ private val StreamGlassTextShadow = Shadow(
 @Composable
 internal fun streamGlassTextShadow(preview: Boolean = false): Shadow? =
     if (
-        preview ||
-        (isAmbientLiquidGlassActive() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS))
+        if (preview) {
+            isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS, preview = true)
+        } else {
+            isAmbientLiquidGlassActive() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS)
+        }
     ) {
         StreamGlassTextShadow
     } else {
