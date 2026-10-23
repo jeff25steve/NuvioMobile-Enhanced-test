@@ -228,6 +228,18 @@ internal fun decodeLiquidGlassSurfaceSettings(raw: String?): LiquidGlassSurfaces
 }
 
 /**
+ * Resolves the per-surface toggle consistently for runtime and editor rendering.
+ * Preview mode ignores the app-wide master switch so a component can be inspected on any device,
+ * but it never overrides the user's per-surface enabled/disabled choice.
+ */
+internal fun shouldRenderLiquidGlassSurface(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides,
+    preview: Boolean,
+    masterEnabled: Boolean,
+): Boolean = (overrides.enabled ?: surface.defaultEnabled) && (preview || masterEnabled)
+
+/**
  * Uses existing call-site values unless the user has explicitly overridden them. Existing glass
  * recipes therefore remain pixel-for-pixel unchanged until that area is customized.
  */
@@ -244,7 +256,7 @@ internal fun liquidGlassShape(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) {
+    if (!shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)) {
         return defaultShape
     }
     // Rectangular scroll-edge headers are intentionally full-width; a migrated detail radius
@@ -280,7 +292,7 @@ internal fun Modifier.liquidGlassForSurface(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    val enabled = preview || (LiquidGlassSettings.enabled && (overrides.enabled ?: surface.defaultEnabled))
+    val enabled = shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)
     val effectiveShape = if (enabled) liquidGlassShape(surface, shape, preview = preview) else shape
     if (!enabled) {
         return if (fallbackBrush != null) {
@@ -358,12 +370,30 @@ internal fun liquidGlassIconTint(
         return default
     }
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (previewOverrides == null && !preview &&
-        !(overrides.enabled ?: surface.defaultEnabled)
-    ) {
+    if (!shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)) {
         return default
     }
     return overrides.defaultIconColorArgb?.let { Color(it).copy(alpha = default.alpha) } ?: default
+}
+
+/**
+ * Returns the effective per-surface enabled state for branches choosing between glass and a
+ * native fallback. Preview rendering reads preview-local overrides and ignores the app-wide
+ * master switch, while respecting the individual surface toggle.
+ */
+@Composable
+internal fun isLiquidGlassSurfaceEffectivelyEnabled(
+    surface: LiquidGlassSurface,
+    preview: Boolean = false,
+): Boolean {
+    val overrides = if (preview) {
+        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
+            ?: LocalLiquidGlassPreviewOverrides.current
+            ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    } else {
+        LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    }
+    return shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)
 }
 
 /** Used by components that need to fall back to their original control when a surface is disabled. */

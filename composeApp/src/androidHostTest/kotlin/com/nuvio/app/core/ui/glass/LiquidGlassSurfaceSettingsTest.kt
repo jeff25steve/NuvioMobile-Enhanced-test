@@ -38,6 +38,17 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun previewRespectsSurfaceToggleButIgnoresTheGlobalMasterSwitch() {
+        val surface = LiquidGlassSurface.DETAILS
+
+        assertTrue(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(), preview = true, masterEnabled = false))
+        assertFalse(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = false), preview = true, masterEnabled = true))
+        assertTrue(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = true), preview = false, masterEnabled = true))
+        assertFalse(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = true), preview = false, masterEnabled = false))
+        assertFalse(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = false), preview = false, masterEnabled = true))
+    }
+
+    @Test
     fun unsetOverridesInheritTheOriginalRecipeAndCanBeResetIndependently() {
         val initial = LiquidGlassSurfacesSettings()
         assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.PLAYER))
