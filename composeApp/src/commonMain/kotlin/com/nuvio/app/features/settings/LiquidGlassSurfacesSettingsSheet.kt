@@ -687,7 +687,9 @@ private fun LiquidGlassPlayerPreview(
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val previewScale = liquidGlassPlayerPreviewScale(maxWidth)
-        val metrics = remember { PlayerLayoutMetrics.fromWidth(LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp) }
+        val metrics = remember {
+            PlayerLayoutMetrics.fromWidth(LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp)
+        }
         val durationMs = 10_871_000L
         val playbackSnapshot = remember {
             PlayerPlaybackSnapshot(
@@ -708,9 +710,8 @@ private fun LiquidGlassPlayerPreview(
             )
         }
 
-        // Keep the artwork source and the production control tree in the same 800x450 logical
-        // canvas. The shared parent applies one uniform transform to both, so captured glass pixels
-        // remain aligned with their real controls at the compact preview size.
+        // One landscape design canvas contains both the artwork source and the real Nuvio player
+        // controls. They are measured at the same 800x450 size and uniformly scaled as a unit.
         Box(
             modifier = Modifier
                 .requiredSize(
@@ -724,8 +725,6 @@ private fun LiquidGlassPlayerPreview(
                 }
                 .align(Alignment.Center),
         ) {
-            // Local, deterministic cinematic art gives the real controls something rich to refract.
-            // It performs no network requests and does not replace or alter the app's wallpaper.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -771,9 +770,60 @@ private fun LiquidGlassPlayerPreview(
                 )
             }
 
-scaleX = previewScale
-                    scaleY = previewScale
-                    transformOrigin = TransformOrigin.Center
+            CompositionLocalProvider(
+                LocalLiquidGlassBackdrop provides previewBackdrop,
+                LocalLiquidGlassPreviewOverrides provides overrides,
+            ) {
+                PlayerControlsShell(
+                    title = "Avengers: Endgame",
+                    streamTitle = "One Last Surprise",
+                    providerName = "Torrentio",
+                    seasonNumber = null,
+                    episodeNumber = null,
+                    episodeTitle = null,
+                    playbackSnapshot = playbackSnapshot,
+                    displayedPositionMs = 0L,
+                    metrics = metrics,
+                    resizeMode = PlayerResizeMode.Fit,
+                    isLocked = false,
+                    releaseInfo = "Via 2160p | Cached",
+                    badges = emptyList(),
+                    onLockToggle = {},
+                    onBack = {},
+                    onPartyClick = {},
+                    partyActive = false,
+                    onCastClick = {},
+                    isCasting = false,
+                    onPictureInPictureClick = {},
+                    onOrientationToggleClick = {},
+                    isPortraitPlayback = false,
+                    onTogglePlayback = {},
+                    onSeekBack = {},
+                    onSeekForward = {},
+                    skipBackwardSeconds = 10,
+                    skipForwardSeconds = 10,
+                    onResizeModeClick = {},
+                    onSpeedClick = {},
+                    onSubtitleClick = {},
+                    onAudioClick = {},
+                    onVideoSettingsClick = {},
+                    onInfoClick = {},
+                    onRateClick = {},
+                    onSourcesClick = {},
+                    onEpisodesClick = {},
+                    onChaptersClick = {},
+                    onLiveChannelsClick = {},
+                    qualityLabel = "2160p",
+                    onQualityClick = {},
+                    onOpenInExternalPlayer = {},
+                    onSubmitIntroClick = {},
+                    onSwitchEngineClick = {},
+                    onScrubChange = {},
+                    onScrubFinished = {},
+                    horizontalSafePadding = metrics.horizontalPadding,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
