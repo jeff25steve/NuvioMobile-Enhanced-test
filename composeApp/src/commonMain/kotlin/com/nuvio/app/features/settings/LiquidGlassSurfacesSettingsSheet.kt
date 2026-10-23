@@ -328,8 +328,8 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         },
                     )
                 }
-            } else {
-                stickyHeader(key = "liquid-glass-preview-${selectedSurface!!.name}") {
+            } else if (selectedSurface != null) {
+                stickyHeader(key = "liquid-glass-preview-${selectedSurface.name}") {
                     LiquidGlassSurfaceEditorHeader(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
