@@ -681,7 +681,7 @@ internal fun DetailIconAction(
 ) {
     val glassActive = !active && (previewGlass || (isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)))
     val actionSurfaceShape = if (glassActive) {
-        liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape)
+        liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewGlass)
     } else {
         CircleShape
     }
