@@ -245,9 +245,18 @@ internal fun liquidGlassIconTint(
     default: Color,
     preview: Boolean = false,
 ): Color {
-    if (!preview && (!isLiquidGlassSupported() || !LiquidGlassSettings.enabled)) return default
-    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (!preview && !(overrides.enabled ?: surface.defaultEnabled)) return default
+    val scopedPreviewOverrides = LocalLiquidGlassPreviewOverrides.current
+    if (scopedPreviewOverrides == null && !preview &&
+        (!isLiquidGlassSupported() || !LiquidGlassSettings.enabled)
+    ) {
+        return default
+    }
+    val overrides = scopedPreviewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    if (scopedPreviewOverrides == null && !preview &&
+        !(overrides.enabled ?: surface.defaultEnabled)
+    ) {
+        return default
+    }
     return overrides.defaultIconColorArgb?.let { Color(it).copy(alpha = default.alpha) } ?: default
 }
 
