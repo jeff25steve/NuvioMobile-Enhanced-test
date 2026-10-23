@@ -301,9 +301,9 @@ fun DetailActionButtons(
     }
 
         if (onDownloadClick != null) {
-            val downloadGlassActive = isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
+            val downloadGlassActive = isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
             val downloadSurfaceShape = if (downloadGlassActive) {
-                liquidGlassShape(LiquidGlassSurface.DETAILS, playShape)
+                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape)
             } else {
                 playShape
             }
@@ -314,7 +314,7 @@ fun DetailActionButtons(
                     .then(
                         if (downloadGlassActive) {
                             Modifier.liquidGlassForSurface(
-                                surface = LiquidGlassSurface.DETAILS,
+                                surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
                                 shape = downloadSurfaceShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 fallback = Color.Transparent,
@@ -325,7 +325,7 @@ fun DetailActionButtons(
                     ),
                 shape = downloadSurfaceShape,
                 color = if (downloadGlassActive) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface),
+                contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, MaterialTheme.colorScheme.onSurface),
             ) {
                 Row(
                     modifier = Modifier
