@@ -1543,6 +1543,7 @@ internal fun StreamSearchField(
     val fieldShape = liquidGlassShape(
         LiquidGlassSurface.STREAM_SELECTION,
         RoundedCornerShape(NuvioTokens.Radius.lg),
+        preview = preview,
     )
     Box(
         modifier = modifier
