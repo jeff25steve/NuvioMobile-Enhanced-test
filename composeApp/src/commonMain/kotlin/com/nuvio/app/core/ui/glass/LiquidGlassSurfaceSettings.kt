@@ -26,7 +26,12 @@ import kotlin.math.roundToInt
 internal enum class LiquidGlassSurface {
     PLAYER,
     STREAM_SELECTION,
+    STREAM_RESULTS,
     DETAILS,
+    DETAIL_HEADER,
+    DETAIL_CHIPS,
+    DETAIL_CONTENT_CARDS,
+    DETAIL_PRIMARY_ACTION,
     SEARCH,
     LIBRARY,
     SETTINGS,
@@ -34,7 +39,16 @@ internal enum class LiquidGlassSurface {
 
     val defaultEnabled: Boolean
         get() = when (this) {
-            PLAYER, STREAM_SELECTION, DETAILS, BOTTOM_SHEETS -> true
+            PLAYER,
+            STREAM_SELECTION,
+            STREAM_RESULTS,
+            DETAILS,
+            DETAIL_HEADER,
+            DETAIL_CHIPS,
+            DETAIL_CONTENT_CARDS,
+            DETAIL_PRIMARY_ACTION,
+            BOTTOM_SHEETS,
+            -> true
             SEARCH, LIBRARY, SETTINGS -> false
         }
 }
@@ -77,6 +91,12 @@ internal data class LiquidGlassSurfacesSettings(
     val player: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val streamSelection: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val details: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    // Missing fields in existing saved JSON inherit the old shared recipe during deserialization.
+    val detailHeader: LiquidGlassSurfaceOverrides = details,
+    val detailChips: LiquidGlassSurfaceOverrides = details,
+    val detailContentCards: LiquidGlassSurfaceOverrides = details,
+    val detailPrimaryAction: LiquidGlassSurfaceOverrides = details,
+    val streamResults: LiquidGlassSurfaceOverrides = streamSelection,
     val search: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val library: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
@@ -85,7 +105,12 @@ internal data class LiquidGlassSurfacesSettings(
     fun forSurface(surface: LiquidGlassSurface): LiquidGlassSurfaceOverrides = when (surface) {
         LiquidGlassSurface.PLAYER -> player
         LiquidGlassSurface.STREAM_SELECTION -> streamSelection
+        LiquidGlassSurface.STREAM_RESULTS -> streamResults
         LiquidGlassSurface.DETAILS -> details
+        LiquidGlassSurface.DETAIL_HEADER -> detailHeader
+        LiquidGlassSurface.DETAIL_CHIPS -> detailChips
+        LiquidGlassSurface.DETAIL_CONTENT_CARDS -> detailContentCards
+        LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> detailPrimaryAction
         LiquidGlassSurface.SEARCH -> search
         LiquidGlassSurface.LIBRARY -> library
         LiquidGlassSurface.SETTINGS -> settings
@@ -100,7 +125,12 @@ internal data class LiquidGlassSurfacesSettings(
         return when (surface) {
             LiquidGlassSurface.PLAYER -> copy(player = safe)
             LiquidGlassSurface.STREAM_SELECTION -> copy(streamSelection = safe)
+            LiquidGlassSurface.STREAM_RESULTS -> copy(streamResults = safe)
             LiquidGlassSurface.DETAILS -> copy(details = safe)
+            LiquidGlassSurface.DETAIL_HEADER -> copy(detailHeader = safe)
+            LiquidGlassSurface.DETAIL_CHIPS -> copy(detailChips = safe)
+            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> copy(detailContentCards = safe)
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> copy(detailPrimaryAction = safe)
             LiquidGlassSurface.SEARCH -> copy(search = safe)
             LiquidGlassSurface.LIBRARY -> copy(library = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
@@ -112,6 +142,11 @@ internal data class LiquidGlassSurfacesSettings(
         player = player.sanitized(),
         streamSelection = streamSelection.sanitized(),
         details = details.sanitized(),
+        detailHeader = detailHeader.sanitized(),
+        detailChips = detailChips.sanitized(),
+        detailContentCards = detailContentCards.sanitized(),
+        detailPrimaryAction = detailPrimaryAction.sanitized(),
+        streamResults = streamResults.sanitized(),
         search = search.sanitized(),
         library = library.sanitized(),
         settings = settings.sanitized(),
