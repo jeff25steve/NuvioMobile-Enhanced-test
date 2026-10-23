@@ -989,6 +989,223 @@ private fun LiquidGlassSearchPreview(
     }
 }
 
+@Composable
+private fun LiquidGlassDetailHeaderPreview(
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val previewMeta = remember {
+        MetaDetails(
+            id = "liquid-glass-preview",
+            type = "series",
+            name = "Nobody Wants This",
+            releaseInfo = "2024",
+            status = "Ongoing",
+        )
+    }
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF2A202A),
+                                Color(0xFF56404A),
+                                Color(0xFF251C27),
+                                MaterialTheme.colorScheme.background,
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(180.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 42.dp, y = (-48).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x88D0A1B0), Color(0x337A5A6C), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            DetailFloatingHeader(
+                meta = previewMeta,
+                isSaved = false,
+                progress = 0f,
+                onBack = {},
+                onToggleSaved = {},
+                modifier = Modifier.fillMaxWidth(),
+                glassBackdrop = backdrop,
+                previewGlass = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassStreamSearchPreview(
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF1D2735),
+                                Color(0xFF384453),
+                                Color(0xFF1A1C25),
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(190.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 48.dp, y = (-40).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x88B5B9C5), Color(0x446A7280), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StreamSearchField(
+                    query = "",
+                    onQueryChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    preview = true,
+                )
+                ResumeBanner(
+                    positionMs = null,
+                    progressFraction = 0.42f,
+                    modifier = Modifier.fillMaxWidth(),
+                    preview = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassStreamResultsPreview(
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val samples = remember {
+        listOf(
+            StreamItem(
+                name = "2160p | Cached | Torrentio",
+                title = "Nobody Wants This S01E01 Pilot",
+                description = "WEB-DL • H.265 • Dolby Digital Plus • 5.1 • 1.1 GB",
+                addonName = "Torrentio",
+                addonId = "preview:torrentio",
+                streamType = "series",
+                badges = listOf(
+                    StreamBadge(name = "2160p"),
+                    StreamBadge(name = "WEB-DL"),
+                    StreamBadge(name = "HEVC"),
+                ),
+                behaviorHints = com.nuvio.app.features.streams.StreamBehaviorHints(videoSize = 1_100_000_000L),
+            ),
+            StreamItem(
+                name = "1080p | Cached | Torrentio",
+                title = "Nobody Wants This S01E01 Pilot",
+                description = "WEB-DL • AVC • AAC 2.0 • 473 MB",
+                addonName = "Torrentio",
+                addonId = "preview:torrentio",
+                streamType = "series",
+                badges = listOf(
+                    StreamBadge(name = "1080p"),
+                    StreamBadge(name = "WEB-DL"),
+                    StreamBadge(name = "AVC"),
+                ),
+                behaviorHints = com.nuvio.app.features.streams.StreamBehaviorHints(videoSize = 473_000_000L),
+            ),
+        )
+    }
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF25212E),
+                                Color(0xFF384552),
+                                Color(0xFF241B27),
+                                Color(0xFF15141A),
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(220.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 58.dp, y = (-58).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x887D9AAF), Color(0x3362768A), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                samples.forEach { stream ->
+                    StreamCard(
+                        stream = stream,
+                        enabled = true,
+                        appendInstantServiceToDefaultName = false,
+                        showFileSizeBadges = true,
+                        showAddonLogo = false,
+                        badgePlacement = StreamBadgePlacement.BOTTOM,
+                        onClick = {},
+                        preview = true,
+                    )
+                }
+            }
+        }
+    }
+}
+
 private data class LiquidGlassSearchPreviewPoster(
     val title: String,
     val subtitle: String,
