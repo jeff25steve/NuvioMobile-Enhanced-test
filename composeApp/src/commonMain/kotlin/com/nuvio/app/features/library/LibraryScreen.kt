@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -119,6 +118,7 @@ import com.nuvio.app.core.ui.NuvioDropdownChip
 import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
+import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.shimmer
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioShelfSection
@@ -591,6 +591,7 @@ fun LibraryScreen(
             if (sourceMode == LibraryViewMode.Cloud) {
                 cloudLibraryContent(
                     uiState = cloudUiState,
+                    libraryGlassEnabled = libraryGlassEnabled,
                     selectedProviderId = selectedProviderId,
                     selectedType = selectedType,
                     selectedCloudItemKey = selectedCloudItemKey,
@@ -796,6 +797,7 @@ fun LibraryScreen(
 
 private fun LazyListScope.cloudLibraryContent(
     uiState: CloudLibraryUiState,
+    libraryGlassEnabled: Boolean,
     selectedProviderId: String?,
     selectedType: CloudLibraryItemType?,
     selectedCloudItemKey: String?,
