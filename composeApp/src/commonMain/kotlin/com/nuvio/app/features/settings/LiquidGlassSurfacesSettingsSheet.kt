@@ -750,7 +750,6 @@ private fun LiquidGlassDetailPagePreview(
                         onPlayExternallyClick = {},
                         iconActionRow = true,
                         previewGlassAll = true,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     )
                     GlassPreviewHotspot(
                         modifier = Modifier.fillMaxWidth().height(116.dp).align(Alignment.TopCenter),
