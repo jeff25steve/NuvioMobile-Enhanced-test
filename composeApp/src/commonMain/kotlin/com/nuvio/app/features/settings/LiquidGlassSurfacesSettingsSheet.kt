@@ -353,6 +353,7 @@ private fun LiquidGlassSurfaceEditorControls(
     isTablet: Boolean,
     onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
 ) {
+    val title = liquidGlassSurfaceTitle(surface)
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface) { surfacePreviewRecipe(surface) }
