@@ -90,7 +90,7 @@ private fun SettingsCard(
     val glassEnabled = previewGlass || (LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS))
     val cardShape = if (glassEnabled) {
-        liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape)
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape, preview = previewGlass)
     } else {
         defaultCardShape
     }
