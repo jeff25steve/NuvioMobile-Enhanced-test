@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import kotlin.math.roundToInt
@@ -76,8 +77,10 @@ internal fun Modifier.playerLiquidGlass(
     backdropOpacity: Float = PlayerGlassBackdropOpacity,
     rim: Boolean = true,
 ): Modifier {
-    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
-    val enabled = LiquidGlassSettings.enabled && (overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled)
+    val previewOverrides = LocalLiquidGlassPreviewOverrides.current
+    val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+    val enabled = previewOverrides != null ||
+        (LiquidGlassSettings.enabled && (overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled))
     val effectiveShape = if (enabled) {
         overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) } ?: shape
     } else {
