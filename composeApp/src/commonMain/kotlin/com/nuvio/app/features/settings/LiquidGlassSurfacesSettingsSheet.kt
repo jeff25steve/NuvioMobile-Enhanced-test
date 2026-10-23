@@ -1132,7 +1132,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_highlight),
                     description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
-                    checked = overrides.withHighlight ?: true,
+                    checked = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withHighlight = it)) },
                 )
@@ -1472,7 +1472,6 @@ private fun LiquidGlassSurfacePreview(
                                             backdrop = previewBackdrop,
                                             shape = RoundedCornerShape(28.dp),
                                             containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
-                                            withHighlight = false,
                                             preview = true,
                                         ),
                                 ) {
@@ -2146,6 +2145,9 @@ private fun surfacePreviewRecipe(
     )
 }
 
+internal fun liquidGlassSurfaceDefaultHighlightEnabled(surface: LiquidGlassSurface): Boolean =
+    surface != LiquidGlassSurface.DETAIL_HEADER
+
 private fun resolvedGlassEffects(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
@@ -2158,11 +2160,7 @@ private fun resolvedGlassEffects(
         refractionAmountDp = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
         tintOpacity = overrides.tintOpacity ?: recipe.tintOpacity,
         withVibrancy = overrides.withVibrancy ?: true,
-        // The detail header and sheet material deliberately omit the directional rim highlight.
-        withHighlight = overrides.withHighlight ?: (
-            surface != LiquidGlassSurface.DETAIL_HEADER &&
-                surface != LiquidGlassSurface.BOTTOM_SHEETS
-            ),
+        withHighlight = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
         withShadow = overrides.withShadow ?: false,
         chromaticAberration = overrides.chromaticAberration ?: false,
         depthEffect = overrides.depthEffect ?: false,

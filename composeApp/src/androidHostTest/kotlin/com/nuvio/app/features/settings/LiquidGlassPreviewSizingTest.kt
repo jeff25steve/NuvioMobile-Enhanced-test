@@ -20,6 +20,14 @@ class LiquidGlassPreviewSizingTest {
     }
 
     @Test
+    fun highlightSwitchDefaultsMatchProductionSurfaceRecipes() {
+        assertEquals(false, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.DETAIL_HEADER))
+        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.DETAILS))
+        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.BOTTOM_SHEETS))
+        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.STREAM_RESULTS))
+    }
+
+    @Test
     fun detailActionPreviewTargetsMatchTheConfiguredProductionActionLayout() {
         val detailsOnly = setOf(LiquidGlassSurface.DETAILS)
         val detailsAndDownload = setOf(
