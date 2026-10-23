@@ -82,7 +82,6 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
-import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 
 data class DetailSecondaryAction(
     val label: String,
@@ -241,7 +240,7 @@ fun DetailActionButtons(
             }
 
             if (hasSecondaryActions) {
-                val moreGlassActive = !actionsExpanded && isAmbientLiquidGlassActive() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
+                val moreGlassActive = !actionsExpanded && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
                 val moreSurfaceShape = if (moreGlassActive) {
                     liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape)
                 } else {
@@ -301,7 +300,7 @@ fun DetailActionButtons(
     }
 
         if (onDownloadClick != null) {
-            val downloadGlassActive = isAmbientLiquidGlassActive() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
+            val downloadGlassActive = isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
             val downloadSurfaceShape = if (downloadGlassActive) {
                 liquidGlassShape(LiquidGlassSurface.DETAILS, playShape)
             } else {
@@ -666,7 +665,7 @@ internal fun DetailIconAction(
     drawable: DrawableResource? = null,
     onLongClick: (() -> Unit)? = null,
 ) {
-    val glassActive = !active && isAmbientLiquidGlassActive() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
+    val glassActive = !active && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.DETAILS)
     val actionSurfaceShape = if (glassActive) {
         liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape)
     } else {
