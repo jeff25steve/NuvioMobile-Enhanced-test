@@ -64,10 +64,8 @@ import nuvio.composeapp.generated.resources.streams_pinned_source
 import nuvio.composeapp.generated.resources.streams_refresh
 import nuvio.composeapp.generated.resources.streams_unpin_source
 import org.jetbrains.compose.resources.stringResource
-import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
-import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape

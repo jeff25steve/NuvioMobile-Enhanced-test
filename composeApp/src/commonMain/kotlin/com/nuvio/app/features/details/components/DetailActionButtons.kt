@@ -78,7 +78,6 @@ import nuvio.composeapp.generated.resources.sidebar_library
 import nuvio.composeapp.generated.resources.streams_open_external_player
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
-import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
@@ -248,7 +247,7 @@ fun DetailActionButtons(
                                     }
                                 },
                                 previewGlass = previewDetailsGlass,
-                    previewMode = isGlassPreview,
+                                previewMode = isGlassPreview,
                             )
                         }
                     }

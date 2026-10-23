@@ -44,10 +44,8 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.SkeletonBlock
 import com.nuvio.app.features.debrid.DebridProviders
 import androidx.compose.ui.graphics.compositeOver
-import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
-import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
@@ -353,18 +351,14 @@ private val StreamGlassTextShadow = Shadow(
 )
 
 @Composable
-internal fun streamGlassTextShadow(preview: Boolean = false): Shadow? =
-    if (
-        if (preview) {
-            isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS, preview = true)
-        } else {
-            isAmbientLiquidGlassActive() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS)
-        }
-    ) {
-        StreamGlassTextShadow
+internal fun streamGlassTextShadow(preview: Boolean = false): Shadow? {
+    val glassEnabled = if (preview) {
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS, preview = true)
     } else {
-        null
+        isAmbientLiquidGlassActive() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.STREAM_RESULTS)
     }
+    return if (glassEnabled) StreamGlassTextShadow else null
+}
 
 private fun StreamItem.instantServiceLabel(): String? {
     val status = debridCacheStatus ?: return null
