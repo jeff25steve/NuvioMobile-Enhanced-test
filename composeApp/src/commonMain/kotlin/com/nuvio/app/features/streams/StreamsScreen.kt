@@ -1516,6 +1516,7 @@ internal fun StreamSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    preview: Boolean = false,
 ) {
     val trailingContent: (@Composable () -> Unit)? = if (query.isEmpty()) null else {
         {
@@ -1528,7 +1529,7 @@ internal fun StreamSearchField(
             }
         }
     }
-    if (!isAmbientLiquidGlassActive() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)) {
+    if (!preview && (!isAmbientLiquidGlassActive() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,
@@ -1554,6 +1555,7 @@ internal fun StreamSearchField(
                 fallback = tokens.colors.surfaceCard,
                 blurRadius = 14.dp,
                 refractionHeight = 8.dp,
+                preview = preview,
             ),
     ) {
         OutlinedTextField(
