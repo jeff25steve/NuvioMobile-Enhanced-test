@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +50,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
@@ -82,6 +86,7 @@ import com.nuvio.app.features.player.PlayerResizeMode
 import com.nuvio.app.features.streams.StreamSearchField
 import com.nuvio.app.features.streams.ProviderFilterRow
 import com.nuvio.app.features.streams.AddonStreamGroup
+import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.ResumeBanner
 import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamItem
@@ -537,6 +542,492 @@ private fun LiquidGlassSurfaceEditorHeader(
 
     }
 }
+
+@Composable
+private fun LiquidGlassSurfaceGroupEditorHeader(
+    group: LiquidGlassSurfaceGroup,
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    isTablet: Boolean,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    onBack: () -> Unit,
+) {
+    val title = stringResource(
+        when (group) {
+            LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
+            LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
+        },
+    )
+    val description = stringResource(
+        when (group) {
+            LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page_description
+            LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker_description
+        },
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .nuvioSheetSurface(
+                backdrop = LocalNuvioSheetBackdrop.current?.backdrop,
+                shape = RectangleShape,
+                containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
+                withHighlight = false,
+            ),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (isTablet) 20.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(Res.string.action_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        when (group) {
+            LiquidGlassSurfaceGroup.DETAIL_PAGE -> LiquidGlassDetailPagePreview(
+                settings = settings,
+                selectedSurface = selectedSurface,
+                isTablet = isTablet,
+                onSelectSurface = onSelectSurface,
+                modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+            )
+            LiquidGlassSurfaceGroup.STREAM_PICKER -> LiquidGlassStreamPickerPreview(
+                settings = settings,
+                selectedSurface = selectedSurface,
+                onSelectSurface = onSelectSurface,
+                modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassDetailPagePreview(
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    isTablet: Boolean,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val meta = remember {
+        MetaDetails(
+            id = "liquid-glass-detail-preview",
+            type = "series",
+            name = "Nobody Wants This",
+            releaseInfo = "2024",
+            status = "Ongoing",
+        )
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(326.dp)
+            .clip(RoundedCornerShape(14.dp)),
+    ) {
+        // The background source is deliberately local and deterministic. Production Nuvio controls
+        // below use the real component tree over it, so no catalogue/network data is required.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF2A202A),
+                                Color(0xFF6A4D58),
+                                Color(0xFF302533),
+                                MaterialTheme.colorScheme.background,
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(230.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 58.dp, y = (-36).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xB8D7A8B8), Color(0x587A596D), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-58).dp, y = 70.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x886B9AB3), Color(0x33485E79), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides backdrop,
+            LocalLiquidGlassPreviewSettings provides settings,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(156.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.72f)),
+                            ),
+                        ),
+                ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Nobody Wants This",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "2024  •  Series  •  Comedy",
+                            color = Color.White.copy(alpha = 0.82f),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    DetailActions(
+                        playLabel = stringResource(Res.string.action_play),
+                        playEnabled = true,
+                        isSaved = false,
+                        isWatched = false,
+                        isTablet = isTablet,
+                        shuffleEnabled = false,
+                        onPlayClick = {},
+                        onPlayLongClick = null,
+                        onShuffleClick = null,
+                        onWatchedClick = {},
+                        onSaveClick = {},
+                        onSaveLongClick = null,
+                        onDownloadClick = {},
+                        onPlayFromStartClick = null,
+                        onPlayExternallyClick = {},
+                        iconActionRow = true,
+                        previewGlassAll = true,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    )
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxWidth().height(116.dp).align(Alignment.TopCenter),
+                        surface = LiquidGlassSurface.DETAILS,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
+                    )
+                }
+
+                Text(
+                    text = "CAST & CREW",
+                    modifier = Modifier.padding(start = 14.dp, top = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf("KR", "AD", "JM", "TM").forEachIndexed { index, initials ->
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(
+                                        listOf(Color(0xFF927B8E), Color(0xFF6E8C99), Color(0xFFAA866E), Color(0xFF75836C))[index],
+                                        CircleShape,
+                                    ),
+                            )
+                            Text(initials, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                Text(
+                    text = "SEASONS",
+                    modifier = Modifier.padding(start = 14.dp, top = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp)
+                        .padding(horizontal = 12.dp),
+                ) {
+                    DetailGlassChipsPreview(modifier = Modifier.fillMaxWidth())
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxSize(),
+                        surface = LiquidGlassSurface.DETAIL_CHIPS,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_CHIPS) },
+                    )
+                }
+
+                Text(
+                    text = "EPISODES",
+                    modifier = Modifier.padding(start = 14.dp, top = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(184.dp)
+                        .padding(horizontal = 12.dp),
+                ) {
+                    DetailGlassContentCardPreview(modifier = Modifier.fillMaxWidth())
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxSize(),
+                        surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_CONTENT_CARDS) },
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .align(Alignment.TopCenter),
+            ) {
+                DetailFloatingHeader(
+                    meta = meta,
+                    isSaved = false,
+                    progress = 1f,
+                    onBack = {},
+                    onToggleSaved = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    glassBackdrop = backdrop,
+                    previewGlass = true,
+                )
+                GlassPreviewHotspot(
+                    modifier = Modifier.fillMaxSize(),
+                    surface = LiquidGlassSurface.DETAIL_HEADER,
+                    selectedSurface = selectedSurface,
+                    onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_HEADER) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassStreamPickerPreview(
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val groups = remember { liquidGlassPreviewStreamGroups() }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(326.dp)
+            .clip(RoundedCornerShape(14.dp)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFF17212F), Color(0xFF334454), Color(0xFF1B1A24), MaterialTheme.colorScheme.background),
+                    ),
+                )
+                .nuvioBackdropSource(rememberNuvioBackdrop()),
+        )
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides LocalLiquidGlassBackdrop.current,
+            LocalLiquidGlassPreviewSettings provides settings,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Text(
+                    text = "Nobody Wants This",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+                Text(
+                    text = "Choose a source to start playback",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+
+                Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    ProviderFilterRow(
+                        groups = groups,
+                        selectedFilter = "preview:torrentio",
+                        onFilterSelected = {},
+                        onRefresh = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 5.dp),
+                        spacing = 6.dp,
+                        preview = true,
+                    )
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxSize(),
+                        surface = LiquidGlassSurface.STREAM_FILTERS,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.STREAM_FILTERS) },
+                    )
+                }
+
+                Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ResumeBanner(positionMs = null, progressFraction = 0.42f, modifier = Modifier.fillMaxWidth(), preview = true)
+                        StreamSearchField(
+                            query = "",
+                            onQueryChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            preview = true,
+                        )
+                    }
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxSize(),
+                        surface = LiquidGlassSurface.STREAM_SELECTION,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.STREAM_SELECTION) },
+                    )
+                }
+
+                Text(
+                    text = "AVAILABLE STREAMS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+                Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        liquidGlassPreviewStreamGroups().flatMap { it.streams }.take(2).forEach { stream ->
+                            StreamCard(
+                                stream = stream,
+                                enabled = true,
+                                appendInstantServiceToDefaultName = false,
+                                showFileSizeBadges = true,
+                                showAddonLogo = false,
+                                badgePlacement = StreamBadgePlacement.BOTTOM,
+                                onClick = {},
+                                preview = true,
+                            )
+                        }
+                    }
+                    GlassPreviewHotspot(
+                        modifier = Modifier.fillMaxSize(),
+                        surface = LiquidGlassSurface.STREAM_RESULTS,
+                        selectedSurface = selectedSurface,
+                        onClick = { onSelectSurface(LiquidGlassSurface.STREAM_RESULTS) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassPreviewHotspot(
+    modifier: Modifier = Modifier,
+    surface: LiquidGlassSurface,
+    selectedSurface: LiquidGlassSurface,
+    onClick: () -> Unit,
+) {
+    val selected = selectedSurface == surface
+    Box(
+        modifier = modifier
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(8.dp),
+            )
+            .clickable(
+                onClickLabel = liquidGlassSurfaceTitle(surface),
+                role = Role.Button,
+                onClick = onClick,
+            ),
+    )
+}
+
+private fun liquidGlassPreviewStreamGroups(): List<AddonStreamGroup> = listOf(
+    AddonStreamGroup(
+        addonName = "Torrentio",
+        addonId = "preview:torrentio",
+        streams = listOf(
+            StreamItem(
+                name = "2160p | Cached | Torrentio",
+                description = "WEB-DL • HEVC • 1.1 GB",
+                addonName = "Torrentio",
+                addonId = "preview:torrentio",
+                streamType = "series",
+            ),
+        ),
+    ),
+    AddonStreamGroup(
+        addonName = "Comet",
+        addonId = "preview:comet",
+        streams = listOf(
+            StreamItem(
+                name = "1080p | Comet",
+                description = "WEB-DL • AVC • 473 MB",
+                addonName = "Comet",
+                addonId = "preview:comet",
+                streamType = "series",
+            ),
+        ),
+    ),
+)
 
 @Composable
 private fun LiquidGlassSurfaceEditorControls(
