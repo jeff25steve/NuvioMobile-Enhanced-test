@@ -589,7 +589,7 @@ private fun SeasonViewModeToggle(
     Box(
         modifier = Modifier
             .liquidGlassForSurface(
-                surface = LiquidGlassSurface.DETAILS,
+                surface = LiquidGlassSurface.DETAIL_CHIPS,
                 shape = RoundedCornerShape(8.dp),
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -598,7 +598,7 @@ private fun SeasonViewModeToggle(
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.2f),
-                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, RoundedCornerShape(8.dp)),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, RoundedCornerShape(8.dp)),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -656,7 +656,7 @@ private fun SeasonTextChipScrollRow(
             val isSelected = season == currentSeason
             val defaultSeasonChipShape = RoundedCornerShape(sizing.seasonChipRadius)
             val seasonChipShape = if (isSelected) {
-                liquidGlassShape(LiquidGlassSurface.DETAILS, defaultSeasonChipShape)
+                liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, defaultSeasonChipShape)
             } else {
                 defaultSeasonChipShape
             }
@@ -666,7 +666,7 @@ private fun SeasonTextChipScrollRow(
                     .then(
                         if (isSelected) {
                             Modifier.liquidGlassForSurface(
-                                surface = LiquidGlassSurface.DETAILS,
+                                surface = LiquidGlassSurface.DETAIL_CHIPS,
                                 shape = defaultSeasonChipShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -977,14 +977,14 @@ private fun EpisodeHorizontalCard(
             .width(metrics.cardWidth)
             .height(metrics.cardHeight)
             .liquidGlassForSurface(
-                surface = LiquidGlassSurface.DETAILS,
+                surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 blurRadius = 18.dp,
             )
             .nuvioCardDepth(
-                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, cardShape),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape),
                 surface = NuvioCardDepthSurface.EpisodeCards,
                 fallbackBorderAlpha = 0.12f,
             )
@@ -1433,7 +1433,7 @@ private fun EpisodeListCard(
             .fillMaxWidth()
             .height(sizing.cardHeight)
             .liquidGlassForSurface(
-                surface = LiquidGlassSurface.DETAILS,
+                surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -1442,7 +1442,7 @@ private fun EpisodeListCard(
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.1f),
-                shape = liquidGlassShape(LiquidGlassSurface.DETAILS, cardShape),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape),
             )
             .combinedClickable(
                 enabled = onClick != null || onLongPress != null,
