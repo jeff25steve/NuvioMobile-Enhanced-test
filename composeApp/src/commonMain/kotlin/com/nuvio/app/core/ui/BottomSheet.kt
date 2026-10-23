@@ -82,6 +82,7 @@ internal fun Modifier.nuvioSheetSurface(
 @Stable
 class NuvioSheetBackdrop(val backdrop: NuvioBackdrop) {
     var activeSheets by mutableIntStateOf(0)
+    var activeGlassPreviews by mutableIntStateOf(0)
 }
 
 val LocalNuvioSheetBackdrop = staticCompositionLocalOf<NuvioSheetBackdrop?> { null }
@@ -91,15 +92,15 @@ fun NuvioSheetBackdropHost(
     sheetBackdrop: NuvioSheetBackdrop,
     content: @Composable () -> Unit,
 ) {
+    val needsPreviewBackdrop = sheetBackdrop.activeGlassPreviews > 0
+    val needsSheetGlassBackdrop = sheetBackdrop.activeSheets > 0 &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
     CompositionLocalProvider(LocalNuvioSheetBackdrop provides sheetBackdrop) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (sheetBackdrop.activeSheets > 0 &&
-                        isLiquidGlassSupported() &&
-                        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
-                    ) {
+                    if (isLiquidGlassSupported() && (needsPreviewBackdrop || needsSheetGlassBackdrop)) {
                         Modifier.nuvioBackdropSource(sheetBackdrop.backdrop)
                     } else {
                         Modifier
