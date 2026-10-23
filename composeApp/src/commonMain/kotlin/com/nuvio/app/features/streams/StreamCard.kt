@@ -44,8 +44,13 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.SkeletonBlock
 import com.nuvio.app.features.debrid.DebridProviders
 import androidx.compose.ui.graphics.compositeOver
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 
@@ -74,7 +79,21 @@ internal fun StreamCard(
     outlined: Boolean = false,
 ) {
     val partyLabel = if (isCurrent) null else LocalStreamHighlight.current(stream)
-    val cardShape = RoundedCornerShape(12.dp)
+    val defaultCardShape = RoundedCornerShape(12.dp)
+    val glassAllowed = LiquidGlassSettings.enabled &&
+        isLiquidGlassSupported() &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS)
+    val cardShape = if (glassAllowed) {
+        liquidGlassShape(LiquidGlassSurface.STREAM_RESULTS, defaultCardShape)
+    } else {
+        defaultCardShape
+    }
+    val surfaceFallback = if (isCurrent) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        Color.White.copy(alpha = 0.05f)
+    }
+    val surfaceTint = surfaceFallback.compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
     val badgeImages = stream.badges.filter { it.imageURL.isNotBlank() }
     val hasBadges = badgeImages.isNotEmpty() || (showFileSizeBadges && stream.behaviorHints.videoSize != null)
     Row(
@@ -88,19 +107,20 @@ internal fun StreamCard(
                 spotColor = Color.Black.copy(alpha = 0.04f),
             )
             .clip(cardShape)
-            .ambientLiquidGlass(
-                shape = cardShape,
-                tint = if (isCurrent) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            .then(
+                if (glassAllowed) {
+                    Modifier.liquidGlassForSurface(
+                        surface = LiquidGlassSurface.STREAM_RESULTS,
+                        shape = cardShape,
+                        tint = surfaceTint,
+                        fallback = surfaceFallback,
+                        blurRadius = 18.dp,
+                        refractionHeight = 10.dp,
+                        refractionAmount = 16.dp,
+                    )
                 } else {
-                    Color.White.copy(alpha = 0.05f)
-                }.compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)),
-                fallback = if (isCurrent) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                } else {
-                    Color.White.copy(alpha = 0.05f)
+                    Modifier.background(surfaceFallback, cardShape)
                 },
-                blurRadius = 18.dp,
             )
             .then(
                 if (isCurrent || outlined) {
