@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Brush
@@ -278,7 +279,10 @@ internal data class LiquidGlassAdaptiveFilm(
 internal fun liquidGlassAdaptiveFilm(background: Color): LiquidGlassAdaptiveFilm {
     // Transparent fallbacks do not describe the pixels sampled by the backdrop. Bias slightly dark
     // so translucent controls retain a restrained edge sheen without assuming a remote wallpaper.
-    val luminance = if (background.alpha < 0.05f) 0.2f else background.luminance()
+    val colorLuminance = background.luminance()
+    // Treat transparency as a dark app canvas underneath; a partially transparent tint must not
+    // be judged as fully bright merely because its uncomposited RGB channels are white.
+    val luminance = colorLuminance * background.alpha + 0.2f * (1f - background.alpha)
     return LiquidGlassAdaptiveFilm(
         bodyTintAlpha = ((0.55f - luminance) / 0.55f).coerceIn(0f, 1f) * 0.08f,
         topSheenAlpha = ((0.58f - luminance) / 0.58f).coerceIn(0f, 1f) * 0.14f,
@@ -302,8 +306,35 @@ internal fun Modifier.liquidGlassSurface(
     chromaticAberration: Boolean = false,
     depthEffect: Boolean = false,
 ): Modifier =
-    if (backdrop == null || !isLiquidGlassSupported()) {
-        if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback)
+    if (!isLiquidGlassSupported()) {
+        if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback, shape)
+    } else if (backdrop == null) {
+        // No source means there is nothing to blur or refract. Keep the app's fallback fill, but
+        // retain a restrained adaptive film so regular glass remains distinguishable on black.
+        val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
+        val base = if (fallbackBrush != null) {
+            clip(shape).background(fallbackBrush)
+        } else {
+            clip(shape).background(fallback, shape)
+        }
+        base.drawWithContent {
+            drawContent()
+            if (tint.alpha > 0f) drawRect(tint)
+            if (adaptiveFilm.bodyTintAlpha > 0f) {
+                drawRect(Color.White.copy(alpha = adaptiveFilm.bodyTintAlpha))
+            }
+            if (adaptiveFilm.topSheenAlpha > 0f || adaptiveFilm.bottomShadeAlpha > 0f) {
+                drawRect(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = adaptiveFilm.topSheenAlpha),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = adaptiveFilm.bottomShadeAlpha),
+                        ),
+                    ),
+                )
+            }
+        }
     } else {
         val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
         drawBackdrop(
