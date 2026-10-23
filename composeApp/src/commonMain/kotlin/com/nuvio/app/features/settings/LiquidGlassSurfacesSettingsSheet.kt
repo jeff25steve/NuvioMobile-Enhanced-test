@@ -1,5 +1,6 @@
 package com.nuvio.app.features.settings
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -105,7 +106,7 @@ internal fun LiquidGlassSurfaceSettingsDrafts(
     content(settings)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun LiquidGlassSurfacesSettingsSheet(
     isTablet: Boolean,
