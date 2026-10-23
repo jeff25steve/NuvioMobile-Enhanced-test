@@ -188,6 +188,6 @@ dependencies {
     androidTestImplementation("androidx.test:core:1.7.0")
     androidTestImplementation(libs.androidx.testExt.junit)
     androidTestImplementation(libs.androidx.activity.compose)
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:${libs.versions.composeMultiplatform.get()}")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:${libs.versions.composeMultiplatform.get()}")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:${libs.versions.composeAndroidxTest.get()}")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:${libs.versions.composeAndroidxTest.get()}")
 }
