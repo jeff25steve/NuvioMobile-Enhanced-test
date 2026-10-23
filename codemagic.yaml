@@ -8,6 +8,8 @@ workflows:
       java: 17
       vars:
         NUVIO_BUILD_CHANNEL: "beta"
+        # These pinned dependencies contain nested submodules required by their source trees.
+        CM_RECURSIVE_SUBMODULE_INIT: "true"
 
     scripts:
       - name: Configure Android build
@@ -85,9 +87,8 @@ workflows:
 
           cd "$CM_BUILD_DIR"
 
-          # iOS needs only the MPVKit Swift package. Disable Codemagic's
-          # recursive checkout for this workflow so unrelated Android/vendor
-          # gitlinks are not fetched, then initialize the exact dependency.
+          # Disable nested submodule recursion for the iOS-only build. The root
+          # gitlinks are mapped in .gitmodules; iOS explicitly ensures MPVKit is present.
           cd "$CM_BUILD_DIR"
           git submodule sync -- MPVKit
           git submodule update --init --depth 1 MPVKit
