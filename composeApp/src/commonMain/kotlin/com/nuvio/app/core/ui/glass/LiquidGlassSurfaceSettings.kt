@@ -237,7 +237,9 @@ internal fun shouldRenderLiquidGlassSurface(
     overrides: LiquidGlassSurfaceOverrides,
     preview: Boolean,
     masterEnabled: Boolean,
-): Boolean = (overrides.enabled ?: surface.defaultEnabled) && (preview || masterEnabled)
+    platformSupported: Boolean = true,
+): Boolean = (overrides.enabled ?: surface.defaultEnabled) &&
+    (preview || (masterEnabled && platformSupported))
 
 /**
  * Uses existing call-site values unless the user has explicitly overridden them. Existing glass
@@ -385,6 +387,7 @@ internal fun liquidGlassIconTint(
 internal fun isLiquidGlassSurfaceEffectivelyEnabled(
     surface: LiquidGlassSurface,
     preview: Boolean = false,
+    platformSupported: Boolean = true,
 ): Boolean {
     val overrides = if (preview) {
         LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
@@ -393,7 +396,13 @@ internal fun isLiquidGlassSurfaceEffectivelyEnabled(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    return shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)
+    return shouldRenderLiquidGlassSurface(
+        surface = surface,
+        overrides = overrides,
+        preview = preview,
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = platformSupported,
+    )
 }
 
 /** Used by components that need to fall back to their original control when a surface is disabled. */

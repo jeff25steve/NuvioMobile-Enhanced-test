@@ -46,6 +46,24 @@ class LiquidGlassSurfaceSettingsTest {
         assertTrue(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = true), preview = false, masterEnabled = true))
         assertFalse(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = true), preview = false, masterEnabled = false))
         assertFalse(shouldRenderLiquidGlassSurface(surface, LiquidGlassSurfaceOverrides(enabled = false), preview = false, masterEnabled = true))
+        assertFalse(
+            shouldRenderLiquidGlassSurface(
+                surface,
+                LiquidGlassSurfaceOverrides(enabled = true),
+                preview = false,
+                masterEnabled = true,
+                platformSupported = false,
+            ),
+        )
+        assertTrue(
+            shouldRenderLiquidGlassSurface(
+                surface,
+                LiquidGlassSurfaceOverrides(enabled = true),
+                preview = true,
+                masterEnabled = false,
+                platformSupported = false,
+            ),
+        )
     }
 
     @Test
