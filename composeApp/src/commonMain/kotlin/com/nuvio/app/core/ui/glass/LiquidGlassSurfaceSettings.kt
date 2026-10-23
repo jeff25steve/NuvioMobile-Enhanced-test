@@ -63,7 +63,6 @@ internal enum class LiquidGlassSurface {
 @Serializable
 internal data class LiquidGlassSurfaceOverrides(
     val enabled: Boolean? = null,
-    val material: LiquidGlassMaterial? = null,
     val cornerRadiusPercent: Float? = null,
     val blurRadiusDp: Float? = null,
     val refractionHeightDp: Float? = null,
@@ -76,6 +75,8 @@ internal data class LiquidGlassSurfaceOverrides(
     val depthEffect: Boolean? = null,
     /** Opaque ARGB. A null value means use the screen's original icon color. */
     val defaultIconColorArgb: Int? = null,
+    /** Null preserves the original liquid/refraction recipe for this surface. */
+    val material: LiquidGlassMaterial? = null,
 ) {
     fun sanitized(): LiquidGlassSurfaceOverrides = copy(
         material = material?.takeUnless { it == LiquidGlassMaterial.SOLID },
