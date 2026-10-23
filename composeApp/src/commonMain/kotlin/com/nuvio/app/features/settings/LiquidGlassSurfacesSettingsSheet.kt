@@ -80,16 +80,20 @@ import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
 import com.nuvio.app.features.streams.StreamSearchField
+import com.nuvio.app.features.streams.ProviderFilterRow
+import com.nuvio.app.features.streams.AddonStreamGroup
 import com.nuvio.app.features.streams.ResumeBanner
 import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamBadge
 import com.nuvio.app.features.streams.StreamBadgePlacement
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -121,8 +125,16 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_detail_page
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_detail_page_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream_picker
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream_picker_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects
+import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_tap_to_edit_component
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_player
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_stream_selection
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_stream_filters
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_stream_results
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_header
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_chips
@@ -546,6 +558,7 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
     stringResource(
         when (surface) {
             LiquidGlassSurface.PLAYER -> Res.string.settings_liquid_glass_surface_player
+            LiquidGlassSurface.STREAM_FILTERS -> Res.string.settings_liquid_glass_surface_stream_filters
             LiquidGlassSurface.STREAM_SELECTION -> Res.string.settings_liquid_glass_surface_stream_selection
             LiquidGlassSurface.STREAM_RESULTS -> Res.string.settings_liquid_glass_surface_stream_results
             LiquidGlassSurface.DETAILS -> Res.string.settings_liquid_glass_surface_details
@@ -583,6 +596,7 @@ private fun LiquidGlassSurfacePreview(
         val previewHeight = when (surface) {
             LiquidGlassSurface.PLAYER -> liquidGlassPlayerPreviewHeight(previewWidth)
             LiquidGlassSurface.SEARCH -> 176.dp
+            LiquidGlassSurface.STREAM_FILTERS -> 74.dp
             LiquidGlassSurface.DETAIL_HEADER -> 90.dp
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
