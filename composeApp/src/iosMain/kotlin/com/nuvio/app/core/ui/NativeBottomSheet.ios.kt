@@ -46,6 +46,7 @@ internal actual fun NuvioNativeModalBottomSheet(
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val parentViewController = LocalUIViewController.current
+    val sheetBackdrop = LocalNuvioSheetBackdrop.current
     val latestContent = rememberUpdatedState(content)
     val latestOnDismissRequest = rememberUpdatedState(onDismissRequest)
     val latestContainerColor = rememberUpdatedState(containerColor)
@@ -74,6 +75,7 @@ internal actual fun NuvioNativeModalBottomSheet(
     DisposableEffect(parentViewController) {
         val contentController = ComposeUIViewController {
             CompositionLocalProvider(
+                LocalNuvioSheetBackdrop provides sheetBackdrop,
                 LocalDensity provides Density(
                     density = latestDensity.value.density,
                     fontScale = latestDensity.value.fontScale,
