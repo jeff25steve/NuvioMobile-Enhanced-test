@@ -102,7 +102,6 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
-import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 import com.nuvio.app.core.ui.NuvioTokens
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -1529,7 +1528,7 @@ internal fun StreamSearchField(
             }
         }
     }
-    if (!preview && (!isAmbientLiquidGlassActive() || !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION))) {
+    if (!preview && !isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_SELECTION)) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,
