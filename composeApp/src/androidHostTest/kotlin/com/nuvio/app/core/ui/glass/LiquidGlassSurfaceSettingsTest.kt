@@ -64,6 +64,26 @@ class LiquidGlassSurfaceSettingsTest {
                 platformSupported = false,
             ),
         )
+
+        val settingsSurface = LiquidGlassSurface.SETTINGS
+        assertFalse(
+            shouldRenderLiquidGlassSurface(
+                settingsSurface,
+                LiquidGlassSurfaceOverrides(),
+                preview = true,
+                masterEnabled = false,
+                platformSupported = false,
+            ),
+        )
+        assertTrue(
+            shouldRenderLiquidGlassSurface(
+                settingsSurface,
+                LiquidGlassSurfaceOverrides(enabled = true),
+                preview = true,
+                masterEnabled = false,
+                platformSupported = false,
+            ),
+        )
     }
 
     @Test
