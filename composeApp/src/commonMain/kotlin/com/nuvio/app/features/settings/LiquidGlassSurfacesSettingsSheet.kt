@@ -707,53 +707,9 @@ private fun LiquidGlassPlayerPreview(
             )
         }
 
-        // Local, deterministic cinematic art gives the real controls something rich to refract.
-        // It performs no network requests and does not replace or alter the app's wallpaper.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .nuvioBackdropSource(previewBackdrop),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF0C1827),
-                                Color(0xFF273A52),
-                                Color(0xFF493447),
-                                Color(0xFF101018),
-                            ),
-                        ),
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .size(390.dp)
-                    .align(Alignment.CenterStart)
-                    .offset(x = 105.dp, y = (-24).dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color(0xAA3F9CB7), Color(0x663E607A), Color.Transparent),
-                        ),
-                        CircleShape,
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .size(330.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 82.dp, y = 68.dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color(0x997C4C75), Color(0x33583E64), Color.Transparent),
-                        ),
-                        CircleShape,
-                    ),
-            )
-        }
-
+        // Keep the artwork source and the production control tree in the same 800x450 logical
+        // canvas. The shared parent applies one uniform transform to both, so captured glass pixels
+        // remain aligned with their real controls at the compact preview size.
         Box(
             modifier = Modifier
                 .size(
@@ -767,60 +723,56 @@ private fun LiquidGlassPlayerPreview(
                 }
                 .align(Alignment.Center),
         ) {
-            CompositionLocalProvider(
-                LocalLiquidGlassBackdrop provides previewBackdrop,
-                LocalLiquidGlassPreviewOverrides provides overrides,
+            // Local, deterministic cinematic art gives the real controls something rich to refract.
+            // It performs no network requests and does not replace or alter the app's wallpaper.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nuvioBackdropSource(previewBackdrop),
             ) {
-                PlayerControlsShell(
-                    title = "Avengers: Endgame",
-                    streamTitle = "One Last Surprise",
-                    providerName = "Torrentio",
-                    seasonNumber = null,
-                    episodeNumber = null,
-                    episodeTitle = null,
-                    playbackSnapshot = playbackSnapshot,
-                    displayedPositionMs = 0L,
-                    metrics = metrics,
-                    resizeMode = PlayerResizeMode.Fit,
-                    isLocked = false,
-                    releaseInfo = "Via 2160p | Cached",
-                    badges = emptyList(),
-                    onLockToggle = {},
-                    onBack = {},
-                    onPartyClick = {},
-                    partyActive = false,
-                    onCastClick = {},
-                    isCasting = false,
-                    onPictureInPictureClick = {},
-                    onOrientationToggleClick = {},
-                    isPortraitPlayback = false,
-                    onTogglePlayback = {},
-                    onSeekBack = {},
-                    onSeekForward = {},
-                    skipBackwardSeconds = 10,
-                    skipForwardSeconds = 10,
-                    onResizeModeClick = {},
-                    onSpeedClick = {},
-                    onSubtitleClick = {},
-                    onAudioClick = {},
-                    onVideoSettingsClick = {},
-                    onInfoClick = {},
-                    onRateClick = {},
-                    onSourcesClick = {},
-                    onEpisodesClick = {},
-                    onChaptersClick = {},
-                    onLiveChannelsClick = {},
-                    qualityLabel = "2160p",
-                    onQualityClick = {},
-                    onOpenInExternalPlayer = {},
-                    onSubmitIntroClick = {},
-                    onSwitchEngineClick = {},
-                    onScrubChange = {},
-                    onScrubFinished = {},
-                    horizontalSafePadding = metrics.horizontalPadding,
-                    modifier = Modifier.fillMaxSize(),
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF0C1827),
+                                    Color(0xFF273A52),
+                                    Color(0xFF493447),
+                                    Color(0xFF101018),
+                                ),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(390.dp)
+                        .align(Alignment.CenterStart)
+                        .offset(x = 105.dp, y = (-24).dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0xAA3F9CB7), Color(0x663E607A), Color.Transparent),
+                            ),
+                            CircleShape,
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(330.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 82.dp, y = 68.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0x997C4C75), Color(0x33583E64), Color.Transparent),
+                            ),
+                            CircleShape,
+                        ),
                 )
             }
+
+scaleX = previewScale
+                    scaleY = previewScale
+                    transformOrigin = TransformOrigin.Center
         }
     }
 }
