@@ -620,7 +620,7 @@ internal fun ResumeBanner(
     val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
         LiquidGlassSurface.STREAM_SELECTION,
         preview = preview,
-    ) && (preview || isLiquidGlassSupported())
+    )
     val shape = if (glassAllowed) {
         liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape, preview = preview)
     } else {
