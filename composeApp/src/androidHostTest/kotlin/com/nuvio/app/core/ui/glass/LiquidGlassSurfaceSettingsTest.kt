@@ -98,6 +98,82 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun providerFiltersHaveTheirOwnDefaultAndCanBeToggledWithoutChangingResults() {
+        val initial = LiquidGlassSurfacesSettings()
+        assertTrue(LiquidGlassSurface.STREAM_FILTERS.defaultEnabled)
+        assertTrue(LiquidGlassSurface.STREAM_SELECTION.defaultEnabled)
+        assertTrue(LiquidGlassSurface.STREAM_RESULTS.defaultEnabled)
+
+        val updated = initial.withSurface(
+            LiquidGlassSurface.STREAM_FILTERS,
+            LiquidGlassSurfaceOverrides(enabled = false, blurRadiusDp = 4f),
+        )
+
+        assertEquals(false, updated.forSurface(LiquidGlassSurface.STREAM_FILTERS).enabled)
+        assertEquals(4f, updated.forSurface(LiquidGlassSurface.STREAM_FILTERS).blurRadiusDp)
+        assertEquals(LiquidGlassSurfaceOverrides(), updated.forSurface(LiquidGlassSurface.STREAM_SELECTION))
+        assertEquals(LiquidGlassSurfaceOverrides(), updated.forSurface(LiquidGlassSurface.STREAM_RESULTS))
+    }
+
+    @Test
+    fun interactiveLayoutGroupsContainOnlyTheirOwnGlassSurfaces() {
+        assertEquals(
+            listOf(
+                LiquidGlassSurface.DETAIL_HEADER,
+                LiquidGlassSurface.DETAILS,
+                LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                LiquidGlassSurface.DETAIL_CHIPS,
+                LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+            ),
+            LiquidGlassSurfaceGroup.DETAIL_PAGE.surfaces,
+        )
+        assertEquals(
+            listOf(
+                LiquidGlassSurface.STREAM_FILTERS,
+                LiquidGlassSurface.STREAM_SELECTION,
+                LiquidGlassSurface.STREAM_RESULTS,
+            ),
+            LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces,
+        )
+    }
+
+    @Test
+    fun linkedGlassEffectLeavesEachComponentShapeAndIconColorIndependent() {
+        val local = LiquidGlassSurfaceOverrides(
+            enabled = true,
+            cornerRadiusPercent = 0f,
+            defaultIconColorArgb = 0xFF123456.toInt(),
+        )
+        val shared = LiquidGlassSurfaceOverrides(
+            enabled = false,
+            blurRadiusDp = 20f,
+            refractionHeightDp = 14f,
+            refractionAmountDp = 24f,
+            tintOpacity = 0.32f,
+            withVibrancy = false,
+            withHighlight = false,
+            withShadow = true,
+            chromaticAberration = true,
+            depthEffect = true,
+        )
+
+        val linked = local.withGlassEffectFrom(shared)
+
+        assertEquals(false, linked.enabled)
+        assertEquals(20f, linked.blurRadiusDp)
+        assertEquals(14f, linked.refractionHeightDp)
+        assertEquals(24f, linked.refractionAmountDp)
+        assertEquals(0.32f, linked.tintOpacity)
+        assertEquals(false, linked.withVibrancy)
+        assertEquals(false, linked.withHighlight)
+        assertEquals(true, linked.withShadow)
+        assertEquals(true, linked.chromaticAberration)
+        assertEquals(true, linked.depthEffect)
+        assertEquals(0f, linked.cornerRadiusPercent)
+        assertEquals(0xFF123456.toInt(), linked.defaultIconColorArgb)
+    }
+
+    @Test
     fun olderSettingsMigrateDetailAndStreamOverridesToNewlySplitSurfaces() {
         val legacyJson = """
             {
