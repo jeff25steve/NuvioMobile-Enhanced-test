@@ -156,6 +156,7 @@ internal fun StreamCard(
             StreamNameWithInstantService(
                 stream = stream,
                 appendInstantServiceToDefaultName = appendInstantServiceToDefaultName,
+                preview = preview,
             ) {
                 if (isCurrent && !currentLabel.isNullOrBlank()) {
                     Spacer(modifier = Modifier.width(8.dp))
@@ -182,7 +183,7 @@ internal fun StreamCard(
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
-                        shadow = streamGlassTextShadow(),
+                        shadow = streamGlassTextShadow(preview = preview),
                     ),
                     color = Color.White,
                 )
@@ -216,7 +217,7 @@ internal fun StreamCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = stream.addonName,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, shadow = streamGlassTextShadow()),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, shadow = streamGlassTextShadow(preview = preview)),
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -267,6 +268,7 @@ private fun StreamCardBadgeRow(
 private fun StreamNameWithInstantService(
     stream: StreamItem,
     appendInstantServiceToDefaultName: Boolean,
+    preview: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
     val nameStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -274,7 +276,7 @@ private fun StreamNameWithInstantService(
         fontWeight = FontWeight.Bold,
         lineHeight = 20.sp,
         letterSpacing = 0.sp,
-        shadow = streamGlassTextShadow(),
+        shadow = streamGlassTextShadow(preview = preview),
     )
     val instantLabel = if (appendInstantServiceToDefaultName) {
         stream.instantServiceLabel()
@@ -349,8 +351,15 @@ private val StreamGlassTextShadow = Shadow(
 )
 
 @Composable
-internal fun streamGlassTextShadow(): Shadow? =
-    if (isAmbientLiquidGlassActive()) StreamGlassTextShadow else null
+internal fun streamGlassTextShadow(preview: Boolean = false): Shadow? =
+    if (
+        preview ||
+        (isAmbientLiquidGlassActive() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS))
+    ) {
+        StreamGlassTextShadow
+    } else {
+        null
+    }
 
 private fun StreamItem.instantServiceLabel(): String? {
     val status = debridCacheStatus ?: return null
