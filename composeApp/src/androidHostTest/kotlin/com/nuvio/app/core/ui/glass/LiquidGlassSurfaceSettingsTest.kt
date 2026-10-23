@@ -5,8 +5,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import androidx.compose.ui.graphics.Color
 
 class LiquidGlassSurfaceSettingsTest {
+    @Test
+    fun adaptiveGlassFilmAddsSheenOnBlackAndShadeOnWhite() {
+        val blackFilm = liquidGlassAdaptiveFilm(Color.Black)
+        val whiteFilm = liquidGlassAdaptiveFilm(Color.White)
+
+        assertTrue(blackFilm.topSheenAlpha > whiteFilm.topSheenAlpha)
+        assertTrue(whiteFilm.bottomShadeAlpha > blackFilm.bottomShadeAlpha)
+        assertTrue(blackFilm.topSheenAlpha in 0f..0.14f)
+        assertTrue(whiteFilm.bottomShadeAlpha in 0f..0.08f)
+    }
+
     @Test
     fun existingGlassSurfacesRemainEnabledAndNewSurfacesKeepTheirCurrentAppearance() {
         assertTrue(LiquidGlassSurface.PLAYER.defaultEnabled)
