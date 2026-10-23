@@ -33,6 +33,7 @@ import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import kotlin.math.roundToInt
@@ -77,7 +78,8 @@ internal fun Modifier.playerLiquidGlass(
     backdropOpacity: Float = PlayerGlassBackdropOpacity,
     rim: Boolean = true,
 ): Modifier {
-    val previewOverrides = LocalLiquidGlassPreviewOverrides.current
+    val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
+        ?: LocalLiquidGlassPreviewOverrides.current
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
     val enabled = previewOverrides != null ||
         (LiquidGlassSettings.enabled && (overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled))
