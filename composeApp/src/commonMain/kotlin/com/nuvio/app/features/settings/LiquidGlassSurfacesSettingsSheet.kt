@@ -77,6 +77,7 @@ import com.nuvio.app.features.details.components.DetailGlassChipsPreview
 import com.nuvio.app.features.details.components.DetailGlassContentCardPreview
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
+import com.nuvio.app.features.downloads.DownloadsSettingsRepository
 import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.player.PlayerChapter
 import com.nuvio.app.features.player.PlayerControlsShell
@@ -177,6 +178,10 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     val detailScreenSettings by remember {
         MetaScreenSettingsRepository.ensureLoaded()
         MetaScreenSettingsRepository.uiState
+    }.collectAsStateWithLifecycle()
+    val downloadButtonEnabled by remember {
+        DownloadsSettingsRepository.ensureLoaded()
+        DownloadsSettingsRepository.showDownloadButton
     }.collectAsStateWithLifecycle()
     var selectedSurfaceName by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPreviewLayoutName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -295,6 +300,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         selectedSurface = selectedSurface,
                         isTablet = isTablet,
                         iconActionRow = detailScreenSettings.iconActionRow,
+                        downloadButtonEnabled = downloadButtonEnabled,
                         onSelectSurface = { selectedSurfaceName = it.name },
                         onBack = {
                             selectedPreviewLayoutName = null
@@ -559,6 +565,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
     selectedSurface: LiquidGlassSurface,
     isTablet: Boolean,
     iconActionRow: Boolean,
+    downloadButtonEnabled: Boolean,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -614,6 +621,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
                 selectedSurface = selectedSurface,
                 isTablet = isTablet,
                 iconActionRow = iconActionRow,
+                downloadButtonEnabled = downloadButtonEnabled,
                 onSelectSurface = onSelectSurface,
                 modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
             )
@@ -633,14 +641,16 @@ private fun LiquidGlassDetailPagePreview(
     selectedSurface: LiquidGlassSurface,
     isTablet: Boolean,
     iconActionRow: Boolean,
+    downloadButtonEnabled: Boolean,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
     val actionButtonHeight = if (isTablet) 56.dp else 52.dp
-    val selectableActionSurfaces = remember(iconActionRow) {
-        liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow)
+    val selectableActionSurfaces = remember(iconActionRow, downloadButtonEnabled) {
+        liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow, downloadButtonEnabled)
     }
+    val previewDownloadAction: (() -> Unit)? = if (downloadButtonEnabled) ({}) else null
     val meta = remember {
         MetaDetails(
             id = "liquid-glass-detail-preview",
@@ -756,7 +766,7 @@ private fun LiquidGlassDetailPagePreview(
                         onWatchedClick = {},
                         onSaveClick = {},
                         onSaveLongClick = null,
-                        onDownloadClick = {},
+                        onDownloadClick = previewDownloadAction,
                         onPlayFromStartClick = null,
                         onPlayExternallyClick = {},
                         iconActionRow = iconActionRow,

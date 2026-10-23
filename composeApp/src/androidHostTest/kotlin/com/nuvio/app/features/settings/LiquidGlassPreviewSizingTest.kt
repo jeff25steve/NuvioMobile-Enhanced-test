@@ -21,13 +21,39 @@ class LiquidGlassPreviewSizingTest {
 
     @Test
     fun detailActionPreviewTargetsMatchTheConfiguredProductionActionLayout() {
+        val detailsOnly = setOf(LiquidGlassSurface.DETAILS)
+        val detailsAndDownload = setOf(
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+        )
+
         assertEquals(
-            setOf(LiquidGlassSurface.DETAILS),
-            liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow = true),
+            detailsOnly,
+            liquidGlassDetailActionPreviewSelectableSurfaces(
+                iconActionRow = true,
+                downloadActionAvailable = true,
+            ),
         )
         assertEquals(
-            setOf(LiquidGlassSurface.DETAILS, LiquidGlassSurface.DETAIL_PRIMARY_ACTION),
-            liquidGlassDetailActionPreviewSelectableSurfaces(iconActionRow = false),
+            detailsOnly,
+            liquidGlassDetailActionPreviewSelectableSurfaces(
+                iconActionRow = true,
+                downloadActionAvailable = false,
+            ),
+        )
+        assertEquals(
+            detailsAndDownload,
+            liquidGlassDetailActionPreviewSelectableSurfaces(
+                iconActionRow = false,
+                downloadActionAvailable = true,
+            ),
+        )
+        assertEquals(
+            detailsOnly,
+            liquidGlassDetailActionPreviewSelectableSurfaces(
+                iconActionRow = false,
+                downloadActionAvailable = false,
+            ),
         )
     }
 }

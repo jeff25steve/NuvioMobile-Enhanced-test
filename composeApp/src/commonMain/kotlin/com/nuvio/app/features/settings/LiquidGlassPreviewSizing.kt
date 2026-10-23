@@ -24,8 +24,9 @@ internal fun liquidGlassPlayerPreviewScale(width: Dp): Float =
  */
 internal fun liquidGlassDetailActionPreviewSelectableSurfaces(
     iconActionRow: Boolean,
-): Set<LiquidGlassSurface> = if (iconActionRow) {
-    setOf(LiquidGlassSurface.DETAILS)
-} else {
+    downloadActionAvailable: Boolean,
+): Set<LiquidGlassSurface> = if (!iconActionRow && downloadActionAvailable) {
     setOf(LiquidGlassSurface.DETAILS, LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
+} else {
+    setOf(LiquidGlassSurface.DETAILS)
 }
