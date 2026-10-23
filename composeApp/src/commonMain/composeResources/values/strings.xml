@@ -2915,10 +2915,18 @@
     <string name="settings_advanced_dns_note">Used for all of Nuvio\'s connections on this device: addons, metadata, images, sync, trackers and the ExoPlayer engine. Your phone\'s DNS stays the same for other apps. The libmpv engine and web sign-in pages still use the system DNS.</string>
 
     <string name="settings_liquid_glass_customize">Customize Liquid Glass</string>
-    <string name="settings_liquid_glass_customize_description">Choose which areas use glass and customize each one separately.</string>
+    <string name="settings_liquid_glass_customize_description">Choose a screen preview to tune its glass, or open one component to adjust it on its own.</string>
+    <string name="settings_liquid_glass_preview_detail_page">Detail page preview</string>
+    <string name="settings_liquid_glass_preview_detail_page_description">Tap the header, action buttons, season controls or episode cards to edit that part.</string>
+    <string name="settings_liquid_glass_preview_stream_picker">Stream picker preview</string>
+    <string name="settings_liquid_glass_preview_stream_picker_description">Tap provider filters, search and resume, or a stream card to edit it separately.</string>
+    <string name="settings_liquid_glass_link_effects">Link glass effects across this page</string>
+    <string name="settings_liquid_glass_link_effects_description">Keep blur, tint, refraction and lighting in sync. Each component keeps its own shape and icon colour.</string>
+    <string name="settings_liquid_glass_tap_to_edit_component">Tap a highlighted glass element to edit it.</string>
     <string name="settings_liquid_glass_global_note">The master Liquid Glass switch still controls every area. Unchanged controls keep their original per-component defaults.</string>
     <string name="settings_liquid_glass_surface_description">Customize this area without changing the other areas.</string>
     <string name="settings_liquid_glass_surface_player">Player</string>
+    <string name="settings_liquid_glass_surface_stream_filters">Provider filter chips</string>
     <string name="settings_liquid_glass_surface_stream_selection">Stream search and resume</string>
     <string name="settings_liquid_glass_surface_stream_results">Stream result cards</string>
     <string name="settings_liquid_glass_surface_details">Detail action controls</string>
