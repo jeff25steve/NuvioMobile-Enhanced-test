@@ -13,8 +13,10 @@ class LiquidGlassSurfaceSettingsTest {
         val blackFilm = liquidGlassAdaptiveFilm(Color.Black)
         val whiteFilm = liquidGlassAdaptiveFilm(Color.White)
 
+        assertTrue(blackFilm.bodyTintAlpha > whiteFilm.bodyTintAlpha)
         assertTrue(blackFilm.topSheenAlpha > whiteFilm.topSheenAlpha)
         assertTrue(whiteFilm.bottomShadeAlpha > blackFilm.bottomShadeAlpha)
+        assertTrue(blackFilm.bodyTintAlpha in 0f..0.08f)
         assertTrue(blackFilm.topSheenAlpha in 0f..0.14f)
         assertTrue(whiteFilm.bottomShadeAlpha in 0f..0.08f)
     }
