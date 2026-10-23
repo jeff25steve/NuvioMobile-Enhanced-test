@@ -747,14 +747,26 @@ private fun LiquidGlassDetailPagePreview(
                         onPlayFromStartClick = null,
                         onPlayExternallyClick = {},
                         iconActionRow = true,
-                        previewGlassAll = true,
+                        previewGlassSurface = selectedSurface.takeIf {
+                            it == LiquidGlassSurface.DETAILS || it == LiquidGlassSurface.DETAIL_PRIMARY_ACTION
+                        },
                     )
-                    GlassPreviewHotspot(
-                        modifier = Modifier.fillMaxWidth().height(116.dp).align(Alignment.TopCenter),
-                        surface = LiquidGlassSurface.DETAILS,
-                        selectedSurface = selectedSurface,
-                        onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
-                    )
+                    // Keep each independently configurable production surface selectable in the
+                    // combined preview: the primary play action is above the secondary icon row.
+                    Column(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                        GlassPreviewHotspot(
+                            modifier = Modifier.fillMaxWidth().height((if (isTablet) 56 else 52).dp),
+                            surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                            selectedSurface = selectedSurface,
+                            onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) },
+                        )
+                        GlassPreviewHotspot(
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            surface = LiquidGlassSurface.DETAILS,
+                            selectedSurface = selectedSurface,
+                            onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
+                        )
+                    }
                 }
 
                 Text(
