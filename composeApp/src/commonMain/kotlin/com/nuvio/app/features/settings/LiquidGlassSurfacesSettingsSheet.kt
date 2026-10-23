@@ -633,53 +633,69 @@ private fun LiquidGlassSurfacePreview(
                                 modifier = Modifier.fillMaxSize(),
                             )
 
-                            LiquidGlassSurface.DETAILS -> DetailActions(
-                                playLabel = stringResource(Res.string.action_play),
-                                playEnabled = true,
-                                isSaved = false,
-                                isWatched = false,
-                                isTablet = isTablet,
-                                shuffleEnabled = false,
-                                onPlayClick = {},
-                                onPlayLongClick = null,
-                                onShuffleClick = null,
-                                onWatchedClick = {},
-                                onSaveClick = {},
-                                onSaveLongClick = null,
-                                onDownloadClick = {},
-                                onPlayFromStartClick = null,
-                                onPlayExternallyClick = {},
-                                iconActionRow = true,
-                                previewGlassSurface = surface,
-                            )
+                            LiquidGlassSurface.DETAILS -> LiquidGlassDetailBackdropPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                DetailActions(
+                                    playLabel = stringResource(Res.string.action_play),
+                                    playEnabled = true,
+                                    isSaved = false,
+                                    isWatched = false,
+                                    isTablet = isTablet,
+                                    shuffleEnabled = false,
+                                    onPlayClick = {},
+                                    onPlayLongClick = null,
+                                    onShuffleClick = null,
+                                    onWatchedClick = {},
+                                    onSaveClick = {},
+                                    onSaveLongClick = null,
+                                    onDownloadClick = {},
+                                    onPlayFromStartClick = null,
+                                    onPlayExternallyClick = {},
+                                    iconActionRow = true,
+                                    previewGlassSurface = surface,
+                                )
+                            }
 
-                            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> DetailActions(
-                                playLabel = stringResource(Res.string.action_play),
-                                playEnabled = true,
-                                isSaved = false,
-                                isWatched = false,
-                                isTablet = isTablet,
-                                shuffleEnabled = false,
-                                onPlayClick = {},
-                                onPlayLongClick = null,
-                                onShuffleClick = null,
-                                onWatchedClick = {},
-                                onSaveClick = {},
-                                onSaveLongClick = null,
-                                onDownloadClick = {},
-                                onPlayFromStartClick = null,
-                                onPlayExternallyClick = {},
-                                iconActionRow = false,
-                                previewGlassSurface = surface,
-                            )
+                            LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> LiquidGlassDetailBackdropPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                DetailActions(
+                                    playLabel = stringResource(Res.string.action_play),
+                                    playEnabled = true,
+                                    isSaved = false,
+                                    isWatched = false,
+                                    isTablet = isTablet,
+                                    shuffleEnabled = false,
+                                    onPlayClick = {},
+                                    onPlayLongClick = null,
+                                    onShuffleClick = null,
+                                    onWatchedClick = {},
+                                    onSaveClick = {},
+                                    onSaveLongClick = null,
+                                    onDownloadClick = {},
+                                    onPlayFromStartClick = null,
+                                    onPlayExternallyClick = {},
+                                    iconActionRow = false,
+                                    previewGlassSurface = surface,
+                                )
+                            }
 
-                            LiquidGlassSurface.DETAIL_CHIPS -> DetailGlassChipsPreview(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            )
+                            LiquidGlassSurface.DETAIL_CHIPS -> LiquidGlassDetailBackdropPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                DetailGlassChipsPreview(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                                )
+                            }
 
-                            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> DetailGlassContentCardPreview(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                            )
+                            LiquidGlassSurface.DETAIL_CONTENT_CARDS -> LiquidGlassDetailBackdropPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                DetailGlassContentCardPreview(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                                )
+                            }
 
                             LiquidGlassSurface.LIBRARY -> {
                                 val shape = RoundedCornerShape(12.dp)
@@ -986,6 +1002,68 @@ private fun LiquidGlassSearchPreview(
                     modifier = Modifier.fillMaxWidth(),
                     containerColor = Color.Transparent,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassDetailBackdropPreview(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF29212A),
+                                Color(0xFF57414B),
+                                Color(0xFF29212D),
+                                MaterialTheme.colorScheme.background,
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 55.dp, y = (-45).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x99D2A4B5), Color(0x3A8A6378), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(190.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-48).dp, y = 72.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0x664F88A8), Color(0x223A5D73), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                content()
             }
         }
     }
