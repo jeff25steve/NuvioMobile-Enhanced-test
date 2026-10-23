@@ -41,7 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
-import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.NuvioBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
@@ -91,12 +90,12 @@ class NuvioSheetBackdrop(val backdrop: NuvioBackdrop) {
 
 val LocalNuvioSheetBackdrop = staticCompositionLocalOf<NuvioSheetBackdrop?> { null }
 
-internal fun shouldCaptureNuvioBackdrop(
+internal fun shouldCaptureNuvioSheetBackdrop(
     platformSupported: Boolean,
     masterEnabled: Boolean,
     needsPreviewBackdrop: Boolean,
-    needsRuntimeGlassBackdrop: Boolean,
-): Boolean = platformSupported && (needsPreviewBackdrop || (masterEnabled && needsRuntimeGlassBackdrop))
+    needsSheetGlassBackdrop: Boolean,
+): Boolean = platformSupported && (needsPreviewBackdrop || (masterEnabled && needsSheetGlassBackdrop))
 
 @Composable
 fun NuvioSheetBackdropHost(
@@ -104,24 +103,19 @@ fun NuvioSheetBackdropHost(
     content: @Composable () -> Unit,
 ) {
     val needsPreviewBackdrop = sheetBackdrop.activeGlassPreviews > 0
-    val needsRuntimeGlassBackdrop = sheetBackdrop.backdrop.activeConsumers > 0 || (
-        sheetBackdrop.activeSheets > 0 &&
-            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
-        )
-    CompositionLocalProvider(
-        LocalNuvioSheetBackdrop provides sheetBackdrop,
-        LocalLiquidGlassBackdrop provides sheetBackdrop.backdrop,
-    ) {
+    val needsSheetGlassBackdrop = sheetBackdrop.activeSheets > 0 &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+    CompositionLocalProvider(LocalNuvioSheetBackdrop provides sheetBackdrop) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
                     if (
-                        shouldCaptureNuvioBackdrop(
+                        shouldCaptureNuvioSheetBackdrop(
                             platformSupported = isLiquidGlassAvailable(),
                             masterEnabled = LiquidGlassSettings.enabled,
                             needsPreviewBackdrop = needsPreviewBackdrop,
-                            needsRuntimeGlassBackdrop = needsRuntimeGlassBackdrop,
+                            needsSheetGlassBackdrop = needsSheetGlassBackdrop,
                         )
                     ) {
                         Modifier.nuvioBackdropSource(sheetBackdrop.backdrop)
