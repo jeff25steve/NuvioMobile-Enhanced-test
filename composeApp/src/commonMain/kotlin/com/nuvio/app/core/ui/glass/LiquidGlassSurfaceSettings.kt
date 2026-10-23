@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.RectangleShape
 import com.kyant.backdrop.Backdrop
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -186,10 +187,15 @@ internal fun liquidGlassShape(
     defaultShape: Shape,
     preview: Boolean = false,
 ): Shape {
-    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    val overrides = LocalLiquidGlassPreviewOverrides.current
+        ?.takeIf { preview }
+        ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) {
         return defaultShape
     }
+    // Rectangular scroll-edge headers are intentionally full-width; a migrated detail radius
+    // setting must never turn this shape into a rounded card.
+    if (defaultShape === RectangleShape) return defaultShape
     return overrides.cornerRadiusPercent?.let { percent ->
         RoundedCornerShape(percent = percent.roundToInt())
     } ?: defaultShape
