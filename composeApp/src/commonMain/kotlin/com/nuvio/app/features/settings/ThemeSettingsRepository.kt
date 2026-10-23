@@ -22,6 +22,7 @@ import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
+import com.nuvio.app.features.profiles.normalizedAvatarUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +59,9 @@ object ThemeSettingsRepository {
 
     private val _showCatalogAccentEnabled = MutableStateFlow(false)
     val showCatalogAccentEnabled: StateFlow<Boolean> = _showCatalogAccentEnabled.asStateFlow()
+
+    private val _customSettingsBackgroundUrl = MutableStateFlow<String?>(null)
+    val customSettingsBackgroundUrl: StateFlow<String?> = _customSettingsBackgroundUrl.asStateFlow()
 
     private val _selectedAppLanguage = MutableStateFlow(AppLanguage.DEVICE)
     val selectedAppLanguage: StateFlow<AppLanguage> = _selectedAppLanguage.asStateFlow()
@@ -124,6 +128,7 @@ object ThemeSettingsRepository {
         _liquidGlassNativeTabBarEnabled.value = NuvioTabBarBehavior.Default.isEnabled
         _dynamicArtworkBackgroundEnabled.value = false
         _showCatalogAccentEnabled.value = false
+        _customSettingsBackgroundUrl.value = null
         NativeTabBridge.publishAccentColor(
             hexColor = AppTheme.WHITE.nativeTabAccentHex(),
             gradientHexColors = ThemeColors.getColorPalette(AppTheme.WHITE).nativeAccentGradientHex(),
@@ -170,6 +175,8 @@ object ThemeSettingsRepository {
             ThemeSettingsStorage.loadDynamicArtworkBackgroundEnabled() ?: false
         _showCatalogAccentEnabled.value =
             ThemeSettingsStorage.loadShowCatalogAccentEnabled() ?: false
+        _customSettingsBackgroundUrl.value =
+            normalizedAvatarUrl(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
         val appLanguage = AppLanguage.fromCode(ThemeSettingsStorage.loadSelectedAppLanguage())
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
@@ -258,6 +265,21 @@ object ThemeSettingsRepository {
         if (_showCatalogAccentEnabled.value == enabled) return
         _showCatalogAccentEnabled.value = enabled
         ThemeSettingsStorage.saveShowCatalogAccentEnabled(enabled)
+    }
+
+    fun setCustomSettingsBackgroundUrl(url: String?): Boolean {
+        ensureLoaded()
+        val input = url?.trim().orEmpty()
+        val normalized = if (input.isBlank()) null else normalizedAvatarUrl(input) ?: return false
+        if (
+            _customSettingsBackgroundUrl.value == normalized &&
+            ThemeSettingsStorage.loadCustomSettingsBackgroundUrl() == normalized
+        ) {
+            return true
+        }
+        _customSettingsBackgroundUrl.value = normalized
+        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(normalized)
+        return true
     }
 
     fun setAppLanguage(language: AppLanguage) {

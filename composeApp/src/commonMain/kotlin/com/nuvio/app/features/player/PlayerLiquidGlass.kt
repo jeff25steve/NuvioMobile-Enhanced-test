@@ -32,9 +32,11 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import kotlin.math.roundToInt
@@ -82,12 +84,13 @@ internal fun Modifier.playerLiquidGlass(
     val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
         ?: LocalLiquidGlassPreviewOverrides.current
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+    val materialStyle = LiquidGlassStyle(material = overrides.material ?: LiquidGlassMaterial.LIQUID)
     val enabled = shouldRenderLiquidGlassSurface(
         surface = LiquidGlassSurface.PLAYER,
         overrides = overrides,
         preview = previewOverrides != null,
         masterEnabled = LiquidGlassSettings.enabled,
-    )
+    ) && materialStyle.usesBackdrop
     val effectiveShape = if (enabled) {
         overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) } ?: shape
     } else {
@@ -102,9 +105,9 @@ internal fun Modifier.playerLiquidGlass(
             shape = effectiveShape,
             tint = effectiveTint,
             fallback = fallback,
-            blurRadius = overrides.blurRadiusDp?.dp ?: blurRadius,
-            refractionHeight = overrides.refractionHeightDp?.dp ?: refractionHeight,
-            refractionAmount = overrides.refractionAmountDp?.dp ?: refractionAmount,
+            blurRadius = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp,
+            refractionHeight = if (materialStyle.usesLens) overrides.refractionHeightDp?.dp ?: refractionHeight else 0.dp,
+            refractionAmount = if (materialStyle.usesLens) overrides.refractionAmountDp?.dp ?: refractionAmount else 0.dp,
             withVibrancy = overrides.withVibrancy ?: true,
             withHighlight = overrides.withHighlight ?: true,
             withShadow = overrides.withShadow ?: false,

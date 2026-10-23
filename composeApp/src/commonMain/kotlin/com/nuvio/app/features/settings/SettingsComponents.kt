@@ -60,6 +60,7 @@ import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
@@ -90,7 +91,7 @@ private fun SettingsCard(
     val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = LiquidGlassSurface.SETTINGS,
         preview = previewGlass,
-        platformSupported = isLiquidGlassSupported(),
+        platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
     val cardShape = if (glassEnabled) {
         liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape, preview = previewGlass)

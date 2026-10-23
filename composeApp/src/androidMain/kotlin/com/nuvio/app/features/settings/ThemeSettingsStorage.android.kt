@@ -31,6 +31,7 @@ actual object ThemeSettingsStorage {
     private const val localNavBarGlassKey = "enhanced_local_nav_bar_glass"
     private const val localLiquidGlassEffectsKey = "enhanced_local_liquid_glass_effects"
     private const val localLiquidGlassSurfaceSettingsKey = "enhanced_local_liquid_glass_surface_settings"
+    private const val localCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
     private const val navBarDefaultIconColorEnabledKey = "enhanced_local_nav_bar_default_icon_color_enabled"
     private const val navBarDefaultIconColorKey = "enhanced_local_nav_bar_default_icon_color"
@@ -247,6 +248,18 @@ actual object ThemeSettingsStorage {
 
     actual fun saveLiquidGlassSurfaceSettings(settings: String) {
         saveRawString(localLiquidGlassSurfaceSettingsKey, settings)
+    }
+
+    actual fun loadCustomSettingsBackgroundUrl(): String? =
+        loadRawString(localCustomSettingsBackgroundUrlKey)
+
+    actual fun saveCustomSettingsBackgroundUrl(url: String?) {
+        val key = ProfileScopedKey.of(localCustomSettingsBackgroundUrlKey)
+        if (url.isNullOrBlank()) {
+            preferences?.edit()?.remove(key)?.apply()
+        } else {
+            preferences?.edit()?.putString(key, url)?.apply()
+        }
     }
 
     private fun loadRawString(key: String): String? =

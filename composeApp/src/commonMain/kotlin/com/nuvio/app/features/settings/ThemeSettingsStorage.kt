@@ -41,6 +41,8 @@ internal expect object ThemeSettingsStorage {
     fun saveLiquidGlassEffectsEnabled(enabled: Boolean)
     fun loadLiquidGlassSurfaceSettings(): String?
     fun saveLiquidGlassSurfaceSettings(settings: String)
+    fun loadCustomSettingsBackgroundUrl(): String?
+    fun saveCustomSettingsBackgroundUrl(url: String?)
     fun exportToSyncPayload(): JsonObject
     fun replaceFromSyncPayload(payload: JsonObject)
 }
