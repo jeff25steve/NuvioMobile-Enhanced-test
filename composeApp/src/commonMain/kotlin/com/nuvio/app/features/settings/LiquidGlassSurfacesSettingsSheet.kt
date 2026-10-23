@@ -436,11 +436,16 @@ private fun LiquidGlassSurfaceListItem(
 
 @Composable
 private fun LiquidGlassSurfaceGroupListItem(
+    group: LiquidGlassSurfaceGroup,
     title: String,
     description: String,
     isTablet: Boolean,
     onOpen: () -> Unit,
 ) {
+    val iconTint = when (group) {
+        LiquidGlassSurfaceGroup.DETAIL_PAGE -> MaterialTheme.colorScheme.primary
+        LiquidGlassSurfaceGroup.STREAM_PICKER -> MaterialTheme.colorScheme.secondary
+    }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,7 +462,7 @@ private fun LiquidGlassSurfaceGroupListItem(
             Icon(
                 imageVector = Icons.Rounded.Settings,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = iconTint,
             )
             Column(
                 modifier = Modifier.weight(1f),
