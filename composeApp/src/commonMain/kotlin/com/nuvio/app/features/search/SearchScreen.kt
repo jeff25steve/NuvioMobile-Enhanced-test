@@ -273,141 +273,141 @@ fun SearchScreen(
                     .then(if (searchGlassEnabled) Modifier.nuvioBackdropSource(searchBackdrop) else Modifier),
             ) {
             NuvioScreen(
-                horizontalPadding = 0.dp,
-                topPadding = searchHeaderHeight,
-                listState = listState,
-                autoHidesNativeTabBar = true,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                if (query.isBlank()) {
-                    item {
-                        DiscoverSectionHeader(modifier = Modifier.padding(horizontal = 16.dp))
-                    }
-                    stickyHeader {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(MaterialTheme.colorScheme.background)
-                                    .nuvioConsumePointerEvents(),
-                            )
-                            DiscoverFilterRow(
-                                state = discoverUiState,
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
-                                    .padding(top = 8.dp, bottom = 14.dp),
-                                onTypeSelected = SearchRepository::selectDiscoverType,
-                                onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                                onGenreSelected = SearchRepository::selectDiscoverGenre,
-                            )
+                    horizontalPadding = 0.dp,
+                    topPadding = searchHeaderHeight,
+                    listState = listState,
+                    autoHidesNativeTabBar = true,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    if (query.isBlank()) {
+                        item {
+                            DiscoverSectionHeader(modifier = Modifier.padding(horizontal = 16.dp))
                         }
-                    }
-                }
-                if (query.isBlank()) {
-                    if (isSearchFocused && recentSearches.isNotEmpty()) {
-                        item(key = "recent_searches") {
-                            SearchRecentSection(
-                                recentSearches = recentSearches,
-                                onSearchPress = { recentQuery -> query = recentQuery },
-                                onRemoveSearch = SearchHistoryRepository::removeSearch,
-                            )
+                        stickyHeader {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .nuvioConsumePointerEvents(),
+                                )
+                                DiscoverFilterRow(
+                                    state = discoverUiState,
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .padding(top = 8.dp, bottom = 14.dp),
+                                    onTypeSelected = SearchRepository::selectDiscoverType,
+                                    onCatalogSelected = SearchRepository::selectDiscoverCatalog,
+                                    onGenreSelected = SearchRepository::selectDiscoverGenre,
+                                )
+                            }
                         }
                     }
-                    discoverContent(
-                        state = discoverUiState,
-                        isSourceLoading = addonManifestsLoading,
-                        columns = discoverColumns,
-                        networkCondition = networkStatusUiState.condition,
-                        onTypeSelected = SearchRepository::selectDiscoverType,
-                        onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                        onGenreSelected = SearchRepository::selectDiscoverGenre,
-                        onRetry = {
-                            NetworkStatusRepository.requestRefresh(force = true)
-                            if (addonsUiState.addons.firstEnabledManifestError() != null) {
-                                AddonRepository.refreshAll()
-                            } else {
-                                SearchRepository.refreshDiscover(
-                                    addons = addonsUiState.addons,
-                                    forceRefresh = true,
-                                )
-                            }
-                        },
-                        watchedKeys = watchedUiState.watchedKeys,
-                        fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
-                        onPosterClick = onPosterClick,
-                        onPosterLongClick = onPosterLongClick,
-                    )
-                } else {
-                    val normalizedQuery = query.trim()
-                    val isWaitingForSearch = normalizedQuery.isNotBlank() && lastRequestedQuery != normalizedQuery
-                    when {
-                        isWaitingForSearch -> {
-                            items(2) {
-                                HomeSkeletonRow(
-                                    modifier = Modifier.padding(horizontal = homeSectionPadding),
+                    if (query.isBlank()) {
+                        if (isSearchFocused && recentSearches.isNotEmpty()) {
+                            item(key = "recent_searches") {
+                                SearchRecentSection(
+                                    recentSearches = recentSearches,
+                                    onSearchPress = { recentQuery -> query = recentQuery },
+                                    onRemoveSearch = SearchHistoryRepository::removeSearch,
                                 )
                             }
                         }
-
-                        (uiState.isLoading || addonManifestsLoading) && uiState.sections.isEmpty() -> {
-                            items(2) {
-                                HomeSkeletonRow(
-                                    modifier = Modifier.padding(horizontal = homeSectionPadding),
-                                )
-                            }
-                        }
-
-                        uiState.sections.isEmpty() -> {
-                            item {
-                                SearchEmptyStateCard(
-                                    reason = uiState.emptyStateReason,
-                                    errorMessage = uiState.errorMessage,
-                                    networkCondition = networkStatusUiState.condition,
-                                    onRetry = {
-                                        if (normalizedQuery.isNotBlank()) {
-                                            NetworkStatusRepository.requestRefresh(force = true)
-                                            if (addonsUiState.addons.firstEnabledManifestError() != null) {
-                                                AddonRepository.refreshAll()
-                                            } else {
-                                                SearchRepository.search(
-                                                    query = normalizedQuery,
-                                                    addons = addonsUiState.addons,
-                                                    forceRefresh = true,
-                                                )
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.padding(horizontal = homeSectionPadding),
-                                )
-                            }
-                        }
-
-                        else -> {
-                            items(
-                                items = uiState.sections.withDuplicateSafeLazyKeys { section -> section.key },
-                                key = { section -> section.lazyKey },
-                            ) { keyedSection ->
-                                val section = keyedSection.value
-                                HomeCatalogRowSection(
-                                    section = section,
-                                    modifier = Modifier.padding(bottom = 12.dp),
-                                    watchedKeys = watchedUiState.watchedKeys,
-                                    fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
-                                    onPosterClick = onPosterClick,
-                                    onPosterLongClick = onPosterLongClick,
-                                )
-                            }
-                            if (uiState.isLoading) {
-                                item(key = "search_loading_more") {
+                        discoverContent(
+                            state = discoverUiState,
+                            isSourceLoading = addonManifestsLoading,
+                            columns = discoverColumns,
+                            networkCondition = networkStatusUiState.condition,
+                            onTypeSelected = SearchRepository::selectDiscoverType,
+                            onCatalogSelected = SearchRepository::selectDiscoverCatalog,
+                            onGenreSelected = SearchRepository::selectDiscoverGenre,
+                            onRetry = {
+                                NetworkStatusRepository.requestRefresh(force = true)
+                                if (addonsUiState.addons.firstEnabledManifestError() != null) {
+                                    AddonRepository.refreshAll()
+                                } else {
+                                    SearchRepository.refreshDiscover(
+                                        addons = addonsUiState.addons,
+                                        forceRefresh = true,
+                                    )
+                                }
+                            },
+                            watchedKeys = watchedUiState.watchedKeys,
+                            fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
+                            onPosterClick = onPosterClick,
+                            onPosterLongClick = onPosterLongClick,
+                        )
+                    } else {
+                        val normalizedQuery = query.trim()
+                        val isWaitingForSearch = normalizedQuery.isNotBlank() && lastRequestedQuery != normalizedQuery
+                        when {
+                            isWaitingForSearch -> {
+                                items(2) {
                                     HomeSkeletonRow(
                                         modifier = Modifier.padding(horizontal = homeSectionPadding),
                                     )
                                 }
                             }
+    
+                            (uiState.isLoading || addonManifestsLoading) && uiState.sections.isEmpty() -> {
+                                items(2) {
+                                    HomeSkeletonRow(
+                                        modifier = Modifier.padding(horizontal = homeSectionPadding),
+                                    )
+                                }
+                            }
+    
+                            uiState.sections.isEmpty() -> {
+                                item {
+                                    SearchEmptyStateCard(
+                                        reason = uiState.emptyStateReason,
+                                        errorMessage = uiState.errorMessage,
+                                        networkCondition = networkStatusUiState.condition,
+                                        onRetry = {
+                                            if (normalizedQuery.isNotBlank()) {
+                                                NetworkStatusRepository.requestRefresh(force = true)
+                                                if (addonsUiState.addons.firstEnabledManifestError() != null) {
+                                                    AddonRepository.refreshAll()
+                                                } else {
+                                                    SearchRepository.search(
+                                                        query = normalizedQuery,
+                                                        addons = addonsUiState.addons,
+                                                        forceRefresh = true,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.padding(horizontal = homeSectionPadding),
+                                    )
+                                }
+                            }
+    
+                            else -> {
+                                items(
+                                    items = uiState.sections.withDuplicateSafeLazyKeys { section -> section.key },
+                                    key = { section -> section.lazyKey },
+                                ) { keyedSection ->
+                                    val section = keyedSection.value
+                                    HomeCatalogRowSection(
+                                        section = section,
+                                        modifier = Modifier.padding(bottom = 12.dp),
+                                        watchedKeys = watchedUiState.watchedKeys,
+                                        fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
+                                        onPosterClick = onPosterClick,
+                                        onPosterLongClick = onPosterLongClick,
+                                    )
+                                }
+                                if (uiState.isLoading) {
+                                    item(key = "search_loading_more") {
+                                        HomeSkeletonRow(
+                                            modifier = Modifier.padding(horizontal = homeSectionPadding),
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
             }
 
             if (searchGlassEnabled) {
@@ -448,51 +448,63 @@ fun SearchScreen(
                 ) {
 
             Box(modifier = Modifier.fillMaxWidth()) {
-                androidx.compose.foundation.layout.Column(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    NuvioScreenHeader(
-                        title = headerTitle,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                    androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        val defaultSearchFieldShape = RoundedCornerShape(18.dp)
-                        val searchFieldShape = if (searchGlassEnabled) {
-                            liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
-                        } else {
-                            defaultSearchFieldShape
-                        }
-                        val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
-                            {
-                                IconButton(onClick = { query = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = stringResource(Res.string.compose_search_clear),
-                                        tint = liquidGlassIconTint(
-                                            LiquidGlassSurface.SEARCH,
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        NuvioScreenHeader(
+                            title = headerTitle,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            val defaultSearchFieldShape = RoundedCornerShape(18.dp)
+                            val searchFieldShape = if (searchGlassEnabled) {
+                                liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
+                            } else {
+                                defaultSearchFieldShape
+                            }
+                            val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
+                                {
+                                    IconButton(onClick = { query = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = stringResource(Res.string.compose_search_clear),
+                                            tint = liquidGlassIconTint(
+                                                LiquidGlassSurface.SEARCH,
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                            ),
+                                        )
+                                    }
+                                }
+                            } else {
+                                null
+                            }
+                            if (searchGlassEnabled) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .liquidGlassForSurface(
+                                            surface = LiquidGlassSurface.SEARCH,
+                                            shape = searchFieldShape,
+                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                            blurRadius = 14.dp,
+                                            refractionHeight = 8.dp,
+                                            refractionAmount = 12.dp,
                                         ),
+                                ) {
+                                    NuvioInputField(
+                                        value = query,
+                                        onValueChange = { query = it },
+                                        placeholder = stringResource(Res.string.compose_search_placeholder),
+                                        modifier = Modifier
+                                            .focusRequester(focusRequester)
+                                            .onFocusChanged { isSearchFocused = it.isFocused },
+                                        trailingContent = trailingContent,
+                                        containerColor = Color.Transparent,
                                     )
                                 }
-                            }
-                        } else {
-                            null
-                        }
-                        if (searchGlassEnabled) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .liquidGlassForSurface(
-                                        surface = LiquidGlassSurface.SEARCH,
-                                        shape = searchFieldShape,
-                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                        blurRadius = 14.dp,
-                                        refractionHeight = 8.dp,
-                                        refractionAmount = 12.dp,
-                                    ),
-                            ) {
+                            } else {
                                 NuvioInputField(
                                     value = query,
                                     onValueChange = { query = it },
@@ -501,24 +513,12 @@ fun SearchScreen(
                                         .focusRequester(focusRequester)
                                         .onFocusChanged { isSearchFocused = it.isFocused },
                                     trailingContent = trailingContent,
-                                    containerColor = Color.Transparent,
                                 )
                             }
-                        } else {
-                            NuvioInputField(
-                                value = query,
-                                onValueChange = { query = it },
-                                placeholder = stringResource(Res.string.compose_search_placeholder),
-                                modifier = Modifier
-                                    .focusRequester(focusRequester)
-                                    .onFocusChanged { isSearchFocused = it.isFocused },
-                                trailingContent = trailingContent,
-                            )
                         }
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
                     }
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
                 }
-            }
                 }
             }
         }
