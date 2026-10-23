@@ -1048,6 +1048,7 @@ private fun GlassPreviewHotspot(
     onClick: () -> Unit,
 ) {
     val selected = selectedSurface == surface
+    val surfaceTitle = liquidGlassSurfaceTitle(surface)
     Box(
         modifier = modifier
             .border(
@@ -1056,10 +1057,10 @@ private fun GlassPreviewHotspot(
                 shape = RoundedCornerShape(8.dp),
             )
             .semantics {
-                contentDescription = liquidGlassSurfaceTitle(surface)
+                contentDescription = surfaceTitle
             }
             .clickable(
-                onClickLabel = liquidGlassSurfaceTitle(surface),
+                onClickLabel = surfaceTitle,
                 role = Role.Button,
                 onClick = onClick,
             ),
