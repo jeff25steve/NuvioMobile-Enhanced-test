@@ -171,9 +171,14 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var selectedSurfaceName by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedPreviewLayoutName by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSurface = selectedSurfaceName?.let { name ->
         LiquidGlassSurface.entries.firstOrNull { it.name == name }
     }
+    val selectedPreviewLayout = selectedPreviewLayoutName?.let { name ->
+        LiquidGlassSurfaceGroup.entries.firstOrNull { it.name == name }
+    }
+    var linkGlassEffects by rememberSaveable(selectedPreviewLayoutName) { mutableStateOf(false) }
     val customizableSurfaces = remember(usesNativeNuvioBottomSheet) {
         if (usesNativeNuvioBottomSheet) {
             LiquidGlassSurface.entries.filter { it != LiquidGlassSurface.BOTTOM_SHEETS }
@@ -188,7 +193,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     }
 
     val listState = rememberLazyListState()
-    LaunchedEffect(selectedSurfaceName) {
+    LaunchedEffect(selectedSurfaceName, selectedPreviewLayoutName) {
         listState.scrollToItem(0)
     }
 
@@ -211,7 +216,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (selectedSurface == null) {
+            if (selectedSurface == null && selectedPreviewLayout == null) {
                 item {
                     Column(
                         modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
@@ -234,24 +239,106 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         )
                     }
                 }
+                item(key = "liquid-glass-layout-detail-page") {
+                    LiquidGlassSurfaceGroupListItem(
+                        group = LiquidGlassSurfaceGroup.DETAIL_PAGE,
+                        title = stringResource(Res.string.settings_liquid_glass_preview_detail_page),
+                        description = stringResource(Res.string.settings_liquid_glass_preview_detail_page_description),
+                        isTablet = isTablet,
+                        onOpen = {
+                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.DETAIL_PAGE.name
+                            selectedSurfaceName = LiquidGlassSurfaceGroup.DETAIL_PAGE.surfaces.first().name
+                            linkGlassEffects = false
+                        },
+                    )
+                }
+                item(key = "liquid-glass-layout-stream-picker") {
+                    LiquidGlassSurfaceGroupListItem(
+                        group = LiquidGlassSurfaceGroup.STREAM_PICKER,
+                        title = stringResource(Res.string.settings_liquid_glass_preview_stream_picker),
+                        description = stringResource(Res.string.settings_liquid_glass_preview_stream_picker_description),
+                        isTablet = isTablet,
+                        onOpen = {
+                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.STREAM_PICKER.name
+                            selectedSurfaceName = LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces.first().name
+                            linkGlassEffects = false
+                        },
+                    )
+                }
                 items(customizableSurfaces, key = { it.name }) { surface ->
                     LiquidGlassSurfaceListItem(
                         surface = surface,
                         overrides = settings.forSurface(surface),
                         isTablet = isTablet,
-                        onOpen = { selectedSurfaceName = surface.name },
+                        onOpen = {
+                            selectedPreviewLayoutName = null
+                            selectedSurfaceName = surface.name
+                        },
                         onToggle = { enabled ->
                             onSurfaceChanged(surface, settings.forSurface(surface).copy(enabled = enabled))
                         },
                     )
                 }
-            } else {
-                stickyHeader(key = "liquid-glass-preview-${selectedSurface.name}") {
-                    LiquidGlassSurfaceEditorHeader(
+            } else if (selectedSurface != null && selectedPreviewLayout != null) {
+                stickyHeader(key = "liquid-glass-layout-preview-${selectedPreviewLayout.name}") {
+                    LiquidGlassSurfaceGroupEditorHeader(
+                        group = selectedPreviewLayout,
+                        settings = settings,
+                        selectedSurface = selectedSurface,
+                        isTablet = isTablet,
+                        onSelectSurface = { selectedSurfaceName = it.name },
+                        onBack = {
+                            selectedPreviewLayoutName = null
+                            selectedSurfaceName = null
+                            linkGlassEffects = false
+                        },
+                    )
+                }
+                item(key = "liquid-glass-layout-controls-${selectedPreviewLayout.name}-${selectedSurface.name}") {
+                    LiquidGlassSurfaceEditorControls(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        onBack = { selectedSurfaceName = null },
+                        linkGlassEffects = linkGlassEffects,
+                        onLinkGlassEffectsChanged = { link ->
+                            if (link) {
+                                val shared = resolvedGlassEffects(
+                                    selectedSurface,
+                                    settings.forSurface(selectedSurface),
+                                )
+                                selectedPreviewLayout.surfaces.forEach { target ->
+                                    onSurfaceChanged(
+                                        target,
+                                        settings.forSurface(target).withGlassEffectFrom(shared),
+                                    )
+                                }
+                            }
+                            linkGlassEffects = link
+                        },
+                        onChanged = { changed ->
+                            if (linkGlassEffects) {
+                                val shared = resolvedGlassEffects(selectedSurface, changed)
+                                selectedPreviewLayout.surfaces.forEach { target ->
+                                    val base = if (target == selectedSurface) changed else settings.forSurface(target)
+                                    onSurfaceChanged(target, base.withGlassEffectFrom(shared))
+                                }
+                            } else {
+                                onSurfaceChanged(selectedSurface, changed)
+                            }
+                        },
+                    )
+                }
+            } else {
+                stickyHeader(key = "liquid-glass-preview-${selectedSurface!!.name}") {
+                    LiquidGlassSurfaceEditorHeader(
+                        surface = selectedSurface,
+                        overrides = settings.forSurface(selectedSurface),
+                        settings = settings,
+                        isTablet = isTablet,
+                        onBack = {
+                            selectedSurfaceName = null
+                            selectedPreviewLayoutName = null
+                        },
                     )
                 }
                 item(key = "liquid-glass-controls-${selectedSurface.name}") {
