@@ -334,6 +334,7 @@ internal fun Modifier.liquidGlassForSurface(
             backdropOpacity = effectiveBackdropOpacity,
             chromaticAberration = overrides.chromaticAberration ?: false,
             depthEffect = overrides.depthEffect ?: false,
+            preview = preview,
         ).let { this.clip(effectiveShape).then(it) }
     } else {
         this.clip(effectiveShape).ambientLiquidGlass(
@@ -350,6 +351,7 @@ internal fun Modifier.liquidGlassForSurface(
             backdropOpacity = effectiveBackdropOpacity,
             chromaticAberration = overrides.chromaticAberration ?: false,
             depthEffect = overrides.depthEffect ?: false,
+            preview = preview,
         )
     }
 }

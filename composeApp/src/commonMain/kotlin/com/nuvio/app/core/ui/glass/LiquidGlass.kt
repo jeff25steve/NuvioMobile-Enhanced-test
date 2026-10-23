@@ -65,6 +65,16 @@ fun isLiquidGlassAvailable(): Boolean = isRenderEffectSupported()
 
 fun isLiquidGlassSupported(): Boolean = LiquidGlassSettings.enabled && isLiquidGlassAvailable()
 
+/**
+ * Keep actual rendering gated by platform support while letting Studio previews ignore the
+ * app-wide switch. This never forces effects onto platforms without RenderEffect support.
+ */
+internal fun shouldUseLiquidGlassRenderer(
+    preview: Boolean,
+    masterEnabled: Boolean,
+    platformSupported: Boolean,
+): Boolean = platformSupported && (preview || masterEnabled)
+
 fun isLiquidRefractionSupported(): Boolean = isRuntimeShaderSupported()
 
 interface LiquidGlassBackdropHost {
@@ -305,8 +315,15 @@ internal fun Modifier.liquidGlassSurface(
     backdropOpacity: Float = 1f,
     chromaticAberration: Boolean = false,
     depthEffect: Boolean = false,
+    preview: Boolean = false,
 ): Modifier =
-    if (!isLiquidGlassSupported()) {
+    if (
+        !shouldUseLiquidGlassRenderer(
+            preview = preview,
+            masterEnabled = LiquidGlassSettings.enabled,
+            platformSupported = isLiquidGlassAvailable(),
+        )
+    ) {
         if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback, shape)
     } else if (backdrop == null) {
         // No source means there is nothing to blur or refract. Keep the app's fallback fill, but
@@ -415,6 +432,7 @@ internal fun Modifier.ambientLiquidGlass(
     backdropOpacity: Float = 1f,
     chromaticAberration: Boolean = false,
     depthEffect: Boolean = false,
+    preview: Boolean = false,
 ): Modifier {
     val backdrop = LocalLiquidGlassBackdrop.current
     val host = backdrop as? LiquidGlassBackdropHost
@@ -440,5 +458,6 @@ internal fun Modifier.ambientLiquidGlass(
         backdropOpacity = backdropOpacity,
         chromaticAberration = chromaticAberration,
         depthEffect = depthEffect,
+        preview = preview,
     )
 }

@@ -111,6 +111,7 @@ internal fun Modifier.playerLiquidGlass(
             backdropOpacity = backdropOpacity,
             chromaticAberration = overrides.chromaticAberration ?: false,
             depthEffect = overrides.depthEffect ?: false,
+            preview = previewOverrides != null,
         )
     }
     return if (rim) glass.border(0.75.dp, PlayerGlassRim, effectiveShape) else glass

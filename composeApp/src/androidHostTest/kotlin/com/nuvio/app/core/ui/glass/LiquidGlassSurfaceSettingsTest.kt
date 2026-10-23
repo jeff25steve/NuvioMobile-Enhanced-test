@@ -87,6 +87,45 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun previewMayBypassTheMasterSwitchButNeverPlatformSupport() {
+        assertTrue(
+            shouldUseLiquidGlassRenderer(
+                preview = true,
+                masterEnabled = false,
+                platformSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassRenderer(
+                preview = true,
+                masterEnabled = false,
+                platformSupported = false,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassRenderer(
+                preview = false,
+                masterEnabled = false,
+                platformSupported = true,
+            ),
+        )
+        assertTrue(
+            shouldUseLiquidGlassRenderer(
+                preview = false,
+                masterEnabled = true,
+                platformSupported = true,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassRenderer(
+                preview = false,
+                masterEnabled = true,
+                platformSupported = false,
+            ),
+        )
+    }
+
+    @Test
     fun unsetOverridesInheritTheOriginalRecipeAndCanBeResetIndependently() {
         val initial = LiquidGlassSurfacesSettings()
         assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.PLAYER))
