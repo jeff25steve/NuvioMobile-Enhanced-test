@@ -106,7 +106,7 @@ fun DetailFloatingHeader(
                 .fillMaxWidth()
                 .clipToBounds()
                 .liquidGlassForSurface(
-                    surface = LiquidGlassSurface.DETAILS,
+                    surface = LiquidGlassSurface.DETAIL_HEADER,
                     shape = RectangleShape,
                     tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.7f),
                     fallback = surfaceColor,
@@ -130,7 +130,7 @@ fun DetailFloatingHeader(
                         onClick = onBack,
                         modifier = Modifier.size(40.dp),
                         containerColor = Color.Transparent,
-                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
+                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
                         buttonSize = 40.dp,
                         iconSize = 24.dp,
                     )
@@ -208,13 +208,13 @@ private fun DetailFloatingHeaderAction(
             Icon(
                 painter = painterResource(Res.drawable.sidebar_library),
                 contentDescription = contentDescription,
-                tint = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
             )
         } else {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = contentDescription,
-                tint = liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onBackground),
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground),
             )
         }
     }
