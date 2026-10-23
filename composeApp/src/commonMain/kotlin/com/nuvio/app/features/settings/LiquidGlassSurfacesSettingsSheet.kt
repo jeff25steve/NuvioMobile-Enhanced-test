@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -712,7 +713,7 @@ private fun LiquidGlassPlayerPreview(
         // remain aligned with their real controls at the compact preview size.
         Box(
             modifier = Modifier
-                .size(
+                .requiredSize(
                     width = LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp,
                     height = LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp * 9f / 16f,
                 )
