@@ -1143,6 +1143,11 @@ private fun LiquidGlassSurfaceEditorControls(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 val activeMaterial = overrides.material ?: LiquidGlassMaterial.LIQUID
                 val materialStyle = LiquidGlassStyle(material = activeMaterial)
+                val materialOptions = listOf(
+                    LiquidGlassMaterial.LIQUID,
+                    LiquidGlassMaterial.FROSTED,
+                    LiquidGlassMaterial.CLEAR,
+                ).filter { refractionSupported || it != LiquidGlassMaterial.CLEAR }
                 Text(
                     text = stringResource(Res.string.settings_nav_bar_glass),
                     style = MaterialTheme.typography.titleSmall,
@@ -1150,11 +1155,7 @@ private fun LiquidGlassSurfaceEditorControls(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
                 )
-                listOf(
-                    LiquidGlassMaterial.LIQUID,
-                    LiquidGlassMaterial.FROSTED,
-                    LiquidGlassMaterial.CLEAR,
-                ).forEach { material ->
+                materialOptions.forEach { material ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
