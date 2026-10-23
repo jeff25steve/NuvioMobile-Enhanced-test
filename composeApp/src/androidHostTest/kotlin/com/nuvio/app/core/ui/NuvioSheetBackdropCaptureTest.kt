@@ -8,11 +8,11 @@ class NuvioSheetBackdropCaptureTest {
     @Test
     fun studioPreviewCapturesLocalBackdropWhenMasterSwitchIsOff() {
         assertTrue(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = true,
                 masterEnabled = false,
                 needsPreviewBackdrop = true,
-                needsSheetGlassBackdrop = false,
+                needsRuntimeGlassBackdrop = false,
             ),
         )
     }
@@ -20,19 +20,19 @@ class NuvioSheetBackdropCaptureTest {
     @Test
     fun runtimeSheetStillRequiresMasterSwitch() {
         assertFalse(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = true,
                 masterEnabled = false,
                 needsPreviewBackdrop = false,
-                needsSheetGlassBackdrop = true,
+                needsRuntimeGlassBackdrop = true,
             ),
         )
         assertTrue(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = true,
                 masterEnabled = true,
                 needsPreviewBackdrop = false,
-                needsSheetGlassBackdrop = true,
+                needsRuntimeGlassBackdrop = true,
             ),
         )
     }
@@ -40,19 +40,43 @@ class NuvioSheetBackdropCaptureTest {
     @Test
     fun unsupportedPlatformNeverCapturesBackdropEvenForPreview() {
         assertFalse(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = false,
                 masterEnabled = false,
                 needsPreviewBackdrop = true,
-                needsSheetGlassBackdrop = false,
+                needsRuntimeGlassBackdrop = false,
             ),
         )
         assertFalse(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = false,
                 masterEnabled = true,
                 needsPreviewBackdrop = false,
-                needsSheetGlassBackdrop = true,
+                needsRuntimeGlassBackdrop = true,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNonSheetGlassSurfaceCapturesBackdropWhenGloballyEnabled() {
+        assertTrue(
+            shouldCaptureNuvioBackdrop(
+                platformSupported = true,
+                masterEnabled = true,
+                needsPreviewBackdrop = false,
+                needsRuntimeGlassBackdrop = true,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNonSheetGlassSurfaceDoesNotCaptureWhenGloballyDisabled() {
+        assertFalse(
+            shouldCaptureNuvioBackdrop(
+                platformSupported = true,
+                masterEnabled = false,
+                needsPreviewBackdrop = false,
+                needsRuntimeGlassBackdrop = true,
             ),
         )
     }
@@ -60,11 +84,11 @@ class NuvioSheetBackdropCaptureTest {
     @Test
     fun inactiveSheetWithoutPreviewDoesNotCaptureBackdrop() {
         assertFalse(
-            shouldCaptureNuvioSheetBackdrop(
+            shouldCaptureNuvioBackdrop(
                 platformSupported = true,
                 masterEnabled = true,
                 needsPreviewBackdrop = false,
-                needsSheetGlassBackdrop = false,
+                needsRuntimeGlassBackdrop = false,
             ),
         )
     }

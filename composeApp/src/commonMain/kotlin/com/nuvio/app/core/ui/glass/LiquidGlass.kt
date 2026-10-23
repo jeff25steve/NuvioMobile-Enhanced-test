@@ -7,6 +7,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -94,8 +95,20 @@ class NuvioBackdrop internal constructor(
 
     internal var sourceCoordinates: LayoutCoordinates? by mutableStateOf(null)
 
+    /** Number of active glass surfaces sampling this app-level backdrop. */
+    internal var activeConsumers by mutableIntStateOf(0)
+        private set
+
     override val isReady: Boolean
         get() = sourceCoordinates != null
+
+    override fun acquire() {
+        activeConsumers += 1
+    }
+
+    override fun release() {
+        activeConsumers = (activeConsumers - 1).coerceAtLeast(0)
+    }
 
     override fun DrawScope.drawBackdrop(
         density: Density,
