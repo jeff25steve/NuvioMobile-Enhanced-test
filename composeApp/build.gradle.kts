@@ -280,7 +280,7 @@ val isAmbiguousAndroidPackageTask = requestedGradleTasks.any { taskName ->
     taskName == "build" ||
         taskName.startsWith("assemble") ||
         taskName.startsWith("bundle")
-} && requestedAndroidDistributions.isBlank()
+} && requestedAndroidDistributions.isEmpty()
 require(configuredAndroidDistribution != null || !isAmbiguousAndroidPackageTask) {
     "Set -Pnuvio.android.distribution=full|playstore for aggregate Android assemble/bundle tasks."
 }
