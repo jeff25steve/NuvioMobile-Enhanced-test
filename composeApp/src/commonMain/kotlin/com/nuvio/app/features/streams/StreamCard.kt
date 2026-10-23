@@ -77,14 +77,15 @@ internal fun StreamCard(
     isCurrent: Boolean = false,
     currentLabel: String? = null,
     outlined: Boolean = false,
+    preview: Boolean = false,
 ) {
     val partyLabel = if (isCurrent) null else LocalStreamHighlight.current(stream)
     val defaultCardShape = RoundedCornerShape(12.dp)
-    val glassAllowed = LiquidGlassSettings.enabled &&
+    val glassAllowed = preview || (LiquidGlassSettings.enabled &&
         isLiquidGlassSupported() &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS)
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.STREAM_RESULTS))
     val cardShape = if (glassAllowed) {
-        liquidGlassShape(LiquidGlassSurface.STREAM_RESULTS, defaultCardShape)
+        liquidGlassShape(LiquidGlassSurface.STREAM_RESULTS, defaultCardShape, preview = preview)
     } else {
         defaultCardShape
     }
@@ -117,6 +118,7 @@ internal fun StreamCard(
                         blurRadius = 18.dp,
                         refractionHeight = 10.dp,
                         refractionAmount = 16.dp,
+                        preview = preview,
                     )
                 } else {
                     Modifier.background(surfaceFallback, cardShape)
