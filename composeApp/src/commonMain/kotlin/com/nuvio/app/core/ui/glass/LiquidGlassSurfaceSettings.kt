@@ -205,6 +205,12 @@ internal data class LiquidGlassSurfacesSettings(
  */
 internal val LocalLiquidGlassPreviewOverrides = staticCompositionLocalOf<LiquidGlassSurfaceOverrides?> { null }
 
+/**
+ * Complete preview-only settings for an interactive layout. Each production component resolves its
+ * own surface from this value, so tuning one region does not leak into neighboring preview regions.
+ */
+internal val LocalLiquidGlassPreviewSettings = staticCompositionLocalOf<LiquidGlassSurfacesSettings?> { null }
+
 private val liquidGlassSettingsJson = Json {
     ignoreUnknownKeys = true
     encodeDefaults = false
@@ -231,9 +237,13 @@ internal fun liquidGlassShape(
     defaultShape: Shape,
     preview: Boolean = false,
 ): Shape {
-    val overrides = LocalLiquidGlassPreviewOverrides.current
-        ?.takeIf { preview }
-        ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    val overrides = if (preview) {
+        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
+            ?: LocalLiquidGlassPreviewOverrides.current
+            ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    } else {
+        LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    }
     if (!preview && (!LiquidGlassSettings.enabled || !(overrides.enabled ?: surface.defaultEnabled))) {
         return defaultShape
     }
@@ -263,7 +273,13 @@ internal fun Modifier.liquidGlassForSurface(
     useExplicitBackdrop: Boolean = false,
     preview: Boolean = false,
 ): Modifier {
-    val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    val overrides = if (preview) {
+        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
+            ?: LocalLiquidGlassPreviewOverrides.current
+            ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    } else {
+        LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    }
     val enabled = preview || (LiquidGlassSettings.enabled && (overrides.enabled ?: surface.defaultEnabled))
     val effectiveShape = if (enabled) liquidGlassShape(surface, shape, preview = preview) else shape
     if (!enabled) {
@@ -330,14 +346,19 @@ internal fun liquidGlassIconTint(
     default: Color,
     preview: Boolean = false,
 ): Color {
-    val scopedPreviewOverrides = LocalLiquidGlassPreviewOverrides.current
-    if (scopedPreviewOverrides == null && !preview &&
+    val previewOverrides = if (preview) {
+        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
+            ?: LocalLiquidGlassPreviewOverrides.current
+    } else {
+        null
+    }
+    if (previewOverrides == null && !preview &&
         (!isLiquidGlassSupported() || !LiquidGlassSettings.enabled)
     ) {
         return default
     }
-    val overrides = scopedPreviewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (scopedPreviewOverrides == null && !preview &&
+    val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
+    if (previewOverrides == null && !preview &&
         !(overrides.enabled ?: surface.defaultEnabled)
     ) {
         return default
