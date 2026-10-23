@@ -524,7 +524,7 @@ private fun LiquidGlassSurfacePreview(
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .height(88.dp),
+                .height(if (surface == LiquidGlassSurface.DETAILS) 120.dp else 88.dp),
             contentAlignment = Alignment.Center,
         ) {
             when (surface) {
