@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/liquid-glass-settings-fixed-signature-20261024]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -75,7 +77,7 @@ jobs:
           EOF
 
       - name: Build fullDebug APK
-        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
+        run: ./gradlew :composeApp:testAndroidHostTest --tests com.nuvio.app.core.ui.SettingsGlassChromeTest :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
 
       - name: Upload fullDebug APK
         uses: actions/upload-artifact@v7
