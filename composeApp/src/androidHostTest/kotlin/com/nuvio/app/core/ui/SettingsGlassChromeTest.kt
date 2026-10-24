@@ -27,7 +27,6 @@ import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
-import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
