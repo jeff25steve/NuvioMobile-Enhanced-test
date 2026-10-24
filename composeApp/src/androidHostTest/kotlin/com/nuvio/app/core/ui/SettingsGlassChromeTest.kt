@@ -52,7 +52,8 @@ class SettingsGlassChromeTest {
             LiquidGlassSurfaceOverrides(
                 enabled = true,
                 cornerRadiusPercent = 50f,
-                material = LiquidGlassMaterial.LIQUID,
+                // This test checks backdrop isolation and rounded clipping, not the runtime-shader lens.
+                material = LiquidGlassMaterial.FROSTED,
             ),
         )
     }
