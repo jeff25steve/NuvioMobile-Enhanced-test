@@ -59,6 +59,8 @@ import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -84,6 +86,7 @@ private fun SettingsCard(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
     previewGlass: Boolean = false,
+    contentPadding: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -122,8 +125,25 @@ private fun SettingsCard(
             tokens.colors.borderSubtle,
         ),
     ) {
-        Column(content = content)
+        Column(
+            modifier = if (contentPadding) Modifier.padding(tokens.spacing.cardPadding) else Modifier,
+            content = content,
+        )
     }
+}
+
+@Composable
+internal fun SettingsSurfaceCard(
+    isTablet: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    SettingsCard(
+        isTablet = isTablet,
+        modifier = modifier,
+        contentPadding = true,
+        content = content,
+    )
 }
 
 @Composable
@@ -159,14 +179,49 @@ internal fun TabletPageHeader(
     onBack: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val shape = if (glassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, RoundedCornerShape(NuvioTokens.Radius.xl))
+    } else {
+        RoundedCornerShape(NuvioTokens.Radius.xl)
+    }
+    val backdrop = if (glassEnabled) LocalLiquidGlassBackdrop.current else null
     Box(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .background(tokens.colors.background)
                 .nuvioConsumePointerEvents(),
         )
+        if (glassEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassBackdropUnderlay(backdrop),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassForSurface(
+                        surface = LiquidGlassSurface.SETTINGS,
+                        shape = shape,
+                        tint = tokens.colors.surface.copy(alpha = 0.45f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                    .border(
+                        BorderStroke(tokens.borders.hairline, tokens.colors.borderSubtle),
+                        shape,
+                    ),
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
