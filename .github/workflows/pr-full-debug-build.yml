@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/liquid-glass-linux-validation-20261024-fix]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -84,3 +86,6 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 7
+
+      - name: Run Android host regression tests
+        run: ./gradlew :composeApp:testAndroidHostTest -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
