@@ -22,7 +22,7 @@ import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
-import com.nuvio.app.features.profiles.normalizedAvatarUrl
+import io.ktor.http.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +32,63 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal const val DEFAULT_NAV_BAR_ICON_COLOR = 0x969CA3
+
+/**
+ * Accept only stable public HTTPS image URLs for the Settings background.
+ *
+ * Credentials, query strings and fragments are rejected to avoid persisting or sending
+ * private/signed URL material. Hosts must be named public DNS-style domains, not IP
+ * literals or local-network names. This is client-side hardening, not a guarantee against
+ * DNS rebinding or a remote server redirecting to another destination.
+ */
+internal fun normalizedCustomSettingsBackgroundUrl(url: String?): String? {
+    val value = url?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (
+        value.length > 2048 ||
+        value.any(Char::isWhitespace) ||
+        '\\' in value ||
+        '?' in value ||
+        '#' in value
+    ) return null
+
+    val parsed = runCatching { Url(value) }.getOrNull() ?: return null
+    if (!parsed.protocol.name.equals("https", ignoreCase = true)) return null
+    if (parsed.user != null || parsed.password != null) return null
+    if (parsed.port != 443) return null
+
+    val authority = value.substringAfter("://").substringBefore('/')
+    if ('@' in authority) return null
+
+    val host = parsed.host.lowercase().trimEnd('.')
+    if (host.isBlank() || host.length > 253 || ':' in host || '%' in host) return null
+    val labels = host.split('.')
+    if (labels.size < 2) return null
+    if (labels.any { label ->
+        label.isEmpty() ||
+            label.length > 63 ||
+            !label.first().isLetterOrDigit() ||
+            !label.last().isLetterOrDigit() ||
+            label.any { !it.isLetterOrDigit() && it != '-' }
+    }) return null
+
+    val topLevelLabel = labels.last()
+    if (topLevelLabel.length < 2 || topLevelLabel.none(Char::isLetter)) return null
+
+    val localSuffixes = listOf(
+        "localhost", "local", "internal", "lan", "home", "home.arpa", "test", "invalid", "example", "onion",
+    )
+    if (localSuffixes.any { host == it || host.endsWith(".$it") }) return null
+
+    // Reject decimal and hexadecimal IP-like labels, including shortened/legacy IPv4 forms.
+    if (labels.all { label ->
+        label.all(Char::isDigit) ||
+            (label.startsWith("0x", ignoreCase = true) &&
+                label.length > 2 &&
+                label.drop(2).all { it.digitToIntOrNull(16) != null })
+    }) return null
+
+    return value
+}
 
 object ThemeSettingsRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -175,8 +232,13 @@ object ThemeSettingsRepository {
             ThemeSettingsStorage.loadDynamicArtworkBackgroundEnabled() ?: false
         _showCatalogAccentEnabled.value =
             ThemeSettingsStorage.loadShowCatalogAccentEnabled() ?: false
-        _customSettingsBackgroundUrl.value =
-            normalizedAvatarUrl(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        val storedSettingsBackgroundUrl = ThemeSettingsStorage.loadCustomSettingsBackgroundUrl()
+        val safeSettingsBackgroundUrl = normalizedCustomSettingsBackgroundUrl(storedSettingsBackgroundUrl)
+        _customSettingsBackgroundUrl.value = safeSettingsBackgroundUrl
+        if (storedSettingsBackgroundUrl != safeSettingsBackgroundUrl) {
+            // Remove legacy or invalid values from this profile's local storage as soon as loaded.
+            ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(safeSettingsBackgroundUrl)
+        }
         val appLanguage = AppLanguage.fromCode(ThemeSettingsStorage.loadSelectedAppLanguage())
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
@@ -270,7 +332,7 @@ object ThemeSettingsRepository {
     fun setCustomSettingsBackgroundUrl(url: String?): Boolean {
         ensureLoaded()
         val input = url?.trim().orEmpty()
-        val normalized = if (input.isBlank()) null else normalizedAvatarUrl(input) ?: return false
+        val normalized = if (input.isBlank()) null else normalizedCustomSettingsBackgroundUrl(input) ?: return false
         if (
             _customSettingsBackgroundUrl.value == normalized &&
             ThemeSettingsStorage.loadCustomSettingsBackgroundUrl() == normalized

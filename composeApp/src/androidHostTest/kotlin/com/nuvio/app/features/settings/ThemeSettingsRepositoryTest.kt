@@ -327,8 +327,25 @@ class ThemeSettingsRepositoryTest {
         assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
         assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
 
-        assertFalse(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("file:///private/image.jpg"))
-        assertFalse(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("javascript:alert(1)"))
+        listOf(
+            "http://example.com/background.jpg",
+            "file:///private/image.jpg",
+            "javascript:alert(1)",
+            "https://user:password@example.com/background.jpg",
+            "https://localhost/background.jpg",
+            "https://router.local/background.jpg",
+            "https://192.168.1.1/background.jpg",
+            "https://2130706433/background.jpg",
+            "https://example.com:8443/background.jpg",
+            "https://example.com/background.jpg?token=secret",
+            "https://example.com/background.jpg#private-fragment",
+            "https://bad host.example/background.jpg",
+        ).forEach { unsafeUrl ->
+            assertFalse(
+                ThemeSettingsRepository.setCustomSettingsBackgroundUrl(unsafeUrl),
+                "Expected settings background URL to be rejected: $unsafeUrl",
+            )
+        }
         assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
 
         assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundUrl(null))
@@ -336,5 +353,14 @@ class ThemeSettingsRepositoryTest {
         assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
     }
 
+    @Test
+    fun insecureStoredSettingsBackgroundUrlIsRemovedOnLoad() {
+        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl("http://example.com/background.jpg")
+        ThemeSettingsRepository.clearLocalState()
 
+        ThemeSettingsRepository.ensureLoaded()
+
+        assertNull(ThemeSettingsRepository.customSettingsBackgroundUrl.value)
+        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+    }
 }

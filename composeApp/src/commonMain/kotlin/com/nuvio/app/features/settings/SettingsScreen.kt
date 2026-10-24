@@ -54,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.LocalScreenActive
 import com.nuvio.app.core.ui.ScreenActivityEffect
@@ -176,6 +179,16 @@ fun SettingsScreen(
         ThemeSettingsRepository.ensureLoaded()
         ThemeSettingsRepository.customSettingsBackgroundUrl
     }.collectAsStateWithLifecycle()
+    val settingsImageContext = LocalPlatformContext.current
+    val settingsBackgroundImageRequest = remember(customSettingsBackgroundUrl, settingsImageContext) {
+        customSettingsBackgroundUrl?.let { imageUrl ->
+            ImageRequest.Builder(settingsImageContext)
+                .data(imageUrl)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     BoxWithConstraints(
@@ -192,9 +205,9 @@ fun SettingsScreen(
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
                 )
-                customSettingsBackgroundUrl?.let { imageUrl ->
+                settingsBackgroundImageRequest?.let { imageRequest ->
                     AsyncImage(
-                        model = imageUrl,
+                        model = imageRequest,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,

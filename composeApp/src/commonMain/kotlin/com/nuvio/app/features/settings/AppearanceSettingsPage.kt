@@ -34,7 +34,6 @@ import com.nuvio.app.isIos
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
-import com.nuvio.app.features.profiles.normalizedAvatarUrl
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioStatusModal
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
@@ -144,7 +143,7 @@ internal fun LazyListScope.appearanceSettingsContent(
         var customSettingsBackgroundUrlInput by remember(customSettingsBackgroundUrl) {
             mutableStateOf(customSettingsBackgroundUrl.orEmpty())
         }
-        val normalizedSettingsBackgroundUrl = normalizedAvatarUrl(customSettingsBackgroundUrlInput)
+        val normalizedSettingsBackgroundUrl = normalizedCustomSettingsBackgroundUrl(customSettingsBackgroundUrlInput)
         val settingsBackgroundUrlIsInvalid =
             customSettingsBackgroundUrlInput.isNotBlank() && normalizedSettingsBackgroundUrl == null
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()

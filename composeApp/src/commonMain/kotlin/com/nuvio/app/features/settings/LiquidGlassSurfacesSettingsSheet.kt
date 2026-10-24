@@ -63,6 +63,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1534,6 +1537,16 @@ private fun LiquidGlassSettingsSurfacePreview(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val platformContext = LocalPlatformContext.current
+    val backgroundImageRequest = remember(customBackgroundUrl, platformContext) {
+        customBackgroundUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+            ImageRequest.Builder(platformContext)
+                .data(imageUrl)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
     val backdrop = rememberNuvioBackdrop()
     Box(modifier = modifier.fillMaxSize()) {
         Box(
@@ -1555,9 +1568,9 @@ private fun LiquidGlassSettingsSurfacePreview(
                         ),
                     ),
             )
-            customBackgroundUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+            backgroundImageRequest?.let { imageRequest ->
                 AsyncImage(
-                    model = imageUrl,
+                    model = imageRequest,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
