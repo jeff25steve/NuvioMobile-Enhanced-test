@@ -2576,6 +2576,12 @@ private fun resolvedGlassEffects(
         withShadow = overrides.withShadow ?: false,
         chromaticAberration = overrides.chromaticAberration ?: false,
         depthEffect = overrides.depthEffect ?: false,
+        material = effectiveLiquidGlassMaterial(
+            surface = surface,
+            material = overrides.material,
+            refractionSupported = isLiquidRefractionSupported(),
+            cornerRadiusPercent = recipe.cornerRadiusPercent,
+        ),
     ).sanitized()
 }
 

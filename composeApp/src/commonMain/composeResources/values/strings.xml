@@ -2928,7 +2928,7 @@
     <string name="settings_liquid_glass_preview_stream_picker">Stream picker preview</string>
     <string name="settings_liquid_glass_preview_stream_picker_description">Tap provider filters, search and resume, or a stream card to edit it separately.</string>
     <string name="settings_liquid_glass_link_effects">Edit together</string>
-    <string name="settings_liquid_glass_link_effects_description">Applies the selected element's glass settings to every element in this preview, then keeps later changes in sync. Each keeps its own shape and icon colour. Turn it off to edit one element at a time.</string>
+    <string name="settings_liquid_glass_link_effects_description">Applies the selected element&apos;s material and optical effects to every element in this preview, then keeps later changes in sync. Each element keeps its own shape; icon colour settings stay separate where supported. Switch it off to edit one element at a time.</string>
     <string name="settings_liquid_glass_tap_to_edit_component">Tap a highlighted glass element to edit it.</string>
     <string name="settings_liquid_glass_global_note">The master Liquid Glass switch still controls every area. Unchanged controls keep their original per-component defaults.</string>
     <string name="settings_liquid_glass_surface_description">Customize this area without changing the other areas.</string>
