@@ -157,4 +157,32 @@ class ThemeSettingsStorageTest {
         assertEquals(settings, ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
     }
 
+
+    @Test
+    fun customSettingsBackgroundUrlRemainsProfileScopedAndLocalOnly() {
+        val context = RuntimeEnvironment.getApplication()
+        val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val key = "enhanced_local_settings_background_url"
+        val currentProfileKey = ProfileScopedKey.of(key)
+        val otherProfileKey = ProfileScopedKey.of(key, 99)
+        val url = "https://example.com/settings-background.jpg"
+        preferences.edit().putString(otherProfileKey, "https://example.com/other-profile.jpg").commit()
+
+        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(url)
+        ThemeSettingsStorage.initialize(context)
+
+        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        assertEquals(url, preferences.getString(currentProfileKey, null))
+        assertEquals("https://example.com/other-profile.jpg", preferences.getString(otherProfileKey, null))
+        assertTrue(ThemeSettingsStorage.exportToSyncPayload().keys.none { "settings_background" in it })
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+
+        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        assertEquals("https://example.com/other-profile.jpg", preferences.getString(otherProfileKey, null))
+        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(null)
+        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+    }
+
+
 }

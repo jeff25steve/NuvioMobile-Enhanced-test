@@ -41,6 +41,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.LocalScreenActive
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.AppTheme
@@ -168,18 +171,40 @@ fun SettingsScreen(
     onWatchPartyClick: () -> Unit = {},
 ) {
     val settingsBackdrop = rememberNuvioBackdrop()
+    val customSettingsBackgroundUrl by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customSettingsBackgroundUrl
+    }.collectAsStateWithLifecycle()
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
-        if (settingsGlassEnabled) {
+        if (settingsGlassEnabled || customSettingsBackgroundUrl != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .nuvioBackdropSource(settingsBackdrop),
-            )
+                    .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(settingsBackdrop) else Modifier),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                )
+                customSettingsBackgroundUrl?.let { imageUrl ->
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.28f)),
+                    )
+                }
+            }
         }
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides if (settingsGlassEnabled) settingsBackdrop else null,

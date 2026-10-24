@@ -61,6 +61,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -165,6 +167,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_settin
 import nuvio.composeapp.generated.resources.compose_search_placeholder
 import nuvio.composeapp.generated.resources.compose_settings_page_appearance
 import nuvio.composeapp.generated.resources.compose_settings_root_appearance_description
+import nuvio.composeapp.generated.resources.settings_appearance_section_display
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom_sheets
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -1360,6 +1363,10 @@ private fun LiquidGlassSurfacePreview(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val customSettingsBackgroundUrl by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customSettingsBackgroundUrl
+    }.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides settings) {
     BoxWithConstraints(
         modifier = modifier
@@ -1384,6 +1391,7 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> 116.dp
             LiquidGlassSurface.STREAM_RESULTS -> 212.dp
+            LiquidGlassSurface.SETTINGS -> 148.dp
             else -> 88.dp
         }
 
@@ -1521,18 +1529,11 @@ private fun LiquidGlassSurfacePreview(
                                 }
                             }
 
-                            LiquidGlassSurface.SETTINGS -> SettingsGroup(
+                            LiquidGlassSurface.SETTINGS -> LiquidGlassSettingsSurfacePreview(
+                                customBackgroundUrl = customSettingsBackgroundUrl,
                                 isTablet = isTablet,
-                                previewGlass = true,
-                            ) {
-                                SettingsNavigationRow(
-                                    title = stringResource(Res.string.compose_settings_page_appearance),
-                                    description = stringResource(Res.string.compose_settings_root_appearance_description),
-                                    icon = Icons.Rounded.Settings,
-                                    isTablet = isTablet,
-                                    onClick = {},
-                                )
-                            }
+                                modifier = Modifier.fillMaxSize(),
+                            )
 
                             LiquidGlassSurface.BOTTOM_SHEETS -> {
                                 Column(
@@ -1564,6 +1565,77 @@ private fun LiquidGlassSurfacePreview(
         }
         }
     }
+    }
+}
+
+
+@Composable
+private fun LiquidGlassSettingsSurfacePreview(
+    customBackgroundUrl: String?,
+    isTablet: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF101824),
+                                Color(0xFF344052),
+                                Color(0xFF563B4A),
+                                Color(0xFF17141E),
+                            ),
+                        ),
+                    ),
+            )
+            customBackgroundUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.24f)),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SettingsGroup(isTablet = isTablet, previewGlass = true) {
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.compose_settings_page_appearance),
+                        description = stringResource(Res.string.compose_settings_root_appearance_description),
+                        icon = Icons.Rounded.Settings,
+                        isTablet = isTablet,
+                        onClick = {},
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_appearance_section_display),
+                        description = stringResource(Res.string.settings_liquid_glass_surface_description),
+                        icon = Icons.Rounded.Settings,
+                        isTablet = isTablet,
+                        onClick = {},
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -717,6 +717,12 @@
     <string name="settings_appearance_amoled_black">AMOLED Black</string>
     <string name="settings_appearance_amoled_description">Use pure black backgrounds for OLED screens.</string>
     <string name="settings_appearance_dynamic_artwork_background">Dynamic background color</string>
+    <string name="settings_appearance_custom_settings_background">Custom settings background</string>
+    <string name="settings_appearance_custom_settings_background_description">Use an image behind the Settings screen and its glass preview to make blur and refraction easier to judge. Paste an HTTP or HTTPS image URL.</string>
+    <string name="settings_appearance_custom_settings_background_url_placeholder">https://example.com/background.jpg</string>
+    <string name="settings_appearance_custom_settings_background_url_invalid">Enter a valid HTTP or HTTPS image URL.</string>
+    <string name="settings_appearance_custom_settings_background_apply">Apply background</string>
+    <string name="settings_appearance_custom_settings_background_clear">Clear background</string>
     <string name="settings_appearance_catalog_accent">Catalog accent underline</string>
     <string name="settings_appearance_catalog_accent_description">Show a small accent-colored bar under each catalog title on the home screen, matching your theme.</string>
     <string name="settings_tracking_connect_with_code">Connect with code</string>

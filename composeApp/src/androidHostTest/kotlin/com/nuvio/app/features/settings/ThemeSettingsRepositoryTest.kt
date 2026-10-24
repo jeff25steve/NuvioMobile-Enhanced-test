@@ -19,6 +19,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -315,5 +316,25 @@ class ThemeSettingsRepositoryTest {
 
         assertEquals(overrides, ThemeSettingsRepository.liquidGlassSurfaceSettings.value.forSurface(surface))
     }
+
+
+    @Test
+    fun customSettingsBackgroundUrlValidatesPersistsAndCanBeCleared() {
+        ThemeSettingsRepository.ensureLoaded()
+        val url = "https://example.com/settings-background.jpg"
+
+        assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("  $url  "))
+        assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
+        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+
+        assertFalse(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("file:///private/image.jpg"))
+        assertFalse(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("javascript:alert(1)"))
+        assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
+
+        assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundUrl(null))
+        assertNull(ThemeSettingsRepository.customSettingsBackgroundUrl.value)
+        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+    }
+
 
 }
