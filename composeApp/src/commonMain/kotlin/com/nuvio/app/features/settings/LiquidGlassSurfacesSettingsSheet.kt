@@ -312,7 +312,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             } else if (selectedSurface != null && selectedPreviewLayout != null) {
-                stickyHeader(key = "liquid-glass-layout-preview-${selectedPreviewLayout.name}") {
+                item(key = "liquid-glass-layout-preview-${selectedPreviewLayout.name}") {
                     LiquidGlassSurfaceGroupEditorHeader(
                         group = selectedPreviewLayout,
                         settings = settings,
@@ -363,7 +363,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             } else if (selectedSurface != null) {
-                stickyHeader(key = "liquid-glass-preview-${selectedSurface.name}") {
+                item(key = "liquid-glass-preview-${selectedSurface.name}") {
                     LiquidGlassSurfaceEditorHeader(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),

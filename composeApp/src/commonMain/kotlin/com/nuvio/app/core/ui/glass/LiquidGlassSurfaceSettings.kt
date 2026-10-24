@@ -1,6 +1,8 @@
 package com.nuvio.app.core.ui.glass
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -9,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.RectangleShape
 import com.kyant.backdrop.Backdrop
 import androidx.compose.ui.unit.Dp
@@ -268,9 +272,38 @@ internal fun liquidGlassShape(
     // Rectangular scroll-edge headers are intentionally full-width; a migrated detail radius
     // setting must never turn this shape into a rounded card.
     if (defaultShape === RectangleShape) return defaultShape
-    return overrides.cornerRadiusPercent?.let { percent ->
-        RoundedCornerShape(percent = percent.roundToInt())
-    } ?: defaultShape
+    val radiusPercent = overrides.cornerRadiusPercent ?: return defaultShape
+    return scaleLiquidGlassCornerShape(defaultShape, radiusPercent)
+}
+
+
+/**
+ * Scales a component's existing corner sizes instead of replacing them with a percentage of the
+ * whole card bounds. This keeps tall Settings cards rounded without turning them into ellipses.
+ * Slider value 0 means square corners; 50 preserves the component's native shape exactly.
+ */
+internal fun effectiveLiquidGlassCornerRadiusScale(percent: Float): Float =
+    (percent.takeIf { it.isFinite() } ?: 50f).coerceIn(0f, 50f) / 50f
+
+private class ScaledLiquidGlassCornerSize(
+    private val original: CornerSize,
+    private val scale: Float,
+) : CornerSize {
+    override fun toPx(shapeSize: Size, density: Density): Float =
+        original.toPx(shapeSize, density) * scale
+}
+
+internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
+    val cornerShape = shape as? CornerBasedShape ?: return shape
+    val scale = effectiveLiquidGlassCornerRadiusScale(percent)
+    if (scale >= 1f) return shape
+    if (scale <= 0f) return cornerShape.copy(all = CornerSize(0f))
+    return cornerShape.copy(
+        topStart = ScaledLiquidGlassCornerSize(cornerShape.topStart, scale),
+        topEnd = ScaledLiquidGlassCornerSize(cornerShape.topEnd, scale),
+        bottomEnd = ScaledLiquidGlassCornerSize(cornerShape.bottomEnd, scale),
+        bottomStart = ScaledLiquidGlassCornerSize(cornerShape.bottomStart, scale),
+    )
 }
 
 @Composable

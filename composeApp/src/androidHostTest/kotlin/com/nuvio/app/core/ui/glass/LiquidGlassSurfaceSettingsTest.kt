@@ -6,8 +6,32 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 
 class LiquidGlassSurfaceSettingsTest {
+    @Test
+    fun cornerRadiusOverrideScalesNativeCornerSizesInsteadOfUsingCardBounds() {
+        val nativeShape = RoundedCornerShape(24.dp) as CornerBasedShape
+        val customized = scaleLiquidGlassCornerShape(nativeShape, 36f) as CornerBasedShape
+        val cardSize = Size(width = 360f, height = 720f)
+        val density = Density(1f)
+
+        assertEquals(24f, nativeShape.topStart.toPx(cardSize, density), 0.01f)
+        assertEquals(24f * 0.72f, customized.topStart.toPx(cardSize, density), 0.01f)
+        assertEquals(
+            24f,
+            (scaleLiquidGlassCornerShape(nativeShape, 50f) as CornerBasedShape)
+                .topStart.toPx(cardSize, density),
+            0.01f,
+        )
+        assertEquals(0f, effectiveLiquidGlassCornerRadiusScale(0f))
+        assertEquals(1f, effectiveLiquidGlassCornerRadiusScale(50f))
+    }
+
     @Test
     fun adaptiveGlassFilmAddsSheenOnBlackAndShadeOnWhite() {
         val blackFilm = liquidGlassAdaptiveFilm(Color.Black)
