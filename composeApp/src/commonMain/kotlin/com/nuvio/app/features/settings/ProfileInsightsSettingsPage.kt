@@ -103,7 +103,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.format.resolveReleaseInfoForDisplay
 import com.nuvio.app.core.ui.platformPhysicalTopInset
 import com.nuvio.app.core.ui.NuvioPrimaryButton
-import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.accentBrush
 import com.nuvio.app.core.ui.gradientMask
@@ -402,7 +401,7 @@ private fun ProfileInsightsBody(
                 title = stringResource(Res.string.profile_insights_section_taste),
                 isTablet = isTablet,
             ) {
-                ProfileTasteCard(stats = stats, factsProgress = factsProgress)
+                ProfileTasteCard(isTablet = isTablet, stats = stats, factsProgress = factsProgress)
             }
         }
     }
@@ -1174,6 +1173,7 @@ private fun ProfileInsightPosterTile(
 
 @Composable
 private fun ProfileTasteCard(
+    isTablet: Boolean,
     stats: ProfileInsightsStats,
     factsProgress: ProfileTitleFactsProgress? = null,
 ) {
@@ -1186,7 +1186,7 @@ private fun ProfileTasteCard(
     }
     val topSignal = stats.topGenre ?: fallbackType ?: stringResource(Res.string.profile_insights_taste_empty)
 
-    NuvioSurfaceCard {
+    SettingsSurfaceCard(isTablet = isTablet) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
