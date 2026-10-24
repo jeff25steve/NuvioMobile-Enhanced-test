@@ -126,7 +126,8 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
     }
     var imageLoaded by remember(customImageUri, imageRevision) { mutableStateOf(false) }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS) &&
+        isLiquidGlassSupported()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         Box(
