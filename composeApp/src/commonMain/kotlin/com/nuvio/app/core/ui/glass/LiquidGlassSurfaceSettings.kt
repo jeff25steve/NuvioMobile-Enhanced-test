@@ -47,9 +47,9 @@ internal enum class LiquidGlassSurface {
 
     val supportsIconTint: Boolean
         get() = when (this) {
-            PLAYER, STREAM_FILTERS, STREAM_SELECTION, DETAILS,
-            DETAIL_HEADER, DETAIL_PRIMARY_ACTION, SEARCH, LIBRARY, SETTINGS -> true
-            STREAM_RESULTS, DETAIL_CHIPS, DETAIL_CONTENT_CARDS, BOTTOM_SHEETS -> false
+            PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, SEARCH, LIBRARY, SETTINGS -> true
+            STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
+            DETAIL_CONTENT_CARDS, BOTTOM_SHEETS -> false
         }
 
     val defaultEnabled: Boolean
@@ -67,6 +67,27 @@ internal enum class LiquidGlassSurface {
             -> true
             SEARCH, LIBRARY, SETTINGS -> false
         }
+}
+
+/**
+ * A saved Clear material must not become an invisible/no-refraction surface when its target cannot
+ * run the lens shader. Fall back to Liquid blur instead of silently losing both blur and lens.
+ */
+internal fun effectiveLiquidGlassMaterial(
+    surface: LiquidGlassSurface,
+    material: LiquidGlassMaterial?,
+    refractionSupported: Boolean,
+    cornerRadiusPercent: Float?,
+): LiquidGlassMaterial {
+    val requested = material ?: LiquidGlassMaterial.LIQUID
+    return if (
+        requested == LiquidGlassMaterial.CLEAR &&
+        (!surface.supportsLens || !refractionSupported || cornerRadiusPercent == 0f)
+    ) {
+        LiquidGlassMaterial.LIQUID
+    } else {
+        requested
+    }
 }
 
 /**
@@ -338,7 +359,14 @@ internal fun Modifier.liquidGlassForSurface(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    val materialStyle = LiquidGlassStyle(material = overrides.material ?: LiquidGlassMaterial.LIQUID)
+    val materialStyle = LiquidGlassStyle(
+        material = effectiveLiquidGlassMaterial(
+            surface = surface,
+            material = overrides.material,
+            refractionSupported = isLiquidRefractionSupported(),
+            cornerRadiusPercent = overrides.cornerRadiusPercent,
+        ),
+    )
     val enabled = shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled) &&
         materialStyle.usesBackdrop
     // Caller resolves one shape for clipping, backdrop refraction and Kyant's edge highlight.
@@ -419,6 +447,7 @@ internal fun liquidGlassIconTint(
     default: Color,
     preview: Boolean = false,
 ): Color {
+    if (!surface.supportsIconTint) return default
     val previewSettings = LocalLiquidGlassPreviewSettings.current
     val singlePreviewOverride = LocalLiquidGlassPreviewOverrides.current
     val isPreview = preview || previewSettings != null || singlePreviewOverride != null
@@ -440,7 +469,6 @@ internal fun liquidGlassIconTint(
 }
 
 /**
- * Returns the effective per-surface enabled state/**
  * Returns the effective per-surface enabled state for branches choosing between glass and a
  * native fallback. Preview rendering reads preview-local overrides and ignores the app-wide
  * master switch, while respecting the individual surface toggle.
@@ -470,7 +498,7 @@ internal fun isLiquidGlassSurfaceEffectivelyEnabled(
     )
 }
 
-/** Used by components that need to fall back/** Used by components that need to fall back to their original control when a surface is disabled. */
+/** Used by components that need to fall back to their original control when a surface is disabled. */
 internal fun isLiquidGlassSurfacePreferenceEnabled(surface: LiquidGlassSurface): Boolean {
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     return overrides.enabled ?: surface.defaultEnabled

@@ -51,16 +51,61 @@ class LiquidGlassSurfaceSettingsTest {
 
     @Test
     fun surfaceControlsMatchActualCapabilities() {
-        assertTrue(LiquidGlassSurface.PLAYER.supportsIconTint)
-        assertTrue(LiquidGlassSurface.STREAM_FILTERS.supportsIconTint)
-        assertTrue(LiquidGlassSurface.SEARCH.supportsIconTint)
-        assertFalse(LiquidGlassSurface.STREAM_RESULTS.supportsIconTint)
-        assertFalse(LiquidGlassSurface.DETAIL_CHIPS.supportsIconTint)
-        assertFalse(LiquidGlassSurface.DETAIL_CONTENT_CARDS.supportsIconTint)
-        assertFalse(LiquidGlassSurface.BOTTOM_SHEETS.supportsIconTint)
+        val tintableSurfaces = setOf(
+            LiquidGlassSurface.PLAYER,
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_HEADER,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.SEARCH,
+            LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.SETTINGS,
+        )
+        LiquidGlassSurface.entries.forEach { surface ->
+            assertEquals(surface in tintableSurfaces, surface.supportsIconTint, surface.name)
+        }
         assertFalse(LiquidGlassSurface.DETAIL_HEADER.supportsLens)
         assertFalse(LiquidGlassSurface.DETAIL_HEADER.defaultWithHighlight)
         assertTrue(LiquidGlassSurface.DETAILS.defaultWithHighlight)
+    }
+
+    @Test
+    fun clearMaterialFallsBackWhenLensCannotActuallyRun() {
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.DETAIL_HEADER,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = true,
+                cornerRadiusPercent = 50f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = false,
+                cornerRadiusPercent = 36f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = true,
+                cornerRadiusPercent = 0f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.CLEAR,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = true,
+                cornerRadiusPercent = 36f,
+            ),
+        )
     }
 
     @Test

@@ -37,6 +37,8 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import kotlin.math.roundToInt
@@ -84,7 +86,14 @@ internal fun Modifier.playerLiquidGlass(
     val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
         ?: LocalLiquidGlassPreviewOverrides.current
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
-    val materialStyle = LiquidGlassStyle(material = overrides.material ?: LiquidGlassMaterial.LIQUID)
+    val materialStyle = LiquidGlassStyle(
+        material = effectiveLiquidGlassMaterial(
+            surface = LiquidGlassSurface.PLAYER,
+            material = overrides.material,
+            refractionSupported = isLiquidRefractionSupported(),
+            cornerRadiusPercent = overrides.cornerRadiusPercent,
+        ),
+    )
     val enabled = shouldRenderLiquidGlassSurface(
         surface = LiquidGlassSurface.PLAYER,
         overrides = overrides,

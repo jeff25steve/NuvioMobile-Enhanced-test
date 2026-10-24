@@ -67,9 +67,14 @@ internal fun Modifier.nuvioSheetSurface(
         preview = preview,
     ) && (preview || isLiquidGlassSupported())
     val readyBackdrop = backdrop?.takeIf { it.isReady && surfaceGlassEnabled }
+    val effectiveShape = liquidGlassShape(
+        surface = LiquidGlassSurface.BOTTOM_SHEETS,
+        defaultShape = shape,
+        preview = preview,
+    )
     return liquidGlassForSurface(
         surface = LiquidGlassSurface.BOTTOM_SHEETS,
-        shape = shape,
+        shape = effectiveShape,
         tint = containerColor.copy(alpha = containerColor.alpha * 0.65f),
         fallback = containerColor,
         blurRadius = 24.dp,
