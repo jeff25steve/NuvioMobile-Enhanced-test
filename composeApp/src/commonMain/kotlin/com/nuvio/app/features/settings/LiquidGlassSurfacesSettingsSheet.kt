@@ -108,11 +108,13 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
+import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import kotlinx.coroutines.launch
@@ -1147,13 +1149,28 @@ private fun LiquidGlassSurfaceEditorControls(
 
         AnimatedVisibility(visible = enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val activeMaterial = overrides.material ?: LiquidGlassMaterial.LIQUID
+                val effectiveCornerRadiusPercent =
+                    overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent
+                val activeMaterial = effectiveLiquidGlassMaterial(
+                    surface = surface,
+                    material = overrides.material,
+                    refractionSupported = refractionSupported,
+                    cornerRadiusPercent = effectiveCornerRadiusPercent,
+                )
                 val materialStyle = LiquidGlassStyle(material = activeMaterial)
+                val canSelectClear = refractionSupported &&
+                    surface.supportsLens &&
+                    effectiveCornerRadiusPercent > 0f
                 val materialOptions = listOf(
                     LiquidGlassMaterial.LIQUID,
                     LiquidGlassMaterial.FROSTED,
-                    LiquidGlassMaterial.CLEAR,
-                ).filter { refractionSupported || it != LiquidGlassMaterial.CLEAR }
+                ) + if (canSelectClear) listOf(LiquidGlassMaterial.CLEAR) else emptyList()
+                val lensControlsAvailable = canSelectClear && materialStyle.usesLens
+                val effectiveRefractionHeight = overrides.refractionHeightDp ?: recipe.refractionHeightDp
+                val effectiveRefractionAmount = overrides.refractionAmountDp ?: recipe.refractionAmountDp
+                val lensEffectsActive = lensControlsAvailable &&
+                    effectiveRefractionHeight > 0f &&
+                    effectiveRefractionAmount > 0f
                 Text(
                     text = stringResource(Res.string.settings_nav_bar_glass),
                     style = MaterialTheme.typography.titleSmall,
@@ -1204,6 +1221,16 @@ private fun LiquidGlassSurfaceEditorControls(
                         }
                     }
                 }
+                if (refractionSupported && surface.supportsLens &&
+                    materialStyle.usesLens && effectiveCornerRadiusPercent <= 0f
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_liquid_glass_lens_requires_rounded_corners),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_highlight),
                     description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
@@ -1233,7 +1260,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
                     )
                 }
-                if (refractionSupported && materialStyle.usesLens) {
+                if (lensControlsAvailable) {
                     LiquidGlassEffectSlider(
                         title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
                         value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
@@ -1276,7 +1303,7 @@ private fun LiquidGlassSurfaceEditorControls(
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withShadow = it)) },
                 )
-                if (refractionSupported) {
+                if (lensEffectsActive) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration),
                         description = stringResource(Res.string.settings_nav_bar_glass_chromatic_aberration_description),
@@ -1291,31 +1318,40 @@ private fun LiquidGlassSurfaceEditorControls(
                         isTablet = isTablet,
                         onCheckedChange = { onChanged(overrides.copy(depthEffect = it)) },
                     )
+                } else if (lensControlsAvailable) {
+                    Text(
+                        text = stringResource(Res.string.settings_liquid_glass_lens_requires_active_refraction),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
-                    description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
-                    checked = overrides.defaultIconColorArgb != null,
-                    isTablet = isTablet,
-                    onCheckedChange = {
-                        onChanged(
-                            overrides.copy(
-                                defaultIconColorArgb = if (it) {
-                                    overrides.defaultIconColorArgb ?: 0xFFB7C6E5.toInt()
-                                } else {
-                                    null
-                                },
-                            ),
-                        )
-                    },
-                )
-                overrides.defaultIconColorArgb?.let { color ->
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        ThemeColorPicker(
-                            color = color,
-                            colorIndex = surface.ordinal,
-                            onColorChanged = { onChanged(overrides.copy(defaultIconColorArgb = it)) },
-                        )
+                if (surface.supportsIconTint) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
+                        description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
+                        checked = overrides.defaultIconColorArgb != null,
+                        isTablet = isTablet,
+                        onCheckedChange = {
+                            onChanged(
+                                overrides.copy(
+                                    defaultIconColorArgb = if (it) {
+                                        overrides.defaultIconColorArgb ?: 0xFFB7C6E5.toInt()
+                                    } else {
+                                        null
+                                    },
+                                ),
+                            )
+                        },
+                    )
+                    overrides.defaultIconColorArgb?.let { color ->
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            ThemeColorPicker(
+                                color = color,
+                                colorIndex = surface.ordinal,
+                                onColorChanged = { onChanged(overrides.copy(defaultIconColorArgb = it)) },
+                            )
+                        }
                     }
                 }
             }
@@ -1623,7 +1659,11 @@ private fun LiquidGlassLibraryPreview(
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
-    val shape = RoundedCornerShape(12.dp)
+    val shape = liquidGlassShape(
+        surface = LiquidGlassSurface.LIBRARY,
+        defaultShape = RoundedCornerShape(12.dp),
+        preview = true,
+    )
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -2241,7 +2281,7 @@ private fun LiquidGlassStreamResultsPreview(
             StreamItem(
                 name = "2160p | Cached | Torrentio",
                 title = "Nobody Wants This S01E01 Pilot",
-                description = "WEB-DL • H.265 • Dolby Digital Plus • 5.1 • 1.1 GB",
+                description = "WEB-DL • H.265 • DD+ 5.1",
                 addonName = "Torrentio",
                 addonId = "preview:torrentio",
                 streamType = "series",
@@ -2255,7 +2295,7 @@ private fun LiquidGlassStreamResultsPreview(
             StreamItem(
                 name = "1080p | Cached | Torrentio",
                 title = "Nobody Wants This S01E01 Pilot",
-                description = "WEB-DL • AVC • AAC 2.0 • 473 MB",
+                description = "WEB-DL • AVC • AAC 2.0",
                 addonName = "Torrentio",
                 addonId = "preview:torrentio",
                 streamType = "series",

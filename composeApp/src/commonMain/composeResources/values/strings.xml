@@ -2932,6 +2932,8 @@
     <string name="settings_liquid_glass_tap_to_edit_component">Tap a highlighted glass element to edit it.</string>
     <string name="settings_liquid_glass_global_note">The master Liquid Glass switch still controls every area. Unchanged controls keep their original per-component defaults.</string>
     <string name="settings_liquid_glass_surface_description">Customize this area without changing the other areas.</string>
+    <string name="settings_liquid_glass_lens_requires_rounded_corners">Refraction effects need a corner radius above 0%.</string>
+    <string name="settings_liquid_glass_lens_requires_active_refraction">Set both refraction values above zero to enable chromatic aberration and depth.</string>
     <string name="settings_liquid_glass_suggested">Suggested</string>
     <string name="settings_liquid_glass_surface_player">Player</string>
     <string name="settings_liquid_glass_surface_stream_filters">Provider filter chips</string>
