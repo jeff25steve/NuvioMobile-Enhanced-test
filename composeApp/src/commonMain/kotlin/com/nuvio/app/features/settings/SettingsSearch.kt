@@ -1238,7 +1238,7 @@ private fun SettingsSearchField(
     val fieldShape = if (glassEnabled) {
         liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultShape)
     } else {
-        defaultShape
+        tokens.shapes.compactCard
     }
     OutlinedTextField(
         value = query,
