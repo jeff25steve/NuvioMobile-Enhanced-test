@@ -297,7 +297,15 @@ internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
     val cornerShape = shape as? CornerBasedShape ?: return shape
     val scale = effectiveLiquidGlassCornerRadiusScale(percent)
     if (scale >= 1f) return shape
-    if (scale <= 0f) return cornerShape.copy(all = CornerSize(0f))
+    if (scale <= 0f) {
+        val square = CornerSize(0f)
+        return cornerShape.copy(
+            topStart = square,
+            topEnd = square,
+            bottomEnd = square,
+            bottomStart = square,
+        )
+    }
     return cornerShape.copy(
         topStart = ScaledLiquidGlassCornerSize(cornerShape.topStart, scale),
         topEnd = ScaledLiquidGlassCornerSize(cornerShape.topEnd, scale),

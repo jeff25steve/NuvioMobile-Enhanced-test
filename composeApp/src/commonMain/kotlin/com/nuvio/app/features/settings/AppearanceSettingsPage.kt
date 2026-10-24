@@ -33,6 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.isIos
@@ -147,6 +150,24 @@ internal fun LazyListScope.appearanceSettingsContent(
             ThemeSettingsRepository.ensureLoaded()
             ThemeSettingsRepository.customSettingsBackgroundImageUri
         }.collectAsStateWithLifecycle()
+        val customSettingsBackgroundImageRevision by remember {
+            ThemeSettingsRepository.customSettingsBackgroundImageRevision
+        }.collectAsStateWithLifecycle()
+        val settingsBackgroundImageContext = LocalPlatformContext.current
+        val settingsBackgroundImageRequest = remember(
+            customSettingsBackgroundImageUri,
+            customSettingsBackgroundImageRevision,
+            settingsBackgroundImageContext,
+        ) {
+            customSettingsBackgroundImageUri?.let { imageUri ->
+                ImageRequest.Builder(settingsBackgroundImageContext)
+                    .data(imageUri)
+                    .memoryCacheKey("$imageUri#settings-background-$customSettingsBackgroundImageRevision")
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.DISABLED)
+                    .build()
+            }
+        }
         var isSavingSettingsBackground by remember { mutableStateOf(false) }
         var settingsBackgroundImageError by remember { mutableStateOf(false) }
         val settingsBackgroundScope = rememberCoroutineScope()
@@ -213,9 +234,9 @@ internal fun LazyListScope.appearanceSettingsContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    customSettingsBackgroundImageUri?.let { imageUri ->
+                    settingsBackgroundImageRequest?.let { imageRequest ->
                         AsyncImage(
-                            model = imageUri,
+                            model = imageRequest,
                             contentDescription = stringResource(Res.string.settings_appearance_custom_settings_background_preview),
                             modifier = Modifier
                                 .fillMaxWidth()

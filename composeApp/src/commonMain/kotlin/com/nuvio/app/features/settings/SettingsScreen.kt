@@ -179,17 +179,28 @@ fun SettingsScreen(
         ThemeSettingsRepository.ensureLoaded()
         ThemeSettingsRepository.customSettingsBackgroundImageUri
     }.collectAsStateWithLifecycle()
+    val customSettingsBackgroundImageRevision by remember {
+        ThemeSettingsRepository.customSettingsBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
     val settingsImageContext = LocalPlatformContext.current
-    val settingsBackgroundImageRequest = remember(customSettingsBackgroundImageUri, settingsImageContext) {
+    val settingsBackgroundImageRequest = remember(
+        customSettingsBackgroundImageUri,
+        customSettingsBackgroundImageRevision,
+        settingsImageContext,
+    ) {
         customSettingsBackgroundImageUri?.let { imageUrl ->
             ImageRequest.Builder(settingsImageContext)
                 .data(imageUrl)
+                .memoryCacheKey("$imageUrl#settings-background-$customSettingsBackgroundImageRevision")
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.DISABLED)
                 .build()
         }
     }
-    var settingsBackgroundLoaded by remember(customSettingsBackgroundImageUri) { mutableStateOf(false) }
+    var settingsBackgroundLoaded by remember(
+        customSettingsBackgroundImageUri,
+        customSettingsBackgroundImageRevision,
+    ) { mutableStateOf(false) }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     BoxWithConstraints(

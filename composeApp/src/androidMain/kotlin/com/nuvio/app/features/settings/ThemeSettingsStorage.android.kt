@@ -271,7 +271,7 @@ actual object ThemeSettingsStorage {
         val temporary = directory.resolve(".${target.name}.tmp")
         return try {
             temporary.writeBytes(bytes)
-            if (!temporary.renameTo(target)) temporary.copyTo(target, overwrite = true)
+            if (!temporary.renameTo(target)) return null
             target.takeIf {
                 it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
             }?.toURI()?.toString()

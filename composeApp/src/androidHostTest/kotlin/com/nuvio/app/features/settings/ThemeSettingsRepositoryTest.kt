@@ -324,13 +324,17 @@ class ThemeSettingsRepositoryTest {
     fun customSettingsBackgroundImagePersistsAsLocalFileAndCanBeCleared() {
         ThemeSettingsRepository.ensureLoaded()
         val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
+        val initialRevision = ThemeSettingsRepository.customSettingsBackgroundImageRevision.value
 
         assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundImage(imageBytes))
         val imageUri = ThemeSettingsRepository.customSettingsBackgroundImageUri.value
         assertTrue(imageUri?.startsWith("file:") == true)
         assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+        assertEquals(initialRevision + 1L, ThemeSettingsRepository.customSettingsBackgroundImageRevision.value)
 
+        val savedRevision = ThemeSettingsRepository.customSettingsBackgroundImageRevision.value
         ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
+        assertEquals(savedRevision + 1L, ThemeSettingsRepository.customSettingsBackgroundImageRevision.value)
         assertNull(ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
         assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
     }

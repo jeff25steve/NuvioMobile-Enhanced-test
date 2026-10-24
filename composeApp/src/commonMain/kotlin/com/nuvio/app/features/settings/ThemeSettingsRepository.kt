@@ -61,6 +61,9 @@ object ThemeSettingsRepository {
 
     private val _customSettingsBackgroundImageUri = MutableStateFlow<String?>(null)
     val customSettingsBackgroundImageUri: StateFlow<String?> = _customSettingsBackgroundImageUri.asStateFlow()
+    private val _customSettingsBackgroundImageRevision = MutableStateFlow(0L)
+    val customSettingsBackgroundImageRevision: StateFlow<Long> =
+        _customSettingsBackgroundImageRevision.asStateFlow()
 
     private val _selectedAppLanguage = MutableStateFlow(AppLanguage.DEVICE)
     val selectedAppLanguage: StateFlow<AppLanguage> = _selectedAppLanguage.asStateFlow()
@@ -128,6 +131,7 @@ object ThemeSettingsRepository {
         _dynamicArtworkBackgroundEnabled.value = false
         _showCatalogAccentEnabled.value = false
         _customSettingsBackgroundImageUri.value = null
+        _customSettingsBackgroundImageRevision.value += 1L
         NativeTabBridge.publishAccentColor(
             hexColor = AppTheme.WHITE.nativeTabAccentHex(),
             gradientHexColors = ThemeColors.getColorPalette(AppTheme.WHITE).nativeAccentGradientHex(),
@@ -175,6 +179,7 @@ object ThemeSettingsRepository {
         _showCatalogAccentEnabled.value =
             ThemeSettingsStorage.loadShowCatalogAccentEnabled() ?: false
         _customSettingsBackgroundImageUri.value = ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri()
+        _customSettingsBackgroundImageRevision.value += 1L
         val appLanguage = AppLanguage.fromCode(ThemeSettingsStorage.loadSelectedAppLanguage())
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
@@ -270,6 +275,7 @@ object ThemeSettingsRepository {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
         val localImageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes) ?: return false
         _customSettingsBackgroundImageUri.value = localImageUri
+        _customSettingsBackgroundImageRevision.value += 1L
         return true
     }
 
@@ -277,6 +283,7 @@ object ThemeSettingsRepository {
         ensureLoaded()
         ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
         _customSettingsBackgroundImageUri.value = null
+        _customSettingsBackgroundImageRevision.value += 1L
     }
 
     fun setAppLanguage(language: AppLanguage) {
