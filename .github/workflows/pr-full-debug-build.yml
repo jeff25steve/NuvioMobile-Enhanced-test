@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/liquid-glass-apk-validation-20261024]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
