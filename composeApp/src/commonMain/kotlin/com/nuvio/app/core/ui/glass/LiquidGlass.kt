@@ -139,6 +139,24 @@ fun rememberNuvioBackdrop(): NuvioBackdrop {
 fun Modifier.nuvioBackdropSource(backdrop: NuvioBackdrop): Modifier =
     this then NuvioBackdropSourceElement(backdrop)
 
+/**
+ * Paints only the source backdrop into a rectangular underlay before a rounded glass surface.
+ * This is intended for pinned headers: clipped glass corners must reveal the screen background,
+ * never the scrolling items that happen to be underneath the sticky header.
+ */
+internal fun Modifier.liquidGlassBackdropUnderlay(backdrop: Backdrop?): Modifier {
+    val host = backdrop as? LiquidGlassBackdropHost
+    return if (backdrop == null || !isLiquidGlassAvailable() || (host != null && !host.isReady)) {
+        this
+    } else {
+        drawBackdrop(
+            backdrop = backdrop,
+            shape = { RectangleShape },
+            effects = { opacity(1f) },
+        )
+    }
+}
+
 private class NuvioBackdropSourceElement(
     val backdrop: NuvioBackdrop,
 ) : ModifierNodeElement<NuvioBackdropSourceNode>() {
