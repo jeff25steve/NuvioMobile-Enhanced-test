@@ -733,7 +733,7 @@ private fun LiquidGlassDetailPagePreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
 
@@ -965,7 +965,7 @@ private fun LiquidGlassStreamPickerPreview(
                         ),
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(
@@ -1627,7 +1627,7 @@ private fun LiquidGlassSettingsSurfacePreview(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.24f)),
             )
-        
+
             if (backgroundImageRequest == null) LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -1696,7 +1696,7 @@ private fun LiquidGlassLibraryPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -1771,7 +1771,7 @@ private fun LiquidGlassBottomSheetPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         Column(
@@ -1839,7 +1839,7 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -2149,7 +2149,7 @@ private fun LiquidGlassDetailBackdropPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -2209,7 +2209,7 @@ private fun LiquidGlassDetailHeaderPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -2263,7 +2263,7 @@ private fun LiquidGlassStreamSearchPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
@@ -2359,7 +2359,7 @@ private fun LiquidGlassStreamResultsPreview(
                         CircleShape,
                     ),
             )
-        
+
             LiquidGlassPreviewBackdropDetailMarks()
 }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
