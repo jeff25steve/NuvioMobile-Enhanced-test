@@ -64,28 +64,28 @@ fun HomescreenSettingsScreen(
 
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_homescreen),
-                onBack = onBack,
-                useSettingsGlass = true,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_homescreen),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            homescreenSettingsContent(
+                isTablet = false,
+                heroEnabled = homescreenSettingsUiState.heroEnabled,
+                heroTrailerPlaybackEnabled = homescreenSettingsUiState.heroTrailerPlaybackEnabled,
+                heroTrailerStartDelaySeconds = homescreenSettingsUiState.heroTrailerStartDelaySeconds,
+                heroTrailerStartUnmuted = homescreenSettingsUiState.heroTrailerStartUnmuted,
+                showCatalogType = homescreenSettingsUiState.showCatalogType,
+                hideUnreleasedContent = homescreenSettingsUiState.hideUnreleasedContent,
+                items = homescreenSettingsUiState.items,
+                isCatalogLoading = addonManifestsLoading,
+                catalogErrorMessage = addonManifestErrorMessage,
             )
         }
-        homescreenSettingsContent(
-            isTablet = false,
-            heroEnabled = homescreenSettingsUiState.heroEnabled,
-            heroTrailerPlaybackEnabled = homescreenSettingsUiState.heroTrailerPlaybackEnabled,
-            heroTrailerStartDelaySeconds = homescreenSettingsUiState.heroTrailerStartDelaySeconds,
-            heroTrailerStartUnmuted = homescreenSettingsUiState.heroTrailerStartUnmuted,
-            showCatalogType = homescreenSettingsUiState.showCatalogType,
-            hideUnreleasedContent = homescreenSettingsUiState.hideUnreleasedContent,
-            items = homescreenSettingsUiState.items,
-            isCatalogLoading = addonManifestsLoading,
-            catalogErrorMessage = addonManifestErrorMessage,
-        )
-    }
     }
 }
 
@@ -101,20 +101,20 @@ fun MetaScreenSettingsScreen(
 
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_meta_screen),
-                onBack = onBack,
-                useSettingsGlass = true,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_meta_screen),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            metaScreenSettingsContent(
+                isTablet = false,
+                uiState = metaScreenSettingsUiState,
             )
         }
-        metaScreenSettingsContent(
-            isTablet = false,
-            uiState = metaScreenSettingsUiState,
-        )
-    }
     }
 }
 
@@ -129,27 +129,27 @@ fun ContinueWatchingSettingsScreen(
 
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_continue_watching),
-                onBack = onBack,
-                useSettingsGlass = true,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_continue_watching),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            continueWatchingSettingsContent(
+                isTablet = false,
+                isVisible = continueWatchingPreferencesUiState.isVisible,
+                style = continueWatchingPreferencesUiState.style,
+                upNextFromFurthestEpisode = continueWatchingPreferencesUiState.upNextFromFurthestEpisode,
+                useEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
+                showUnairedNextUp = continueWatchingPreferencesUiState.showUnairedNextUp,
+                blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
+                showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
+                sortMode = continueWatchingPreferencesUiState.sortMode,
             )
         }
-        continueWatchingSettingsContent(
-            isTablet = false,
-            isVisible = continueWatchingPreferencesUiState.isVisible,
-            style = continueWatchingPreferencesUiState.style,
-            upNextFromFurthestEpisode = continueWatchingPreferencesUiState.upNextFromFurthestEpisode,
-            useEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
-            showUnairedNextUp = continueWatchingPreferencesUiState.showUnairedNextUp,
-            blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
-            showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
-            sortMode = continueWatchingPreferencesUiState.sortMode,
-        )
-    }
     }
 }
 
@@ -163,17 +163,17 @@ fun AddonsSettingsScreen(
 
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_addons),
-                onBack = onBack,
-                useSettingsGlass = true,
-            )
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_addons),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            addonsSettingsContent()
         }
-        addonsSettingsContent()
-    }
     }
 }
 
@@ -192,17 +192,17 @@ fun PluginsSettingsScreen(
 
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_plugins),
-                onBack = onBack,
-                useSettingsGlass = true,
-            )
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_plugins),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            pluginsSettingsContent()
         }
-        pluginsSettingsContent()
-    }
     }
 }
 
@@ -212,18 +212,18 @@ fun AccountSettingsScreen(
 ) {
     SettingsGlassPageBackground {
         NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_account),
-                onBack = onBack,
-                useSettingsGlass = true,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_account),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            accountSettingsContent(
+                isTablet = false,
             )
         }
-        accountSettingsContent(
-            isTablet = false,
-        )
-    }
     }
 }
