@@ -9,10 +9,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
@@ -67,7 +68,7 @@ class SettingsGlassChromeTest {
         compose.setContent {
             NuvioTheme {
                 val backdrop = rememberNuvioBackdrop()
-                Box(Modifier.size(width = 320.dp, height = 180.dp)) {
+                Box(Modifier.size(width = 320.dp, height = 180.dp).testTag("settings-glass-regression-root")) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -99,7 +100,7 @@ class SettingsGlassChromeTest {
         }
 
         compose.waitForIdle()
-        val pixels = compose.onRoot().captureToImage().toPixelMap()
+        val pixels = compose.onNodeWithTag("settings-glass-regression-root").captureToImage().toPixelMap()
         val topCorner = pixels[2, 2]
 
         assertTrue(
