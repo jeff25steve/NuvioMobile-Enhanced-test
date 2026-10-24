@@ -6,30 +6,61 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 
 class LiquidGlassSurfaceSettingsTest {
     @Test
-    fun cornerRadiusOverrideScalesNativeCornerSizesInsteadOfUsingCardBounds() {
-        val nativeShape = RoundedCornerShape(24.dp) as CornerBasedShape
-        val customized = scaleLiquidGlassCornerShape(nativeShape, 36f) as CornerBasedShape
-        val cardSize = Size(width = 360f, height = 720f)
-        val density = Density(1f)
+    fun cornerRadiusUsesTheSamePercentRangeAsNavigationGlass() {
+        assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(0f))
+        assertEquals(15, effectiveLiquidGlassCornerRadiusPercent(15f))
+        assertEquals(36, effectiveLiquidGlassCornerRadiusPercent(36.2f))
+        assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(50f))
+        assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.NaN))
+        assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.POSITIVE_INFINITY))
+        assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(Float.NEGATIVE_INFINITY))
+    }
 
-        assertEquals(24f, nativeShape.topStart.toPx(cardSize, density), 0.01f)
-        assertEquals(24f * 0.72f, customized.topStart.toPx(cardSize, density), 0.01f)
-        assertEquals(
-            24f,
-            (scaleLiquidGlassCornerShape(nativeShape, 50f) as CornerBasedShape)
-                .topStart.toPx(cardSize, density),
-            0.01f,
+    @Test
+    fun lensParametersStayInsideCornerRadiusAndComponentBounds() {
+        val params = constrainLiquidGlassLensParameters(
+            refractionHeightPx = 32f,
+            refractionAmountPx = 120f,
+            minimumCornerRadiusPx = 7.5f,
+            minimumDimensionPx = 80f,
         )
-        assertEquals(0f, effectiveLiquidGlassCornerRadiusScale(0f))
-        assertEquals(1f, effectiveLiquidGlassCornerRadiusScale(50f))
+        assertEquals(7.5f, params.refractionHeightPx)
+        assertEquals(80f, params.refractionAmountPx)
+
+        val squareShape = constrainLiquidGlassLensParameters(
+            refractionHeightPx = 12f,
+            refractionAmountPx = 18f,
+            minimumCornerRadiusPx = 0f,
+            minimumDimensionPx = 80f,
+        )
+        assertEquals(0f, squareShape.refractionHeightPx)
+        assertEquals(18f, squareShape.refractionAmountPx)
+
+        val unsafe = constrainLiquidGlassLensParameters(
+            refractionHeightPx = Float.NaN,
+            refractionAmountPx = Float.POSITIVE_INFINITY,
+            minimumCornerRadiusPx = Float.NaN,
+            minimumDimensionPx = Float.POSITIVE_INFINITY,
+        )
+        assertEquals(0f, unsafe.refractionHeightPx)
+        assertEquals(0f, unsafe.refractionAmountPx)
+    }
+
+    @Test
+    fun surfaceControlsMatchActualCapabilities() {
+        assertTrue(LiquidGlassSurface.PLAYER.supportsIconTint)
+        assertTrue(LiquidGlassSurface.STREAM_FILTERS.supportsIconTint)
+        assertTrue(LiquidGlassSurface.SEARCH.supportsIconTint)
+        assertFalse(LiquidGlassSurface.STREAM_RESULTS.supportsIconTint)
+        assertFalse(LiquidGlassSurface.DETAIL_CHIPS.supportsIconTint)
+        assertFalse(LiquidGlassSurface.DETAIL_CONTENT_CARDS.supportsIconTint)
+        assertFalse(LiquidGlassSurface.BOTTOM_SHEETS.supportsIconTint)
+        assertFalse(LiquidGlassSurface.DETAIL_HEADER.supportsLens)
+        assertFalse(LiquidGlassSurface.DETAIL_HEADER.defaultWithHighlight)
+        assertTrue(LiquidGlassSurface.DETAILS.defaultWithHighlight)
     }
 
     @Test

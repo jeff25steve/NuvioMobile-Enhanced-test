@@ -41,8 +41,10 @@ import androidx.compose.ui.node.requireDensity
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.drawPlainBackdrop
 import com.kyant.backdrop.effects.blur
@@ -361,13 +363,22 @@ internal fun Modifier.liquidGlassSurface(
             effects = {
                 if (withVibrancy) vibrancy()
                 if (blurRadius > 0.dp) blur(blurRadius.toPx())
-                if (shape is CornerBasedShape && refractionHeight > 0.dp && refractionAmount > 0.dp && isLiquidRefractionSupported()) {
-                    lens(
-                        refractionHeight = refractionHeight.toPx().coerceAtMost(size.minDimension / 2f),
-                        refractionAmount = refractionAmount.toPx(),
-                        chromaticAberration = chromaticAberration,
-                        depthEffect = depthEffect,
+                val lensShape = shape as? CornerBasedShape
+                if (lensShape != null && isLiquidRefractionSupported()) {
+                    val parameters = constrainLiquidGlassLensParameters(
+                        refractionHeightPx = refractionHeight.toPx(),
+                        refractionAmountPx = refractionAmount.toPx(),
+                        minimumCornerRadiusPx = minimumCornerRadiusPx(lensShape),
+                        minimumDimensionPx = size.minDimension,
                     )
+                    if (parameters.refractionHeightPx > 0f && parameters.refractionAmountPx > 0f) {
+                        lens(
+                            refractionHeight = parameters.refractionHeightPx,
+                            refractionAmount = parameters.refractionAmountPx,
+                            chromaticAberration = chromaticAberration,
+                            depthEffect = depthEffect,
+                        )
+                    }
                 }
                 if (backdropOpacity < 1f) opacity(backdropOpacity.coerceIn(0f, 1f))
             },
@@ -394,6 +405,19 @@ internal fun Modifier.liquidGlassSurface(
             },
         )
     }
+
+private fun BackdropEffectScope.minimumCornerRadiusPx(shape: CornerBasedShape): Float {
+    val shapeSize = size
+    val maximumRadius = (shapeSize.minDimension / 2f).coerceAtLeast(0f)
+    val isLtr = layoutDirection == LayoutDirection.Ltr
+    val corners = listOf(
+        if (isLtr) shape.topStart else shape.topEnd,
+        if (isLtr) shape.topEnd else shape.topStart,
+        if (isLtr) shape.bottomEnd else shape.bottomStart,
+        if (isLtr) shape.bottomStart else shape.bottomEnd,
+    )
+    return corners.minOf { corner -> corner.toPx(shapeSize, this).coerceIn(0f, maximumRadius) }
+}
 
 internal fun Modifier.liquidGlassBlur(
     backdrop: Backdrop?,

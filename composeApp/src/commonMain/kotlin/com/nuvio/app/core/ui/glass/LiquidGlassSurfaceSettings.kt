@@ -2,7 +2,6 @@ package com.nuvio.app.core.ui.glass
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CornerBasedShape
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -11,9 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.RectangleShape
 import com.kyant.backdrop.Backdrop
 import androidx.compose.ui.unit.Dp
@@ -21,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlin.math.roundToInt
 
 /**
  * Independently configurable app areas. Navigation-bar glass intentionally remains on its existing
@@ -42,6 +38,19 @@ internal enum class LiquidGlassSurface {
     LIBRARY,
     SETTINGS,
     BOTTOM_SHEETS;
+
+    val defaultWithHighlight: Boolean
+        get() = this != DETAIL_HEADER
+
+    val supportsLens: Boolean
+        get() = this != DETAIL_HEADER
+
+    val supportsIconTint: Boolean
+        get() = when (this) {
+            PLAYER, STREAM_FILTERS, STREAM_SELECTION, DETAILS,
+            DETAIL_HEADER, DETAIL_PRIMARY_ACTION, SEARCH, LIBRARY, SETTINGS -> true
+            STREAM_RESULTS, DETAIL_CHIPS, DETAIL_CONTENT_CARDS, BOTTOM_SHEETS -> false
+        }
 
     val defaultEnabled: Boolean
         get() = when (this) {
@@ -259,58 +268,45 @@ internal fun liquidGlassShape(
     defaultShape: Shape,
     preview: Boolean = false,
 ): Shape {
-    val overrides = if (preview) {
-        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
-            ?: LocalLiquidGlassPreviewOverrides.current
+    val previewSettings = LocalLiquidGlassPreviewSettings.current
+    val singlePreviewOverride = LocalLiquidGlassPreviewOverrides.current
+    val isPreview = preview || previewSettings != null || singlePreviewOverride != null
+    val overrides = if (isPreview) {
+        previewSettings?.forSurface(surface)
+            ?: singlePreviewOverride
             ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
-    if (!shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)) {
+    if (!shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled)) {
         return defaultShape
     }
-    // Rectangular scroll-edge headers are intentionally full-width; a migrated detail radius
-    // setting must never turn this shape into a rounded card.
-    if (defaultShape === RectangleShape) return defaultShape
+    // Full-width scroll-edge headers remain rectangular. Other corner-based surfaces use the
+    // same percentage semantics as Nuvio's existing navigation-bar glass controls.
+    if (defaultShape === RectangleShape || defaultShape !is CornerBasedShape) return defaultShape
     val radiusPercent = overrides.cornerRadiusPercent ?: return defaultShape
-    return scaleLiquidGlassCornerShape(defaultShape, radiusPercent)
+    return RoundedCornerShape(percent = effectiveLiquidGlassCornerRadiusPercent(radiusPercent))
 }
 
+/** Clamp Kyant lens parameters only after the real radius and drawing bounds are known. */
+internal data class LiquidGlassLensParameters(
+    val refractionHeightPx: Float,
+    val refractionAmountPx: Float,
+)
 
-/**
- * Scales a component's existing corner sizes instead of replacing them with a percentage of the
- * whole card bounds. This keeps tall Settings cards rounded without turning them into ellipses.
- * Slider value 0 means square corners; 50 preserves the component's native shape exactly.
- */
-internal fun effectiveLiquidGlassCornerRadiusScale(percent: Float): Float =
-    (percent.takeIf { it.isFinite() } ?: 50f).coerceIn(0f, 50f) / 50f
-
-private class ScaledLiquidGlassCornerSize(
-    private val original: CornerSize,
-    private val scale: Float,
-) : CornerSize {
-    override fun toPx(shapeSize: Size, density: Density): Float =
-        original.toPx(shapeSize, density) * scale
-}
-
-internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
-    val cornerShape = shape as? CornerBasedShape ?: return shape
-    val scale = effectiveLiquidGlassCornerRadiusScale(percent)
-    if (scale >= 1f) return shape
-    if (scale <= 0f) {
-        val square = CornerSize(0f)
-        return cornerShape.copy(
-            topStart = square,
-            topEnd = square,
-            bottomEnd = square,
-            bottomStart = square,
-        )
-    }
-    return cornerShape.copy(
-        topStart = ScaledLiquidGlassCornerSize(cornerShape.topStart, scale),
-        topEnd = ScaledLiquidGlassCornerSize(cornerShape.topEnd, scale),
-        bottomEnd = ScaledLiquidGlassCornerSize(cornerShape.bottomEnd, scale),
-        bottomStart = ScaledLiquidGlassCornerSize(cornerShape.bottomStart, scale),
+internal fun constrainLiquidGlassLensParameters(
+    refractionHeightPx: Float,
+    refractionAmountPx: Float,
+    minimumCornerRadiusPx: Float,
+    minimumDimensionPx: Float,
+): LiquidGlassLensParameters {
+    val cornerLimit = minimumCornerRadiusPx.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+    val dimensionLimit = minimumDimensionPx.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+    val safeHeight = refractionHeightPx.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+    val safeAmount = refractionAmountPx.takeIf { it.isFinite() }?.coerceAtLeast(0f) ?: 0f
+    return LiquidGlassLensParameters(
+        refractionHeightPx = safeHeight.coerceAtMost(cornerLimit),
+        refractionAmountPx = safeAmount.coerceAtMost(dimensionLimit),
     )
 }
 
@@ -324,7 +320,7 @@ internal fun Modifier.liquidGlassForSurface(
     refractionHeight: Dp = 10.dp,
     refractionAmount: Dp = refractionHeight * 1.6f,
     withVibrancy: Boolean = true,
-    withHighlight: Boolean = true,
+    withHighlight: Boolean? = null,
     withShadow: Boolean = false,
     backdropOpacity: Float = 1f,
     fallbackBrush: Brush? = null,
@@ -332,17 +328,21 @@ internal fun Modifier.liquidGlassForSurface(
     useExplicitBackdrop: Boolean = false,
     preview: Boolean = false,
 ): Modifier {
-    val overrides = if (preview) {
-        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
-            ?: LocalLiquidGlassPreviewOverrides.current
+    val previewSettings = LocalLiquidGlassPreviewSettings.current
+    val singlePreviewOverride = LocalLiquidGlassPreviewOverrides.current
+    val isPreview = preview || previewSettings != null || singlePreviewOverride != null
+    val overrides = if (isPreview) {
+        previewSettings?.forSurface(surface)
+            ?: singlePreviewOverride
             ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
     val materialStyle = LiquidGlassStyle(material = overrides.material ?: LiquidGlassMaterial.LIQUID)
-    val enabled = shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled) &&
+    val enabled = shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled) &&
         materialStyle.usesBackdrop
-    val effectiveShape = if (enabled) liquidGlassShape(surface, shape, preview = preview) else shape
+    // Caller resolves one shape for clipping, backdrop refraction and Kyant's edge highlight.
+    val effectiveShape = shape
     if (!enabled) {
         return if (fallbackBrush != null) {
             this.clip(effectiveShape).background(fallbackBrush, effectiveShape)
@@ -357,19 +357,17 @@ internal fun Modifier.liquidGlassForSurface(
     } else {
         0.dp
     }
-    val effectiveRefractionHeight = if (materialStyle.usesLens) {
+    val effectiveRefractionHeight = if (materialStyle.usesLens && surface.supportsLens) {
         overrides.refractionHeightDp?.dp ?: refractionHeight
     } else {
         0.dp
     }
-    val effectiveRefractionAmount = if (materialStyle.usesLens) {
+    val effectiveRefractionAmount = if (materialStyle.usesLens && surface.supportsLens) {
         overrides.refractionAmountDp?.dp ?: refractionAmount
     } else {
         0.dp
     }
-    val effectiveBackdropOpacity = backdropOpacity
-    val effectiveFallbackBrush = fallbackBrush
-
+    val effectiveWithHighlight = overrides.withHighlight ?: withHighlight ?: surface.defaultWithHighlight
     return if (useExplicitBackdrop) {
         val host = explicitBackdrop as? LiquidGlassBackdropHost
         if (host != null) {
@@ -387,13 +385,13 @@ internal fun Modifier.liquidGlassForSurface(
             refractionHeight = effectiveRefractionHeight,
             refractionAmount = effectiveRefractionAmount,
             withVibrancy = overrides.withVibrancy ?: withVibrancy,
-            withHighlight = overrides.withHighlight ?: withHighlight,
+            withHighlight = effectiveWithHighlight,
             withShadow = overrides.withShadow ?: withShadow,
-            fallbackBrush = effectiveFallbackBrush,
-            backdropOpacity = effectiveBackdropOpacity,
+            fallbackBrush = fallbackBrush,
+            backdropOpacity = backdropOpacity,
             chromaticAberration = overrides.chromaticAberration ?: false,
             depthEffect = overrides.depthEffect ?: false,
-            preview = preview,
+            preview = isPreview,
         ).let { this.clip(effectiveShape).then(it) }
     } else {
         this.clip(effectiveShape).ambientLiquidGlass(
@@ -404,13 +402,13 @@ internal fun Modifier.liquidGlassForSurface(
             refractionHeight = effectiveRefractionHeight,
             refractionAmount = effectiveRefractionAmount,
             withVibrancy = overrides.withVibrancy ?: withVibrancy,
-            withHighlight = overrides.withHighlight ?: withHighlight,
+            withHighlight = effectiveWithHighlight,
             withShadow = overrides.withShadow ?: withShadow,
-            fallbackBrush = effectiveFallbackBrush,
-            backdropOpacity = effectiveBackdropOpacity,
+            fallbackBrush = fallbackBrush,
+            backdropOpacity = backdropOpacity,
             chromaticAberration = overrides.chromaticAberration ?: false,
             depthEffect = overrides.depthEffect ?: false,
-            preview = preview,
+            preview = isPreview,
         )
     }
 }
@@ -421,25 +419,28 @@ internal fun liquidGlassIconTint(
     default: Color,
     preview: Boolean = false,
 ): Color {
-    val previewOverrides = if (preview) {
-        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
-            ?: LocalLiquidGlassPreviewOverrides.current
+    val previewSettings = LocalLiquidGlassPreviewSettings.current
+    val singlePreviewOverride = LocalLiquidGlassPreviewOverrides.current
+    val isPreview = preview || previewSettings != null || singlePreviewOverride != null
+    val previewOverrides = if (isPreview) {
+        previewSettings?.forSurface(surface) ?: singlePreviewOverride
     } else {
         null
     }
-    if (previewOverrides == null && !preview &&
+    if (previewOverrides == null && !isPreview &&
         (!isLiquidGlassSupported() || !LiquidGlassSettings.enabled)
     ) {
         return default
     }
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
-    if (!shouldRenderLiquidGlassSurface(surface, overrides, preview, LiquidGlassSettings.enabled)) {
+    if (!shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled)) {
         return default
     }
     return overrides.defaultIconColorArgb?.let { Color(it).copy(alpha = default.alpha) } ?: default
 }
 
 /**
+ * Returns the effective per-surface enabled state/**
  * Returns the effective per-surface enabled state for branches choosing between glass and a
  * native fallback. Preview rendering reads preview-local overrides and ignores the app-wide
  * master switch, while respecting the individual surface toggle.
@@ -450,9 +451,12 @@ internal fun isLiquidGlassSurfaceEffectivelyEnabled(
     preview: Boolean = false,
     platformSupported: Boolean = true,
 ): Boolean {
-    val overrides = if (preview) {
-        LocalLiquidGlassPreviewSettings.current?.forSurface(surface)
-            ?: LocalLiquidGlassPreviewOverrides.current
+    val previewSettings = LocalLiquidGlassPreviewSettings.current
+    val singlePreviewOverride = LocalLiquidGlassPreviewOverrides.current
+    val isPreview = preview || previewSettings != null || singlePreviewOverride != null
+    val overrides = if (isPreview) {
+        previewSettings?.forSurface(surface)
+            ?: singlePreviewOverride
             ?: LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
@@ -460,13 +464,13 @@ internal fun isLiquidGlassSurfaceEffectivelyEnabled(
     return shouldRenderLiquidGlassSurface(
         surface = surface,
         overrides = overrides,
-        preview = preview,
+        preview = isPreview,
         masterEnabled = LiquidGlassSettings.enabled,
         platformSupported = platformSupported,
     )
 }
 
-/** Used by components that need to fall back to their original control when a surface is disabled. */
+/** Used by components that need to fall back/** Used by components that need to fall back to their original control when a surface is disabled. */
 internal fun isLiquidGlassSurfacePreferenceEnabled(surface: LiquidGlassSurface): Boolean {
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     return overrides.enabled ?: surface.defaultEnabled
