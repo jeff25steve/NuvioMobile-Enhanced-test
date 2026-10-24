@@ -63,8 +63,9 @@ class SettingsGlassChromeTest {
     @Test
     fun roundedSettingsHeaderCornersShowOnlyTheStaticBackdropNotScrollingRows() {
         compose.setContent {
-            val backdrop = rememberNuvioBackdrop()
-            Box(Modifier.size(width = 320.dp, height = 180.dp)) {
+            NuvioTheme {
+                val backdrop = rememberNuvioBackdrop()
+                Box(Modifier.size(width = 320.dp, height = 180.dp)) {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -78,13 +79,14 @@ class SettingsGlassChromeTest {
                         .height(72.dp)
                         .background(Color.Red),
                 )
-                CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
-                    NuvioScreenHeader(
-                        title = "Settings",
-                        includeStatusBarPadding = false,
-                        topPadding = 0.dp,
-                        useSettingsGlass = true,
-                    )
+                    CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+                        NuvioScreenHeader(
+                            title = "Settings",
+                            includeStatusBarPadding = false,
+                            topPadding = 0.dp,
+                            useSettingsGlass = true,
+                        )
+                    }
                 }
             }
         }
