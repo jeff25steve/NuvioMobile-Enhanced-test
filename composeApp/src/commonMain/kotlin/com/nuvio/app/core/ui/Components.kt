@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -147,6 +148,9 @@ fun NuvioSurfaceCard(
     }
 }
 
+internal fun settingsHeaderShape(settingsGlassEnabled: Boolean, defaultShape: Shape): Shape =
+    if (settingsGlassEnabled) RectangleShape else defaultShape
+
 @Composable
 fun NuvioScreenHeader(
     title: String,
@@ -164,11 +168,10 @@ fun NuvioScreenHeader(
         platformSupported = isLiquidGlassSupported(),
     )
     val settingsBackdrop = if (settingsGlassEnabled) LocalLiquidGlassBackdrop.current else null
-    val headerShape = if (settingsGlassEnabled) {
-        liquidGlassShape(LiquidGlassSurface.SETTINGS, tokens.shapes.compactCard)
-    } else {
-        tokens.shapes.compactCard
-    }
+    val headerShape = settingsHeaderShape(
+        settingsGlassEnabled = settingsGlassEnabled,
+        defaultShape = tokens.shapes.compactCard,
+    )
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
         !LocalNativeNavigationBarHidden.current &&
         onBack != null
