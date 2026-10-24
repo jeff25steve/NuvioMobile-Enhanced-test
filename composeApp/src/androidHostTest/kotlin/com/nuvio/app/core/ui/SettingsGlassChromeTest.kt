@@ -37,7 +37,7 @@ import org.robolectric.shadows.ShadowPixelCopy
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], application = Application::class, shadows = [ShadowPixelCopy::class], minSdk = 26)
+@Config(sdk = [34], application = Application::class, shadows = [ShadowPixelCopy::class])
 class SettingsGlassChromeTest {
     @get:Rule
     val compose = createComposeRule()
