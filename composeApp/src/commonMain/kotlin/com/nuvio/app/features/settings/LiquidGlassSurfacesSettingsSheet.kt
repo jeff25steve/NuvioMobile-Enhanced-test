@@ -1213,8 +1213,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         title = stringResource(Res.string.settings_nav_bar_glass_corner_radius),
                         value = overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent,
                         valueRange = 0f..50f,
-                        valueLabel = overrides.cornerRadiusPercent?.let { "${it.roundToInt()}%" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        valueLabel = "${(overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent).roundToInt()}%",
                         isTablet = isTablet,
                         steps = 49,
                         onValueChange = { onChanged(overrides.copy(cornerRadiusPercent = it)) },
@@ -1225,8 +1224,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         title = stringResource(Res.string.settings_nav_bar_glass_blur_radius),
                         value = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
                         valueRange = 0f..32f,
-                        valueLabel = overrides.blurRadiusDp?.let { "${it.roundToInt()} dp" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        valueLabel = "${(overrides.blurRadiusDp ?: recipe.blurRadiusDp).roundToInt()} dp",
                         isTablet = isTablet,
                         steps = 31,
                         onValueChange = { onChanged(overrides.copy(blurRadiusDp = it)) },
@@ -1237,8 +1235,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         title = stringResource(Res.string.settings_nav_bar_glass_refraction_height),
                         value = overrides.refractionHeightDp ?: recipe.refractionHeightDp,
                         valueRange = 0f..48f,
-                        valueLabel = overrides.refractionHeightDp?.let { "${it.roundToInt()} dp" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        valueLabel = "${(overrides.refractionHeightDp ?: recipe.refractionHeightDp).roundToInt()} dp",
                         isTablet = isTablet,
                         steps = 47,
                         onValueChange = { onChanged(overrides.copy(refractionHeightDp = it)) },
@@ -1247,8 +1244,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         title = stringResource(Res.string.settings_nav_bar_glass_refraction_amount),
                         value = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
                         valueRange = 0f..48f,
-                        valueLabel = overrides.refractionAmountDp?.let { "${it.roundToInt()} dp" }
-                            ?: stringResource(Res.string.settings_liquid_glass_default),
+                        valueLabel = "${(overrides.refractionAmountDp ?: recipe.refractionAmountDp).roundToInt()} dp",
                         isTablet = isTablet,
                         steps = 47,
                         onValueChange = { onChanged(overrides.copy(refractionAmountDp = it)) },
@@ -1258,8 +1254,7 @@ private fun LiquidGlassSurfaceEditorControls(
                     title = stringResource(Res.string.settings_nav_bar_glass_tint_opacity),
                     value = overrides.tintOpacity ?: recipe.tintOpacity,
                     valueRange = 0f..1f,
-                    valueLabel = overrides.tintOpacity?.let { "${(it * 100f).roundToInt()}%" }
-                        ?: stringResource(Res.string.settings_liquid_glass_default),
+                    valueLabel = "${((overrides.tintOpacity ?: recipe.tintOpacity) * 100f).roundToInt()}%",
                     isTablet = isTablet,
                     steps = 19,
                     onValueChange = { onChanged(overrides.copy(tintOpacity = it)) },
@@ -1392,6 +1387,7 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.STREAM_SELECTION -> 116.dp
             LiquidGlassSurface.STREAM_RESULTS -> 212.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
+            LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
             else -> 88.dp
         }
 
@@ -1503,31 +1499,10 @@ private fun LiquidGlassSurfacePreview(
                                 )
                             }
 
-                            LiquidGlassSurface.LIBRARY -> {
-                                val shape = RoundedCornerShape(12.dp)
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                                        .liquidGlassForSurface(
-                                            surface = LiquidGlassSurface.LIBRARY,
-                                            shape = shape,
-                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = recipe.tintOpacity),
-                                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                            blurRadius = recipe.blurRadiusDp.dp,
-                                            refractionHeight = recipe.refractionHeightDp.dp,
-                                            refractionAmount = recipe.refractionAmountDp.dp,
-                                            preview = true,
-                                        ),
-                                ) {
-                                    CloudLibrarySearchField(
-                                        query = "",
-                                        onQueryChange = {},
-                                        modifier = Modifier.fillMaxWidth(),
-                                        transparentContainer = true,
-                                    )
-                                }
-                            }
+                            LiquidGlassSurface.LIBRARY -> LiquidGlassLibraryPreview(
+                                recipe = recipe,
+                                modifier = Modifier.fillMaxSize(),
+                            )
 
                             LiquidGlassSurface.SETTINGS -> LiquidGlassSettingsSurfacePreview(
                                 customBackgroundUrl = customSettingsBackgroundUrl,
@@ -1535,25 +1510,9 @@ private fun LiquidGlassSurfacePreview(
                                 modifier = Modifier.fillMaxSize(),
                             )
 
-                            LiquidGlassSurface.BOTTOM_SHEETS -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp)
-                                        .nuvioSheetSurface(
-                                            backdrop = previewSheetBackdrop,
-                                            shape = RoundedCornerShape(28.dp),
-                                            containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
-                                            preview = true,
-                                        ),
-                                ) {
-                                    NuvioBottomSheetActionRow(
-                                        title = stringResource(Res.string.compose_settings_page_appearance),
-                                        icon = Icons.Rounded.Settings,
-                                        onClick = {},
-                                    )
-                                }
-                            }
+                            LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassBottomSheetPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            )
 
                             LiquidGlassSurface.PLAYER,
                             LiquidGlassSurface.SEARCH,
@@ -1639,23 +1598,193 @@ private fun LiquidGlassSettingsSurfacePreview(
     }
 }
 
+
+@Composable
+private fun LiquidGlassLibraryPreview(
+    recipe: LiquidGlassSurfaceRecipe,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val shape = RoundedCornerShape(12.dp)
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF101F30), Color(0xFF3D4356), Color(0xFF5B314B), Color(0xFF15141D)),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(112.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 24.dp, y = (-30).dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color(0xB76AC4D9), Color(0x447F579D), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .liquidGlassForSurface(
+                            surface = LiquidGlassSurface.LIBRARY,
+                            shape = shape,
+                            tint = MaterialTheme.colorScheme.surface.copy(alpha = recipe.tintOpacity),
+                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                            blurRadius = recipe.blurRadiusDp.dp,
+                            refractionHeight = recipe.refractionHeightDp.dp,
+                            refractionAmount = recipe.refractionAmountDp.dp,
+                            preview = true,
+                        ),
+                ) {
+                    CloudLibrarySearchField(
+                        query = "",
+                        onQueryChange = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        transparentContainer = true,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassBottomSheetPreview(
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF102638), Color(0xFF435064), Color(0xFF683A52), Color(0xFF17141C)),
+                    ),
+                ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 22.dp, y = (-42).dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color(0xBA63BCD5), Color(0x4E9560AB), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(94.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-24).dp, y = 24.dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color(0x9FD56B9D), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .nuvioSheetSurface(
+                    backdrop = backdrop,
+                    shape = RoundedCornerShape(28.dp),
+                    containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
+                    preview = true,
+                ),
+        ) {
+            NuvioBottomSheetActionRow(
+                title = stringResource(Res.string.compose_settings_page_appearance),
+                icon = Icons.Rounded.Settings,
+                onClick = {},
+            )
+            NuvioBottomSheetDivider()
+            NuvioBottomSheetActionRow(
+                title = stringResource(Res.string.settings_appearance_section_display),
+                icon = Icons.Rounded.Settings,
+                onClick = {},
+            )
+        }
+    }
+}
+
 @Composable
 private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
     val groups = remember { liquidGlassPreviewStreamGroups() }
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center,
-    ) {
-        ProviderFilterRow(
-            groups = groups,
-            selectedFilter = "preview:torrentio",
-            onFilterSelected = {},
-            onRefresh = {},
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
-            spacing = 6.dp,
-            preview = true,
-        )
+    val backdrop = rememberNuvioBackdrop()
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF12283B), Color(0xFF3A394B), Color(0xFF40263D), Color(0xFF17141F)),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 22.dp, y = (-32).dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color(0xB85AB8D0), Color(0x44774F9D), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(82.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-18).dp, y = 28.dp)
+                    .background(
+                        Brush.radialGradient(listOf(Color(0xA5C76A9E), Color.Transparent)),
+                        CircleShape,
+                    ),
+            )
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ProviderFilterRow(
+                    groups = groups,
+                    selectedFilter = "preview:torrentio",
+                    onFilterSelected = {},
+                    onRefresh = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
+                    spacing = 6.dp,
+                    preview = true,
+                )
+            }
+        }
     }
 }
 
