@@ -836,6 +836,7 @@ private fun MobileSettingsScreen(
                     NuvioScreenHeader(
                         title = stringResource(page.titleRes),
                         onBack = previousPage?.let { { onNavigateBack() } },
+                        useSettingsGlass = true,
                     )
                 }
             } else {
