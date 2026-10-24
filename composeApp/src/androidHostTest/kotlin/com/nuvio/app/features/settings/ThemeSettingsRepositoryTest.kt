@@ -333,7 +333,7 @@ class ThemeSettingsRepositoryTest {
         assertEquals(initialRevision + 1L, ThemeSettingsRepository.customSettingsBackgroundImageRevision.value)
 
         val savedRevision = ThemeSettingsRepository.customSettingsBackgroundImageRevision.value
-        ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
+        assertTrue(ThemeSettingsRepository.clearCustomSettingsBackgroundImage())
         assertEquals(savedRevision + 1L, ThemeSettingsRepository.customSettingsBackgroundImageRevision.value)
         assertNull(ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
         assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())

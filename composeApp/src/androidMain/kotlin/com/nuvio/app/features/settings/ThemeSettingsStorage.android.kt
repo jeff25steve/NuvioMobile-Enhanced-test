@@ -282,9 +282,10 @@ actual object ThemeSettingsStorage {
         }
     }
 
-    actual fun clearCustomSettingsBackgroundImage() {
-        deleteSettingsBackgroundImage(settingsBackgroundImageFile())
+    actual fun clearCustomSettingsBackgroundImage(): Boolean {
+        val deleted = deleteSettingsBackgroundImage(settingsBackgroundImageFile())
         clearLegacyCustomSettingsBackgroundUrl()
+        return deleted
     }
 
     actual fun clearCustomSettingsBackgroundImage(profileIndex: Int): Boolean {

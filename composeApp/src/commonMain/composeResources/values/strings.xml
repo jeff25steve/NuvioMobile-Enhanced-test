@@ -723,7 +723,7 @@
     <string name="settings_appearance_custom_settings_background_choose">Choose image</string>
     <string name="settings_appearance_custom_settings_background_clear">Clear background</string>
     <string name="settings_appearance_custom_settings_background_saving">Saving image…</string>
-    <string name="settings_appearance_custom_settings_background_error">That image could not be saved. Choose another image and try again.</string>
+    <string name="settings_appearance_custom_settings_background_error">That image could not be used. Please try again.</string>
     <string name="settings_appearance_catalog_accent">Catalog accent underline</string>
     <string name="settings_appearance_catalog_accent_description">Show a small accent-colored bar under each catalog title on the home screen, matching your theme.</string>
     <string name="settings_tracking_connect_with_code">Connect with code</string>

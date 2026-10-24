@@ -279,11 +279,13 @@ object ThemeSettingsRepository {
         return true
     }
 
-    fun clearCustomSettingsBackgroundImage() {
+    fun clearCustomSettingsBackgroundImage(): Boolean {
         ensureLoaded()
-        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+        val deleted = ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+        if (!deleted) return false
         _customSettingsBackgroundImageUri.value = null
         _customSettingsBackgroundImageRevision.value += 1L
+        return true
     }
 
     fun setAppLanguage(language: AppLanguage) {

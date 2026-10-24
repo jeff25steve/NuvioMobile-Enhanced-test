@@ -273,8 +273,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                         TextButton(
                             enabled = customSettingsBackgroundImageUri != null && !isSavingSettingsBackground,
                             onClick = {
-                                ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
-                                settingsBackgroundImageError = false
+                                settingsBackgroundImageError =
+                                    !ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
                             },
                         ) {
                             Text(stringResource(Res.string.settings_appearance_custom_settings_background_clear))

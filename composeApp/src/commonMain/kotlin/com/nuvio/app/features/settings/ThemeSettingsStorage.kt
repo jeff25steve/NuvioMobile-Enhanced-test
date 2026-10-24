@@ -45,7 +45,7 @@ internal expect object ThemeSettingsStorage {
     fun saveLiquidGlassSurfaceSettings(settings: String)
     fun loadCustomSettingsBackgroundImageUri(): String?
     fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String?
-    fun clearCustomSettingsBackgroundImage()
+    fun clearCustomSettingsBackgroundImage(): Boolean
     fun clearCustomSettingsBackgroundImage(profileIndex: Int): Boolean
     fun exportToSyncPayload(): JsonObject
     fun replaceFromSyncPayload(payload: JsonObject)
