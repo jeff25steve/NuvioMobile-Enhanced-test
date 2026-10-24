@@ -121,7 +121,7 @@ import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
-import nuvio.composeapp.generated.resources.settings_nav_bar_glass
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_clear
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_frosted
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_liquid
@@ -131,11 +131,11 @@ import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_he
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_refraction_amount
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_tint_opacity
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_highlight
-import nuvio.composeapp.generated.resources.settings_nav_bar_glass_highlight_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_highlight_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_vibrancy
-import nuvio.composeapp.generated.resources.settings_nav_bar_glass_vibrancy_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_vibrancy_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_shadow
-import nuvio.composeapp.generated.resources.settings_nav_bar_glass_shadow_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_shadow_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_chromatic_aberration
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_chromatic_aberration_description
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_depth_effect
@@ -735,7 +735,7 @@ private fun LiquidGlassDetailPagePreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
 
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
@@ -967,7 +967,7 @@ private fun LiquidGlassStreamPickerPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
             LocalLiquidGlassPreviewSettings provides settings,
@@ -1177,7 +1177,7 @@ private fun LiquidGlassSurfaceEditorControls(
                     effectiveRefractionHeight > 0f &&
                     effectiveRefractionAmount > 0f
                 Text(
-                    text = stringResource(Res.string.settings_nav_bar_glass),
+                    text = stringResource(Res.string.settings_liquid_glass_surface_material_header),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1238,7 +1238,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 }
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_highlight),
-                    description = stringResource(Res.string.settings_nav_bar_glass_highlight_description),
+                    description = stringResource(Res.string.settings_liquid_glass_surface_highlight_description),
                     checked = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withHighlight = it)) },
@@ -1296,14 +1296,14 @@ private fun LiquidGlassSurfaceEditorControls(
                 )
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_vibrancy),
-                    description = stringResource(Res.string.settings_nav_bar_glass_vibrancy_description),
+                    description = stringResource(Res.string.settings_liquid_glass_surface_vibrancy_description),
                     checked = overrides.withVibrancy ?: true,
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withVibrancy = it)) },
                 )
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_shadow),
-                    description = stringResource(Res.string.settings_nav_bar_glass_shadow_description),
+                    description = stringResource(Res.string.settings_liquid_glass_surface_shadow_description),
                     checked = overrides.withShadow ?: false,
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withShadow = it)) },
@@ -1629,7 +1629,7 @@ private fun LiquidGlassSettingsSurfacePreview(
             )
 
             if (backgroundImageRequest == null) LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
@@ -1698,7 +1698,7 @@ private fun LiquidGlassLibraryPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -1773,7 +1773,7 @@ private fun LiquidGlassBottomSheetPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1841,7 +1841,7 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 ProviderFilterRow(
@@ -1949,6 +1949,7 @@ private fun LiquidGlassPlayerPreview(
                             CircleShape,
                         ),
                 )
+                LiquidGlassPreviewBackdropDetailMarks()
             }
 
             CompositionLocalProvider(
@@ -2151,7 +2152,7 @@ private fun LiquidGlassDetailBackdropPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -2211,7 +2212,7 @@ private fun LiquidGlassDetailHeaderPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             DetailFloatingHeader(
                 meta = previewMeta,
@@ -2265,7 +2266,7 @@ private fun LiquidGlassStreamSearchPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
@@ -2361,7 +2362,7 @@ private fun LiquidGlassStreamResultsPreview(
             )
 
             LiquidGlassPreviewBackdropDetailMarks()
-}
+        }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
