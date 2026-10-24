@@ -271,7 +271,11 @@ actual object ThemeSettingsStorage {
         val temporary = directory.resolve(".${target.name}.tmp")
         return try {
             temporary.writeBytes(bytes)
-            if (!temporary.renameTo(target)) return null
+            if (!temporary.renameTo(target)) {
+                // Some filesystems don't replace an existing destination on rename. Keep the
+                // same profile-scoped path usable when the user selects a replacement image.
+                temporary.copyTo(target, overwrite = true)
+            }
             target.takeIf {
                 it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
             }?.toURI()?.toString()

@@ -173,6 +173,12 @@ class ThemeSettingsStorageTest {
         val imageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes)
         assertTrue(imageUri?.startsWith("file:") == true)
         assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+
+        val replacementBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02, 0xFF.toByte(), 0xD9.toByte())
+        assertEquals(imageUri, ThemeSettingsStorage.saveCustomSettingsBackgroundImage(replacementBytes))
+        val storedBytes = java.io.File(java.net.URI(imageUri!!)).readBytes()
+        assertTrue(storedBytes.contentEquals(replacementBytes), "Selecting another image must replace the current profile's file.")
+
         assertTrue(ThemeSettingsStorage.exportToSyncPayload().keys.none { "settings_background" in it })
 
         ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
