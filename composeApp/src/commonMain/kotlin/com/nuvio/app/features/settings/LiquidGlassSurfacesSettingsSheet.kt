@@ -1412,7 +1412,6 @@ private fun LiquidGlassSurfacePreview(
 
             LiquidGlassSurface.SEARCH -> LiquidGlassSearchPreview(
                 recipe = recipe,
-                overrides = overrides,
                 modifier = Modifier.fillMaxSize(),
             )
 
@@ -1960,13 +1959,15 @@ private fun LiquidGlassPlayerPreview(
 @Composable
 private fun LiquidGlassSearchPreview(
     recipe: LiquidGlassSurfaceRecipe,
-    overrides: LiquidGlassSurfaceOverrides,
     modifier: Modifier = Modifier,
 ) {
     val previewBackdrop = rememberNuvioBackdrop()
     val listState = rememberLazyListState()
-    val shape = overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) }
-        ?: RoundedCornerShape(18.dp)
+    val shape = liquidGlassShape(
+        surface = LiquidGlassSurface.SEARCH,
+        defaultShape = RoundedCornerShape(18.dp),
+        preview = true,
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         Box(

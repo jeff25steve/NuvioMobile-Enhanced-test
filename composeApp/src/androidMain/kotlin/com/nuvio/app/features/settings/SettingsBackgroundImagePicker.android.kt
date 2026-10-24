@@ -60,7 +60,7 @@ private fun readAndNormalizeBackgroundImage(context: Context, uri: Uri): ByteArr
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Unsupported image." }
 
     var sampleSize = 1
-    while (max(bounds.outWidth, bounds.outHeight) / sampleSize > MaximumBackgroundImageDimensionPx * 2) {
+    while (max(bounds.outWidth, bounds.outHeight) / sampleSize > MaximumBackgroundImageDimensionPx) {
         sampleSize *= 2
     }
     val options = BitmapFactory.Options().apply {

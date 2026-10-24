@@ -9,7 +9,6 @@ import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
@@ -39,6 +38,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import kotlin.math.roundToInt
 
 internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
@@ -92,7 +92,11 @@ internal fun Modifier.playerLiquidGlass(
         masterEnabled = LiquidGlassSettings.enabled,
     ) && materialStyle.usesBackdrop
     val effectiveShape = if (enabled) {
-        overrides.cornerRadiusPercent?.let { RoundedCornerShape(percent = it.roundToInt()) } ?: shape
+        liquidGlassShape(
+            surface = LiquidGlassSurface.PLAYER,
+            defaultShape = shape,
+            preview = previewOverrides != null,
+        )
     } else {
         shape
     }
