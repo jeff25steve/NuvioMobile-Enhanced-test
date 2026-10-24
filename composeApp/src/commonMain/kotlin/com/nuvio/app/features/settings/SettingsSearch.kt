@@ -1289,7 +1289,7 @@ private fun SettingsSearchField(
         },
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = if (glassEnabled) tokens.colors.borderSubtle else tokens.colors.borderFocus,
+            focusedBorderColor = tokens.colors.borderFocus,
             unfocusedBorderColor = if (glassEnabled) tokens.colors.borderSubtle else tokens.colors.borderDefault,
             focusedContainerColor = if (glassEnabled) Color.Transparent else tokens.colors.surfaceCard,
             unfocusedContainerColor = if (glassEnabled) Color.Transparent else tokens.colors.surfaceCard,
