@@ -277,18 +277,18 @@ fun SupportersContributorsSettingsScreen(
     onBack: () -> Unit,
 ) {
     SettingsGlassPageBackground {
-    NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_supporters_contributors),
-                onBack = onBack,
-                useSettingsGlass = true,
-            )
+        NuvioScreen(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_supporters_contributors),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            supportersContributorsContent(isTablet = false)
         }
-        supportersContributorsContent(isTablet = false)
-    }
     }
 }
 
