@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/liquid-glass-final-tests-only-20261024]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -15,12 +17,54 @@ concurrency:
 
 jobs:
   full-debug-build:
-    name: Build fullDebug APK
+    name: Focused Android host tests
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Run focused Android host regression tests
+        run: |
+          ./gradlew :composeApp:testAndroidHostTest \
+            --tests com.nuvio.app.core.ui.FloatingNavigationBarGestureTest \
+            --tests com.nuvio.app.features.downloads.AndroidDownloadTransferTest \
+            --tests com.nuvio.app.features.player.NextEpisodeCardTest \
+            --tests com.nuvio.app.features.player.PlayerGestureOverlayTest \
+            --tests com.nuvio.app.features.player.PlayerSurfaceGesturesTest \
+            --tests com.nuvio.app.features.profiles.ProfileAvatarBorderColorTest \
+            --tests com.nuvio.app.features.settings.NavigationBarGlassSettingsTest \
+            --tests com.nuvio.app.features.settings.ThemeSettingsRepositoryTest \
+            --tests com.nuvio.app.core.ui.glass.LiquidGlassEffectSettingsTest \
+            --tests com.nuvio.app.core.storage.LocalAccountDataCleanerTest \
+            --tests com.nuvio.app.navigation.NavigationSavedStateConfigurationTest \
+            -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
+
+      - name: Summarize Android host test failures
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          files = glob.glob("composeApp/build/test-results/testAndroidHostTest/*.xml")
+          failures = []
+          for path in files:
+              try:
+                  root = ET.parse(path).getroot()
+              except (ET.ParseError, OSError):
+                  continue
+              for case in root.iter("testcase"):
+                  for node in list(case.findall("failure")) + list(case.findall("error")):
+                      name = f"{case.attrib.get('classname', '')}#{case.attrib.get('name', '')}"
+                      message = node.attrib.get("message", "")
+                      detail = (node.text or "").strip()
+                      failures.append((name, message, detail))
+          print(f"Parsed {len(files)} test result XML files; {len(failures)} failing cases.")
+          for name, message, detail in failures:
+              print(f"FAIL: {name}: {message}")
+              if detail:
+                  print(detail[:4000])
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -74,13 +118,3 @@ jobs:
           NUVIO_SUPABASE_FALLBACK_URL=
           EOF
 
-      - name: Build fullDebug APK
-        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
-
-      - name: Upload fullDebug APK
-        uses: actions/upload-artifact@v7
-        with:
-          path: androidApp/build/outputs/apk/full/debug/androidApp-full-debug.apk
-          archive: false
-          if-no-files-found: error
-          retention-days: 7
