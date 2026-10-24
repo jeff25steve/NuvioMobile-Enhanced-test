@@ -329,14 +329,29 @@ actual object ThemeSettingsStorage {
     }
 
     actual fun clearCustomSettingsBackgroundImage() {
-        val path = settingsBackgroundImagePath()
-        NSFileManager.defaultManager.removeItemAtPath(path, null)
-        NSFileManager.defaultManager.removeItemAtPath("$path.tmp", null)
+        deleteSettingsBackgroundImage(settingsBackgroundImagePath())
         clearLegacyCustomSettingsBackgroundUrl()
     }
 
-    private fun settingsBackgroundImagePath(): String =
-        "${NSHomeDirectory()}/Library/Application Support/NuvioSettingsBackgrounds/${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg"
+    actual fun clearCustomSettingsBackgroundImage(profileIndex: Int): Boolean {
+        val path = settingsBackgroundImagePath(profileIndex)
+        val deleted = deleteSettingsBackgroundImage(path)
+        clearLegacyCustomSettingsBackgroundUrl(profileIndex)
+        return deleted
+    }
+
+    private fun deleteSettingsBackgroundImage(path: String): Boolean {
+        NSFileManager.defaultManager.removeItemAtPath(path, null)
+        NSFileManager.defaultManager.removeItemAtPath("$path.tmp", null)
+        return !NSFileManager.defaultManager.fileExistsAtPath(path) &&
+            !NSFileManager.defaultManager.fileExistsAtPath("$path.tmp")
+    }
+
+    private fun settingsBackgroundImagePath(profileIndex: Int? = null): String {
+        val key = profileIndex?.let { ProfileScopedKey.of(localCustomSettingsBackgroundImageKey, it) }
+            ?: ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)
+        return "${NSHomeDirectory()}/Library/Application Support/NuvioSettingsBackgrounds/$key.jpg"
+    }
 
     private fun excludeFromBackup(path: String): Boolean =
         NSURL.fileURLWithPath(path).setResourceValue(
@@ -345,10 +360,10 @@ actual object ThemeSettingsStorage {
             error = null,
         )
 
-    private fun clearLegacyCustomSettingsBackgroundUrl() {
-        NSUserDefaults.standardUserDefaults.removeObjectForKey(
-            ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey),
-        )
+    private fun clearLegacyCustomSettingsBackgroundUrl(profileIndex: Int? = null) {
+        val key = profileIndex?.let { ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey, it) }
+            ?: ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey)
+        NSUserDefaults.standardUserDefaults.removeObjectForKey(key)
     }
 
     private fun loadRawString(key: String): String? =

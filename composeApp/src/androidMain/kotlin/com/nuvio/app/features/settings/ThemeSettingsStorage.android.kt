@@ -283,19 +283,34 @@ actual object ThemeSettingsStorage {
     }
 
     actual fun clearCustomSettingsBackgroundImage() {
-        settingsBackgroundImageFile()?.let { target ->
-            target.delete()
-            target.parentFile?.resolve(".${target.name}.tmp")?.delete()
-        }
+        deleteSettingsBackgroundImage(settingsBackgroundImageFile())
         clearLegacyCustomSettingsBackgroundUrl()
     }
 
-    private fun settingsBackgroundImageFile(): File? =
-        appContext?.noBackupFilesDir?.resolve("settings_backgrounds")
-            ?.resolve("${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg")
+    actual fun clearCustomSettingsBackgroundImage(profileIndex: Int): Boolean {
+        val deleted = deleteSettingsBackgroundImage(settingsBackgroundImageFile(profileIndex))
+        clearLegacyCustomSettingsBackgroundUrl(profileIndex)
+        return deleted
+    }
 
-    private fun clearLegacyCustomSettingsBackgroundUrl() {
-        preferences?.edit()?.remove(ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey))?.apply()
+    private fun deleteSettingsBackgroundImage(target: File?): Boolean {
+        if (target == null) return false
+        val temporary = target.parentFile?.resolve(".${target.name}.tmp")
+        val imageRemoved = !target.exists() || target.delete()
+        val temporaryRemoved = temporary?.let { !it.exists() || it.delete() } ?: true
+        return imageRemoved && temporaryRemoved
+    }
+
+    private fun settingsBackgroundImageFile(profileIndex: Int? = null): File? {
+        val key = profileIndex?.let { ProfileScopedKey.of(localCustomSettingsBackgroundImageKey, it) }
+            ?: ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)
+        return appContext?.noBackupFilesDir?.resolve("settings_backgrounds")?.resolve("$key.jpg")
+    }
+
+    private fun clearLegacyCustomSettingsBackgroundUrl(profileIndex: Int? = null) {
+        val key = profileIndex?.let { ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey, it) }
+            ?: ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey)
+        preferences?.edit()?.remove(key)?.apply()
     }
 
     private fun loadRawString(key: String): String? =

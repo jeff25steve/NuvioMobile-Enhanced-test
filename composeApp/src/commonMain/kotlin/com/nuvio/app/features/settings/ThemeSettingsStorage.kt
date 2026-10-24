@@ -46,6 +46,7 @@ internal expect object ThemeSettingsStorage {
     fun loadCustomSettingsBackgroundImageUri(): String?
     fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String?
     fun clearCustomSettingsBackgroundImage()
+    fun clearCustomSettingsBackgroundImage(profileIndex: Int): Boolean
     fun exportToSyncPayload(): JsonObject
     fun replaceFromSyncPayload(payload: JsonObject)
 }

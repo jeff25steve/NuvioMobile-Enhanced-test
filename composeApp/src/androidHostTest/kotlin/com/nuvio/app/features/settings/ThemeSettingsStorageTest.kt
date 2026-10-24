@@ -178,10 +178,12 @@ class ThemeSettingsStorageTest {
         ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
         assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
 
+        assertTrue(ThemeSettingsStorage.clearCustomSettingsBackgroundImage(99))
+        assertTrue(!otherProfileFile.exists(), "Deleting one profile should remove its background image.")
+        assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+
         ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
         assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
-        assertTrue(otherProfileFile.exists(), "Clearing this profile must not delete another profile's image.")
-        otherProfileFile.delete()
     }
 
 
