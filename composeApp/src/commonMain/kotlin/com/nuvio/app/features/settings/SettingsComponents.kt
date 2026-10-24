@@ -175,6 +175,7 @@ private fun SettingsCard(
     modifier: Modifier = Modifier,
     previewGlass: Boolean = false,
     contentPadding: Boolean = false,
+    tonalElevation: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -212,6 +213,8 @@ private fun SettingsCard(
             tokens.borders.hairline,
             tokens.colors.borderSubtle,
         ),
+        tonalElevation = tonalElevation.dp,
+        shadowElevation = if (contentPadding) tokens.elevation.flat else 0.dp,
     ) {
         Column(
             modifier = if (contentPadding) Modifier.padding(tokens.spacing.cardPadding) else Modifier,
@@ -224,12 +227,14 @@ private fun SettingsCard(
 internal fun SettingsSurfaceCard(
     isTablet: Boolean = false,
     modifier: Modifier = Modifier,
+    tonalElevation: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SettingsCard(
         isTablet = isTablet,
         modifier = modifier,
         contentPadding = true,
+        tonalElevation = tonalElevation,
         content = content,
     )
 }
