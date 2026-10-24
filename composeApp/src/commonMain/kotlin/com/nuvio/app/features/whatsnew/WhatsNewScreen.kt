@@ -55,6 +55,7 @@ import com.nuvio.app.core.ui.NuvioPrimaryButton
 import com.nuvio.app.core.ui.NuvioSectionLabel
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
+import com.nuvio.app.features.settings.SettingsGlassPageBackground
 import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
@@ -183,11 +184,13 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
         null
     }
 
-    NuvioScreen {
+    SettingsGlassPageBackground {
+        NuvioScreen {
         stickyHeader {
             NuvioScreenHeader(
                 title = stringResource(Res.string.compose_settings_page_whats_new),
                 onBack = onBack,
+                useSettingsGlass = true,
                 actions = {
                     if (isRefreshing) {
                         Box(
@@ -372,6 +375,7 @@ fun WhatsNewSettingsScreen(onBack: () -> Unit) {
         item(key = "whats-new-bottom-spacer") {
             Spacer(modifier = Modifier.size(80.dp))
         }
+    }
     }
 }
 
