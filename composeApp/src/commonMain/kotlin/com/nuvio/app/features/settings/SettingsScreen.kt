@@ -1038,7 +1038,6 @@ private fun MobileSettingsScreen(
         }
         }
         }
-        }
     }
     }
 }
