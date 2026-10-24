@@ -32,6 +32,7 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.features.settings.SettingsGlassPageBackground
+import com.nuvio.app.features.settings.SettingsSurfaceCard
 import com.nuvio.app.features.cloud.PremiumizeCloudLibraryPosterUrl
 import com.nuvio.app.features.cloud.TorboxCloudLibraryPosterUrl
 import com.nuvio.app.features.cloud.cloudLibraryDisplayArtworkUrl
@@ -173,9 +174,7 @@ private fun PlainSettingsStack(
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(if (isTablet) 12.dp else 10.dp))
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        SettingsSurfaceCard(isTablet = isTablet) {
             content()
         }
     }
