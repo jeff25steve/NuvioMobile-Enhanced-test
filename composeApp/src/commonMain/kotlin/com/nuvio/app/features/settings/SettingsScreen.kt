@@ -189,6 +189,7 @@ fun SettingsScreen(
                 .build()
         }
     }
+    var settingsBackgroundLoaded by remember(customSettingsBackgroundUrl) { mutableStateOf(false) }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     BoxWithConstraints(
@@ -211,12 +212,16 @@ fun SettingsScreen(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
+                        onSuccess = { settingsBackgroundLoaded = true },
+                        onError = { settingsBackgroundLoaded = false },
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.28f)),
-                    )
+                    if (settingsBackgroundLoaded) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.28f)),
+                        )
+                    }
                 }
             }
         }
