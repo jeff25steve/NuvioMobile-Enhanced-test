@@ -81,7 +81,6 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
-import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 @Composable
 fun NuvioScreen(
