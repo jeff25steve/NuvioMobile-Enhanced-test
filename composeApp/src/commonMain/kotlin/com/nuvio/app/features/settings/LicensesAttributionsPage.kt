@@ -72,18 +72,18 @@ fun LicensesAttributionsSettingsScreen(
     onBack: () -> Unit,
 ) {
     SettingsGlassPageBackground {
-    NuvioScreen(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        stickyHeader {
-            NuvioScreenHeader(
-                title = stringResource(Res.string.compose_settings_page_licenses_attributions),
-                onBack = onBack,
-                useSettingsGlass = true,
-            )
+        NuvioScreen(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            stickyHeader {
+                NuvioScreenHeader(
+                    title = stringResource(Res.string.compose_settings_page_licenses_attributions),
+                    onBack = onBack,
+                    useSettingsGlass = true,
+                )
+            }
+            licensesAttributionsContent(isTablet = false)
         }
-        licensesAttributionsContent(isTablet = false)
-    }
     }
 }
 
