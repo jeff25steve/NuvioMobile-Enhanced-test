@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.LocalScreenActive
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.AppTheme
@@ -786,6 +787,11 @@ private fun MobileSettingsScreen(
         val watchPartyRowClick = watchPartyRow(onWatchPartyClick)
         val profileDrawsOwnChrome = page == SettingsPage.Profile && showInternalHeader && !LocalUseNativeNavigation.current
         ProfileInsightsPullToRefresh(enabled = page == SettingsPage.Profile) {
+        CompositionLocalProvider(
+            LocalDynamicArtworkBackgroundActive provides (
+                LocalDynamicArtworkBackgroundActive.current || customSettingsBackgroundUrl != null
+            ),
+        ) {
         NuvioScreen(
             modifier = Modifier.nestedScroll(rootSearchRevealConnection),
             listState = listState,
@@ -1029,6 +1035,8 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                 )
             }
+        }
+        }
         }
         }
     }
