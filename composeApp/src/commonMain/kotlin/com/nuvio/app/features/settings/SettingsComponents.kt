@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioTokens
+import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.NuvioActionLabel
 import com.nuvio.app.core.ui.NuvioBackButton
@@ -229,13 +230,25 @@ internal fun SettingsSurfaceCard(
     tonalElevation: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    SettingsCard(
-        isTablet = isTablet,
-        modifier = modifier,
-        contentPadding = true,
-        tonalElevation = tonalElevation,
-        content = content,
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
     )
+    if (glassEnabled) {
+        SettingsCard(
+            isTablet = isTablet,
+            modifier = modifier,
+            contentPadding = true,
+            tonalElevation = tonalElevation,
+            content = content,
+        )
+    } else {
+        NuvioSurfaceCard(
+            modifier = modifier,
+            tonalElevation = tonalElevation,
+            content = content,
+        )
+    }
 }
 
 @Composable
