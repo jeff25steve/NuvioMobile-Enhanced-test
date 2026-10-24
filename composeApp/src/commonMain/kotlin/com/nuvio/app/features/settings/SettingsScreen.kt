@@ -570,6 +570,7 @@ fun SettingsScreen(
                 } else {
                     MobileSettingsScreen(
                         page = page,
+                        hasCustomSettingsBackgroundImage = customSettingsBackgroundImageUri != null,
                         scrollToTopRequests = scrollToTopRequests,
                         onPageChange = ::openPage,
                         onNavigateBack = ::navigateBack,
@@ -662,6 +663,7 @@ fun SettingsScreen(
 @Composable
 private fun MobileSettingsScreen(
     page: SettingsPage,
+    hasCustomSettingsBackgroundImage: Boolean,
     scrollToTopRequests: Flow<Unit>,
     onPageChange: (SettingsPage) -> Unit,
     onNavigateBack: () -> Unit,
@@ -818,7 +820,7 @@ private fun MobileSettingsScreen(
         ProfileInsightsPullToRefresh(enabled = page == SettingsPage.Profile) {
         CompositionLocalProvider(
             LocalDynamicArtworkBackgroundActive provides (
-                LocalDynamicArtworkBackgroundActive.current || customSettingsBackgroundImageUri != null
+                LocalDynamicArtworkBackgroundActive.current || hasCustomSettingsBackgroundImage
             ),
         ) {
         NuvioScreen(
