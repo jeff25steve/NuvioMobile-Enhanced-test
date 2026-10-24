@@ -718,11 +718,12 @@
     <string name="settings_appearance_amoled_description">Use pure black backgrounds for OLED screens.</string>
     <string name="settings_appearance_dynamic_artwork_background">Dynamic background color</string>
     <string name="settings_appearance_custom_settings_background">Custom settings background</string>
-    <string name="settings_appearance_custom_settings_background_description">Use a public HTTPS image URL with a normal domain name. The image host can see your device&apos;s IP address when it loads. The URL stays on this device for this profile, isn&apos;t synced, and the image isn&apos;t saved to the disk cache. Don&apos;t use private or signed links.</string>
-    <string name="settings_appearance_custom_settings_background_url_placeholder">https://example.com/background.jpg</string>
-    <string name="settings_appearance_custom_settings_background_url_invalid">Use a public HTTPS URL with a domain name. Credentials, query strings, fragments, IP/local hosts, and custom ports aren&apos;t allowed.</string>
-    <string name="settings_appearance_custom_settings_background_apply">Apply background</string>
+    <string name="settings_appearance_custom_settings_background_description">Choose an image from your device. It is saved privately on this device for this profile and is never uploaded or synced.</string>
+    <string name="settings_appearance_custom_settings_background_preview">Custom Settings background preview</string>
+    <string name="settings_appearance_custom_settings_background_choose">Choose image</string>
     <string name="settings_appearance_custom_settings_background_clear">Clear background</string>
+    <string name="settings_appearance_custom_settings_background_saving">Saving image…</string>
+    <string name="settings_appearance_custom_settings_background_error">That image could not be saved. Choose another image and try again.</string>
     <string name="settings_appearance_catalog_accent">Catalog accent underline</string>
     <string name="settings_appearance_catalog_accent_description">Show a small accent-colored bar under each catalog title on the home screen, matching your theme.</string>
     <string name="settings_tracking_connect_with_code">Connect with code</string>

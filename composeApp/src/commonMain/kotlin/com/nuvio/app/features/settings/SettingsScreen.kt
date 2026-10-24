@@ -175,13 +175,13 @@ fun SettingsScreen(
     onWatchPartyClick: () -> Unit = {},
 ) {
     val settingsBackdrop = rememberNuvioBackdrop()
-    val customSettingsBackgroundUrl by remember {
+    val customSettingsBackgroundImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
-        ThemeSettingsRepository.customSettingsBackgroundUrl
+        ThemeSettingsRepository.customSettingsBackgroundImageUri
     }.collectAsStateWithLifecycle()
     val settingsImageContext = LocalPlatformContext.current
-    val settingsBackgroundImageRequest = remember(customSettingsBackgroundUrl, settingsImageContext) {
-        customSettingsBackgroundUrl?.let { imageUrl ->
+    val settingsBackgroundImageRequest = remember(customSettingsBackgroundImageUri, settingsImageContext) {
+        customSettingsBackgroundImageUri?.let { imageUrl ->
             ImageRequest.Builder(settingsImageContext)
                 .data(imageUrl)
                 .memoryCachePolicy(CachePolicy.ENABLED)
@@ -189,13 +189,13 @@ fun SettingsScreen(
                 .build()
         }
     }
-    var settingsBackgroundLoaded by remember(customSettingsBackgroundUrl) { mutableStateOf(false) }
+    var settingsBackgroundLoaded by remember(customSettingsBackgroundImageUri) { mutableStateOf(false) }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
-        if (settingsGlassEnabled || customSettingsBackgroundUrl != null) {
+        if (settingsGlassEnabled || customSettingsBackgroundImageUri != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -807,7 +807,7 @@ private fun MobileSettingsScreen(
         ProfileInsightsPullToRefresh(enabled = page == SettingsPage.Profile) {
         CompositionLocalProvider(
             LocalDynamicArtworkBackgroundActive provides (
-                LocalDynamicArtworkBackgroundActive.current || customSettingsBackgroundUrl != null
+                LocalDynamicArtworkBackgroundActive.current || customSettingsBackgroundImageUri != null
             ),
         ) {
         NuvioScreen(

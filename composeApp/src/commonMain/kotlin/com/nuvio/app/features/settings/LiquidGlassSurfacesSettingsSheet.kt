@@ -1361,9 +1361,9 @@ private fun LiquidGlassSurfacePreview(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val customSettingsBackgroundUrl by remember {
+    val customSettingsBackgroundImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
-        ThemeSettingsRepository.customSettingsBackgroundUrl
+        ThemeSettingsRepository.customSettingsBackgroundImageUri
     }.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides settings) {
     BoxWithConstraints(
@@ -1508,7 +1508,7 @@ private fun LiquidGlassSurfacePreview(
                             )
 
                             LiquidGlassSurface.SETTINGS -> LiquidGlassSettingsSurfacePreview(
-                                customBackgroundUrl = customSettingsBackgroundUrl,
+                                customBackgroundImageUri = customSettingsBackgroundImageUri,
                                 isTablet = isTablet,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -1533,13 +1533,13 @@ private fun LiquidGlassSurfacePreview(
 
 @Composable
 private fun LiquidGlassSettingsSurfacePreview(
-    customBackgroundUrl: String?,
+    customBackgroundImageUri: String?,
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val platformContext = LocalPlatformContext.current
-    val backgroundImageRequest = remember(customBackgroundUrl, platformContext) {
-        customBackgroundUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+    val backgroundImageRequest = remember(customBackgroundImageUri, platformContext) {
+        customBackgroundImageUri?.takeIf { it.isNotBlank() }?.let { imageUrl ->
             ImageRequest.Builder(platformContext)
                 .data(imageUrl)
                 .memoryCachePolicy(CachePolicy.ENABLED)

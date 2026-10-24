@@ -2,11 +2,13 @@ package com.nuvio.app.features.settings
 
 import com.nuvio.app.core.ui.LocalNuvioTabletNavLayout
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
@@ -23,22 +25,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.isIos
 import com.nuvio.app.core.ui.AppTheme
-import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioStatusModal
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.labelRes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.cd_selected
 import nuvio.composeapp.generated.resources.collections_header
@@ -136,16 +143,27 @@ internal fun LazyListScope.appearanceSettingsContent(
         var showLiquidGlassSurfacesSheet by remember { mutableStateOf(false) }
         var showTabBarBehaviorSheet by remember { mutableStateOf(false) }
         var showAppIconPicker by remember { mutableStateOf(false) }
-        val customSettingsBackgroundUrl by remember {
+        val customSettingsBackgroundImageUri by remember {
             ThemeSettingsRepository.ensureLoaded()
-            ThemeSettingsRepository.customSettingsBackgroundUrl
+            ThemeSettingsRepository.customSettingsBackgroundImageUri
         }.collectAsStateWithLifecycle()
-        var customSettingsBackgroundUrlInput by remember(customSettingsBackgroundUrl) {
-            mutableStateOf(customSettingsBackgroundUrl.orEmpty())
-        }
-        val normalizedSettingsBackgroundUrl = normalizedCustomSettingsBackgroundUrl(customSettingsBackgroundUrlInput)
-        val settingsBackgroundUrlIsInvalid =
-            customSettingsBackgroundUrlInput.isNotBlank() && normalizedSettingsBackgroundUrl == null
+        var isSavingSettingsBackground by remember { mutableStateOf(false) }
+        var settingsBackgroundImageError by remember { mutableStateOf(false) }
+        val settingsBackgroundScope = rememberCoroutineScope()
+        val settingsBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
+            onImageSelected = { bytes ->
+                settingsBackgroundImageError = false
+                isSavingSettingsBackground = true
+                settingsBackgroundScope.launch {
+                    val saved = withContext(Dispatchers.IO) {
+                        ThemeSettingsRepository.setCustomSettingsBackgroundImage(bytes)
+                    }
+                    isSavingSettingsBackground = false
+                    if (!saved) settingsBackgroundImageError = true
+                }
+            },
+            onError = { settingsBackgroundImageError = true },
+        )
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val navBarGlass by ThemeSettingsRepository.navBarGlass.collectAsStateWithLifecycle()
@@ -195,16 +213,29 @@ internal fun LazyListScope.appearanceSettingsContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    NuvioInputField(
-                        value = customSettingsBackgroundUrlInput,
-                        onValueChange = { customSettingsBackgroundUrlInput = it },
-                        placeholder = stringResource(Res.string.settings_appearance_custom_settings_background_url_placeholder),
-                    )
-                    if (settingsBackgroundUrlIsInvalid) {
+                    customSettingsBackgroundImageUri?.let { imageUri ->
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = stringResource(Res.string.settings_appearance_custom_settings_background_preview),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(112.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                    if (settingsBackgroundImageError) {
                         Text(
-                            text = stringResource(Res.string.settings_appearance_custom_settings_background_url_invalid),
+                            text = stringResource(Res.string.settings_appearance_custom_settings_background_error),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (isSavingSettingsBackground) {
+                        Text(
+                            text = stringResource(Res.string.settings_appearance_custom_settings_background_saving),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Row(
@@ -213,20 +244,16 @@ internal fun LazyListScope.appearanceSettingsContent(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TextButton(
-                            enabled = normalizedSettingsBackgroundUrl != null,
-                            onClick = {
-                                normalizedSettingsBackgroundUrl?.let {
-                                    ThemeSettingsRepository.setCustomSettingsBackgroundUrl(it)
-                                }
-                            },
+                            enabled = !isSavingSettingsBackground,
+                            onClick = { settingsBackgroundImagePicker.launch() },
                         ) {
-                            Text(stringResource(Res.string.settings_appearance_custom_settings_background_apply))
+                            Text(stringResource(Res.string.settings_appearance_custom_settings_background_choose))
                         }
                         TextButton(
-                            enabled = customSettingsBackgroundUrl != null || customSettingsBackgroundUrlInput.isNotBlank(),
+                            enabled = customSettingsBackgroundImageUri != null && !isSavingSettingsBackground,
                             onClick = {
-                                customSettingsBackgroundUrlInput = ""
-                                ThemeSettingsRepository.setCustomSettingsBackgroundUrl(null)
+                                ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
+                                settingsBackgroundImageError = false
                             },
                         ) {
                             Text(stringResource(Res.string.settings_appearance_custom_settings_background_clear))
