@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.requiredSize
@@ -732,7 +733,9 @@ private fun LiquidGlassDetailPagePreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
 
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
@@ -962,7 +965,9 @@ private fun LiquidGlassStreamPickerPreview(
                         ),
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
             LocalLiquidGlassPreviewSettings provides settings,
@@ -1622,7 +1627,9 @@ private fun LiquidGlassSettingsSurfacePreview(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.24f)),
             )
-        }
+        
+            if (backgroundImageRequest == null) LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
@@ -1689,7 +1696,9 @@ private fun LiquidGlassLibraryPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -1762,7 +1771,9 @@ private fun LiquidGlassBottomSheetPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1828,7 +1839,9 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 ProviderFilterRow(
@@ -2136,7 +2149,9 @@ private fun LiquidGlassDetailBackdropPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -2194,7 +2209,9 @@ private fun LiquidGlassDetailHeaderPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             DetailFloatingHeader(
                 meta = previewMeta,
@@ -2246,7 +2263,9 @@ private fun LiquidGlassStreamSearchPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
@@ -2340,7 +2359,9 @@ private fun LiquidGlassStreamResultsPreview(
                         CircleShape,
                     ),
             )
-        }
+        
+            LiquidGlassPreviewBackdropDetailMarks()
+}
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
                 modifier = Modifier
@@ -2438,6 +2459,64 @@ private fun LiquidGlassSearchPreviewPosterTile(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+
+/**
+ * Crisp reference edges make refraction, chromatic dispersion and depth shading visible when a
+ * sample backdrop is otherwise only a smooth gradient. These decorations are confined to Studio
+ * previews; production screens and the user's selected Settings image are unchanged.
+ */
+@Composable
+private fun LiquidGlassPreviewBackdropDetailMarks() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.84f)
+                .height(1.dp)
+                .align(Alignment.Center)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.34f),
+                            Color(0x8879D8EB),
+                            Color.White.copy(alpha = 0.20f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight(0.78f)
+                .align(Alignment.CenterEnd)
+                .offset(x = (-30).dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.24f),
+                            Color(0x6679D8EB),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.48f)
+                .height(1.dp)
+                .align(Alignment.BottomStart)
+                .offset(y = (-18).dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, Color(0x7779D8EB), Color.Transparent),
+                    ),
+                ),
+        )
     }
 }
 
