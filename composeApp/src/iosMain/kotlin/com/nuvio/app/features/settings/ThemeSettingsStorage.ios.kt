@@ -15,6 +15,7 @@ import kotlinx.cinterop.usePinned
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSHomeDirectory
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLIsExcludedFromBackupKey
 import platform.Foundation.NSUserDefaults
 import platform.posix.fclose
 import platform.posix.fopen
@@ -284,11 +285,12 @@ actual object ThemeSettingsStorage {
     actual fun loadCustomSettingsBackgroundImageUri(): String? {
         clearLegacyCustomSettingsBackgroundUrl()
         val path = settingsBackgroundImagePath()
-        return if (NSFileManager.defaultManager.fileExistsAtPath(path)) {
-            NSURL.fileURLWithPath(path).absoluteString
-        } else {
-            null
+        if (!NSFileManager.defaultManager.fileExistsAtPath(path)) return null
+        if (!excludeFromBackup(path)) {
+            NSFileManager.defaultManager.removeItemAtPath(path, null)
+            return null
         }
+        return NSURL.fileURLWithPath(path).absoluteString
     }
 
     @OptIn(ExperimentalForeignApi::class)
@@ -304,6 +306,7 @@ actual object ThemeSettingsStorage {
             attributes = null,
             error = null,
         )
+        if (!excludeFromBackup("$directory/")) return null
         val file = fopen(temporary, "wb") ?: return null
         val written = try {
             bytes.usePinned { pinned ->
@@ -316,9 +319,10 @@ actual object ThemeSettingsStorage {
             NSFileManager.defaultManager.removeItemAtPath(temporary, null)
             return null
         }
-        return if (NSFileManager.defaultManager.fileExistsAtPath(path)) {
+        return if (NSFileManager.defaultManager.fileExistsAtPath(path) && excludeFromBackup(path)) {
             NSURL.fileURLWithPath(path).absoluteString
         } else {
+            NSFileManager.defaultManager.removeItemAtPath(path, null)
             null
         }
     }
@@ -332,6 +336,13 @@ actual object ThemeSettingsStorage {
 
     private fun settingsBackgroundImagePath(): String =
         "${NSHomeDirectory()}/Library/Application Support/NuvioSettingsBackgrounds/${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg"
+
+    private fun excludeFromBackup(path: String): Boolean =
+        NSURL.fileURLWithPath(path).setResourceValue(
+            true,
+            forKey = NSURLIsExcludedFromBackupKey,
+            error = null,
+        )
 
     private fun clearLegacyCustomSettingsBackgroundUrl() {
         NSUserDefaults.standardUserDefaults.removeObjectForKey(

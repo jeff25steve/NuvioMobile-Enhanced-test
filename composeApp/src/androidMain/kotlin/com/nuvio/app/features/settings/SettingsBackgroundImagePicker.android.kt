@@ -9,8 +9,13 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -23,13 +28,17 @@ internal actual fun rememberSettingsBackgroundImagePicker(
     onError: () -> Unit,
 ): SettingsBackgroundImagePicker {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        runCatching { readAndNormalizeBackgroundImage(context, uri) }
-            .onSuccess(onImageSelected)
-            .onFailure { onError() }
+        scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { readAndNormalizeBackgroundImage(context, uri) }
+            }
+            result.onSuccess(onImageSelected).onFailure { onError() }
+        }
     }
 
     return remember(launcher) {
@@ -43,9 +52,11 @@ internal actual fun rememberSettingsBackgroundImagePicker(
 
 private fun readAndNormalizeBackgroundImage(context: Context, uri: Uri): ByteArray {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    context.contentResolver.openInputStream(uri)?.use { input ->
+    val boundsStream = context.contentResolver.openInputStream(uri)
+        ?: error("Unable to read selected image.")
+    boundsStream.use { input ->
         BitmapFactory.decodeStream(input, null, bounds)
-    } ?: error("Unable to read selected image.")
+    }
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Unsupported image." }
 
     var sampleSize = 1

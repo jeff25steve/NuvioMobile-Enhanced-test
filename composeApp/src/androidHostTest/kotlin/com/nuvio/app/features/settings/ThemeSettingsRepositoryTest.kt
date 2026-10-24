@@ -31,6 +31,7 @@ class ThemeSettingsRepositoryTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE).edit().clear().commit()
         ThemeSettingsStorage.initialize(context)
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
         MemberAssetStorage.initialize(context)
         MemberAccessRepository.clearLocalState()
         ThemeSettingsRepository.clearLocalState()
@@ -39,6 +40,7 @@ class ThemeSettingsRepositoryTest {
     @AfterTest
     fun clearState() {
         ThemeSettingsRepository.clearLocalState()
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
     }
 
     @Test
@@ -319,48 +321,31 @@ class ThemeSettingsRepositoryTest {
 
 
     @Test
-    fun customSettingsBackgroundUrlValidatesPersistsAndCanBeCleared() {
+    fun customSettingsBackgroundImagePersistsAsLocalFileAndCanBeCleared() {
         ThemeSettingsRepository.ensureLoaded()
-        val url = "https://example.com/settings-background.jpg"
+        val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
 
-        assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundUrl("  $url  "))
-        assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
-        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundImage(imageBytes))
+        val imageUri = ThemeSettingsRepository.customSettingsBackgroundImageUri.value
+        assertTrue(imageUri?.startsWith("file:") == true)
+        assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
 
-        listOf(
-            "http://example.com/background.jpg",
-            "file:///private/image.jpg",
-            "javascript:alert(1)",
-            "https://user:password@example.com/background.jpg",
-            "https://localhost/background.jpg",
-            "https://router.local/background.jpg",
-            "https://192.168.1.1/background.jpg",
-            "https://2130706433/background.jpg",
-            "https://example.com:8443/background.jpg",
-            "https://example.com/background.jpg?token=secret",
-            "https://example.com/background.jpg#private-fragment",
-            "https://bad host.example/background.jpg",
-        ).forEach { unsafeUrl ->
-            assertFalse(
-                ThemeSettingsRepository.setCustomSettingsBackgroundUrl(unsafeUrl),
-                "Expected settings background URL to be rejected: $unsafeUrl",
-            )
-        }
-        assertEquals(url, ThemeSettingsRepository.customSettingsBackgroundUrl.value)
-
-        assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundUrl(null))
-        assertNull(ThemeSettingsRepository.customSettingsBackgroundUrl.value)
-        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
+        assertNull(ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
     }
 
     @Test
-    fun insecureStoredSettingsBackgroundUrlIsRemovedOnLoad() {
-        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl("http://example.com/background.jpg")
-        ThemeSettingsRepository.clearLocalState()
+    fun legacyRemoteSettingsBackgroundUrlIsRemovedWithoutLoadingIt() {
+        val context = RuntimeEnvironment.getApplication()
+        val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
+        val legacyKey = com.nuvio.app.core.storage.ProfileScopedKey.of("enhanced_local_settings_background_url")
+        preferences.edit().putString(legacyKey, "https://private.example/old-image?token=secret").commit()
 
+        ThemeSettingsRepository.clearLocalState()
         ThemeSettingsRepository.ensureLoaded()
 
-        assertNull(ThemeSettingsRepository.customSettingsBackgroundUrl.value)
-        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        assertNull(ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+        assertNull(preferences.getString(legacyKey, null))
     }
 }

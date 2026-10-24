@@ -291,7 +291,7 @@ actual object ThemeSettingsStorage {
     }
 
     private fun settingsBackgroundImageFile(): File? =
-        appContext?.filesDir?.resolve("settings_backgrounds")
+        appContext?.noBackupFilesDir?.resolve("settings_backgrounds")
             ?.resolve("${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg")
 
     private fun clearLegacyCustomSettingsBackgroundUrl() {

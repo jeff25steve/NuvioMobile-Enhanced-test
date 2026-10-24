@@ -27,6 +27,7 @@ class ThemeSettingsStorageTest {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE).edit().clear().commit()
         ThemeSettingsStorage.initialize(context)
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
     }
 
     @Test
@@ -159,29 +160,28 @@ class ThemeSettingsStorageTest {
 
 
     @Test
-    fun customSettingsBackgroundUrlRemainsProfileScopedAndLocalOnly() {
+    fun customSettingsBackgroundImageIsProfileLocalAndExcludedFromSync() {
         val context = RuntimeEnvironment.getApplication()
-        val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)
-        val key = "enhanced_local_settings_background_url"
-        val currentProfileKey = ProfileScopedKey.of(key)
-        val otherProfileKey = ProfileScopedKey.of(key, 99)
-        val url = "https://example.com/settings-background.jpg"
-        preferences.edit().putString(otherProfileKey, "https://example.com/other-profile.jpg").commit()
+        val otherProfileFile = java.io.File(
+            context.noBackupFilesDir.resolve("settings_backgrounds"),
+            "${ProfileScopedKey.of("enhanced_local_settings_background_image", 99)}.jpg",
+        )
+        otherProfileFile.parentFile?.mkdirs()
+        otherProfileFile.writeBytes(byteArrayOf(1, 2, 3))
+        val bytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
 
-        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(url)
-        ThemeSettingsStorage.initialize(context)
-
-        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
-        assertEquals(url, preferences.getString(currentProfileKey, null))
-        assertEquals("https://example.com/other-profile.jpg", preferences.getString(otherProfileKey, null))
+        val imageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes)
+        assertTrue(imageUri?.startsWith("file:") == true)
+        assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
         assertTrue(ThemeSettingsStorage.exportToSyncPayload().keys.none { "settings_background" in it })
 
         ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+        assertEquals(imageUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
 
-        assertEquals(url, ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
-        assertEquals("https://example.com/other-profile.jpg", preferences.getString(otherProfileKey, null))
-        ThemeSettingsStorage.saveCustomSettingsBackgroundUrl(null)
-        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundUrl())
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+        assertNull(ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+        assertTrue(otherProfileFile.exists(), "Clearing this profile must not delete another profile's image.")
+        otherProfileFile.delete()
     }
 
 
