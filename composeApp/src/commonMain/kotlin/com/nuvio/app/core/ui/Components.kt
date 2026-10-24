@@ -9,6 +9,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +74,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.nuvio.app.navigation.LocalNativeNavigationBarHidden
 import com.nuvio.app.navigation.LocalUseNativeNavigation
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 @Composable
 fun NuvioScreen(
@@ -146,9 +155,20 @@ fun NuvioScreenHeader(
     topPadding: Dp? = null,
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    useSettingsGlass: Boolean = false,
 ) {
     val tokens = MaterialTheme.nuvio
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val settingsGlassEnabled = useSettingsGlass && isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val settingsBackdrop = if (settingsGlassEnabled) LocalLiquidGlassBackdrop.current else null
+    val headerShape = if (settingsGlassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, tokens.shapes.compactCard)
+    } else {
+        tokens.shapes.compactCard
+    }
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
         !LocalNativeNavigationBarHidden.current &&
         onBack != null
@@ -167,12 +187,38 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier.fillMaxWidth(),
     ) {
+        // Keep a solid fallback underneath the capture so an unavailable or not-yet-ready
+        // backdrop never exposes scrolling Settings rows through the pinned header.
         Row(
             modifier = Modifier
                 .matchParentSize()
                 .background(tokens.colors.background)
                 .nuvioConsumePointerEvents(),
         ) {}
+        if (settingsGlassEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassBackdropUnderlay(settingsBackdrop),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassForSurface(
+                        surface = LiquidGlassSurface.SETTINGS,
+                        shape = headerShape,
+                        tint = tokens.colors.surface.copy(alpha = 0.45f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                    .border(
+                        BorderStroke(tokens.borders.hairline, tokens.colors.borderSubtle),
+                        headerShape,
+                    ),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
