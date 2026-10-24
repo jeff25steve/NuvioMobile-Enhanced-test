@@ -240,7 +240,7 @@ class PlayerGestureOverlayTest {
             runtime.liveGestureFeedback = null
             runtime.showBrightnessFeedback(0.4f)
         }
-        compose.onNodeWithText("40%").assertIsDisplayed()
+        compose.onNodeWithText("Brightness 40%").assertIsDisplayed()
         compose.onNodeWithText("2x").assertDoesNotExist()
     }
 
