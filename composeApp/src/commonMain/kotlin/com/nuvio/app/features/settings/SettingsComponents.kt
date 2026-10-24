@@ -130,31 +130,33 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
         isLiquidGlassSupported()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
-        ) {
+        if (settingsGlassEnabled || customImageUri != null) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-            )
-            imageRequest?.let { request ->
-                AsyncImage(
-                    model = request,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onSuccess = { imageLoaded = true },
-                    onError = { imageLoaded = false },
+                    .matchParentSize()
+                    .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
                 )
-                if (imageLoaded) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.28f)),
+                imageRequest?.let { request ->
+                    AsyncImage(
+                        model = request,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        onSuccess = { imageLoaded = true },
+                        onError = { imageLoaded = false },
                     )
+                    if (imageLoaded) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.28f)),
+                        )
+                    }
                 }
             }
         }
