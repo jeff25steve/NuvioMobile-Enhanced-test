@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui.glass
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -10,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.RectangleShape
 import com.kyant.backdrop.Backdrop
 import androidx.compose.ui.unit.Dp
@@ -302,11 +305,45 @@ internal fun liquidGlassShape(
     if (!shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled)) {
         return defaultShape
     }
-    // Full-width scroll-edge headers remain rectangular. Other corner-based surfaces use the
-    // same percentage semantics as Nuvio's existing navigation-bar glass controls.
+    // Full-width scroll-edge headers remain rectangular. Apply the same 0–50 slider range used by
+    // navigation glass, but scale each component's own corners rather than making every card a
+    // huge percentage-based oval. Keep the exact returned shape as the single clip/lens/highlight
+    // source so the edge highlight follows every live slider update.
     if (defaultShape === RectangleShape || defaultShape !is CornerBasedShape) return defaultShape
     val radiusPercent = overrides.cornerRadiusPercent ?: return defaultShape
-    return RoundedCornerShape(percent = effectiveLiquidGlassCornerRadiusPercent(radiusPercent))
+    return scaleLiquidGlassCornerShape(defaultShape, radiusPercent)
+}
+
+/** Slider range matches the navigation bar: 0 = square, 50 = original pill/corner shape. */
+internal fun effectiveLiquidGlassCornerRadiusScale(percent: Float): Float =
+    effectiveLiquidGlassCornerRadiusPercent(percent) / 50f
+
+private class ScaledLiquidGlassCornerSize(
+    private val original: CornerSize,
+    private val scale: Float,
+) : CornerSize {
+    override fun toPx(shapeSize: Size, density: Density): Float =
+        original.toPx(shapeSize, density) * scale
+}
+
+internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
+    val corners = shape as? CornerBasedShape ?: return shape
+    val scale = effectiveLiquidGlassCornerRadiusScale(percent)
+    if (scale >= 1f) return shape
+    if (scale <= 0f) {
+        return corners.copy(
+            topStart = CornerSize(0f),
+            topEnd = CornerSize(0f),
+            bottomEnd = CornerSize(0f),
+            bottomStart = CornerSize(0f),
+        )
+    }
+    return corners.copy(
+        topStart = ScaledLiquidGlassCornerSize(corners.topStart, scale),
+        topEnd = ScaledLiquidGlassCornerSize(corners.topEnd, scale),
+        bottomEnd = ScaledLiquidGlassCornerSize(corners.bottomEnd, scale),
+        bottomStart = ScaledLiquidGlassCornerSize(corners.bottomStart, scale),
+    )
 }
 
 /** Clamp Kyant lens parameters only after the real radius and drawing bounds are known. */

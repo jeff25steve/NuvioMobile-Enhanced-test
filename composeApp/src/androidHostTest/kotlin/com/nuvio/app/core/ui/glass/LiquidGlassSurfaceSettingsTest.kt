@@ -6,6 +6,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 
 class LiquidGlassSurfaceSettingsTest {
     @Test
@@ -17,6 +22,26 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.NaN))
         assertEquals(50, effectiveLiquidGlassCornerRadiusPercent(Float.POSITIVE_INFINITY))
         assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(Float.NEGATIVE_INFINITY))
+    }
+
+    @Test
+    fun cornerRadiusScalesTheNativeShapeInsteadOfRoundingRelativeToTheWholeCard() {
+        val shape = RoundedCornerShape(24.dp) as CornerBasedShape
+        val canvas = Size(width = 360f, height = 720f)
+        val density = Density(1f)
+
+        val nativeCorner = shape.topStart.toPx(canvas, density)
+        val zero = scaleLiquidGlassCornerShape(shape, 0f) as CornerBasedShape
+        val half = scaleLiquidGlassCornerShape(shape, 25f) as CornerBasedShape
+        val original = scaleLiquidGlassCornerShape(shape, 50f) as CornerBasedShape
+
+        assertEquals(24f, nativeCorner, 0.01f)
+        assertEquals(0f, zero.topStart.toPx(canvas, density), 0.01f)
+        assertEquals(12f, half.topStart.toPx(canvas, density), 0.01f)
+        assertEquals(24f, original.topStart.toPx(canvas, density), 0.01f)
+        assertEquals(0f, effectiveLiquidGlassCornerRadiusScale(0f), 0.001f)
+        assertEquals(0.5f, effectiveLiquidGlassCornerRadiusScale(25f), 0.001f)
+        assertEquals(1f, effectiveLiquidGlassCornerRadiusScale(50f), 0.001f)
     }
 
     @Test
