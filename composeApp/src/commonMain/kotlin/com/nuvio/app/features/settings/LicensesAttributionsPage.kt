@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
+import com.nuvio.app.features.settings.SettingsGlassPageBackground
 import com.nuvio.app.features.cloud.PremiumizeCloudLibraryPosterUrl
 import com.nuvio.app.features.cloud.TorboxCloudLibraryPosterUrl
 import com.nuvio.app.features.cloud.cloudLibraryDisplayArtworkUrl
@@ -71,6 +72,7 @@ private data class LicenseItem(
 fun LicensesAttributionsSettingsScreen(
     onBack: () -> Unit,
 ) {
+    SettingsGlassPageBackground {
     NuvioScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -78,9 +80,11 @@ fun LicensesAttributionsSettingsScreen(
             NuvioScreenHeader(
                 title = stringResource(Res.string.compose_settings_page_licenses_attributions),
                 onBack = onBack,
+                useSettingsGlass = true,
             )
         }
         licensesAttributionsContent(isTablet = false)
+    }
     }
 }
 
