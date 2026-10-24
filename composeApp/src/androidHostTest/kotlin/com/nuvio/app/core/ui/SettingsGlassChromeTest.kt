@@ -69,11 +69,16 @@ class SettingsGlassChromeTest {
                 val backdrop = rememberNuvioBackdrop()
                 Box(Modifier.size(width = 320.dp, height = 180.dp)) {
                     Box(
-                        Modifier
+                        modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Green)
                             .nuvioBackdropSource(backdrop),
-                    )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Green),
+                        )
+                    }
                     // A red sibling simulates scrolling Settings content passing behind a sticky header.
                     Box(
                         Modifier
