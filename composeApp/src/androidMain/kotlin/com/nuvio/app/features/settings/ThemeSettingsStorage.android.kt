@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.io.File
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.nuvio.app.core.sync.decodeSyncBoolean
@@ -31,7 +32,8 @@ actual object ThemeSettingsStorage {
     private const val localNavBarGlassKey = "enhanced_local_nav_bar_glass"
     private const val localLiquidGlassEffectsKey = "enhanced_local_liquid_glass_effects"
     private const val localLiquidGlassSurfaceSettingsKey = "enhanced_local_liquid_glass_surface_settings"
-    private const val localCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
+    private const val legacyCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
+    private const val localCustomSettingsBackgroundImageKey = "enhanced_local_settings_background_image"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
     private const val navBarDefaultIconColorEnabledKey = "enhanced_local_nav_bar_default_icon_color_enabled"
     private const val navBarDefaultIconColorKey = "enhanced_local_nav_bar_default_icon_color"
@@ -48,8 +50,10 @@ actual object ThemeSettingsStorage {
     )
 
     private var preferences: SharedPreferences? = null
+    private var appContext: Context? = null
 
     fun initialize(context: Context) {
+        appContext = context.applicationContext
         preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
         applySelectedAppLanguage(loadSelectedAppLanguage() ?: AppLanguage.DEVICE.code)
     }
@@ -250,16 +254,48 @@ actual object ThemeSettingsStorage {
         saveRawString(localLiquidGlassSurfaceSettingsKey, settings)
     }
 
-    actual fun loadCustomSettingsBackgroundUrl(): String? =
-        loadRawString(localCustomSettingsBackgroundUrlKey)
+    actual fun loadCustomSettingsBackgroundImageUri(): String? {
+        clearLegacyCustomSettingsBackgroundUrl()
+        return settingsBackgroundImageFile()
+            ?.takeIf { it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong() }
+            ?.toURI()
+            ?.toString()
+    }
 
-    actual fun saveCustomSettingsBackgroundUrl(url: String?) {
-        val key = ProfileScopedKey.of(localCustomSettingsBackgroundUrlKey)
-        if (url.isNullOrBlank()) {
-            preferences?.edit()?.remove(key)?.apply()
-        } else {
-            preferences?.edit()?.putString(key, url)?.apply()
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
+        clearLegacyCustomSettingsBackgroundUrl()
+        val target = settingsBackgroundImageFile() ?: return null
+        val directory = target.parentFile ?: return null
+        if (!directory.isDirectory && !directory.mkdirs()) return null
+        val temporary = directory.resolve(".${target.name}.tmp")
+        return try {
+            temporary.writeBytes(bytes)
+            if (!temporary.renameTo(target)) temporary.copyTo(target, overwrite = true)
+            target.takeIf {
+                it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
+            }?.toURI()?.toString()
+        } catch (_: Exception) {
+            null
+        } finally {
+            temporary.delete()
         }
+    }
+
+    actual fun clearCustomSettingsBackgroundImage() {
+        settingsBackgroundImageFile()?.let { target ->
+            target.delete()
+            target.parentFile?.resolve(".${target.name}.tmp")?.delete()
+        }
+        clearLegacyCustomSettingsBackgroundUrl()
+    }
+
+    private fun settingsBackgroundImageFile(): File? =
+        appContext?.filesDir?.resolve("settings_backgrounds")
+            ?.resolve("${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg")
+
+    private fun clearLegacyCustomSettingsBackgroundUrl() {
+        preferences?.edit()?.remove(ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey))?.apply()
     }
 
     private fun loadRawString(key: String): String? =

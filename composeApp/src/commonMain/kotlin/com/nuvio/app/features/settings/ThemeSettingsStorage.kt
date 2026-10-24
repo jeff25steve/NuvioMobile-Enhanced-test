@@ -2,6 +2,8 @@ package com.nuvio.app.features.settings
 
 import kotlinx.serialization.json.JsonObject
 
+internal const val CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES = 16 * 1024 * 1024
+
 internal expect object ThemeSettingsStorage {
     fun loadSelectedTheme(): String?
     fun saveSelectedTheme(themeName: String)
@@ -41,8 +43,9 @@ internal expect object ThemeSettingsStorage {
     fun saveLiquidGlassEffectsEnabled(enabled: Boolean)
     fun loadLiquidGlassSurfaceSettings(): String?
     fun saveLiquidGlassSurfaceSettings(settings: String)
-    fun loadCustomSettingsBackgroundUrl(): String?
-    fun saveCustomSettingsBackgroundUrl(url: String?)
+    fun loadCustomSettingsBackgroundImageUri(): String?
+    fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String?
+    fun clearCustomSettingsBackgroundImage()
     fun exportToSyncPayload(): JsonObject
     fun replaceFromSyncPayload(payload: JsonObject)
 }

@@ -8,7 +8,18 @@ import com.nuvio.app.core.storage.ProfileScopedKey
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.usePinned
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSHomeDirectory
+import platform.Foundation.NSURL
 import platform.Foundation.NSUserDefaults
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fwrite
+import platform.posix.rename
 import platform.UIKit.UIDevice
 import platform.UIKit.UIUserInterfaceIdiomPad
 
@@ -29,7 +40,8 @@ actual object ThemeSettingsStorage {
     private const val localNavBarGlassKey = "enhanced_local_nav_bar_glass"
     private const val localLiquidGlassEffectsKey = "enhanced_local_liquid_glass_effects"
     private const val localLiquidGlassSurfaceSettingsKey = "enhanced_local_liquid_glass_surface_settings"
-    private const val localCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
+    private const val legacyCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
+    private const val localCustomSettingsBackgroundImageKey = "enhanced_local_settings_background_image"
     private const val localTabletTabBarBehaviorKey = "enhanced_local_tablet_tab_bar_behavior"
     private const val tabletTabBarBehaviorDefault = "off"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
@@ -269,16 +281,62 @@ actual object ThemeSettingsStorage {
         saveRawString(localLiquidGlassSurfaceSettingsKey, settings)
     }
 
-    actual fun loadCustomSettingsBackgroundUrl(): String? =
-        loadRawString(localCustomSettingsBackgroundUrlKey)
-
-    actual fun saveCustomSettingsBackgroundUrl(url: String?) {
-        val key = ProfileScopedKey.of(localCustomSettingsBackgroundUrlKey)
-        if (url.isNullOrBlank()) {
-            NSUserDefaults.standardUserDefaults.removeObjectForKey(key)
+    actual fun loadCustomSettingsBackgroundImageUri(): String? {
+        clearLegacyCustomSettingsBackgroundUrl()
+        val path = settingsBackgroundImagePath()
+        return if (NSFileManager.defaultManager.fileExistsAtPath(path)) {
+            NSURL.fileURLWithPath(path).absoluteString
         } else {
-            saveRawString(localCustomSettingsBackgroundUrlKey, url)
+            null
         }
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
+        clearLegacyCustomSettingsBackgroundUrl()
+        val path = settingsBackgroundImagePath()
+        val directory = path.substringBeforeLast('/')
+        val temporary = "$path.tmp"
+        NSFileManager.defaultManager.createDirectoryAtPath(
+            path = directory,
+            withIntermediateDirectories = true,
+            attributes = null,
+            error = null,
+        )
+        val file = fopen(temporary, "wb") ?: return null
+        val written = try {
+            bytes.usePinned { pinned ->
+                fwrite(pinned.addressOf(0), 1.convert(), bytes.size.convert(), file).toLong() == bytes.size.toLong()
+            }
+        } finally {
+            fclose(file)
+        }
+        if (!written || rename(temporary, path) != 0) {
+            NSFileManager.defaultManager.removeItemAtPath(temporary, null)
+            return null
+        }
+        return if (NSFileManager.defaultManager.fileExistsAtPath(path)) {
+            NSURL.fileURLWithPath(path).absoluteString
+        } else {
+            null
+        }
+    }
+
+    actual fun clearCustomSettingsBackgroundImage() {
+        val path = settingsBackgroundImagePath()
+        NSFileManager.defaultManager.removeItemAtPath(path, null)
+        NSFileManager.defaultManager.removeItemAtPath("$path.tmp", null)
+        clearLegacyCustomSettingsBackgroundUrl()
+    }
+
+    private fun settingsBackgroundImagePath(): String =
+        "${NSHomeDirectory()}/Library/Application Support/NuvioSettingsBackgrounds/${ProfileScopedKey.of(localCustomSettingsBackgroundImageKey)}.jpg"
+
+    private fun clearLegacyCustomSettingsBackgroundUrl() {
+        NSUserDefaults.standardUserDefaults.removeObjectForKey(
+            ProfileScopedKey.of(legacyCustomSettingsBackgroundUrlKey),
+        )
     }
 
     private fun loadRawString(key: String): String? =
