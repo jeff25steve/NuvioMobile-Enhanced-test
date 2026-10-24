@@ -13,6 +13,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSNumber
 import platform.Foundation.NSHomeDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLIsExcludedFromBackupKey
@@ -339,7 +340,7 @@ actual object ThemeSettingsStorage {
 
     private fun excludeFromBackup(path: String): Boolean =
         NSURL.fileURLWithPath(path).setResourceValue(
-            true,
+            NSNumber.numberWithBool(true),
             forKey = NSURLIsExcludedFromBackupKey,
             error = null,
         )

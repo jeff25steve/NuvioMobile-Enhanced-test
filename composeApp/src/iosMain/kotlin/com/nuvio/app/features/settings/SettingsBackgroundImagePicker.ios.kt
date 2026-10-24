@@ -59,8 +59,10 @@ internal actual fun rememberSettingsBackgroundImagePicker(
                             onError()
                         }
                     } else {
+                        // NSItemProvider completes on a worker queue. Normalize/encode the selected
+                        // photo before returning to the main queue so large images do not stall UI.
+                        val result = runCatching { normalizeBackgroundImage(data) }
                         dispatch_async(dispatch_get_main_queue()) {
-                            val result = runCatching { normalizeBackgroundImage(data) }
                             delegateHolder.value = null
                             result.onSuccess(onImageSelected).onFailure { onError() }
                         }
