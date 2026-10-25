@@ -1712,10 +1712,10 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
-            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 172.dp
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 184.dp
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
-            LiquidGlassSurface.DETAIL_EPISODE_SORT -> 164.dp
+            LiquidGlassSurface.DETAIL_EPISODE_SORT -> 188.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
