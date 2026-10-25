@@ -7,6 +7,11 @@ import kotlin.test.assertEquals
 
 class LiquidGlassPreviewSizingTest {
     @Test
+    fun streamSearchAndResumePreviewIsTallEnoughForBothControls() {
+        assertEquals(152f, LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP, 0f)
+    }
+
+    @Test
     fun playerPreviewHeightPreservesLandscapeSixteenByNineRatio() {
         assertEquals(180.dp, liquidGlassPlayerPreviewHeight(320.dp))
         assertEquals(202.5.dp, liquidGlassPlayerPreviewHeight(360.dp))
