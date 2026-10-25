@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +44,11 @@ import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaTrailer
 import nuvio.composeapp.generated.resources.*
 import nuvio.composeapp.generated.resources.detail_tab_trailer
@@ -57,6 +63,7 @@ fun DetailTrailersSection(
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
     horizontalScrollPadding: Dp = 0.dp,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
 ) {
     if (trailers.isEmpty()) return
 
@@ -103,13 +110,38 @@ fun DetailTrailersSection(
                 }
 
                 Box {
+                    val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
+                    val selectorGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
+                    val selectorShape = liquidGlassShape(
+                        surface = selectorSurface,
+                        defaultShape = RoundedCornerShape(sizing.selectorRadius),
+                    )
+                    val selectorTint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                    val selectorFallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    val selectorModifier = if (selectorGlassEnabled) {
+                        Modifier.liquidGlassForSurface(
+                            surface = selectorSurface,
+                            shape = selectorShape,
+                            tint = selectorTint,
+                            fallback = selectorFallback,
+                            blurRadius = 14.dp,
+                            refractionHeight = 8.dp,
+                            refractionAmount = 12.dp,
+                        )
+                    } else {
+                        Modifier
+                    }
+
                     Surface(
-                        shape = RoundedCornerShape(sizing.selectorRadius),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        shape = selectorShape,
+                        color = if (selectorGlassEnabled) Color.Transparent else selectorFallback,
                         tonalElevation = 0.dp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(sizing.selectorRadius))
-                            .clickable { menuExpanded = true },
+                        modifier = selectorModifier
+                            .clip(selectorShape)
+                            .clickable {
+                                onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                menuExpanded = true
+                            },
                     ) {
                         Row(
                             modifier = Modifier.padding(
@@ -131,7 +163,10 @@ fun DetailTrailersSection(
                             Icon(
                                 imageVector = Icons.Filled.ExpandMore,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = liquidGlassIconTint(
+                                    surface = selectorSurface,
+                                    default = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
                                 modifier = Modifier.size(sizing.selectorIconSize),
                             )
                         }
@@ -140,6 +175,10 @@ fun DetailTrailersSection(
                     Menu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
+                        glassSurface = LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                        onGlassSurfaceInteracted = {
+                            onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.DETAIL_TRAILER_MENU)
+                        },
                     ) {
                         grouped.keys.forEach { category ->
                             val count = grouped[category]?.size ?: 0
