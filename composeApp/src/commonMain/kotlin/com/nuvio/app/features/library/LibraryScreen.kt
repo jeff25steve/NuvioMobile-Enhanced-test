@@ -85,6 +85,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -100,7 +101,10 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.i18n.localizedMonthName
 import com.nuvio.app.core.i18n.localizedShortMonthName
 import com.nuvio.app.core.ui.ScreenActivityEffect
+import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
@@ -910,18 +914,34 @@ private fun LazyListScope.cloudLibraryContent(
                 }
 
                 item(key = "cloud-library-search") {
+                    val defaultSearchShape = RoundedCornerShape(12.dp)
+                    val searchShape = if (libraryGlassEnabled) {
+                        liquidGlassShape(LiquidGlassSurface.LIBRARY, defaultSearchShape)
+                    } else {
+                        defaultSearchShape
+                    }
+                    val backdrop = LocalLiquidGlassBackdrop.current
+                    val backdropHost = backdrop as? LiquidGlassBackdropHost
+                    val glassRimCanRender = libraryGlassEnabled &&
+                        isLiquidGlassAvailable() &&
+                        backdrop != null &&
+                        (backdropHost?.isReady ?: true)
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
                         transparentContainer = libraryGlassEnabled,
+                        shape = searchShape,
+                        showOutline = shouldDrawNuvioInputFieldOutline(
+                            glassSurfaceEnabled = libraryGlassEnabled,
+                            glassRimCanRender = glassRimCanRender,
+                        ),
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .then(
                                 if (libraryGlassEnabled) {
-                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(12.dp))
                                     Modifier.liquidGlassForSurface(
                                         surface = LiquidGlassSurface.LIBRARY,
-                                        shape = shape,
+                                        shape = searchShape,
                                         tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
                                         fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                         blurRadius = 14.dp,
@@ -999,13 +1019,31 @@ internal fun CloudLibrarySearchField(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     transparentContainer: Boolean = false,
+    shape: Shape = RoundedCornerShape(12.dp),
+    showOutline: Boolean = true,
 ) {
+    val colors = when {
+        !transparentContainer -> OutlinedTextFieldDefaults.colors()
+        showOutline -> OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+        )
+        else -> OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color.Transparent,
+            unfocusedBorderColor = Color.Transparent,
+            disabledBorderColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+        )
+    }
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         placeholder = { Text(stringResource(Res.string.cloud_library_search_label)) },
         leadingIcon = {
             Icon(
@@ -1025,15 +1063,7 @@ internal fun CloudLibrarySearchField(
                 }
             }
         },
-        colors = if (transparentContainer) {
-            OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent,
-            )
-        } else {
-            OutlinedTextFieldDefaults.colors()
-        },
+        colors = colors,
     )
 }
 
