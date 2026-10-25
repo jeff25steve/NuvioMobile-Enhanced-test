@@ -317,7 +317,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             } else if (selectedSurface != null && selectedPreviewLayout != null) {
-                item(key = "liquid-glass-layout-preview-${selectedPreviewLayout.name}") {
+                stickyHeader(key = "liquid-glass-layout-preview-${selectedPreviewLayout.name}") {
                     LiquidGlassSurfaceGroupEditorHeader(
                         group = selectedPreviewLayout,
                         settings = settings,
@@ -368,7 +368,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     )
                 }
             } else if (selectedSurface != null) {
-                item(key = "liquid-glass-preview-${selectedSurface.name}") {
+                stickyHeader(key = "liquid-glass-preview-${selectedSurface.name}") {
                     LiquidGlassSurfaceEditorHeader(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
@@ -718,7 +718,7 @@ private fun LiquidGlassDetailPagePreview(
                     .offset(x = 58.dp, y = (-36).dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0xB8D7A8B8), Color(0x587A596D), Color.Transparent),
+                            listOf(Color(0xD6D7A8B8), Color(0x8A7A596D), Color.Transparent),
                         ),
                         CircleShape,
                     ),
@@ -730,13 +730,12 @@ private fun LiquidGlassDetailPagePreview(
                     .offset(x = (-58).dp, y = 70.dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x886B9AB3), Color(0x33485E79), Color.Transparent),
+                            listOf(Color(0xC86B9AB3), Color(0x67485E79), Color.Transparent),
                         ),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
 
         CompositionLocalProvider(
@@ -967,8 +966,30 @@ private fun LiquidGlassStreamPickerPreview(
                         ),
                     ),
             )
-
-            LiquidGlassPreviewBackdropDetailMarks()
+            Box(
+                modifier = Modifier
+                    .size(224.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 48.dp, y = (-48).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xD8F2B76F), Color(0x827F67E8), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(230.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-54).dp, y = 66.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xCF58DACA), Color(0x7F7B65D7), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
         }
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
@@ -1433,7 +1454,7 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
-            LiquidGlassSurface.STREAM_SELECTION -> 116.dp
+            LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
             LiquidGlassSurface.STREAM_RESULTS -> 212.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
@@ -1630,7 +1651,32 @@ private fun LiquidGlassSettingsSurfacePreview(
                     .background(Color.Black.copy(alpha = 0.24f)),
             )
 
-            if (backgroundImageRequest == null) LiquidGlassPreviewBackdropDetailMarks()
+            if (backgroundImageRequest == null) {
+                Box(
+                    modifier = Modifier
+                        .size(206.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 44.dp, y = (-44).dp)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(Color(0xD8F2B76F), Color(0x807F67E8), Color.Transparent),
+                            ),
+                            CircleShape,
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(196.dp)
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-48).dp, y = 46.dp)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(Color(0xCF58DACA), Color(0x7B7B65D7), Color.Transparent),
+                            ),
+                            CircleShape,
+                        ),
+                )
+            }
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
@@ -1694,12 +1740,11 @@ private fun LiquidGlassLibraryPreview(
                     .align(Alignment.TopEnd)
                     .offset(x = 24.dp, y = (-30).dp)
                     .background(
-                        Brush.radialGradient(listOf(Color(0xB76AC4D9), Color(0x447F579D), Color.Transparent)),
+                        Brush.radialGradient(listOf(Color(0xD96AC4D9), Color(0x777F579D), Color.Transparent)),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
@@ -1759,7 +1804,7 @@ private fun LiquidGlassBottomSheetPreview(
                     .align(Alignment.TopEnd)
                     .offset(x = 22.dp, y = (-42).dp)
                     .background(
-                        Brush.radialGradient(listOf(Color(0xBA63BCD5), Color(0x4E9560AB), Color.Transparent)),
+                        Brush.radialGradient(listOf(Color(0xD763BCD5), Color(0x7E9560AB), Color.Transparent)),
                         CircleShape,
                     ),
             )
@@ -1769,12 +1814,11 @@ private fun LiquidGlassBottomSheetPreview(
                     .align(Alignment.BottomStart)
                     .offset(x = (-24).dp, y = 24.dp)
                     .background(
-                        Brush.radialGradient(listOf(Color(0x9FD56B9D), Color.Transparent)),
+                        Brush.radialGradient(listOf(Color(0xC9D56B9D), Color.Transparent)),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         Column(
             modifier = Modifier
@@ -1842,7 +1886,6 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1934,7 +1977,7 @@ private fun LiquidGlassPlayerPreview(
                         .offset(x = 105.dp, y = (-24).dp)
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(Color(0xAA3F9CB7), Color(0x663E607A), Color.Transparent),
+                                colors = listOf(Color(0xD03F9CB7), Color(0x8A3E607A), Color.Transparent),
                             ),
                             CircleShape,
                         ),
@@ -1946,12 +1989,11 @@ private fun LiquidGlassPlayerPreview(
                         .offset(x = 82.dp, y = 68.dp)
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(Color(0x997C4C75), Color(0x33583E64), Color.Transparent),
+                                colors = listOf(Color(0xC77C4C75), Color(0x6A583E64), Color.Transparent),
                             ),
                             CircleShape,
                         ),
                 )
-                LiquidGlassPreviewBackdropDetailMarks()
             }
 
             CompositionLocalProvider(
@@ -2135,7 +2177,7 @@ private fun LiquidGlassDetailBackdropPreview(
                     .offset(x = 55.dp, y = (-45).dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x99D2A4B5), Color(0x3A8A6378), Color.Transparent),
+                            listOf(Color(0xD4D2A4B5), Color(0x7F8A6378), Color.Transparent),
                         ),
                         CircleShape,
                     ),
@@ -2147,13 +2189,12 @@ private fun LiquidGlassDetailBackdropPreview(
                     .offset(x = (-48).dp, y = 72.dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x664F88A8), Color(0x223A5D73), Color.Transparent),
+                            listOf(Color(0xAC4F88A8), Color(0x5B3A5D73), Color.Transparent),
                         ),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
@@ -2207,13 +2248,12 @@ private fun LiquidGlassDetailHeaderPreview(
                     .offset(x = 42.dp, y = (-48).dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x88D0A1B0), Color(0x337A5A6C), Color.Transparent),
+                            listOf(Color(0xCCD0A1B0), Color(0x6A7A5A6C), Color.Transparent),
                         ),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             DetailFloatingHeader(
@@ -2261,13 +2301,12 @@ private fun LiquidGlassStreamSearchPreview(
                     .offset(x = 48.dp, y = (-40).dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x88B5B9C5), Color(0x446A7280), Color.Transparent),
+                            listOf(Color(0xC8F2B86C), Color(0x776A5CB6), Color.Transparent),
                         ),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
@@ -2357,13 +2396,12 @@ private fun LiquidGlassStreamResultsPreview(
                     .offset(x = 58.dp, y = (-58).dp)
                     .background(
                         Brush.radialGradient(
-                            listOf(Color(0x887D9AAF), Color(0x3362768A), Color.Transparent),
+                            listOf(Color(0xD07D9AAF), Color(0x7262768A), Color.Transparent),
                         ),
                         CircleShape,
                     ),
             )
 
-            LiquidGlassPreviewBackdropDetailMarks()
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
@@ -2466,62 +2504,7 @@ private fun LiquidGlassSearchPreviewPosterTile(
 }
 
 
-/**
- * Crisp reference edges make refraction, chromatic dispersion and depth shading visible when a
- * sample backdrop is otherwise only a smooth gradient. These decorations are confined to Studio
- * previews; production screens and the user's selected Settings image are unchanged.
- */
-@Composable
-private fun LiquidGlassPreviewBackdropDetailMarks() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.84f)
-                .height(1.dp)
-                .align(Alignment.Center)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.34f),
-                            Color(0x8879D8EB),
-                            Color.White.copy(alpha = 0.20f),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .fillMaxHeight(0.78f)
-                .align(Alignment.CenterEnd)
-                .offset(x = (-30).dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.24f),
-                            Color(0x6679D8EB),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.48f)
-                .height(1.dp)
-                .align(Alignment.BottomStart)
-                .offset(y = (-18).dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, Color(0x7779D8EB), Color.Transparent),
-                    ),
-                ),
-        )
-    }
-}
+
 
 private data class LiquidGlassSurfaceRecipe(
     val cornerRadiusPercent: Float,
