@@ -94,6 +94,8 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_HEADER,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.SEARCH,
             LiquidGlassSurface.LIBRARY,
             LiquidGlassSurface.SETTINGS,
@@ -168,6 +170,11 @@ class LiquidGlassSurfaceSettingsTest {
         assertTrue(LiquidGlassSurface.PLAYER.defaultEnabled)
         assertTrue(LiquidGlassSurface.STREAM_SELECTION.defaultEnabled)
         assertTrue(LiquidGlassSurface.DETAILS.defaultEnabled)
+        assertTrue(LiquidGlassSurface.DETAIL_TRAILER_SELECTOR.defaultEnabled)
+        assertTrue(LiquidGlassSurface.DETAIL_TRAILER_MENU.defaultEnabled)
+        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_SEARCH.defaultEnabled)
+        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_GO_TO.defaultEnabled)
+        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_SORT.defaultEnabled)
         assertTrue(LiquidGlassSurface.BOTTOM_SHEETS.defaultEnabled)
 
         assertFalse(LiquidGlassSurface.SEARCH.defaultEnabled)
@@ -490,7 +497,12 @@ class LiquidGlassSurfaceSettingsTest {
                 LiquidGlassSurface.DETAIL_HEADER,
                 LiquidGlassSurface.DETAILS,
                 LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+                LiquidGlassSurface.DETAIL_TRAILER_MENU,
                 LiquidGlassSurface.DETAIL_CHIPS,
+                LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+                LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+                LiquidGlassSurface.DETAIL_EPISODE_SORT,
                 LiquidGlassSurface.DETAIL_CONTENT_CARDS,
             ),
             LiquidGlassSurfaceGroup.DETAIL_PAGE.surfaces,
