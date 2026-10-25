@@ -397,8 +397,8 @@ fun NuvioPrimaryButton(
 
 internal fun shouldDrawNuvioInputFieldOutline(
     glassSurfaceEnabled: Boolean,
-    glassRendererAvailable: Boolean,
-): Boolean = !glassSurfaceEnabled || !glassRendererAvailable
+    glassRimCanRender: Boolean,
+): Boolean = !glassSurfaceEnabled || !glassRimCanRender
 
 @Composable
 fun NuvioInputField(
