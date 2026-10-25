@@ -10,7 +10,7 @@ class NuvioInputFieldAppearanceTest {
         assertFalse(
             shouldDrawNuvioInputFieldOutline(
                 glassSurfaceEnabled = true,
-                glassRendererAvailable = true,
+                glassRimCanRender = true,
             ),
         )
     }
@@ -20,13 +20,13 @@ class NuvioInputFieldAppearanceTest {
         assertTrue(
             shouldDrawNuvioInputFieldOutline(
                 glassSurfaceEnabled = false,
-                glassRendererAvailable = true,
+                glassRimCanRender = true,
             ),
         )
         assertTrue(
             shouldDrawNuvioInputFieldOutline(
                 glassSurfaceEnabled = true,
-                glassRendererAvailable = false,
+                glassRimCanRender = false,
             ),
         )
     }
