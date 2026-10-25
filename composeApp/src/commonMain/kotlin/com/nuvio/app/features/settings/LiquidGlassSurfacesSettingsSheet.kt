@@ -2280,7 +2280,8 @@ private fun LiquidGlassDetailHeaderPreview(
             DetailFloatingHeader(
                 meta = previewMeta,
                 isSaved = false,
-                progress = 0f,
+                // Render the real header in its visible state so its fallback title is inspectable.
+                progress = 1f,
                 onBack = {},
                 onToggleSaved = {},
                 modifier = Modifier.fillMaxWidth(),
