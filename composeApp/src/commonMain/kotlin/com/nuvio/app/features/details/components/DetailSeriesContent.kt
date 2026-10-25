@@ -991,7 +991,10 @@ private fun EpisodeHorizontalRow(
  * Geometry is computed by the same responsive metrics used by the real episode list.
  */
 @Composable
-internal fun DetailGlassContentCardPreview(modifier: Modifier = Modifier) {
+internal fun DetailGlassContentCardPreview(
+    modifier: Modifier = Modifier,
+    video: MetaVideo? = null,
+) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val metrics = rememberEpisodeHorizontalCardMetrics(maxWidth.value)
         val scale = minOf(
@@ -999,7 +1002,7 @@ internal fun DetailGlassContentCardPreview(modifier: Modifier = Modifier) {
             (maxHeight.value / metrics.cardHeight.value).coerceAtLeast(0f),
             1f,
         )
-        val sample = remember {
+        val sample = video ?: remember {
             MetaVideo(
                 id = "glass-preview-s1e1",
                 title = "Pilot",
