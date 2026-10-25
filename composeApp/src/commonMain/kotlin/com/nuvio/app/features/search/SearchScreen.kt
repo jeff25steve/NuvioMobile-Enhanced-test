@@ -59,9 +59,9 @@ import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.withDuplicateSafeLazyKeys
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
-import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -507,7 +507,7 @@ fun SearchScreen(
                                             shape = searchFieldShape,
                                             showOutline = shouldDrawNuvioInputFieldOutline(
                                                 glassSurfaceEnabled = searchGlassEnabled,
-                                                glassRimCanRender = isLiquidGlassAvailable() && searchBackdrop.isReady,
+                                                glassRimCanRender = isLiquidGlassBackdropReady(searchBackdrop),
                                             ),
                                         )
                                     }
