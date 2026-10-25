@@ -1711,11 +1711,11 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_HEADER -> 90.dp
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
-            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> 118.dp
-            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 118.dp
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 172.dp
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
-            LiquidGlassSurface.DETAIL_EPISODE_SORT -> 100.dp
+            LiquidGlassSurface.DETAIL_EPISODE_SORT -> 164.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
@@ -1870,6 +1870,148 @@ private fun LiquidGlassSurfacePreview(
     }
 }
 
+
+@Composable
+private fun LiquidGlassDetailControlPreview(
+    surface: LiquidGlassSurface,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val trailers = remember { liquidGlassDetailPreviewTrailers() }
+    val episodes = remember { liquidGlassDetailPreviewEpisodes() }
+    val navigator = rememberEpisodeNavigatorState("liquid-glass-detail-control-preview")
+    val isWatched: (MetaVideo) -> Boolean = { it.episode == 1 }
+    val shownEpisodes = remember(episodes, navigator.query, navigator.sort) {
+        episodes.filteredAndSortedForNavigator(
+            query = navigator.query,
+            sort = navigator.sort,
+            isWatched = isWatched,
+        )
+    }
+    var jumpTarget by remember { mutableStateOf<MetaVideo?>(null) }
+    val episodeToShow = if (navigator.query.isNotBlank()) {
+        shownEpisodes.firstOrNull()
+    } else {
+        jumpTarget ?: shownEpisodes.firstOrNull()
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(14.dp)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF2A202A),
+                                Color(0xFF6A4D58),
+                                Color(0xFF302533),
+                                MaterialTheme.colorScheme.background,
+                            ),
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(170.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 46.dp, y = (-44).dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xD6D7A8B8), Color(0x8A7A596D), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(146.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-42).dp, y = 42.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xC86B9AB3), Color(0x67485E79), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
+
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            if (surface == LiquidGlassSurface.DETAIL_TRAILER_SELECTOR ||
+                surface == LiquidGlassSurface.DETAIL_TRAILER_MENU
+            ) {
+                DetailTrailersSection(
+                    trailers = trailers,
+                    onTrailerClick = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    showHeader = true,
+                    onPreviewSurfaceSelected = null,
+                    previewMenuInitiallyExpanded = surface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    EpisodeNavigatorBar(
+                        state = navigator,
+                        shownCount = shownEpisodes.size,
+                        totalCount = episodes.size,
+                        onSubmitNumber = { number ->
+                            episodes.firstOrNull { it.episode == number }?.let { episode ->
+                                jumpTarget = episode
+                                navigator.query = ""
+                            }
+                        },
+                    )
+                    if (navigator.goToSheetVisible) {
+                        EpisodeGoToSheet(
+                            seasonLabel = "Season 1",
+                            episodes = episodes,
+                            isWatched = isWatched,
+                            onPick = { episode -> jumpTarget = episode },
+                            onDismiss = { navigator.goToSheetVisible = false },
+                        )
+                    }
+                    if (navigator.sortSheetVisible) {
+                        EpisodeSortSheet(
+                            current = navigator.sort,
+                            onSelect = { navigator.sort = it },
+                            onDismiss = { navigator.sortSheetVisible = false },
+                        )
+                    }
+                    if (shownEpisodes.isEmpty()) {
+                        EpisodeNavigatorEmptyState(
+                            query = navigator.query,
+                            onClear = { navigator.query = "" },
+                        )
+                    } else {
+                        DetailGlassContentCardPreview(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(108.dp),
+                            video = episodeToShow,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun LiquidGlassSettingsSurfacePreview(
