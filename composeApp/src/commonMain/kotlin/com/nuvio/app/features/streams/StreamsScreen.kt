@@ -67,6 +67,7 @@ import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
@@ -96,6 +97,8 @@ import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -1557,6 +1560,15 @@ internal fun StreamSearchField(
         RoundedCornerShape(NuvioTokens.Radius.lg),
         preview = preview,
     )
+    val backdrop = LocalLiquidGlassBackdrop.current
+    val backdropHost = backdrop as? LiquidGlassBackdropHost
+    val glassRimCanRender = isLiquidGlassAvailable() &&
+        backdrop != null &&
+        (backdropHost?.isReady ?: true)
+    val drawNativeOutline = shouldDrawNuvioInputFieldOutline(
+        glassSurfaceEnabled = glassAllowed,
+        glassRimCanRender = glassRimCanRender,
+    )
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1587,8 +1599,9 @@ internal fun StreamSearchField(
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
             trailingIcon = trailingContent,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = tokens.colors.borderFocus,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.12f),
+                focusedBorderColor = if (drawNativeOutline) tokens.colors.borderFocus else Color.Transparent,
+                unfocusedBorderColor = if (drawNativeOutline) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                disabledBorderColor = if (drawNativeOutline) Color.White.copy(alpha = 0.12f) else Color.Transparent,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
                 cursorColor = tokens.colors.accent,
