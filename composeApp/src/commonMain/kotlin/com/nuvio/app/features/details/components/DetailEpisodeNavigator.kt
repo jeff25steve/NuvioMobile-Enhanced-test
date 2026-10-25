@@ -316,7 +316,7 @@ private fun EpisodeNavigatorChip(
     val tokens = MaterialTheme.nuvio
     val nativeShape = RoundedCornerShape(14.dp)
     val surface = glassSurface
-    val glassEnabled = surface?.let(::isLiquidGlassSurfaceEffectivelyEnabled) == true
+    val glassEnabled = surface != null && isLiquidGlassSurfaceEffectivelyEnabled(surface)
     val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
     val containerModifier = if (glassEnabled && surface != null) {
         Modifier.liquidGlassForSurface(
