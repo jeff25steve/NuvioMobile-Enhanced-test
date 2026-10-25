@@ -87,7 +87,17 @@ import com.nuvio.app.features.details.components.DetailActions
 import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
 import com.nuvio.app.features.details.components.DetailGlassContentCardPreview
+import com.nuvio.app.features.details.components.DetailTrailersSection
+import com.nuvio.app.features.details.components.EpisodeNavigatorBar
+import com.nuvio.app.features.details.components.EpisodeGoToSheet
+import com.nuvio.app.features.details.components.EpisodeNavigatorEmptyState
+import com.nuvio.app.features.details.components.EpisodeSortSheet
+import com.nuvio.app.features.details.components.filteredAndSortedForNavigator
+import com.nuvio.app.features.details.components.navigatorKey
+import com.nuvio.app.features.details.components.rememberEpisodeNavigatorState
 import com.nuvio.app.features.details.MetaDetails
+import com.nuvio.app.features.details.MetaTrailer
+import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.downloads.DownloadsSettingsRepository
 import com.nuvio.app.features.library.CloudLibrarySearchField
@@ -170,6 +180,12 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_chips
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_content_cards
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_primary_action
+
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_trailer_selector
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_trailer_menu
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_search
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_go_to
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_sort
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_details
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
