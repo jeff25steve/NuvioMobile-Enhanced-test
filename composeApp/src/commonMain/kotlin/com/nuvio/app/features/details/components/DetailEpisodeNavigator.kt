@@ -11,6 +11,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.Dp
 import com.nuvio.app.features.details.EpisodeRatingsVisibility
 import com.nuvio.app.features.details.MetaDetails
@@ -77,6 +78,11 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSafeBottomPadding
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaVideo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -190,9 +196,28 @@ internal fun EpisodeNavigatorBar(
     totalCount: Int,
     onSubmitNumber: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
 ) {
     val tokens = MaterialTheme.nuvio
-    val fieldShape = RoundedCornerShape(14.dp)
+    val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
+    val searchGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
+    val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
+    val searchSurfaceModifier = if (searchGlassEnabled) {
+        Modifier.liquidGlassForSurface(
+            surface = searchSurface,
+            shape = fieldShape,
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+            .clip(fieldShape)
+            .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
+            .border(1.dp, tokens.colors.borderDefault, fieldShape)
+    }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -203,9 +228,7 @@ internal fun EpisodeNavigatorBar(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 44.dp)
-                    .clip(fieldShape)
-                    .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
-                    .border(1.dp, tokens.colors.borderDefault, fieldShape)
+                    .then(searchSurfaceModifier)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -213,7 +236,7 @@ internal fun EpisodeNavigatorBar(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = null,
-                    tint = tokens.colors.textMuted,
+                    tint = liquidGlassIconTint(searchSurface, tokens.colors.textMuted),
                     modifier = Modifier.size(18.dp),
                 )
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -236,7 +259,11 @@ internal fun EpisodeNavigatorBar(
                         keyboardActions = KeyboardActions(
                             onSearch = { state.query.trim().toIntOrNull()?.let(onSubmitNumber) },
                         ),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focus ->
+                                if (focus.isFocused) onPreviewSurfaceSelected?.invoke(searchSurface)
+                            },
                     )
                 }
                 if (state.query.isNotEmpty()) {
@@ -252,10 +279,14 @@ internal fun EpisodeNavigatorBar(
             }
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_go_to),
+                glassSurface = LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+                onPreviewSurfaceSelected = onPreviewSurfaceSelected,
                 onClick = { state.goToSheetVisible = true },
             )
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_sort),
+                glassSurface = LiquidGlassSurface.DETAIL_EPISODE_SORT,
+                onPreviewSurfaceSelected = onPreviewSurfaceSelected,
                 onClick = { state.sortSheetVisible = true },
             )
         }
@@ -276,15 +307,40 @@ internal fun EpisodeNavigatorBar(
 }
 
 @Composable
-private fun EpisodeNavigatorChip(text: String, onClick: () -> Unit) {
+private fun EpisodeNavigatorChip(
+    text: String,
+    onClick: () -> Unit,
+    glassSurface: LiquidGlassSurface? = null,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+) {
     val tokens = MaterialTheme.nuvio
-    val shape = RoundedCornerShape(14.dp)
+    val nativeShape = RoundedCornerShape(14.dp)
+    val surface = glassSurface
+    val glassEnabled = surface?.let(::isLiquidGlassSurfaceEffectivelyEnabled) == true
+    val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
+    val containerModifier = if (glassEnabled && surface != null) {
+        Modifier.liquidGlassForSurface(
+            surface = surface,
+            shape = shape,
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+            .clip(shape)
+            .border(1.dp, tokens.colors.borderDefault, shape)
+    }
     Box(
         modifier = Modifier
             .heightIn(min = 44.dp)
-            .clip(shape)
-            .border(1.dp, tokens.colors.borderDefault, shape)
-            .clickable(onClick = onClick)
+            .then(containerModifier)
+            .clickable {
+                surface?.let { onPreviewSurfaceSelected?.invoke(it) }
+                onClick()
+            }
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
