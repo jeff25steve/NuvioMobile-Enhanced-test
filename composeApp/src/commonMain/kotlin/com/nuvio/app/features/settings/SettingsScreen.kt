@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,17 +60,20 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.LocalScreenActive
+import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
+import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.PlatformBackHandler
 import com.nuvio.app.core.ui.isLiquidGlassNativeTabBarSupported
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.addons.AddonRepository
@@ -203,6 +207,7 @@ fun SettingsScreen(
     ) { mutableStateOf(false) }
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
+    val settingsGlassTextContrastEnabled = settingsGlassEnabled && isLiquidGlassSupported()
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
@@ -238,6 +243,12 @@ fun SettingsScreen(
         }
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides if (settingsGlassEnabled) settingsBackdrop else null,
+            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                enabled = settingsGlassTextContrastEnabled,
+            ),
+            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                enabled = settingsGlassTextContrastEnabled,
+            ),
         ) {
         val screenActive = LocalScreenActive.current
         val pageStateHolder = rememberSaveableStateHolder()
