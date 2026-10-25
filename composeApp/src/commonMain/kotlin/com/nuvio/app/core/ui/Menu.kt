@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -52,7 +53,7 @@ fun Menu(
 ) {
     val tokens = MaterialTheme.nuvio
     val useGlass = glassSurface != null &&
-        isLiquidGlassSurfaceEffectivelyEnabled(glassSurface)
+        isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(glassSurface)
     val shape = glassSurface?.let { liquidGlassShape(it, MenuShape) } ?: MenuShape
     val interactionObserver = if (onGlassSurfaceInteracted == null) {
         Modifier
