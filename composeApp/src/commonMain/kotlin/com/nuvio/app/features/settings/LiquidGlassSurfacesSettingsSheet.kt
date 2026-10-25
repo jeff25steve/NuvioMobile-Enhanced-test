@@ -2157,7 +2157,7 @@ private fun LiquidGlassSearchPreview(
                     shape = shape,
                     showOutline = shouldDrawNuvioInputFieldOutline(
                         glassSurfaceEnabled = glassSurfaceEnabled,
-                        glassRimCanRender = isLiquidGlassBackdropReady(previewBackdrop),
+                        glassRimCanRender = glassSurfaceEnabled && isLiquidGlassBackdropReady(previewBackdrop),
                     ),
                 )
             }
