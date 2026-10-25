@@ -2948,6 +2948,11 @@
     <string name="settings_liquid_glass_surface_detail_chips">Season and view chips</string>
     <string name="settings_liquid_glass_surface_detail_content_cards">Episode and content cards</string>
     <string name="settings_liquid_glass_surface_detail_primary_action">Download action</string>
+    <string name="settings_liquid_glass_surface_detail_trailer_selector">Trailer selector button</string>
+    <string name="settings_liquid_glass_surface_detail_trailer_menu">Trailer category popup</string>
+    <string name="settings_liquid_glass_surface_detail_episode_search">Episode search field</string>
+    <string name="settings_liquid_glass_surface_detail_episode_go_to">Go to episode button</string>
+    <string name="settings_liquid_glass_surface_detail_episode_sort">Sort episodes button</string>
     <string name="settings_liquid_glass_surface_search">Search</string>
     <string name="settings_liquid_glass_surface_library">Library</string>
     <string name="settings_liquid_glass_surface_settings">Settings</string>
