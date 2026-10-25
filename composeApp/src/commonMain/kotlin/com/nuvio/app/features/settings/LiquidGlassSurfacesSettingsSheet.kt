@@ -780,7 +780,11 @@ private fun LiquidGlassDetailPagePreview(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = GlassPreviewSelectionGutter),
+                ) {
                     DetailActions(
                         playLabel = stringResource(Res.string.action_play),
                         playEnabled = true,
@@ -798,7 +802,6 @@ private fun LiquidGlassDetailPagePreview(
                         onPlayFromStartClick = null,
                         onPlayExternallyClick = {},
                         iconActionRow = iconActionRow,
-                        modifier = Modifier.padding(horizontal = GlassPreviewSelectionGutter),
                         previewGlassAll = true,
                     )
                     // Hit targets follow the production action layout. Play is accent-filled;
