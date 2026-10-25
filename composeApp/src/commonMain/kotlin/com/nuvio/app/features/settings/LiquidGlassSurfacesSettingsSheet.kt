@@ -75,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSheetSurface
@@ -112,6 +113,8 @@ import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -2076,6 +2079,10 @@ private fun LiquidGlassSearchPreview(
         defaultShape = RoundedCornerShape(18.dp),
         preview = true,
     )
+    val glassSurfaceEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SEARCH,
+        preview = true,
+    )
 
     Box(modifier = modifier.fillMaxSize()) {
         Box(
@@ -2148,6 +2155,11 @@ private fun LiquidGlassSearchPreview(
                     placeholder = stringResource(Res.string.compose_search_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                     containerColor = Color.Transparent,
+                    shape = shape,
+                    showOutline = shouldDrawNuvioInputFieldOutline(
+                        glassSurfaceEnabled = glassSurfaceEnabled,
+                        glassRendererAvailable = isLiquidGlassAvailable(),
+                    ),
                 )
             }
         }
