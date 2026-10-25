@@ -45,23 +45,19 @@ class LiquidGlassRadiusRefreshTest {
                 ),
             )
             val density = LocalDensity.current
-            val shape = CompositionLocalProvider(
-                LocalLiquidGlassPreviewSettings provides previewSettings,
-            ) {
-                liquidGlassShape(
+            CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides previewSettings) {
+                val shape = liquidGlassShape(
                     surface = LiquidGlassSurface.SEARCH,
                     defaultShape = RoundedCornerShape(24.dp),
                     preview = true,
                 )
-            }
 
-            SideEffect {
-                val cornerBasedShape = shape as CornerBasedShape
-                val bounds = with(density) { Size(80.dp.toPx(), 80.dp.toPx()) }
-                observedCornerRadii += cornerBasedShape.topStart.toPx(bounds, density)
-            }
+                SideEffect {
+                    val cornerBasedShape = shape as CornerBasedShape
+                    val bounds = with(density) { Size(80.dp.toPx(), 80.dp.toPx()) }
+                    observedCornerRadii += cornerBasedShape.topStart.toPx(bounds, density)
+                }
 
-            CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides previewSettings) {
                 Box(
                     modifier = Modifier
                         .size(80.dp)
