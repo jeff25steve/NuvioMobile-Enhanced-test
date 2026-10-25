@@ -85,6 +85,13 @@ interface LiquidGlassBackdropHost {
     fun release() {}
 }
 
+/** True only when a glass surface has a usable backdrop source on this platform. */
+internal fun isLiquidGlassBackdropReady(backdrop: Backdrop?): Boolean {
+    if (backdrop == null || !isLiquidGlassAvailable()) return false
+    val host = backdrop as? LiquidGlassBackdropHost
+    return host?.isReady ?: true
+}
+
 val LocalLiquidGlassBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 @Stable
