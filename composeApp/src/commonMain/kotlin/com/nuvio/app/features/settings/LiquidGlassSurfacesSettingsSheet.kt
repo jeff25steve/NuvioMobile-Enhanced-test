@@ -1743,7 +1743,18 @@ private fun LiquidGlassLibraryPreview(
                         CircleShape,
                     ),
             )
-
+            Box(
+                modifier = Modifier
+                    .size(126.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-34).dp, y = 32.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xC7DD79A7), Color(0x6D7864D6), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Box(
@@ -2305,7 +2316,18 @@ private fun LiquidGlassStreamSearchPreview(
                         CircleShape,
                     ),
             )
-
+            Box(
+                modifier = Modifier
+                    .size(154.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-30).dp, y = 34.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xC358D9D0), Color(0x706A7EE8), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
@@ -2400,7 +2422,18 @@ private fun LiquidGlassStreamResultsPreview(
                         CircleShape,
                     ),
             )
-
+            Box(
+                modifier = Modifier
+                    .size(188.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-42).dp, y = 52.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xC7DC79A7), Color(0x736A7EE8), Color.Transparent),
+                        ),
+                        CircleShape,
+                    ),
+            )
         }
         CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
             Column(
