@@ -103,8 +103,7 @@ import com.nuvio.app.core.i18n.localizedShortMonthName
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
-import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
-import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
@@ -920,12 +919,7 @@ private fun LazyListScope.cloudLibraryContent(
                     } else {
                         defaultSearchShape
                     }
-                    val backdrop = LocalLiquidGlassBackdrop.current
-                    val backdropHost = backdrop as? LiquidGlassBackdropHost
-                    val glassRimCanRender = libraryGlassEnabled &&
-                        isLiquidGlassAvailable() &&
-                        backdrop != null &&
-                        (backdropHost?.isReady ?: true)
+                    val glassRimCanRender = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
