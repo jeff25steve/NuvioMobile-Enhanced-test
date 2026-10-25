@@ -36,6 +36,11 @@ internal enum class LiquidGlassSurface {
     DETAIL_CHIPS,
     DETAIL_CONTENT_CARDS,
     DETAIL_PRIMARY_ACTION,
+    DETAIL_TRAILER_SELECTOR,
+    DETAIL_TRAILER_MENU,
+    DETAIL_EPISODE_SEARCH,
+    DETAIL_EPISODE_GO_TO,
+    DETAIL_EPISODE_SORT,
     SEARCH,
     LIBRARY,
     SETTINGS,
@@ -49,9 +54,11 @@ internal enum class LiquidGlassSurface {
 
     val supportsIconTint: Boolean
         get() = when (this) {
-            PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, SEARCH, LIBRARY, SETTINGS -> true
+            PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,
+            DETAIL_EPISODE_SEARCH, SEARCH, LIBRARY, SETTINGS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
-            DETAIL_CONTENT_CARDS, BOTTOM_SHEETS -> false
+            DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
+            DETAIL_EPISODE_SORT, BOTTOM_SHEETS -> false
         }
 
     val defaultEnabled: Boolean
@@ -65,6 +72,11 @@ internal enum class LiquidGlassSurface {
             DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS,
             DETAIL_PRIMARY_ACTION,
+            DETAIL_TRAILER_SELECTOR,
+            DETAIL_TRAILER_MENU,
+            DETAIL_EPISODE_SEARCH,
+            DETAIL_EPISODE_GO_TO,
+            DETAIL_EPISODE_SORT,
             BOTTOM_SHEETS,
             -> true
             SEARCH, LIBRARY, SETTINGS -> false
@@ -153,7 +165,12 @@ internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurfac
             LiquidGlassSurface.DETAIL_HEADER,
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.DETAIL_TRAILER_MENU,
             LiquidGlassSurface.DETAIL_CHIPS,
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+            LiquidGlassSurface.DETAIL_EPISODE_SORT,
             LiquidGlassSurface.DETAIL_CONTENT_CARDS,
         ),
     ),
@@ -178,6 +195,12 @@ internal data class LiquidGlassSurfacesSettings(
     val detailChips: LiquidGlassSurfaceOverrides = details,
     val detailContentCards: LiquidGlassSurfaceOverrides = details,
     val detailPrimaryAction: LiquidGlassSurfaceOverrides = details,
+    // Added control surfaces default to inherited recipes, preserving compatibility with older JSON.
+    val detailTrailerSelector: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val detailTrailerMenu: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val detailEpisodeSearch: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val detailEpisodeGoTo: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val detailEpisodeSort: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val streamResults: LiquidGlassSurfaceOverrides = streamSelection,
     val search: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val library: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
@@ -194,6 +217,11 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.DETAIL_CHIPS -> detailChips
         LiquidGlassSurface.DETAIL_CONTENT_CARDS -> detailContentCards
         LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> detailPrimaryAction
+        LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> detailTrailerSelector
+        LiquidGlassSurface.DETAIL_TRAILER_MENU -> detailTrailerMenu
+        LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> detailEpisodeSearch
+        LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> detailEpisodeGoTo
+        LiquidGlassSurface.DETAIL_EPISODE_SORT -> detailEpisodeSort
         LiquidGlassSurface.SEARCH -> search
         LiquidGlassSurface.LIBRARY -> library
         LiquidGlassSurface.SETTINGS -> settings
@@ -215,6 +243,11 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.DETAIL_CHIPS -> copy(detailChips = safe)
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> copy(detailContentCards = safe)
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> copy(detailPrimaryAction = safe)
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> copy(detailTrailerSelector = safe)
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> copy(detailTrailerMenu = safe)
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> copy(detailEpisodeSearch = safe)
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> copy(detailEpisodeGoTo = safe)
+            LiquidGlassSurface.DETAIL_EPISODE_SORT -> copy(detailEpisodeSort = safe)
             LiquidGlassSurface.SEARCH -> copy(search = safe)
             LiquidGlassSurface.LIBRARY -> copy(library = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
@@ -231,6 +264,11 @@ internal data class LiquidGlassSurfacesSettings(
         detailChips = detailChips.sanitized(),
         detailContentCards = detailContentCards.sanitized(),
         detailPrimaryAction = detailPrimaryAction.sanitized(),
+        detailTrailerSelector = detailTrailerSelector.sanitized(),
+        detailTrailerMenu = detailTrailerMenu.sanitized(),
+        detailEpisodeSearch = detailEpisodeSearch.sanitized(),
+        detailEpisodeGoTo = detailEpisodeGoTo.sanitized(),
+        detailEpisodeSort = detailEpisodeSort.sanitized(),
         streamResults = streamResults.sanitized(),
         search = search.sanitized(),
         library = library.sanitized(),
