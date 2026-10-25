@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -49,6 +50,7 @@ fun Menu(
     offset: DpOffset = DpOffset(NuvioTokens.Space.none, NuvioTokens.Space.s6),
     glassSurface: LiquidGlassSurface? = null,
     onGlassSurfaceInteracted: (() -> Unit)? = null,
+    selectionHighlight: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -68,7 +70,7 @@ fun Menu(
         }
     }
     val baseModifier = modifier.then(interactionObserver)
-    val menuModifier = if (useGlass && glassSurface != null) {
+    val glassModifier = if (useGlass && glassSurface != null) {
         baseModifier.liquidGlassForSurface(
             surface = glassSurface,
             shape = shape,
@@ -81,6 +83,13 @@ fun Menu(
     } else {
         baseModifier
     }
+    val menuModifier = glassModifier.then(
+        if (selectionHighlight && useGlass) {
+            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
+        } else {
+            Modifier
+        },
+    )
 
     DropdownMenu(
         expanded = expanded,
@@ -91,7 +100,11 @@ fun Menu(
         containerColor = if (useGlass) Color.Transparent else tokens.colors.surfacePopover,
         tonalElevation = if (useGlass) 0.dp else tokens.elevation.flat,
         shadowElevation = if (useGlass) 0.dp else tokens.elevation.overlay,
-        border = if (useGlass) null else BorderStroke(tokens.borders.thin, SurfaceEdge),
+        border = when {
+            useGlass -> null
+            selectionHighlight -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            else -> BorderStroke(tokens.borders.thin, SurfaceEdge)
+        },
         content = content,
     )
 }
