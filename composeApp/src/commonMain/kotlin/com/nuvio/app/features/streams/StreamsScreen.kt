@@ -97,8 +97,7 @@ import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
-import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
-import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -1560,11 +1559,7 @@ internal fun StreamSearchField(
         RoundedCornerShape(NuvioTokens.Radius.lg),
         preview = preview,
     )
-    val backdrop = LocalLiquidGlassBackdrop.current
-    val backdropHost = backdrop as? LiquidGlassBackdropHost
-    val glassRimCanRender = isLiquidGlassAvailable() &&
-        backdrop != null &&
-        (backdropHost?.isReady ?: true)
+    val glassRimCanRender = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
     val drawNativeOutline = shouldDrawNuvioInputFieldOutline(
         glassSurfaceEnabled = glassAllowed,
         glassRimCanRender = glassRimCanRender,
