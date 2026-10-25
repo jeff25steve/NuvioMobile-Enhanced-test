@@ -79,6 +79,7 @@ import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSafeBottomPadding
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
@@ -200,7 +201,7 @@ internal fun EpisodeNavigatorBar(
 ) {
     val tokens = MaterialTheme.nuvio
     val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
-    val searchGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
+    val searchGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
     val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
     val searchSurfaceModifier = if (searchGlassEnabled) {
         Modifier.liquidGlassForSurface(
@@ -316,7 +317,7 @@ private fun EpisodeNavigatorChip(
     val tokens = MaterialTheme.nuvio
     val nativeShape = RoundedCornerShape(14.dp)
     val surface = glassSurface
-    val glassEnabled = surface != null && isLiquidGlassSurfaceEffectivelyEnabled(surface)
+    val glassEnabled = surface != null && isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(surface)
     val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
     val containerModifier = if (glassEnabled && surface != null) {
         Modifier.liquidGlassForSurface(
