@@ -8,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.requiredSize
@@ -1871,7 +1870,7 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
                     .align(Alignment.TopEnd)
                     .offset(x = 22.dp, y = (-32).dp)
                     .background(
-                        Brush.radialGradient(listOf(Color(0xB85AB8D0), Color(0x44774F9D), Color.Transparent)),
+                        Brush.radialGradient(listOf(Color(0xD85AB8D0), Color(0x85774F9D), Color.Transparent)),
                         CircleShape,
                     ),
             )
@@ -1881,7 +1880,7 @@ private fun LiquidGlassStreamFiltersPreview(modifier: Modifier = Modifier) {
                     .align(Alignment.BottomStart)
                     .offset(x = (-18).dp, y = 28.dp)
                     .background(
-                        Brush.radialGradient(listOf(Color(0xA5C76A9E), Color.Transparent)),
+                        Brush.radialGradient(listOf(Color(0xD5C76A9E), Color.Transparent)),
                         CircleShape,
                     ),
             )
@@ -2502,9 +2501,6 @@ private fun LiquidGlassSearchPreviewPosterTile(
         }
     }
 }
-
-
-
 
 private data class LiquidGlassSurfaceRecipe(
     val cornerRadiusPercent: Float,
