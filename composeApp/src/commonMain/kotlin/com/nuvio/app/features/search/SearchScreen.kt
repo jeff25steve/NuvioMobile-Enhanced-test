@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.network.NetworkCondition
 import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.core.ui.nuvio
@@ -58,6 +59,7 @@ import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.withDuplicateSafeLazyKeys
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
@@ -502,6 +504,11 @@ fun SearchScreen(
                                                 .onFocusChanged { isSearchFocused = it.isFocused },
                                             trailingContent = trailingContent,
                                             containerColor = Color.Transparent,
+                                            shape = searchFieldShape,
+                                            showOutline = shouldDrawNuvioInputFieldOutline(
+                                                glassSurfaceEnabled = searchGlassEnabled,
+                                                glassRendererAvailable = isLiquidGlassAvailable(),
+                                            ),
                                         )
                                     }
                                 } else {
