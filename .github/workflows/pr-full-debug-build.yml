@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/liquid-glass-studio-full-debug-20261025]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
