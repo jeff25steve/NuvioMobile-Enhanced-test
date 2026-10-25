@@ -93,7 +93,6 @@ import com.nuvio.app.features.details.components.EpisodeGoToSheet
 import com.nuvio.app.features.details.components.EpisodeNavigatorEmptyState
 import com.nuvio.app.features.details.components.EpisodeSortSheet
 import com.nuvio.app.features.details.components.filteredAndSortedForNavigator
-import com.nuvio.app.features.details.components.navigatorKey
 import com.nuvio.app.features.details.components.rememberEpisodeNavigatorState
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaTrailer
