@@ -2,6 +2,9 @@ package com.nuvio.app.core.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
@@ -20,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -42,14 +47,28 @@ fun Menu(
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset(NuvioTokens.Space.none, NuvioTokens.Space.s6),
     glassSurface: LiquidGlassSurface? = null,
+    onGlassSurfaceInteracted: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
     val useGlass = glassSurface != null &&
         isLiquidGlassSurfaceEffectivelyEnabled(glassSurface)
     val shape = glassSurface?.let { liquidGlassShape(it, MenuShape) } ?: MenuShape
+    val interactionObserver = if (onGlassSurfaceInteracted == null) {
+        Modifier
+    } else {
+        Modifier.pointerInput(onGlassSurfaceInteracted) {
+            awaitEachGesture {
+                awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+                if (waitForUpOrCancellation(pass = PointerEventPass.Initial) != null) {
+                    onGlassSurfaceInteracted()
+                }
+            }
+        }
+    }
+    val baseModifier = modifier.then(interactionObserver)
     val menuModifier = if (useGlass && glassSurface != null) {
-        modifier.liquidGlassForSurface(
+        baseModifier.liquidGlassForSurface(
             surface = glassSurface,
             shape = shape,
             tint = tokens.colors.surfacePopover.copy(alpha = 0.24f),
@@ -59,7 +78,7 @@ fun Menu(
             refractionAmount = 16.dp,
         )
     } else {
-        modifier
+        baseModifier
     }
 
     DropdownMenu(
