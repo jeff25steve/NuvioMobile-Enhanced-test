@@ -933,6 +933,7 @@ private fun LiquidGlassDetailPagePreview(
                         .padding(horizontal = 14.dp),
                     showHeader = true,
                     onPreviewSurfaceSelected = onSelectSurface,
+                    selectedPreviewSurface = selectedSurface,
                 )
 
                 Text(
@@ -978,6 +979,7 @@ private fun LiquidGlassDetailPagePreview(
                         }
                         onSelectSurface(surface)
                     },
+                    selectedPreviewSurface = selectedSurface,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 14.dp),
@@ -1955,6 +1957,7 @@ private fun LiquidGlassDetailControlPreview(
                         .fillMaxWidth()
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     showHeader = true,
+                    selectedPreviewSurface = surface,
                     previewMenuInitiallyExpanded = surface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
                 )
             } else {
@@ -1969,6 +1972,7 @@ private fun LiquidGlassDetailControlPreview(
                         state = navigator,
                         shownCount = shownEpisodes.size,
                         totalCount = episodes.size,
+                        selectedPreviewSurface = surface,
                         onSubmitNumber = { number ->
                             episodes.firstOrNull { it.episode == number }?.let { episode ->
                                 jumpTarget = episode
