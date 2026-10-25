@@ -703,124 +703,8 @@ private fun LiquidGlassDetailPagePreview(
             status = "Ongoing",
         )
     }
-    val previewTrailers = remember {
-        listOf(
-            MetaTrailer(
-                id = "liquid-glass-trailer-preview",
-                key = "Xn2PsXD8m4A",
-                name = "Official Trailer",
-                site = "YouTube",
-                type = "Trailer",
-                official = true,
-                publishedAt = "2024-08-29",
-                displayName = "Trailer",
-            ),
-        )
-    }
-    val previewEpisodes = remember(meta.id) {
-        listOf(
-            MetaVideo(
-                id = "glass-preview-s1e1",
-                title = "Pilot",
-                released = "2024-09-26",
-                season = 1,
-                episode = 1,
-                overview = "Fresh off another unsuccessful date, Joanne sashays into a friend's party and meets Noah.",
-                runtime = 27,
-                tmdbRating = 7.7,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e2",
-                title = "A Shiksa Walks into a Synagogue",
-                released = "2024-09-26",
-                season = 1,
-                episode = 2,
-                overview = "Joanne and Noah discover that dating across very different worlds takes some getting used to.",
-                runtime = 25,
-                tmdbRating = 7.6,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e3",
-                title = "Either Aura",
-                released = "2024-09-26",
-                season = 1,
-                episode = 3,
-                overview = "A new relationship brings new questions about identity, family and expectations.",
-                runtime = 26,
-                tmdbRating = 7.5,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e4",
-                title = "The Ick",
-                released = "2024-09-26",
-                season = 1,
-                episode = 4,
-                overview = "Small differences become harder to ignore as their relationship develops.",
-                runtime = 25,
-                tmdbRating = 7.4,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e5",
-                title = "My Friend Joanne",
-                released = "2024-09-26",
-                season = 1,
-                episode = 5,
-                overview = "Friends and family have plenty to say about the new couple.",
-                runtime = 27,
-                tmdbRating = 7.6,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e6",
-                title = "The Other Woman",
-                released = "2024-09-26",
-                season = 1,
-                episode = 6,
-                overview = "Joanne and Noah try to navigate the complications of a growing romance.",
-                runtime = 26,
-                tmdbRating = 7.3,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e7",
-                title = "WAGS",
-                released = "2024-09-26",
-                season = 1,
-                episode = 7,
-                overview = "An unexpected gathering puts their assumptions to the test.",
-                runtime = 27,
-                tmdbRating = 7.6,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e8",
-                title = "Rebecca's Box",
-                released = "2024-09-26",
-                season = 1,
-                episode = 8,
-                overview = "The relationship reaches a moment that calls for honesty.",
-                runtime = 27,
-                tmdbRating = 7.8,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e9",
-                title = "My Jewish Mom",
-                released = "2024-09-26",
-                season = 1,
-                episode = 9,
-                overview = "Family expectations complicate the couple's plans.",
-                runtime = 26,
-                tmdbRating = 7.7,
-            ),
-            MetaVideo(
-                id = "glass-preview-s1e10",
-                title = "Bat Mitzvah Crashers",
-                released = "2024-09-26",
-                season = 1,
-                episode = 10,
-                overview = "Joanne and Noah consider what the future might look like together.",
-                runtime = 28,
-                tmdbRating = 7.9,
-            ),
-        )
-    }
+    val previewTrailers = remember { liquidGlassDetailPreviewTrailers() }
+    val previewEpisodes = remember(meta.id) { liquidGlassDetailPreviewEpisodes() }
     val episodeNavigator = rememberEpisodeNavigatorState(meta.id)
     val isPreviewEpisodeWatched: (MetaVideo) -> Boolean = { it.episode == 1 }
     val shownPreviewEpisodes = remember(previewEpisodes, episodeNavigator.query, episodeNavigator.sort) {
@@ -1169,6 +1053,122 @@ private fun LiquidGlassDetailPagePreview(
         }
     }
 }
+
+private fun liquidGlassDetailPreviewTrailers(): List<MetaTrailer> = listOf(
+    MetaTrailer(
+        id = "liquid-glass-trailer-preview",
+        key = "Xn2PsXD8m4A",
+        name = "Official Trailer",
+        site = "YouTube",
+        type = "Trailer",
+        official = true,
+        publishedAt = "2024-08-29",
+        displayName = "Trailer",
+    ),
+)
+
+private fun liquidGlassDetailPreviewEpisodes(): List<MetaVideo> = listOf(
+    MetaVideo(
+        id = "glass-preview-s1e1",
+        title = "Pilot",
+        released = "2024-09-26",
+        season = 1,
+        episode = 1,
+        overview = "Fresh off another unsuccessful date, Joanne sashays into a friend's party and meets Noah.",
+        runtime = 27,
+        tmdbRating = 7.7,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e2",
+        title = "A Shiksa Walks into a Synagogue",
+        released = "2024-09-26",
+        season = 1,
+        episode = 2,
+        overview = "Joanne and Noah discover that dating across very different worlds takes some getting used to.",
+        runtime = 25,
+        tmdbRating = 7.6,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e3",
+        title = "Either Aura",
+        released = "2024-09-26",
+        season = 1,
+        episode = 3,
+        overview = "A new relationship brings new questions about identity, family and expectations.",
+        runtime = 26,
+        tmdbRating = 7.5,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e4",
+        title = "The Ick",
+        released = "2024-09-26",
+        season = 1,
+        episode = 4,
+        overview = "Small differences become harder to ignore as their relationship develops.",
+        runtime = 25,
+        tmdbRating = 7.4,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e5",
+        title = "My Friend Joanne",
+        released = "2024-09-26",
+        season = 1,
+        episode = 5,
+        overview = "Friends and family have plenty to say about the new couple.",
+        runtime = 27,
+        tmdbRating = 7.6,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e6",
+        title = "The Other Woman",
+        released = "2024-09-26",
+        season = 1,
+        episode = 6,
+        overview = "Joanne and Noah try to navigate the complications of a growing romance.",
+        runtime = 26,
+        tmdbRating = 7.3,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e7",
+        title = "WAGS",
+        released = "2024-09-26",
+        season = 1,
+        episode = 7,
+        overview = "An unexpected gathering puts their assumptions to the test.",
+        runtime = 27,
+        tmdbRating = 7.6,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e8",
+        title = "Rebecca's Box",
+        released = "2024-09-26",
+        season = 1,
+        episode = 8,
+        overview = "The relationship reaches a moment that calls for honesty.",
+        runtime = 27,
+        tmdbRating = 7.8,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e9",
+        title = "My Jewish Mom",
+        released = "2024-09-26",
+        season = 1,
+        episode = 9,
+        overview = "Family expectations complicate the couple's plans.",
+        runtime = 26,
+        tmdbRating = 7.7,
+    ),
+    MetaVideo(
+        id = "glass-preview-s1e10",
+        title = "Bat Mitzvah Crashers",
+        released = "2024-09-26",
+        season = 1,
+        episode = 10,
+        overview = "Joanne and Noah consider what the future might look like together.",
+        runtime = 28,
+        tmdbRating = 7.9,
+    ),
+)
 
 private val GlassPreviewSelectionGutter = 4.dp
 
