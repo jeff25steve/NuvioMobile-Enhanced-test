@@ -36,15 +36,15 @@ internal enum class LiquidGlassSurface {
     DETAIL_CHIPS,
     DETAIL_CONTENT_CARDS,
     DETAIL_PRIMARY_ACTION,
+    SEARCH,
+    LIBRARY,
+    SETTINGS,
+    BOTTOM_SHEETS,
     DETAIL_TRAILER_SELECTOR,
     DETAIL_TRAILER_MENU,
     DETAIL_EPISODE_SEARCH,
     DETAIL_EPISODE_GO_TO,
-    DETAIL_EPISODE_SORT,
-    SEARCH,
-    LIBRARY,
-    SETTINGS,
-    BOTTOM_SHEETS;
+    DETAIL_EPISODE_SORT;
 
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
