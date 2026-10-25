@@ -111,9 +111,9 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
 import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
-import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
@@ -2158,7 +2158,7 @@ private fun LiquidGlassSearchPreview(
                     shape = shape,
                     showOutline = shouldDrawNuvioInputFieldOutline(
                         glassSurfaceEnabled = glassSurfaceEnabled,
-                        glassRimCanRender = isLiquidGlassAvailable() && previewBackdrop.isReady,
+                        glassRimCanRender = isLiquidGlassBackdropReady(previewBackdrop),
                     ),
                 )
             }
