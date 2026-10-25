@@ -110,8 +110,9 @@ private val SettingsGlassTextShadow = Shadow(
 )
 
 /**
- * Raises the contrast of secondary Settings text only while the Settings glass surface is active.
- * Surface, accent, and control colors deliberately remain unchanged.
+ * Raises text contrast only while the Settings glass surface is active.
+ * Surface and accent colors remain unchanged; any controls that reuse muted text tokens inherit
+ * the same more-visible tint.
  */
 internal fun NuvioThemeTokens.withSettingsGlassTextContrast(enabled: Boolean): NuvioThemeTokens =
     if (!enabled) {
