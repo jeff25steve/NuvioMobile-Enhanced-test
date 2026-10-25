@@ -64,6 +64,7 @@ fun DetailTrailersSection(
     showHeader: Boolean = true,
     horizontalScrollPadding: Dp = 0.dp,
     onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    previewMenuInitiallyExpanded: Boolean = false,
 ) {
     if (trailers.isEmpty()) return
 
@@ -84,7 +85,9 @@ fun DetailTrailersSection(
             ?: grouped.keys.first()
     }
     var selectedCategory by remember(grouped) { mutableStateOf(initialCategory) }
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(grouped, previewMenuInitiallyExpanded) {
+        mutableStateOf(previewMenuInitiallyExpanded)
+    }
 
     val selectedTrailers = grouped[selectedCategory].orEmpty()
     val posterCardStyle = rememberPosterCardStyleUiState()
