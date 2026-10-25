@@ -418,6 +418,54 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun detailTrailerAndEpisodeControlsHaveIndependentGlassSettings() {
+        val initial = LiquidGlassSurfacesSettings()
+        val surfaces = listOf(
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.DETAIL_TRAILER_MENU,
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+            LiquidGlassSurface.DETAIL_EPISODE_SORT,
+        )
+
+        surfaces.forEach { surface ->
+            assertTrue(surface.defaultEnabled, surface.name)
+            assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(surface), surface.name)
+        }
+
+        val customized = initial
+            .withSurface(
+                LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+                LiquidGlassSurfaceOverrides(enabled = false, blurRadiusDp = 5f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                LiquidGlassSurfaceOverrides(enabled = true, blurRadiusDp = 22f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+                LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 28f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+                LiquidGlassSurfaceOverrides(enabled = true, tintOpacity = 0.42f),
+            )
+            .withSurface(
+                LiquidGlassSurface.DETAIL_EPISODE_SORT,
+                LiquidGlassSurfaceOverrides(enabled = false, withShadow = true),
+            )
+
+        assertEquals(false, customized.forSurface(LiquidGlassSurface.DETAIL_TRAILER_SELECTOR).enabled)
+        assertEquals(5f, customized.forSurface(LiquidGlassSurface.DETAIL_TRAILER_SELECTOR).blurRadiusDp)
+        assertEquals(22f, customized.forSurface(LiquidGlassSurface.DETAIL_TRAILER_MENU).blurRadiusDp)
+        assertEquals(28f, customized.forSurface(LiquidGlassSurface.DETAIL_EPISODE_SEARCH).cornerRadiusPercent)
+        assertEquals(0.42f, customized.forSurface(LiquidGlassSurface.DETAIL_EPISODE_GO_TO).tintOpacity)
+        assertEquals(true, customized.forSurface(LiquidGlassSurface.DETAIL_EPISODE_SORT).withShadow)
+        assertEquals(customized, decodeLiquidGlassSurfaceSettings(encodeLiquidGlassSurfaceSettings(customized)))
+        assertEquals(initial, initial.withSurface(LiquidGlassSurface.DETAIL_TRAILER_MENU, LiquidGlassSurfaceOverrides()))
+    }
+
+    @Test
     fun providerFiltersHaveTheirOwnDefaultAndCanBeToggledWithoutChangingResults() {
         val initial = LiquidGlassSurfacesSettings()
         assertTrue(LiquidGlassSurface.STREAM_FILTERS.defaultEnabled)
