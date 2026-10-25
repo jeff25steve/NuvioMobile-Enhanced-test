@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui.glass
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -42,6 +43,18 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(0f, effectiveLiquidGlassCornerRadiusScale(0f), 0.001f)
         assertEquals(0.5f, effectiveLiquidGlassCornerRadiusScale(25f), 0.001f)
         assertEquals(1f, effectiveLiquidGlassCornerRadiusScale(50f), 0.001f)
+    }
+
+    @Test
+    fun scaledShapeEqualityTracksRadiusValueForLiveUpdates() {
+        val shape = RoundedCornerShape(24.dp)
+
+        val radius25A = scaleLiquidGlassCornerShape(shape, 25f)
+        val radius25B = scaleLiquidGlassCornerShape(shape, 25f)
+        val radius8 = scaleLiquidGlassCornerShape(shape, 8f)
+
+        assertEquals(radius25A, radius25B)
+        assertNotEquals(radius25A, radius8)
     }
 
     @Test
