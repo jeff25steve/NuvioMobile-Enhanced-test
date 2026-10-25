@@ -2926,7 +2926,7 @@
     <string name="settings_liquid_glass_preview_detail_page">Detail page preview</string>
     <string name="settings_liquid_glass_preview_detail_page_description">Select a glass element to edit it, or scroll the preview to explore the page.</string>
     <string name="settings_liquid_glass_preview_stream_picker">Stream picker preview</string>
-    <string name="settings_liquid_glass_preview_stream_picker_description">Select filters, search, resume or a result card to customize its glass independently.</string>
+    <string name="settings_liquid_glass_preview_stream_picker_description">Select provider filters, the search field, the resume banner, or a result card to customize each one.</string>
     <string name="settings_liquid_glass_link_effects">Edit together</string>
     <string name="settings_liquid_glass_link_effects_description">Copies the selected element&apos;s material and optical effects to all elements in this preview and keeps them in sync. Each keeps its own shape; supported icon colours stay separate.</string>
     <string name="settings_liquid_glass_tap_to_edit_component">Select a highlighted element to edit its glass settings.</string>
