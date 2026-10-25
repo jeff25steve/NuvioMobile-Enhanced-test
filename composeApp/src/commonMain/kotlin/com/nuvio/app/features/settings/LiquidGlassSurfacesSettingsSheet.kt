@@ -1663,6 +1663,11 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.DETAIL_CHIPS -> Res.string.settings_liquid_glass_surface_detail_chips
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> Res.string.settings_liquid_glass_surface_detail_content_cards
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> Res.string.settings_liquid_glass_surface_detail_primary_action
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> Res.string.settings_liquid_glass_surface_detail_trailer_selector
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> Res.string.settings_liquid_glass_surface_detail_trailer_menu
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> Res.string.settings_liquid_glass_surface_detail_episode_search
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> Res.string.settings_liquid_glass_surface_detail_episode_go_to
+            LiquidGlassSurface.DETAIL_EPISODE_SORT -> Res.string.settings_liquid_glass_surface_detail_episode_sort
             LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
             LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
@@ -1706,6 +1711,11 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_HEADER -> 90.dp
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> 118.dp
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 118.dp
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+            LiquidGlassSurface.DETAIL_EPISODE_SORT -> 100.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
@@ -1755,6 +1765,15 @@ private fun LiquidGlassSurfacePreview(
                             )
 
                             LiquidGlassSurface.DETAIL_HEADER -> LiquidGlassDetailHeaderPreview(
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+                            LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+                            LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+                            LiquidGlassSurface.DETAIL_EPISODE_SORT -> LiquidGlassDetailControlPreview(
+                                surface = surface,
                                 modifier = Modifier.fillMaxSize(),
                             )
 
