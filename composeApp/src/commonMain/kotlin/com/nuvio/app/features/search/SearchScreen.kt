@@ -507,7 +507,7 @@ fun SearchScreen(
                                             shape = searchFieldShape,
                                             showOutline = shouldDrawNuvioInputFieldOutline(
                                                 glassSurfaceEnabled = searchGlassEnabled,
-                                                glassRimCanRender = isLiquidGlassBackdropReady(searchBackdrop),
+                                                glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
                                             ),
                                         )
                                     }
