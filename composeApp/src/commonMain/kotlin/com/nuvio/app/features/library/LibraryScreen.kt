@@ -919,7 +919,7 @@ private fun LazyListScope.cloudLibraryContent(
                     } else {
                         defaultSearchShape
                     }
-                    val glassRimCanRender = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+                    val glassRimCanRender = libraryGlassEnabled && isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
