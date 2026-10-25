@@ -317,7 +317,11 @@ internal fun liquidGlassShape(
 internal fun effectiveLiquidGlassCornerRadiusScale(percent: Float): Float =
     effectiveLiquidGlassCornerRadiusPercent(percent) / 50f
 
-private class ScaledLiquidGlassCornerSize(
+/**
+ * Value equality is important for Backdrop's shape cache: equal radii should reuse the same
+ * outline, while a changed scale must invalidate it and update the live glass edge.
+ */
+private data class ScaledLiquidGlassCornerSize(
     private val original: CornerSize,
     private val scale: Float,
 ) : CornerSize {
