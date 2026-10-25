@@ -147,7 +147,6 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
-import nuvio.composeapp.generated.resources.settings_liquid_glass_default
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
