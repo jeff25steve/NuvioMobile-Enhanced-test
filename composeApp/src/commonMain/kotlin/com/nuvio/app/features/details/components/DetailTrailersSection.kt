@@ -138,9 +138,7 @@ fun DetailTrailersSection(
                         Modifier
                     }
                     val selectorSelectionOutline = selectedPreviewSurface == selectorSurface
-                    val selectorBorder = if (selectorSelectionOutline && !selectorGlassEnabled) {
-                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, selectorShape)
-                    } else if (selectorSelectionOutline) {
+                    val selectorBorder = if (selectorSelectionOutline) {
                         Modifier.border(2.dp, MaterialTheme.colorScheme.primary, selectorShape)
                     } else {
                         Modifier
