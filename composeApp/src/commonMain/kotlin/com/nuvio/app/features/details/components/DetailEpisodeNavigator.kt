@@ -198,11 +198,13 @@ internal fun EpisodeNavigatorBar(
     onSubmitNumber: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
     val searchGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
     val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
+    val searchSelected = selectedPreviewSurface == searchSurface
     val searchSurfaceModifier = if (searchGlassEnabled) {
         Modifier.liquidGlassForSurface(
             surface = searchSurface,
@@ -217,7 +219,16 @@ internal fun EpisodeNavigatorBar(
         Modifier
             .clip(fieldShape)
             .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
-            .border(1.dp, tokens.colors.borderDefault, fieldShape)
+            .border(
+                width = if (searchSelected) 2.dp else 1.dp,
+                color = if (searchSelected) MaterialTheme.colorScheme.primary else tokens.colors.borderDefault,
+                shape = fieldShape,
+            )
+    }
+    val searchSelectionBorder = if (searchGlassEnabled && searchSelected) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, fieldShape)
+    } else {
+        Modifier
     }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -230,6 +241,7 @@ internal fun EpisodeNavigatorBar(
                     .weight(1f)
                     .heightIn(min = 44.dp)
                     .then(searchSurfaceModifier)
+                    .then(searchSelectionBorder)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -282,12 +294,14 @@ internal fun EpisodeNavigatorBar(
                 text = stringResource(Res.string.episode_navigator_go_to),
                 glassSurface = LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
                 onPreviewSurfaceSelected = onPreviewSurfaceSelected,
+                selectedPreviewSurface = selectedPreviewSurface,
                 onClick = { state.goToSheetVisible = true },
             )
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_sort),
                 glassSurface = LiquidGlassSurface.DETAIL_EPISODE_SORT,
                 onPreviewSurfaceSelected = onPreviewSurfaceSelected,
+                selectedPreviewSurface = selectedPreviewSurface,
                 onClick = { state.sortSheetVisible = true },
             )
         }
@@ -313,12 +327,14 @@ private fun EpisodeNavigatorChip(
     onClick: () -> Unit,
     glassSurface: LiquidGlassSurface? = null,
     onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val nativeShape = RoundedCornerShape(14.dp)
     val surface = glassSurface
     val glassEnabled = surface != null && isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(surface)
     val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
+    val isSelected = surface != null && selectedPreviewSurface == surface
     val containerModifier = if (glassEnabled && surface != null) {
         Modifier.liquidGlassForSurface(
             surface = surface,
@@ -332,12 +348,22 @@ private fun EpisodeNavigatorChip(
     } else {
         Modifier
             .clip(shape)
-            .border(1.dp, tokens.colors.borderDefault, shape)
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else tokens.colors.borderDefault,
+                shape = shape,
+            )
+    }
+    val selectedOutlineModifier = if (glassEnabled && isSelected) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
+    } else {
+        Modifier
     }
     Box(
         modifier = Modifier
             .heightIn(min = 44.dp)
             .then(containerModifier)
+            .then(selectedOutlineModifier)
             .clickable {
                 surface?.let { onPreviewSurfaceSelected?.invoke(it) }
                 onClick()
