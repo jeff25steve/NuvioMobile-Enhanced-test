@@ -67,6 +67,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -806,7 +807,10 @@ private fun LiquidGlassDetailPagePreview(
                             Box(modifier = Modifier.fillMaxWidth().height(actionButtonHeight + 12.dp))
                             if (LiquidGlassSurface.DETAILS in selectableActionSurfaces) {
                                 GlassPreviewHotspot(
-                                    modifier = Modifier.fillMaxWidth().height(actionButtonHeight),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(actionButtonHeight + GlassPreviewSelectionGutter * 2)
+                                        .offset(y = -GlassPreviewSelectionGutter),
                                     surface = LiquidGlassSurface.DETAILS,
                                     selectedSurface = selectedSurface,
                                     onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
@@ -814,9 +818,12 @@ private fun LiquidGlassDetailPagePreview(
                             }
                         } else {
                             if (LiquidGlassSurface.DETAILS in selectableActionSurfaces) {
-                                Box(modifier = Modifier.fillMaxWidth().height(actionButtonHeight)) {
+                                Box(modifier = Modifier.fillMaxWidth().height(actionButtonHeight + GlassPreviewSelectionGutter * 2)) {
                                     GlassPreviewHotspot(
-                                        modifier = Modifier.align(Alignment.CenterEnd).size(actionButtonHeight),
+                                        modifier = Modifier
+                                            .align(Alignment.CenterEnd)
+                                            .size(actionButtonHeight + GlassPreviewSelectionGutter * 2)
+                                            .offset(y = -GlassPreviewSelectionGutter),
                                         surface = LiquidGlassSurface.DETAILS,
                                         selectedSurface = selectedSurface,
                                         onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
@@ -824,9 +831,22 @@ private fun LiquidGlassDetailPagePreview(
                                 }
                             }
                             if (LiquidGlassSurface.DETAIL_PRIMARY_ACTION in selectableActionSurfaces) {
-                                Box(modifier = Modifier.fillMaxWidth().height(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(
+                                            if (LiquidGlassSurface.DETAILS in selectableActionSurfaces) {
+                                                12.dp - GlassPreviewSelectionGutter * 2
+                                            } else {
+                                                12.dp
+                                            },
+                                        ),
+                                )
                                 GlassPreviewHotspot(
-                                    modifier = Modifier.fillMaxWidth().height(actionButtonHeight),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(actionButtonHeight + GlassPreviewSelectionGutter * 2)
+                                        .offset(y = -GlassPreviewSelectionGutter),
                                     surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
                                     selectedSurface = selectedSurface,
                                     onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) },
@@ -876,10 +896,12 @@ private fun LiquidGlassDetailPagePreview(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(104.dp)
-                        .padding(horizontal = 12.dp),
+                        .height(112.dp)
+                        .padding(horizontal = 8.dp),
                 ) {
-                    DetailGlassChipsPreview(modifier = Modifier.fillMaxWidth())
+                    DetailGlassChipsPreview(
+                        modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
+                    )
                     GlassPreviewHotspot(
                         modifier = Modifier.fillMaxSize(),
                         surface = LiquidGlassSurface.DETAIL_CHIPS,
@@ -898,10 +920,12 @@ private fun LiquidGlassDetailPagePreview(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(184.dp)
-                        .padding(horizontal = 12.dp),
+                        .height(192.dp)
+                        .padding(horizontal = 8.dp),
                 ) {
-                    DetailGlassContentCardPreview(modifier = Modifier.fillMaxWidth())
+                    DetailGlassContentCardPreview(
+                        modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
+                    )
                     GlassPreviewHotspot(
                         modifier = Modifier.fillMaxSize(),
                         surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
@@ -914,7 +938,7 @@ private fun LiquidGlassDetailPagePreview(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(84.dp)
+                    .height(92.dp)
                     .align(Alignment.TopCenter),
             ) {
                 DetailFloatingHeader(
@@ -923,7 +947,7 @@ private fun LiquidGlassDetailPagePreview(
                     progress = 1f,
                     onBack = {},
                     onToggleSaved = {},
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
                     glassBackdrop = backdrop,
                     previewGlass = true,
                 )
@@ -931,12 +955,15 @@ private fun LiquidGlassDetailPagePreview(
                     modifier = Modifier.fillMaxSize(),
                     surface = LiquidGlassSurface.DETAIL_HEADER,
                     selectedSurface = selectedSurface,
+                    shape = RectangleShape,
                     onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_HEADER) },
                 )
             }
         }
     }
 }
+
+private val GlassPreviewSelectionGutter = 4.dp
 
 @Composable
 private fun LiquidGlassStreamPickerPreview(
@@ -1017,13 +1044,13 @@ private fun LiquidGlassStreamPickerPreview(
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
 
-                Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(48.dp + GlassPreviewSelectionGutter * 2)) {
                     ProviderFilterRow(
                         groups = groups,
                         selectedFilter = "preview:torrentio",
                         onFilterSelected = {},
                         onRefresh = {},
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize().padding(GlassPreviewSelectionGutter),
                         contentPadding = PaddingValues(horizontal = 2.dp, vertical = 5.dp),
                         spacing = 6.dp,
                         preview = true,
@@ -1036,8 +1063,11 @@ private fun LiquidGlassStreamPickerPreview(
                     )
                 }
 
-                Box(modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(100.dp + GlassPreviewSelectionGutter * 2)) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(GlassPreviewSelectionGutter),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         ResumeBanner(positionMs = null, progressFraction = 0.42f, modifier = Modifier.fillMaxWidth(), preview = true)
                         StreamSearchField(
                             query = "",
@@ -1061,8 +1091,11 @@ private fun LiquidGlassStreamPickerPreview(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                 )
-                Box(modifier = Modifier.fillMaxWidth().height(170.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(170.dp + GlassPreviewSelectionGutter * 2)) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(GlassPreviewSelectionGutter),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
                         liquidGlassPreviewStreamGroups().flatMap { it.streams }.take(2).forEach { stream ->
                             StreamCard(
                                 stream = stream,
@@ -1093,16 +1126,23 @@ private fun GlassPreviewHotspot(
     modifier: Modifier = Modifier,
     surface: LiquidGlassSurface,
     selectedSurface: LiquidGlassSurface,
+    shape: Shape = RoundedCornerShape(8.dp),
     onClick: () -> Unit,
 ) {
     val selected = selectedSurface == surface
     val surfaceTitle = liquidGlassSurfaceTitle(surface)
     Box(
         modifier = modifier
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.16f),
-                shape = RoundedCornerShape(8.dp),
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = shape,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .semantics {
                 contentDescription = surfaceTitle
