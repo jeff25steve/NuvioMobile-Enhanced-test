@@ -179,6 +179,7 @@ import nuvio.composeapp.generated.resources.compose_settings_page_appearance
 import nuvio.composeapp.generated.resources.compose_settings_root_appearance_description
 import nuvio.composeapp.generated.resources.settings_appearance_section_display
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom_sheets
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom_sheets_description
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -1213,7 +1214,13 @@ private fun LiquidGlassSurfaceEditorControls(
         }
         SettingsSwitchRow(
             title = title,
-            description = stringResource(Res.string.settings_liquid_glass_surface_description),
+            description = stringResource(
+                if (surface == LiquidGlassSurface.BOTTOM_SHEETS) {
+                    Res.string.settings_liquid_glass_surface_bottom_sheets_description
+                } else {
+                    Res.string.settings_liquid_glass_surface_description
+                },
+            ),
             checked = enabled,
             isTablet = isTablet,
             onCheckedChange = { onChanged(overrides.copy(enabled = it)) },
