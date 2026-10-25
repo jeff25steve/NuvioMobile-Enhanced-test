@@ -6,6 +6,9 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 
 internal const val LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP = 800f
 
+/** Enough vertical room for the stream search field and resume banner together. */
+internal const val LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP = 152f
+
 /** Keeps the miniature player in the same 16:9 landscape proportion as the real player. */
 internal fun liquidGlassPlayerPreviewHeight(width: Dp): Dp =
     width.coerceAtMost(LIQUID_GLASS_PLAYER_PREVIEW_DESIGN_WIDTH_DP.dp) * 9f / 16f
