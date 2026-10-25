@@ -2,6 +2,7 @@ package com.nuvio.app.features.details.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -65,6 +66,7 @@ fun DetailTrailersSection(
     showHeader: Boolean = true,
     horizontalScrollPadding: Dp = 0.dp,
     onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
     previewMenuInitiallyExpanded: Boolean = false,
 ) {
     if (trailers.isEmpty()) return
@@ -135,6 +137,14 @@ fun DetailTrailersSection(
                     } else {
                         Modifier
                     }
+                    val selectorSelectionOutline = selectedPreviewSurface == selectorSurface
+                    val selectorBorder = if (selectorSelectionOutline && !selectorGlassEnabled) {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, selectorShape)
+                    } else if (selectorSelectionOutline) {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, selectorShape)
+                    } else {
+                        Modifier
+                    }
 
                     Surface(
                         shape = selectorShape,
@@ -142,6 +152,7 @@ fun DetailTrailersSection(
                         tonalElevation = 0.dp,
                         modifier = selectorModifier
                             .clip(selectorShape)
+                            .then(selectorBorder)
                             .clickable {
                                 onPreviewSurfaceSelected?.invoke(selectorSurface)
                                 menuExpanded = true
@@ -183,6 +194,7 @@ fun DetailTrailersSection(
                         onGlassSurfaceInteracted = onPreviewSurfaceSelected?.let { onSelected ->
                             { onSelected(LiquidGlassSurface.DETAIL_TRAILER_MENU) }
                         },
+                        selectionHighlight = selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
                     ) {
                         grouped.keys.forEach { category ->
                             val count = grouped[category]?.size ?: 0
