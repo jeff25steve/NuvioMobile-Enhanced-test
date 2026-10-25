@@ -725,7 +725,7 @@ private fun LiquidGlassDetailPagePreview(
                 released = "2024-09-26",
                 season = 1,
                 episode = 1,
-                overview = "Fresh off another unsuccessful date, Joanne sashays into a friend&apos;s party and meets Noah.",
+                overview = "Fresh off another unsuccessful date, Joanne sashays into a friend's party and meets Noah.",
                 runtime = 27,
                 tmdbRating = 7.7,
             ),
@@ -805,7 +805,7 @@ private fun LiquidGlassDetailPagePreview(
                 released = "2024-09-26",
                 season = 1,
                 episode = 9,
-                overview = "Family expectations complicate the couple&apos;s plans.",
+                overview = "Family expectations complicate the couple's plans.",
                 runtime = 26,
                 tmdbRating = 7.7,
             ),
@@ -1042,6 +1042,16 @@ private fun LiquidGlassDetailPagePreview(
                     }
                 }
 
+                DetailTrailersSection(
+                    trailers = previewTrailers,
+                    onTrailerClick = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
+                    showHeader = true,
+                    onPreviewSurfaceSelected = onSelectSurface,
+                )
+
                 Text(
                     text = "SEASONS",
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
@@ -1066,22 +1076,63 @@ private fun LiquidGlassDetailPagePreview(
                     )
                 }
 
-                Text(
-                    text = "EPISODES",
-                    modifier = Modifier.padding(start = 14.dp, top = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                EpisodeNavigatorBar(
+                    state = episodeNavigator,
+                    shownCount = shownPreviewEpisodes.size,
+                    totalCount = previewEpisodes.size,
+                    onSubmitNumber = { number ->
+                        previewEpisodes.firstOrNull { it.episode == number }?.let { episode ->
+                            previewJumpTarget = episode
+                            episodeNavigator.query = ""
+                        }
+                    },
+                    onPreviewSurfaceSelected = { surface ->
+                        if (surface == LiquidGlassSurface.DETAIL_EPISODE_SEARCH ||
+                            surface == LiquidGlassSurface.DETAIL_EPISODE_GO_TO ||
+                            surface == LiquidGlassSurface.DETAIL_EPISODE_SORT
+                        ) {
+                            previewJumpTarget = null
+                        }
+                        onSelectSurface(surface)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
                 )
+                if (episodeNavigator.goToSheetVisible) {
+                    EpisodeGoToSheet(
+                        seasonLabel = "Season 1",
+                        episodes = previewEpisodes,
+                        isWatched = isPreviewEpisodeWatched,
+                        onPick = { episode -> previewJumpTarget = episode },
+                        onDismiss = { episodeNavigator.goToSheetVisible = false },
+                    )
+                }
+                if (episodeNavigator.sortSheetVisible) {
+                    EpisodeSortSheet(
+                        current = episodeNavigator.sort,
+                        onSelect = { episodeNavigator.sort = it },
+                        onDismiss = { episodeNavigator.sortSheetVisible = false },
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(192.dp)
                         .padding(horizontal = 8.dp),
                 ) {
-                    DetailGlassContentCardPreview(
-                        modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
-                    )
+                    if (shownPreviewEpisodes.isEmpty()) {
+                        EpisodeNavigatorEmptyState(
+                            query = episodeNavigator.query,
+                            onClear = { episodeNavigator.query = "" },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        DetailGlassContentCardPreview(
+                            modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
+                            video = previewEpisodeToShow,
+                        )
+                    }
                     GlassPreviewHotspot(
                         modifier = Modifier.fillMaxSize(),
                         surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
