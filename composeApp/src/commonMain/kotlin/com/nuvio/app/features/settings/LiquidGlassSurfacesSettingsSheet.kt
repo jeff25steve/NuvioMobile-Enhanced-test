@@ -797,6 +797,7 @@ private fun LiquidGlassDetailPagePreview(
                         onPlayFromStartClick = null,
                         onPlayExternallyClick = {},
                         iconActionRow = iconActionRow,
+                        modifier = Modifier.padding(horizontal = GlassPreviewSelectionGutter),
                         previewGlassAll = true,
                     )
                     // Hit targets follow the production action layout. Play is accent-filled;
@@ -826,6 +827,7 @@ private fun LiquidGlassDetailPagePreview(
                                             .offset(y = -GlassPreviewSelectionGutter),
                                         surface = LiquidGlassSurface.DETAILS,
                                         selectedSurface = selectedSurface,
+                                        shape = CircleShape,
                                         onClick = { onSelectSurface(LiquidGlassSurface.DETAILS) },
                                     )
                                 }
@@ -849,6 +851,7 @@ private fun LiquidGlassDetailPagePreview(
                                         .offset(y = -GlassPreviewSelectionGutter),
                                     surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
                                     selectedSurface = selectedSurface,
+                                    shape = RoundedCornerShape(40.dp),
                                     onClick = { onSelectSurface(LiquidGlassSurface.DETAIL_PRIMARY_ACTION) },
                                 )
                             }
