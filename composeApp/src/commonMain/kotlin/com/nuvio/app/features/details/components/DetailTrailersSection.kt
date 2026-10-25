@@ -45,6 +45,7 @@ import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
@@ -114,7 +115,7 @@ fun DetailTrailersSection(
 
                 Box {
                     val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
-                    val selectorGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
+                    val selectorGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
                     val selectorShape = liquidGlassShape(
                         surface = selectorSurface,
                         defaultShape = RoundedCornerShape(sizing.selectorRadius),
@@ -179,8 +180,8 @@ fun DetailTrailersSection(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                         glassSurface = LiquidGlassSurface.DETAIL_TRAILER_MENU,
-                        onGlassSurfaceInteracted = {
-                            onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.DETAIL_TRAILER_MENU)
+                        onGlassSurfaceInteracted = onPreviewSurfaceSelected?.let { onSelected ->
+                            { onSelected(LiquidGlassSurface.DETAIL_TRAILER_MENU) }
                         },
                     ) {
                         grouped.keys.forEach { category ->
