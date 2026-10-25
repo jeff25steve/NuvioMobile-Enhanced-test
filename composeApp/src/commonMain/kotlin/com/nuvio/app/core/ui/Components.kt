@@ -395,6 +395,11 @@ fun NuvioPrimaryButton(
     }
 }
 
+internal fun shouldDrawNuvioInputFieldOutline(
+    glassSurfaceEnabled: Boolean,
+    glassRendererAvailable: Boolean,
+): Boolean = !glassSurfaceEnabled || !glassRendererAvailable
+
 @Composable
 fun NuvioInputField(
     value: String,
@@ -403,14 +408,17 @@ fun NuvioInputField(
     modifier: Modifier = Modifier,
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
+    shape: Shape = RoundedCornerShape(NuvioTokens.Radius.lg),
+    showOutline: Boolean = true,
 ) {
     val tokens = MaterialTheme.nuvio
+    val borderColor = if (showOutline) tokens.colors.borderDefault else Color.Transparent
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
-        shape = RoundedCornerShape(NuvioTokens.Radius.lg),
+        shape = shape,
         placeholder = {
             Text(
                 text = placeholder,
@@ -421,8 +429,8 @@ fun NuvioInputField(
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
         trailingIcon = trailingContent,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = tokens.colors.borderFocus,
-            unfocusedBorderColor = tokens.colors.borderDefault,
+            focusedBorderColor = if (showOutline) tokens.colors.borderFocus else Color.Transparent,
+            unfocusedBorderColor = borderColor,
             focusedContainerColor = containerColor,
             unfocusedContainerColor = containerColor,
             cursorColor = tokens.colors.accent,
