@@ -1557,7 +1557,7 @@ internal fun StreamSearchField(
         RoundedCornerShape(NuvioTokens.Radius.lg),
         preview = preview,
     )
-    val glassRimCanRender = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+    val glassRimCanRender = glassAllowed && isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
     val drawNativeOutline = shouldDrawNuvioInputFieldOutline(
         glassSurfaceEnabled = glassAllowed,
         glassRimCanRender = glassRimCanRender,
