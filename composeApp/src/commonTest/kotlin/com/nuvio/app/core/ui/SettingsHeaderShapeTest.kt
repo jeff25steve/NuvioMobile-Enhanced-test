@@ -1,12 +1,11 @@
 package com.nuvio.app.core.ui
 
-import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertSame
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SettingsHeaderShapeTest {
@@ -19,7 +18,7 @@ class SettingsHeaderShapeTest {
             defaultShape = configuredRoundedShape,
         )
 
-        assertFalse(resolved is CornerBasedShape)
+        assertSame(RectangleShape, resolved)
         assertTrue(resolved !== configuredRoundedShape)
     }
 
