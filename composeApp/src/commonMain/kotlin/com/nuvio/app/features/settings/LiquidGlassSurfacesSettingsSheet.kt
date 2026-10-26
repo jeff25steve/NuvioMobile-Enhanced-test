@@ -619,7 +619,7 @@ private fun LiquidGlassSurfaceListItem(
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = if (leadingIcon != null) Arrangement.spacedBy(12.dp) else Arrangement.Start,
             ) {
                 if (leadingIcon != null) {
                     Surface(
