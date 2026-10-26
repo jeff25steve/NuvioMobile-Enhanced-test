@@ -1019,6 +1019,7 @@ private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
             )
         }
     }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
