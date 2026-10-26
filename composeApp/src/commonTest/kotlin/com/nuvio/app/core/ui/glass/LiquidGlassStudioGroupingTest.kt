@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class LiquidGlassStudioGroupingTest {
     @Test
-    fun settingsCardsFollowTheExistingSettingsSurfaceToggle() {
+    fun settingsSurfaceOverrideControlsGlassVisibility() {
         val defaults = LiquidGlassSurfacesSettings()
         val surface = LiquidGlassSurface.SETTINGS
 
