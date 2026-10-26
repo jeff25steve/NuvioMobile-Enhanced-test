@@ -34,6 +34,7 @@ actual object ThemeSettingsStorage {
     private const val localLiquidGlassSurfaceSettingsKey = "enhanced_local_liquid_glass_surface_settings"
     private const val legacyCustomSettingsBackgroundUrlKey = "enhanced_local_settings_background_url"
     private const val localCustomSettingsBackgroundImageKey = "enhanced_local_settings_background_image"
+    private const val localCustomLibraryCloudBackgroundImageKey = "enhanced_local_library_cloud_background_image"
     private const val navBarGlowEnabledKey = "nav_bar_glow_enabled"
     private const val navBarDefaultIconColorEnabledKey = "enhanced_local_nav_bar_default_icon_color_enabled"
     private const val navBarDefaultIconColorKey = "enhanced_local_nav_bar_default_icon_color"
@@ -296,6 +297,51 @@ actual object ThemeSettingsStorage {
         val deleted = deleteSettingsBackgroundImage(settingsBackgroundImageFile(profileIndex))
         clearLegacyCustomSettingsBackgroundUrl(profileIndex)
         return deleted
+    }
+
+    actual fun loadCustomLibraryCloudBackgroundImageUri(): String? =
+        libraryCloudBackgroundImageFile()
+            ?.takeIf { it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong() }
+            ?.toURI()
+            ?.toString()
+
+    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray): String? {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
+        val target = libraryCloudBackgroundImageFile() ?: return null
+        val directory = target.parentFile ?: return null
+        if (!directory.isDirectory && !directory.mkdirs()) return null
+        val temporary = directory.resolve(".${target.name}.tmp")
+        return try {
+            temporary.writeBytes(bytes)
+            if (!temporary.renameTo(target)) temporary.copyTo(target, overwrite = true)
+            target.takeIf {
+                it.isFile && it.length() in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
+            }?.toURI()?.toString()
+        } catch (_: Exception) {
+            null
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    actual fun clearCustomLibraryCloudBackgroundImage(): Boolean =
+        deleteLibraryCloudBackgroundImage(libraryCloudBackgroundImageFile())
+
+    actual fun clearCustomLibraryCloudBackgroundImage(profileIndex: Int): Boolean =
+        deleteLibraryCloudBackgroundImage(libraryCloudBackgroundImageFile(profileIndex))
+
+    private fun deleteLibraryCloudBackgroundImage(target: File?): Boolean {
+        if (target == null) return false
+        val temporary = target.parentFile?.resolve(".${target.name}.tmp")
+        val imageRemoved = !target.exists() || target.delete()
+        val temporaryRemoved = temporary?.let { !it.exists() || it.delete() } ?: true
+        return imageRemoved && temporaryRemoved
+    }
+
+    private fun libraryCloudBackgroundImageFile(profileIndex: Int? = null): File? {
+        val key = profileIndex?.let { ProfileScopedKey.of(localCustomLibraryCloudBackgroundImageKey, it) }
+            ?: ProfileScopedKey.of(localCustomLibraryCloudBackgroundImageKey)
+        return appContext?.noBackupFilesDir?.resolve("library_cloud_backgrounds")?.resolve("$key.jpg")
     }
 
     private fun deleteSettingsBackgroundImage(target: File?): Boolean {
