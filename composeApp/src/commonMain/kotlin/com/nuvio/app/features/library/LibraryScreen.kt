@@ -106,6 +106,9 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -1149,8 +1152,12 @@ internal fun CloudLibraryToolbar(
     onTypeSelected: (CloudLibraryItemType?) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    previewProviderOptions: List<NuvioDropdownOption>? = null,
 ) {
-    val providerOptions = buildList {
+    val providerOptions = previewProviderOptions ?: buildList {
         add(NuvioDropdownOption(key = "", label = stringResource(Res.string.cloud_library_provider_all)))
         addAll(
             uiState.providers.map { provider ->
@@ -1172,10 +1179,15 @@ internal fun CloudLibraryToolbar(
             },
         )
     }
-    val selectedProviderName = uiState.providers
-        .firstOrNull { provider -> provider.providerId == selectedProviderId }
-        ?.providerName
+    val selectedProviderName = providerOptions
+        .firstOrNull { option -> option.key == selectedProviderId.orEmpty() }
+        ?.label
         ?: stringResource(Res.string.cloud_library_provider_all)
+    val cloudFiltersGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+        preview = previewGlass,
+        platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+    )
     val selectedTypeLabel = selectedType?.let { type -> cloudLibraryTypeLabel(type) }
         ?: stringResource(Res.string.cloud_library_type_all)
 
@@ -1204,6 +1216,12 @@ internal fun CloudLibraryToolbar(
                     onSelected = { option ->
                         onProviderSelected(option.key.ifBlank { null })
                     },
+                    glassSurface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                    previewGlass = previewGlass,
+                    selectedPreviewSurface = selectedPreviewSurface,
+                    onGlassSurfaceInteracted = {
+                        onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
+                    },
                 )
                 NuvioDropdownChip(
                     title = stringResource(Res.string.cloud_library_select_type),
@@ -1217,13 +1235,54 @@ internal fun CloudLibraryToolbar(
                             ?.let(CloudLibraryItemType::valueOf)
                         onTypeSelected(type)
                     },
+                    glassSurface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                    previewGlass = previewGlass,
+                    selectedPreviewSurface = selectedPreviewSurface,
+                    onGlassSurfaceInteracted = {
+                        onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
+                    },
                 )
             }
-            IconButton(onClick = onRefresh) {
+            val refreshShape = liquidGlassShape(
+                surface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                defaultShape = CircleShape,
+                preview = previewGlass,
+            )
+            IconButton(
+                onClick = {
+                    onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
+                    onRefresh()
+                },
+                modifier = Modifier
+                    .size(40.dp)
+                    .then(
+                        if (selectedPreviewSurface == LiquidGlassSurface.LIBRARY_CLOUD_FILTERS && previewGlass) {
+                            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape).padding(2.dp)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .then(
+                        if (cloudFiltersGlassEnabled) {
+                            Modifier.liquidGlassForSurface(
+                                surface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                                shape = refreshShape,
+                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.20f),
+                                fallback = MaterialTheme.colorScheme.surfaceContainerLow,
+                                blurRadius = 14.dp,
+                                refractionHeight = 8.dp,
+                                refractionAmount = 12.dp,
+                                preview = previewGlass,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
                     contentDescription = stringResource(Res.string.cloud_library_refresh),
-                    tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                    tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS, MaterialTheme.colorScheme.onSurfaceVariant),
                 )
             }
         }
