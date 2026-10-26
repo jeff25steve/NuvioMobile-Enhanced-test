@@ -46,6 +46,7 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioStatusModal
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.labelRes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -189,9 +190,11 @@ internal fun LazyListScope.appearanceSettingsContent(
                         withContext(Dispatchers.IO) {
                             ThemeSettingsRepository.setCustomSettingsBackgroundImage(bytes, targetProfileId)
                         }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (_: Exception) {
                         false
-                    }
+                    
                     isSavingSettingsBackground = false
                     if (ProfileRepository.activeProfileId == targetProfileId) {
                         settingsBackgroundImageError = !saved
@@ -296,9 +299,11 @@ internal fun LazyListScope.appearanceSettingsContent(
                                         withContext(Dispatchers.IO) {
                                             ThemeSettingsRepository.clearCustomSettingsBackgroundImage(targetProfileId)
                                         }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    }
+                                    
                                     isSavingSettingsBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {
                                         settingsBackgroundImageError = !cleared

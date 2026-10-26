@@ -153,6 +153,7 @@ import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.settings.withSettingsGlassTextContrast
 import com.nuvio.app.features.settings.withSettingsGlassTextShadow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -1562,9 +1563,11 @@ private fun LiquidGlassSurfaceEditorControls(
                             withContext(Dispatchers.IO) {
                                 ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes, targetProfileId)
                             }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
                         } catch (_: Exception) {
                             false
-                        }
+                        
                         isSavingCloudBackground = false
                         if (ProfileRepository.activeProfileId == targetProfileId) {
                             cloudBackgroundImageError = !saved
@@ -1610,9 +1613,11 @@ private fun LiquidGlassSurfaceEditorControls(
                                         withContext(Dispatchers.IO) {
                                             ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage(targetProfileId)
                                         }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    }
+                                    
                                     isSavingCloudBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {
                                         cloudBackgroundImageError = !cleared
