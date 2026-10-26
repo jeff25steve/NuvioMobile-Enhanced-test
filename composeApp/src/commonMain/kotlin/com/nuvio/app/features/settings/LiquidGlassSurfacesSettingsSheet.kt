@@ -1961,7 +1961,7 @@ private fun LiquidGlassCatalogHeaderPreview(
                     .padding(top = 88.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                repeat(3) { rowIndex ->
+                repeat(2) { rowIndex ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1972,7 +1972,7 @@ private fun LiquidGlassCatalogHeaderPreview(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .aspectRatio(0.68f)
+                                    .height(70.dp)
                                     .clip(RoundedCornerShape(7.dp))
                                     .background(
                                         Brush.verticalGradient(
