@@ -1567,7 +1567,7 @@ private fun LiquidGlassSurfaceEditorControls(
                             throw cancelled
                         } catch (_: Exception) {
                             false
-                        
+                        }
                         isSavingCloudBackground = false
                         if (ProfileRepository.activeProfileId == targetProfileId) {
                             cloudBackgroundImageError = !saved
@@ -1617,7 +1617,7 @@ private fun LiquidGlassSurfaceEditorControls(
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    
+                                    }
                                     isSavingCloudBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {
                                         cloudBackgroundImageError = !cleared

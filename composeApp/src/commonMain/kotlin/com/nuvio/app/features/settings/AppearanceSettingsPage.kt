@@ -194,7 +194,7 @@ internal fun LazyListScope.appearanceSettingsContent(
                         throw cancelled
                     } catch (_: Exception) {
                         false
-                    
+                    }
                     isSavingSettingsBackground = false
                     if (ProfileRepository.activeProfileId == targetProfileId) {
                         settingsBackgroundImageError = !saved
@@ -303,7 +303,7 @@ internal fun LazyListScope.appearanceSettingsContent(
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    
+                                    }
                                     isSavingSettingsBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {
                                         settingsBackgroundImageError = !cleared
