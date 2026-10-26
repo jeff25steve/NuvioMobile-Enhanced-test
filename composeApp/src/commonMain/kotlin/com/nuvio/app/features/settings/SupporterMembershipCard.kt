@@ -72,7 +72,7 @@ internal fun SupporterMembershipCard(
     onAction: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    val surface = LiquidGlassSurface.SUPPORTER_MEMBERSHIP
+    val surface = LiquidGlassSurface.SETTINGS
     val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = surface,
         platformSupported = isLiquidGlassSupported(),

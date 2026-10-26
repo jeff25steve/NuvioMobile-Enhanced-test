@@ -961,7 +961,7 @@ private fun ProfileMetricPill(
 @Composable
 private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
     val tokens = MaterialTheme.nuvio
-    val surface = LiquidGlassSurface.PROFILE_WATCH_TIME
+    val surface = LiquidGlassSurface.SETTINGS
     val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = surface,
         platformSupported = isLiquidGlassSupported(),

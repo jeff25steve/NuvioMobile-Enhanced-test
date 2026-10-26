@@ -162,8 +162,6 @@ import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
-import nuvio.composeapp.generated.resources.community_membership_title
-import nuvio.composeapp.generated.resources.profile_insights_stat_time
 import nuvio.composeapp.generated.resources.action_play
 import nuvio.composeapp.generated.resources.library_title
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
@@ -1940,8 +1938,6 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> Res.string.settings_liquid_glass_surface_library_cloud_cards
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
-            LiquidGlassSurface.PROFILE_WATCH_TIME -> Res.string.profile_insights_stat_time
-            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> Res.string.community_membership_title
         },
     )
 
@@ -1993,8 +1989,6 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> 332.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
-            LiquidGlassSurface.PROFILE_WATCH_TIME,
-            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> 188.dp
             else -> 88.dp
         }
 
@@ -2131,13 +2125,6 @@ private fun LiquidGlassSurfacePreview(
                                 settings = settings,
                                 selectedSurface = surface,
                                 onSelectSurface = {},
-                                recipe = recipe,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-
-                            LiquidGlassSurface.PROFILE_WATCH_TIME,
-                            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> LiquidGlassCompactSurfacePreview(
-                                surface = surface,
                                 recipe = recipe,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -2279,38 +2266,6 @@ private fun LiquidGlassCatalogHeaderPreview(
                 onPreviewSurfaceSelected = onSelectSurface,
                 selectedPreviewSurface = selectedSurface,
             )
-        }
-    }
-}
-
-@Composable
-private fun LiquidGlassCompactSurfacePreview(surface: LiquidGlassSurface, recipe: LiquidGlassSurfaceRecipe, modifier: Modifier = Modifier) {
-    val backdrop = rememberNuvioBackdrop()
-    val cardShape = liquidGlassShape(surface, RoundedCornerShape(18.dp), preview = true)
-    val posters = listOf(Color(0xFF3C5969), Color(0xFF8D6448), Color(0xFF4C465F))
-    Box(modifier = modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))) {
-        Box(modifier = Modifier.matchParentSize().nuvioBackdropSource(backdrop)) {
-            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF17232D), Color(0xFF64503A), Color(0xFF222634)))))
-            Row(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                posters.forEach { color -> Box(Modifier.weight(1f).height(164.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(color.copy(alpha=0.96f),color.copy(alpha=0.72f),Color.Black.copy(alpha=0.65f))))) }
-            }
-        }
-        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
-            Column(
-                modifier = Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal=16.dp)
-                    .liquidGlassForSurface(surface=surface,shape=cardShape,tint=MaterialTheme.colorScheme.surface.copy(alpha=recipe.tintOpacity),fallback=MaterialTheme.colorScheme.surface,blurRadius=recipe.blurRadiusDp.dp,refractionHeight=recipe.refractionHeightDp.dp,refractionAmount=recipe.refractionAmountDp.dp,preview=true)
-                    .border(1.dp,Color.White.copy(alpha=0.20f),cardShape).padding(18.dp),
-                verticalArrangement=Arrangement.spacedBy(8.dp),
-            ) {
-                Text(text=liquidGlassSurfaceTitle(surface),style=MaterialTheme.typography.titleLarge,color=MaterialTheme.colorScheme.onSurface)
-                if(surface==LiquidGlassSurface.PROFILE_WATCH_TIME) {
-                    Text(text="128 h 42 min",style=MaterialTheme.typography.displaySmall,color=MaterialTheme.colorScheme.onSurface,fontWeight=FontWeight.SemiBold)
-                    Text(text="Across your tracked library",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text(text="Supporting Nuvio helps cover infrastructure and ongoing development.",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(text="View Supporter Membership",style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.primary)
-                }
-            }
         }
     }
 }
@@ -3837,8 +3792,6 @@ internal fun surfacePreviewRecipe(
         LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 24f, 16f, 32f, 0.35f)
-        LiquidGlassSurface.PROFILE_WATCH_TIME -> LiquidGlassSurfaceRecipe(18f, 14f, 8f, 12f, 0.18f)
-        LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> LiquidGlassSurfaceRecipe(18f, 14f, 8f, 12f, 0.14f)
     }
     return defaults.copy(
         cornerRadiusPercent = overrides.cornerRadiusPercent ?: defaults.cornerRadiusPercent,
