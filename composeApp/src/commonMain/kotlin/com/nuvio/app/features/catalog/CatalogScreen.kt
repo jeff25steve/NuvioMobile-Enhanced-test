@@ -273,6 +273,9 @@ fun CatalogScreen(
     }
 }
 
+internal fun categoryHeaderUsesPosterBackdrop(surface: LiquidGlassSurface): Boolean =
+    surface == LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+
 @Composable
 internal fun CatalogHeader(
     title: String,
@@ -295,9 +298,9 @@ internal fun CatalogHeader(
 
     val titleSurface = LiquidGlassSurface.CATEGORY_HEADER_TITLE
     val backSurface = LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+    val posterBackdrop = LocalLiquidGlassBackdrop.current
     val titleGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
     val backGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
-    val anyGlassEnabled = titleGlassEnabled || backGlassEnabled
     val titleShape = liquidGlassShape(titleSurface, RoundedCornerShape(16.dp))
     val backShape = liquidGlassShape(backSurface, RoundedCornerShape(20.dp))
     val titleGlassModifier = if (titleGlassEnabled) {
@@ -309,6 +312,8 @@ internal fun CatalogHeader(
             blurRadius = 14.dp,
             refractionHeight = 8.dp,
             refractionAmount = 12.dp,
+            explicitBackdrop = posterBackdrop.takeIf { categoryHeaderUsesPosterBackdrop(titleSurface) },
+            useExplicitBackdrop = true,
         )
     } else {
         Modifier
@@ -322,6 +327,8 @@ internal fun CatalogHeader(
             blurRadius = 14.dp,
             refractionHeight = 8.dp,
             refractionAmount = 12.dp,
+            explicitBackdrop = posterBackdrop.takeIf { categoryHeaderUsesPosterBackdrop(backSurface) },
+            useExplicitBackdrop = true,
         )
     } else {
         Modifier
@@ -340,9 +347,9 @@ internal fun CatalogHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                if (anyGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.background,
-            )
+            // The poster grid scrolls beneath this fixed header. Keep those tiles masked outside
+            // the back button's dedicated poster-aware glass surface.
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp)
             .padding(top = 52.dp, bottom = 12.dp),
     ) {
