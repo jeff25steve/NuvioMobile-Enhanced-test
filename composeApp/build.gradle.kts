@@ -449,6 +449,7 @@ kotlin {
                 implementation(libs.compose.uiToolingPreview)
                 implementation(libs.androidx.appcompat)
                 implementation(libs.androidx.documentfile)
+                implementation(libs.androidx.exifinterface)
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.androidx.core.splashscreen)
                 implementation(libs.androidx.work.runtime)
