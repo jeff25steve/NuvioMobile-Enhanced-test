@@ -2418,78 +2418,371 @@ private fun LiquidGlassSettingsSurfacePreview(
 
 @Composable
 private fun LiquidGlassLibraryPreview(
-    recipe: LiquidGlassSurfaceRecipe,
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    recipe: LiquidGlassSurfaceRecipe? = null,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
-    val shape = liquidGlassShape(
-        surface = LiquidGlassSurface.LIBRARY,
-        defaultShape = RoundedCornerShape(12.dp),
-        preview = true,
-    )
-    Box(modifier = modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    val platformContext = LocalPlatformContext.current
+    val cloudBackgroundImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    val cloudBackgroundImageRevision by remember {
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
+    val cloudBackgroundImageRequest = remember(
+        cloudBackgroundImageUri,
+        cloudBackgroundImageRevision,
+        platformContext,
+    ) {
+        cloudBackgroundImageUri?.let { imageUri ->
+            ImageRequest.Builder(platformContext)
+                .data(imageUri)
+                .memoryCacheKey("$imageUri#library-cloud-preview-$cloudBackgroundImageRevision")
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
+    var viewModeName by rememberSaveable { mutableStateOf(LibraryViewMode.Saved.name) }
+    val viewMode = remember(viewModeName) {
+        runCatching { LibraryViewMode.valueOf(viewModeName) }.getOrDefault(LibraryViewMode.Saved)
+    }
+    var savedType by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedSort by rememberSaveable { mutableStateOf(LibrarySortOption.ADDED_DESC.name) }
+    var cloudProvider by rememberSaveable { mutableStateOf<String?>(null) }
+    var cloudTypeName by rememberSaveable { mutableStateOf<String?>(null) }
+    var cloudQuery by rememberSaveable { mutableStateOf("") }
+
+    val defaultRecipe = remember(selectedSurface, recipe, settings) {
+        recipe ?: surfacePreviewRecipe(selectedSurface, settings.forSurface(selectedSurface))
+    }
+    val enabledTextContrast = isLiquidGlassAvailable()
+    val baseBackground = MaterialTheme.colorScheme.background
+    val headerHeight = if (viewMode == LibraryViewMode.Cloud) 188.dp else 132.dp
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(332.dp)
+            .clip(RoundedCornerShape(14.dp)),
+    ) {
+        // Artwork is the backdrop source; content scrolls below the fixed controls so posters move
+        // behind the glass, matching the Search preview behavior.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .nuvioBackdropSource(backdrop),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF101F30), Color(0xFF3D4356), Color(0xFF5B314B), Color(0xFF15141D)),
-                        ),
+            if (viewMode == LibraryViewMode.Cloud && cloudBackgroundImageRequest != null) {
+                AsyncImage(
+                    model = cloudBackgroundImageRequest,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(baseBackground),
+                    contentPadding = PaddingValues(
+                        top = 28.dp,
+                        bottom = 12.dp,
+                        start = 8.dp,
+                        end = 8.dp,
                     ),
-            )
-            Box(
-                modifier = Modifier
-                    .size(112.dp)
-                    .align(Alignment.TopEnd)
-                    .offset(x = 24.dp, y = (-30).dp)
-                    .background(
-                        Brush.radialGradient(listOf(Color(0xD96AC4D9), Color(0x777F579D), Color.Transparent)),
-                        CircleShape,
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .size(126.dp)
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-34).dp, y = 32.dp)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(Color(0xC7DD79A7), Color(0x6D7864D6), Color.Transparent),
-                        ),
-                        CircleShape,
-                    ),
-            )
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(
+                        items = liquidGlassSearchPreviewPosters.chunked(3),
+                        key = { row -> row.first().title },
+                    ) { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { poster ->
+                                LiquidGlassSearchPreviewPosterTile(
+                                    poster = poster,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
-        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
-            Box(
+
+        if (viewMode == LibraryViewMode.Cloud) {
+            LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
+                contentPadding = PaddingValues(
+                    top = headerHeight,
+                    bottom = 8.dp,
+                    start = 8.dp,
+                    end = 8.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                items(count = 5, key = { index -> "library-cloud-preview-card-$index" }) { index ->
+                    val cardShape = liquidGlassShape(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        defaultShape = RoundedCornerShape(16.dp),
+                        preview = true,
+                    )
+                    val cardGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        preview = true,
+                        platformSupported = isLiquidGlassAvailable(),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(66.dp)
+                            .then(
+                                if (cardGlassEnabled) {
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                                        shape = cardShape,
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                        blurRadius = 14.dp,
+                                        refractionHeight = 8.dp,
+                                        refractionAmount = 12.dp,
+                                        withShadow = true,
+                                        preview = true,
+                                    )
+                                } else {
+                                    Modifier
+                                        .clip(cardShape)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.58f))
+                                },
+                            )
+                            .then(
+                                if (selectedSurface == LiquidGlassSurface.LIBRARY_CLOUD_CARDS) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, cardShape)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .clickable { onSelectSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS) },
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
+                            contentDescription = "Cloud item",
+                            modifier = Modifier
+                                .padding(start = 18.dp)
+                                .size(22.dp),
+                            tint = if (cardGlassEnabled) {
+                                MaterialTheme.nuvio.colors.textSecondary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        // A subtle fade anchors the fixed control area while the poster artwork moves beneath it.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(headerHeight + 8.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            baseBackground.copy(alpha = 0.28f),
+                            baseBackground.copy(alpha = 0.12f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides backdrop,
+            LocalLiquidGlassPreviewSettings provides settings,
+            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                enabled = enabledTextContrast,
+            ),
+            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                enabled = enabledTextContrast,
+            ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = stringResource(Res.string.library_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.nuvio.colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+
+                val sourceSwitchShape = liquidGlassShape(
+                    surface = LiquidGlassSurface.LIBRARY,
+                    defaultShape = RoundedCornerShape(20.dp),
+                    preview = true,
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                        .liquidGlassForSurface(
-                            surface = LiquidGlassSurface.LIBRARY,
-                            shape = shape,
-                            tint = MaterialTheme.colorScheme.surface.copy(alpha = recipe.tintOpacity),
-                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                            blurRadius = recipe.blurRadiusDp.dp,
-                            refractionHeight = recipe.refractionHeightDp.dp,
-                            refractionAmount = recipe.refractionAmountDp.dp,
-                            preview = true,
-                        ),
+                        .then(
+                            if (isLiquidGlassSurfaceEffectivelyEnabled(
+                                    surface = LiquidGlassSurface.LIBRARY,
+                                    preview = true,
+                                    platformSupported = isLiquidGlassAvailable(),
+                                )
+                            ) {
+                                Modifier.liquidGlassForSurface(
+                                    surface = LiquidGlassSurface.LIBRARY,
+                                    shape = sourceSwitchShape,
+                                    tint = MaterialTheme.colorScheme.surface.copy(
+                                        alpha = defaultRecipe.tintOpacity.coerceIn(0.12f, 0.34f),
+                                    ),
+                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                    blurRadius = defaultRecipe.blurRadiusDp.dp,
+                                    refractionHeight = defaultRecipe.refractionHeightDp.dp,
+                                    refractionAmount = defaultRecipe.refractionAmountDp.dp,
+                                    preview = true,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .then(
+                            if (selectedSurface == LiquidGlassSurface.LIBRARY) {
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, sourceSwitchShape)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .padding(horizontal = 3.dp, vertical = 2.dp),
                 ) {
-                    CloudLibrarySearchField(
-                        query = "",
-                        onQueryChange = {},
+                    LibrarySourceSwitch(
+                        selectedMode = viewMode,
+                        showServers = false,
+                        onModeSelected = { viewModeName = it.name },
+                        onPreviewModeSelected = { mode ->
+                            viewModeName = mode.name
+                            onSelectSurface(
+                                if (mode == LibraryViewMode.Cloud) {
+                                    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS
+                                } else {
+                                    LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER
+                                },
+                            )
+                        },
+                    )
+                }
+
+                if (viewMode == LibraryViewMode.Saved) {
+                    val projection = remember(savedType) {
+                        LibraryVerticalProjection(
+                            availableSections = emptyList(),
+                            selectedSectionKey = null,
+                            availableTypes = listOf("movie", "series"),
+                            selectedType = savedType,
+                            entries = emptyList(),
+                        )
+                    }
+                    LibrarySavedControls(
+                        layoutMode = LibraryLayoutMode.VERTICAL,
+                        sourceMode = LibrarySourceMode.LOCAL,
+                        sortOption = runCatching { LibrarySortOption.valueOf(savedSort) }
+                            .getOrDefault(LibrarySortOption.ADDED_DESC),
+                        verticalProjection = projection,
+                        onSectionSelected = {},
+                        onTypeSelected = { savedType = it },
+                        onSortSelected = { savedSort = it.name },
                         modifier = Modifier.fillMaxWidth(),
-                        transparentContainer = true,
+                        typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                        sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                        previewGlass = true,
+                        selectedPreviewSurface = selectedSurface,
+                        onPreviewSurfaceSelected = onSelectSurface,
+                    )
+                } else {
+                    val providerOptions = remember {
+                        listOf(
+                            NuvioDropdownOption("", "All providers"),
+                            NuvioDropdownOption("preview:torrentio", "Torrentio"),
+                            NuvioDropdownOption("preview:comet", "Comet"),
+                        )
+                    }
+                    CloudLibraryToolbar(
+                        uiState = CloudLibraryUiState(isLoaded = true, isEnabled = true),
+                        selectedProviderId = cloudProvider,
+                        selectedType = cloudTypeName
+                            ?.let { name -> CloudLibraryItemType.entries.firstOrNull { it.name == name } },
+                        availableTypes = CloudLibraryItemType.entries,
+                        onProviderSelected = { cloudProvider = it },
+                        onTypeSelected = { cloudTypeName = it?.name },
+                        onRefresh = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        previewGlass = true,
+                        selectedPreviewSurface = selectedSurface,
+                        onPreviewSurfaceSelected = onSelectSurface,
+                        previewProviderOptions = providerOptions,
+                    )
+
+                    val cloudSearchShape = liquidGlassShape(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                        defaultShape = RoundedCornerShape(12.dp),
+                        preview = true,
+                    )
+                    val cloudSearchGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                        preview = true,
+                        platformSupported = isLiquidGlassAvailable(),
+                    )
+                    CloudLibrarySearchField(
+                        query = cloudQuery,
+                        onQueryChange = { cloudQuery = it },
+                        transparentContainer = cloudSearchGlassEnabled,
+                        shape = cloudSearchShape,
+                        showOutline = shouldDrawNuvioInputFieldOutline(
+                            glassSurfaceEnabled = cloudSearchGlassEnabled,
+                            glassRimCanRender = cloudSearchGlassEnabled && isLiquidGlassBackdropReady(backdrop),
+                        ),
+                        onGlassSurfaceInteracted = {
+                            onSelectSurface(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (cloudSearchGlassEnabled) {
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                        shape = cloudSearchShape,
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                        blurRadius = defaultRecipe.blurRadiusDp.dp,
+                                        refractionHeight = defaultRecipe.refractionHeightDp.dp,
+                                        refractionAmount = defaultRecipe.refractionAmountDp.dp,
+                                        preview = true,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .then(
+                                if (selectedSurface == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, cloudSearchShape)
+                                } else {
+                                    Modifier
+                                },
+                            ),
                     )
                 }
             }
