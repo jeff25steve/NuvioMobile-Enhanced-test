@@ -13,14 +13,10 @@ import platform.PhotosUI.PHPickerFilter
 import platform.PhotosUI.PHPickerResult
 import platform.PhotosUI.PHPickerViewController
 import platform.PhotosUI.PHPickerViewControllerDelegateProtocol
-import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
 import platform.UIKit.UIApplication
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageJPEGRepresentation
-import platform.UIKit.UIGraphicsBeginImageContextWithOptions
-import platform.UIKit.UIGraphicsEndImageContext
-import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
 import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
@@ -96,18 +92,29 @@ private class SettingsBackgroundPickerDelegate(
 @OptIn(ExperimentalForeignApi::class)
 private fun normalizeBackgroundImage(data: NSData): ByteArray {
     val image = UIImage(data = data) ?: error("Unsupported image.")
-    val maximumPixelDimension = max(image.size.width * image.scale, image.size.height * image.scale)
-    require(maximumPixelDimension > 0.0) { "Unsupported image." }
-    val ratio = min(1.0, MaximumBackgroundImageDimensionPx / maximumPixelDimension)
-    val targetSize = CGSizeMake(image.size.width * ratio, image.size.height * ratio)
-    UIGraphicsBeginImageContextWithOptions(targetSize, true, image.scale)
-    val outputData = try {
-        image.drawInRect(CGRectMake(0.0, 0.0, targetSize.width, targetSize.height))
-        val resizedImage = UIGraphicsGetImageFromCurrentImageContext() ?: error("Unable to decode image.")
-        UIImageJPEGRepresentation(resizedImage, 0.86) ?: error("Unable to encode image.")
-    } finally {
-        UIGraphicsEndImageContext()
+    val width = image.size.width
+    val height = image.size.height
+    val scale = image.scale
+    require(
+        width > 0.0 && width.isFinite() &&
+            height > 0.0 && height.isFinite() &&
+            scale > 0.0 && scale.isFinite()
+    ) { "Unsupported image." }
+
+    val maximumPixelDimension = max(width * scale, height * scale)
+    require(maximumPixelDimension > 0.0 && maximumPixelDimension.isFinite()) {
+        "Unsupported image."
     }
+    val ratio = min(1.0, MaximumBackgroundImageDimensionPx / maximumPixelDimension)
+    val targetSize = CGSizeMake(width * ratio, height * ratio)
+    require(targetSize.width > 0.0 && targetSize.height > 0.0) { "Unsupported image." }
+
+    // Decode through UIKit's native thumbnail path before encoding, avoiding a full-resolution
+    // render into a temporary bitmap for very large photos.
+    val thumbnail = image.imageByPreparingThumbnailOfSize(targetSize)
+        ?: error("Unable to decode image.")
+    val outputData = UIImageJPEGRepresentation(thumbnail, 0.86)
+        ?: error("Unable to encode image.")
     val outputSize = outputData.length.toLong()
     require(outputSize in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()) { "Image is too large." }
     return ByteArray(outputSize.toInt()).also { bytes ->
