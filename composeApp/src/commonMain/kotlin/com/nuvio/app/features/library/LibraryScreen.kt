@@ -569,6 +569,7 @@ fun LibraryScreen(
                             LibrarySourceMode.WETRAKR -> stringResource(Res.string.library_wetrakr_title)
                         }
                     },
+                    glassSurface = LiquidGlassSurface.LIBRARY,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 LibrarySourceSwitch(
@@ -834,6 +835,7 @@ fun LibraryScreen(
                 ) {
                     Box(
                         modifier = Modifier
+                            .align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .height(savedControlsInset),
                     ) {

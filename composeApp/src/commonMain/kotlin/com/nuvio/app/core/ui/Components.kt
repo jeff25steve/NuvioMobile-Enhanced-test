@@ -158,14 +158,15 @@ fun NuvioScreenHeader(
     topPadding: Dp? = null,
     onBack: (() -> Unit)? = null,
     useSettingsGlass: Boolean = false,
+    glassSurface: LiquidGlassSurface? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val settingsGlassEnabled = useSettingsGlass && isLiquidGlassSurfaceEffectivelyEnabled(
-        surface = LiquidGlassSurface.SETTINGS,
-        platformSupported = isLiquidGlassSupported(),
-    )
+    val headerGlassSurface = glassSurface ?: LiquidGlassSurface.SETTINGS.takeIf { useSettingsGlass }
+    val settingsGlassEnabled = headerGlassSurface?.let { surface ->
+        isLiquidGlassSurfaceEffectivelyEnabled(surface = surface, platformSupported = isLiquidGlassSupported())
+    } == true
     val settingsBackdrop = if (settingsGlassEnabled) LocalLiquidGlassBackdrop.current else null
     val headerShape = settingsHeaderShape(
         settingsGlassEnabled = settingsGlassEnabled,
@@ -207,7 +208,7 @@ fun NuvioScreenHeader(
                 modifier = Modifier
                     .matchParentSize()
                     .liquidGlassForSurface(
-                        surface = LiquidGlassSurface.SETTINGS,
+                        surface = headerGlassSurface ?: LiquidGlassSurface.SETTINGS,
                         shape = headerShape,
                         tint = tokens.colors.surface.copy(alpha = 0.45f),
                         fallback = tokens.colors.surface,

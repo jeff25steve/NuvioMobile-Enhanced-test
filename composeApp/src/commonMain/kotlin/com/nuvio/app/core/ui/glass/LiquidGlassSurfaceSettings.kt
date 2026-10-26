@@ -51,7 +51,9 @@ enum class LiquidGlassSurface {
     DETAIL_EPISODE_GO_TO,
     DETAIL_EPISODE_SORT,
     CATEGORY_HEADER_TITLE,
-    CATEGORY_HEADER_BACK_BUTTON;
+    CATEGORY_HEADER_BACK_BUTTON,
+    PROFILE_WATCH_TIME,
+    SUPPORTER_MEMBERSHIP;
 
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
@@ -67,7 +69,8 @@ enum class LiquidGlassSurface {
             LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
-            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, BOTTOM_SHEETS -> false
+            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, BOTTOM_SHEETS,
+            PROFILE_WATCH_TIME, SUPPORTER_MEMBERSHIP -> false
         }
 
     val defaultEnabled: Boolean
@@ -88,6 +91,8 @@ enum class LiquidGlassSurface {
             DETAIL_EPISODE_SORT,
             CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON,
+            PROFILE_WATCH_TIME,
+            SUPPORTER_MEMBERSHIP,
             BOTTOM_SHEETS,
             -> true
             SEARCH, LIBRARY, LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER,
@@ -240,6 +245,8 @@ internal data class LiquidGlassSurfacesSettings(
     val libraryCloudFilters: LiquidGlassSurfaceOverrides = library,
     val libraryCloudSearch: LiquidGlassSurfaceOverrides = library,
     val libraryCloudCards: LiquidGlassSurfaceOverrides = library,
+    val profileWatchTime: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val supporterMembership: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val bottomSheets: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
 ) {
@@ -267,6 +274,8 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> libraryCloudFilters
         LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> libraryCloudSearch
         LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> libraryCloudCards
+        LiquidGlassSurface.PROFILE_WATCH_TIME -> profileWatchTime
+        LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> supporterMembership
         LiquidGlassSurface.SETTINGS -> settings
         LiquidGlassSurface.BOTTOM_SHEETS -> bottomSheets
     }
@@ -300,6 +309,8 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> copy(libraryCloudFilters = safe)
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> copy(libraryCloudSearch = safe)
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> copy(libraryCloudCards = safe)
+            LiquidGlassSurface.PROFILE_WATCH_TIME -> copy(profileWatchTime = safe)
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> copy(supporterMembership = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
             LiquidGlassSurface.BOTTOM_SHEETS -> copy(bottomSheets = safe)
         }
@@ -329,6 +340,8 @@ internal data class LiquidGlassSurfacesSettings(
         libraryCloudFilters = libraryCloudFilters.sanitized(),
         libraryCloudSearch = libraryCloudSearch.sanitized(),
         libraryCloudCards = libraryCloudCards.sanitized(),
+        profileWatchTime = profileWatchTime.sanitized(),
+        supporterMembership = supporterMembership.sanitized(),
         settings = settings.sanitized(),
         bottomSheets = bottomSheets.sanitized(),
     )
