@@ -300,15 +300,13 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     // next opening as a fresh session and starts from the top.
     LaunchedEffect(isEditingSurface, resetRootListOnNextOpen) {
         if (!isEditingSurface) {
-            if (resetRootListOnNextOpen) {
-                listState.scrollToItem(0)
-                resetRootListOnNextOpen = false
-            } else {
-                listState.scrollToItem(
-                    index = savedRootListIndex.coerceAtLeast(0),
-                    scrollOffset = savedRootListScrollOffset.coerceAtLeast(0),
-                )
-            }
+            val target = liquidGlassEditorScrollTarget(
+                resetToTop = resetRootListOnNextOpen,
+                savedIndex = savedRootListIndex,
+                savedScrollOffset = savedRootListScrollOffset,
+            )
+            listState.scrollToItem(index = target.index, scrollOffset = target.scrollOffset)
+            if (resetRootListOnNextOpen) resetRootListOnNextOpen = false
         }
     }
 
