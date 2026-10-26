@@ -60,6 +60,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -80,6 +81,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -1020,7 +1022,12 @@ internal fun CloudLibrarySearchField(
     transparentContainer: Boolean = false,
     shape: Shape = RoundedCornerShape(12.dp),
     showOutline: Boolean = true,
+    onGlassSurfaceInteracted: (() -> Unit)? = null,
 ) {
+    val tokens = MaterialTheme.nuvio
+    val inputTextStyle = MaterialTheme.typography.bodyLarge
+        .merge(LocalTextStyle.current)
+        .copy(color = if (transparentContainer) tokens.colors.textPrimary else MaterialTheme.colorScheme.onSurface)
     val colors = when {
         !transparentContainer -> OutlinedTextFieldDefaults.colors()
         showOutline -> OutlinedTextFieldDefaults.colors(
@@ -1040,15 +1047,23 @@ internal fun CloudLibrarySearchField(
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { state -> if (state.isFocused) onGlassSurfaceInteracted?.invoke() },
         singleLine = true,
         shape = shape,
-        placeholder = { Text(stringResource(Res.string.cloud_library_search_label)) },
+        textStyle = inputTextStyle,
+        placeholder = {
+            Text(
+                text = stringResource(Res.string.cloud_library_search_label),
+                color = if (transparentContainer) tokens.colors.textMuted else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Rounded.Search,
                 contentDescription = null,
-                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, MaterialTheme.colorScheme.onSurfaceVariant),
             )
         },
         trailingIcon = {
@@ -1057,7 +1072,7 @@ internal fun CloudLibrarySearchField(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = stringResource(Res.string.compose_search_clear),
-                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, MaterialTheme.colorScheme.onSurfaceVariant),
                     )
                 }
             }
