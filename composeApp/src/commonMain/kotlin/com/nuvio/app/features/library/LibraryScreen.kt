@@ -595,7 +595,7 @@ fun LibraryScreen(
                                 Modifier
                             },
                         ),
-                ) {
+                    trailingActions = {
                     if (sourceMode == LibraryViewMode.Saved) {
                         LibraryListManagementButton()
                         val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
@@ -647,7 +647,8 @@ fun LibraryScreen(
                     if (onDownloadsClick != null) {
                         LibraryDownloadsButton(onClick = onDownloadsClick)
                     }
-                }
+                    },
+                )
                 Spacer(modifier = Modifier.height(6.dp))
             }
         }
@@ -834,8 +835,7 @@ fun LibraryScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(savedControlsInset)
-                            .align(Alignment.TopCenter),
+                            .height(savedControlsInset),
                     ) {
                         if (!savedTypeGlassEnabled && !savedSortGlassEnabled) {
                             Box(
@@ -858,7 +858,7 @@ fun LibraryScreen(
                             onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
                             typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
                             sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
-                            modifier = libraryContentTransitionModifier()
+                            modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .padding(top = 8.dp, bottom = 14.dp),
                         )

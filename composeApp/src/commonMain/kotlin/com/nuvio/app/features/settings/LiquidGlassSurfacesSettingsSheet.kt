@@ -110,6 +110,7 @@ import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.downloads.DownloadsSettingsRepository
 import com.nuvio.app.features.library.CloudLibrarySearchField
+import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
 import com.nuvio.app.features.library.LibraryViewMode
@@ -148,6 +149,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
@@ -157,6 +159,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
+import nuvio.composeapp.generated.resources.library_title
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_clear
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_frosted

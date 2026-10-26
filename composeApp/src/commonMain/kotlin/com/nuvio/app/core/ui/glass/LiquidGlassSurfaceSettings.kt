@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
  * settings/model so its per-piece defaults and preview are not changed by these preferences.
  */
 @Serializable
-internal enum class LiquidGlassSurface {
+enum class LiquidGlassSurface {
     PLAYER,
     STREAM_FILTERS,
     STREAM_SELECTION,
