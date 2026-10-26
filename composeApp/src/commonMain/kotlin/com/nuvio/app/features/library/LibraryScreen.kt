@@ -680,7 +680,8 @@ fun LibraryScreen(
             NuvioScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
-                topPadding = if (hasSavedControls) savedControlsInset else 0.dp,
+                // Keep poster content behind the pinned filter overlay so its glass samples real artwork.
+                topPadding = 0.dp,
                 listState = listState,
                 autoHidesNativeTabBar = true,
             ) {
