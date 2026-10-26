@@ -30,11 +30,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,6 +80,7 @@ import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
+import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
@@ -101,6 +104,15 @@ import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.downloads.DownloadsSettingsRepository
 import com.nuvio.app.features.library.CloudLibrarySearchField
+import com.nuvio.app.features.library.LibrarySavedControls
+import com.nuvio.app.features.library.LibrarySourceSwitch
+import com.nuvio.app.features.library.LibraryViewMode
+import com.nuvio.app.features.library.LibraryLayoutMode
+import com.nuvio.app.features.library.LibrarySortOption
+import com.nuvio.app.features.library.LibrarySourceMode
+import com.nuvio.app.features.library.LibraryVerticalProjection
+import com.nuvio.app.features.cloud.CloudLibraryUiState
+import com.nuvio.app.features.cloud.CloudLibraryItemType
 import com.nuvio.app.features.player.PlayerChapter
 import com.nuvio.app.features.player.PlayerControlsShell
 import com.nuvio.app.features.player.PlayerLayoutMetrics
@@ -123,6 +135,8 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
 import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
@@ -131,6 +145,8 @@ import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
+import com.nuvio.app.features.settings.withSettingsGlassTextContrast
+import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
@@ -171,6 +187,13 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream_picker_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_category_header
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_category_header_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_library
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_library_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_library_background_title
+import nuvio.composeapp.generated.resources.settings_liquid_glass_library_background_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_library_background_choose
+import nuvio.composeapp.generated.resources.settings_liquid_glass_library_background_remove
+import nuvio.composeapp.generated.resources.settings_liquid_glass_library_background_error
 import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects
 import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_tap_to_edit_component
@@ -193,6 +216,11 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_catego
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_details
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_cards
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_search
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_filters
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_saved_sort_filter
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_saved_type_filter
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_settings
 import nuvio.composeapp.generated.resources.compose_search_placeholder
 import nuvio.composeapp.generated.resources.compose_settings_page_appearance
@@ -334,6 +362,19 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         onOpen = {
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.surfaces.first().name
+                            linkGlassEffects = false
+                        },
+                    )
+                }
+                item(key = "liquid-glass-layout-library") {
+                    LiquidGlassSurfaceGroupListItem(
+                        group = LiquidGlassSurfaceGroup.LIBRARY,
+                        title = stringResource(Res.string.settings_liquid_glass_preview_library),
+                        description = stringResource(Res.string.settings_liquid_glass_preview_library_description),
+                        isTablet = isTablet,
+                        onOpen = {
+                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.LIBRARY.name
+                            selectedSurfaceName = LiquidGlassSurfaceGroup.LIBRARY.surfaces.first().name
                             linkGlassEffects = false
                         },
                     )
@@ -516,6 +557,7 @@ private fun LiquidGlassSurfaceGroupListItem(
         LiquidGlassSurfaceGroup.DETAIL_PAGE -> MaterialTheme.colorScheme.primary
         LiquidGlassSurfaceGroup.STREAM_PICKER -> MaterialTheme.colorScheme.secondary
         LiquidGlassSurfaceGroup.CATEGORY_HEADER -> MaterialTheme.colorScheme.tertiary
+        LiquidGlassSurfaceGroup.LIBRARY -> MaterialTheme.colorScheme.primary
     }
     Surface(
         modifier = Modifier
@@ -635,6 +677,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
             LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
             LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
             LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
+            LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library
         },
     )
     val description = stringResource(
@@ -642,6 +685,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
             LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page_description
             LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker_description
             LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header_description
+            LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library_description
         },
     )
     Column(
@@ -695,6 +739,12 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
                 modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
             )
             LiquidGlassSurfaceGroup.CATEGORY_HEADER -> LiquidGlassCatalogHeaderPreview(
+                settings = settings,
+                selectedSurface = selectedSurface,
+                onSelectSurface = onSelectSurface,
+                modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+            )
+            LiquidGlassSurfaceGroup.LIBRARY -> LiquidGlassLibraryPreview(
                 settings = settings,
                 selectedSurface = selectedSurface,
                 onSelectSurface = onSelectSurface,
