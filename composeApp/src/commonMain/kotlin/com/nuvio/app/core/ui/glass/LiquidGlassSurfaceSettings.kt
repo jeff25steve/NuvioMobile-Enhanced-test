@@ -44,7 +44,9 @@ internal enum class LiquidGlassSurface {
     DETAIL_TRAILER_MENU,
     DETAIL_EPISODE_SEARCH,
     DETAIL_EPISODE_GO_TO,
-    DETAIL_EPISODE_SORT;
+    DETAIL_EPISODE_SORT,
+    CATEGORY_HEADER_TITLE,
+    CATEGORY_HEADER_BACK_BUTTON;
 
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
@@ -55,10 +57,10 @@ internal enum class LiquidGlassSurface {
     val supportsIconTint: Boolean
         get() = when (this) {
             PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,
-            DETAIL_EPISODE_SEARCH, SEARCH, LIBRARY, SETTINGS -> true
+            DETAIL_EPISODE_SEARCH, CATEGORY_HEADER_BACK_BUTTON, SEARCH, LIBRARY, SETTINGS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
-            DETAIL_EPISODE_SORT, BOTTOM_SHEETS -> false
+            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, BOTTOM_SHEETS -> false
         }
 
     val defaultEnabled: Boolean
@@ -77,6 +79,8 @@ internal enum class LiquidGlassSurface {
             DETAIL_EPISODE_SEARCH,
             DETAIL_EPISODE_GO_TO,
             DETAIL_EPISODE_SORT,
+            CATEGORY_HEADER_TITLE,
+            CATEGORY_HEADER_BACK_BUTTON,
             BOTTOM_SHEETS,
             -> true
             SEARCH, LIBRARY, SETTINGS -> false
@@ -181,6 +185,12 @@ internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurfac
             LiquidGlassSurface.STREAM_RESULTS,
         ),
     ),
+    CATEGORY_HEADER(
+        listOf(
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+        ),
+    ),
 }
 
 @Serializable
@@ -201,6 +211,8 @@ internal data class LiquidGlassSurfacesSettings(
     val detailEpisodeSearch: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val detailEpisodeGoTo: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val detailEpisodeSort: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val categoryHeaderTitle: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val categoryHeaderBackButton: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val streamResults: LiquidGlassSurfaceOverrides = streamSelection,
     val search: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val library: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
@@ -222,6 +234,8 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> detailEpisodeSearch
         LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> detailEpisodeGoTo
         LiquidGlassSurface.DETAIL_EPISODE_SORT -> detailEpisodeSort
+        LiquidGlassSurface.CATEGORY_HEADER_TITLE -> categoryHeaderTitle
+        LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> categoryHeaderBackButton
         LiquidGlassSurface.SEARCH -> search
         LiquidGlassSurface.LIBRARY -> library
         LiquidGlassSurface.SETTINGS -> settings
@@ -248,6 +262,8 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> copy(detailEpisodeSearch = safe)
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> copy(detailEpisodeGoTo = safe)
             LiquidGlassSurface.DETAIL_EPISODE_SORT -> copy(detailEpisodeSort = safe)
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE -> copy(categoryHeaderTitle = safe)
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> copy(categoryHeaderBackButton = safe)
             LiquidGlassSurface.SEARCH -> copy(search = safe)
             LiquidGlassSurface.LIBRARY -> copy(library = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
@@ -269,6 +285,8 @@ internal data class LiquidGlassSurfacesSettings(
         detailEpisodeSearch = detailEpisodeSearch.sanitized(),
         detailEpisodeGoTo = detailEpisodeGoTo.sanitized(),
         detailEpisodeSort = detailEpisodeSort.sanitized(),
+        categoryHeaderTitle = categoryHeaderTitle.sanitized(),
+        categoryHeaderBackButton = categoryHeaderBackButton.sanitized(),
         streamResults = streamResults.sanitized(),
         search = search.sanitized(),
         library = library.sanitized(),
