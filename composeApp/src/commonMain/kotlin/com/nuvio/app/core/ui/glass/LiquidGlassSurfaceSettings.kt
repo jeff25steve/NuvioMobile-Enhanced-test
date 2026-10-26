@@ -211,6 +211,18 @@ internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurfac
     ),
 }
 
+/**
+ * Surfaces already represented by a grouped preview are shown inside that group's expandable
+ * controls, not repeated in the root list.
+ */
+internal fun liquidGlassStandaloneSurfaces(
+    surfaces: List<LiquidGlassSurface>,
+    groups: List<LiquidGlassSurfaceGroup> = LiquidGlassSurfaceGroup.entries,
+): List<LiquidGlassSurface> {
+    val groupedSurfaces = groups.flatMap { it.surfaces }.toSet()
+    return surfaces.filterNot { it in groupedSurfaces }
+}
+
 @Serializable
 internal data class LiquidGlassSurfacesSettings(
     val player: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),

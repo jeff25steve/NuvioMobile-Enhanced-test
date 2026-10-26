@@ -2943,7 +2943,7 @@
     <string name="settings_playback_render_type_overlay_opengl">Overlay OpenGL (Recommended)</string>
     <string name="compose_player_via">Via %1$s</string>
     <string name="settings_liquid_glass_customize">Customize Liquid Glass</string>
-    <string name="settings_liquid_glass_customize_description">Choose a live preview, then fine-tune the glass for a screen or individual component.</string>
+    <string name="settings_liquid_glass_customize_description">Expand a group to edit its individual controls, or open its live preview to select elements in context. Other areas are listed below.</string>
     <string name="settings_liquid_glass_preview_detail_page">Detail page preview</string>
     <string name="settings_liquid_glass_preview_detail_page_description">Select a glass element to edit it, or scroll the preview to explore the page.</string>
     <string name="settings_liquid_glass_preview_stream_picker">Stream picker preview</string>
@@ -2960,6 +2960,11 @@
     <string name="settings_liquid_glass_link_effects">Edit together</string>
     <string name="settings_liquid_glass_link_effects_description">Copies the selected element&apos;s material and optical effects to all elements in this preview and keeps them in sync. Each keeps its own shape; supported icon colours stay separate.</string>
     <string name="settings_liquid_glass_tap_to_edit_component">Select a highlighted element to edit its glass settings.</string>
+    <string name="settings_liquid_glass_expand_controls">Show individual controls</string>
+    <string name="settings_liquid_glass_collapse_controls">Hide individual controls</string>
+    <string name="settings_liquid_glass_preview_layout">Open live preview</string>
+    <string name="settings_liquid_glass_controls_in">Controls in %1$s</string>
+    <string name="settings_liquid_glass_group_controls_description">These areas are included in the grouped preview above.</string>
     <string name="settings_liquid_glass_global_note">The main Liquid Glass switch controls every area. Unchanged settings keep each component&apos;s original defaults.</string>
     <string name="settings_liquid_glass_surface_description">Only this glass area changes; other areas stay the same.</string>
     <string name="settings_liquid_glass_surface_material_header">Glass material</string>

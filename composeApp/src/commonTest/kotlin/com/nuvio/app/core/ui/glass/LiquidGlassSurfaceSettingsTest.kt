@@ -1,6 +1,7 @@
 package com.nuvio.app.core.ui.glass
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -39,6 +40,25 @@ class LiquidGlassSurfaceSettingsTest {
                 masterEnabled = false,
             ),
         )
+    }
+
+    @Test
+    fun collapsedRootListContainsOnlySurfacesOutsideTheFourGroups() {
+        val allSurfaces = LiquidGlassSurface.entries
+        val groupedSurfaces = LiquidGlassSurfaceGroup.entries.flatMap { it.surfaces }
+        val standalone = liquidGlassStandaloneSurfaces(allSurfaces)
+
+        assertEquals(
+            listOf(
+                LiquidGlassSurface.PLAYER,
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassSurface.SETTINGS,
+                LiquidGlassSurface.BOTTOM_SHEETS,
+            ),
+            standalone,
+        )
+        assertEquals(allSurfaces.toSet(), (groupedSurfaces + standalone).toSet())
+        assertEquals(allSurfaces.size, groupedSurfaces.size + standalone.size)
     }
 
     @Test

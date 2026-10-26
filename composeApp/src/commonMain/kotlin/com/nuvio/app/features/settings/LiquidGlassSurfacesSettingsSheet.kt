@@ -37,6 +37,8 @@ import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
@@ -63,6 +65,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -188,6 +193,11 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_expand_controls
+import nuvio.composeapp.generated.resources.settings_liquid_glass_collapse_controls
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
+import nuvio.composeapp.generated.resources.settings_liquid_glass_controls_in
+import nuvio.composeapp.generated.resources.settings_liquid_glass_group_controls_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
@@ -279,6 +289,13 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         } else {
             LiquidGlassSurface.entries
         }
+    }
+    val standaloneSurfaces = remember(customizableSurfaces) {
+        liquidGlassStandaloneSurfaces(customizableSurfaces)
+    }
+    var expandedGroupName by rememberSaveable { mutableStateOf<String?>(null) }
+    val expandedGroup = expandedGroupName?.let { name ->
+        LiquidGlassSurfaceGroup.entries.firstOrNull { it.name == name }
     }
     val listState = rememberLazyListState()
     val editorListState = rememberLazyListState()
@@ -377,63 +394,100 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         )
                     }
                 }
-                item(key = "liquid-glass-layout-detail-page") {
+                items(
+                    items = LiquidGlassSurfaceGroup.entries,
+                    key = { group -> "liquid-glass-layout-${group.name}" },
+                ) { group ->
+                    val titleRes = when (group) {
+                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
+                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
+                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
+                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library
+                    }
+                    val descriptionRes = when (group) {
+                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page_description
+                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker_description
+                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header_description
+                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library_description
+                    }
+                    val expanded = expandedGroupName == group.name
                     LiquidGlassSurfaceGroupListItem(
-                        group = LiquidGlassSurfaceGroup.DETAIL_PAGE,
-                        title = stringResource(Res.string.settings_liquid_glass_preview_detail_page),
-                        description = stringResource(Res.string.settings_liquid_glass_preview_detail_page_description),
+                        group = group,
+                        title = stringResource(titleRes),
+                        description = stringResource(descriptionRes),
                         isTablet = isTablet,
-                        onOpen = {
+                        expanded = expanded,
+                        onToggleExpanded = {
+                            expandedGroupName = if (expanded) null else group.name
+                        },
+                        onOpenPreview = {
                             captureRootListPosition()
-                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.DETAIL_PAGE.name
-                            selectedSurfaceName = LiquidGlassSurfaceGroup.DETAIL_PAGE.surfaces.first().name
+                            selectedPreviewLayoutName = group.name
+                            selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
                             linkGlassEffects = false
                         },
                     )
                 }
-                item(key = "liquid-glass-layout-stream-picker") {
-                    LiquidGlassSurfaceGroupListItem(
-                        group = LiquidGlassSurfaceGroup.STREAM_PICKER,
-                        title = stringResource(Res.string.settings_liquid_glass_preview_stream_picker),
-                        description = stringResource(Res.string.settings_liquid_glass_preview_stream_picker_description),
-                        isTablet = isTablet,
-                        onOpen = {
-                            captureRootListPosition()
-                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.STREAM_PICKER.name
-                            selectedSurfaceName = LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces.first().name
-                            linkGlassEffects = false
-                        },
-                    )
+
+                item(key = "liquid-glass-expanded-controls") {
+                    AnimatedVisibility(visible = expandedGroup != null) {
+                        expandedGroup?.let { group ->
+                            val groupTitleRes = when (group) {
+                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
+                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
+                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
+                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library
+                            }
+                            val groupTitle = stringResource(groupTitleRes)
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.settings_liquid_glass_controls_in,
+                                        groupTitle,
+                                    ),
+                                    modifier = Modifier.padding(
+                                        horizontal = if (isTablet) 24.dp else 16.dp,
+                                        vertical = 4.dp,
+                                    ),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.settings_liquid_glass_group_controls_description),
+                                    modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                group.surfaces.filter { it in customizableSurfaces }.forEach { surface ->
+                                    LiquidGlassSurfaceListItem(
+                                        surface = surface,
+                                        overrides = settings.forSurface(surface),
+                                        isTablet = isTablet,
+                                        onOpen = {
+                                            captureRootListPosition()
+                                            selectedPreviewLayoutName = null
+                                            selectedSurfaceName = surface.name
+                                        },
+                                        onToggle = { enabled ->
+                                            onSurfaceChanged(
+                                                surface,
+                                                settings.forSurface(surface).copy(enabled = enabled),
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                item(key = "liquid-glass-layout-category-header") {
-                    LiquidGlassSurfaceGroupListItem(
-                        group = LiquidGlassSurfaceGroup.CATEGORY_HEADER,
-                        title = stringResource(Res.string.settings_liquid_glass_preview_category_header),
-                        description = stringResource(Res.string.settings_liquid_glass_preview_category_header_description),
-                        isTablet = isTablet,
-                        onOpen = {
-                            captureRootListPosition()
-                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.name
-                            selectedSurfaceName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.surfaces.first().name
-                            linkGlassEffects = false
-                        },
-                    )
-                }
-                item(key = "liquid-glass-layout-library") {
-                    LiquidGlassSurfaceGroupListItem(
-                        group = LiquidGlassSurfaceGroup.LIBRARY,
-                        title = stringResource(Res.string.settings_liquid_glass_preview_library),
-                        description = stringResource(Res.string.settings_liquid_glass_preview_library_description),
-                        isTablet = isTablet,
-                        onOpen = {
-                            captureRootListPosition()
-                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.LIBRARY.name
-                            selectedSurfaceName = LiquidGlassSurfaceGroup.LIBRARY.surfaces.first().name
-                            linkGlassEffects = false
-                        },
-                    )
-                }
-                items(customizableSurfaces, key = { it.name }) { surface ->
+
+                items(
+                    items = standaloneSurfaces,
+                    key = { surface -> "liquid-glass-surface-${surface.name}" },
+                ) { surface ->
                     LiquidGlassSurfaceListItem(
                         surface = surface,
                         overrides = settings.forSurface(surface),
@@ -599,7 +653,9 @@ private fun LiquidGlassSurfaceGroupListItem(
     title: String,
     description: String,
     isTablet: Boolean,
-    onOpen: () -> Unit,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onOpenPreview: () -> Unit,
 ) {
     val icon = when (group) {
         LiquidGlassSurfaceGroup.DETAIL_PAGE -> Icons.Rounded.Movie
@@ -609,56 +665,101 @@ private fun LiquidGlassSurfaceGroupListItem(
     }
     val tokens = MaterialTheme.nuvio
     val iconSize = if (isTablet) 42.dp else 36.dp
+    val toggleLabel = stringResource(
+        if (expanded) {
+            Res.string.settings_liquid_glass_collapse_controls
+        } else {
+            Res.string.settings_liquid_glass_expand_controls
+        },
+    )
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
-            .clickable(onClick = onOpen),
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Surface(
-                modifier = Modifier.size(iconSize),
-                color = tokens.colors.accent.copy(alpha = tokens.opacity.pressed),
-                shape = tokens.shapes.compactCard,
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        onClickLabel = toggleLabel,
+                        role = Role.Button,
+                        onClick = onToggleExpanded,
+                    )
+                    .semantics(mergeDescendants = true) {
+                        heading()
+                        if (expanded) {
+                            collapse {
+                                onToggleExpanded()
+                                true
+                            }
+                        } else {
+                            expand {
+                                onToggleExpanded()
+                                true
+                            }
+                        }
+                    }
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    modifier = Modifier.size(iconSize),
+                    color = tokens.colors.accent.copy(alpha = tokens.opacity.pressed),
+                    shape = tokens.shapes.compactCard,
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (isTablet) 28.dp else 24.dp),
-                        tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(if (isTablet) 28.dp else 24.dp),
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = toggleLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    tint = tokens.colors.textMuted,
+                )
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.End,
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(Res.string.settings_liquid_glass_tap_to_edit_component),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                TextButton(onClick = onOpenPreview) {
+                    Text(stringResource(Res.string.settings_liquid_glass_preview_layout))
+                }
             }
         }
     }
