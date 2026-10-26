@@ -300,9 +300,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         liquidGlassStandaloneSurfaces(customizableSurfaces)
     }
     var expandedGroupName by rememberSaveable { mutableStateOf<String?>(null) }
-    val expandedGroup = expandedGroupName?.let { name ->
-        LiquidGlassSurfaceGroup.entries.firstOrNull { it.name == name }
-    }
     val listState = rememberLazyListState()
     val editorListState = rememberLazyListState()
     var savedRootListIndex by rememberSaveable { mutableStateOf(0) }
@@ -400,50 +397,40 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         )
                     }
                 }
-                items(
-                    items = LiquidGlassSurfaceGroup.entries,
-                    key = { group -> "liquid-glass-layout-${group.name}" },
-                ) { group ->
-                    val titleRes = when (group) {
-                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
-                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
-                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
-                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
+                LiquidGlassSurfaceGroup.entries.forEach { group ->
+                    item(key = "liquid-glass-layout-${group.name}") {
+                        val titleRes = when (group) {
+                            LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
+                            LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
+                            LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
+                            LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
+                        }
+                        val descriptionRes = when (group) {
+                            LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page_description
+                            LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker_description
+                            LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header_description
+                            LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library_description
+                        }
+                        val expanded = expandedGroupName == group.name
+                        LiquidGlassSurfaceGroupListItem(
+                            title = stringResource(titleRes),
+                            description = stringResource(descriptionRes),
+                            isTablet = isTablet,
+                            expanded = expanded,
+                            onToggleExpanded = {
+                                expandedGroupName = if (expanded) null else group.name
+                            },
+                            onOpenPreview = {
+                                captureRootListPosition()
+                                selectedPreviewLayoutName = group.name
+                                selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
+                                linkGlassEffects = false
+                            },
+                        )
                     }
-                    val descriptionRes = when (group) {
-                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page_description
-                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker_description
-                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header_description
-                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library_description
-                    }
-                    val expanded = expandedGroupName == group.name
-                    LiquidGlassSurfaceGroupListItem(
-                        title = stringResource(titleRes),
-                        description = stringResource(descriptionRes),
-                        isTablet = isTablet,
-                        expanded = expanded,
-                        onToggleExpanded = {
-                            expandedGroupName = if (expanded) null else group.name
-                        },
-                        onOpenPreview = {
-                            captureRootListPosition()
-                            selectedPreviewLayoutName = group.name
-                            selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
-                            linkGlassEffects = false
-                        },
-                    )
-                }
 
-                item(key = "liquid-glass-expanded-controls") {
-                    AnimatedVisibility(visible = expandedGroup != null) {
-                        expandedGroup?.let { group ->
-                            val groupTitleRes = when (group) {
-                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
-                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
-                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
-                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
-                            }
-                            val groupTitle = stringResource(groupTitleRes)
+                    item(key = "liquid-glass-controls-${group.name}") {
+                        AnimatedVisibility(visible = expandedGroupName == group.name) {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -451,7 +438,14 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                                 Text(
                                     text = stringResource(
                                         Res.string.settings_liquid_glass_controls_in,
-                                        groupTitle,
+                                        stringResource(
+                                            when (group) {
+                                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
+                                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
+                                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
+                                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
+                                            },
+                                        ),
                                     ),
                                     modifier = Modifier.padding(
                                         horizontal = if (isTablet) 24.dp else 16.dp,
