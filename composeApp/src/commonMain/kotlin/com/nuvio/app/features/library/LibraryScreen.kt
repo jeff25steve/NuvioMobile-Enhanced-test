@@ -100,6 +100,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import com.nuvio.app.core.i18n.localizedMonthName
 import com.nuvio.app.core.i18n.localizedShortMonthName
 import com.nuvio.app.core.ui.ScreenActivityEffect
@@ -128,6 +131,8 @@ import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.LocalNuvioThemeTokens
+import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.shimmer
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioShelfSection
@@ -143,6 +148,9 @@ import com.nuvio.app.features.cloud.TorboxCloudConnectDialog
 import com.nuvio.app.core.ui.DialogButton
 import com.nuvio.app.core.ui.DialogButtonStyle
 import com.nuvio.app.features.debrid.DebridProviders
+import com.nuvio.app.features.settings.ThemeSettingsRepository
+import com.nuvio.app.features.settings.withSettingsGlassTextContrast
+import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.MetaVideo
@@ -461,20 +469,77 @@ fun LibraryScreen(
         emptyList()
     }
 
+    val cloudBackgroundImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    val cloudBackgroundImageRevision by remember {
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
+    val cloudImageContext = LocalPlatformContext.current
+    val cloudBackgroundImageRequest = remember(
+        cloudBackgroundImageUri,
+        cloudBackgroundImageRevision,
+        cloudImageContext,
+    ) {
+        cloudBackgroundImageUri?.let { imageUri ->
+            ImageRequest.Builder(cloudImageContext)
+                .data(imageUri)
+                .memoryCacheKey("$imageUri#library-cloud-background-$cloudBackgroundImageRevision")
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
     val libraryBackdrop = rememberNuvioBackdrop()
     val libraryGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
+    val savedTypeGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER)
+    val savedSortGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
+    val cloudFiltersGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
+    val cloudSearchGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH)
+    val cloudCardsGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
+    val anyLibraryGlassEnabled = libraryGlassEnabled || savedTypeGlassEnabled ||
+        savedSortGlassEnabled || cloudFiltersGlassEnabled || cloudSearchGlassEnabled ||
+        cloudCardsGlassEnabled
+    val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
+    val libraryGlassTextEnabled = anyLibraryGlassEnabled && isLiquidGlassSupported()
     Box(modifier = modifier.fillMaxSize()) {
-        if (libraryGlassEnabled) {
+        if (anyLibraryGlassEnabled || cloudBackgroundActive) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .nuvioBackdropSource(libraryBackdrop),
-            )
+                    .then(if (anyLibraryGlassEnabled) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
+            ) {
+                if (cloudBackgroundActive) {
+                    cloudBackgroundImageRequest?.let { request ->
+                        AsyncImage(
+                            model = request,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+            }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (libraryGlassEnabled) libraryBackdrop else null,
+            LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
+            LocalDynamicArtworkBackgroundActive provides (
+                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
+            ),
+            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                enabled = libraryGlassTextEnabled,
+            ),
+            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                enabled = libraryGlassTextEnabled,
+            ),
         ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth()) {
