@@ -77,6 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
+import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
@@ -136,7 +137,6 @@ import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
-import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
@@ -2477,7 +2477,7 @@ private fun LiquidGlassLibraryPreview(
         )
     }
     val baseBackground = MaterialTheme.colorScheme.background
-    val headerHeight = if (viewMode == LibraryViewMode.Cloud) 188.dp else 132.dp
+    val headerHeight = if (viewMode == LibraryViewMode.Cloud) 204.dp else 132.dp
 
     Box(
         modifier = modifier
