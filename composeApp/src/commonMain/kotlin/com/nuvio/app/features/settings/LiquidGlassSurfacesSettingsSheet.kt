@@ -29,6 +29,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
@@ -2763,6 +2768,50 @@ private fun LiquidGlassLibraryPreview(
                                     LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER
                                 },
                             )
+                        },
+                        trailingActions = {
+                            if (viewMode == LibraryViewMode.Saved) {
+                                IconButton(onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY) }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = liquidGlassIconTint(
+                                            LiquidGlassSurface.LIBRARY,
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    )
+                                }
+                                IconButton(onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY) }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.GridView,
+                                        contentDescription = null,
+                                        tint = liquidGlassIconTint(
+                                            LiquidGlassSurface.LIBRARY,
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    )
+                                }
+                                IconButton(onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY) }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = liquidGlassIconTint(
+                                            LiquidGlassSurface.LIBRARY,
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY) }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Download,
+                                    contentDescription = null,
+                                    tint = liquidGlassIconTint(
+                                        LiquidGlassSurface.LIBRARY,
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                )
+                            }
                         },
                     )
                 }
