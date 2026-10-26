@@ -2461,7 +2461,21 @@ private fun LiquidGlassLibraryPreview(
     val defaultRecipe = remember(selectedSurface, recipe, settings) {
         recipe ?: surfacePreviewRecipe(selectedSurface, settings.forSurface(selectedSurface))
     }
-    val enabledTextContrast = isLiquidGlassAvailable()
+    val rendererAvailable = isLiquidGlassAvailable()
+    val enabledTextContrast = rendererAvailable && listOf(
+        LiquidGlassSurface.LIBRARY,
+        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+        LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+    ).any { surface ->
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = surface,
+            preview = true,
+            platformSupported = rendererAvailable,
+        )
+    }
     val baseBackground = MaterialTheme.colorScheme.background
     val headerHeight = if (viewMode == LibraryViewMode.Cloud) 188.dp else 132.dp
 
@@ -2516,6 +2530,16 @@ private fun LiquidGlassLibraryPreview(
             }
         }
 
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides backdrop,
+            LocalLiquidGlassPreviewSettings provides settings,
+            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                enabled = enabledTextContrast,
+            ),
+            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                enabled = enabledTextContrast,
+            ),
+        ) {
         if (viewMode == LibraryViewMode.Cloud) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -2605,16 +2629,6 @@ private fun LiquidGlassLibraryPreview(
                 ),
         )
 
-        CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides backdrop,
-            LocalLiquidGlassPreviewSettings provides settings,
-            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                enabled = enabledTextContrast,
-            ),
-            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                enabled = enabledTextContrast,
-            ),
-        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2786,6 +2800,7 @@ private fun LiquidGlassLibraryPreview(
                     )
                 }
             }
+        }
         }
     }
 }
