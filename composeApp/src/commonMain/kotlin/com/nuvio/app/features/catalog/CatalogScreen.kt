@@ -190,13 +190,17 @@ fun CatalogScreen(
         val columns = remember(maxWidth) { catalogGridColumnsForWidth(maxWidth) }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(columns),
-                state = gridState,
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (catalogHeaderGlassEnabled) Modifier.nuvioBackdropSource(catalogBackdrop) else Modifier),
-                contentPadding = PaddingValues(
+                    .then(if (catalogHeaderGlassEnabled) Modifier.nuvioBackdropSource(catalogBackdrop) else Modifier)
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(columns),
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
                     start = 16.dp,
                     top = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeightPx.toDp() } + 12.dp,
                     end = 16.dp,
@@ -204,8 +208,8 @@ fun CatalogScreen(
                 ),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                if (uiState.items.isEmpty() && uiState.isLoading) {
+                ) {
+                    if (uiState.items.isEmpty() && uiState.isLoading) {
                     items(columns * 3) {
                         SkeletonPoster(
                             modifier = Modifier.fillMaxWidth(),
@@ -246,9 +250,10 @@ fun CatalogScreen(
                             onLongClick = onPosterLongClick?.let { { it(item) } },
                         )
                     }
-                    if (uiState.isLoading) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            CatalogLoadingFooter()
+                        if (uiState.isLoading) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                CatalogLoadingFooter()
+                            }
                         }
                     }
                 }
