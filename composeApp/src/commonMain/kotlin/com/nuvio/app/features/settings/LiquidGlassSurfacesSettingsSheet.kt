@@ -90,6 +90,7 @@ import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
+import com.nuvio.app.core.ui.NuvioSystemBackHandler
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.catalog.CatalogHeader
@@ -279,15 +280,53 @@ internal fun LiquidGlassSurfacesSettingsSheet(
             LiquidGlassSurface.entries
         }
     }
+    val listState = rememberLazyListState()
+    var savedRootListIndex by rememberSaveable { mutableStateOf(0) }
+    var savedRootListScrollOffset by rememberSaveable { mutableStateOf(0) }
+    var resetRootListOnNextOpen by rememberSaveable { mutableStateOf(true) }
+    val isEditingSurface = selectedSurface != null || selectedPreviewLayout != null
+
+    val captureRootListPosition: () -> Unit = {
+        savedRootListIndex = listState.firstVisibleItemIndex
+        savedRootListScrollOffset = listState.firstVisibleItemScrollOffset
+    }
+    val returnToRootList: () -> Unit = {
+        selectedSurfaceName = null
+        selectedPreviewLayoutName = null
+        linkGlassEffects = false
+    }
+
+    // Keep the root list's exact item and pixel offset while editor content replaces its items.
+    // Re-entering the root list restores that saved position; fully closing the popup marks the
+    // next opening as a fresh session and starts from the top.
+    LaunchedEffect(isEditingSurface, resetRootListOnNextOpen) {
+        if (!isEditingSurface) {
+            if (resetRootListOnNextOpen) {
+                listState.scrollToItem(0)
+                resetRootListOnNextOpen = false
+            } else {
+                listState.scrollToItem(
+                    index = savedRootListIndex.coerceAtLeast(0),
+                    scrollOffset = savedRootListScrollOffset.coerceAtLeast(0),
+                )
+            }
+        }
+    }
+
     val dismiss: () -> Unit = {
         // Persist before starting the dismiss animation, which can dispose the sheet immediately.
         onSave()
-        scope.launch { dismissNuvioBottomSheet(sheetState, onDismiss) }
-    }
-
-    val listState = rememberLazyListState()
-    LaunchedEffect(selectedSurfaceName, selectedPreviewLayoutName) {
-        listState.scrollToItem(0)
+        scope.launch {
+            dismissNuvioBottomSheet(sheetState) {
+                selectedSurfaceName = null
+                selectedPreviewLayoutName = null
+                linkGlassEffects = false
+                savedRootListIndex = 0
+                savedRootListScrollOffset = 0
+                resetRootListOnNextOpen = true
+                onDismiss()
+            }
+        }
     }
 
     val previewCaptureOwner = LocalNuvioSheetBackdrop.current
@@ -303,7 +342,12 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     NuvioModalBottomSheet(
         onDismissRequest = dismiss,
         sheetState = sheetState,
+        dismissOnBackPress = !isEditingSurface,
     ) {
+        NuvioSystemBackHandler(
+            enabled = isEditingSurface,
+            onBack = returnToRootList,
+        )
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             state = listState,
@@ -339,6 +383,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         description = stringResource(Res.string.settings_liquid_glass_preview_detail_page_description),
                         isTablet = isTablet,
                         onOpen = {
+                            captureRootListPosition()
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.DETAIL_PAGE.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.DETAIL_PAGE.surfaces.first().name
                             linkGlassEffects = false
@@ -352,6 +397,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         description = stringResource(Res.string.settings_liquid_glass_preview_stream_picker_description),
                         isTablet = isTablet,
                         onOpen = {
+                            captureRootListPosition()
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.STREAM_PICKER.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces.first().name
                             linkGlassEffects = false
@@ -365,6 +411,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         description = stringResource(Res.string.settings_liquid_glass_preview_category_header_description),
                         isTablet = isTablet,
                         onOpen = {
+                            captureRootListPosition()
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.surfaces.first().name
                             linkGlassEffects = false
@@ -378,6 +425,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         description = stringResource(Res.string.settings_liquid_glass_preview_library_description),
                         isTablet = isTablet,
                         onOpen = {
+                            captureRootListPosition()
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.LIBRARY.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.LIBRARY.surfaces.first().name
                             linkGlassEffects = false
@@ -390,6 +438,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         overrides = settings.forSurface(surface),
                         isTablet = isTablet,
                         onOpen = {
+                            captureRootListPosition()
                             selectedPreviewLayoutName = null
                             selectedSurfaceName = surface.name
                         },
@@ -408,11 +457,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         iconActionRow = detailScreenSettings.iconActionRow,
                         downloadButtonEnabled = downloadButtonEnabled,
                         onSelectSurface = { selectedSurfaceName = it.name },
-                        onBack = {
-                            selectedPreviewLayoutName = null
-                            selectedSurfaceName = null
-                            linkGlassEffects = false
-                        },
+                        onBack = returnToRootList,
                     )
                 }
                 item(key = "liquid-glass-layout-controls-${selectedPreviewLayout.name}-${selectedSurface.name}") {
@@ -461,10 +506,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         overrides = settings.forSurface(selectedSurface),
                         settings = settings,
                         isTablet = isTablet,
-                        onBack = {
-                            selectedSurfaceName = null
-                            selectedPreviewLayoutName = null
-                        },
+                        onBack = returnToRootList,
                     )
                 }
                 item(key = "liquid-glass-controls-${selectedSurface.name}") {
