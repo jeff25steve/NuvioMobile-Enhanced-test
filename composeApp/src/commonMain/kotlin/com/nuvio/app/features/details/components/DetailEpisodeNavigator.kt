@@ -3,6 +3,11 @@ package com.nuvio.app.features.details.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -190,6 +195,25 @@ internal suspend fun EpisodeNavigatorState.flashHighlight(key: String) {
 
 private const val EPISODE_HIGHLIGHT_MS = 1_600L
 
+/**
+ * Lets the Studio preview select an entire glass surface without intercepting its real child
+ * controls. Runtime callers pass no callback and keep their existing input behavior.
+ */
+internal fun Modifier.onLiquidGlassPreviewSurfaceTap(
+    surface: LiquidGlassSurface,
+    onSurfaceSelected: ((LiquidGlassSurface) -> Unit)?,
+): Modifier {
+    val callback = onSurfaceSelected ?: return this
+    return pointerInput(surface, callback) {
+        awaitEachGesture {
+            awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+            if (waitForUpOrCancellation(pass = PointerEventPass.Initial) != null) {
+                callback(surface)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun EpisodeNavigatorBar(
     state: EpisodeNavigatorState,
@@ -242,6 +266,10 @@ internal fun EpisodeNavigatorBar(
                     .heightIn(min = 44.dp)
                     .then(searchSurfaceModifier)
                     .then(searchSelectionBorder)
+                    .onLiquidGlassPreviewSurfaceTap(
+                        surface = searchSurface,
+                        onSurfaceSelected = onPreviewSurfaceSelected,
+                    )
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
