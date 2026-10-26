@@ -1411,15 +1411,40 @@ private fun CloudLibraryRow(
     item: CloudLibraryItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    glassEnabled: Boolean = false,
 ) {
     val playableCount = item.playableFiles.size
+    val colorScheme = MaterialTheme.colorScheme
+    val tokens = MaterialTheme.nuvio
+    val glassShape = liquidGlassShape(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        defaultShape = MaterialTheme.shapes.medium,
+    )
+    val renderGlass = glassEnabled && isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        platformSupported = isLiquidGlassSupported(),
+    )
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
+            .then(
+                if (renderGlass) {
+                    Modifier.liquidGlassForSurface(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        shape = glassShape,
+                        tint = colorScheme.surface.copy(alpha = 0.18f),
+                        fallback = tokens.colors.surfaceCard,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                        withShadow = true,
+                    )
+                } else Modifier,
+            )
             .clickable(enabled = playableCount > 0, onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = glassShape,
+        color = if (renderGlass) Color.Transparent else colorScheme.surfaceContainerLow,
     ) {
         Column(
             modifier = Modifier
@@ -1439,7 +1464,7 @@ private fun CloudLibraryRow(
                     Text(
                         text = item.name,
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (renderGlass) tokens.colors.textPrimary else colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1447,14 +1472,14 @@ private fun CloudLibraryRow(
                     Text(
                         text = cloudLibrarySubtitle(item),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (renderGlass) tokens.colors.textSecondary else colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = cloudLibraryStatusLine(item),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (renderGlass) tokens.colors.textMuted else colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1486,13 +1511,38 @@ private fun CloudLibraryFilePicker(
     onBack: () -> Unit,
     onFileSelected: (CloudLibraryFile) -> Unit,
     modifier: Modifier = Modifier,
+    glassEnabled: Boolean = false,
 ) {
+    val tokens = MaterialTheme.nuvio
+    val colorScheme = MaterialTheme.colorScheme
+    val glassShape = liquidGlassShape(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        defaultShape = MaterialTheme.shapes.medium,
+    )
+    val renderGlass = glassEnabled && isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        platformSupported = isLiquidGlassSupported(),
+    )
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .then(
+                if (renderGlass) {
+                    Modifier.liquidGlassForSurface(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        shape = glassShape,
+                        tint = colorScheme.surface.copy(alpha = 0.18f),
+                        fallback = tokens.colors.surfaceCard,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                        withShadow = true,
+                    )
+                } else Modifier,
+            ),
+        shape = glassShape,
+        color = if (renderGlass) Color.Transparent else colorScheme.surfaceContainerLow,
     ) {
         Column(
             modifier = Modifier
@@ -1549,6 +1599,7 @@ private fun CloudLibraryFilePicker(
                     CloudLibraryFileRow(
                         file = file,
                         onClick = { onFileSelected(file) },
+                        glassEnabled = glassEnabled,
                     )
                 }
             }
@@ -1561,13 +1612,38 @@ private fun CloudLibraryFileRow(
     file: CloudLibraryFile,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    glassEnabled: Boolean = false,
 ) {
+    val tokens = MaterialTheme.nuvio
+    val colorScheme = MaterialTheme.colorScheme
+    val glassShape = liquidGlassShape(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        defaultShape = RoundedCornerShape(8.dp),
+    )
+    val renderGlass = glassEnabled && isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        platformSupported = isLiquidGlassSupported(),
+    )
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (renderGlass) {
+                    Modifier.liquidGlassForSurface(
+                        surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        shape = glassShape,
+                        tint = colorScheme.surface.copy(alpha = 0.16f),
+                        fallback = tokens.colors.surfaceCard,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                        withShadow = true,
+                    )
+                } else Modifier,
+            )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.58f),
+        shape = glassShape,
+        color = if (renderGlass) Color.Transparent else colorScheme.surfaceContainerHigh.copy(alpha = 0.58f),
     ) {
         Column(
             modifier = Modifier
