@@ -726,6 +726,8 @@ fun LibraryScreen(
                                     },
                                     onTypeSelected = { type -> selectedLibraryType = type },
                                     onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
+                                    typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                                    sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
                                     modifier = libraryContentTransitionModifier()
                                         .padding(horizontal = 16.dp)
                                         .padding(top = 8.dp, bottom = 14.dp),
@@ -1089,12 +1091,13 @@ private fun LazyListScope.cloudLibrarySkeletonItems() {
 }
 
 @Composable
-private fun LibrarySourceSwitch(
+internal fun LibrarySourceSwitch(
     selectedMode: LibraryViewMode,
     showServers: Boolean,
     onModeSelected: (LibraryViewMode) -> Unit,
     modifier: Modifier = Modifier,
     trailingActions: @Composable RowScope.() -> Unit = {},
+    onPreviewModeSelected: ((LibraryViewMode) -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -1104,18 +1107,27 @@ private fun LibrarySourceSwitch(
         LibraryChip(
             label = stringResource(Res.string.library_source_saved),
             selected = selectedMode == LibraryViewMode.Saved,
-            onClick = { onModeSelected(LibraryViewMode.Saved) },
+            onClick = {
+                onModeSelected(LibraryViewMode.Saved)
+                onPreviewModeSelected?.invoke(LibraryViewMode.Saved)
+            },
         )
         LibraryChip(
             label = stringResource(Res.string.library_source_cloud),
             selected = selectedMode == LibraryViewMode.Cloud,
-            onClick = { onModeSelected(LibraryViewMode.Cloud) },
+            onClick = {
+                onModeSelected(LibraryViewMode.Cloud)
+                onPreviewModeSelected?.invoke(LibraryViewMode.Cloud)
+            },
         )
         if (showServers) {
             LibraryChip(
                 label = stringResource(Res.string.library_source_servers),
                 selected = selectedMode == LibraryViewMode.Servers,
-                onClick = { onModeSelected(LibraryViewMode.Servers) },
+                onClick = {
+                    onModeSelected(LibraryViewMode.Servers)
+                    onPreviewModeSelected?.invoke(LibraryViewMode.Servers)
+                },
             )
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -1128,7 +1140,7 @@ private fun LibrarySourceSwitch(
 }
 
 @Composable
-private fun CloudLibraryToolbar(
+internal fun CloudLibraryToolbar(
     uiState: CloudLibraryUiState,
     selectedProviderId: String?,
     selectedType: CloudLibraryItemType?,
@@ -3258,7 +3270,7 @@ private fun isoEpochDay(date: String): Long {
     return era * 146_097L + dayOfEra - 719_468L
 }
 
-private enum class LibraryViewMode {
+internal enum class LibraryViewMode {
     Saved,
     Cloud,
     Servers,
