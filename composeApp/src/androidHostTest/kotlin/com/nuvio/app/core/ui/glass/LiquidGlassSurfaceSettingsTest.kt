@@ -98,6 +98,11 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.SEARCH,
             LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
             LiquidGlassSurface.SETTINGS,
         )
         LiquidGlassSurface.entries.forEach { surface ->
@@ -179,6 +184,11 @@ class LiquidGlassSurfaceSettingsTest {
 
         assertFalse(LiquidGlassSurface.SEARCH.defaultEnabled)
         assertFalse(LiquidGlassSurface.LIBRARY.defaultEnabled)
+        assertFalse(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER.defaultEnabled)
+        assertFalse(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER.defaultEnabled)
+        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS.defaultEnabled)
+        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH.defaultEnabled)
+        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_CARDS.defaultEnabled)
         assertFalse(LiquidGlassSurface.SETTINGS.defaultEnabled)
     }
 
@@ -552,6 +562,43 @@ class LiquidGlassSurfaceSettingsTest {
             ),
             LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces,
         )
+    }
+
+    @Test
+    fun libraryPreviewGroupContainsIndependentlyEditableSavedAndCloudControls() {
+        assertEquals(
+            listOf(
+                LiquidGlassSurface.LIBRARY,
+                LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            ),
+            LiquidGlassSurfaceGroup.LIBRARY.surfaces,
+        )
+    }
+
+    @Test
+    fun libraryGlassControlsCanBeChangedIndependentlyAndLegacyLibrarySettingsAreInherited() {
+        val legacy = decodeLiquidGlassSurfaceSettings(
+            """{"library":{"enabled":true,"blurRadiusDp":18.0,"cornerRadiusPercent":24.0}}""",
+        )
+        assertEquals(legacy.library, legacy.librarySavedTypeFilter)
+        assertEquals(legacy.library, legacy.librarySavedSortFilter)
+        assertEquals(legacy.library, legacy.libraryCloudFilters)
+        assertEquals(legacy.library, legacy.libraryCloudSearch)
+        assertEquals(legacy.library, legacy.libraryCloudCards)
+
+        val custom = legacy.withSurface(
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 12f),
+        )
+        assertEquals(false, custom.libraryCloudSearch.enabled)
+        assertEquals(12f, custom.libraryCloudSearch.cornerRadiusPercent)
+        assertEquals(legacy.library, custom.library)
+        assertEquals(legacy.library, custom.libraryCloudFilters)
+        assertEquals(custom, decodeLiquidGlassSurfaceSettings(encodeLiquidGlassSurfaceSettings(custom)))
     }
 
     @Test
