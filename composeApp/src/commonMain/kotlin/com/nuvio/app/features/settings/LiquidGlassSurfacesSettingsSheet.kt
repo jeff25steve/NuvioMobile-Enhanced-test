@@ -29,7 +29,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
