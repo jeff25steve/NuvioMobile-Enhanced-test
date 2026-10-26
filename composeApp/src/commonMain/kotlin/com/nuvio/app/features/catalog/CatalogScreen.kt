@@ -201,55 +201,55 @@ fun CatalogScreen(
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                    start = 16.dp,
-                    top = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeightPx.toDp() } + 12.dp,
-                    end = 16.dp,
-                    bottom = nuvioSafeBottomPadding(28.dp),
-                ),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                        start = 16.dp,
+                        top = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeightPx.toDp() } + 12.dp,
+                        end = 16.dp,
+                        bottom = nuvioSafeBottomPadding(28.dp),
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     if (uiState.items.isEmpty() && uiState.isLoading) {
-                    items(columns * 3) {
-                        SkeletonPoster(
-                            modifier = Modifier.fillMaxWidth(),
-                            cornerRadius = posterCardStyle.cornerRadiusDp.dp,
-                            showLabels = !posterCardStyle.hideLabelsEnabled,
-                        )
-                    }
-                } else if (uiState.items.isEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        CatalogEmptyState(
-                            errorMessage = uiState.errorMessage,
-                            networkCondition = networkStatusUiState.condition,
-                            onRetry = {
-                                NetworkStatusRepository.requestRefresh(force = true)
-                                CatalogRepository.load(
-                                    target = target,
-                                    force = true,
-                                )
-                            },
-                        )
-                    }
-                } else {
-                    items(
-                        items = uiState.items.withDuplicateSafeLazyKeys { item -> item.stableKey() },
-                        key = { item -> item.lazyKey },
-                    ) { keyedItem ->
-                        val item = keyedItem.value
-                        CatalogPosterTile(
-                            item = item,
-                            cornerRadiusDp = posterCardStyle.cornerRadiusDp,
-                            hideLabels = posterCardStyle.hideLabelsEnabled,
-                            isWatched = WatchingState.isPosterWatched(
-                                watchedKeys = watchedUiState.watchedKeys,
+                        items(columns * 3) {
+                            SkeletonPoster(
+                                modifier = Modifier.fillMaxWidth(),
+                                cornerRadius = posterCardStyle.cornerRadiusDp.dp,
+                                showLabels = !posterCardStyle.hideLabelsEnabled,
+                            )
+                        }
+                    } else if (uiState.items.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            CatalogEmptyState(
+                                errorMessage = uiState.errorMessage,
+                                networkCondition = networkStatusUiState.condition,
+                                onRetry = {
+                                    NetworkStatusRepository.requestRefresh(force = true)
+                                    CatalogRepository.load(
+                                        target = target,
+                                        force = true,
+                                    )
+                                },
+                            )
+                        }
+                    } else {
+                        items(
+                            items = uiState.items.withDuplicateSafeLazyKeys { item -> item.stableKey() },
+                            key = { item -> item.lazyKey },
+                        ) { keyedItem ->
+                            val item = keyedItem.value
+                            CatalogPosterTile(
                                 item = item,
-                                fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
-                            ),
-                            onClick = onPosterClick?.let { { it(item) } },
-                            onLongClick = onPosterLongClick?.let { { it(item) } },
-                        )
-                    }
+                                cornerRadiusDp = posterCardStyle.cornerRadiusDp,
+                                hideLabels = posterCardStyle.hideLabelsEnabled,
+                                isWatched = WatchingState.isPosterWatched(
+                                    watchedKeys = watchedUiState.watchedKeys,
+                                    item = item,
+                                    fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
+                                ),
+                                onClick = onPosterClick?.let { { it(item) } },
+                                onLongClick = onPosterLongClick?.let { { it(item) } },
+                            )
+                        }
                         if (uiState.isLoading) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 CatalogLoadingFooter()
