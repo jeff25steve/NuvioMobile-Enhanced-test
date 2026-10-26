@@ -2,8 +2,10 @@ package com.nuvio.app.features.settings
 
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class LiquidGlassPreviewSizingTest {
     @Test
@@ -30,6 +32,43 @@ class LiquidGlassPreviewSizingTest {
         assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.DETAILS))
         assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.BOTTOM_SHEETS))
         assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.STREAM_RESULTS))
+    }
+
+    @Test
+    fun everyLiquidGlassSurfaceHasAValidPreviewRecipe() {
+        LiquidGlassSurface.entries.forEach { surface ->
+            val recipe = surfacePreviewRecipe(surface, LiquidGlassSurfaceOverrides())
+            assertTrue(recipe.cornerRadiusPercent.isFinite() && recipe.cornerRadiusPercent in 0f..50f, surface.name)
+            assertTrue(recipe.blurRadiusDp.isFinite() && recipe.blurRadiusDp in 0f..32f, surface.name)
+            assertTrue(recipe.refractionHeightDp.isFinite() && recipe.refractionHeightDp in 0f..48f, surface.name)
+            assertTrue(recipe.refractionAmountDp.isFinite() && recipe.refractionAmountDp in 0f..48f, surface.name)
+            assertTrue(recipe.tintOpacity.isFinite() && recipe.tintOpacity in 0f..1f, surface.name)
+        }
+    }
+
+    @Test
+    fun libraryPreviewRecipesMatchTheirProductionGlassDefaults() {
+        val defaults = LiquidGlassSurfaceOverrides()
+        assertEquals(
+            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER, defaults),
+        )
+        assertEquals(
+            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER, defaults),
+        )
+        assertEquals(
+            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS, defaults),
+        )
+        assertEquals(
+            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f),
+            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, defaults),
+        )
+        assertEquals(
+            LiquidGlassSurfaceRecipe(15f, 14f, 8f, 12f, 0.18f),
+            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_CARDS, defaults),
+        )
     }
 
     @Test

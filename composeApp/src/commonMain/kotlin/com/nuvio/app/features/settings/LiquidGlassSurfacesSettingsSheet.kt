@@ -1565,18 +1565,14 @@ private fun LiquidGlassSurfaceEditorControls(
                     cloudBackgroundImageError = false
                     isSavingCloudBackground = true
                     cloudBackgroundScope.launch {
-                        val savedUri = try {
+                        val saved = try {
                             withContext(Dispatchers.IO) {
-                                ThemeSettingsRepository.storeCustomLibraryCloudBackgroundImageForProfile(bytes, targetProfileId)
+                                ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes, targetProfileId)
                             }
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
-                            null
-                        }
-                        val saved = savedUri != null
-                        if (savedUri != null) {
-                            ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(targetProfileId, savedUri)
+                            false
                         }
                         isSavingCloudBackground = false
                         if (ProfileRepository.activeProfileId == targetProfileId) {
@@ -1621,15 +1617,12 @@ private fun LiquidGlassSurfaceEditorControls(
                                 cloudBackgroundScope.launch {
                                     val cleared = try {
                                         withContext(Dispatchers.IO) {
-                                            ThemeSettingsRepository.removeCustomLibraryCloudBackgroundImageForProfile(targetProfileId)
+                                            ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage(targetProfileId)
                                         }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    }
-                                    if (cleared) {
-                                        ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(targetProfileId, null)
                                     }
                                     isSavingCloudBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {
@@ -3741,7 +3734,7 @@ private fun LiquidGlassSearchPreviewPosterTile(
     }
 }
 
-private data class LiquidGlassSurfaceRecipe(
+internal data class LiquidGlassSurfaceRecipe(
     val cornerRadiusPercent: Float,
     val blurRadiusDp: Float,
     val refractionHeightDp: Float,
@@ -3749,7 +3742,7 @@ private data class LiquidGlassSurfaceRecipe(
     val tintOpacity: Float,
 )
 
-private fun surfacePreviewRecipe(
+internal fun surfacePreviewRecipe(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
 ): LiquidGlassSurfaceRecipe {
@@ -3772,6 +3765,11 @@ private fun surfacePreviewRecipe(
         LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.20f)
         LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
+        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f)
+        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f)
+        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f)
+        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
+        LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 24f, 16f, 32f, 0.35f)
     }

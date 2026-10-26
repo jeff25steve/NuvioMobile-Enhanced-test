@@ -149,6 +149,7 @@ import com.nuvio.app.core.ui.DialogButton
 import com.nuvio.app.core.ui.DialogButtonStyle
 import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.settings.ThemeSettingsRepository
+import com.nuvio.app.features.settings.isLocalBackgroundImageUri
 import com.nuvio.app.features.settings.withSettingsGlassTextContrast
 import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import com.nuvio.app.features.debrid.DebridSettingsRepository
@@ -482,7 +483,7 @@ fun LibraryScreen(
         cloudBackgroundImageRevision,
         cloudImageContext,
     ) {
-        cloudBackgroundImageUri?.let { imageUri ->
+        cloudBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
             ImageRequest.Builder(cloudImageContext)
                 .data(imageUri)
                 .memoryCacheKey("$imageUri#library-cloud-background-$cloudBackgroundImageRevision")
