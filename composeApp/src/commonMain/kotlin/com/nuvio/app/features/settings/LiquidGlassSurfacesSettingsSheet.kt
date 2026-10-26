@@ -195,7 +195,6 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_expand_control
 import nuvio.composeapp.generated.resources.settings_liquid_glass_collapse_controls
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_controls_in
-import nuvio.composeapp.generated.resources.settings_liquid_glass_group_controls_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
@@ -453,12 +452,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                                     ),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = stringResource(Res.string.settings_liquid_glass_group_controls_description),
-                                    modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 group.surfaces.filter { it in customizableSurfaces }.forEach { surface ->
                                     LiquidGlassSurfaceListItem(
