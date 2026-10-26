@@ -492,6 +492,7 @@ fun LibraryScreen(
         }
     }
     val libraryBackdrop = rememberNuvioBackdrop()
+    val libraryContentBackdrop = rememberNuvioBackdrop()
     val libraryGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
     val savedTypeGlassEnabled = LiquidGlassSettings.enabled &&
@@ -509,6 +510,9 @@ fun LibraryScreen(
         cloudCardsGlassEnabled
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
     val libraryGlassTextEnabled = anyLibraryGlassEnabled && isLiquidGlassSupported()
+    val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
+        uiState.isLoaded && uiState.sections.isNotEmpty()
+    val savedControlsInset = 62.dp
     Box(modifier = modifier.fillMaxSize()) {
         if (anyLibraryGlassEnabled || cloudBackgroundActive) {
             Box(
@@ -655,10 +659,21 @@ fun LibraryScreen(
                 )
             }
 
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (sourceMode == LibraryViewMode.Saved && anyLibraryGlassEnabled) {
+                            Modifier.nuvioBackdropSource(libraryContentBackdrop)
+                        } else {
+                            Modifier
+                        },
+                    ),
+            ) {
             NuvioScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
-                topPadding = 0.dp,
+                topPadding = if (hasSavedControls) savedControlsInset else 0.dp,
                 listState = listState,
                 autoHidesNativeTabBar = true,
             ) {
@@ -777,36 +792,6 @@ fun LibraryScreen(
                     }
 
                     else -> {
-                        stickyHeader(
-                            key = "library-saved-controls:${uiState.sourceMode}:" +
-                                "${displaySettings.layoutMode}:$effectiveSortOption",
-                        ) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(MaterialTheme.colorScheme.background)
-                                        .nuvioConsumePointerEvents(),
-                                )
-                                LibrarySavedControls(
-                                    layoutMode = displaySettings.layoutMode,
-                                    sourceMode = uiState.sourceMode,
-                                    sortOption = effectiveSortOption,
-                                    verticalProjection = verticalProjection,
-                                    onSectionSelected = { sectionKey ->
-                                        selectedLibrarySectionKey = sectionKey
-                                        selectedLibraryType = null
-                                    },
-                                    onTypeSelected = { type -> selectedLibraryType = type },
-                                    onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
-                                    typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
-                                    sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
-                                    modifier = libraryContentTransitionModifier()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(top = 8.dp, bottom = 14.dp),
-                                )
-                            }
-                        }
                         when (displaySettings.layoutMode) {
                             LibraryLayoutMode.HORIZONTAL -> librarySections(
                                 displaySections = librarySectionsDisplay,
@@ -836,6 +821,45 @@ fun LibraryScreen(
             }
         }
     }
+            }
+            if (hasSavedControls) {
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides libraryContentBackdrop,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(savedControlsInset)
+                            .align(Alignment.TopCenter),
+                    ) {
+                        if (!savedTypeGlassEnabled && !savedSortGlassEnabled) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .nuvioConsumePointerEvents(),
+                            )
+                        }
+                        LibrarySavedControls(
+                            layoutMode = displaySettings.layoutMode,
+                            sourceMode = uiState.sourceMode,
+                            sortOption = effectiveSortOption,
+                            verticalProjection = verticalProjection,
+                            onSectionSelected = { sectionKey ->
+                                selectedLibrarySectionKey = sectionKey
+                                selectedLibraryType = null
+                            },
+                            onTypeSelected = { type -> selectedLibraryType = type },
+                            onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
+                            typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                            sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                            modifier = libraryContentTransitionModifier()
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 8.dp, bottom = 14.dp),
+                        )
+                    }
+                }
+            }
         }
     }
     }
