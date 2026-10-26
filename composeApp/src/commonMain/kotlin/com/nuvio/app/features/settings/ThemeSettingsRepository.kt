@@ -65,6 +65,13 @@ object ThemeSettingsRepository {
     val customSettingsBackgroundImageRevision: StateFlow<Long> =
         _customSettingsBackgroundImageRevision.asStateFlow()
 
+    private val _customLibraryCloudBackgroundImageUri = MutableStateFlow<String?>(null)
+    val customLibraryCloudBackgroundImageUri: StateFlow<String?> =
+        _customLibraryCloudBackgroundImageUri.asStateFlow()
+    private val _customLibraryCloudBackgroundImageRevision = MutableStateFlow(0L)
+    val customLibraryCloudBackgroundImageRevision: StateFlow<Long> =
+        _customLibraryCloudBackgroundImageRevision.asStateFlow()
+
     private val _selectedAppLanguage = MutableStateFlow(AppLanguage.DEVICE)
     val selectedAppLanguage: StateFlow<AppLanguage> = _selectedAppLanguage.asStateFlow()
 
@@ -132,6 +139,8 @@ object ThemeSettingsRepository {
         _showCatalogAccentEnabled.value = false
         _customSettingsBackgroundImageUri.value = null
         _customSettingsBackgroundImageRevision.value += 1L
+        _customLibraryCloudBackgroundImageUri.value = null
+        _customLibraryCloudBackgroundImageRevision.value += 1L
         NativeTabBridge.publishAccentColor(
             hexColor = AppTheme.WHITE.nativeTabAccentHex(),
             gradientHexColors = ThemeColors.getColorPalette(AppTheme.WHITE).nativeAccentGradientHex(),
@@ -180,6 +189,8 @@ object ThemeSettingsRepository {
             ThemeSettingsStorage.loadShowCatalogAccentEnabled() ?: false
         _customSettingsBackgroundImageUri.value = ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri()
         _customSettingsBackgroundImageRevision.value += 1L
+        _customLibraryCloudBackgroundImageUri.value = ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri()
+        _customLibraryCloudBackgroundImageRevision.value += 1L
         val appLanguage = AppLanguage.fromCode(ThemeSettingsStorage.loadSelectedAppLanguage())
         ThemeSettingsStorage.applySelectedAppLanguage(appLanguage.code)
         _selectedAppLanguage.value = appLanguage
@@ -285,6 +296,24 @@ object ThemeSettingsRepository {
         if (!deleted) return false
         _customSettingsBackgroundImageUri.value = null
         _customSettingsBackgroundImageRevision.value += 1L
+        return true
+    }
+
+    fun setCustomLibraryCloudBackgroundImage(bytes: ByteArray): Boolean {
+        ensureLoaded()
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
+        val localImageUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(bytes) ?: return false
+        _customLibraryCloudBackgroundImageUri.value = localImageUri
+        _customLibraryCloudBackgroundImageRevision.value += 1L
+        return true
+    }
+
+    fun clearCustomLibraryCloudBackgroundImage(): Boolean {
+        ensureLoaded()
+        val deleted = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage()
+        if (!deleted) return false
+        _customLibraryCloudBackgroundImageUri.value = null
+        _customLibraryCloudBackgroundImageRevision.value += 1L
         return true
     }
 
