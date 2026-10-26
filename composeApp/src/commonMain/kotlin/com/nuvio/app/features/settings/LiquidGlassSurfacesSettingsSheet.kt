@@ -31,6 +31,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Add
@@ -415,6 +422,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 
                         Column(modifier = Modifier.fillMaxWidth()) {
                             LiquidGlassSurfaceGroupListItem(
+                                group = group,
                                 title = title,
                                 description = description,
                                 isTablet = isTablet,
@@ -585,6 +593,16 @@ private fun LiquidGlassSurfaceListItem(
     val tokens = MaterialTheme.nuvio
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val title = liquidGlassSurfaceTitle(surface)
+    // Only top-level standalone areas get icons here; grouped control rows stay compact.
+    val leadingIcon = when (surface) {
+        LiquidGlassSurface.PLAYER -> Icons.Rounded.PlayCircle
+        LiquidGlassSurface.SEARCH -> Icons.Rounded.Search
+        LiquidGlassSurface.SETTINGS -> Icons.Rounded.Settings
+        LiquidGlassSurface.BOTTOM_SHEETS -> Icons.Rounded.Layers
+        else -> null
+    }
+    val iconSize = if (isTablet) 42.dp else 36.dp
+    val iconGlyphSize = if (isTablet) 26.dp else 22.dp
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -601,7 +619,27 @@ private fun LiquidGlassSurfaceListItem(
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (leadingIcon != null) {
+                    Surface(
+                        modifier = Modifier.size(iconSize),
+                        color = tokens.colors.accent.copy(alpha = tokens.opacity.pressed),
+                        shape = tokens.shapes.compactCard,
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = leadingIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(iconGlyphSize),
+                                tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                            )
+                        }
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -643,6 +681,7 @@ private fun LiquidGlassSurfaceListItem(
 
 @Composable
 private fun LiquidGlassSurfaceGroupListItem(
+    group: LiquidGlassSurfaceGroup,
     title: String,
     description: String,
     isTablet: Boolean,
@@ -651,6 +690,14 @@ private fun LiquidGlassSurfaceGroupListItem(
     onOpenPreview: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val icon = when (group) {
+        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Icons.Rounded.Movie
+        LiquidGlassSurfaceGroup.STREAM_PICKER -> Icons.Rounded.Tune
+        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.Category
+        LiquidGlassSurfaceGroup.LIBRARY -> Icons.Rounded.VideoLibrary
+    }
+    val iconSize = if (isTablet) 42.dp else 36.dp
+    val iconGlyphSize = if (isTablet) 26.dp else 22.dp
     val toggleLabel = stringResource(
         if (expanded) Res.string.settings_liquid_glass_collapse_controls
         else Res.string.settings_liquid_glass_expand_controls,
@@ -676,6 +723,23 @@ private fun LiquidGlassSurfaceGroupListItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                Surface(
+                    modifier = Modifier.size(iconSize),
+                    color = tokens.colors.accent.copy(alpha = tokens.opacity.pressed),
+                    shape = tokens.shapes.compactCard,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(iconGlyphSize),
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                        )
+                    }
+                }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(5.dp),
