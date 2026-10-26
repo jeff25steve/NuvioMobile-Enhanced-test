@@ -28,6 +28,7 @@ class ThemeSettingsStorageTest {
         context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE).edit().clear().commit()
         ThemeSettingsStorage.initialize(context)
         ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+        ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage()
     }
 
     @Test
@@ -158,6 +159,50 @@ class ThemeSettingsStorageTest {
         assertEquals(settings, ThemeSettingsStorage.loadLiquidGlassSurfaceSettings())
     }
 
+
+    @Test
+    fun cloudLibraryBackgroundImageIsSeparateProfileLocalAndExcludedFromSync() {
+        val context = RuntimeEnvironment.getApplication()
+        val otherProfileFile = java.io.File(
+            context.noBackupFilesDir.resolve("library_cloud_backgrounds"),
+            "${ProfileScopedKey.of("enhanced_local_library_cloud_background_image", 99)}.jpg",
+        )
+        otherProfileFile.parentFile?.mkdirs()
+        otherProfileFile.writeBytes(byteArrayOf(1, 2, 3))
+
+        val settingsBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x11, 0x22, 0xFF.toByte(), 0xD9.toByte())
+        val cloudBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x33, 0x44, 0xFF.toByte(), 0xD9.toByte())
+        val settingsUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(settingsBytes)
+        val cloudUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(cloudBytes)
+
+        assertTrue(settingsUri?.startsWith("file:") == true)
+        assertTrue(cloudUri?.startsWith("file:") == true)
+        assertTrue(settingsUri != cloudUri, "Cloud background must use a separate file from the Settings wallpaper.")
+        assertEquals(cloudUri, ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
+
+        val storedCloudBytes = java.io.File(java.net.URI(cloudUri!!)).readBytes()
+        assertTrue(storedCloudBytes.contentEquals(cloudBytes))
+        assertTrue(
+            ThemeSettingsStorage.exportToSyncPayload().keys.none {
+                "cloud_background" in it || "library_background" in it
+            },
+            "The Cloud Library artwork must stay local to this profile.",
+        )
+
+        ThemeSettingsStorage.replaceFromSyncPayload(buildJsonObject {})
+        assertEquals(cloudUri, ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
+        assertEquals(settingsUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+
+        assertTrue(ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(99))
+        assertTrue(!otherProfileFile.exists(), "Clearing one profile must remove only that profile's Cloud background.")
+        assertEquals(cloudUri, ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
+        assertEquals(settingsUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+
+        assertTrue(ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage())
+        assertNull(ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
+        assertEquals(settingsUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+    }
 
     @Test
     fun customSettingsBackgroundImageIsProfileLocalAndExcludedFromSync() {
