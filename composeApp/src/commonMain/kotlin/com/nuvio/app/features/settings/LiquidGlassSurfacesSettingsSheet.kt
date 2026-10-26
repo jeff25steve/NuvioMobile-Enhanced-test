@@ -260,14 +260,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
 ) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val detailScreenSettings by remember {
-        MetaScreenSettingsRepository.ensureLoaded()
-        MetaScreenSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val downloadButtonEnabled by remember {
-        DownloadsSettingsRepository.ensureLoaded()
-        DownloadsSettingsRepository.showDownloadButton
-    }.collectAsStateWithLifecycle()
     var selectedSurfaceName by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPreviewLayoutName by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedSurface = selectedSurfaceName?.let { name ->
@@ -456,8 +448,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         settings = settings,
                         selectedSurface = selectedSurface,
                         isTablet = isTablet,
-                        iconActionRow = detailScreenSettings.iconActionRow,
-                        downloadButtonEnabled = downloadButtonEnabled,
                         onSelectSurface = { selectedSurfaceName = it.name },
                         onBack = returnToRootList,
                     )
@@ -467,11 +457,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        showLibraryCloudBackgroundControls = selectedSurface in setOf(
-                            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-                        ),
+                        showLibraryCloudBackgroundControls = selectedSurface in liquidGlassLibraryCloudBackgroundSurfaces,
                         linkGlassEffects = linkGlassEffects,
                         onLinkGlassEffectsChanged = { link ->
                             if (link) {
@@ -516,11 +502,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        showLibraryCloudBackgroundControls = selectedSurface in setOf(
-                            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-                        ),
+                        showLibraryCloudBackgroundControls = selectedSurface in liquidGlassLibraryCloudBackgroundSurfaces,
                         onChanged = { onSurfaceChanged(selectedSurface, it) },
                     )
                 }
@@ -726,8 +708,6 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
     isTablet: Boolean,
-    iconActionRow: Boolean,
-    downloadButtonEnabled: Boolean,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -782,12 +762,10 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
         }
 
         when (group) {
-            LiquidGlassSurfaceGroup.DETAIL_PAGE -> LiquidGlassDetailPagePreview(
+            LiquidGlassSurfaceGroup.DETAIL_PAGE -> LiquidGlassDetailPagePreviewForStudio(
                 settings = settings,
                 selectedSurface = selectedSurface,
                 isTablet = isTablet,
-                iconActionRow = iconActionRow,
-                downloadButtonEnabled = downloadButtonEnabled,
                 onSelectSurface = onSelectSurface,
                 modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
             )
@@ -811,6 +789,34 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
             )
         }
     }
+}
+
+@Composable
+private fun LiquidGlassDetailPagePreviewForStudio(
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    isTablet: Boolean,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val detailScreenSettings by remember {
+        MetaScreenSettingsRepository.ensureLoaded()
+        MetaScreenSettingsRepository.uiState
+    }.collectAsStateWithLifecycle()
+    val downloadButtonEnabled by remember {
+        DownloadsSettingsRepository.ensureLoaded()
+        DownloadsSettingsRepository.showDownloadButton
+    }.collectAsStateWithLifecycle()
+
+    LiquidGlassDetailPagePreview(
+        settings = settings,
+        selectedSurface = selectedSurface,
+        isTablet = isTablet,
+        iconActionRow = detailScreenSettings.iconActionRow,
+        downloadButtonEnabled = downloadButtonEnabled,
+        onSelectSurface = onSelectSurface,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -1924,13 +1930,6 @@ private fun LiquidGlassSurfacePreview(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val customSettingsBackgroundImageUri by remember {
-        ThemeSettingsRepository.ensureLoaded()
-        ThemeSettingsRepository.customSettingsBackgroundImageUri
-    }.collectAsStateWithLifecycle()
-    val customSettingsBackgroundImageRevision by remember {
-        ThemeSettingsRepository.customSettingsBackgroundImageRevision
-    }.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalLiquidGlassPreviewSettings provides settings) {
     BoxWithConstraints(
         modifier = modifier
@@ -2111,8 +2110,6 @@ private fun LiquidGlassSurfacePreview(
                             )
 
                             LiquidGlassSurface.SETTINGS -> LiquidGlassSettingsSurfacePreview(
-                                customBackgroundImageUri = customSettingsBackgroundImageUri,
-                                backgroundRevision = customSettingsBackgroundImageRevision,
                                 isTablet = isTablet,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -2398,11 +2395,16 @@ private fun LiquidGlassDetailControlPreview(
 
 @Composable
 private fun LiquidGlassSettingsSurfacePreview(
-    customBackgroundImageUri: String?,
-    backgroundRevision: Long,
     isTablet: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val customBackgroundImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customSettingsBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    val backgroundRevision by remember {
+        ThemeSettingsRepository.customSettingsBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
     val platformContext = LocalPlatformContext.current
     val backgroundImageRequest = remember(customBackgroundImageUri, backgroundRevision, platformContext) {
         customBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUrl ->
@@ -2506,6 +2508,21 @@ private fun LiquidGlassSettingsSurfacePreview(
 }
 
 
+private val liquidGlassLibraryPreviewSurfaces = listOf(
+    LiquidGlassSurface.LIBRARY,
+    LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+    LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+)
+
+private val liquidGlassLibraryCloudBackgroundSurfaces = setOf(
+    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+)
+
 private data class LiquidGlassCloudPreviewItem(
     val matchText: String,
     val providerId: String,
@@ -2513,15 +2530,39 @@ private data class LiquidGlassCloudPreviewItem(
 )
 
 @Composable
-private fun LiquidGlassLibraryPreview(
-    settings: LiquidGlassSurfacesSettings,
-    selectedSurface: LiquidGlassSurface,
-    onSelectSurface: (LiquidGlassSurface) -> Unit,
-    recipe: LiquidGlassSurfaceRecipe? = null,
-    modifier: Modifier = Modifier,
+private fun LiquidGlassLibraryPosterBackdrop(
+    state: androidx.compose.foundation.lazy.LazyListState,
+    baseBackground: Color,
 ) {
-    val backdrop = rememberNuvioBackdrop()
-    val posterBackdropListState = rememberLazyListState()
+    LazyColumn(
+        state = state,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(baseBackground),
+        contentPadding = PaddingValues(top = 28.dp, bottom = 12.dp, start = 8.dp, end = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(
+            items = liquidGlassSearchPreviewPosterRows,
+            key = { row -> row.first().title },
+        ) { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { poster ->
+                    LiquidGlassSearchPreviewPosterTile(
+                        poster = poster,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassLibraryCloudBackdrop(
+    posterBackdropListState: androidx.compose.foundation.lazy.LazyListState,
+    baseBackground: Color,
+) {
     val platformContext = LocalPlatformContext.current
     val cloudBackgroundImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
@@ -2544,6 +2585,32 @@ private fun LiquidGlassLibraryPreview(
                 .build()
         }
     }
+
+    if (cloudBackgroundImageRequest != null) {
+        AsyncImage(
+            model = cloudBackgroundImageRequest,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    } else {
+        LiquidGlassLibraryPosterBackdrop(
+            state = posterBackdropListState,
+            baseBackground = baseBackground,
+        )
+    }
+}
+
+@Composable
+private fun LiquidGlassLibraryPreview(
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    onSelectSurface: (LiquidGlassSurface) -> Unit,
+    recipe: LiquidGlassSurfaceRecipe? = null,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val posterBackdropListState = rememberLazyListState()
     var viewModeName by rememberSaveable { mutableStateOf(LibraryViewMode.Saved.name) }
     val viewMode = remember(viewModeName) {
         runCatching { LibraryViewMode.valueOf(viewModeName) }.getOrDefault(LibraryViewMode.Saved)
@@ -2573,15 +2640,12 @@ private fun LiquidGlassLibraryPreview(
     val defaultRecipe = remember(selectedSurface, recipe, settings) {
         recipe ?: surfacePreviewRecipe(selectedSurface, settings.forSurface(selectedSurface))
     }
+    val savedSortOption = remember(savedSort) {
+        runCatching { LibrarySortOption.valueOf(savedSort) }
+            .getOrDefault(LibrarySortOption.ADDED_DESC)
+    }
     val rendererAvailable = isLiquidGlassAvailable()
-    val enabledTextContrast = rendererAvailable && listOf(
-        LiquidGlassSurface.LIBRARY,
-        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
-        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
-        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-        LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-    ).any { surface ->
+    val enabledTextContrast = rendererAvailable && liquidGlassLibraryPreviewSurfaces.any { surface ->
         isLiquidGlassSurfaceEffectivelyEnabled(
             surface = surface,
             preview = true,
@@ -2603,36 +2667,16 @@ private fun LiquidGlassLibraryPreview(
                 .fillMaxSize()
                 .nuvioBackdropSource(backdrop),
         ) {
-            if (viewMode == LibraryViewMode.Cloud && cloudBackgroundImageRequest != null) {
-                AsyncImage(
-                    model = cloudBackgroundImageRequest,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+            if (viewMode == LibraryViewMode.Cloud) {
+                LiquidGlassLibraryCloudBackdrop(
+                    posterBackdropListState = posterBackdropListState,
+                    baseBackground = baseBackground,
                 )
             } else {
-                LazyColumn(
+                LiquidGlassLibraryPosterBackdrop(
                     state = posterBackdropListState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(baseBackground),
-                    contentPadding = PaddingValues(top = 28.dp, bottom = 12.dp, start = 8.dp, end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(
-                        items = liquidGlassSearchPreviewPosters.chunked(3),
-                        key = { row -> row.first().title },
-                    ) { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { poster ->
-                                LiquidGlassSearchPreviewPosterTile(
-                                    poster = poster,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                    }
-                }
+                    baseBackground = baseBackground,
+                )
             }
         }
 
@@ -2913,8 +2957,7 @@ private fun LiquidGlassLibraryPreview(
                     LibrarySavedControls(
                         layoutMode = LibraryLayoutMode.VERTICAL,
                         sourceMode = LibrarySourceMode.LOCAL,
-                        sortOption = runCatching { LibrarySortOption.valueOf(savedSort) }
-                            .getOrDefault(LibrarySortOption.ADDED_DESC),
+                        sortOption = savedSortOption,
                         verticalProjection = projection,
                         onSectionSelected = {},
                         onTypeSelected = { savedType = it },
@@ -3631,6 +3674,8 @@ private val liquidGlassSearchPreviewPosters = listOf(
     LiquidGlassSearchPreviewPoster("LOKI", "SEASON TWO", listOf(Color(0xFF4B5B37), Color(0xFF20201C)), Color(0xFFB4D472)),
     LiquidGlassSearchPreviewPoster("ARRIVAL", "THE UNKNOWN", listOf(Color(0xFF4C6174), Color(0xFF171A26)), Color(0xFF9DCAF1)),
 )
+
+private val liquidGlassSearchPreviewPosterRows = liquidGlassSearchPreviewPosters.chunked(3)
 
 @Composable
 private fun LiquidGlassSearchPreviewPosterTile(
