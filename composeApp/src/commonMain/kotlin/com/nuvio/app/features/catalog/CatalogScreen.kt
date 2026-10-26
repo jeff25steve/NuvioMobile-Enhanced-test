@@ -1,6 +1,8 @@
 package com.nuvio.app.features.catalog
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,11 +23,13 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.nuvio.app.core.ui.NuvioBackButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,6 +40,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +63,15 @@ import com.nuvio.app.core.ui.nuvioSafeBottomPadding
 import com.nuvio.app.core.ui.posterCardClickable
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
 import com.nuvio.app.core.ui.withDuplicateSafeLazyKeys
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.PosterShape
@@ -105,6 +119,15 @@ fun CatalogScreen(
     )
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var observedOfflineState by remember { mutableStateOf(false) }
+    val categoryHeaderTitleSurface = LiquidGlassSurface.CATEGORY_HEADER_TITLE
+    val categoryHeaderBackSurface = LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+    val catalogHeaderGlassEnabled = !LocalUseNativeNavigation.current &&
+        isLiquidGlassAvailable() &&
+        (
+            isLiquidGlassSurfaceEffectivelyEnabled(categoryHeaderTitleSurface) ||
+                isLiquidGlassSurfaceEffectivelyEnabled(categoryHeaderBackSurface)
+            )
+    val catalogBackdrop = rememberNuvioBackdrop()
 
     LaunchedEffect(target, homeCatalogSettingsUiState.hideUnreleasedContent) {
         CatalogRepository.load(
@@ -171,7 +194,9 @@ fun CatalogScreen(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = gridState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (catalogHeaderGlassEnabled) Modifier.nuvioBackdropSource(catalogBackdrop) else Modifier),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     top = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeightPx.toDp() } + 12.dp,
@@ -230,24 +255,31 @@ fun CatalogScreen(
                 }
             }
 
-            CatalogHeader(
-                title = title,
-                subtitle = subtitle,
-                modifier = Modifier.onSizeChanged { headerHeightPx = it.height },
-                onBack = onBack,
-            )
+            CompositionLocalProvider(
+                LocalLiquidGlassBackdrop provides catalogBackdrop.takeIf { catalogHeaderGlassEnabled },
+            ) {
+                CatalogHeader(
+                    title = title,
+                    subtitle = subtitle,
+                    modifier = Modifier.onSizeChanged { headerHeightPx = it.height },
+                    onBack = onBack,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CatalogHeader(
+internal fun CatalogHeader(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    previewMode: Boolean = false,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
 ) {
-    if (LocalUseNativeNavigation.current) {
+    if (LocalUseNativeNavigation.current && !previewMode) {
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -257,39 +289,114 @@ private fun CatalogHeader(
         return
     }
 
+    val titleSurface = LiquidGlassSurface.CATEGORY_HEADER_TITLE
+    val backSurface = LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+    val titleGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
+    val backGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
+    val anyGlassEnabled = titleGlassEnabled || backGlassEnabled
+    val titleShape = liquidGlassShape(titleSurface, RoundedCornerShape(16.dp))
+    val backShape = liquidGlassShape(backSurface, RoundedCornerShape(20.dp))
+    val titleGlassModifier = if (titleGlassEnabled) {
+        Modifier.liquidGlassForSurface(
+            surface = titleSurface,
+            shape = titleShape,
+            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+            fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+    }
+    val backGlassModifier = if (backGlassEnabled) {
+        Modifier.liquidGlassForSurface(
+            surface = backSurface,
+            shape = backShape,
+            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+            fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+    }
+    val titleSelectionBorder = if (previewMode && selectedPreviewSurface == titleSurface) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, titleShape)
+    } else {
+        Modifier
+    }
+    val backSelectionBorder = if (previewMode && selectedPreviewSurface == backSurface) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, backShape)
+    } else {
+        Modifier
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
+            .background(if (anyGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp)
             .padding(top = 52.dp, bottom = 12.dp),
     ) {
-        NuvioBackButton(
-            onClick = onBack,
+        Box(
             modifier = Modifier
-                .size(40.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            iconSize = 24.dp,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (subtitle.isNotBlank()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                .size(40.dp)
+                .then(backGlassModifier)
+                .clip(backShape)
+                .then(backSelectionBorder),
+        ) {
+            NuvioBackButton(
+                onClick = {
+                    if (previewMode && onPreviewSurfaceSelected != null) {
+                        onPreviewSurfaceSelected(backSurface)
+                    } else {
+                        onBack()
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                shape = backShape,
+                containerColor = if (backGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
+                contentColor = liquidGlassIconTint(backSurface, MaterialTheme.colorScheme.onSurface),
+                iconSize = 24.dp,
             )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(titleGlassModifier)
+                .clip(titleShape)
+                .then(titleSelectionBorder)
+                .then(
+                    if (previewMode && onPreviewSurfaceSelected != null) {
+                        Modifier.clickable { onPreviewSurfaceSelected(titleSurface) }
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
