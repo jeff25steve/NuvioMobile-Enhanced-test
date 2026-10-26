@@ -359,6 +359,17 @@ class ThemeSettingsRepositoryTest {
             assertTrue(storedCloud)
             assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
             assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
+
+            val clearedSettings = kotlinx.coroutines.runBlocking {
+                ThemeSettingsRepository.clearCustomSettingsBackgroundImageForStudio(otherProfileId)
+            }
+            val clearedCloud = kotlinx.coroutines.runBlocking {
+                ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImageForStudio(otherProfileId)
+            }
+            assertTrue(clearedSettings)
+            assertTrue(clearedCloud)
+            assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+            assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
         } finally {
             ThemeSettingsStorage.clearCustomSettingsBackgroundImage(otherProfileId)
             ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(otherProfileId)
