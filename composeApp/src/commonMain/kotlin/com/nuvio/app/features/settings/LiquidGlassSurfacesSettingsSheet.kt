@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -602,14 +603,17 @@ private fun LiquidGlassSurfaceListItem(
     onOpen: () -> Unit,
     onToggle: (Boolean) -> Unit,
 ) {
+    val tokens = MaterialTheme.nuvio
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val title = liquidGlassSurfaceTitle(surface)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = tokens.shapes.card,
+        color = tokens.colors.surfaceCard,
+        contentColor = tokens.colors.textPrimary,
+        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp),
@@ -629,12 +633,12 @@ private fun LiquidGlassSurfaceListItem(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = tokens.colors.textPrimary,
                     )
                     Text(
                         text = stringResource(Res.string.settings_liquid_glass_surface_description),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = tokens.colors.textSecondary,
                     )
                 }
                 androidx.compose.material3.Switch(
@@ -648,7 +652,10 @@ private fun LiquidGlassSurfaceListItem(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onOpen) {
-                    Text(stringResource(Res.string.settings_liquid_glass_customize))
+                    Text(
+                        text = stringResource(Res.string.settings_liquid_glass_customize),
+                        color = tokens.colors.accent,
+                    )
                 }
             }
         }
@@ -686,8 +693,10 @@ private fun LiquidGlassSurfaceGroupListItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = tokens.shapes.card,
+        color = tokens.colors.surfaceCard,
+        contentColor = tokens.colors.textPrimary,
+        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -741,17 +750,17 @@ private fun LiquidGlassSurfaceGroupListItem(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = tokens.colors.textPrimary,
                     )
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = tokens.colors.textSecondary,
                     )
                     Text(
                         text = toggleLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = tokens.colors.accent,
                     )
                 }
                 Icon(
@@ -767,7 +776,10 @@ private fun LiquidGlassSurfaceGroupListItem(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onOpenPreview) {
-                    Text(stringResource(Res.string.settings_liquid_glass_preview_layout))
+                    Text(
+                        text = stringResource(Res.string.settings_liquid_glass_preview_layout),
+                        color = tokens.colors.accent,
+                    )
                 }
             }
         }
