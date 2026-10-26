@@ -13,6 +13,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileSize
 import platform.Foundation.NSNumber
 import platform.Foundation.NSHomeDirectory
 import platform.Foundation.NSURL
@@ -284,10 +285,18 @@ actual object ThemeSettingsStorage {
         saveRawString(localLiquidGlassSurfaceSettingsKey, settings)
     }
 
+    private fun isValidCustomBackgroundImageSize(path: String): Boolean {
+        val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, error = null)
+            ?: return false
+        val size = (attributes.objectForKey(NSFileSize) as? NSNumber)?.longLongValue ?: return false
+        return size in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
+    }
+
     actual fun loadCustomSettingsBackgroundImageUri(): String? {
         clearLegacyCustomSettingsBackgroundUrl()
         val path = settingsBackgroundImagePath()
         if (!NSFileManager.defaultManager.fileExistsAtPath(path)) return null
+        if (!isValidCustomBackgroundImageSize(path)) return null
         if (!excludeFromBackup(path)) {
             NSFileManager.defaultManager.removeItemAtPath(path, null)
             return null
@@ -352,6 +361,7 @@ actual object ThemeSettingsStorage {
     actual fun loadCustomLibraryCloudBackgroundImageUri(): String? {
         val path = libraryCloudBackgroundImagePath()
         if (!NSFileManager.defaultManager.fileExistsAtPath(path)) return null
+        if (!isValidCustomBackgroundImageSize(path)) return null
         if (!excludeFromBackup(path)) {
             NSFileManager.defaultManager.removeItemAtPath(path, null)
             return null
