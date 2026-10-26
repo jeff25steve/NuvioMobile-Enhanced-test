@@ -186,14 +186,18 @@ internal fun LazyListScope.appearanceSettingsContent(
                 settingsBackgroundImageError = false
                 isSavingSettingsBackground = true
                 settingsBackgroundScope.launch {
-                    val saved = try {
+                    val savedUri = try {
                         withContext(Dispatchers.IO) {
-                            ThemeSettingsRepository.setCustomSettingsBackgroundImage(bytes, targetProfileId)
+                            ThemeSettingsRepository.storeCustomSettingsBackgroundImageForProfile(bytes, targetProfileId)
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        false
+                        null
+                    }
+                    val saved = savedUri != null
+                    if (savedUri != null) {
+                        ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(targetProfileId, savedUri)
                     }
                     isSavingSettingsBackground = false
                     if (ProfileRepository.activeProfileId == targetProfileId) {
@@ -297,12 +301,15 @@ internal fun LazyListScope.appearanceSettingsContent(
                                 settingsBackgroundScope.launch {
                                     val cleared = try {
                                         withContext(Dispatchers.IO) {
-                                            ThemeSettingsRepository.clearCustomSettingsBackgroundImage(targetProfileId)
+                                            ThemeSettingsRepository.removeCustomSettingsBackgroundImageForProfile(targetProfileId)
                                         }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
+                                    }
+                                    if (cleared) {
+                                        ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(targetProfileId, null)
                                     }
                                     isSavingSettingsBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {

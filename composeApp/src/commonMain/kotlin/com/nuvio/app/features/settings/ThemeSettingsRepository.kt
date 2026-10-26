@@ -282,17 +282,33 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.saveShowCatalogAccentEnabled(enabled)
     }
 
+    /**
+     * Performs only local persistence. Call this from a background dispatcher; publish the
+     * returned local URI on the UI dispatcher after the I/O completes.
+     */
+    internal fun storeCustomSettingsBackgroundImageForProfile(bytes: ByteArray, profileId: Int): String? {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
+        return ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes, profileId)
+            ?.takeIf(::isLocalBackgroundImageUri)
+    }
+
+    internal fun removeCustomSettingsBackgroundImageForProfile(profileId: Int): Boolean =
+        ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileId)
+
+    internal fun publishCustomSettingsBackgroundImageForProfile(profileId: Int, imageUri: String?) {
+        if (ProfileRepository.activeProfileId != profileId) return
+        if (imageUri != null && !isLocalBackgroundImageUri(imageUri)) return
+        _customSettingsBackgroundImageUri.value = imageUri
+        _customSettingsBackgroundImageRevision.value += 1L
+    }
+
     fun setCustomSettingsBackgroundImage(
         bytes: ByteArray,
         profileId: Int = ProfileRepository.activeProfileId,
     ): Boolean {
         ensureLoaded()
-        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
-        val localImageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes, profileId) ?: return false
-        if (ProfileRepository.activeProfileId == profileId) {
-            _customSettingsBackgroundImageUri.value = localImageUri
-            _customSettingsBackgroundImageRevision.value += 1L
-        }
+        val localImageUri = storeCustomSettingsBackgroundImageForProfile(bytes, profileId) ?: return false
+        publishCustomSettingsBackgroundImageForProfile(profileId, localImageUri)
         return true
     }
 
@@ -300,13 +316,30 @@ object ThemeSettingsRepository {
         profileId: Int = ProfileRepository.activeProfileId,
     ): Boolean {
         ensureLoaded()
-        val deleted = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileId)
+        val deleted = removeCustomSettingsBackgroundImageForProfile(profileId)
         if (!deleted) return false
-        if (ProfileRepository.activeProfileId == profileId) {
-            _customSettingsBackgroundImageUri.value = null
-            _customSettingsBackgroundImageRevision.value += 1L
-        }
+        publishCustomSettingsBackgroundImageForProfile(profileId, null)
         return true
+    }
+
+    /**
+     * Performs only local persistence. Call this from a background dispatcher; publish the
+     * returned local URI on the UI dispatcher after the I/O completes.
+     */
+    internal fun storeCustomLibraryCloudBackgroundImageForProfile(bytes: ByteArray, profileId: Int): String? {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
+        return ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(bytes, profileId)
+            ?.takeIf(::isLocalBackgroundImageUri)
+    }
+
+    internal fun removeCustomLibraryCloudBackgroundImageForProfile(profileId: Int): Boolean =
+        ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileId)
+
+    internal fun publishCustomLibraryCloudBackgroundImageForProfile(profileId: Int, imageUri: String?) {
+        if (ProfileRepository.activeProfileId != profileId) return
+        if (imageUri != null && !isLocalBackgroundImageUri(imageUri)) return
+        _customLibraryCloudBackgroundImageUri.value = imageUri
+        _customLibraryCloudBackgroundImageRevision.value += 1L
     }
 
     fun setCustomLibraryCloudBackgroundImage(
@@ -314,12 +347,8 @@ object ThemeSettingsRepository {
         profileId: Int = ProfileRepository.activeProfileId,
     ): Boolean {
         ensureLoaded()
-        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
-        val localImageUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(bytes, profileId) ?: return false
-        if (ProfileRepository.activeProfileId == profileId) {
-            _customLibraryCloudBackgroundImageUri.value = localImageUri
-            _customLibraryCloudBackgroundImageRevision.value += 1L
-        }
+        val localImageUri = storeCustomLibraryCloudBackgroundImageForProfile(bytes, profileId) ?: return false
+        publishCustomLibraryCloudBackgroundImageForProfile(profileId, localImageUri)
         return true
     }
 
@@ -327,12 +356,9 @@ object ThemeSettingsRepository {
         profileId: Int = ProfileRepository.activeProfileId,
     ): Boolean {
         ensureLoaded()
-        val deleted = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileId)
+        val deleted = removeCustomLibraryCloudBackgroundImageForProfile(profileId)
         if (!deleted) return false
-        if (ProfileRepository.activeProfileId == profileId) {
-            _customLibraryCloudBackgroundImageUri.value = null
-            _customLibraryCloudBackgroundImageRevision.value += 1L
-        }
+        publishCustomLibraryCloudBackgroundImageForProfile(profileId, null)
         return true
     }
 

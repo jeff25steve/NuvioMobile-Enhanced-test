@@ -1565,14 +1565,18 @@ private fun LiquidGlassSurfaceEditorControls(
                     cloudBackgroundImageError = false
                     isSavingCloudBackground = true
                     cloudBackgroundScope.launch {
-                        val saved = try {
+                        val savedUri = try {
                             withContext(Dispatchers.IO) {
-                                ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes, targetProfileId)
+                                ThemeSettingsRepository.storeCustomLibraryCloudBackgroundImageForProfile(bytes, targetProfileId)
                             }
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
-                            false
+                            null
+                        }
+                        val saved = savedUri != null
+                        if (savedUri != null) {
+                            ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(targetProfileId, savedUri)
                         }
                         isSavingCloudBackground = false
                         if (ProfileRepository.activeProfileId == targetProfileId) {
@@ -1617,12 +1621,15 @@ private fun LiquidGlassSurfaceEditorControls(
                                 cloudBackgroundScope.launch {
                                     val cleared = try {
                                         withContext(Dispatchers.IO) {
-                                            ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage(targetProfileId)
+                                            ThemeSettingsRepository.removeCustomLibraryCloudBackgroundImageForProfile(targetProfileId)
                                         }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
+                                    }
+                                    if (cleared) {
+                                        ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(targetProfileId, null)
                                     }
                                     isSavingCloudBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {

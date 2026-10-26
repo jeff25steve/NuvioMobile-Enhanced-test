@@ -349,8 +349,17 @@ class ThemeSettingsRepositoryTest {
         val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02, 0xFF.toByte(), 0xD9.toByte())
 
         try {
-            assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundImage(imageBytes, otherProfileId))
-            assertTrue(ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(imageBytes, otherProfileId))
+            val storedSettingsUri =
+                ThemeSettingsRepository.storeCustomSettingsBackgroundImageForProfile(imageBytes, otherProfileId)
+            val storedCloudUri =
+                ThemeSettingsRepository.storeCustomLibraryCloudBackgroundImageForProfile(imageBytes, otherProfileId)
+            assertTrue(storedSettingsUri?.startsWith("file:") == true)
+            assertTrue(storedCloudUri?.startsWith("file:") == true)
+            assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+            assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
+
+            ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(otherProfileId, storedSettingsUri)
+            ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(otherProfileId, storedCloudUri)
             assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
             assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
         } finally {
@@ -364,6 +373,17 @@ class ThemeSettingsRepositoryTest {
         assertTrue(isLocalBackgroundImageUri("file:///private/background.jpg"))
         assertFalse(isLocalBackgroundImageUri("https://example.com/background.jpg"))
         assertFalse(isLocalBackgroundImageUri(null))
+
+        ThemeSettingsRepository.ensureLoaded()
+        val activeProfileId = com.nuvio.app.features.profiles.ProfileRepository.activeProfileId
+        val originalUri = ThemeSettingsRepository.customSettingsBackgroundImageUri.value
+        val originalRevision = ThemeSettingsRepository.customSettingsBackgroundImageRevision.value
+        ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(
+            activeProfileId,
+            "https://example.com/not-a-local-background.jpg",
+        )
+        assertEquals(originalUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+        assertEquals(originalRevision, ThemeSettingsRepository.customSettingsBackgroundImageRevision.value)
     }
 
     @Test
