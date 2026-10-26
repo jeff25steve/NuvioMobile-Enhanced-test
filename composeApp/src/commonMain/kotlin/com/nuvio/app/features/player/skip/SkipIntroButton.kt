@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +44,9 @@ import nuvio.composeapp.generated.resources.player_skip_recap
 import nuvio.composeapp.generated.resources.player_skip_movie_credits
 import nuvio.composeapp.generated.resources.player_skip_to_post_credits
 import org.jetbrains.compose.resources.stringResource
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 fun SkipIntroButton(
@@ -112,8 +113,8 @@ fun SkipIntroButton(
         Column(
             modifier = Modifier
                 .width(IntrinsicSize.Max)
-                .clip(shape)
-                .ambientLiquidGlass(
+                .liquidGlassForSurface(
+                    surface = LiquidGlassSurface.PLAYER,
                     shape = shape,
                     tint = Color(0xFF1E1E1E).copy(alpha = 0.6f),
                     fallback = Color(0xFF1E1E1E).copy(alpha = 0.85f),
@@ -130,7 +131,7 @@ fun SkipIntroButton(
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                     modifier = Modifier.size(20.dp),
                 )
                 Text(

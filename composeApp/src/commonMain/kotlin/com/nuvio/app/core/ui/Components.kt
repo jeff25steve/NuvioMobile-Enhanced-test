@@ -9,6 +9,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -72,6 +75,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.nuvio.app.navigation.LocalNativeNavigationBarHidden
 import com.nuvio.app.navigation.LocalUseNativeNavigation
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 
 @Composable
 fun NuvioScreen(
@@ -138,6 +147,9 @@ fun NuvioSurfaceCard(
     }
 }
 
+internal fun settingsHeaderShape(settingsGlassEnabled: Boolean, defaultShape: Shape): Shape =
+    if (settingsGlassEnabled) RectangleShape else defaultShape
+
 @Composable
 fun NuvioScreenHeader(
     title: String,
@@ -145,10 +157,20 @@ fun NuvioScreenHeader(
     includeStatusBarPadding: Boolean = true,
     topPadding: Dp? = null,
     onBack: (() -> Unit)? = null,
+    useSettingsGlass: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val settingsGlassEnabled = useSettingsGlass && isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val settingsBackdrop = if (settingsGlassEnabled) LocalLiquidGlassBackdrop.current else null
+    val headerShape = settingsHeaderShape(
+        settingsGlassEnabled = settingsGlassEnabled,
+        defaultShape = tokens.shapes.compactCard,
+    )
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
         !LocalNativeNavigationBarHidden.current &&
         onBack != null
@@ -167,12 +189,38 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier.fillMaxWidth(),
     ) {
+        // Keep a solid fallback underneath the capture so an unavailable or not-yet-ready
+        // backdrop never exposes scrolling Settings rows through the pinned header.
         Row(
             modifier = Modifier
                 .matchParentSize()
                 .background(tokens.colors.background)
                 .nuvioConsumePointerEvents(),
         ) {}
+        if (settingsGlassEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassBackdropUnderlay(settingsBackdrop),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassForSurface(
+                        surface = LiquidGlassSurface.SETTINGS,
+                        shape = headerShape,
+                        tint = tokens.colors.surface.copy(alpha = 0.45f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                    .border(
+                        BorderStroke(tokens.borders.hairline, tokens.colors.borderSubtle),
+                        headerShape,
+                    ),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -347,6 +395,11 @@ fun NuvioPrimaryButton(
     }
 }
 
+internal fun shouldDrawNuvioInputFieldOutline(
+    glassSurfaceEnabled: Boolean,
+    glassRimCanRender: Boolean,
+): Boolean = !glassSurfaceEnabled || !glassRimCanRender
+
 @Composable
 fun NuvioInputField(
     value: String,
@@ -355,14 +408,17 @@ fun NuvioInputField(
     modifier: Modifier = Modifier,
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
+    shape: Shape = RoundedCornerShape(NuvioTokens.Radius.lg),
+    showOutline: Boolean = true,
 ) {
     val tokens = MaterialTheme.nuvio
+    val borderColor = if (showOutline) tokens.colors.borderDefault else Color.Transparent
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
-        shape = RoundedCornerShape(NuvioTokens.Radius.lg),
+        shape = shape,
         placeholder = {
             Text(
                 text = placeholder,
@@ -373,8 +429,8 @@ fun NuvioInputField(
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
         trailingIcon = trailingContent,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = tokens.colors.borderFocus,
-            unfocusedBorderColor = tokens.colors.borderDefault,
+            focusedBorderColor = if (showOutline) tokens.colors.borderFocus else Color.Transparent,
+            unfocusedBorderColor = borderColor,
             focusedContainerColor = containerColor,
             unfocusedContainerColor = containerColor,
             cursorColor = tokens.colors.accent,

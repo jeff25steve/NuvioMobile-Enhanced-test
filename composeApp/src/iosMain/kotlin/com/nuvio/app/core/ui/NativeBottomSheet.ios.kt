@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.uikit.LocalUIViewController
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.ComposeUIViewController
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
 import platform.UIKit.UIColor
 import platform.UIKit.UIModalPresentationPageSheet
@@ -46,6 +47,7 @@ internal actual fun NuvioNativeModalBottomSheet(
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val parentViewController = LocalUIViewController.current
+    val sheetBackdrop = LocalNuvioSheetBackdrop.current
     val latestContent = rememberUpdatedState(content)
     val latestOnDismissRequest = rememberUpdatedState(onDismissRequest)
     val latestContainerColor = rememberUpdatedState(containerColor)
@@ -74,6 +76,8 @@ internal actual fun NuvioNativeModalBottomSheet(
     DisposableEffect(parentViewController) {
         val contentController = ComposeUIViewController {
             CompositionLocalProvider(
+                LocalNuvioSheetBackdrop provides sheetBackdrop,
+                LocalLiquidGlassBackdrop provides sheetBackdrop?.backdrop,
                 LocalDensity provides Density(
                     density = latestDensity.value.density,
                     fontScale = latestDensity.value.fontScale,
@@ -155,6 +159,11 @@ internal actual fun NuvioNativeModalBottomSheet(
             }
         }
     }
+}
+
+@Composable
+internal actual fun NuvioSystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    // iOS uses the native sheet's dismissal gesture instead of Android system Back.
 }
 
 internal actual fun dismissNativeNuvioBottomSheet() {

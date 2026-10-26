@@ -9,6 +9,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
@@ -42,11 +43,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.isIos
 import com.nuvio.app.supportsPosterNavigationMotion
 import nuvio.composeapp.generated.resources.*
@@ -1142,6 +1149,7 @@ internal fun LazyListScope.settingsSearchRootContent(
             SettingsSearchRevealItem(animate = animateSearchField) {
                 SettingsSearchField(
                     query = query,
+                    isTablet = isTablet,
                     onQueryChange = onQueryChange,
                 )
             }
@@ -1215,15 +1223,44 @@ private fun SettingsSearchRevealItem(
 @Composable
 private fun SettingsSearchField(
     query: String,
+    isTablet: Boolean,
     onQueryChange: (String) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val defaultShape = if (isTablet) {
+        RoundedCornerShape(NuvioTokens.Radius.xl)
+    } else {
+        tokens.shapes.compactCard
+    }
+    val fieldShape = if (glassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultShape)
+    } else {
+        tokens.shapes.compactCard
+    }
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(
+            if (glassEnabled) {
+                Modifier.liquidGlassForSurface(
+                    surface = LiquidGlassSurface.SETTINGS,
+                    shape = fieldShape,
+                    tint = tokens.colors.surface.copy(alpha = 0.45f),
+                    fallback = tokens.colors.surface,
+                    blurRadius = 14.dp,
+                    refractionHeight = 8.dp,
+                    refractionAmount = 12.dp,
+                )
+            } else {
+                Modifier
+            },
+        ),
         singleLine = true,
-        shape = tokens.shapes.compactCard,
+        shape = fieldShape,
         leadingIcon = {
             Icon(
                 imageVector = Icons.Rounded.Search,
@@ -1254,9 +1291,9 @@ private fun SettingsSearchField(
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = tokens.colors.borderFocus,
-            unfocusedBorderColor = tokens.colors.borderDefault,
-            focusedContainerColor = tokens.colors.surfaceCard,
-            unfocusedContainerColor = tokens.colors.surfaceCard,
+            unfocusedBorderColor = if (glassEnabled) tokens.colors.borderSubtle else tokens.colors.borderDefault,
+            focusedContainerColor = if (glassEnabled) Color.Transparent else tokens.colors.surfaceCard,
+            unfocusedContainerColor = if (glassEnabled) Color.Transparent else tokens.colors.surfaceCard,
             cursorColor = tokens.colors.accent,
         ),
     )

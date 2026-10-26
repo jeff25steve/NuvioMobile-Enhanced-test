@@ -3,6 +3,7 @@ package com.nuvio.app.features.settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,21 +38,32 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.LocalNuvioThemeTokens
+import com.nuvio.app.core.ui.NuvioThemeTokens
 import com.nuvio.app.core.ui.NuvioTokens
-import com.nuvio.app.core.ui.NuvioActionLabel
+import com.nuvio.app.core.ui.NuvioSurfaceCard
+import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.NuvioSectionLabel
 import com.nuvio.app.core.ui.accentBrush
@@ -58,6 +71,19 @@ import com.nuvio.app.core.ui.gradientMask
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
+import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.home.HomeCatalogSettingsItem
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_homescreen_collection_with_addon
@@ -70,25 +96,200 @@ import nuvio.composeapp.generated.resources.settings_homescreen_pinned_to_top
 import nuvio.composeapp.generated.resources.settings_homescreen_reorder
 import nuvio.composeapp.generated.resources.settings_homescreen_visible
 import org.jetbrains.compose.resources.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import sh.calvin.reorderable.ReorderableCollectionItemScope
+
+private val SettingsGlassTextShadow = Shadow(
+    color = Color.Black.copy(alpha = 0.68f),
+    offset = Offset(0f, 1f),
+    blurRadius = 3f,
+)
+
+/**
+ * Raises text contrast only while the Settings glass surface is active.
+ * Surface and accent colors remain unchanged; any controls that reuse muted text tokens inherit
+ * the same more-visible tint.
+ */
+internal fun NuvioThemeTokens.withSettingsGlassTextContrast(enabled: Boolean): NuvioThemeTokens =
+    if (!enabled) {
+        this
+    } else {
+        copy(
+            colors = colors.copy(
+                textPrimary = Color.White,
+                textSecondary = Color(0xFFE1E6EB),
+                textMuted = Color(0xFFCBD2D9),
+                textDisabled = Color(0xFFADB6BF),
+                neutral = Color(0xFFCBD2D9),
+            ),
+        )
+    }
+
+internal fun TextStyle.withSettingsGlassTextShadow(enabled: Boolean): TextStyle =
+    if (enabled) copy(shadow = SettingsGlassTextShadow) else this
+
+/**
+ * Gives standalone Settings destinations the same private background and backdrop source as the
+ * Settings root. Only the background/image is captured, so a glass header can never sample
+ * scrolling controls underneath it.
+ */
+@Composable
+internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
+    val backdrop = rememberNuvioBackdrop()
+    val customImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customSettingsBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    val imageRevision by remember {
+        ThemeSettingsRepository.customSettingsBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
+    val platformContext = LocalPlatformContext.current
+    val imageRequest = remember(customImageUri, imageRevision, platformContext) {
+        customImageUri?.let { imageUrl ->
+            ImageRequest.Builder(platformContext)
+                .data(imageUrl)
+                .memoryCacheKey("$imageUrl#settings-background-$imageRevision")
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
+    var imageLoaded by remember(customImageUri, imageRevision) { mutableStateOf(false) }
+    val settingsGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS) &&
+        isLiquidGlassSupported()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (settingsGlassEnabled || customImageUri != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                )
+                imageRequest?.let { request ->
+                    AsyncImage(
+                        model = request,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        onSuccess = { imageLoaded = true },
+                        onError = { imageLoaded = false },
+                    )
+                    if (imageLoaded) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.28f)),
+                        )
+                    }
+                }
+            }
+        }
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides if (settingsGlassEnabled) backdrop else null,
+            LocalDynamicArtworkBackgroundActive provides (
+                LocalDynamicArtworkBackgroundActive.current || customImageUri != null
+            ),
+            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                enabled = settingsGlassEnabled,
+            ),
+            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                enabled = settingsGlassEnabled,
+            ),
+        ) {
+            content()
+        }
+    }
+}
 
 @Composable
 private fun SettingsCard(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
+    contentPadding: Boolean = false,
+    tonalElevation: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val defaultCardShape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        preview = previewGlass,
+        platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+    )
+    val cardShape = if (glassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, defaultCardShape, preview = previewGlass)
+    } else {
+        defaultCardShape
+    }
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = tokens.colors.surface,
-        shape = if (isTablet) RoundedCornerShape(NuvioTokens.Radius.xl) else tokens.shapes.compactCard,
+        modifier = modifier.fillMaxWidth().then(
+            if (glassEnabled) {
+                Modifier.liquidGlassForSurface(
+                    surface = LiquidGlassSurface.SETTINGS,
+                    shape = cardShape,
+                    tint = tokens.colors.surface.copy(alpha = 0.45f),
+                    fallback = tokens.colors.surface,
+                    blurRadius = 14.dp,
+                    refractionHeight = 8.dp,
+                    refractionAmount = 12.dp,
+                    preview = previewGlass,
+                )
+            } else {
+                Modifier
+            },
+        ),
+        color = if (glassEnabled) Color.Transparent else tokens.colors.surface,
+        shape = cardShape,
         border = BorderStroke(
             tokens.borders.hairline,
             tokens.colors.borderSubtle,
         ),
+        tonalElevation = tonalElevation.dp,
+        shadowElevation = if (contentPadding) tokens.elevation.flat else 0.dp,
     ) {
-        Column(content = content)
+        Column(
+            modifier = if (contentPadding) Modifier.padding(tokens.spacing.cardPadding) else Modifier,
+            content = content,
+        )
+    }
+}
+
+@Composable
+internal fun SettingsSurfaceCard(
+    isTablet: Boolean = false,
+    modifier: Modifier = Modifier,
+    tonalElevation: Int = 0,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    if (glassEnabled) {
+        SettingsCard(
+            isTablet = isTablet,
+            modifier = modifier,
+            contentPadding = true,
+            tonalElevation = tonalElevation,
+            content = content,
+        )
+    } else {
+        NuvioSurfaceCard(
+            modifier = modifier,
+            tonalElevation = tonalElevation,
+            content = content,
+        )
     }
 }
 
@@ -96,11 +297,13 @@ private fun SettingsCard(
 internal fun SettingsGroup(
     isTablet: Boolean,
     modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SettingsCard(
         isTablet = isTablet,
         modifier = modifier,
+        previewGlass = previewGlass,
     ) {
         Column(content = content)
     }
@@ -123,14 +326,49 @@ internal fun TabletPageHeader(
     onBack: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.SETTINGS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val shape = if (glassEnabled) {
+        liquidGlassShape(LiquidGlassSurface.SETTINGS, RoundedCornerShape(NuvioTokens.Radius.xl))
+    } else {
+        RoundedCornerShape(NuvioTokens.Radius.xl)
+    }
+    val backdrop = if (glassEnabled) LocalLiquidGlassBackdrop.current else null
     Box(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .background(tokens.colors.background)
                 .nuvioConsumePointerEvents(),
         )
+        if (glassEnabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassBackdropUnderlay(backdrop),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .liquidGlassForSurface(
+                        surface = LiquidGlassSurface.SETTINGS,
+                        shape = shape,
+                        tint = tokens.colors.surface.copy(alpha = 0.45f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                    .border(
+                        BorderStroke(tokens.borders.hairline, tokens.colors.borderSubtle),
+                        shape,
+                    ),
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -198,7 +436,7 @@ internal fun SettingsSidebarItem(
                     } else {
                         Modifier
                     },
-                    tint = if (selected) primary else contentColor,
+                    tint = if (selected) primary else liquidGlassIconTint(LiquidGlassSurface.SETTINGS, contentColor),
                 )
             }
         }
@@ -558,7 +796,7 @@ internal fun HomescreenCatalogRow(
                         Icon(
                             imageVector = Icons.Rounded.Lock,
                             contentDescription = stringResource(Res.string.settings_homescreen_pinned),
-                            tint = tokens.colors.textMuted.copy(alpha = tokens.opacity.medium),
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted.copy(alpha = tokens.opacity.medium)),
                         )
                     }
                 } else {
@@ -578,7 +816,7 @@ internal fun HomescreenCatalogRow(
                         Icon(
                             imageVector = Icons.Rounded.Menu,
                             contentDescription = stringResource(Res.string.settings_homescreen_reorder),
-                            tint = tokens.colors.textMuted,
+                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
                         )
                     }
                 }

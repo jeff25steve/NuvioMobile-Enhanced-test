@@ -47,7 +47,9 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import com.kyant.backdrop.Backdrop
-import com.nuvio.app.core.ui.glass.liquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 internal fun detailFloatingHeaderHeight(): Dp {
@@ -69,6 +71,7 @@ fun DetailFloatingHeader(
     onToggleSaved: () -> Unit,
     modifier: Modifier = Modifier,
     glassBackdrop: Backdrop? = null,
+    previewGlass: Boolean = false,
 ) {
     val useNativeNavigation = LocalUseNativeNavigation.current
     val safeAreaTop = if (useNativeNavigation) {
@@ -103,13 +106,16 @@ fun DetailFloatingHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .clipToBounds()
-                .liquidGlassSurface(
-                    backdrop = glassBackdrop,
+                .liquidGlassForSurface(
+                    surface = LiquidGlassSurface.DETAIL_HEADER,
                     shape = RectangleShape,
                     tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.7f),
                     fallback = surfaceColor,
                     blurRadius = 24.dp,
                     withHighlight = false,
+                    explicitBackdrop = glassBackdrop,
+                    useExplicitBackdrop = true,
+                    preview = previewGlass,
                 ),
         ) {
             Row(
@@ -126,7 +132,7 @@ fun DetailFloatingHeader(
                         onClick = onBack,
                         modifier = Modifier.size(40.dp),
                         containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.onBackground,
+                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
                         buttonSize = 40.dp,
                         iconSize = 24.dp,
                     )
@@ -166,6 +172,7 @@ fun DetailFloatingHeader(
                 DetailFloatingHeaderAction(
                     isSaved = isSaved,
                     enabled = interactive,
+                    previewGlass = previewGlass,
                     onClick = onToggleSaved,
                 )
             }
@@ -187,6 +194,7 @@ fun DetailFloatingHeader(
 private fun DetailFloatingHeaderAction(
     isSaved: Boolean,
     enabled: Boolean,
+    previewGlass: Boolean,
     onClick: () -> Unit,
 ) {
     Box(
@@ -204,13 +212,13 @@ private fun DetailFloatingHeaderAction(
             Icon(
                 painter = painterResource(Res.drawable.sidebar_library),
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onBackground,
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
             )
         } else {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onBackground,
+                tint = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
             )
         }
     }

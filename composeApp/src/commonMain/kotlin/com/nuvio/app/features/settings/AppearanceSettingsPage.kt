@@ -2,8 +2,13 @@ package com.nuvio.app.features.settings
 
 import com.nuvio.app.core.ui.LocalNuvioTabletNavLayout
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
@@ -12,6 +17,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,19 +25,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.isIos
 import com.nuvio.app.core.ui.AppTheme
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioStatusModal
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.labelRes
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.cd_selected
@@ -56,6 +71,13 @@ import nuvio.composeapp.generated.resources.settings_appearance_amoled_black
 import nuvio.composeapp.generated.resources.settings_appearance_amoled_description
 import nuvio.composeapp.generated.resources.settings_appearance_dynamic_artwork_background
 import nuvio.composeapp.generated.resources.settings_appearance_dynamic_artwork_background_description
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_description
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_preview
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_error
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_saving
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_choose
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_clear
 import nuvio.composeapp.generated.resources.settings_appearance_catalog_accent
 import nuvio.composeapp.generated.resources.settings_appearance_catalog_accent_description
 import nuvio.composeapp.generated.resources.settings_appearance_continue_watching_description
@@ -78,6 +100,8 @@ import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 
 internal fun LazyListScope.appearanceSettingsContent(
     isTablet: Boolean,
@@ -125,8 +149,55 @@ internal fun LazyListScope.appearanceSettingsContent(
         var showLanguageRestartDialog by remember { mutableStateOf(false) }
         val layoutDirection = LocalLayoutDirection.current
         var showNavBarStyleSheet by remember { mutableStateOf(false) }
+        var showLiquidGlassSurfacesSheet by remember { mutableStateOf(false) }
         var showTabBarBehaviorSheet by remember { mutableStateOf(false) }
         var showAppIconPicker by remember { mutableStateOf(false) }
+        val customSettingsBackgroundImageUri by remember {
+            ThemeSettingsRepository.ensureLoaded()
+            ThemeSettingsRepository.customSettingsBackgroundImageUri
+        }.collectAsStateWithLifecycle()
+        val customSettingsBackgroundImageRevision by remember {
+            ThemeSettingsRepository.customSettingsBackgroundImageRevision
+        }.collectAsStateWithLifecycle()
+        val settingsBackgroundImageContext = LocalPlatformContext.current
+        val settingsBackgroundImageRequest = remember(
+            customSettingsBackgroundImageUri,
+            customSettingsBackgroundImageRevision,
+            settingsBackgroundImageContext,
+        ) {
+            customSettingsBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
+                ImageRequest.Builder(settingsBackgroundImageContext)
+                    .data(imageUri)
+                    .memoryCacheKey("$imageUri#settings-background-$customSettingsBackgroundImageRevision")
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.DISABLED)
+                    .build()
+            }
+        }
+        var isSavingSettingsBackground by remember { mutableStateOf(false) }
+        var settingsBackgroundImageError by remember { mutableStateOf(false) }
+        val settingsBackgroundScope = rememberCoroutineScope()
+        val settingsBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
+            onImageSelected = { bytes ->
+                val targetProfileId = ProfileRepository.activeProfileId
+                settingsBackgroundImageError = false
+                isSavingSettingsBackground = true
+                settingsBackgroundScope.launch {
+                    val saved = try {
+                        ThemeSettingsRepository.saveCustomSettingsBackgroundImageForStudio(bytes, targetProfileId)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        false
+                    }
+                    isSavingSettingsBackground = false
+                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                        settingsBackgroundImageError = !saved
+                    }
+                }
+            },
+            onError = { settingsBackgroundImageError = true },
+        )
         val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
         val navBarPosition by ThemeSettingsRepository.navBarPosition.collectAsStateWithLifecycle()
         val navBarGlass by ThemeSettingsRepository.navBarGlass.collectAsStateWithLifecycle()
@@ -159,6 +230,85 @@ internal fun LazyListScope.appearanceSettingsContent(
                     onCheckedChange = onDynamicArtworkBackgroundToggle,
                 )
                 SettingsGroupDivider(isTablet = isTablet)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_appearance_custom_settings_background),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(Res.string.settings_appearance_custom_settings_background_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    settingsBackgroundImageRequest?.let { imageRequest ->
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = stringResource(Res.string.settings_appearance_custom_settings_background_preview),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(112.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                    if (settingsBackgroundImageError) {
+                        Text(
+                            text = stringResource(Res.string.settings_appearance_custom_settings_background_error),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (isSavingSettingsBackground) {
+                        Text(
+                            text = stringResource(Res.string.settings_appearance_custom_settings_background_saving),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            enabled = !isSavingSettingsBackground,
+                            onClick = { settingsBackgroundImagePicker.launch() },
+                        ) {
+                            Text(stringResource(Res.string.settings_appearance_custom_settings_background_choose))
+                        }
+                        TextButton(
+                            enabled = customSettingsBackgroundImageUri != null && !isSavingSettingsBackground,
+                            onClick = {
+                                val targetProfileId = ProfileRepository.activeProfileId
+                                settingsBackgroundImageError = false
+                                isSavingSettingsBackground = true
+                                settingsBackgroundScope.launch {
+                                    val cleared = try {
+                                        ThemeSettingsRepository.clearCustomSettingsBackgroundImageForStudio(targetProfileId)
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        false
+                                    }
+                                    isSavingSettingsBackground = false
+                                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                                        settingsBackgroundImageError = !cleared
+                                    }
+                                }
+                            },
+                        ) {
+                            Text(stringResource(Res.string.settings_appearance_custom_settings_background_clear))
+                        }
+                    }
+                }
+                SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_appearance_catalog_accent),
                     description = stringResource(Res.string.settings_appearance_catalog_accent_description),
@@ -174,6 +324,13 @@ internal fun LazyListScope.appearanceSettingsContent(
                         checked = liquidGlassEffectsEnabled,
                         isTablet = isTablet,
                         onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_liquid_glass_customize),
+                        description = stringResource(Res.string.settings_liquid_glass_customize_description),
+                        isTablet = isTablet,
+                        onClick = { showLiquidGlassSurfacesSheet = true },
                     )
                 }
                 if (liquidGlassNativeTabBarSupported) {
@@ -271,6 +428,18 @@ internal fun LazyListScope.appearanceSettingsContent(
                     showAppIconPicker = false
                 },
             )
+        }
+
+        if (showLiquidGlassSurfacesSheet) {
+            LiquidGlassSurfaceSettingsDrafts { surfaceSettings ->
+                LiquidGlassSurfacesSettingsSheet(
+                    isTablet = isTablet,
+                    settings = surfaceSettings,
+                    onSurfaceChanged = ThemeSettingsRepository::updateLiquidGlassSurfaceOverrides,
+                    onSave = ThemeSettingsRepository::saveLiquidGlassSurfaceSettings,
+                    onDismiss = { showLiquidGlassSurfacesSheet = false },
+                )
+            }
         }
 
         if (showNavBarStyleSheet) {

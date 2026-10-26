@@ -14,7 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,13 +29,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Star
@@ -60,6 +59,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -103,7 +104,9 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 private val log = Logger.withTag("SeriesContent")
 
@@ -577,26 +580,72 @@ private fun SeriesSeasonSelector(
     }
 }
 
+/**
+ * Settings preview that reuses the production season view-mode toggle and horizontally scrolling chips.
+ */
+@Composable
+internal fun DetailGlassChipsPreview(modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val sizing = remember(maxWidth) { seriesContentSizing(maxWidth.value) }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(Res.string.details_seasons),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = sizing.seasonHeaderSize,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                SeasonViewModeToggle(
+                    mode = SeasonViewMode.Posters,
+                    sizing = sizing,
+                    onClick = {},
+                    preview = true,
+                )
+            }
+            SeasonTextChipScrollRow(
+                seasons = listOf(1, 2, 3, 4),
+                currentSeason = 2,
+                sizing = sizing,
+                horizontalScrollPadding = 0.dp,
+                onSelect = {},
+                onLongPress = null,
+                preview = true,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SeasonViewModeToggle(
     mode: SeasonViewMode,
     sizing: SeriesContentSizing,
     onClick: () -> Unit,
+    preview: Boolean = false,
 ) {
     val isPosters = mode == SeasonViewMode.Posters
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAIL_CHIPS,
                 shape = RoundedCornerShape(8.dp),
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                 refractionHeight = 6.dp,
+                preview = preview,
             )
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(8.dp),
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, RoundedCornerShape(8.dp), preview = preview),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -626,6 +675,7 @@ private fun SeasonTextChipScrollRow(
     horizontalScrollPadding: Dp,
     onSelect: (Int) -> Unit,
     onLongPress: ((Int) -> Unit)?,
+    preview: Boolean = false,
 ) {
     val seasonListState = rememberLazyListState()
     var hasPositionedSeasonRow by remember(seasons) { mutableStateOf(false) }
@@ -652,15 +702,23 @@ private fun SeasonTextChipScrollRow(
     ) {
         items(seasons, key = { season -> season }) { season ->
             val isSelected = season == currentSeason
+            val defaultSeasonChipShape = RoundedCornerShape(sizing.seasonChipRadius)
+            val seasonChipShape = if (isSelected) {
+                liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, defaultSeasonChipShape, preview = preview)
+            } else {
+                defaultSeasonChipShape
+            }
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(sizing.seasonChipRadius))
+                    .clip(seasonChipShape)
                     .then(
                         if (isSelected) {
-                            Modifier.ambientLiquidGlass(
-                                shape = RoundedCornerShape(sizing.seasonChipRadius),
+                            Modifier.liquidGlassForSurface(
+                                surface = LiquidGlassSurface.DETAIL_CHIPS,
+                                shape = defaultSeasonChipShape,
                                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                preview = preview,
                             )
                         } else {
                             Modifier.background(Color.Transparent)
@@ -926,6 +984,63 @@ private fun EpisodeHorizontalRow(
     }
 }
 
+/**
+ * A scaled production episode card used for the independent content-card glass recipe.
+ * Geometry is computed by the same responsive metrics used by the real episode list.
+ */
+@Composable
+internal fun DetailGlassContentCardPreview(
+    modifier: Modifier = Modifier,
+    video: MetaVideo? = null,
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val metrics = rememberEpisodeHorizontalCardMetrics(maxWidth.value)
+        val scale = minOf(
+            (maxWidth.value / metrics.cardWidth.value).coerceAtLeast(0f),
+            (maxHeight.value / metrics.cardHeight.value).coerceAtLeast(0f),
+            1f,
+        )
+        val sample = video ?: remember {
+            MetaVideo(
+                id = "glass-preview-s1e1",
+                title = "Pilot",
+                released = "2024-09-26",
+                season = 1,
+                episode = 1,
+                overview = "Joanne navigates a new relationship while her friends weigh in.",
+                runtime = 27,
+                tmdbRating = 7.7,
+            )
+        }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            EpisodeHorizontalCard(
+                video = sample,
+                fallbackImage = null,
+                progressEntry = null,
+                tmdbRating = sample.tmdbRating,
+                imdbRating = sample.imdbRating,
+                isWatched = false,
+                episodeRatingsVisibility = EpisodeRatingsVisibility.SHOW_ALL,
+                blurUnwatchedEpisodes = false,
+                metrics = metrics,
+                onClick = {},
+                onLongPress = {},
+                preview = true,
+                modifier = Modifier
+                    .requiredSize(metrics.cardWidth, metrics.cardHeight)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin.Center
+                    },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeHorizontalCard(
@@ -941,6 +1056,8 @@ private fun EpisodeHorizontalCard(
     metrics: EpisodeHorizontalCardMetrics,
     onClick: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
+    preview: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val cardShape = RoundedCornerShape(metrics.cornerRadius)
     val showsRating = episodeRatingsVisibility.showRating(isWatched)
@@ -964,18 +1081,19 @@ private fun EpisodeHorizontalCard(
         metrics.contentBottomPadding
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .width(metrics.cardWidth)
             .height(metrics.cardHeight)
-            .clip(cardShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 blurRadius = 18.dp,
+                preview = preview,
             )
             .nuvioCardDepth(
-                shape = cardShape,
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape, preview = preview),
                 surface = NuvioCardDepthSurface.EpisodeCards,
                 fallbackBorderAlpha = 0.12f,
             )
@@ -1423,8 +1541,8 @@ private fun EpisodeListCard(
         modifier = modifier
             .fillMaxWidth()
             .height(sizing.cardHeight)
-            .clip(cardShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
                 tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -1433,7 +1551,7 @@ private fun EpisodeListCard(
             .border(
                 width = 1.dp,
                 color = Color.White.copy(alpha = 0.1f),
-                shape = cardShape,
+                shape = liquidGlassShape(LiquidGlassSurface.DETAIL_CONTENT_CARDS, cardShape),
             )
             .combinedClickable(
                 enabled = onClick != null || onLongPress != null,

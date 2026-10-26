@@ -3,6 +3,11 @@ package com.nuvio.app.features.details.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -11,6 +16,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.Dp
 import com.nuvio.app.features.details.EpisodeRatingsVisibility
 import com.nuvio.app.features.details.MetaDetails
@@ -77,6 +83,12 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSafeBottomPadding
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaVideo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -183,6 +195,25 @@ internal suspend fun EpisodeNavigatorState.flashHighlight(key: String) {
 
 private const val EPISODE_HIGHLIGHT_MS = 1_600L
 
+/**
+ * Lets the Studio preview select an entire glass surface without intercepting its real child
+ * controls. Runtime callers pass no callback and keep their existing input behavior.
+ */
+internal fun Modifier.onLiquidGlassPreviewSurfaceTap(
+    surface: LiquidGlassSurface,
+    onSurfaceSelected: ((LiquidGlassSurface) -> Unit)?,
+): Modifier {
+    val callback = onSurfaceSelected ?: return this
+    return pointerInput(surface, callback) {
+        awaitEachGesture {
+            awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+            if (waitForUpOrCancellation(pass = PointerEventPass.Initial) != null) {
+                callback(surface)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun EpisodeNavigatorBar(
     state: EpisodeNavigatorState,
@@ -190,9 +221,39 @@ internal fun EpisodeNavigatorBar(
     totalCount: Int,
     onSubmitNumber: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
 ) {
     val tokens = MaterialTheme.nuvio
-    val fieldShape = RoundedCornerShape(14.dp)
+    val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
+    val searchGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
+    val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
+    val searchSelected = selectedPreviewSurface == searchSurface
+    val searchSurfaceModifier = if (searchGlassEnabled) {
+        Modifier.liquidGlassForSurface(
+            surface = searchSurface,
+            shape = fieldShape,
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+            .clip(fieldShape)
+            .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
+            .border(
+                width = if (searchSelected) 2.dp else 1.dp,
+                color = if (searchSelected) MaterialTheme.colorScheme.primary else tokens.colors.borderDefault,
+                shape = fieldShape,
+            )
+    }
+    val searchSelectionBorder = if (searchGlassEnabled && searchSelected) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, fieldShape)
+    } else {
+        Modifier
+    }
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -203,9 +264,12 @@ internal fun EpisodeNavigatorBar(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 44.dp)
-                    .clip(fieldShape)
-                    .background(tokens.colors.surfaceSheet.copy(alpha = 0.6f))
-                    .border(1.dp, tokens.colors.borderDefault, fieldShape)
+                    .then(searchSurfaceModifier)
+                    .then(searchSelectionBorder)
+                    .onLiquidGlassPreviewSurfaceTap(
+                        surface = searchSurface,
+                        onSurfaceSelected = onPreviewSurfaceSelected,
+                    )
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -213,7 +277,7 @@ internal fun EpisodeNavigatorBar(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = null,
-                    tint = tokens.colors.textMuted,
+                    tint = liquidGlassIconTint(searchSurface, tokens.colors.textMuted),
                     modifier = Modifier.size(18.dp),
                 )
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -236,7 +300,11 @@ internal fun EpisodeNavigatorBar(
                         keyboardActions = KeyboardActions(
                             onSearch = { state.query.trim().toIntOrNull()?.let(onSubmitNumber) },
                         ),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focus ->
+                                if (focus.isFocused) onPreviewSurfaceSelected?.invoke(searchSurface)
+                            },
                     )
                 }
                 if (state.query.isNotEmpty()) {
@@ -252,10 +320,16 @@ internal fun EpisodeNavigatorBar(
             }
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_go_to),
+                glassSurface = LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+                onPreviewSurfaceSelected = onPreviewSurfaceSelected,
+                selectedPreviewSurface = selectedPreviewSurface,
                 onClick = { state.goToSheetVisible = true },
             )
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_sort),
+                glassSurface = LiquidGlassSurface.DETAIL_EPISODE_SORT,
+                onPreviewSurfaceSelected = onPreviewSurfaceSelected,
+                selectedPreviewSurface = selectedPreviewSurface,
                 onClick = { state.sortSheetVisible = true },
             )
         }
@@ -276,15 +350,52 @@ internal fun EpisodeNavigatorBar(
 }
 
 @Composable
-private fun EpisodeNavigatorChip(text: String, onClick: () -> Unit) {
+private fun EpisodeNavigatorChip(
+    text: String,
+    onClick: () -> Unit,
+    glassSurface: LiquidGlassSurface? = null,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
+) {
     val tokens = MaterialTheme.nuvio
-    val shape = RoundedCornerShape(14.dp)
+    val nativeShape = RoundedCornerShape(14.dp)
+    val surface = glassSurface
+    val glassEnabled = surface != null && isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(surface)
+    val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
+    val isSelected = surface != null && selectedPreviewSurface == surface
+    val containerModifier = if (glassEnabled && surface != null) {
+        Modifier.liquidGlassForSurface(
+            surface = surface,
+            shape = shape,
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
+            blurRadius = 14.dp,
+            refractionHeight = 8.dp,
+            refractionAmount = 12.dp,
+        )
+    } else {
+        Modifier
+            .clip(shape)
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else tokens.colors.borderDefault,
+                shape = shape,
+            )
+    }
+    val selectedOutlineModifier = if (glassEnabled && isSelected) {
+        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
+    } else {
+        Modifier
+    }
     Box(
         modifier = Modifier
             .heightIn(min = 44.dp)
-            .clip(shape)
-            .border(1.dp, tokens.colors.borderDefault, shape)
-            .clickable(onClick = onClick)
+            .then(containerModifier)
+            .then(selectedOutlineModifier)
+            .clickable {
+                surface?.let { onPreviewSurfaceSelected?.invoke(it) }
+                onClick()
+            }
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {

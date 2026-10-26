@@ -3,6 +3,7 @@ package com.nuvio.app.core.storage
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import com.nuvio.app.features.profiles.MAX_PROFILES
 import com.nuvio.app.features.tracking.WatchProgressSource
 import com.nuvio.app.features.watchprogress.CachedNextUpItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentCache
@@ -39,6 +40,33 @@ class LocalAccountDataCleanerTest {
     fun clearState() {
         ContinueWatchingEnrichmentCache.clearLocalState()
         preferences.edit().clear().commit()
+    }
+
+    @Test
+    fun settingsBackgroundCleanupAttemptsEveryProfileAfterRemovalFailure() {
+        val attemptedProfiles = mutableListOf<Int>()
+
+        val allRemoved = clearProfileSettingsBackgroundImages(1..MAX_PROFILES) { profileIndex ->
+            attemptedProfiles += profileIndex
+            profileIndex != 2
+        }
+
+        assertEquals((1..MAX_PROFILES).toList(), attemptedProfiles)
+        assertFalse(allRemoved)
+    }
+
+    @Test
+    fun settingsBackgroundCleanupContinuesWhenRemovalThrows() {
+        val attemptedProfiles = mutableListOf<Int>()
+
+        val allRemoved = clearProfileSettingsBackgroundImages(1..MAX_PROFILES) { profileIndex ->
+            attemptedProfiles += profileIndex
+            check(profileIndex != 2) { "simulated file removal failure" }
+            true
+        }
+
+        assertEquals((1..MAX_PROFILES).toList(), attemptedProfiles)
+        assertFalse(allRemoved)
     }
 
     @Test
