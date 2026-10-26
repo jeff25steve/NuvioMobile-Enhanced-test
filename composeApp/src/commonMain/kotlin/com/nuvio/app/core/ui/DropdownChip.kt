@@ -1,6 +1,7 @@
 package com.nuvio.app.core.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -56,6 +58,8 @@ fun NuvioDropdownChip(
     modifier: Modifier = Modifier,
     glassSurface: LiquidGlassSurface? = null,
     previewGlass: Boolean = false,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
+    onGlassSurfaceInteracted: (() -> Unit)? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val glassEnabled = glassSurface != null && isLiquidGlassSurfaceEffectivelyEnabled(
@@ -85,12 +89,24 @@ fun NuvioDropdownChip(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
+    val selectionFrameModifier = if (glassSurface != null && selectedPreviewSurface == glassSurface) {
+        Modifier
+            .border(2.dp, MaterialTheme.colorScheme.primary, chipShape)
+            .padding(2.dp)
+    } else {
+        Modifier
+    }
+
     Row(
         modifier = modifier
+            .then(selectionFrameModifier)
             .then(containerModifier)
             .then(
                 if (enabled) {
-                    Modifier.clickable { isSheetVisible = true }
+                    Modifier.clickable {
+                        onGlassSurfaceInteracted?.invoke()
+                        isSheetVisible = true
+                    }
                 } else {
                     Modifier
                 },
