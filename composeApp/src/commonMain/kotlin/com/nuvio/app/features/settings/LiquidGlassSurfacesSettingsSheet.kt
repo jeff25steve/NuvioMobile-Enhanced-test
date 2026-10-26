@@ -2964,7 +2964,7 @@ private fun LiquidGlassLibraryPreview(
                                         contentDescription = null,
                                         tint = liquidGlassIconTint(
                                             LiquidGlassSurface.LIBRARY,
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                            MaterialTheme.nuvio.colors.textMuted,
                                         ),
                                     )
                                 }
@@ -2974,7 +2974,7 @@ private fun LiquidGlassLibraryPreview(
                                         contentDescription = null,
                                         tint = liquidGlassIconTint(
                                             LiquidGlassSurface.LIBRARY,
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                            MaterialTheme.nuvio.colors.textMuted,
                                         ),
                                     )
                                 }
@@ -2984,7 +2984,7 @@ private fun LiquidGlassLibraryPreview(
                                         contentDescription = null,
                                         tint = liquidGlassIconTint(
                                             LiquidGlassSurface.LIBRARY,
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                            MaterialTheme.nuvio.colors.textMuted,
                                         ),
                                     )
                                 }
@@ -2995,7 +2995,7 @@ private fun LiquidGlassLibraryPreview(
                                     contentDescription = null,
                                     tint = liquidGlassIconTint(
                                         LiquidGlassSurface.LIBRARY,
-                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                        MaterialTheme.nuvio.colors.textMuted,
                                     ),
                                 )
                             }
