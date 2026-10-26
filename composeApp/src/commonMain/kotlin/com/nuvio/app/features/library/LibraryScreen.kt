@@ -532,7 +532,8 @@ fun LibraryScreen(
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
-                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
+                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive ||
+                    (anyLibraryGlassEnabled && isLiquidGlassSupported())
             ),
             LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
                 enabled = libraryGlassTextEnabled,
