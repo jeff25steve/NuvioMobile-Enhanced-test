@@ -18,6 +18,8 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIViewController
+import platform.UIKit.UIWindowScene
+import platform.UIKit.UISceneActivationStateForegroundActive
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -125,7 +127,14 @@ private fun normalizeBackgroundImage(data: NSData): ByteArray {
 }
 
 private fun topViewController(): UIViewController? {
-    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
+    val rootController = UIApplication.sharedApplication.connectedScenes
+        .asSequence()
+        .mapNotNull { it as? UIWindowScene }
+        .filter { it.activationState == UISceneActivationStateForegroundActive }
+        .firstNotNullOfOrNull { scene -> scene.keyWindow?.rootViewController }
+        ?: return null
+
+    var controller: UIViewController? = rootController
     while (controller?.presentedViewController != null) {
         controller = controller.presentedViewController
     }
