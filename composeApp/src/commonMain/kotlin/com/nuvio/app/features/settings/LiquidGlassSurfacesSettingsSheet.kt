@@ -83,6 +83,7 @@ import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
+import com.nuvio.app.features.catalog.CatalogHeader
 import com.nuvio.app.features.details.components.DetailActions
 import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
@@ -168,6 +169,8 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_detail
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_detail_page_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream_picker
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_stream_picker_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_category_header
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_category_header_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects
 import nuvio.composeapp.generated.resources.settings_liquid_glass_link_effects_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_tap_to_edit_component
@@ -185,6 +188,8 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_go_to
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail_episode_sort
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_category_header_title
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_category_header_back_button
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_details
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
@@ -316,6 +321,19 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         onOpen = {
                             selectedPreviewLayoutName = LiquidGlassSurfaceGroup.STREAM_PICKER.name
                             selectedSurfaceName = LiquidGlassSurfaceGroup.STREAM_PICKER.surfaces.first().name
+                            linkGlassEffects = false
+                        },
+                    )
+                }
+                item(key = "liquid-glass-layout-category-header") {
+                    LiquidGlassSurfaceGroupListItem(
+                        group = LiquidGlassSurfaceGroup.CATEGORY_HEADER,
+                        title = stringResource(Res.string.settings_liquid_glass_preview_category_header),
+                        description = stringResource(Res.string.settings_liquid_glass_preview_category_header_description),
+                        isTablet = isTablet,
+                        onOpen = {
+                            selectedPreviewLayoutName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.name
+                            selectedSurfaceName = LiquidGlassSurfaceGroup.CATEGORY_HEADER.surfaces.first().name
                             linkGlassEffects = false
                         },
                     )
@@ -497,6 +515,7 @@ private fun LiquidGlassSurfaceGroupListItem(
     val iconTint = when (group) {
         LiquidGlassSurfaceGroup.DETAIL_PAGE -> MaterialTheme.colorScheme.primary
         LiquidGlassSurfaceGroup.STREAM_PICKER -> MaterialTheme.colorScheme.secondary
+        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> MaterialTheme.colorScheme.tertiary
     }
     Surface(
         modifier = Modifier
@@ -615,12 +634,14 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
         when (group) {
             LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
             LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
+            LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
         },
     )
     val description = stringResource(
         when (group) {
             LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page_description
             LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker_description
+            LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header_description
         },
     )
     Column(
@@ -668,6 +689,12 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
                 modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
             )
             LiquidGlassSurfaceGroup.STREAM_PICKER -> LiquidGlassStreamPickerPreview(
+                settings = settings,
+                selectedSurface = selectedSurface,
+                onSelectSurface = onSelectSurface,
+                modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
+            )
+            LiquidGlassSurfaceGroup.CATEGORY_HEADER -> LiquidGlassCatalogHeaderPreview(
                 settings = settings,
                 selectedSurface = selectedSurface,
                 onSelectSurface = onSelectSurface,
@@ -1669,6 +1696,8 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> Res.string.settings_liquid_glass_surface_detail_episode_search
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> Res.string.settings_liquid_glass_surface_detail_episode_go_to
             LiquidGlassSurface.DETAIL_EPISODE_SORT -> Res.string.settings_liquid_glass_surface_detail_episode_sort
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE -> Res.string.settings_liquid_glass_surface_category_header_title
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> Res.string.settings_liquid_glass_surface_category_header_back_button
             LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
             LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
