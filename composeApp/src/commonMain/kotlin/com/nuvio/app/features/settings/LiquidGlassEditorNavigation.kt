@@ -13,9 +13,8 @@ internal fun liquidGlassEditorScrollTarget(
     resetToTop: Boolean,
     savedIndex: Int,
     savedScrollOffset: Int,
-    isEditingSurface: Boolean = false,
 ): LiquidGlassEditorScrollTarget =
-    if (isEditingSurface || resetToTop) {
+    if (resetToTop) {
         LiquidGlassEditorScrollTarget(index = 0, scrollOffset = 0)
     } else {
         LiquidGlassEditorScrollTarget(

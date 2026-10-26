@@ -283,6 +283,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         }
     }
     val listState = rememberLazyListState()
+    val editorListState = rememberLazyListState()
     var savedRootListIndex by rememberSaveable { mutableStateOf(0) }
     var savedRootListScrollOffset by rememberSaveable { mutableStateOf(0) }
     var resetRootListOnNextOpen by rememberSaveable { mutableStateOf(true) }
@@ -302,14 +303,17 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     // Re-entering the root list restores that saved position; fully closing the popup marks the
     // next opening as a fresh session and starts from the top.
     LaunchedEffect(isEditingSurface, resetRootListOnNextOpen) {
-        val target = liquidGlassEditorScrollTarget(
-            resetToTop = resetRootListOnNextOpen,
-            savedIndex = savedRootListIndex,
-            savedScrollOffset = savedRootListScrollOffset,
-            isEditingSurface = isEditingSurface,
-        )
-        listState.scrollToItem(index = target.index, scrollOffset = target.scrollOffset)
-        if (!isEditingSurface && resetRootListOnNextOpen) resetRootListOnNextOpen = false
+        if (isEditingSurface) {
+            editorListState.scrollToItem(index = 0, scrollOffset = 0)
+        } else {
+            val target = liquidGlassEditorScrollTarget(
+                resetToTop = resetRootListOnNextOpen,
+                savedIndex = savedRootListIndex,
+                savedScrollOffset = savedRootListScrollOffset,
+            )
+            listState.scrollToItem(index = target.index, scrollOffset = target.scrollOffset)
+            if (resetRootListOnNextOpen) resetRootListOnNextOpen = false
+        }
     }
 
     val dismiss: () -> Unit = {
@@ -349,7 +353,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         )
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
-            state = listState,
+            state = if (isEditingSurface) editorListState else listState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (selectedSurface == null && selectedPreviewLayout == null) {
@@ -634,7 +638,7 @@ private fun LiquidGlassSurfaceGroupListItem(
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(if (isTablet) 28.dp else 24.dp),
-                        tint = tokens.colors.accent,
+                        tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
                     )
                 }
             }

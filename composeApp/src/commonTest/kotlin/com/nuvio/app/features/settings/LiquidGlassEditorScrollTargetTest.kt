@@ -17,19 +17,6 @@ class LiquidGlassEditorScrollTargetTest {
     }
 
     @Test
-    fun editorPreviewAlwaysStartsAtTopWithoutChangingTheSavedRootPosition() {
-        assertEquals(
-            LiquidGlassEditorScrollTarget(index = 0, scrollOffset = 0),
-            liquidGlassEditorScrollTarget(
-                resetToTop = false,
-                savedIndex = 14,
-                savedScrollOffset = 83,
-                isEditingSurface = true,
-            ),
-        )
-    }
-
-    @Test
     fun returningFromAnEditorRestoresSavedItemAndPixelOffset() {
         assertEquals(
             LiquidGlassEditorScrollTarget(index = 14, scrollOffset = 83),

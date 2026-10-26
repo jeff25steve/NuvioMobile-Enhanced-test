@@ -828,7 +828,6 @@ fun LibraryScreen(
             }
         }
     }
-            }
             if (hasSavedControls) {
                 CompositionLocalProvider(
                     LocalLiquidGlassBackdrop provides libraryContentBackdrop,
@@ -867,6 +866,7 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
         }
     }
     }
