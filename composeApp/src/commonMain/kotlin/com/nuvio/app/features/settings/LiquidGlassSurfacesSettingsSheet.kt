@@ -1324,6 +1324,7 @@ private fun LiquidGlassStreamPickerPreview(
     modifier: Modifier = Modifier,
 ) {
     val groups = remember { liquidGlassPreviewStreamGroups() }
+    val previewStreams = remember { groups.flatMap { it.streams }.take(2) }
     val backdrop = rememberNuvioBackdrop()
     Box(
         modifier = modifier
@@ -1447,7 +1448,7 @@ private fun LiquidGlassStreamPickerPreview(
                         modifier = Modifier.fillMaxSize().padding(GlassPreviewSelectionGutter),
                         verticalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
-                        liquidGlassPreviewStreamGroups().flatMap { it.streams }.take(2).forEach { stream ->
+                        previewStreams.forEach { stream ->
                             StreamCard(
                                 stream = stream,
                                 enabled = true,
