@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonObject
 
 internal const val CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES = 16 * 1024 * 1024
 
-/** Only app-private file URIs are valid sources for user-selected background images. */
+/** Only local file-scheme sources are allowed for user-selected background images. */
 internal fun isLocalBackgroundImageUri(uri: String?): Boolean =
     uri?.startsWith("file:", ignoreCase = true) == true
 

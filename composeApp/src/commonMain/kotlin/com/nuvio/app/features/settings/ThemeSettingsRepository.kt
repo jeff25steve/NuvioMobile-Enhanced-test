@@ -306,93 +306,87 @@ object ThemeSettingsRepository {
     }
 
     /**
-     * Studio persists selected images away from the UI thread. When a non-suspending storage
-     * operation has completed, its state publication must survive cancellation while withContext
-     * dispatches back from I/O; otherwise the file could be saved while the preview remains stale.
+     * Persist off the UI thread and publish the completed result on the caller's dispatcher.
+     * A synchronous storage operation can finish just as the caller is cancelled while
+     * withContext dispatches back; preserve that completed result so the preview cannot go stale.
      */
-    internal suspend fun saveCustomSettingsBackgroundImageForStudio(
-        bytes: ByteArray,
-        profileId: Int,
+    private suspend fun persistBackgroundImageForStudio(
+        store: () -> String?,
+        publish: (String?) -> Unit,
     ): Boolean {
-        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
         var savedUri: String? = null
         try {
             withContext(Dispatchers.IO) {
-                savedUri = storeCustomSettingsBackgroundImageForProfile(bytes, profileId)
+                savedUri = store()
             }
         } catch (cancelled: CancellationException) {
             savedUri?.let { uri ->
                 withContext(NonCancellable) {
-                    publishCustomSettingsBackgroundImageForProfile(profileId, uri)
+                    publish(uri)
                 }
             }
             throw cancelled
         }
         val uri = savedUri ?: return false
-        publishCustomSettingsBackgroundImageForProfile(profileId, uri)
+        publish(uri)
         return true
     }
 
-    internal suspend fun clearCustomSettingsBackgroundImageForStudio(profileId: Int): Boolean {
+    private suspend fun removeBackgroundImageForStudio(
+        remove: () -> Boolean,
+        publish: (String?) -> Unit,
+    ): Boolean {
         var removed = false
         try {
             withContext(Dispatchers.IO) {
-                removed = removeCustomSettingsBackgroundImageForProfile(profileId)
+                removed = remove()
             }
         } catch (cancelled: CancellationException) {
             if (removed) {
                 withContext(NonCancellable) {
-                    publishCustomSettingsBackgroundImageForProfile(profileId, null)
+                    publish(null)
                 }
             }
             throw cancelled
         }
         if (!removed) return false
-        publishCustomSettingsBackgroundImageForProfile(profileId, null)
+        publish(null)
         return true
     }
+
+    internal suspend fun saveCustomSettingsBackgroundImageForStudio(
+        bytes: ByteArray,
+        profileId: Int,
+    ): Boolean {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
+        return persistBackgroundImageForStudio(
+            store = { storeCustomSettingsBackgroundImageForProfile(bytes, profileId) },
+            publish = { uri -> publishCustomSettingsBackgroundImageForProfile(profileId, uri) },
+        )
+    }
+
+    internal suspend fun clearCustomSettingsBackgroundImageForStudio(profileId: Int): Boolean =
+        removeBackgroundImageForStudio(
+            remove = { removeCustomSettingsBackgroundImageForProfile(profileId) },
+            publish = { uri -> publishCustomSettingsBackgroundImageForProfile(profileId, uri) },
+        )
 
     internal suspend fun saveCustomLibraryCloudBackgroundImageForStudio(
         bytes: ByteArray,
         profileId: Int,
     ): Boolean {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
-        var savedUri: String? = null
-        try {
-            withContext(Dispatchers.IO) {
-                savedUri = storeCustomLibraryCloudBackgroundImageForProfile(bytes, profileId)
-            }
-        } catch (cancelled: CancellationException) {
-            savedUri?.let { uri ->
-                withContext(NonCancellable) {
-                    publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri)
-                }
-            }
-            throw cancelled
-        }
-        val uri = savedUri ?: return false
-        publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri)
-        return true
+        return persistBackgroundImageForStudio(
+            store = { storeCustomLibraryCloudBackgroundImageForProfile(bytes, profileId) },
+            publish = { uri -> publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri) },
+        )
     }
 
-    internal suspend fun clearCustomLibraryCloudBackgroundImageForStudio(profileId: Int): Boolean {
-        var removed = false
-        try {
-            withContext(Dispatchers.IO) {
-                removed = removeCustomLibraryCloudBackgroundImageForProfile(profileId)
-            }
-        } catch (cancelled: CancellationException) {
-            if (removed) {
-                withContext(NonCancellable) {
-                    publishCustomLibraryCloudBackgroundImageForProfile(profileId, null)
-                }
-            }
-            throw cancelled
-        }
-        if (!removed) return false
-        publishCustomLibraryCloudBackgroundImageForProfile(profileId, null)
-        return true
-    }
+    internal suspend fun clearCustomLibraryCloudBackgroundImageForStudio(profileId: Int): Boolean =
+        removeBackgroundImageForStudio(
+            remove = { removeCustomLibraryCloudBackgroundImageForProfile(profileId) },
+            publish = { uri -> publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri) },
+        )
 
     fun setCustomSettingsBackgroundImage(
         bytes: ByteArray,
