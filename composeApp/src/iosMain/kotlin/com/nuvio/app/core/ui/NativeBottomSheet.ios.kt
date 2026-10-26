@@ -161,6 +161,11 @@ internal actual fun NuvioNativeModalBottomSheet(
     }
 }
 
+@Composable
+internal actual fun NuvioSystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    // iOS uses the native sheet's dismissal gesture instead of Android system Back.
+}
+
 internal actual fun dismissNativeNuvioBottomSheet() {
     activeNativeBottomSheet?.dismissViewControllerAnimated(
         flag = true,
