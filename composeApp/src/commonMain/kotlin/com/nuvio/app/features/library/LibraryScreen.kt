@@ -665,7 +665,9 @@ fun LibraryScreen(
             if (sourceMode == LibraryViewMode.Cloud) {
                 cloudLibraryContent(
                     uiState = cloudUiState,
-                    libraryGlassEnabled = libraryGlassEnabled,
+                    cloudFiltersGlassEnabled = cloudFiltersGlassEnabled,
+                    cloudSearchGlassEnabled = cloudSearchGlassEnabled,
+                    cloudCardsGlassEnabled = cloudCardsGlassEnabled,
                     selectedProviderId = selectedProviderId,
                     selectedType = selectedType,
                     selectedCloudItemKey = selectedCloudItemKey,
@@ -873,7 +875,9 @@ fun LibraryScreen(
 
 private fun LazyListScope.cloudLibraryContent(
     uiState: CloudLibraryUiState,
-    libraryGlassEnabled: Boolean,
+    cloudFiltersGlassEnabled: Boolean,
+    cloudSearchGlassEnabled: Boolean,
+    cloudCardsGlassEnabled: Boolean,
     selectedProviderId: String?,
     selectedType: CloudLibraryItemType?,
     selectedCloudItemKey: String?,
@@ -951,6 +955,7 @@ private fun LazyListScope.cloudLibraryContent(
                         item = selectedItem,
                         onBack = onBackToItems,
                         onFileSelected = { file -> onFileSelected(selectedItem, file) },
+                        glassEnabled = cloudCardsGlassEnabled,
                     )
                 }
             } else {
@@ -963,50 +968,34 @@ private fun LazyListScope.cloudLibraryContent(
                         onProviderSelected = onProviderSelected,
                         onTypeSelected = onTypeSelected,
                         onRefresh = onRefresh,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .then(
-                                if (libraryGlassEnabled) {
-                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(20.dp))
-                                    Modifier.liquidGlassForSurface(
-                                        surface = LiquidGlassSurface.LIBRARY,
-                                        shape = shape,
-                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
-                                        fallback = MaterialTheme.colorScheme.surface,
-                                        blurRadius = 14.dp,
-                                        refractionHeight = 8.dp,
-                                        refractionAmount = 12.dp,
-                                    )
-                                } else {
-                                    Modifier
-                                },
-                            ),
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
 
                 item(key = "cloud-library-search") {
                     val defaultSearchShape = RoundedCornerShape(12.dp)
-                    val searchShape = if (libraryGlassEnabled) {
-                        liquidGlassShape(LiquidGlassSurface.LIBRARY, defaultSearchShape)
-                    } else {
-                        defaultSearchShape
-                    }
-                    val glassRimCanRender = libraryGlassEnabled && isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+                    val searchShape = liquidGlassShape(
+                        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                        defaultSearchShape,
+                    )
+                    val glassRimCanRender = cloudSearchGlassEnabled &&
+                        isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
                     CloudLibrarySearchField(
                         query = searchQuery,
                         onQueryChange = onSearchQueryChange,
-                        transparentContainer = libraryGlassEnabled,
+                        transparentContainer = cloudSearchGlassEnabled,
                         shape = searchShape,
                         showOutline = shouldDrawNuvioInputFieldOutline(
-                            glassSurfaceEnabled = libraryGlassEnabled,
+                            glassSurfaceEnabled = cloudSearchGlassEnabled,
                             glassRimCanRender = glassRimCanRender,
                         ),
+                        onGlassSurfaceInteracted = {},
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .then(
-                                if (libraryGlassEnabled) {
+                                if (cloudSearchGlassEnabled) {
                                     Modifier.liquidGlassForSurface(
-                                        surface = LiquidGlassSurface.LIBRARY,
+                                        surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
                                         shape = searchShape,
                                         tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
                                         fallback = MaterialTheme.nuvio.colors.surfaceCard,
@@ -1071,6 +1060,7 @@ private fun LazyListScope.cloudLibraryContent(
                         CloudLibraryRow(
                             item = item,
                             onClick = { onItemSelected(item) },
+                            glassEnabled = cloudCardsGlassEnabled,
                         )
                     }
                 }
