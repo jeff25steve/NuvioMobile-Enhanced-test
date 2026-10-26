@@ -399,16 +399,16 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     key = { group -> "liquid-glass-layout-${group.name}" },
                 ) { group ->
                     val titleRes = when (group) {
-                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
-                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
-                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
-                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library
+                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
+                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
+                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
+                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
                     }
                     val descriptionRes = when (group) {
-                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page_description
-                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker_description
-                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header_description
-                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library_description
+                        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page_description
+                        LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker_description
+                        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header_description
+                        LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library_description
                     }
                     val expanded = expandedGroupName == group.name
                     LiquidGlassSurfaceGroupListItem(
@@ -433,10 +433,10 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     AnimatedVisibility(visible = expandedGroup != null) {
                         expandedGroup?.let { group ->
                             val groupTitleRes = when (group) {
-                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_preview_detail_page
-                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_preview_stream_picker
-                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_preview_category_header
-                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_preview_library
+                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
+                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
+                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
+                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
                             }
                             val groupTitle = stringResource(groupTitleRes)
                             Column(
