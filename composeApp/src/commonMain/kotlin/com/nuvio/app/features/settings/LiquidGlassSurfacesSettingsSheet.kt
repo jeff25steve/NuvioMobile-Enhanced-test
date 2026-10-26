@@ -415,6 +415,11 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
+                        showLibraryCloudBackgroundControls = selectedSurface in setOf(
+                            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        ),
                         linkGlassEffects = linkGlassEffects,
                         onLinkGlassEffectsChanged = { link ->
                             if (link) {
@@ -462,6 +467,11 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
+                        showLibraryCloudBackgroundControls = selectedSurface in setOf(
+                            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                        ),
                         onChanged = { onSurfaceChanged(selectedSurface, it) },
                     )
                 }
@@ -1474,6 +1484,7 @@ private fun LiquidGlassSurfaceEditorControls(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
     isTablet: Boolean,
+    showLibraryCloudBackgroundControls: Boolean = false,
     linkGlassEffects: Boolean = false,
     onLinkGlassEffectsChanged: ((Boolean) -> Unit)? = null,
     onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
@@ -1482,8 +1493,62 @@ private fun LiquidGlassSurfaceEditorControls(
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
+    val cloudBackgroundImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    var cloudBackgroundImageError by rememberSaveable(surface.name) { mutableStateOf(false) }
+    val cloudBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
+        onImageSelected = { bytes ->
+            cloudBackgroundImageError = !ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes)
+        },
+        onError = { cloudBackgroundImageError = true },
+    )
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (showLibraryCloudBackgroundControls) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = stringResource(Res.string.settings_liquid_glass_library_background_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(Res.string.settings_liquid_glass_library_background_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { cloudBackgroundImagePicker.launch() }) {
+                        Text(stringResource(Res.string.settings_liquid_glass_library_background_choose))
+                    }
+                    if (cloudBackgroundImageUri != null) {
+                        TextButton(
+                            onClick = {
+                                cloudBackgroundImageError = !ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage()
+                            },
+                        ) {
+                            Text(stringResource(Res.string.settings_liquid_glass_library_background_remove))
+                        }
+                    }
+                }
+                if (cloudBackgroundImageError) {
+                    Text(
+                        text = stringResource(Res.string.settings_liquid_glass_library_background_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            NuvioBottomSheetDivider()
+        }
         onLinkGlassEffectsChanged?.let { onLinkChanged ->
             SettingsSwitchRow(
                 title = stringResource(Res.string.settings_liquid_glass_link_effects),
