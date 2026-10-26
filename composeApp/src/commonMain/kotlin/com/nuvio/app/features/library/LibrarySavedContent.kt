@@ -48,6 +48,8 @@ internal fun LibrarySavedControls(
     typeGlassSurface: LiquidGlassSurface? = null,
     sortGlassSurface: LiquidGlassSurface? = null,
     previewGlass: Boolean = false,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
 ) {
     val sortOptions = availableLibrarySortOptions(sourceMode)
     val allTypesLabel = stringResource(Res.string.library_filter_all_types)
@@ -91,6 +93,8 @@ internal fun LibrarySavedControls(
                 onSelected = { option -> onTypeSelected(option.key.ifBlank { null }) },
                 glassSurface = typeGlassSurface,
                 previewGlass = previewGlass,
+                selectedPreviewSurface = selectedPreviewSurface,
+                onGlassSurfaceInteracted = { onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) },
             )
         }
 
@@ -109,6 +113,8 @@ internal fun LibrarySavedControls(
             },
             glassSurface = sortGlassSurface,
             previewGlass = previewGlass,
+            selectedPreviewSurface = selectedPreviewSurface,
+            onGlassSurfaceInteracted = { onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER) },
         )
     }
 }
