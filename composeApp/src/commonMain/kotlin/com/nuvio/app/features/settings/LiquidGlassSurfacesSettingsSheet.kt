@@ -1240,7 +1240,7 @@ private fun LiquidGlassDetailPagePreview(
                     progress = 1f,
                     onBack = {},
                     onToggleSaved = {},
-                    modifier = Modifier.fillMaxWidth().padding(GlassPreviewSelectionGutter),
+                    modifier = Modifier.fillMaxWidth(),
                     glassBackdrop = backdrop,
                     previewGlass = true,
                 )
@@ -2007,7 +2007,7 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> 120.dp
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
-            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 184.dp
+            LiquidGlassSurface.DETAIL_TRAILER_MENU -> 216.dp
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
             LiquidGlassSurface.DETAIL_EPISODE_SORT -> 188.dp
