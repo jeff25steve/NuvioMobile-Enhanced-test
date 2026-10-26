@@ -2802,7 +2802,6 @@ private fun LiquidGlassLibraryPreview(
             }
         }
         }
-    }
 }
 
 @Composable
