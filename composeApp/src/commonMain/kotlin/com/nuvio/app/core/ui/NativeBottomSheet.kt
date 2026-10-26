@@ -21,3 +21,6 @@ internal expect fun NuvioNativeModalBottomSheet(
 internal expect val usesNativeNuvioBottomSheet: Boolean
 
 internal expect fun dismissNativeNuvioBottomSheet()
+
+@Composable
+internal expect fun NuvioSystemBackHandler(enabled: Boolean, onBack: () -> Unit)
