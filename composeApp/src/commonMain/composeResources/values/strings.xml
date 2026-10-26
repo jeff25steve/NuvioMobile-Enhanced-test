@@ -2967,7 +2967,6 @@
     <string name="settings_liquid_glass_library_background_error">Could not save that image. Please choose another image and try again.</string>
     <string name="settings_liquid_glass_link_effects">Edit together</string>
     <string name="settings_liquid_glass_link_effects_description">Copies the selected element&apos;s material and optical effects to all elements in this preview and keeps them in sync. Each keeps its own shape; supported icon colours stay separate.</string>
-    <string name="settings_liquid_glass_tap_to_edit_component">Select a highlighted element to edit its glass settings.</string>
     <string name="settings_liquid_glass_expand_controls">Show controls</string>
     <string name="settings_liquid_glass_collapse_controls">Hide controls</string>
     <string name="settings_liquid_glass_preview_layout">Open preview</string>
