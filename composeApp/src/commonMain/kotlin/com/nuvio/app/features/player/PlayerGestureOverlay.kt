@@ -52,6 +52,10 @@ import nuvio.composeapp.generated.resources.compose_player_brightness
 import nuvio.composeapp.generated.resources.compose_player_volume
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.ZoomOutMap
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.size
 
 @Composable
 internal fun PlayerGestureOverlay(
@@ -170,6 +174,14 @@ private fun PlayerGestureFeedback(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (feedback.icon == GestureFeedbackIcon.VideoZoom) {
+                            Icon(
+                                imageVector = Icons.Rounded.ZoomOutMap,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                         Text(
                             text = message,
                             color = Color.White,
