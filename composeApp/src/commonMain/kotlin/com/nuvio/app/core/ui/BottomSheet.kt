@@ -20,6 +20,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -144,6 +145,7 @@ fun NuvioModalBottomSheet(
     contentColor: Color = MaterialTheme.nuvio.colors.textPrimary,
     showDragHandle: Boolean = true,
     fullHeight: Boolean = false,
+    dismissOnBackPress: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (usesNativeNuvioBottomSheet) {
@@ -182,6 +184,7 @@ fun NuvioModalBottomSheet(
             contentColor = contentColor,
             scrimColor = tokens.colors.overlayScrim,
             dragHandle = null,
+            properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissOnBackPress),
         ) {
             CompositionLocalProvider(LocalBottomInsetsConsumed provides true) {
                 Column(
