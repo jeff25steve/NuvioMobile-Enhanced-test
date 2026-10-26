@@ -1746,6 +1746,8 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
             LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
             LiquidGlassSurface.DETAIL_EPISODE_SORT -> 188.dp
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> 260.dp
             LiquidGlassSurface.DETAIL_CHIPS -> 104.dp
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
@@ -1804,6 +1806,14 @@ private fun LiquidGlassSurfacePreview(
                             LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
                             LiquidGlassSurface.DETAIL_EPISODE_SORT -> LiquidGlassDetailControlPreview(
                                 surface = surface,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+                            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassCatalogHeaderPreview(
+                                settings = settings,
+                                selectedSurface = surface,
+                                onSelectSurface = null,
                                 modifier = Modifier.fillMaxSize(),
                             )
 
@@ -1900,6 +1910,124 @@ private fun LiquidGlassSurfacePreview(
     }
 }
 
+
+@Composable
+private fun LiquidGlassCatalogHeaderPreview(
+    settings: LiquidGlassSurfacesSettings,
+    selectedSurface: LiquidGlassSurface,
+    onSelectSurface: ((LiquidGlassSurface) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val posterColors = remember {
+        listOf(
+            Color(0xFF775F5A),
+            Color(0xFF425B6D),
+            Color(0xFF7D6B3D),
+            Color(0xFF66506F),
+            Color(0xFF3D6557),
+            Color(0xFF9B594F),
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .clip(RoundedCornerShape(14.dp)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioBackdropSource(backdrop),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                Color(0xFF16191F),
+                                Color(0xFF4B3940),
+                                Color(0xFF19242B),
+                                Color(0xFF101318),
+                            ),
+                        ),
+                    ),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 88.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                repeat(3) { rowIndex ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        repeat(3) { columnIndex ->
+                            val posterIndex = (rowIndex * 3 + columnIndex) % posterColors.size
+                            val posterColor = posterColors[posterIndex]
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(0.68f)
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                posterColor.copy(alpha = 0.95f),
+                                                posterColor.copy(alpha = 0.55f),
+                                                Color(0xFF17191E),
+                                            ),
+                                        ),
+                                    ),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = listOf("DRAMA", "ORIGINAL", "SERIES")[columnIndex],
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 7.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = listOf("North Shore", "After Hours", "The Return")[posterIndex % 3],
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides backdrop,
+            LocalLiquidGlassPreviewSettings provides settings,
+        ) {
+            CatalogHeader(
+                title = "HBO Max - Series",
+                subtitle = "Netflix",
+                onBack = {},
+                modifier = Modifier.fillMaxWidth(),
+                previewMode = true,
+                onPreviewSurfaceSelected = onSelectSurface,
+                selectedPreviewSurface = selectedSurface,
+            )
+        }
+    }
+}
 
 @Composable
 private fun LiquidGlassDetailControlPreview(
@@ -3019,6 +3147,8 @@ private fun surfacePreviewRecipe(
         LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.DETAIL_EPISODE_SORT -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.18f)
+        LiquidGlassSurface.CATEGORY_HEADER_TITLE -> LiquidGlassSurfaceRecipe(18f, 14f, 8f, 12f, 0.20f)
+        LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.20f)
         LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f)
