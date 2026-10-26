@@ -144,6 +144,7 @@ internal fun SupporterMembershipCard(
             )
         }
     }
+}
 
 @Composable
 private fun LoadingMembershipContent(isTablet: Boolean) {
