@@ -410,66 +410,64 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                             LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header_description
                             LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library_description
                         }
+                        val title = stringResource(titleRes)
+                        val description = stringResource(descriptionRes)
                         val expanded = expandedGroupName == group.name
-                        LiquidGlassSurfaceGroupListItem(
-                            title = stringResource(titleRes),
-                            description = stringResource(descriptionRes),
-                            isTablet = isTablet,
-                            expanded = expanded,
-                            onToggleExpanded = {
-                                expandedGroupName = if (expanded) null else group.name
-                            },
-                            onOpenPreview = {
-                                captureRootListPosition()
-                                selectedPreviewLayoutName = group.name
-                                selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
-                                linkGlassEffects = false
-                            },
-                        )
-                    }
 
-                    item(key = "liquid-glass-controls-${group.name}") {
-                        AnimatedVisibility(visible = expandedGroupName == group.name) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        Res.string.settings_liquid_glass_controls_in,
-                                        stringResource(
-                                            when (group) {
-                                                LiquidGlassSurfaceGroup.DETAIL_PAGE -> Res.string.settings_liquid_glass_group_detail_page
-                                                LiquidGlassSurfaceGroup.STREAM_PICKER -> Res.string.settings_liquid_glass_group_stream_picker
-                                                LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Res.string.settings_liquid_glass_group_category_header
-                                                LiquidGlassSurfaceGroup.LIBRARY -> Res.string.settings_liquid_glass_group_library
-                                            },
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            LiquidGlassSurfaceGroupListItem(
+                                title = title,
+                                description = description,
+                                isTablet = isTablet,
+                                expanded = expanded,
+                                onToggleExpanded = {
+                                    expandedGroupName = if (expanded) null else group.name
+                                },
+                                onOpenPreview = {
+                                    captureRootListPosition()
+                                    selectedPreviewLayoutName = group.name
+                                    selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
+                                    linkGlassEffects = false
+                                },
+                            )
+
+                            AnimatedVisibility(visible = expanded) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            Res.string.settings_liquid_glass_controls_in,
+                                            title,
                                         ),
-                                    ),
-                                    modifier = Modifier.padding(
-                                        horizontal = if (isTablet) 24.dp else 16.dp,
-                                        vertical = 4.dp,
-                                    ),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                group.surfaces.filter { it in customizableSurfaces }.forEach { surface ->
-                                    LiquidGlassSurfaceListItem(
-                                        surface = surface,
-                                        overrides = settings.forSurface(surface),
-                                        isTablet = isTablet,
-                                        onOpen = {
-                                            captureRootListPosition()
-                                            selectedPreviewLayoutName = null
-                                            selectedSurfaceName = surface.name
-                                        },
-                                        onToggle = { enabled ->
-                                            onSurfaceChanged(
-                                                surface,
-                                                settings.forSurface(surface).copy(enabled = enabled),
-                                            )
-                                        },
+                                        modifier = Modifier.padding(
+                                            horizontal = if (isTablet) 24.dp else 16.dp,
+                                            vertical = 4.dp,
+                                        ),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                     )
+                                    group.surfaces.filter { it in customizableSurfaces }.forEach { surface ->
+                                        LiquidGlassSurfaceListItem(
+                                            surface = surface,
+                                            overrides = settings.forSurface(surface),
+                                            isTablet = isTablet,
+                                            onOpen = {
+                                                captureRootListPosition()
+                                                selectedPreviewLayoutName = null
+                                                selectedSurfaceName = surface.name
+                                            },
+                                            onToggle = { enabled ->
+                                                onSurfaceChanged(
+                                                    surface,
+                                                    settings.forSurface(surface).copy(enabled = enabled),
+                                                )
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
