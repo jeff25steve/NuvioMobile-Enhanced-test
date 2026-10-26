@@ -1989,6 +1989,8 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> 332.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
+            LiquidGlassSurface.PROFILE_WATCH_TIME,
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> 188.dp
             else -> 88.dp
         }
 

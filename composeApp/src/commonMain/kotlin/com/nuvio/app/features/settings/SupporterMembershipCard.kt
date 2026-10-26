@@ -65,26 +65,86 @@ private val TertiaryTextColor = Color.White.copy(alpha = 0.52f)
 
 @Composable
 internal fun SupporterMembershipCard(
-    state: MembershipOverviewState, isTablet: Boolean, showAction: Boolean, actionEnabled: Boolean, onAction: () -> Unit, onRefresh: () -> Unit,
+    state: MembershipOverviewState,
+    isTablet: Boolean,
+    showAction: Boolean,
+    actionEnabled: Boolean,
+    onAction: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
     val surface = LiquidGlassSurface.SUPPORTER_MEMBERSHIP
-    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(surface = surface, platformSupported = isLiquidGlassSupported())
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = surface,
+        platformSupported = isLiquidGlassSupported(),
+    )
     val shape = liquidGlassShape(surface, RoundedCornerShape(16.dp))
-    Column(Modifier.fillMaxWidth().then(
-        if (glassEnabled) Modifier.liquidGlassForSurface(surface=surface,shape=shape,tint=Color.White.copy(alpha=0.14f),fallback=CardColor,blurRadius=14.dp,refractionHeight=8.dp,refractionAmount=12.dp)
-        else Modifier.clip(shape).background(CardColor)
-    )) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (glassEnabled) {
+                    Modifier.liquidGlassForSurface(
+                        surface = surface,
+                        shape = shape,
+                        tint = Color.White.copy(alpha = 0.14f),
+                        fallback = CardColor,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                } else {
+                    Modifier.clip(shape).background(CardColor)
+                },
+            ),
+    ) {
         when {
-            state.isLoading -> LoadingMembershipContent(isTablet)
-            state.overview == null -> MembershipLoadErrorContent(isTablet,state.isRefreshing,onRefresh)
-            state.overview.subscriptionActive -> ActiveSubscriptionContent(state.overview,isTablet,state.isRefreshing,state.errorMessage!=null,showAction,actionEnabled,onAction,onRefresh)
-            state.overview.providerConnected && !state.overview.hasActiveGrant -> ConnectedMembershipContent(isTablet,state.isRefreshing,state.errorMessage!=null,showAction,actionEnabled,onAction,onRefresh)
-            state.overview.hasActiveGrant || state.overview.active -> GrantMembershipContent(state.overview,isTablet,state.isRefreshing,state.errorMessage!=null,showAction,actionEnabled,onAction,onRefresh)
-            else -> NonMemberContent(isTablet,state.isRefreshing,state.errorMessage!=null,showAction,actionEnabled,onAction,onRefresh)
+            state.isLoading -> LoadingMembershipContent(isTablet = isTablet)
+            state.overview == null -> MembershipLoadErrorContent(
+                isTablet = isTablet,
+                isRefreshing = state.isRefreshing,
+                onRefresh = onRefresh,
+            )
+            state.overview.subscriptionActive -> ActiveSubscriptionContent(
+                overview = state.overview,
+                isTablet = isTablet,
+                isRefreshing = state.isRefreshing,
+                hasError = state.errorMessage != null,
+                showAction = showAction,
+                actionEnabled = actionEnabled,
+                onAction = onAction,
+                onRefresh = onRefresh,
+            )
+            state.overview.providerConnected && !state.overview.hasActiveGrant -> ConnectedMembershipContent(
+                isTablet = isTablet,
+                isRefreshing = state.isRefreshing,
+                hasError = state.errorMessage != null,
+                showAction = showAction,
+                actionEnabled = actionEnabled,
+                onAction = onAction,
+                onRefresh = onRefresh,
+            )
+            state.overview.hasActiveGrant || state.overview.active -> GrantMembershipContent(
+                overview = state.overview,
+                isTablet = isTablet,
+                isRefreshing = state.isRefreshing,
+                hasError = state.errorMessage != null,
+                showAction = showAction,
+                actionEnabled = actionEnabled,
+                onAction = onAction,
+                onRefresh = onRefresh,
+            )
+            else -> NonMemberContent(
+                isTablet = isTablet,
+                isRefreshing = state.isRefreshing,
+                hasError = state.errorMessage != null,
+                showAction = showAction,
+                actionEnabled = actionEnabled,
+                onAction = onAction,
+                onRefresh = onRefresh,
+            )
         }
     }
-}
-@Composable
+}@Composable
 private fun LoadingMembershipContent(isTablet: Boolean) {
     Box(
         modifier = Modifier

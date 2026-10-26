@@ -962,24 +962,64 @@ private fun ProfileMetricPill(
 private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
     val tokens = MaterialTheme.nuvio
     val surface = LiquidGlassSurface.PROFILE_WATCH_TIME
-    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(surface = surface, platformSupported = isLiquidGlassSupported())
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = surface,
+        platformSupported = isLiquidGlassSupported(),
+    )
     val shape = liquidGlassShape(surface, tokens.shapes.card)
     Surface(
-        modifier=Modifier.fillMaxWidth().then(
-            if(glassEnabled) Modifier.liquidGlassForSurface(surface=surface,shape=shape,tint=tokens.colors.surface.copy(alpha=0.18f),fallback=tokens.colors.surface,blurRadius=14.dp,refractionHeight=8.dp,refractionAmount=12.dp)
-            else Modifier
-        ),
-        color=if(glassEnabled) Color.Transparent else tokens.colors.surface,
-        shape=shape,border=BorderStroke(1.dp,tokens.colors.borderSubtle),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (glassEnabled) {
+                    Modifier.liquidGlassForSurface(
+                        surface = surface,
+                        shape = shape,
+                        tint = tokens.colors.surface.copy(alpha = 0.18f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+        color = if (glassEnabled) Color.Transparent else tokens.colors.surface,
+        shape = shape,
+        border = BorderStroke(1.dp, tokens.colors.borderSubtle),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)) {
-            Text(text=stringResource(Res.string.profile_insights_stat_time),style=MaterialTheme.typography.titleMedium,color=tokens.colors.textPrimary,fontWeight=FontWeight.Medium,textAlign=TextAlign.Center)
-            Text(text=profileInsightDurationLabel(stats.trackedDurationMs),style=MaterialTheme.typography.displayMedium,color=tokens.colors.textPrimary,fontWeight=FontWeight.SemiBold,textAlign=TextAlign.Center,maxLines=1)
-            Text(text=stringResource(Res.string.profile_insights_stat_time_caption),style=MaterialTheme.typography.bodySmall,color=tokens.colors.textMuted,textAlign=TextAlign.Center)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.profile_insights_stat_time),
+                style = MaterialTheme.typography.titleMedium,
+                color = tokens.colors.textPrimary,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = profileInsightDurationLabel(stats.trackedDurationMs),
+                style = MaterialTheme.typography.displayMedium,
+                color = tokens.colors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+            Text(
+                text = stringResource(Res.string.profile_insights_stat_time_caption),
+                style = MaterialTheme.typography.bodySmall,
+                color = tokens.colors.textMuted,
+                textAlign = TextAlign.Center,
+            )
         }
     }
-}
-@OptIn(ExperimentalMaterial3Api::class)
+}@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileInsightCollectionSheet(
     collection: ProfileInsightCollection,
