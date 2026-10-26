@@ -512,7 +512,7 @@ fun LibraryScreen(
     val libraryGlassTextEnabled = anyLibraryGlassEnabled && isLiquidGlassSupported()
     val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
         uiState.isLoaded && uiState.sections.isNotEmpty()
-    val savedControlsInset = 62.dp
+    val savedControlsInset = 72.dp
     Box(modifier = modifier.fillMaxSize()) {
         if (anyLibraryGlassEnabled || cloudBackgroundActive) {
             Box(
