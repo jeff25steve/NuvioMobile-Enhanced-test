@@ -418,7 +418,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     }
                     val expanded = expandedGroupName == group.name
                     LiquidGlassSurfaceGroupListItem(
-                        group = group,
                         title = stringResource(titleRes),
                         description = stringResource(descriptionRes),
                         isTablet = isTablet,
@@ -660,7 +659,6 @@ private fun LiquidGlassSurfaceListItem(
 
 @Composable
 private fun LiquidGlassSurfaceGroupListItem(
-    group: LiquidGlassSurfaceGroup,
     title: String,
     description: String,
     isTablet: Boolean,
