@@ -335,7 +335,13 @@ internal fun CatalogHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(if (anyGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.background)
+            .background(
+                if (anyGlassEnabled) {
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.48f)
+                } else {
+                    MaterialTheme.colorScheme.background
+                },
+            )
             .padding(horizontal = 16.dp)
             .padding(top = 52.dp, bottom = 12.dp),
     ) {
