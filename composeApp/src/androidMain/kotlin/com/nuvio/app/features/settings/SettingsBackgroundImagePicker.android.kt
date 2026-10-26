@@ -14,7 +14,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -131,9 +130,7 @@ private fun readExifOrientation(context: Context, uri: Uri): Int =
 private fun applyExifOrientation(source: Bitmap, orientation: Int): Bitmap {
     val matrix = Matrix()
     when (orientation) {
-        ExifInterface.ORIENTATION_NORMAL,
-        ExifInterface.ORIENTATION_UNDEFINED,
-        -> return source
+        ExifInterface.ORIENTATION_NORMAL, ExifInterface.ORIENTATION_UNDEFINED -> return source
         ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
         ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
         ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
