@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.nuvio.app.core.ui.NuvioBackButton
 import androidx.compose.material3.MaterialTheme
@@ -347,20 +346,24 @@ internal fun CatalogHeader(
                 .clip(backShape)
                 .then(backSelectionBorder),
         ) {
-            NuvioBackButton(
-                onClick = {
-                    if (previewMode && onPreviewSurfaceSelected != null) {
-                        onPreviewSurfaceSelected(backSurface)
-                    } else {
-                        onBack()
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                shape = backShape,
-                containerColor = if (backGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
-                contentColor = liquidGlassIconTint(backSurface, MaterialTheme.colorScheme.onSurface),
-                iconSize = 24.dp,
-            )
+            CompositionLocalProvider(
+                LocalUseNativeNavigation provides (if (previewMode) false else LocalUseNativeNavigation.current),
+            ) {
+                NuvioBackButton(
+                    onClick = {
+                        if (previewMode && onPreviewSurfaceSelected != null) {
+                            onPreviewSurfaceSelected(backSurface)
+                        } else {
+                            onBack()
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    shape = backShape,
+                    containerColor = if (backGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
+                    contentColor = liquidGlassIconTint(backSurface, MaterialTheme.colorScheme.onSurface),
+                    iconSize = 24.dp,
+                )
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Box(
@@ -376,7 +379,10 @@ internal fun CatalogHeader(
                         Modifier
                     },
                 )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(
+                    horizontal = if (titleGlassEnabled || (previewMode && selectedPreviewSurface == titleSurface)) 12.dp else 0.dp,
+                    vertical = if (titleGlassEnabled || (previewMode && selectedPreviewSurface == titleSurface)) 8.dp else 0.dp,
+                ),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
