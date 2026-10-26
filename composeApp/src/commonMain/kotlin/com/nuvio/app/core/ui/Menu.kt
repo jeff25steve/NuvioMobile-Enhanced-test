@@ -75,7 +75,7 @@ fun Menu(
             surface = glassSurface,
             shape = shape,
             tint = tokens.colors.surfacePopover.copy(alpha = 0.24f),
-            fallback = tokens.colors.surfacePopover,
+            fallback = tokens.colors.surfacePopover.copy(alpha = 0.72f),
             blurRadius = 18.dp,
             refractionHeight = 10.dp,
             refractionAmount = 16.dp,
