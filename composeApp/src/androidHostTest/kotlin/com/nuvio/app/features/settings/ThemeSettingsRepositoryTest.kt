@@ -349,17 +349,14 @@ class ThemeSettingsRepositoryTest {
         val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02, 0xFF.toByte(), 0xD9.toByte())
 
         try {
-            val storedSettingsUri =
-                ThemeSettingsRepository.storeCustomSettingsBackgroundImageForProfile(imageBytes, otherProfileId)
-            val storedCloudUri =
-                ThemeSettingsRepository.storeCustomLibraryCloudBackgroundImageForProfile(imageBytes, otherProfileId)
-            assertTrue(storedSettingsUri?.startsWith("file:") == true)
-            assertTrue(storedCloudUri?.startsWith("file:") == true)
-            assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
-            assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
-
-            ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(otherProfileId, storedSettingsUri)
-            ThemeSettingsRepository.publishCustomLibraryCloudBackgroundImageForProfile(otherProfileId, storedCloudUri)
+            val storedSettings = kotlinx.coroutines.runBlocking {
+                ThemeSettingsRepository.saveCustomSettingsBackgroundImageForStudio(imageBytes, otherProfileId)
+            }
+            val storedCloud = kotlinx.coroutines.runBlocking {
+                ThemeSettingsRepository.saveCustomLibraryCloudBackgroundImageForStudio(imageBytes, otherProfileId)
+            }
+            assertTrue(storedSettings)
+            assertTrue(storedCloud)
             assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
             assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
         } finally {

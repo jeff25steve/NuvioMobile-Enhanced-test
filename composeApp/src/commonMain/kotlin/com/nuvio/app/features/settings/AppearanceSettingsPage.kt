@@ -47,10 +47,7 @@ import com.nuvio.app.core.ui.NuvioStatusModal
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.labelRes
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.cd_selected
 import nuvio.composeapp.generated.resources.collections_header
@@ -186,18 +183,12 @@ internal fun LazyListScope.appearanceSettingsContent(
                 settingsBackgroundImageError = false
                 isSavingSettingsBackground = true
                 settingsBackgroundScope.launch {
-                    val savedUri = try {
-                        withContext(Dispatchers.IO) {
-                            ThemeSettingsRepository.storeCustomSettingsBackgroundImageForProfile(bytes, targetProfileId)
-                        }
+                    val saved = try {
+                        ThemeSettingsRepository.saveCustomSettingsBackgroundImageForStudio(bytes, targetProfileId)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        null
-                    }
-                    val saved = savedUri != null
-                    if (savedUri != null) {
-                        ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(targetProfileId, savedUri)
+                        false
                     }
                     isSavingSettingsBackground = false
                     if (ProfileRepository.activeProfileId == targetProfileId) {
@@ -300,16 +291,11 @@ internal fun LazyListScope.appearanceSettingsContent(
                                 isSavingSettingsBackground = true
                                 settingsBackgroundScope.launch {
                                     val cleared = try {
-                                        withContext(Dispatchers.IO) {
-                                            ThemeSettingsRepository.removeCustomSettingsBackgroundImageForProfile(targetProfileId)
-                                        }
+                                        ThemeSettingsRepository.clearCustomSettingsBackgroundImageForStudio(targetProfileId)
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
                                         false
-                                    }
-                                    if (cleared) {
-                                        ThemeSettingsRepository.publishCustomSettingsBackgroundImageForProfile(targetProfileId, null)
                                     }
                                     isSavingSettingsBackground = false
                                     if (ProfileRepository.activeProfileId == targetProfileId) {

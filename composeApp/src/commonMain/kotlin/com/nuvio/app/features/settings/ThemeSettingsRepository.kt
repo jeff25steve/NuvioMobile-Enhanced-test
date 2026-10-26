@@ -23,9 +23,12 @@ import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -300,6 +303,95 @@ object ThemeSettingsRepository {
         if (imageUri != null && !isLocalBackgroundImageUri(imageUri)) return
         _customSettingsBackgroundImageUri.value = imageUri
         _customSettingsBackgroundImageRevision.value += 1L
+    }
+
+    /**
+     * Studio persists selected images away from the UI thread. When a non-suspending storage
+     * operation has completed, its state publication must survive cancellation while withContext
+     * dispatches back from I/O; otherwise the file could be saved while the preview remains stale.
+     */
+    internal suspend fun saveCustomSettingsBackgroundImageForStudio(
+        bytes: ByteArray,
+        profileId: Int,
+    ): Boolean {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
+        var savedUri: String? = null
+        try {
+            withContext(Dispatchers.IO) {
+                savedUri = storeCustomSettingsBackgroundImageForProfile(bytes, profileId)
+            }
+        } catch (cancelled: CancellationException) {
+            savedUri?.let { uri ->
+                withContext(NonCancellable) {
+                    publishCustomSettingsBackgroundImageForProfile(profileId, uri)
+                }
+            }
+            throw cancelled
+        }
+        val uri = savedUri ?: return false
+        publishCustomSettingsBackgroundImageForProfile(profileId, uri)
+        return true
+    }
+
+    internal suspend fun clearCustomSettingsBackgroundImageForStudio(profileId: Int): Boolean {
+        var removed = false
+        try {
+            withContext(Dispatchers.IO) {
+                removed = removeCustomSettingsBackgroundImageForProfile(profileId)
+            }
+        } catch (cancelled: CancellationException) {
+            if (removed) {
+                withContext(NonCancellable) {
+                    publishCustomSettingsBackgroundImageForProfile(profileId, null)
+                }
+            }
+            throw cancelled
+        }
+        if (!removed) return false
+        publishCustomSettingsBackgroundImageForProfile(profileId, null)
+        return true
+    }
+
+    internal suspend fun saveCustomLibraryCloudBackgroundImageForStudio(
+        bytes: ByteArray,
+        profileId: Int,
+    ): Boolean {
+        if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
+        var savedUri: String? = null
+        try {
+            withContext(Dispatchers.IO) {
+                savedUri = storeCustomLibraryCloudBackgroundImageForProfile(bytes, profileId)
+            }
+        } catch (cancelled: CancellationException) {
+            savedUri?.let { uri ->
+                withContext(NonCancellable) {
+                    publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri)
+                }
+            }
+            throw cancelled
+        }
+        val uri = savedUri ?: return false
+        publishCustomLibraryCloudBackgroundImageForProfile(profileId, uri)
+        return true
+    }
+
+    internal suspend fun clearCustomLibraryCloudBackgroundImageForStudio(profileId: Int): Boolean {
+        var removed = false
+        try {
+            withContext(Dispatchers.IO) {
+                removed = removeCustomLibraryCloudBackgroundImageForProfile(profileId)
+            }
+        } catch (cancelled: CancellationException) {
+            if (removed) {
+                withContext(NonCancellable) {
+                    publishCustomLibraryCloudBackgroundImageForProfile(profileId, null)
+                }
+            }
+            throw cancelled
+        }
+        if (!removed) return false
+        publishCustomLibraryCloudBackgroundImageForProfile(profileId, null)
+        return true
     }
 
     fun setCustomSettingsBackgroundImage(

@@ -154,10 +154,7 @@ import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.settings.withSettingsGlassTextContrast
 import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
@@ -1558,7 +1555,8 @@ private fun LiquidGlassSurfaceEditorControls(
                 ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
             }.collectAsStateWithLifecycle()
             var cloudBackgroundImageError by rememberSaveable(surface.name) { mutableStateOf(false) }
-            var isSavingCloudBackground by rememberSaveable(surface.name) { mutableStateOf(false) }
+            // Saving is transient; don't restore a stale disabled state after process recreation.
+            var isSavingCloudBackground by remember(surface.name) { mutableStateOf(false) }
             val cloudBackgroundScope = rememberCoroutineScope()
             val cloudBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
                 onImageSelected = { bytes ->
@@ -1567,9 +1565,7 @@ private fun LiquidGlassSurfaceEditorControls(
                     isSavingCloudBackground = true
                     cloudBackgroundScope.launch {
                         val saved = try {
-                            withContext(Dispatchers.IO) {
-                                ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes, targetProfileId)
-                            }
+                            ThemeSettingsRepository.saveCustomLibraryCloudBackgroundImageForStudio(bytes, targetProfileId)
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (_: Exception) {
@@ -1617,9 +1613,7 @@ private fun LiquidGlassSurfaceEditorControls(
                                 isSavingCloudBackground = true
                                 cloudBackgroundScope.launch {
                                     val cleared = try {
-                                        withContext(Dispatchers.IO) {
-                                            ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage(targetProfileId)
-                                        }
+                                        ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImageForStudio(targetProfileId)
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
