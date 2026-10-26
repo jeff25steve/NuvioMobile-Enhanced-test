@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.isIos
 import com.nuvio.app.core.ui.AppTheme
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioStatusModal
@@ -166,7 +167,7 @@ internal fun LazyListScope.appearanceSettingsContent(
             customSettingsBackgroundImageRevision,
             settingsBackgroundImageContext,
         ) {
-            customSettingsBackgroundImageUri?.let { imageUri ->
+            customSettingsBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
                 ImageRequest.Builder(settingsBackgroundImageContext)
                     .data(imageUri)
                     .memoryCacheKey("$imageUri#settings-background-$customSettingsBackgroundImageRevision")
@@ -180,14 +181,21 @@ internal fun LazyListScope.appearanceSettingsContent(
         val settingsBackgroundScope = rememberCoroutineScope()
         val settingsBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
             onImageSelected = { bytes ->
+                val targetProfileId = ProfileRepository.activeProfileId
                 settingsBackgroundImageError = false
                 isSavingSettingsBackground = true
                 settingsBackgroundScope.launch {
-                    val saved = withContext(Dispatchers.IO) {
-                        ThemeSettingsRepository.setCustomSettingsBackgroundImage(bytes)
+                    val saved = try {
+                        withContext(Dispatchers.IO) {
+                            ThemeSettingsRepository.setCustomSettingsBackgroundImage(bytes, targetProfileId)
+                        }
+                    } catch (_: Exception) {
+                        false
                     }
                     isSavingSettingsBackground = false
-                    if (!saved) settingsBackgroundImageError = true
+                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                        settingsBackgroundImageError = !saved
+                    }
                 }
             },
             onError = { settingsBackgroundImageError = true },
@@ -280,8 +288,22 @@ internal fun LazyListScope.appearanceSettingsContent(
                         TextButton(
                             enabled = customSettingsBackgroundImageUri != null && !isSavingSettingsBackground,
                             onClick = {
-                                settingsBackgroundImageError =
-                                    !ThemeSettingsRepository.clearCustomSettingsBackgroundImage()
+                                val targetProfileId = ProfileRepository.activeProfileId
+                                settingsBackgroundImageError = false
+                                isSavingSettingsBackground = true
+                                settingsBackgroundScope.launch {
+                                    val cleared = try {
+                                        withContext(Dispatchers.IO) {
+                                            ThemeSettingsRepository.clearCustomSettingsBackgroundImage(targetProfileId)
+                                        }
+                                    } catch (_: Exception) {
+                                        false
+                                    }
+                                    isSavingSettingsBackground = false
+                                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                                        settingsBackgroundImageError = !cleared
+                                    }
+                                }
                             },
                         ) {
                             Text(stringResource(Res.string.settings_appearance_custom_settings_background_clear))

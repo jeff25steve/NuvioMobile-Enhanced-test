@@ -295,11 +295,18 @@ actual object ThemeSettingsStorage {
         return NSURL.fileURLWithPath(path).absoluteString
     }
 
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? =
+        writeCustomSettingsBackgroundImage(bytes, profileId = null)
+
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray, profileId: Int): String? =
+        writeCustomSettingsBackgroundImage(bytes, profileId = profileId)
+
     @OptIn(ExperimentalForeignApi::class)
-    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? {
+    private fun writeCustomSettingsBackgroundImage(bytes: ByteArray, profileId: Int?): String? {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
-        clearLegacyCustomSettingsBackgroundUrl()
-        val path = settingsBackgroundImagePath()
+        if (profileId == null) clearLegacyCustomSettingsBackgroundUrl()
+        else clearLegacyCustomSettingsBackgroundUrl(profileId)
+        val path = settingsBackgroundImagePath(profileId)
         val directory = path.substringBeforeLast('/')
         val temporary = "$path.tmp"
         NSFileManager.defaultManager.createDirectoryAtPath(
@@ -352,10 +359,16 @@ actual object ThemeSettingsStorage {
         return NSURL.fileURLWithPath(path).absoluteString
     }
 
+    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray): String? =
+        writeCustomLibraryCloudBackgroundImage(bytes, profileId = null)
+
+    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray, profileId: Int): String? =
+        writeCustomLibraryCloudBackgroundImage(bytes, profileId = profileId)
+
     @OptIn(ExperimentalForeignApi::class)
-    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray): String? {
+    private fun writeCustomLibraryCloudBackgroundImage(bytes: ByteArray, profileId: Int?): String? {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
-        val path = libraryCloudBackgroundImagePath()
+        val path = libraryCloudBackgroundImagePath(profileId)
         val directory = path.substringBeforeLast('/')
         val temporary = "$path.tmp"
         NSFileManager.defaultManager.createDirectoryAtPath(

@@ -20,6 +20,7 @@ import com.nuvio.app.core.ui.formatHexColor
 import com.nuvio.app.core.ui.parseHexColor
 import com.nuvio.app.core.ui.nativeAccentGradientHex
 import com.nuvio.app.features.membership.MemberAccessRepository
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.membership.resolveCustomThemeColors
 import com.nuvio.app.features.membership.resolveAppTheme
 import kotlinx.coroutines.CoroutineScope
@@ -281,39 +282,57 @@ object ThemeSettingsRepository {
         ThemeSettingsStorage.saveShowCatalogAccentEnabled(enabled)
     }
 
-    fun setCustomSettingsBackgroundImage(bytes: ByteArray): Boolean {
+    fun setCustomSettingsBackgroundImage(
+        bytes: ByteArray,
+        profileId: Int = ProfileRepository.activeProfileId,
+    ): Boolean {
         ensureLoaded()
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
-        val localImageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes) ?: return false
-        _customSettingsBackgroundImageUri.value = localImageUri
-        _customSettingsBackgroundImageRevision.value += 1L
+        val localImageUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(bytes, profileId) ?: return false
+        if (ProfileRepository.activeProfileId == profileId) {
+            _customSettingsBackgroundImageUri.value = localImageUri
+            _customSettingsBackgroundImageRevision.value += 1L
+        }
         return true
     }
 
-    fun clearCustomSettingsBackgroundImage(): Boolean {
+    fun clearCustomSettingsBackgroundImage(
+        profileId: Int = ProfileRepository.activeProfileId,
+    ): Boolean {
         ensureLoaded()
-        val deleted = ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+        val deleted = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileId)
         if (!deleted) return false
-        _customSettingsBackgroundImageUri.value = null
-        _customSettingsBackgroundImageRevision.value += 1L
+        if (ProfileRepository.activeProfileId == profileId) {
+            _customSettingsBackgroundImageUri.value = null
+            _customSettingsBackgroundImageRevision.value += 1L
+        }
         return true
     }
 
-    fun setCustomLibraryCloudBackgroundImage(bytes: ByteArray): Boolean {
+    fun setCustomLibraryCloudBackgroundImage(
+        bytes: ByteArray,
+        profileId: Int = ProfileRepository.activeProfileId,
+    ): Boolean {
         ensureLoaded()
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return false
-        val localImageUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(bytes) ?: return false
-        _customLibraryCloudBackgroundImageUri.value = localImageUri
-        _customLibraryCloudBackgroundImageRevision.value += 1L
+        val localImageUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(bytes, profileId) ?: return false
+        if (ProfileRepository.activeProfileId == profileId) {
+            _customLibraryCloudBackgroundImageUri.value = localImageUri
+            _customLibraryCloudBackgroundImageRevision.value += 1L
+        }
         return true
     }
 
-    fun clearCustomLibraryCloudBackgroundImage(): Boolean {
+    fun clearCustomLibraryCloudBackgroundImage(
+        profileId: Int = ProfileRepository.activeProfileId,
+    ): Boolean {
         ensureLoaded()
-        val deleted = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage()
+        val deleted = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileId)
         if (!deleted) return false
-        _customLibraryCloudBackgroundImageUri.value = null
-        _customLibraryCloudBackgroundImageRevision.value += 1L
+        if (ProfileRepository.activeProfileId == profileId) {
+            _customLibraryCloudBackgroundImageUri.value = null
+            _customLibraryCloudBackgroundImageRevision.value += 1L
+        }
         return true
     }
 

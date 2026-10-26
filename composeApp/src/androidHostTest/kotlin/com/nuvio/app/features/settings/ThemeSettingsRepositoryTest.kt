@@ -340,6 +340,33 @@ class ThemeSettingsRepositoryTest {
     }
 
     @Test
+    fun savingBackgroundImagesForAnotherProfileDoesNotChangeActivePreviewState() {
+        ThemeSettingsRepository.ensureLoaded()
+        val activeProfileId = com.nuvio.app.features.profiles.ProfileRepository.activeProfileId
+        val otherProfileId = activeProfileId + 10_000
+        val initialSettingsUri = ThemeSettingsRepository.customSettingsBackgroundImageUri.value
+        val initialCloudUri = ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value
+        val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02, 0xFF.toByte(), 0xD9.toByte())
+
+        try {
+            assertTrue(ThemeSettingsRepository.setCustomSettingsBackgroundImage(imageBytes, otherProfileId))
+            assertTrue(ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(imageBytes, otherProfileId))
+            assertEquals(initialSettingsUri, ThemeSettingsRepository.customSettingsBackgroundImageUri.value)
+            assertEquals(initialCloudUri, ThemeSettingsRepository.customLibraryCloudBackgroundImageUri.value)
+        } finally {
+            ThemeSettingsStorage.clearCustomSettingsBackgroundImage(otherProfileId)
+            ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(otherProfileId)
+        }
+    }
+
+    @Test
+    fun backgroundImageUriGuardRejectsRemoteAndEmptySources() {
+        assertTrue(isLocalBackgroundImageUri("file:///private/background.jpg"))
+        assertFalse(isLocalBackgroundImageUri("https://example.com/background.jpg"))
+        assertFalse(isLocalBackgroundImageUri(null))
+    }
+
+    @Test
     fun legacyRemoteSettingsBackgroundUrlIsRemovedWithoutLoadingIt() {
         val context = RuntimeEnvironment.getApplication()
         val preferences = context.getSharedPreferences("nuvio_theme_settings", Context.MODE_PRIVATE)

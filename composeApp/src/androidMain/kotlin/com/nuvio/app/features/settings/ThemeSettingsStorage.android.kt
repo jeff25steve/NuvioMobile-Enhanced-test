@@ -263,10 +263,17 @@ actual object ThemeSettingsStorage {
             ?.toString()
     }
 
-    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? {
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray): String? =
+        writeCustomSettingsBackgroundImage(bytes, profileId = null)
+
+    actual fun saveCustomSettingsBackgroundImage(bytes: ByteArray, profileId: Int): String? =
+        writeCustomSettingsBackgroundImage(bytes, profileId = profileId)
+
+    private fun writeCustomSettingsBackgroundImage(bytes: ByteArray, profileId: Int?): String? {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
-        clearLegacyCustomSettingsBackgroundUrl()
-        val target = settingsBackgroundImageFile() ?: return null
+        if (profileId == null) clearLegacyCustomSettingsBackgroundUrl()
+        else clearLegacyCustomSettingsBackgroundUrl(profileId)
+        val target = settingsBackgroundImageFile(profileId) ?: return null
         val directory = target.parentFile ?: return null
         if (!directory.isDirectory && !directory.mkdirs()) return null
         val temporary = directory.resolve(".${target.name}.tmp")
@@ -305,9 +312,15 @@ actual object ThemeSettingsStorage {
             ?.toURI()
             ?.toString()
 
-    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray): String? {
+    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray): String? =
+        writeCustomLibraryCloudBackgroundImage(bytes, profileId = null)
+
+    actual fun saveCustomLibraryCloudBackgroundImage(bytes: ByteArray, profileId: Int): String? =
+        writeCustomLibraryCloudBackgroundImage(bytes, profileId = profileId)
+
+    private fun writeCustomLibraryCloudBackgroundImage(bytes: ByteArray, profileId: Int?): String? {
         if (bytes.isEmpty() || bytes.size > CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES) return null
-        val target = libraryCloudBackgroundImageFile() ?: return null
+        val target = libraryCloudBackgroundImageFile(profileId) ?: return null
         val directory = target.parentFile ?: return null
         if (!directory.isDirectory && !directory.mkdirs()) return null
         val temporary = directory.resolve(".${target.name}.tmp")

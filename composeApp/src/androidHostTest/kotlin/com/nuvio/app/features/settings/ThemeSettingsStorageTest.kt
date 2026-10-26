@@ -182,6 +182,15 @@ class ThemeSettingsStorageTest {
 
         val storedCloudBytes = java.io.File(java.net.URI(cloudUri!!)).readBytes()
         assertTrue(storedCloudBytes.contentEquals(cloudBytes))
+
+        val otherProfileCloudBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x55, 0x66, 0xFF.toByte(), 0xD9.toByte())
+        val otherProfileCloudUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(otherProfileCloudBytes, 98)
+        assertTrue(otherProfileCloudUri?.startsWith("file:") == true)
+        assertTrue(otherProfileCloudUri != cloudUri)
+        assertEquals(cloudUri, ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
+        assertTrue(java.io.File(java.net.URI(otherProfileCloudUri!!)).readBytes().contentEquals(otherProfileCloudBytes))
+        assertTrue(ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(98))
+        assertEquals(cloudUri, ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
         assertTrue(
             ThemeSettingsStorage.exportToSyncPayload().keys.none {
                 "cloud_background" in it || "library_background" in it

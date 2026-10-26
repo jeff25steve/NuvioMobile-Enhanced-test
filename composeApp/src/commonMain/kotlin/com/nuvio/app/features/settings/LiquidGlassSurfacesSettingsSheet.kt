@@ -124,6 +124,7 @@ import com.nuvio.app.features.player.PlayerControlsShell
 import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.streams.StreamSearchField
 import com.nuvio.app.features.streams.ProviderFilterRow
 import com.nuvio.app.features.streams.AddonStreamGroup
@@ -152,7 +153,10 @@ import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.features.settings.withSettingsGlassTextContrast
 import com.nuvio.app.features.settings.withSettingsGlassTextShadow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
@@ -1538,20 +1542,37 @@ private fun LiquidGlassSurfaceEditorControls(
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
-    val cloudBackgroundImageUri by remember {
-        ThemeSettingsRepository.ensureLoaded()
-        ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
-    }.collectAsStateWithLifecycle()
-    var cloudBackgroundImageError by rememberSaveable(surface.name) { mutableStateOf(false) }
-    val cloudBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
-        onImageSelected = { bytes ->
-            cloudBackgroundImageError = !ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes)
-        },
-        onError = { cloudBackgroundImageError = true },
-    )
-
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showLibraryCloudBackgroundControls) {
+            // Keep the profile image subscription and native picker out of unrelated surface editors.
+            val cloudBackgroundImageUri by remember {
+                ThemeSettingsRepository.ensureLoaded()
+                ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
+            }.collectAsStateWithLifecycle()
+            var cloudBackgroundImageError by rememberSaveable(surface.name) { mutableStateOf(false) }
+            var isSavingCloudBackground by rememberSaveable(surface.name) { mutableStateOf(false) }
+            val cloudBackgroundScope = rememberCoroutineScope()
+            val cloudBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
+                onImageSelected = { bytes ->
+                    val targetProfileId = ProfileRepository.activeProfileId
+                    cloudBackgroundImageError = false
+                    isSavingCloudBackground = true
+                    cloudBackgroundScope.launch {
+                        val saved = try {
+                            withContext(Dispatchers.IO) {
+                                ThemeSettingsRepository.setCustomLibraryCloudBackgroundImage(bytes, targetProfileId)
+                            }
+                        } catch (_: Exception) {
+                            false
+                        }
+                        isSavingCloudBackground = false
+                        if (ProfileRepository.activeProfileId == targetProfileId) {
+                            cloudBackgroundImageError = !saved
+                        }
+                    }
+                },
+                onError = { cloudBackgroundImageError = true },
+            )
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -1571,13 +1592,32 @@ private fun LiquidGlassSurfaceEditorControls(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = { cloudBackgroundImagePicker.launch() }) {
+                    TextButton(
+                        enabled = !isSavingCloudBackground,
+                        onClick = { cloudBackgroundImagePicker.launch() },
+                    ) {
                         Text(stringResource(Res.string.settings_liquid_glass_library_background_choose))
                     }
                     if (cloudBackgroundImageUri != null) {
                         TextButton(
+                            enabled = !isSavingCloudBackground,
                             onClick = {
-                                cloudBackgroundImageError = !ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage()
+                                val targetProfileId = ProfileRepository.activeProfileId
+                                cloudBackgroundImageError = false
+                                isSavingCloudBackground = true
+                                cloudBackgroundScope.launch {
+                                    val cleared = try {
+                                        withContext(Dispatchers.IO) {
+                                            ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImage(targetProfileId)
+                                        }
+                                    } catch (_: Exception) {
+                                        false
+                                    }
+                                    isSavingCloudBackground = false
+                                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                                        cloudBackgroundImageError = !cleared
+                                    }
+                                }
                             },
                         ) {
                             Text(stringResource(Res.string.settings_liquid_glass_library_background_remove))
@@ -2360,7 +2400,7 @@ private fun LiquidGlassSettingsSurfacePreview(
 ) {
     val platformContext = LocalPlatformContext.current
     val backgroundImageRequest = remember(customBackgroundImageUri, backgroundRevision, platformContext) {
-        customBackgroundImageUri?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+        customBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUrl ->
             ImageRequest.Builder(platformContext)
                 .data(imageUrl)
                 .memoryCacheKey("$imageUrl#settings-background-$backgroundRevision")
@@ -2490,7 +2530,7 @@ private fun LiquidGlassLibraryPreview(
         cloudBackgroundImageRevision,
         platformContext,
     ) {
-        cloudBackgroundImageUri?.let { imageUri ->
+        cloudBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
             ImageRequest.Builder(platformContext)
                 .data(imageUri)
                 .memoryCacheKey("$imageUri#library-cloud-preview-$cloudBackgroundImageRevision")
