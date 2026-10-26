@@ -3283,7 +3283,7 @@ private fun LiquidGlassSearchPreview(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(
-                    items = liquidGlassSearchPreviewPosters.chunked(3),
+                    items = liquidGlassSearchPreviewPosterRows,
                     key = { row -> row.first().title },
                 ) { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
