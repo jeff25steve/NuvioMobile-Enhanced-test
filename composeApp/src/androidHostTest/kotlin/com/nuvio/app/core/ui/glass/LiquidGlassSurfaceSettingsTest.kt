@@ -473,6 +473,43 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun categoryHeaderTitleAndBackButtonHaveIndependentGlassSettings() {
+        val initial = LiquidGlassSurfacesSettings()
+        assertTrue(LiquidGlassSurface.CATEGORY_HEADER_TITLE.defaultEnabled)
+        assertTrue(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON.defaultEnabled)
+
+        val customized = initial
+            .withSurface(
+                LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+                LiquidGlassSurfaceOverrides(enabled = false, cornerRadiusPercent = 18f),
+            )
+            .withSurface(
+                LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+                LiquidGlassSurfaceOverrides(enabled = true, cornerRadiusPercent = 50f, defaultIconColorArgb = 0xFF123456.toInt()),
+            )
+
+        assertEquals(false, customized.forSurface(LiquidGlassSurface.CATEGORY_HEADER_TITLE).enabled)
+        assertEquals(18f, customized.forSurface(LiquidGlassSurface.CATEGORY_HEADER_TITLE).cornerRadiusPercent)
+        assertEquals(true, customized.forSurface(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON).enabled)
+        assertEquals(50f, customized.forSurface(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON).cornerRadiusPercent)
+        assertEquals(0xFF123456.toInt(), customized.forSurface(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON).defaultIconColorArgb)
+        assertEquals(customized, decodeLiquidGlassSurfaceSettings(encodeLiquidGlassSurfaceSettings(customized)))
+        assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.CATEGORY_HEADER_TITLE))
+        assertEquals(LiquidGlassSurfaceOverrides(), initial.forSurface(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON))
+    }
+
+    @Test
+    fun categoryHeaderPreviewGroupContainsTheTitleAndBackButtonSeparately() {
+        assertEquals(
+            listOf(
+                LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+                LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+            ),
+            LiquidGlassSurfaceGroup.CATEGORY_HEADER.surfaces,
+        )
+    }
+
+    @Test
     fun providerFiltersHaveTheirOwnDefaultAndCanBeToggledWithoutChangingResults() {
         val initial = LiquidGlassSurfacesSettings()
         assertTrue(LiquidGlassSurface.STREAM_FILTERS.defaultEnabled)
