@@ -686,7 +686,7 @@ private fun LiquidGlassSurfaceGroupListItem(
                 Icon(
                     imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     contentDescription = null,
-                    tint = tokens.colors.textMuted,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
                 )
             }
             Row(
@@ -731,7 +731,7 @@ private fun LiquidGlassSurfaceEditorHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = stringResource(Res.string.action_back),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = MaterialTheme.nuvio.colors.textPrimary,
                 )
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -807,7 +807,7 @@ private fun LiquidGlassSurfaceGroupEditorHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = stringResource(Res.string.action_back),
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = MaterialTheme.nuvio.colors.textPrimary,
                 )
             }
             Column(
@@ -1794,7 +1794,7 @@ private fun LiquidGlassSurfaceEditorControls(
                             }
                         }
                         if (material == activeMaterial) {
-                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.nuvio.colors.accent)
                         }
                     }
                 }
@@ -2857,11 +2857,14 @@ private fun LiquidGlassLibraryPreview(
                                     Res.string.settings_liquid_glass_surface_library_cloud_cards,
                                 ),
                                 modifier = Modifier.padding(start = 18.dp).size(22.dp),
-                                tint = if (cardGlassEnabled) {
-                                    MaterialTheme.nuvio.colors.textSecondary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
+                                tint = liquidGlassIconTint(
+                                    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                                    if (cardGlassEnabled) {
+                                        MaterialTheme.nuvio.colors.textSecondary
+                                    } else {
+                                        MaterialTheme.nuvio.colors.textMuted
+                                    },
+                                ),
                             )
                         }
                     }
