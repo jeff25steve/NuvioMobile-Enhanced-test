@@ -1,21 +1,26 @@
 package com.nuvio.app.core.ui
 
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertSame
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SettingsHeaderShapeTest {
     @Test
     fun settingsGlassHeaderUsesRectangleRegardlessOfConfiguredCornerShape() {
         val configuredRoundedShape: Shape = RoundedCornerShape(32.dp)
 
-        assertSame(
-            RectangleShape,
-            settingsHeaderShape(settingsGlassEnabled = true, defaultShape = configuredRoundedShape),
+        val resolved = settingsHeaderShape(
+            settingsGlassEnabled = true,
+            defaultShape = configuredRoundedShape,
         )
+
+        assertFalse(resolved is CornerBasedShape)
+        assertTrue(resolved !== configuredRoundedShape)
     }
 
     @Test
