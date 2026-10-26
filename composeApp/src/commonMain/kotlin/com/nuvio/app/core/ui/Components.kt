@@ -195,7 +195,13 @@ fun NuvioScreenHeader(
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .background(if (glassSurface != null) Color.Transparent else tokens.colors.background)
+                .background(
+                    if (glassSurface != null && settingsGlassEnabled) {
+                        Color.Transparent
+                    } else {
+                        tokens.colors.background
+                    },
+                )
                 .nuvioConsumePointerEvents(),
         ) {}
         if (settingsGlassEnabled) {
