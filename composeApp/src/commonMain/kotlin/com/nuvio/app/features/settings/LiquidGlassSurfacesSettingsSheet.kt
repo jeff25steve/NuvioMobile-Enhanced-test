@@ -34,10 +34,6 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Category
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -660,7 +656,6 @@ private fun LiquidGlassSurfaceListItem(
             }
         }
     }
-    NuvioBottomSheetDivider()
 }
 
 @Composable
@@ -673,26 +668,13 @@ private fun LiquidGlassSurfaceGroupListItem(
     onToggleExpanded: () -> Unit,
     onOpenPreview: () -> Unit,
 ) {
-    val icon = when (group) {
-        LiquidGlassSurfaceGroup.DETAIL_PAGE -> Icons.Rounded.Movie
-        LiquidGlassSurfaceGroup.STREAM_PICKER -> Icons.Rounded.Tune
-        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.Category
-        LiquidGlassSurfaceGroup.LIBRARY -> Icons.Rounded.VideoLibrary
-    }
     val tokens = MaterialTheme.nuvio
-    val iconSize = if (isTablet) 42.dp else 36.dp
     val toggleLabel = stringResource(
-        if (expanded) {
-            Res.string.settings_liquid_glass_collapse_controls
-        } else {
-            Res.string.settings_liquid_glass_expand_controls
-        },
+        if (expanded) Res.string.settings_liquid_glass_collapse_controls
+        else Res.string.settings_liquid_glass_expand_controls,
     )
-
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 24.dp else 16.dp),
         shape = tokens.shapes.card,
         color = tokens.colors.surfaceCard,
         contentColor = tokens.colors.textPrimary,
@@ -702,66 +684,22 @@ private fun LiquidGlassSurfaceGroupListItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        onClickLabel = toggleLabel,
-                        role = Role.Button,
-                        onClick = onToggleExpanded,
-                    )
+                    .clickable(onClickLabel = toggleLabel, role = Role.Button, onClick = onToggleExpanded)
                     .semantics(mergeDescendants = true) {
                         heading()
-                        if (expanded) {
-                            collapse {
-                                onToggleExpanded()
-                                true
-                            }
-                        } else {
-                            expand {
-                                onToggleExpanded()
-                                true
-                            }
-                        }
+                        if (expanded) collapse { onToggleExpanded(); true }
+                        else expand { onToggleExpanded(); true }
                     }
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Surface(
-                    modifier = Modifier.size(iconSize),
-                    color = tokens.colors.accent.copy(alpha = tokens.opacity.pressed),
-                    shape = tokens.shapes.compactCard,
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(if (isTablet) 28.dp else 24.dp),
-                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
-                        )
-                    }
-                }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = tokens.colors.textPrimary,
-                    )
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = tokens.colors.textSecondary,
-                    )
-                    Text(
-                        text = toggleLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tokens.colors.accent,
-                    )
+                    Text(text = title, style = MaterialTheme.typography.titleMedium, color = tokens.colors.textPrimary)
+                    Text(text = description, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary)
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
@@ -770,21 +708,15 @@ private fun LiquidGlassSurfaceGroupListItem(
                 )
             }
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = onOpenPreview) {
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_preview_layout),
-                        color = tokens.colors.accent,
-                    )
+                    Text(text = stringResource(Res.string.settings_liquid_glass_preview_layout), color = tokens.colors.accent)
                 }
             }
         }
     }
-    NuvioBottomSheetDivider()
 }
 
 @Composable
