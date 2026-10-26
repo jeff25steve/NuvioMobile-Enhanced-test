@@ -144,7 +144,8 @@ internal fun SupporterMembershipCard(
             )
         }
     }
-}@Composable
+
+@Composable
 private fun LoadingMembershipContent(isTablet: Boolean) {
     Box(
         modifier = Modifier
