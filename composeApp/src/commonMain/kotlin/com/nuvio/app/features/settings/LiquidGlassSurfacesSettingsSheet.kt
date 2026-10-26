@@ -1750,6 +1750,11 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> Res.string.settings_liquid_glass_surface_category_header_back_button
             LiquidGlassSurface.SEARCH -> Res.string.settings_liquid_glass_surface_search
             LiquidGlassSurface.LIBRARY -> Res.string.settings_liquid_glass_surface_library
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> Res.string.settings_liquid_glass_surface_library_saved_type_filter
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> Res.string.settings_liquid_glass_surface_library_saved_sort_filter
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> Res.string.settings_liquid_glass_surface_library_cloud_filters
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> Res.string.settings_liquid_glass_surface_library_cloud_search
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> Res.string.settings_liquid_glass_surface_library_cloud_cards
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
         },
@@ -1802,6 +1807,12 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.DETAIL_CONTENT_CARDS -> minOf(previewWidth * (184f / 296f), 240.dp)
             LiquidGlassSurface.STREAM_SELECTION -> LIQUID_GLASS_STREAM_SELECTION_PREVIEW_HEIGHT_DP.dp
             LiquidGlassSurface.STREAM_RESULTS -> 212.dp
+            LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> 332.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
             else -> 88.dp
@@ -1931,7 +1942,15 @@ private fun LiquidGlassSurfacePreview(
                                 )
                             }
 
-                            LiquidGlassSurface.LIBRARY -> LiquidGlassLibraryPreview(
+                            LiquidGlassSurface.LIBRARY,
+                            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassLibraryPreview(
+                                settings = settings,
+                                selectedSurface = surface,
+                                onSelectSurface = {},
                                 recipe = recipe,
                                 modifier = Modifier.fillMaxSize(),
                             )
