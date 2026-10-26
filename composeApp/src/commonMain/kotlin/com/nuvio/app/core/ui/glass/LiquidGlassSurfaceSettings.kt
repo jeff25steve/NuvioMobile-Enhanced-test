@@ -38,6 +38,11 @@ internal enum class LiquidGlassSurface {
     DETAIL_PRIMARY_ACTION,
     SEARCH,
     LIBRARY,
+    LIBRARY_SAVED_TYPE_FILTER,
+    LIBRARY_SAVED_SORT_FILTER,
+    LIBRARY_CLOUD_FILTERS,
+    LIBRARY_CLOUD_SEARCH,
+    LIBRARY_CLOUD_CARDS,
     SETTINGS,
     BOTTOM_SHEETS,
     DETAIL_TRAILER_SELECTOR,
@@ -57,7 +62,9 @@ internal enum class LiquidGlassSurface {
     val supportsIconTint: Boolean
         get() = when (this) {
             PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,
-            DETAIL_EPISODE_SEARCH, CATEGORY_HEADER_BACK_BUTTON, SEARCH, LIBRARY, SETTINGS -> true
+            DETAIL_EPISODE_SEARCH, CATEGORY_HEADER_BACK_BUTTON, SEARCH, LIBRARY,
+            LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER, LIBRARY_CLOUD_FILTERS,
+            LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
             DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, BOTTOM_SHEETS -> false
@@ -83,7 +90,8 @@ internal enum class LiquidGlassSurface {
             CATEGORY_HEADER_BACK_BUTTON,
             BOTTOM_SHEETS,
             -> true
-            SEARCH, LIBRARY, SETTINGS -> false
+            SEARCH, LIBRARY, LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER,
+            LIBRARY_CLOUD_FILTERS, LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> false
         }
 }
 
@@ -191,6 +199,16 @@ internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurfac
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
         ),
     ),
+    LIBRARY(
+        listOf(
+            LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+        ),
+    ),
 }
 
 @Serializable
@@ -216,6 +234,12 @@ internal data class LiquidGlassSurfacesSettings(
     val streamResults: LiquidGlassSurfaceOverrides = streamSelection,
     val search: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val library: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    // New Library controls inherit old Library settings when older saved JSON omits these fields.
+    val librarySavedTypeFilter: LiquidGlassSurfaceOverrides = library,
+    val librarySavedSortFilter: LiquidGlassSurfaceOverrides = library,
+    val libraryCloudFilters: LiquidGlassSurfaceOverrides = library,
+    val libraryCloudSearch: LiquidGlassSurfaceOverrides = library,
+    val libraryCloudCards: LiquidGlassSurfaceOverrides = library,
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val bottomSheets: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
 ) {
@@ -238,6 +262,11 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> categoryHeaderBackButton
         LiquidGlassSurface.SEARCH -> search
         LiquidGlassSurface.LIBRARY -> library
+        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> librarySavedTypeFilter
+        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> librarySavedSortFilter
+        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> libraryCloudFilters
+        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> libraryCloudSearch
+        LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> libraryCloudCards
         LiquidGlassSurface.SETTINGS -> settings
         LiquidGlassSurface.BOTTOM_SHEETS -> bottomSheets
     }
@@ -266,6 +295,11 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> copy(categoryHeaderBackButton = safe)
             LiquidGlassSurface.SEARCH -> copy(search = safe)
             LiquidGlassSurface.LIBRARY -> copy(library = safe)
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> copy(librarySavedTypeFilter = safe)
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> copy(librarySavedSortFilter = safe)
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> copy(libraryCloudFilters = safe)
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> copy(libraryCloudSearch = safe)
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> copy(libraryCloudCards = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
             LiquidGlassSurface.BOTTOM_SHEETS -> copy(bottomSheets = safe)
         }
@@ -290,6 +324,11 @@ internal data class LiquidGlassSurfacesSettings(
         streamResults = streamResults.sanitized(),
         search = search.sanitized(),
         library = library.sanitized(),
+        librarySavedTypeFilter = librarySavedTypeFilter.sanitized(),
+        librarySavedSortFilter = librarySavedSortFilter.sanitized(),
+        libraryCloudFilters = libraryCloudFilters.sanitized(),
+        libraryCloudSearch = libraryCloudSearch.sanitized(),
+        libraryCloudCards = libraryCloudCards.sanitized(),
         settings = settings.sanitized(),
         bottomSheets = bottomSheets.sanitized(),
     )
