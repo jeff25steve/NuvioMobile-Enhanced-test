@@ -1021,6 +1021,7 @@ private fun LiquidGlassDetailPagePreview(
                     showHeader = true,
                     onPreviewSurfaceSelected = onSelectSurface,
                     selectedPreviewSurface = selectedSurface,
+                    previewMenuInitiallyExpanded = selectedSurface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
                 )
 
                 Text(
