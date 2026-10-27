@@ -200,6 +200,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_background_image_tip
 import nuvio.composeapp.generated.resources.settings_liquid_glass_expand_controls
 import nuvio.composeapp.generated.resources.settings_liquid_glass_collapse_controls
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
@@ -395,6 +396,11 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         Text(
                             text = stringResource(Res.string.settings_liquid_glass_customize_description),
                             style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(Res.string.settings_liquid_glass_background_image_tip),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
