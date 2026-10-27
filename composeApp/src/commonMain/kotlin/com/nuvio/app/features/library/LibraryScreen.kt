@@ -524,7 +524,7 @@ fun LibraryScreen(
     Box(modifier = modifier.fillMaxSize()) {
         // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
         // is drawn above it when present. Draw it even with Liquid Glass disabled.
-        if (anyLibraryGlassEnabled || cloudBackgroundActive || sourceMode == LibraryViewMode.Cloud) {
+        if (anyLibraryGlassEnabled || sourceMode == LibraryViewMode.Cloud) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
