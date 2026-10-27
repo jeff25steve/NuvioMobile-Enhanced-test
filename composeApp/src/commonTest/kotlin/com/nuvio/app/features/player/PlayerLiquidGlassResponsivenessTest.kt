@@ -45,5 +45,6 @@ class PlayerLiquidGlassResponsivenessTest {
             PlayerGlassBlur.value,
             surfacePreviewRecipe(LiquidGlassSurface.PLAYER, LiquidGlassSurfaceOverrides()).blurRadiusDp,
         )
+        assertTrue(PlayerGlassBackdropOpacity >= 0.85f)
     }
 }
