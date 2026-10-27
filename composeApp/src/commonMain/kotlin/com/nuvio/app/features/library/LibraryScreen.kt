@@ -1052,41 +1052,41 @@ private fun LazyListScope.cloudLibraryContent(
                             enabled = cloudSearchGlassEnabled,
                         ),
                     ) {
-                    val defaultSearchShape = RoundedCornerShape(12.dp)
-                    val searchShape = liquidGlassShape(
-                        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                        defaultSearchShape,
-                    )
-                    val glassRimCanRender = cloudSearchGlassEnabled &&
-                        isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
-                    CloudLibrarySearchField(
-                        query = searchQuery,
-                        onQueryChange = onSearchQueryChange,
-                        transparentContainer = cloudSearchGlassEnabled,
-                        shape = searchShape,
-                        showOutline = shouldDrawNuvioInputFieldOutline(
-                            glassSurfaceEnabled = cloudSearchGlassEnabled,
-                            glassRimCanRender = glassRimCanRender,
-                        ),
-                        onGlassSurfaceInteracted = {},
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .then(
-                                if (cloudSearchGlassEnabled) {
-                                    Modifier.liquidGlassForSurface(
-                                        surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                                        shape = searchShape,
-                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
-                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                        blurRadius = 14.dp,
-                                        refractionHeight = 8.dp,
-                                        refractionAmount = 12.dp,
-                                    )
-                                } else {
-                                    Modifier
-                                },
+                        val defaultSearchShape = RoundedCornerShape(12.dp)
+                        val searchShape = liquidGlassShape(
+                            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                            defaultSearchShape,
+                        )
+                        val glassRimCanRender = cloudSearchGlassEnabled &&
+                            isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+                        CloudLibrarySearchField(
+                            query = searchQuery,
+                            onQueryChange = onSearchQueryChange,
+                            transparentContainer = cloudSearchGlassEnabled,
+                            shape = searchShape,
+                            showOutline = shouldDrawNuvioInputFieldOutline(
+                                glassSurfaceEnabled = cloudSearchGlassEnabled,
+                                glassRimCanRender = glassRimCanRender,
                             ),
-                    )
+                            onGlassSurfaceInteracted = {},
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .then(
+                                    if (cloudSearchGlassEnabled) {
+                                        Modifier.liquidGlassForSurface(
+                                            surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                            shape = searchShape,
+                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                            fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                            blurRadius = 14.dp,
+                                            refractionHeight = 8.dp,
+                                            refractionAmount = 12.dp,
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                        )
                     }
                 }
 
