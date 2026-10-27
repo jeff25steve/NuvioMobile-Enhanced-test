@@ -39,6 +39,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
 import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import kotlin.math.roundToInt
@@ -50,22 +51,40 @@ internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
 // ---------------------------------------------------------------------------------------------
 
 /** Light blur so the video stays readable through the glass. */
-internal val PlayerGlassBlur: Dp = 6.dp
+internal val PlayerGlassBlur: Dp = 10.dp
 
 /** Near-clear: a faint white sheen instead of a dark fill. */
 internal val PlayerGlassSurfaceTint = Color.White.copy(alpha = 0.05f)
 
 /**
- * How strongly the blurred video copy is drawn inside the glass. Below 1 the live video shows through,
- * so the glass stays translucent (and never turns dark if a captured frame comes back black).
+ * Keep the blurred frame dominant inside the glass. The raw video is still visible around the
+ * controls; a half-opacity copy on top of it made blur/refraction sliders barely perceptible.
+ * Failed/black frame captures are discarded by VideoFrameBackdrop before they can be published.
  */
-internal const val PlayerGlassBackdropOpacity = 0.55f
+internal const val PlayerGlassBackdropOpacity = 0.9f
 
 /** Used when there is no live backdrop (Android < 12, protected/DRM video, glass turned off). */
 internal val PlayerGlassFallback = Color.White.copy(alpha = 0.08f)
 
 /** Hairline rim that sells the glass edge on top of Kyant's highlight. */
 internal val PlayerGlassRim = Color.White.copy(alpha = 0.22f)
+
+/**
+ * Keep the blur slider perceptible when a platform cannot supply a live video backdrop. This is
+ * only a translucent fallback film—not a claim that blur/refraction can run without source pixels.
+ */
+internal fun playerGlassFallbackAlpha(baseAlpha: Float, blurRadiusDp: Float): Float {
+    val safeBaseAlpha = baseAlpha.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.08f
+    val safeBlurRadius = blurRadiusDp.takeIf { it.isFinite() }?.coerceIn(0f, 32f) ?: 0f
+    return (safeBaseAlpha + (safeBlurRadius / 32f) * 0.12f).coerceIn(0f, 0.22f)
+}
+
+/** The rim remains on a disabled control for continuity, but follows the Highlight control when enabled. */
+internal fun playerGlassRimAlpha(
+    rimAlpha: Float,
+    surfaceEnabled: Boolean,
+    highlightEnabled: Boolean,
+): Float = if (surfaceEnabled && !highlightEnabled) 0f else rimAlpha.coerceIn(0f, 1f)
 
 /**
  * The one glass recipe every player control uses: Kyant backdrop with vibrancy, a light blur, lens
@@ -110,6 +129,14 @@ internal fun Modifier.playerLiquidGlass(
         shape
     }
     val effectiveTint = if (enabled) overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint else tint
+    val effectiveBlur = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp
+    val hasReadyBackdrop = isLiquidGlassBackdropReady(LocalLiquidGlassPreviewSettings.current?.let { null }
+        ?: com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop.current)
+    val effectiveFallback = if (enabled && !hasReadyBackdrop && materialStyle.usesBlur) {
+        fallback.copy(alpha = playerGlassFallbackAlpha(fallback.alpha, effectiveBlur.value))
+    } else {
+        fallback
+    }
     val glass = if (!enabled) {
         // The master switch and this area's switch both restore the original fallback appearance.
         clip(shape).background(fallback, shape)
@@ -117,8 +144,8 @@ internal fun Modifier.playerLiquidGlass(
         clip(effectiveShape).ambientLiquidGlass(
             shape = effectiveShape,
             tint = effectiveTint,
-            fallback = fallback,
-            blurRadius = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp,
+            fallback = effectiveFallback,
+            blurRadius = effectiveBlur,
             refractionHeight = if (materialStyle.usesLens) overrides.refractionHeightDp?.dp ?: refractionHeight else 0.dp,
             refractionAmount = if (materialStyle.usesLens) overrides.refractionAmountDp?.dp ?: refractionAmount else 0.dp,
             withVibrancy = overrides.withVibrancy ?: true,
@@ -130,7 +157,17 @@ internal fun Modifier.playerLiquidGlass(
             preview = previewOverrides != null,
         )
     }
-    return if (rim) glass.border(0.75.dp, PlayerGlassRim, effectiveShape) else glass
+    val surfacePreferenceEnabled = overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled
+    val effectiveRimAlpha = playerGlassRimAlpha(
+        rimAlpha = PlayerGlassRim.alpha,
+        surfaceEnabled = surfacePreferenceEnabled,
+        highlightEnabled = overrides.withHighlight ?: true,
+    )
+    return if (rim && effectiveRimAlpha > 0f) {
+        glass.border(0.75.dp, PlayerGlassRim.copy(alpha = effectiveRimAlpha), effectiveShape)
+    } else {
+        glass
+    }
 }
 
 // Keep the captured frame identical to the real picture so the glass reads as transparent (no dimming).
