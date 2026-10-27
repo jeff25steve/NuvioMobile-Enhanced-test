@@ -429,30 +429,40 @@ internal fun effectiveLiquidGlassCornerRadiusScale(percent: Float): Float =
  * outline, while a changed scale must invalidate it and update the live glass edge.
  */
 private data class ScaledLiquidGlassCornerSize(
-    private val original: CornerSize,
+    val original: CornerSize,
     private val scale: Float,
 ) : CornerSize {
     override fun toPx(shapeSize: Size, density: Density): Float =
         original.toPx(shapeSize, density) * scale
 }
 
+/** Remove an earlier preview scaling before applying the newest slider value. */
+private fun CornerSize.unscaledForLiquidGlass(): CornerSize =
+    if (this is ScaledLiquidGlassCornerSize) original.unscaledForLiquidGlass() else this
+
 internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
     val corners = shape as? CornerBasedShape ?: return shape
     val scale = effectiveLiquidGlassCornerRadiusScale(percent)
-    if (scale >= 1f) return shape
+    val originalCorners = corners.copy(
+        topStart = corners.topStart.unscaledForLiquidGlass(),
+        topEnd = corners.topEnd.unscaledForLiquidGlass(),
+        bottomEnd = corners.bottomEnd.unscaledForLiquidGlass(),
+        bottomStart = corners.bottomStart.unscaledForLiquidGlass(),
+    )
+    if (scale >= 1f) return originalCorners
     if (scale <= 0f) {
-        return corners.copy(
+        return originalCorners.copy(
             topStart = CornerSize(0f),
             topEnd = CornerSize(0f),
             bottomEnd = CornerSize(0f),
             bottomStart = CornerSize(0f),
         )
     }
-    return corners.copy(
-        topStart = ScaledLiquidGlassCornerSize(corners.topStart, scale),
-        topEnd = ScaledLiquidGlassCornerSize(corners.topEnd, scale),
-        bottomEnd = ScaledLiquidGlassCornerSize(corners.bottomEnd, scale),
-        bottomStart = ScaledLiquidGlassCornerSize(corners.bottomStart, scale),
+    return originalCorners.copy(
+        topStart = ScaledLiquidGlassCornerSize(originalCorners.topStart, scale),
+        topEnd = ScaledLiquidGlassCornerSize(originalCorners.topEnd, scale),
+        bottomEnd = ScaledLiquidGlassCornerSize(originalCorners.bottomEnd, scale),
+        bottomStart = ScaledLiquidGlassCornerSize(originalCorners.bottomStart, scale),
     )
 }
 
@@ -516,8 +526,12 @@ internal fun Modifier.liquidGlassForSurface(
     )
     val enabled = shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled) &&
         materialStyle.usesBackdrop
-    // Caller resolves one shape for clipping, backdrop refraction and Kyant's edge highlight.
-    val effectiveShape = shape
+    // Apply the current per-surface radius here as well as in shape-aware call sites. This
+    // covers production controls used by Studio previews that pass their original call-site shape.
+    // scaleLiquidGlassCornerShape unwraps an earlier scaling, so helper callers are not scaled twice.
+    val effectiveShape = overrides.cornerRadiusPercent?.let { radius ->
+        scaleLiquidGlassCornerShape(shape, radius)
+    } ?: shape
     if (!enabled) {
         return if (fallbackBrush != null) {
             this.clip(effectiveShape).background(fallbackBrush, effectiveShape)
