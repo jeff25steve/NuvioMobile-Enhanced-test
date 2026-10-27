@@ -2687,10 +2687,7 @@ private fun LiquidGlassLibraryPosterBackdrop(
 }
 
 @Composable
-private fun LiquidGlassLibraryCloudBackdrop(
-    posterBackdropListState: androidx.compose.foundation.lazy.LazyListState,
-    baseBackground: Color,
-) {
+private fun LiquidGlassLibraryCloudBackdrop() {
     val platformContext = LocalPlatformContext.current
     val cloudBackgroundImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
@@ -2714,18 +2711,21 @@ private fun LiquidGlassLibraryCloudBackdrop(
         }
     }
 
-    if (cloudBackgroundImageRequest != null) {
-        AsyncImage(
-            model = cloudBackgroundImageRequest,
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-        )
-    } else {
-        LiquidGlassLibraryPosterBackdrop(
-            state = posterBackdropListState,
-            baseBackground = baseBackground,
-        )
+    // Cloud has its own backdrop: black by default, with only the selected custom image above it.
+    // Keeping black underneath also prevents stale/failed image loads from revealing Saved artwork.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+    ) {
+        cloudBackgroundImageRequest?.let { request ->
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
     }
 }
 
@@ -2789,17 +2789,14 @@ private fun LiquidGlassLibraryPreview(
             .height(332.dp)
             .clip(RoundedCornerShape(14.dp)),
     ) {
-        // Use the same poster artwork as Search so glass visibly refracts it behind the Library controls.
+        // Saved uses poster artwork; Cloud uses black unless its custom image is available.
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .nuvioBackdropSource(backdrop),
         ) {
             if (viewMode == LibraryViewMode.Cloud) {
-                LiquidGlassLibraryCloudBackdrop(
-                    posterBackdropListState = posterBackdropListState,
-                    baseBackground = baseBackground,
-                )
+                LiquidGlassLibraryCloudBackdrop()
             } else {
                 LiquidGlassLibraryPosterBackdrop(
                     state = posterBackdropListState,
