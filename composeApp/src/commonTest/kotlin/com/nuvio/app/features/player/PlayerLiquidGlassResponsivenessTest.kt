@@ -27,6 +27,10 @@ class PlayerLiquidGlassResponsivenessTest {
                 rimAlpha = PlayerGlassRim.alpha,
                 surfaceEnabled = true,
                 highlightEnabled = false,
+                backdropReady = true,
+                lensEnabled = true,
+                refractionHeightDp = 24f,
+                refractionAmountDp = 24f,
             ),
         )
         assertEquals(
@@ -35,8 +39,37 @@ class PlayerLiquidGlassResponsivenessTest {
                 rimAlpha = PlayerGlassRim.alpha,
                 surfaceEnabled = false,
                 highlightEnabled = false,
+                backdropReady = true,
+                lensEnabled = true,
+                refractionHeightDp = 0f,
+                refractionAmountDp = 0f,
             ),
         )
+    }
+
+    @Test
+    fun refractionControlsChangeFallbackRimWhenBackdropIsUnavailable() {
+        val baseAlpha = PlayerGlassRim.alpha
+        val weakRim = playerGlassRimAlpha(
+            rimAlpha = baseAlpha,
+            surfaceEnabled = true,
+            highlightEnabled = true,
+            backdropReady = false,
+            lensEnabled = true,
+            refractionHeightDp = 0f,
+            refractionAmountDp = 0f,
+        )
+        val strongRim = playerGlassRimAlpha(
+            rimAlpha = baseAlpha,
+            surfaceEnabled = true,
+            highlightEnabled = true,
+            backdropReady = false,
+            lensEnabled = true,
+            refractionHeightDp = 48f,
+            refractionAmountDp = 48f,
+        )
+
+        assertTrue(strongRim > weakRim)
     }
 
     @Test
