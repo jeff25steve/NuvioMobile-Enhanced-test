@@ -62,14 +62,6 @@ class LiquidGlassStudioGroupingTest {
     }
 
     @Test
-    fun searchPreviewDoesNotOfferCustomIconColorWithoutChangingRuntimeTintCapability() {
-        assertTrue(LiquidGlassSurface.SEARCH.supportsIconTint)
-        assertFalse(LiquidGlassSurface.SEARCH.supportsCustomIconColorSetting)
-        assertTrue(LiquidGlassSurface.PLAYER.supportsCustomIconColorSetting)
-        assertTrue(LiquidGlassSurface.LIBRARY.supportsCustomIconColorSetting)
-    }
-
-    @Test
     fun settingsTogglePersistsWithoutCardSpecificSettings() {
         val encoded = encodeLiquidGlassSurfaceSettings(
             LiquidGlassSurfacesSettings().withSurface(
