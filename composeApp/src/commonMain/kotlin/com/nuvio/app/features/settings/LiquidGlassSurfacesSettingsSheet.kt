@@ -2704,6 +2704,7 @@ private fun LiquidGlassLibraryCloudBackdrop() {
         cloudBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
             ImageRequest.Builder(platformContext)
                 .data(imageUri)
+                // Keep preview-sized decodes separate from the full-screen Library image cache entry.
                 .memoryCacheKey("$imageUri#library-cloud-preview-$cloudBackgroundImageRevision")
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.DISABLED)
