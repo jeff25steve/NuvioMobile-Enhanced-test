@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -79,6 +80,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
@@ -3314,6 +3316,42 @@ private fun LiquidGlassPlayerPreview(
                             CircleShape,
                         ),
                 )
+                // The old preview used only very soft gradients, so increasing blur or refraction
+                // barely changed its appearance. Keep crisp scene edges under the controls so the
+                // sliders demonstrate the same treatment users see over detailed video frames.
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    val fineStroke = 0.8.dp.toPx()
+                    val edgeStroke = 2.2.dp.toPx()
+                    for (index in 0..11) {
+                        val x = w * (0.06f + index * 0.078f)
+                        drawLine(
+                            color = Color.White.copy(alpha = if (index % 3 == 0) 0.24f else 0.075f),
+                            start = Offset(x, h * 0.06f),
+                            end = Offset(x + w * 0.055f, h * 0.94f),
+                            strokeWidth = if (index % 3 == 0) edgeStroke else fineStroke,
+                        )
+                    }
+                    drawLine(
+                        color = Color(0xFF83D7E7).copy(alpha = 0.66f),
+                        start = Offset(w * 0.10f, h * 0.72f),
+                        end = Offset(w * 0.39f, h * 0.72f),
+                        strokeWidth = edgeStroke,
+                    )
+                    drawLine(
+                        color = Color(0xFFF4C6AB).copy(alpha = 0.72f),
+                        start = Offset(w * 0.65f, h * 0.27f),
+                        end = Offset(w * 0.93f, h * 0.27f),
+                        strokeWidth = edgeStroke * 1.4f,
+                    )
+                    drawLine(
+                        color = Color(0xFFB8A2DA).copy(alpha = 0.52f),
+                        start = Offset(w * 0.58f, h * 0.14f),
+                        end = Offset(w * 0.87f, h * 0.86f),
+                        strokeWidth = edgeStroke,
+                    )
+                }
             }
 
             CompositionLocalProvider(
@@ -3870,7 +3908,7 @@ internal fun surfacePreviewRecipe(
     overrides: LiquidGlassSurfaceOverrides,
 ): LiquidGlassSurfaceRecipe {
     val defaults = when (surface) {
-        LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 6f, 8f, 12f, 0.08f)
+        LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 10f, 8f, 12f, 0.08f)
         LiquidGlassSurface.STREAM_FILTERS -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.22f)
         LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.28f)
         LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassSurfaceRecipe(15f, 18f, 10f, 16f, 0.10f)
