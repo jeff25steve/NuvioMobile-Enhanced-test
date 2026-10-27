@@ -10,6 +10,30 @@ import kotlin.test.assertEquals
 
 class LiquidGlassPreviewCornerRadiusTest {
     @Test
+    fun activeSurfaceUsesItsLatestOverrideWhileDisabledSurfaceKeepsOriginalShape() {
+        val original = RoundedCornerShape(20.dp)
+        val active = effectiveLiquidGlassSurfaceShape(
+            shape = original,
+            cornerRadiusPercent = 10f,
+            enabled = true,
+        )
+        val disabled = effectiveLiquidGlassSurfaceShape(
+            shape = original,
+            cornerRadiusPercent = 10f,
+            enabled = false,
+        )
+        val inherited = effectiveLiquidGlassSurfaceShape(
+            shape = original,
+            cornerRadiusPercent = null,
+            enabled = true,
+        )
+
+        assertEquals(4f, topStartRadiusPx(active))
+        assertEquals(original, disabled)
+        assertEquals(original, inherited)
+    }
+
+    @Test
     fun applyingTheSameRadiusTwiceDoesNotScaleTheShapeTwice() {
         val original = RoundedCornerShape(20.dp)
         val once = scaleLiquidGlassCornerShape(original, 25f)
