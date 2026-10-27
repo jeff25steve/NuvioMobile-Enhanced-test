@@ -1013,7 +1013,7 @@ private fun LazyListScope.cloudLibraryContent(
                         CloudLibraryFilePicker(
                             item = selectedItem,
                             onBack = onBackToItems,
-                            onFileSelected = { file -> onFileSelected(file) },
+                            onFileSelected = { file -> onFileSelected(selectedItem, file) },
                             glassEnabled = cloudCardsGlassEnabled,
                         )
                     }
