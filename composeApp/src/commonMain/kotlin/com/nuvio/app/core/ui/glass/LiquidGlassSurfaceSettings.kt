@@ -70,6 +70,10 @@ enum class LiquidGlassSurface {
             DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, BOTTOM_SHEETS -> false
         }
 
+    /** Studio-only control: Search has no icon in its preview to demonstrate this setting. */
+    val supportsCustomIconColorSetting: Boolean
+        get() = this != SEARCH && supportsIconTint
+
     val defaultEnabled: Boolean
         get() = when (this) {
             PLAYER,
