@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import java.io.ByteArrayOutputStream
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -36,7 +37,7 @@ internal actual fun rememberSettingsBackgroundImagePicker(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val result = runCatching {
+            val result = readSettingsBackgroundImageResult {
                 withContext(Dispatchers.IO) { readAndNormalizeBackgroundImage(context, uri) }
             }
             result.onSuccess(onImageSelected).onFailure { onError() }
@@ -50,6 +51,18 @@ internal actual fun rememberSettingsBackgroundImagePicker(
             )
         }
     }
+}
+
+
+/** Treat a cancelled picker operation as cancellation, not as an image-processing error. */
+internal suspend fun <T> readSettingsBackgroundImageResult(
+    read: suspend () -> T,
+): Result<T> = try {
+    Result.success(read())
+} catch (cancellation: CancellationException) {
+    throw cancellation
+} catch (failure: Exception) {
+    Result.failure(failure)
 }
 
 private fun readAndNormalizeBackgroundImage(context: Context, uri: Uri): ByteArray {
