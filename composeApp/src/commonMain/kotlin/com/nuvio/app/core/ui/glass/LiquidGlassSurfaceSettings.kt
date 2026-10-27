@@ -529,9 +529,13 @@ internal fun Modifier.liquidGlassForSurface(
     // Apply the current per-surface radius here as well as in shape-aware call sites. This
     // covers production controls used by Studio previews that pass their original call-site shape.
     // scaleLiquidGlassCornerShape unwraps an earlier scaling, so helper callers are not scaled twice.
-    val effectiveShape = overrides.cornerRadiusPercent?.let { radius ->
-        scaleLiquidGlassCornerShape(shape, radius)
-    } ?: shape
+    val effectiveShape = if (enabled) {
+        overrides.cornerRadiusPercent?.let { radius ->
+            scaleLiquidGlassCornerShape(shape, radius)
+        } ?: shape
+    } else {
+        shape
+    }
     if (!enabled) {
         return if (fallbackBrush != null) {
             this.clip(effectiveShape).background(fallbackBrush, effectiveShape)
