@@ -32,7 +32,6 @@ import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
-import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
@@ -80,12 +79,27 @@ internal fun playerGlassFallbackAlpha(baseAlpha: Float, blurRadiusDp: Float): Fl
     return (safeBaseAlpha + (safeBlurRadius / 32f) * 0.12f).coerceIn(0f, 0.22f)
 }
 
-/** The rim remains on a disabled control for continuity, but follows the Highlight control when enabled. */
+/**
+ * A live backdrop supplies actual lens refraction. Without one, let refraction sliders still tune
+ * a restrained edge cue rather than leaving every lens control visually inert.
+ */
 internal fun playerGlassRimAlpha(
     rimAlpha: Float,
     surfaceEnabled: Boolean,
     highlightEnabled: Boolean,
-): Float = if (surfaceEnabled && !highlightEnabled) 0f else rimAlpha.coerceIn(0f, 1f)
+    backdropReady: Boolean,
+    lensEnabled: Boolean,
+    refractionHeightDp: Float,
+    refractionAmountDp: Float,
+): Float {
+    if (surfaceEnabled && !highlightEnabled) return 0f
+    val baseAlpha = rimAlpha.coerceIn(0f, 1f)
+    if (!surfaceEnabled || backdropReady || !lensEnabled) return baseAlpha
+    val heightStrength = refractionHeightDp.takeIf { it.isFinite() }?.coerceIn(0f, 48f)?.div(48f) ?: 0f
+    val amountStrength = refractionAmountDp.takeIf { it.isFinite() }?.coerceIn(0f, 48f)?.div(48f) ?: 0f
+    val lensStrength = (heightStrength + amountStrength) / 2f
+    return baseAlpha * (0.35f + 0.65f * lensStrength)
+}
 
 /**
  * The one glass recipe every player control uses: Kyant backdrop with vibrancy, a light blur, lens
@@ -131,6 +145,16 @@ internal fun Modifier.playerLiquidGlass(
     }
     val effectiveTint = if (enabled) overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint else tint
     val effectiveBlur = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp
+    val effectiveRefractionHeight = if (materialStyle.usesLens) {
+        overrides.refractionHeightDp?.dp ?: refractionHeight
+    } else {
+        0.dp
+    }
+    val effectiveRefractionAmount = if (materialStyle.usesLens) {
+        overrides.refractionAmountDp?.dp ?: refractionAmount
+    } else {
+        0.dp
+    }
     val hasReadyBackdrop = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
     val effectiveFallback = if (enabled && !hasReadyBackdrop && materialStyle.usesBlur) {
         fallback.copy(alpha = playerGlassFallbackAlpha(fallback.alpha, effectiveBlur.value))
@@ -146,8 +170,8 @@ internal fun Modifier.playerLiquidGlass(
             tint = effectiveTint,
             fallback = effectiveFallback,
             blurRadius = effectiveBlur,
-            refractionHeight = if (materialStyle.usesLens) overrides.refractionHeightDp?.dp ?: refractionHeight else 0.dp,
-            refractionAmount = if (materialStyle.usesLens) overrides.refractionAmountDp?.dp ?: refractionAmount else 0.dp,
+            refractionHeight = effectiveRefractionHeight,
+            refractionAmount = effectiveRefractionAmount,
             withVibrancy = overrides.withVibrancy ?: true,
             withHighlight = overrides.withHighlight ?: true,
             withShadow = overrides.withShadow ?: false,
@@ -162,6 +186,10 @@ internal fun Modifier.playerLiquidGlass(
         rimAlpha = PlayerGlassRim.alpha,
         surfaceEnabled = surfacePreferenceEnabled,
         highlightEnabled = overrides.withHighlight ?: true,
+        backdropReady = hasReadyBackdrop,
+        lensEnabled = materialStyle.usesLens,
+        refractionHeightDp = effectiveRefractionHeight.value,
+        refractionAmountDp = effectiveRefractionAmount.value,
     )
     return if (rim && effectiveRimAlpha > 0f) {
         glass.border(0.75.dp, PlayerGlassRim.copy(alpha = effectiveRimAlpha), effectiveShape)
