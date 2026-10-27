@@ -585,8 +585,10 @@ fun LibraryScreen(
                                 Modifier.liquidGlassForSurface(
                                     surface = LiquidGlassSurface.LIBRARY,
                                     shape = shape,
-                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
-                                    fallback = MaterialTheme.colorScheme.surface,
+                                    // Match the Studio preview's subtle Library recipe. The
+                                    // old 0.28 tint made the live switch much more opaque than preview.
+                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                     blurRadius = 14.dp,
                                     refractionHeight = 8.dp,
                                     refractionAmount = 12.dp,
