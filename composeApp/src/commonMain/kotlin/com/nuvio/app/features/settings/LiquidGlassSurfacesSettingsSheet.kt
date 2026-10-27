@@ -384,30 +384,44 @@ internal fun LiquidGlassSurfacesSettingsSheet(
         ) {
             if (selectedSurface == null && selectedPreviewLayout == null) {
                 item {
-                    Column(
-                        modifier = Modifier.padding(horizontal = if (isTablet) 24.dp else 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    val introTokens = MaterialTheme.nuvio
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
+                        shape = introTokens.shapes.card,
+                        color = introTokens.colors.surfaceCard,
+                        contentColor = introTokens.colors.textPrimary,
+                        border = BorderStroke(
+                            introTokens.borders.thin,
+                            introTokens.colors.borderStrong,
+                        ),
                     ) {
-                        Text(
-                            text = stringResource(Res.string.settings_liquid_glass_customize),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = stringResource(Res.string.settings_liquid_glass_customize_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource(Res.string.settings_liquid_glass_background_image_tip),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = stringResource(Res.string.settings_liquid_glass_global_note),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.settings_liquid_glass_customize),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = introTokens.colors.textPrimary,
+                            )
+                            Text(
+                                text = stringResource(Res.string.settings_liquid_glass_customize_description),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = introTokens.colors.textSecondary,
+                            )
+                            Text(
+                                text = stringResource(Res.string.settings_liquid_glass_background_image_tip),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = introTokens.colors.textSecondary,
+                            )
+                            Text(
+                                text = stringResource(Res.string.settings_liquid_glass_global_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = introTokens.colors.textSecondary,
+                            )
+                        }
                     }
                 }
                 LiquidGlassSurfaceGroup.entries.forEach { group ->
