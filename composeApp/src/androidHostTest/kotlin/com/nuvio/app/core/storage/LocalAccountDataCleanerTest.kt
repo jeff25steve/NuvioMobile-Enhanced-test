@@ -43,29 +43,48 @@ class LocalAccountDataCleanerTest {
     }
 
     @Test
-    fun settingsBackgroundCleanupAttemptsEveryProfileAfterRemovalFailure() {
-        val attemptedProfiles = mutableListOf<Int>()
+    fun profileBackgroundCleanupAttemptsBothImagesForEveryProfileAfterRemovalFailure() {
+        val attemptedSettingsProfiles = mutableListOf<Int>()
+        val attemptedCloudProfiles = mutableListOf<Int>()
 
-        val allRemoved = clearProfileSettingsBackgroundImages(1..MAX_PROFILES) { profileIndex ->
-            attemptedProfiles += profileIndex
-            profileIndex != 2
-        }
+        val allRemoved = clearProfileBackgroundImages(
+            profileIndices = 1..MAX_PROFILES,
+            removeSettingsImage = { profileIndex ->
+                attemptedSettingsProfiles += profileIndex
+                profileIndex != 2
+            },
+            removeCloudImage = { profileIndex ->
+                attemptedCloudProfiles += profileIndex
+                profileIndex != 3
+            },
+        )
 
-        assertEquals((1..MAX_PROFILES).toList(), attemptedProfiles)
+        assertEquals((1..MAX_PROFILES).toList(), attemptedSettingsProfiles)
+        assertEquals((1..MAX_PROFILES).toList(), attemptedCloudProfiles)
         assertFalse(allRemoved)
     }
 
     @Test
-    fun settingsBackgroundCleanupContinuesWhenRemovalThrows() {
-        val attemptedProfiles = mutableListOf<Int>()
+    fun profileBackgroundCleanupContinuesBothImageTypesWhenRemovalThrows() {
+        val attemptedSettingsProfiles = mutableListOf<Int>()
+        val attemptedCloudProfiles = mutableListOf<Int>()
 
-        val allRemoved = clearProfileSettingsBackgroundImages(1..MAX_PROFILES) { profileIndex ->
-            attemptedProfiles += profileIndex
-            check(profileIndex != 2) { "simulated file removal failure" }
-            true
-        }
+        val allRemoved = clearProfileBackgroundImages(
+            profileIndices = 1..MAX_PROFILES,
+            removeSettingsImage = { profileIndex ->
+                attemptedSettingsProfiles += profileIndex
+                check(profileIndex != 2) { "simulated Settings background removal failure" }
+                true
+            },
+            removeCloudImage = { profileIndex ->
+                attemptedCloudProfiles += profileIndex
+                check(profileIndex != 3) { "simulated Cloud Library background removal failure" }
+                true
+            },
+        )
 
-        assertEquals((1..MAX_PROFILES).toList(), attemptedProfiles)
+        assertEquals((1..MAX_PROFILES).toList(), attemptedSettingsProfiles)
+        assertEquals((1..MAX_PROFILES).toList(), attemptedCloudProfiles)
         assertFalse(allRemoved)
     }
 

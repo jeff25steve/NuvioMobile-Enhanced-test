@@ -3,6 +3,7 @@ package com.nuvio.app.features.settings
 import android.app.Application
 import android.content.Context
 import com.nuvio.app.core.storage.ProfileScopedKey
+import com.nuvio.app.core.storage.clearProfileBackgroundImages
 import com.nuvio.app.core.sync.decodeSyncBoolean
 import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.sync.encodeSyncString
@@ -211,6 +212,32 @@ class ThemeSettingsStorageTest {
         assertNull(ThemeSettingsStorage.loadCustomLibraryCloudBackgroundImageUri())
         assertEquals(settingsUri, ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri())
         ThemeSettingsStorage.clearCustomSettingsBackgroundImage()
+    }
+
+    @Test
+    fun accountProfileBackgroundCleanupRemovesSettingsAndCloudImages() {
+        val profileId = 97
+        val imageBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x17, 0x18, 0xFF.toByte(), 0xD9.toByte())
+        val settingsUri = ThemeSettingsStorage.saveCustomSettingsBackgroundImage(imageBytes, profileId)
+        val cloudUri = ThemeSettingsStorage.saveCustomLibraryCloudBackgroundImage(imageBytes, profileId)
+
+        assertTrue(settingsUri?.startsWith("file:") == true)
+        assertTrue(cloudUri?.startsWith("file:") == true)
+
+        try {
+            val allRemoved = clearProfileBackgroundImages(
+                profileIndices = profileId..profileId,
+                removeSettingsImage = { id -> ThemeSettingsStorage.clearCustomSettingsBackgroundImage(id) },
+                removeCloudImage = { id -> ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(id) },
+            )
+
+            assertTrue(allRemoved)
+            assertTrue(!java.io.File(java.net.URI(settingsUri!!)).exists())
+            assertTrue(!java.io.File(java.net.URI(cloudUri!!)).exists())
+        } finally {
+            ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileId)
+            ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileId)
+        }
     }
 
     @Test

@@ -317,6 +317,10 @@ object ProfileRepository {
                 if (!settingsBackgroundRemoved) {
                     log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
                 }
+                val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                if (!cloudBackgroundRemoved) {
+                    log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
+                }
                 val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
                 val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, userId)
                 pinCacheRemoved && biometricRemoved
@@ -352,6 +356,10 @@ object ProfileRepository {
                 val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
                 if (!settingsBackgroundRemoved) {
                     log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
+                }
+                val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                if (!cloudBackgroundRemoved) {
+                    log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
                 }
                 val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
                 val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, userId)
