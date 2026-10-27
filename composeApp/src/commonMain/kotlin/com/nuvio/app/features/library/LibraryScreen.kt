@@ -522,11 +522,16 @@ fun LibraryScreen(
         uiState.isLoaded && uiState.sections.isNotEmpty()
     val savedControlsInset = 72.dp
     Box(modifier = modifier.fillMaxSize()) {
-        if (anyLibraryGlassEnabled || cloudBackgroundActive) {
+        // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
+        // is drawn above it when present. Draw it even with Liquid Glass disabled.
+        if (anyLibraryGlassEnabled || cloudBackgroundActive || sourceMode == LibraryViewMode.Cloud) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(MaterialTheme.colorScheme.background)
+                    .background(
+                        if (sourceMode == LibraryViewMode.Cloud) Color.Black
+                        else MaterialTheme.colorScheme.background,
+                    )
                     .then(if (anyLibraryGlassEnabled) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
             ) {
                 if (cloudBackgroundActive) {
