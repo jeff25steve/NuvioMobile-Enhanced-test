@@ -518,7 +518,6 @@ fun LibraryScreen(
         savedSortGlassEnabled || cloudFiltersGlassEnabled || cloudSearchGlassEnabled ||
         cloudCardsGlassEnabled
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
-    val libraryGlassTextEnabled = anyLibraryGlassEnabled && isLiquidGlassSupported()
     val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
         uiState.isLoaded && uiState.sections.isNotEmpty()
     val savedControlsInset = 72.dp
@@ -545,14 +544,7 @@ fun LibraryScreen(
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
-                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive ||
-                    (anyLibraryGlassEnabled && isLiquidGlassSupported())
-            ),
-            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                enabled = libraryGlassTextEnabled,
-            ),
-            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                enabled = libraryGlassTextEnabled,
+                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
             ),
         ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -849,8 +841,15 @@ fun LibraryScreen(
         }
     }
             if (hasSavedControls) {
+                val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
                 CompositionLocalProvider(
                     LocalLiquidGlassBackdrop provides libraryContentBackdrop,
+                    LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                        enabled = savedControlsGlassTextEnabled,
+                    ),
+                    LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                        enabled = savedControlsGlassTextEnabled,
+                    ),
                 ) {
                     Box(
                         modifier = Modifier
@@ -1003,28 +1002,54 @@ private fun LazyListScope.cloudLibraryContent(
 
             if (selectedItem != null) {
                 item {
-                    CloudLibraryFilePicker(
-                        item = selectedItem,
-                        onBack = onBackToItems,
-                        onFileSelected = { file -> onFileSelected(selectedItem, file) },
-                        glassEnabled = cloudCardsGlassEnabled,
-                    )
+                    CompositionLocalProvider(
+                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                            enabled = cloudCardsGlassEnabled,
+                        ),
+                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                            enabled = cloudCardsGlassEnabled,
+                        ),
+                    ) {
+                        CloudLibraryFilePicker(
+                            item = selectedItem,
+                            onBack = onBackToItems,
+                            onFileSelected = { file -> onFileSelected(file) },
+                            glassEnabled = cloudCardsGlassEnabled,
+                        )
+                    }
                 }
             } else {
                 item {
-                    CloudLibraryToolbar(
-                        uiState = uiState,
-                        selectedProviderId = selectedProviderId,
-                        selectedType = effectiveSelectedType,
-                        availableTypes = availableTypes,
-                        onProviderSelected = onProviderSelected,
-                        onTypeSelected = onTypeSelected,
-                        onRefresh = onRefresh,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
+                    CompositionLocalProvider(
+                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                            enabled = cloudFiltersGlassEnabled,
+                        ),
+                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                            enabled = cloudFiltersGlassEnabled,
+                        ),
+                    ) {
+                        CloudLibraryToolbar(
+                            uiState = uiState,
+                            selectedProviderId = selectedProviderId,
+                            selectedType = effectiveSelectedType,
+                            availableTypes = availableTypes,
+                            onProviderSelected = onProviderSelected,
+                            onTypeSelected = onTypeSelected,
+                            onRefresh = onRefresh,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
                 }
 
                 item(key = "cloud-library-search") {
+                    CompositionLocalProvider(
+                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                            enabled = cloudSearchGlassEnabled,
+                        ),
+                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                            enabled = cloudSearchGlassEnabled,
+                        ),
+                    ) {
                     val defaultSearchShape = RoundedCornerShape(12.dp)
                     val searchShape = liquidGlassShape(
                         LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
@@ -1060,6 +1085,7 @@ private fun LazyListScope.cloudLibraryContent(
                                 },
                             ),
                     )
+                    }
                 }
 
                 val visibleProviderStates = uiState.providers.filter { providerState ->
@@ -1109,11 +1135,20 @@ private fun LazyListScope.cloudLibraryContent(
                         items = filteredItems,
                         key = { item -> item.stableKey },
                     ) { item ->
-                        CloudLibraryRow(
-                            item = item,
-                            onClick = { onItemSelected(item) },
-                            glassEnabled = cloudCardsGlassEnabled,
-                        )
+                        CompositionLocalProvider(
+                            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
+                                enabled = cloudCardsGlassEnabled,
+                            ),
+                            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
+                                enabled = cloudCardsGlassEnabled,
+                            ),
+                        ) {
+                            CloudLibraryRow(
+                                item = item,
+                                onClick = { onItemSelected(item) },
+                                glassEnabled = cloudCardsGlassEnabled,
+                            )
+                        }
                     }
                 }
             }
