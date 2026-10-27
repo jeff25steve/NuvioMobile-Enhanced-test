@@ -73,6 +73,23 @@ class PlayerLiquidGlassResponsivenessTest {
     }
 
     @Test
+    fun globalLiquidGlassOffAlsoHidesThePlayerGlassRim() {
+        assertEquals(
+            0f,
+            playerGlassRimAlpha(
+                rimAlpha = PlayerGlassRim.alpha,
+                surfaceEnabled = true,
+                highlightEnabled = true,
+                backdropReady = false,
+                lensEnabled = true,
+                refractionHeightDp = 24f,
+                refractionAmountDp = 24f,
+                masterEnabled = false,
+            ),
+        )
+    }
+
+    @Test
     fun previewUsesTheSameDefaultBlurAsTheLivePlayer() {
         assertEquals(
             PlayerGlassBlur.value,
