@@ -55,6 +55,16 @@ class LiquidGlassPreviewCornerRadiusTest {
     }
 
     @Test
+    fun increasingRadiusAfterSquareCornersRestoresTheOriginalShapeScale() {
+        val original = RoundedCornerShape(20.dp)
+        val square = scaleLiquidGlassCornerShape(original, 0f)
+        val roundedAgain = scaleLiquidGlassCornerShape(square, 25f)
+
+        assertEquals(0f, topStartRadiusPx(square))
+        assertEquals(10f, topStartRadiusPx(roundedAgain))
+    }
+
+    @Test
     fun fullRadiusRestoresTheOriginalCornerSizeAfterPreviousEdits() {
         val original = RoundedCornerShape(20.dp)
         val edited = scaleLiquidGlassCornerShape(original, 10f)
