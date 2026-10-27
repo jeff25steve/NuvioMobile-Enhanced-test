@@ -204,6 +204,12 @@ import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
+internal fun libraryGlassControlsNeedContentInset(
+    hasSavedControls: Boolean,
+    savedTypeGlassEnabled: Boolean,
+    savedSortGlassEnabled: Boolean,
+): Boolean = hasSavedControls && (savedTypeGlassEnabled || savedSortGlassEnabled)
+
 @Composable
 fun LibraryScreen(
     modifier: Modifier = Modifier,
@@ -569,7 +575,8 @@ fun LibraryScreen(
                             LibrarySourceMode.WETRAKR -> stringResource(Res.string.library_wetrakr_title)
                         }
                     },
-                    glassSurface = LiquidGlassSurface.LIBRARY,
+                    // Keep the title on Nuvio's normal screen background; LIBRARY glass belongs
+                    // to the source-switch surface below, not a full-width slab behind the title.
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 LibrarySourceSwitch(
@@ -680,8 +687,20 @@ fun LibraryScreen(
             NuvioScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
-                // Keep poster content behind the pinned filter overlay so its glass samples real artwork.
-                topPadding = 0.dp,
+                // Glass filters are pinned outside the scrolling content. Reserve their space at
+                // the initial position so section headings do not show through the controls;
+                // after scrolling, poster content can still move beneath the glass naturally.
+                topPadding = if (
+                    libraryGlassControlsNeedContentInset(
+                        hasSavedControls = hasSavedControls,
+                        savedTypeGlassEnabled = savedTypeGlassEnabled,
+                        savedSortGlassEnabled = savedSortGlassEnabled,
+                    )
+                ) {
+                    savedControlsInset
+                } else {
+                    0.dp
+                },
                 listState = listState,
                 autoHidesNativeTabBar = true,
             ) {
