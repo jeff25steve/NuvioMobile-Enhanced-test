@@ -142,6 +142,7 @@ internal actual fun rememberVideoFrameBackdrop(enabled: Boolean): VideoFrameBack
     }
     return backdrop
 }
+
 /**
  * Finds the SurfaceView that actually carries decoded video.
  *
