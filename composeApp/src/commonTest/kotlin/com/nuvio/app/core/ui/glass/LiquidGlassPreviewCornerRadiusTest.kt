@@ -1,0 +1,46 @@
+package com.nuvio.app.core.ui.glass
+
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class LiquidGlassPreviewCornerRadiusTest {
+    @Test
+    fun applyingTheSameRadiusTwiceDoesNotScaleTheShapeTwice() {
+        val original = RoundedCornerShape(20.dp)
+        val once = scaleLiquidGlassCornerShape(original, 25f)
+        val twice = scaleLiquidGlassCornerShape(once, 25f)
+
+        assertEquals(10f, topStartRadiusPx(once))
+        assertEquals(10f, topStartRadiusPx(twice))
+    }
+
+    @Test
+    fun changingRadiusReplacesThePreviousPreviewRadius() {
+        val original = RoundedCornerShape(20.dp)
+        val previous = scaleLiquidGlassCornerShape(original, 25f)
+        val updated = scaleLiquidGlassCornerShape(previous, 10f)
+        val expected = scaleLiquidGlassCornerShape(original, 10f)
+
+        assertEquals(4f, topStartRadiusPx(updated))
+        assertEquals(topStartRadiusPx(expected), topStartRadiusPx(updated))
+    }
+
+    @Test
+    fun fullRadiusRestoresTheOriginalCornerSizeAfterPreviousEdits() {
+        val original = RoundedCornerShape(20.dp)
+        val edited = scaleLiquidGlassCornerShape(original, 10f)
+        val restored = scaleLiquidGlassCornerShape(edited, 50f)
+
+        assertEquals(20f, topStartRadiusPx(restored))
+    }
+
+    private fun topStartRadiusPx(shape: androidx.compose.ui.graphics.Shape): Float {
+        val corners = shape as CornerBasedShape
+        return corners.topStart.toPx(Size(100f, 100f), Density(1f))
+    }
+}
