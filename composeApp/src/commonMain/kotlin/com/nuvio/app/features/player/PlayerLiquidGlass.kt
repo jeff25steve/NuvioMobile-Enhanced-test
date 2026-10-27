@@ -91,7 +91,9 @@ internal fun playerGlassRimAlpha(
     lensEnabled: Boolean,
     refractionHeightDp: Float,
     refractionAmountDp: Float,
+    masterEnabled: Boolean = true,
 ): Float {
+    if (!masterEnabled) return 0f
     if (surfaceEnabled && !highlightEnabled) return 0f
     val baseAlpha = rimAlpha.coerceIn(0f, 1f)
     if (!surfaceEnabled || backdropReady || !lensEnabled) return baseAlpha
@@ -190,6 +192,7 @@ internal fun Modifier.playerLiquidGlass(
         lensEnabled = materialStyle.usesLens,
         refractionHeightDp = effectiveRefractionHeight.value,
         refractionAmountDp = effectiveRefractionAmount.value,
+        masterEnabled = previewOverrides != null || LiquidGlassSettings.enabled,
     )
     return if (rim && effectiveRimAlpha > 0f) {
         glass.border(0.75.dp, PlayerGlassRim.copy(alpha = effectiveRimAlpha), effectiveShape)
