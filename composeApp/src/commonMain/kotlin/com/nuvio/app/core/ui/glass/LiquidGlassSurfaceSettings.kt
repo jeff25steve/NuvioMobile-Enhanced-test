@@ -461,11 +461,13 @@ internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
     )
     if (scale >= 1f) return originalCorners
     if (scale <= 0f) {
+        // Keep the source corner sizes attached even at zero so moving the slider back upward
+        // can restore rounding without relying on a fresh call-site Shape instance.
         return originalCorners.copy(
-            topStart = CornerSize(0f),
-            topEnd = CornerSize(0f),
-            bottomEnd = CornerSize(0f),
-            bottomStart = CornerSize(0f),
+            topStart = ScaledLiquidGlassCornerSize(originalCorners.topStart, 0f),
+            topEnd = ScaledLiquidGlassCornerSize(originalCorners.topEnd, 0f),
+            bottomEnd = ScaledLiquidGlassCornerSize(originalCorners.bottomEnd, 0f),
+            bottomStart = ScaledLiquidGlassCornerSize(originalCorners.bottomStart, 0f),
         )
     }
     return originalCorners.copy(
