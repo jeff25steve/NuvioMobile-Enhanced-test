@@ -1969,7 +1969,7 @@ private fun LiquidGlassSurfaceEditorControls(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
                 }
-                if (surface.supportsCustomIconColorSetting) {
+                if (surface.supportsIconTint) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_liquid_glass_custom_icon_color),
                         description = stringResource(Res.string.settings_liquid_glass_custom_icon_color_description),
