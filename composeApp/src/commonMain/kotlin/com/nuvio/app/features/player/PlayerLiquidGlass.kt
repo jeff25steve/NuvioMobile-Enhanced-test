@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
@@ -130,8 +131,7 @@ internal fun Modifier.playerLiquidGlass(
     }
     val effectiveTint = if (enabled) overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint else tint
     val effectiveBlur = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp
-    val hasReadyBackdrop = isLiquidGlassBackdropReady(LocalLiquidGlassPreviewSettings.current?.let { null }
-        ?: com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop.current)
+    val hasReadyBackdrop = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
     val effectiveFallback = if (enabled && !hasReadyBackdrop && materialStyle.usesBlur) {
         fallback.copy(alpha = playerGlassFallbackAlpha(fallback.alpha, effectiveBlur.value))
     } else {
