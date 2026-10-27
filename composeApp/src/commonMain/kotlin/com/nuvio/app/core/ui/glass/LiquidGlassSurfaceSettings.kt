@@ -440,6 +440,16 @@ private data class ScaledLiquidGlassCornerSize(
 private fun CornerSize.unscaledForLiquidGlass(): CornerSize =
     if (this is ScaledLiquidGlassCornerSize) original.unscaledForLiquidGlass() else this
 
+internal fun effectiveLiquidGlassSurfaceShape(
+    shape: Shape,
+    cornerRadiusPercent: Float?,
+    enabled: Boolean,
+): Shape = if (enabled && cornerRadiusPercent != null) {
+    scaleLiquidGlassCornerShape(shape, cornerRadiusPercent)
+} else {
+    shape
+}
+
 internal fun scaleLiquidGlassCornerShape(shape: Shape, percent: Float): Shape {
     val corners = shape as? CornerBasedShape ?: return shape
     val scale = effectiveLiquidGlassCornerRadiusScale(percent)
@@ -529,13 +539,11 @@ internal fun Modifier.liquidGlassForSurface(
     // Apply the current per-surface radius here as well as in shape-aware call sites. This
     // covers production controls used by Studio previews that pass their original call-site shape.
     // scaleLiquidGlassCornerShape unwraps an earlier scaling, so helper callers are not scaled twice.
-    val effectiveShape = if (enabled) {
-        overrides.cornerRadiusPercent?.let { radius ->
-            scaleLiquidGlassCornerShape(shape, radius)
-        } ?: shape
-    } else {
-        shape
-    }
+    val effectiveShape = effectiveLiquidGlassSurfaceShape(
+        shape = shape,
+        cornerRadiusPercent = overrides.cornerRadiusPercent,
+        enabled = enabled,
+    )
     if (!enabled) {
         return if (fallbackBrush != null) {
             this.clip(effectiveShape).background(fallbackBrush, effectiveShape)
