@@ -2944,6 +2944,7 @@
     <string name="compose_player_via">Via %1$s</string>
     <string name="settings_liquid_glass_customize">Customize Liquid Glass</string>
     <string name="settings_liquid_glass_customize_description">Expand a group to edit its controls, or open its live preview and tap a highlighted element. Other controls appear below.</string>
+    <string name="settings_liquid_glass_background_image_tip">Tip: Liquid Glass looks best over a detailed background image, which helps its depth and refraction stand out.</string>
     <string name="settings_liquid_glass_group_detail_page">Detail page</string>
     <string name="settings_liquid_glass_group_detail_page_description">Headers, actions, content cards and trailers</string>
     <string name="settings_liquid_glass_preview_detail_page">Detail page preview</string>
