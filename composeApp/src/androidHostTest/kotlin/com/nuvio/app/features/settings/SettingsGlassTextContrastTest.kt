@@ -48,6 +48,8 @@ class SettingsGlassTextContrastTest {
         assertEquals(original.colors.surfaceCard, readable.colors.surfaceCard)
         assertEquals(original.colors.surface, readable.colors.surface)
         assertEquals(original.colors.accent, readable.colors.accent)
+        assertEquals(original.colors.neutral, readable.colors.neutral)
+        assertTrue(readable.colors.textDisabled.luminance() > original.colors.textDisabled.luminance())
     }
 
     @Test
