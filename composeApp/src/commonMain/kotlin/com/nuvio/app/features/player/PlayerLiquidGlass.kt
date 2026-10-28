@@ -42,6 +42,7 @@ import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.liquidGlassSurfaceRecipe
 import kotlin.math.roundToInt
 
 internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
@@ -122,12 +123,13 @@ internal fun Modifier.playerLiquidGlass(
     val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
         ?: LocalLiquidGlassPreviewOverrides.current
     val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+    val recipe = liquidGlassSurfaceRecipe(LiquidGlassSurface.PLAYER, overrides)
     val materialStyle = LiquidGlassStyle(
         material = effectiveLiquidGlassMaterial(
             surface = LiquidGlassSurface.PLAYER,
             material = overrides.material,
             refractionSupported = isLiquidRefractionSupported(),
-            cornerRadiusPercent = overrides.cornerRadiusPercent,
+            cornerRadiusPercent = recipe.cornerRadiusPercent,
         ),
     )
     val enabled = shouldRenderLiquidGlassSurface(
@@ -145,15 +147,15 @@ internal fun Modifier.playerLiquidGlass(
     } else {
         shape
     }
-    val effectiveTint = if (enabled) overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint else tint
-    val effectiveBlur = if (materialStyle.usesBlur) overrides.blurRadiusDp?.dp ?: blurRadius else 0.dp
+    val effectiveTint = if (enabled && tint.alpha > 0f) tint.copy(alpha = recipe.tintOpacity) else tint
+    val effectiveBlur = if (materialStyle.usesBlur) recipe.blurRadiusDp.dp else 0.dp
     val effectiveRefractionHeight = if (materialStyle.usesLens) {
-        overrides.refractionHeightDp?.dp ?: refractionHeight
+        recipe.refractionHeightDp.dp
     } else {
         0.dp
     }
     val effectiveRefractionAmount = if (materialStyle.usesLens) {
-        overrides.refractionAmountDp?.dp ?: refractionAmount
+        recipe.refractionAmountDp.dp
     } else {
         0.dp
     }
