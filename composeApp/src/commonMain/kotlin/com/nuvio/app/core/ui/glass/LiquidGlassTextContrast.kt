@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.NuvioThemeTokens
 import com.nuvio.app.core.ui.nuvio
