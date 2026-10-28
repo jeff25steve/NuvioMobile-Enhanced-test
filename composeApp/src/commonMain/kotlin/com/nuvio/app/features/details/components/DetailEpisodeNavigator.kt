@@ -87,6 +87,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaVideo
@@ -260,6 +261,7 @@ internal fun EpisodeNavigatorBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            LiquidGlassTextContrastScope(enabled = searchGlassEnabled) {
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -317,6 +319,7 @@ internal fun EpisodeNavigatorBar(
                             .clickable { state.query = "" },
                     )
                 }
+            }
             }
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_go_to),
@@ -387,6 +390,7 @@ private fun EpisodeNavigatorChip(
     } else {
         Modifier
     }
+    LiquidGlassTextContrastScope(enabled = glassEnabled) {
     Box(
         modifier = Modifier
             .heightIn(min = 44.dp)
@@ -405,6 +409,7 @@ private fun EpisodeNavigatorChip(
             color = tokens.colors.textPrimary,
             maxLines = 1,
         )
+    }
     }
 }
 
