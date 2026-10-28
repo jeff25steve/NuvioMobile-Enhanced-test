@@ -183,6 +183,8 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
             LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.SEARCH,
             LiquidGlassSurface.BOTTOM_SHEETS,
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
             LiquidGlassSurface.DETAIL_TRAILER_MENU,
