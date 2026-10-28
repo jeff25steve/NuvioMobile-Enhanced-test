@@ -235,9 +235,9 @@ internal fun EpisodeNavigatorBar(
             shape = fieldShape,
             tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
             fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
-            blurRadius = 14.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            blurRadius = 12.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
         )
     } else {
         Modifier
@@ -369,9 +369,9 @@ private fun EpisodeNavigatorChip(
             shape = shape,
             tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
             fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
-            blurRadius = 14.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            blurRadius = 12.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
         )
     } else {
         Modifier
