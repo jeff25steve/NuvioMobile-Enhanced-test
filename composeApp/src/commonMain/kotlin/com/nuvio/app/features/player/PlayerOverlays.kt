@@ -55,6 +55,8 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.max
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
@@ -114,6 +116,8 @@ internal fun GestureFeedbackPill(
         stringResource(resource, *feedback.secondaryMessageArgs.toTypedArray())
     } ?: feedback.secondaryMessage
 
+    val playerGlassActive = isAmbientLiquidGlassActive()
+    LiquidGlassTextContrastScope(enabled = playerGlassActive) {
     Row(
         modifier = modifier
             .liquidGlassForSurface(
@@ -155,6 +159,7 @@ internal fun GestureFeedbackPill(
                 color = feedback.secondaryMessageColor ?: Color.White.copy(alpha = 0.92f),
             )
         }
+    }
     }
 }
 
