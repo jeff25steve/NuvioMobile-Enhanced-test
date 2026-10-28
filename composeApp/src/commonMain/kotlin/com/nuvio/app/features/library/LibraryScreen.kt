@@ -2027,8 +2027,17 @@ internal fun LibraryCalendarGlassPreview(
     onSelect: () -> Unit,
     onDismissPreview: () -> Unit,
 ) {
-    val weekdays = listOf("M", "T", "W", "T", "F", "S", "S")
-    var selectedDay by rememberSaveable { mutableStateOf(18) }
+    val today = remember {
+        parseLibraryCalendarDate(CurrentDateProvider.todayIsoDate())
+            ?: LibraryCalendarDate(1970, 1, 1)
+    }
+    val initialMonth = remember { initialLibraryCalendarMonth() }
+    var visibleMonth by remember(initialMonth) { mutableStateOf(initialMonth) }
+    var selectedDateIso by remember(today.iso, initialMonth) {
+        mutableStateOf(defaultLibraryCalendarSelection(emptyList(), initialMonth, today.iso).dateIso)
+    }
+    val selectedDate = parseLibraryCalendarDate(selectedDateIso)
+    val noEventsByDate = remember { emptyMap<String, List<LibraryCalendarEvent>>() }
 
     LibraryCalendarGlassSurface(
         modifier = modifier,
@@ -2040,113 +2049,58 @@ internal fun LibraryCalendarGlassPreview(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            LibraryCalendarTopBar(
+                title = stringResource(Res.string.library_calendar_title),
+                subtitle = stringResource(Res.string.library_calendar_exact_dates_only),
+                onDismiss = onDismissPreview,
+                compact = true,
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.library_calendar_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = stringResource(Res.string.library_calendar_exact_dates_only),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                IconButton(
-                    onClick = onDismissPreview,
-                    modifier = Modifier.size(30.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(Res.string.action_close),
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                weekdays.forEach { weekday ->
-                    Text(
-                        text = weekday,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
+                item {
+                    LibraryCalendarCard(
+                        month = visibleMonth,
+                        monthEventCount = 0,
+                        eventsByDate = noEventsByDate,
+                        selectedDateIso = selectedDateIso,
+                        todayIso = today.iso,
+                        onPrevious = {
+                            visibleMonth = visibleMonth.previous()
+                            selectedDateIso = defaultLibraryCalendarSelection(
+                                events = emptyList(),
+                                month = visibleMonth,
+                                todayIso = today.iso,
+                            ).dateIso
+                        },
+                        onNext = {
+                            visibleMonth = visibleMonth.next()
+                            selectedDateIso = defaultLibraryCalendarSelection(
+                                events = emptyList(),
+                                month = visibleMonth,
+                                todayIso = today.iso,
+                            ).dateIso
+                        },
+                        onToday = {
+                            visibleMonth = LibraryCalendarMonth(today.year, today.month)
+                            selectedDateIso = today.iso
+                        },
+                        onDateSelected = { date ->
+                            selectedDateIso = date.iso
+                            onSelect()
+                        },
                     )
                 }
-            }
-            repeat(5) { week ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    repeat(7) { dayOfWeek ->
-                        val day = week * 7 + dayOfWeek + 1
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(22.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (day == selectedDay) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                )
-                                .clickable(enabled = day <= 31) {
-                                    selectedDay = day
-                                    onSelect()
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (day <= 31) {
-                                Text(
-                                    text = day.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (day == selectedDay) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(Res.string.library_calendar_today),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = stringResource(Res.string.library_calendar_open),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                libraryCalendarAgendaContent(
+                    selectedDate = selectedDate,
+                    selectedEvents = emptyList(),
+                    todayIso = today.iso,
+                    isLoading = false,
+                    onEventClick = null,
                 )
             }
         }
