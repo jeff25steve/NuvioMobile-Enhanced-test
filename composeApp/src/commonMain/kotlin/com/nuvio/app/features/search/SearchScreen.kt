@@ -490,9 +490,9 @@ fun SearchScreen(
                                                 shape = searchFieldShape,
                                                 tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
                                                 fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                                blurRadius = 14.dp,
-                                                refractionHeight = 8.dp,
-                                                refractionAmount = 12.dp,
+                                                blurRadius = 12.dp,
+                                                refractionHeight = 6.dp,
+                                                refractionAmount = 9.dp,
                                             ),
                                     ) {
                                         NuvioInputField(
