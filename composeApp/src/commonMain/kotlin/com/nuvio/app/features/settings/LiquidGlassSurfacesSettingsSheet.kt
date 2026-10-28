@@ -198,7 +198,6 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
-import nuvio.composeapp.generated.resources.settings_liquid_glass_background_image_tip
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
@@ -403,11 +402,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                             Text(
                                 text = stringResource(Res.string.settings_liquid_glass_customize_description),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = introTokens.colors.textSecondary,
-                            )
-                            Text(
-                                text = stringResource(Res.string.settings_liquid_glass_background_image_tip),
-                                style = MaterialTheme.typography.bodySmall,
                                 color = introTokens.colors.textSecondary,
                             )
                             Text(
@@ -620,11 +614,6 @@ private fun LiquidGlassSurfaceListItem(
                         style = MaterialTheme.typography.titleMedium,
                         color = tokens.colors.textPrimary,
                     )
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_surface_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = tokens.colors.textSecondary,
-                    )
                 }
                 androidx.compose.material3.Switch(
                     checked = enabled,
@@ -638,7 +627,7 @@ private fun LiquidGlassSurfaceListItem(
             ) {
                 TextButton(onClick = onOpen) {
                     Text(
-                        text = stringResource(Res.string.settings_liquid_glass_customize),
+                        text = stringResource(Res.string.settings_liquid_glass_customize_action),
                         color = tokens.colors.accent,
                     )
                 }
