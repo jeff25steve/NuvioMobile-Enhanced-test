@@ -234,10 +234,12 @@ private fun SettingsCard(
         tonalElevation = tonalElevation.dp,
         shadowElevation = if (contentPadding) tokens.elevation.flat else 0.dp,
     ) {
-        Column(
-            modifier = if (contentPadding) Modifier.padding(tokens.spacing.cardPadding) else Modifier,
-            content = content,
-        )
+        LiquidGlassTextContrastScope(enabled = glassEnabled) {
+            Column(
+                modifier = if (contentPadding) Modifier.padding(tokens.spacing.cardPadding) else Modifier,
+                content = content,
+            )
+        }
     }
 }
 
@@ -345,6 +347,7 @@ internal fun TabletPageHeader(
                     ),
             )
         }
+        LiquidGlassTextContrastScope(enabled = glassEnabled) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -368,6 +371,7 @@ internal fun TabletPageHeader(
                 color = tokens.colors.textPrimary,
                 fontWeight = FontWeight.SemiBold,
             )
+        }
         }
     }
 }
