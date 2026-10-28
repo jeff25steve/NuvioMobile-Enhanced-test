@@ -28,7 +28,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,11 +43,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -59,7 +56,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.NuvioThemeTokens
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.NuvioSurfaceCard
@@ -73,6 +69,9 @@ import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.withLiquidGlassTextContrast
+import com.nuvio.app.core.ui.glass.withLiquidGlassTextShadow
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -103,34 +102,15 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 
-private val SettingsGlassTextShadow = Shadow(
-    color = Color.Black.copy(alpha = 0.68f),
-    offset = Offset(0f, 1f),
-    blurRadius = 3f,
-)
-
 /**
- * Raises text contrast only while the Settings glass surface is active.
- * Surface and accent colors remain unchanged; any controls that reuse muted text tokens inherit
- * the same more-visible tint.
+ * Backward-compatible names for Settings call sites; the implementation is shared by every
+ * Liquid Glass surface so text treatment stays consistent across the app.
  */
 internal fun NuvioThemeTokens.withSettingsGlassTextContrast(enabled: Boolean): NuvioThemeTokens =
-    if (!enabled) {
-        this
-    } else {
-        copy(
-            colors = colors.copy(
-                textPrimary = Color.White,
-                textSecondary = Color(0xFFE1E6EB),
-                textMuted = Color(0xFFCBD2D9),
-                textDisabled = Color(0xFFADB6BF),
-                neutral = Color(0xFFCBD2D9),
-            ),
-        )
-    }
+    withLiquidGlassTextContrast(enabled)
 
 internal fun TextStyle.withSettingsGlassTextShadow(enabled: Boolean): TextStyle =
-    if (enabled) copy(shadow = SettingsGlassTextShadow) else this
+    withLiquidGlassTextShadow(enabled)
 
 /**
  * Gives standalone Settings destinations the same private background and backdrop source as the
@@ -199,14 +179,10 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || customImageUri != null
             ),
-            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                enabled = settingsGlassEnabled,
-            ),
-            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                enabled = settingsGlassEnabled,
-            ),
         ) {
-            content()
+            LiquidGlassTextContrastScope(enabled = settingsGlassEnabled) {
+                content()
+            }
         }
     }
 }
