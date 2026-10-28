@@ -106,6 +106,7 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 import com.nuvio.app.core.i18n.localizedEpisodeTitle
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
@@ -180,6 +181,7 @@ internal fun PlayerControlsShell(
     var timelineHeight by remember { mutableStateOf(0.dp) }
     val glassActive = isAmbientLiquidGlassActive()
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        LiquidGlassTextContrastScope(enabled = glassActive) {
         val centerControlHeight = metrics.playIconSize + maxOf(metrics.playButtonPadding, metrics.sideButtonPadding) * 2
         val centerBottomPadding = if (useLegacyLayout) metrics.centerLift else maxOf(
             metrics.centerLift,
@@ -445,6 +447,7 @@ internal fun PlayerControlsShell(
             }
         }
     }
+        }
 }
 
 @Composable
