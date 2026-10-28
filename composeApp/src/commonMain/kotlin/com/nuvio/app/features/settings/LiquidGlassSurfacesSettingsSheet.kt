@@ -2847,7 +2847,7 @@ private fun LiquidGlassLibraryPreview(
                     items(
                         items = visibleCloudPreviewItems,
                         key = { item -> item.matchText },
-                    ) {
+                    ) { item ->
                         val cardShape = liquidGlassShape(
                             surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
                             defaultShape = MaterialTheme.shapes.medium,
@@ -2918,7 +2918,7 @@ private fun LiquidGlassLibraryPreview(
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
                                     Text(
-                                        text = it.matchText,
+                                        text = item.matchText,
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = if (cardGlassEnabled) {
@@ -2930,7 +2930,7 @@ private fun LiquidGlassLibraryPreview(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
-                                        text = "${it.providerId.substringAfter(':')} • ${it.type.name}",
+                                        text = "${item.providerId.substringAfter(':')} • ${item.type.name}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (cardGlassEnabled) {
                                             MaterialTheme.nuvio.colors.textSecondary
@@ -2951,7 +2951,7 @@ private fun LiquidGlassLibraryPreview(
                                         maxLines = 1,
                                     )
                                 }
-                                if (it.type != CloudLibraryItemType.File) {
+                                if (item.type != CloudLibraryItemType.File) {
                                     IconButton(
                                         onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS) },
                                         modifier = Modifier.size(32.dp),
