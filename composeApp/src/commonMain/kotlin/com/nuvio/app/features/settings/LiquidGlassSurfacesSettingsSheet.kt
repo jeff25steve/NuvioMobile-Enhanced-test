@@ -50,7 +50,6 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -97,7 +96,6 @@ import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
-import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
@@ -170,8 +168,6 @@ import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassStandaloneSurfaces
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
-import com.nuvio.app.features.settings.withSettingsGlassTextContrast
-import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
@@ -2575,16 +2571,6 @@ private fun LiquidGlassSettingsSurfacePreview(
     }
 }
 
-
-private val liquidGlassLibraryPreviewSurfaces = listOf(
-    LiquidGlassSurface.LIBRARY,
-    LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
-    LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
-    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-    LiquidGlassSurface.LIBRARY_CALENDAR,
-)
 
 private val liquidGlassLibraryCloudBackgroundSurfaces = setOf(
     LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
