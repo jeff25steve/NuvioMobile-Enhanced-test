@@ -49,6 +49,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaTrailer
@@ -156,6 +157,7 @@ fun DetailTrailersSection(
                                 menuExpanded = true
                             },
                     ) {
+                        LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
                         Row(
                             modifier = Modifier.padding(
                                 horizontal = sizing.selectorHorizontalPadding,
@@ -182,6 +184,7 @@ fun DetailTrailersSection(
                                 ),
                                 modifier = Modifier.size(sizing.selectorIconSize),
                             )
+                        }
                         }
                     }
 
