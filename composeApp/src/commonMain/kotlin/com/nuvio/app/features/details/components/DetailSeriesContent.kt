@@ -637,9 +637,11 @@ private fun SeasonViewModeToggle(
             .liquidGlassForSurface(
                 surface = LiquidGlassSurface.DETAIL_CHIPS,
                 shape = RoundedCornerShape(8.dp),
-                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                refractionHeight = 6.dp,
+                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                blurRadius = 10.dp,
+                refractionHeight = 4.dp,
+                refractionAmount = 6.dp,
                 preview = preview,
             )
             .border(
@@ -716,8 +718,11 @@ private fun SeasonTextChipScrollRow(
                             Modifier.liquidGlassForSurface(
                                 surface = LiquidGlassSurface.DETAIL_CHIPS,
                                 shape = defaultSeasonChipShape,
-                                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                blurRadius = 10.dp,
+                                refractionHeight = 4.dp,
+                                refractionAmount = 6.dp,
                                 preview = preview,
                             )
                         } else {
@@ -1087,9 +1092,11 @@ private fun EpisodeHorizontalCard(
             .liquidGlassForSurface(
                 surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
-                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                blurRadius = 18.dp,
+                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                blurRadius = 12.dp,
+                refractionHeight = 6.dp,
+                refractionAmount = 9.dp,
                 preview = preview,
             )
             .nuvioCardDepth(
@@ -1544,9 +1551,11 @@ private fun EpisodeListCard(
             .liquidGlassForSurface(
                 surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
                 shape = cardShape,
-                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                blurRadius = 18.dp,
+                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                fallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                blurRadius = 12.dp,
+                refractionHeight = 6.dp,
+                refractionAmount = 9.dp,
             )
             .border(
                 width = 1.dp,
