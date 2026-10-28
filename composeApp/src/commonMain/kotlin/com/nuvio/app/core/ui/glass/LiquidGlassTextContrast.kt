@@ -76,6 +76,9 @@ internal fun LiquidGlassTextContrastScope(
         return
     }
 
+    // Capture before nesting MaterialTheme: MaterialTheme resets LocalTextStyle to bodyLarge.
+    // Keeping the caller's style preserves typography supplied by buttons, labels and custom controls.
+    val sourceTextStyle = LocalTextStyle.current
     val sourceTypography = MaterialTheme.typography
     val sourceShapes = MaterialTheme.shapes
     val readableTokens = MaterialTheme.nuvio.withLiquidGlassTextContrast(enabled = true)
@@ -88,7 +91,7 @@ internal fun LiquidGlassTextContrastScope(
     ) {
         CompositionLocalProvider(
             LocalNuvioThemeTokens provides readableTokens,
-            LocalTextStyle provides LocalTextStyle.current.withLiquidGlassTextShadow(enabled = true),
+            LocalTextStyle provides sourceTextStyle.withLiquidGlassTextShadow(enabled = true),
         ) {
             content()
         }
