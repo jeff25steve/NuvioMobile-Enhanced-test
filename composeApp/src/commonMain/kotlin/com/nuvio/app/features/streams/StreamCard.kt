@@ -113,11 +113,11 @@ internal fun StreamCard(
                     Modifier.liquidGlassForSurface(
                         surface = LiquidGlassSurface.STREAM_RESULTS,
                         shape = cardShape,
-                        tint = surfaceTint,
+                        tint = surfaceTint.copy(alpha = 0.30f),
                         fallback = surfaceFallback,
-                        blurRadius = 18.dp,
-                        refractionHeight = 10.dp,
-                        refractionAmount = 16.dp,
+                        blurRadius = 14.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 9.dp,
                         preview = preview,
                     )
                 } else {
