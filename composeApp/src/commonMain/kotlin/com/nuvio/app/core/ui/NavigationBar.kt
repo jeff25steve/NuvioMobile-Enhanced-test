@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.liquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
@@ -160,21 +161,23 @@ fun NuvioNavigationBar(
             )
 
         Box(modifier = pillModifier) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = NuvioTokens.Space.s6,
-                        vertical = NuvioTokens.Space.s4,
-                    ),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                NuvioNavigationBarScopeImpl(
-                    rowScope = this,
-                    labelFraction = labelFraction,
-                    compactSize = compactSize,
-                ).content()
+            LiquidGlassTextContrastScope(enabled = backdrop != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = NuvioTokens.Space.s6,
+                            vertical = NuvioTokens.Space.s4,
+                        ),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    NuvioNavigationBarScopeImpl(
+                        rowScope = this,
+                        labelFraction = labelFraction,
+                        compactSize = compactSize,
+                    ).content()
+                }
             }
         }
     }
