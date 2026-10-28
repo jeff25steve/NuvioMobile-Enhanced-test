@@ -73,6 +73,26 @@ class LiquidGlassPreviewCornerRadiusTest {
         assertEquals(20f, topStartRadiusPx(restored))
     }
 
+    @Test
+    fun categoryTitleAndBackButtonUseTheSameLiquidGlassMaterialAndRecipe() {
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE.defaultMaterial,
+        )
+        assertEquals(
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON.defaultMaterial,
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE.defaultMaterial,
+        )
+        assertEquals(
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.CATEGORY_HEADER_TITLE),
+        )
+        assertEquals(
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON.supportsLens,
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE.supportsLens,
+        )
+    }
+
     private fun topStartRadiusPx(shape: androidx.compose.ui.graphics.Shape): Float {
         val corners = shape as CornerBasedShape
         return corners.topStart.toPx(Size(100f, 100f), Density(1f))
