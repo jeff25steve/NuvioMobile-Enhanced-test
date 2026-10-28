@@ -81,6 +81,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 
@@ -363,6 +364,7 @@ internal fun DetailActionButtons(
                 color = if (downloadGlassActive) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, MaterialTheme.colorScheme.onSurface, preview = isGlassPreview),
             ) {
+                LiquidGlassTextContrastScope(enabled = downloadGlassActive) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -387,6 +389,7 @@ internal fun DetailActionButtons(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
                 }
             }
         }
