@@ -56,6 +56,20 @@ enum class LiquidGlassSurface {
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
 
+    /**
+     * Use refraction only where it adds value without competing with text or dense content.
+     * FROSTED remains the safe, legible default for forms, menus, cards, and grouped controls.
+     */
+    val defaultMaterial: LiquidGlassMaterial
+        get() = when (this) {
+            PLAYER,
+            DETAILS,
+            DETAIL_PRIMARY_ACTION,
+            DETAIL_TRAILER_SELECTOR,
+            CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassMaterial.LIQUID
+            else -> LiquidGlassMaterial.FROSTED
+        }
+
     val supportsLens: Boolean
         get() = this != DETAIL_HEADER
 
@@ -75,23 +89,28 @@ enum class LiquidGlassSurface {
             PLAYER,
             STREAM_FILTERS,
             STREAM_SELECTION,
-            STREAM_RESULTS,
             DETAILS,
             DETAIL_HEADER,
-            DETAIL_CHIPS,
-            DETAIL_CONTENT_CARDS,
             DETAIL_PRIMARY_ACTION,
+            LIBRARY,
+            LIBRARY_SAVED_TYPE_FILTER,
+            LIBRARY_SAVED_SORT_FILTER,
+            LIBRARY_CLOUD_FILTERS,
+            BOTTOM_SHEETS,
             DETAIL_TRAILER_SELECTOR,
             DETAIL_TRAILER_MENU,
             DETAIL_EPISODE_SEARCH,
             DETAIL_EPISODE_GO_TO,
             DETAIL_EPISODE_SORT,
             CATEGORY_HEADER_TITLE,
-            CATEGORY_HEADER_BACK_BUTTON,
-            BOTTOM_SHEETS,
-            -> true
-            SEARCH, LIBRARY, LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER,
-            LIBRARY_CLOUD_FILTERS, LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> false
+            CATEGORY_HEADER_BACK_BUTTON -> true
+            STREAM_RESULTS,
+            DETAIL_CHIPS,
+            DETAIL_CONTENT_CARDS,
+            SEARCH,
+            LIBRARY_CLOUD_SEARCH,
+            LIBRARY_CLOUD_CARDS,
+            SETTINGS -> false
         }
 }
 
@@ -105,7 +124,7 @@ internal fun effectiveLiquidGlassMaterial(
     refractionSupported: Boolean,
     cornerRadiusPercent: Float?,
 ): LiquidGlassMaterial {
-    val requested = material ?: LiquidGlassMaterial.LIQUID
+    val requested = material ?: surface.defaultMaterial
     return if (
         requested == LiquidGlassMaterial.CLEAR &&
         (!surface.supportsLens || !refractionSupported || cornerRadiusPercent == 0f)
