@@ -77,9 +77,9 @@ fun NuvioDropdownChip(
             shape = chipShape,
             tint = tokens.colors.surface.copy(alpha = 0.20f),
             fallback = tokens.colors.surface,
-            blurRadius = 14.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            blurRadius = 12.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
             preview = previewGlass,
         ).clip(chipShape)
     } else {
