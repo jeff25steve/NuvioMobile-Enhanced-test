@@ -1103,6 +1103,12 @@ private fun EpisodeHorizontalCard(
     } else {
         metrics.contentBottomPadding
     }
+    val cardGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+        preview = preview,
+        platformSupported = if (preview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+    )
+    LiquidGlassTextContrastScope(enabled = cardGlassEnabled) {
     Box(
         modifier = modifier
             .width(metrics.cardWidth)
@@ -1261,6 +1267,7 @@ private fun EpisodeHorizontalCard(
                 fillColor = MaterialTheme.colorScheme.primary,
             )
         }
+    }
     }
 }
 
@@ -1562,6 +1569,11 @@ private fun EpisodeListCard(
     }
     val hasAnyRating = tmdbRatingLabel != null || imdbRatingLabel != null || userRating != null
     val formattedDate = remember(video.released) { video.released?.let { formatReleaseDateForDisplay(it) } }
+    val cardGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    LiquidGlassTextContrastScope(enabled = cardGlassEnabled) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1715,6 +1727,7 @@ private fun EpisodeListCard(
                     fillColor = MaterialTheme.colorScheme.primary,
                 )
             }
+    }
     }
 }
 
