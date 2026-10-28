@@ -594,9 +594,9 @@ fun LibraryScreen(
                                     // old 0.28 tint made the live switch much more opaque than preview.
                                     tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
                                     fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                    blurRadius = 14.dp,
-                                    refractionHeight = 8.dp,
-                                    refractionAmount = 12.dp,
+                                    blurRadius = 12.dp,
+                                    refractionHeight = 6.dp,
+                                    refractionAmount = 9.dp,
                                 )
                             } else {
                                 Modifier
@@ -1083,9 +1083,9 @@ private fun LazyListScope.cloudLibraryContent(
                                             shape = searchShape,
                                             tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
                                             fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                            blurRadius = 14.dp,
-                                            refractionHeight = 8.dp,
-                                            refractionAmount = 12.dp,
+                                            blurRadius = 12.dp,
+                                            refractionHeight = 6.dp,
+                                            refractionAmount = 9.dp,
                                         )
                                     } else {
                                         Modifier
@@ -1433,9 +1433,9 @@ internal fun CloudLibraryToolbar(
                                 shape = refreshShape,
                                 tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.20f),
                                 fallback = MaterialTheme.colorScheme.surfaceContainerLow,
-                                blurRadius = 14.dp,
-                                refractionHeight = 8.dp,
-                                refractionAmount = 12.dp,
+                                blurRadius = 12.dp,
+                                refractionHeight = 6.dp,
+                                refractionAmount = 9.dp,
                                 preview = previewGlass,
                             )
                         } else {
@@ -1529,9 +1529,9 @@ private fun CloudLibraryRow(
                         shape = glassShape,
                         tint = colorScheme.surface.copy(alpha = 0.18f),
                         fallback = tokens.colors.surfaceCard,
-                        blurRadius = 14.dp,
-                        refractionHeight = 8.dp,
-                        refractionAmount = 12.dp,
+                        blurRadius = 12.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 9.dp,
                         withShadow = true,
                     )
                 } else Modifier,
@@ -1628,9 +1628,9 @@ private fun CloudLibraryFilePicker(
                         shape = glassShape,
                         tint = colorScheme.surface.copy(alpha = 0.18f),
                         fallback = tokens.colors.surfaceCard,
-                        blurRadius = 14.dp,
-                        refractionHeight = 8.dp,
-                        refractionAmount = 12.dp,
+                        blurRadius = 12.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 9.dp,
                         withShadow = true,
                     )
                 } else Modifier,
@@ -1728,9 +1728,9 @@ private fun CloudLibraryFileRow(
                         shape = glassShape,
                         tint = colorScheme.surface.copy(alpha = 0.16f),
                         fallback = tokens.colors.surfaceCard,
-                        blurRadius = 14.dp,
-                        refractionHeight = 8.dp,
-                        refractionAmount = 12.dp,
+                        blurRadius = 12.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 9.dp,
                         withShadow = true,
                     )
                 } else Modifier,
