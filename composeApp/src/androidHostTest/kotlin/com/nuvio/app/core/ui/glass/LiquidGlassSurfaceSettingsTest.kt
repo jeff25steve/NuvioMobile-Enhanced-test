@@ -238,6 +238,58 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun defaultSurfaceRecipeSuppliesRuntimeValuesWhenNoOverridesAreSaved() {
+        val surface = LiquidGlassSurface.STREAM_RESULTS
+        val recipe = liquidGlassSurfaceRecipe(surface, LiquidGlassSurfaceOverrides())
+
+        assertEquals(15f, recipe.cornerRadiusPercent)
+        assertEquals(14f, recipe.blurRadiusDp)
+        assertEquals(6f, recipe.refractionHeightDp)
+        assertEquals(9f, recipe.refractionAmountDp)
+        assertEquals(0.30f, recipe.tintOpacity)
+
+        val nativeShape = RoundedCornerShape(12.dp)
+        val effectiveShape = effectiveLiquidGlassSurfaceShape(
+            shape = nativeShape,
+            cornerRadiusPercent = recipe.cornerRadiusPercent,
+            enabled = true,
+        ) as CornerBasedShape
+        val effectiveRadiusPx = effectiveShape.topStart.toPx(Size(100f, 100f), Density(1f))
+        assertTrue(kotlin.math.abs(effectiveRadiusPx - 3.6f) < 0.01f)
+    }
+
+    @Test
+    fun explicitSurfaceOverridesTakePrecedenceOverTheDefaultRecipe() {
+        val recipe = liquidGlassSurfaceRecipe(
+            surface = LiquidGlassSurface.SEARCH,
+            overrides = LiquidGlassSurfaceOverrides(
+                cornerRadiusPercent = 40f,
+                blurRadiusDp = 20f,
+                refractionHeightDp = 7f,
+                refractionAmountDp = 11f,
+                tintOpacity = 0.41f,
+            ),
+        )
+
+        assertEquals(40f, recipe.cornerRadiusPercent)
+        assertEquals(20f, recipe.blurRadiusDp)
+        assertEquals(7f, recipe.refractionHeightDp)
+        assertEquals(11f, recipe.refractionAmountDp)
+        assertEquals(0.41f, recipe.tintOpacity)
+    }
+
+    @Test
+    fun cloudLibraryCardShadowDefaultMatchesItsLiveSurface() {
+        LiquidGlassSurface.entries.forEach { surface ->
+            assertEquals(
+                surface == LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                surface.defaultWithShadow,
+                surface.name,
+            )
+        }
+    }
+
+    @Test
     fun previewRespectsSurfaceToggleButIgnoresTheGlobalMasterSwitch() {
         val surface = LiquidGlassSurface.DETAILS
 
