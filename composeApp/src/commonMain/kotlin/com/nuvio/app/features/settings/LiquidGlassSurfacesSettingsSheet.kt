@@ -197,6 +197,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_co
 import nuvio.composeapp.generated.resources.settings_liquid_glass_custom_icon_color_description
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_action
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
@@ -249,6 +250,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_detail
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_cards
+import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_calendar
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_search
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_cloud_filters
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_library_saved_sort_filter
@@ -627,7 +629,7 @@ private fun LiquidGlassSurfaceListItem(
             ) {
                 TextButton(onClick = onOpen) {
                     Text(
-                        text = stringResource(Res.string.settings_liquid_glass_customize_button_label),
+                        text = stringResource(Res.string.settings_liquid_glass_customize_action),
                         color = tokens.colors.accent,
                     )
                 }
@@ -1979,7 +1981,7 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> Res.string.settings_liquid_glass_surface_library_cloud_filters
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> Res.string.settings_liquid_glass_surface_library_cloud_search
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> Res.string.settings_liquid_glass_surface_library_cloud_cards
-            LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar_popup
+            LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
         },
