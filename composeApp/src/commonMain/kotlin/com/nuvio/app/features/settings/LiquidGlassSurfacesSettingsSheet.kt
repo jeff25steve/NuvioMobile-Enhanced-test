@@ -125,6 +125,7 @@ import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
 import com.nuvio.app.features.library.LibraryCalendarGlassSurface
+import com.nuvio.app.features.library.LibraryCalendarGlassPreview
 import com.nuvio.app.features.library.LibraryViewMode
 import com.nuvio.app.features.library.LibraryLayoutMode
 import com.nuvio.app.features.library.LibrarySortOption
@@ -2687,6 +2688,7 @@ private fun LiquidGlassLibraryPreview(
     var cloudProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var cloudTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var cloudQuery by rememberSaveable { mutableStateOf("") }
+    var showCalendarPreview by rememberSaveable { mutableStateOf(false) }
 
     val cloudPreviewItems = remember {
         listOf(
@@ -3065,6 +3067,25 @@ private fun LiquidGlassLibraryPreview(
                         previewGlass = true,
                         selectedPreviewSurface = selectedSurface,
                         onPreviewSurfaceSelected = onSelectSurface,
+                    )
+                }
+            }
+            if (showCalendarPreview) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.44f))
+                        .clickable { showCalendarPreview = false },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LibraryCalendarGlassPreview(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .height(300.dp),
+                        selectedPreview = selectedSurface == LiquidGlassSurface.LIBRARY_CALENDAR,
+                        onSelect = { onSelectSurface(LiquidGlassSurface.LIBRARY_CALENDAR) },
+                        onDismissPreview = { showCalendarPreview = false },
                     )
                 }
             }
