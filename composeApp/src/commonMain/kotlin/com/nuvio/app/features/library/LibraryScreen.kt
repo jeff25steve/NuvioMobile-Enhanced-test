@@ -851,13 +851,8 @@ fun LibraryScreen(
                 val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
                 CompositionLocalProvider(
                     LocalLiquidGlassBackdrop provides libraryContentBackdrop,
-                    LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                        enabled = savedControlsGlassTextEnabled,
-                    ),
-                    LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                        enabled = savedControlsGlassTextEnabled,
-                    ),
                 ) {
+                    LiquidGlassTextContrastScope(enabled = savedControlsGlassTextEnabled) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -889,6 +884,7 @@ fun LibraryScreen(
                                 .padding(horizontal = 16.dp)
                                 .padding(top = 8.dp, bottom = 14.dp),
                         )
+                    }
                     }
                 }
             }
