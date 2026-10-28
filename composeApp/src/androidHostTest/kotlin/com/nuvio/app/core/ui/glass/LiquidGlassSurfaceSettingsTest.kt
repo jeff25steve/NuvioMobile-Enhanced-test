@@ -171,25 +171,70 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
-    fun existingGlassSurfacesRemainEnabledAndNewSurfacesKeepTheirCurrentAppearance() {
-        assertTrue(LiquidGlassSurface.PLAYER.defaultEnabled)
-        assertTrue(LiquidGlassSurface.STREAM_SELECTION.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAILS.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAIL_TRAILER_SELECTOR.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAIL_TRAILER_MENU.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_SEARCH.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_GO_TO.defaultEnabled)
-        assertTrue(LiquidGlassSurface.DETAIL_EPISODE_SORT.defaultEnabled)
-        assertTrue(LiquidGlassSurface.BOTTOM_SHEETS.defaultEnabled)
+    fun glassDefaultsPrioritizeFloatingControlsAndKeepContentSurfacesQuiet() {
+        val enabledByDefault = setOf(
+            LiquidGlassSurface.PLAYER,
+            LiquidGlassSurface.STREAM_FILTERS,
+            LiquidGlassSurface.STREAM_SELECTION,
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_HEADER,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+            LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+            LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+            LiquidGlassSurface.BOTTOM_SHEETS,
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.DETAIL_TRAILER_MENU,
+            LiquidGlassSurface.DETAIL_EPISODE_SEARCH,
+            LiquidGlassSurface.DETAIL_EPISODE_GO_TO,
+            LiquidGlassSurface.DETAIL_EPISODE_SORT,
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE,
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+        )
 
-        assertFalse(LiquidGlassSurface.SEARCH.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH.defaultEnabled)
-        assertFalse(LiquidGlassSurface.LIBRARY_CLOUD_CARDS.defaultEnabled)
-        assertFalse(LiquidGlassSurface.SETTINGS.defaultEnabled)
+        LiquidGlassSurface.entries.forEach { surface ->
+            assertEquals(surface in enabledByDefault, surface.defaultEnabled, surface.name)
+        }
+    }
+
+    @Test
+    fun defaultMaterialsReserveRefractionForSmallAndMediaFacingControls() {
+        val liquidByDefault = setOf(
+            LiquidGlassSurface.PLAYER,
+            LiquidGlassSurface.DETAILS,
+            LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+            LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+        )
+
+        LiquidGlassSurface.entries.forEach { surface ->
+            val expected = if (surface in liquidByDefault) {
+                LiquidGlassMaterial.LIQUID
+            } else {
+                LiquidGlassMaterial.FROSTED
+            }
+            assertEquals(expected, surface.defaultMaterial, surface.name)
+        }
+
+        assertEquals(
+            LiquidGlassMaterial.FROSTED,
+            effectiveLiquidGlassMaterial(
+                surface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
+                material = null,
+                refractionSupported = true,
+                cornerRadiusPercent = 36f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            effectiveLiquidGlassMaterial(
+                surface = LiquidGlassSurface.PLAYER,
+                material = null,
+                refractionSupported = true,
+                cornerRadiusPercent = 50f,
+            ),
+        )
     }
 
     @Test
