@@ -39,6 +39,9 @@ import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_close
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import androidx.compose.ui.unit.dp
 
@@ -53,6 +56,10 @@ internal fun PlayerQualityPanel(
     modifier: Modifier = Modifier,
 ) {
     val tokens = MaterialTheme.nuvio
+    val playerGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.PLAYER,
+        platformSupported = isLiquidGlassSupported(),
+    )
 
     AnimatedVisibility(
         visible = visible,
@@ -98,6 +105,7 @@ internal fun PlayerQualityPanel(
                             onClick = {},
                         ),
                 ) {
+                    LiquidGlassTextContrastScope(enabled = playerGlassEnabled) {
                     Column {
                         Row(
                             modifier = Modifier
@@ -194,6 +202,7 @@ internal fun PlayerQualityPanel(
                                 }
                             }
                         }
+                    }
                     }
                 }
             }
