@@ -640,8 +640,11 @@ internal fun ResumeBanner(
                         .liquidGlassForSurface(
                             surface = LiquidGlassSurface.STREAM_SELECTION,
                             shape = shape,
-                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.38f),
                             fallback = fallback,
+                            blurRadius = 14.dp,
+                            refractionHeight = 8.dp,
+                            refractionAmount = 12.dp,
                             preview = preview,
                         )
                 } else {
@@ -1574,10 +1577,11 @@ internal fun StreamSearchField(
             .liquidGlassForSurface(
                 surface = LiquidGlassSurface.STREAM_SELECTION,
                 shape = fieldShape,
-                tint = Color.White.copy(alpha = 0.05f).compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)),
+                tint = Color.White.copy(alpha = 0.05f).compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)).copy(alpha = 0.38f),
                 fallback = tokens.colors.surfaceCard,
                 blurRadius = 14.dp,
                 refractionHeight = 8.dp,
+                refractionAmount = 12.dp,
                 preview = preview,
             ),
     ) {
