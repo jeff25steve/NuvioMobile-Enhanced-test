@@ -124,6 +124,7 @@ import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
+import com.nuvio.app.features.library.LibraryCalendarGlassSurface
 import com.nuvio.app.features.library.LibraryViewMode
 import com.nuvio.app.features.library.LibraryLayoutMode
 import com.nuvio.app.features.library.LibrarySortOption
@@ -1979,6 +1980,7 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> Res.string.settings_liquid_glass_surface_library_cloud_filters
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> Res.string.settings_liquid_glass_surface_library_cloud_search
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> Res.string.settings_liquid_glass_surface_library_cloud_cards
+            LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
         },
@@ -2029,7 +2031,8 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> 332.dp
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            LiquidGlassSurface.LIBRARY_CALENDAR -> 332.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
             else -> 88.dp
@@ -2164,11 +2167,11 @@ private fun LiquidGlassSurfacePreview(
                             LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
                             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
                             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassLibraryPreview(
+                            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                            LiquidGlassSurface.LIBRARY_CALENDAR -> LiquidGlassLibraryPreview(
                                 settings = settings,
                                 selectedSurface = surface,
                                 onSelectSurface = {},
-                                recipe = recipe,
                                 modifier = Modifier.fillMaxSize(),
                             )
 
@@ -2578,6 +2581,7 @@ private val liquidGlassLibraryPreviewSurfaces = listOf(
     LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
     LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
     LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+    LiquidGlassSurface.LIBRARY_CALENDAR,
 )
 
 private val liquidGlassLibraryCloudBackgroundSurfaces = setOf(
@@ -2670,7 +2674,6 @@ private fun LiquidGlassLibraryPreview(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
     onSelectSurface: (LiquidGlassSurface) -> Unit,
-    recipe: LiquidGlassSurfaceRecipe? = null,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
@@ -2701,8 +2704,20 @@ private fun LiquidGlassLibraryPreview(
                 (cloudTypeName.isNullOrBlank() || item.type.name == cloudTypeName)
         }
     }
-    val defaultRecipe = remember(selectedSurface, recipe, settings) {
-        recipe ?: surfacePreviewRecipe(selectedSurface, settings.forSurface(selectedSurface))
+    val libraryRecipe = remember(settings) {
+        surfacePreviewRecipe(LiquidGlassSurface.LIBRARY, settings.forSurface(LiquidGlassSurface.LIBRARY))
+    }
+    val cloudSearchRecipe = remember(settings) {
+        surfacePreviewRecipe(
+            LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            settings.forSurface(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH),
+        )
+    }
+    val cloudCardsRecipe = remember(settings) {
+        surfacePreviewRecipe(
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            settings.forSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS),
+        )
     }
     val savedSortOption = remember(savedSort) {
         runCatching { LibrarySortOption.valueOf(savedSort) }
