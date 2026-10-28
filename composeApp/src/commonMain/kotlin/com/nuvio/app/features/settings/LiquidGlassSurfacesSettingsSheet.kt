@@ -150,6 +150,8 @@ import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceRecipe
+import com.nuvio.app.core.ui.glass.liquidGlassSurfaceRecipe
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
 import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
@@ -1892,7 +1894,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_shadow),
                     description = stringResource(Res.string.settings_liquid_glass_surface_shadow_description),
-                    checked = overrides.withShadow ?: false,
+                    checked = overrides.withShadow ?: surface.defaultWithShadow,
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withShadow = it)) },
                 )
@@ -3843,56 +3845,10 @@ private fun LiquidGlassSearchPreviewPosterTile(
     }
 }
 
-internal data class LiquidGlassSurfaceRecipe(
-    val cornerRadiusPercent: Float,
-    val blurRadiusDp: Float,
-    val refractionHeightDp: Float,
-    val refractionAmountDp: Float,
-    val tintOpacity: Float,
-)
-
 internal fun surfacePreviewRecipe(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
-): LiquidGlassSurfaceRecipe {
-    val defaults = when (surface) {
-        // The player is the main media-rich surface, so it keeps a restrained liquid lens.
-        LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 10f, 8f, 12f, 0.05f)
-        // Filters remain tactile without the heavy edge distortion of large lens values.
-        LiquidGlassSurface.STREAM_FILTERS -> LiquidGlassSurfaceRecipe(50f, 10f, 6f, 8f, 0.35f)
-        LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.38f)
-        // Result cards are opt-in content surfaces; keep their optional treatment understated.
-        LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassSurfaceRecipe(15f, 14f, 6f, 9f, 0.30f)
-        LiquidGlassSurface.DETAILS -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.30f)
-        LiquidGlassSurface.DETAIL_HEADER -> LiquidGlassSurfaceRecipe(0f, 16f, 0f, 0f, 0.55f)
-        LiquidGlassSurface.DETAIL_CHIPS -> LiquidGlassSurfaceRecipe(25f, 10f, 4f, 6f, 0.28f)
-        LiquidGlassSurface.DETAIL_CONTENT_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.28f)
-        LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> LiquidGlassSurfaceRecipe(50f, 14f, 6f, 9f, 0.30f)
-        LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.22f)
-        LiquidGlassSurface.DETAIL_TRAILER_MENU -> LiquidGlassSurfaceRecipe(50f, 14f, 6f, 9f, 0.28f)
-        LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
-        LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
-        LiquidGlassSurface.DETAIL_EPISODE_SORT -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
-        LiquidGlassSurface.CATEGORY_HEADER_TITLE -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
-        LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
-        LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.22f)
-        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.22f)
-        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
-        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
-        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
-        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.24f)
-        LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.18f)
-        LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.18f)
-        LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 18f, 8f, 12f, 0.35f)
-    }
-    return defaults.copy(
-        cornerRadiusPercent = overrides.cornerRadiusPercent ?: defaults.cornerRadiusPercent,
-        blurRadiusDp = overrides.blurRadiusDp ?: defaults.blurRadiusDp,
-        refractionHeightDp = overrides.refractionHeightDp ?: defaults.refractionHeightDp,
-        refractionAmountDp = overrides.refractionAmountDp ?: defaults.refractionAmountDp,
-        tintOpacity = overrides.tintOpacity ?: defaults.tintOpacity,
-    )
-}
+): LiquidGlassSurfaceRecipe = liquidGlassSurfaceRecipe(surface, overrides)
 
 internal fun liquidGlassSurfaceDefaultHighlightEnabled(surface: LiquidGlassSurface): Boolean =
     surface != LiquidGlassSurface.DETAIL_HEADER
@@ -3910,7 +3866,7 @@ private fun resolvedGlassEffects(
         tintOpacity = overrides.tintOpacity ?: recipe.tintOpacity,
         withVibrancy = overrides.withVibrancy ?: true,
         withHighlight = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
-        withShadow = overrides.withShadow ?: false,
+        withShadow = overrides.withShadow ?: surface.defaultWithShadow,
         chromaticAberration = overrides.chromaticAberration ?: false,
         depthEffect = overrides.depthEffect ?: false,
         material = effectiveLiquidGlassMaterial(
