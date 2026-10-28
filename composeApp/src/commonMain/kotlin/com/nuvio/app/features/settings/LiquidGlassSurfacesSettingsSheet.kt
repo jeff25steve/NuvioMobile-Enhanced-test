@@ -627,7 +627,7 @@ private fun LiquidGlassSurfaceListItem(
             ) {
                 TextButton(onClick = onOpen) {
                     Text(
-                        text = stringResource(Res.string.settings_liquid_glass_customize_action),
+                        text = stringResource(Res.string.settings_liquid_glass_customize_button_label),
                         color = tokens.colors.accent,
                     )
                 }
@@ -1979,7 +1979,7 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> Res.string.settings_liquid_glass_surface_library_cloud_filters
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> Res.string.settings_liquid_glass_surface_library_cloud_search
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> Res.string.settings_liquid_glass_surface_library_cloud_cards
-            LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar
+            LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar_popup
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
         },
@@ -3306,10 +3306,10 @@ private fun LiquidGlassPlayerPreview(
                 videoWidth = 3840,
                 videoHeight = 2160,
                 chapters = listOf(
-                    PlayerChapter("Opening", 0L),
-                    PlayerChapter("Arrival", 1_500_000L),
-                    PlayerChapter("Midpoint", 3_400_000L),
-                    PlayerChapter("Finale", 7_100_000L),
+                    PlayerChapter(0L, "Opening"),
+                    PlayerChapter(1_500_000L, "Arrival"),
+                    PlayerChapter(3_400_000L, "Midpoint"),
+                    PlayerChapter(7_100_000L, "Finale"),
                 ),
             )
         }

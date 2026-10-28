@@ -1,0 +1,4 @@
+<resources>
+    <string name="settings_liquid_glass_customize_button_label">Customize</string>
+    <string name="settings_liquid_glass_surface_library_calendar_popup">Release calendar popup</string>
+</resources>
