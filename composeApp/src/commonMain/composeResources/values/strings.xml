@@ -2954,7 +2954,7 @@
     <string name="settings_liquid_glass_preview_stream_picker">Streams preview</string>
     <string name="settings_liquid_glass_preview_stream_picker_description">Tap a filter, search field, resume banner or result card to edit it.</string>
     <string name="settings_liquid_glass_group_category_header">Category header</string>
-    <string name="settings_liquid_glass_group_category_header_description">Category title and back button</string>
+    <string name="settings_liquid_glass_group_category_header_description">Title and back button</string>
     <string name="settings_liquid_glass_preview_category_header">Category header preview</string>
     <string name="settings_liquid_glass_preview_category_header_description">Tap the title or back button to edit its glass.</string>
     <string name="settings_liquid_glass_group_library">Library</string>
