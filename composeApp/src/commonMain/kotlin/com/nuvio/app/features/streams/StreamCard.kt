@@ -49,6 +49,7 @@ import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
@@ -97,10 +98,11 @@ internal fun StreamCard(
     val surfaceTint = surfaceFallback.compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
     val badgeImages = stream.badges.filter { it.imageURL.isNotBlank() }
     val hasBadges = badgeImages.isNotEmpty() || (showFileSizeBadges && stream.behaviorHints.videoSize != null)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 68.dp)
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
             .shadow(
                 elevation = 2.dp,
                 shape = cardShape,
@@ -224,6 +226,7 @@ internal fun StreamCard(
                 )
             }
         }
+    }
     }
 }
 
