@@ -2861,8 +2861,7 @@ private fun LiquidGlassLibraryPreview(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                .clip(cardShape)
+                                .padding(horizontal = 4.dp, vertical = 6.dp)
                                 .then(
                                     if (cardGlassEnabled) {
                                         Modifier.liquidGlassForSurface(
@@ -2877,7 +2876,9 @@ private fun LiquidGlassLibraryPreview(
                                             preview = true,
                                         )
                                     } else {
-                                        Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow, cardShape)
+                                        Modifier
+                                            .clip(cardShape)
+                                            .background(MaterialTheme.colorScheme.surfaceContainerLow, cardShape)
                                     },
                                 )
                                 .then(
