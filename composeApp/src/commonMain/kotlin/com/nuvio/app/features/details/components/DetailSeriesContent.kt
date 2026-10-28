@@ -105,6 +105,10 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 
@@ -632,6 +636,11 @@ private fun SeasonViewModeToggle(
     preview: Boolean = false,
 ) {
     val isPosters = mode == SeasonViewMode.Posters
+    val toggleGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.DETAIL_CHIPS,
+        preview = preview,
+        platformSupported = if (preview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+    )
     Box(
         modifier = Modifier
             .liquidGlassForSurface(
@@ -653,6 +662,7 @@ private fun SeasonViewModeToggle(
             .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
+        LiquidGlassTextContrastScope(enabled = toggleGlassEnabled) {
         Text(
             text = if (isPosters) {
                 stringResource(Res.string.details_season_view_posters)
@@ -665,6 +675,7 @@ private fun SeasonViewModeToggle(
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        }
     }
 }
 
@@ -704,6 +715,11 @@ private fun SeasonTextChipScrollRow(
     ) {
         items(seasons, key = { season -> season }) { season ->
             val isSelected = season == currentSeason
+            val seasonChipGlassEnabled = isSelected && isLiquidGlassSurfaceEffectivelyEnabled(
+                surface = LiquidGlassSurface.DETAIL_CHIPS,
+                preview = preview,
+                platformSupported = if (preview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+            )
             val defaultSeasonChipShape = RoundedCornerShape(sizing.seasonChipRadius)
             val seasonChipShape = if (isSelected) {
                 liquidGlassShape(LiquidGlassSurface.DETAIL_CHIPS, defaultSeasonChipShape, preview = preview)
@@ -739,6 +755,7 @@ private fun SeasonTextChipScrollRow(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
+                LiquidGlassTextContrastScope(enabled = seasonChipGlassEnabled) {
                 Text(
                     text = season.label(),
                     style = MaterialTheme.typography.bodyLarge.copy(
@@ -751,6 +768,7 @@ private fun SeasonTextChipScrollRow(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
+                }
             }
         }
     }
