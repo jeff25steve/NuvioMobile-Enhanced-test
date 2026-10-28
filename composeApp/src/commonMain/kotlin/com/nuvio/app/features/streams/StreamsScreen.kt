@@ -102,6 +102,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.NuvioTokens
@@ -631,6 +632,7 @@ internal fun ResumeBanner(
         defaultShape
     }
     val fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
     Box(
         modifier = modifier
             .then(
@@ -659,6 +661,7 @@ internal fun ResumeBanner(
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
         )
+    }
     }
 }
 
@@ -1570,6 +1573,7 @@ internal fun StreamSearchField(
         glassSurfaceEnabled = glassAllowed,
         glassRimCanRender = glassRimCanRender,
     )
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1609,6 +1613,7 @@ internal fun StreamSearchField(
                 cursorColor = tokens.colors.accent,
             ),
         )
+    }
     }
 }
 
