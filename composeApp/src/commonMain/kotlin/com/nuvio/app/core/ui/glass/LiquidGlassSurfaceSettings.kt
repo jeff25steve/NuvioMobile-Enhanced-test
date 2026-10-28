@@ -56,6 +56,10 @@ enum class LiquidGlassSurface {
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
 
+    /** Keep the one existing shadowed card recipe consistent between Studio and runtime. */
+    val defaultWithShadow: Boolean
+        get() = this == LIBRARY_CLOUD_CARDS
+
     /**
      * Use refraction only where it adds value without competing with text or dense content.
      * FROSTED remains the safe, legible default for forms, menus, cards, and grouped controls.
@@ -187,6 +191,61 @@ internal data class LiquidGlassSurfaceOverrides(
         chromaticAberration = shared.chromaticAberration,
         depthEffect = shared.depthEffect,
     ).sanitized()
+}
+
+/** One source of truth for starting slider values and runtime rendering. */
+@Serializable
+internal data class LiquidGlassSurfaceRecipe(
+    val cornerRadiusPercent: Float,
+    val blurRadiusDp: Float,
+    val refractionHeightDp: Float,
+    val refractionAmountDp: Float,
+    val tintOpacity: Float,
+)
+
+/**
+ * Resolve the same per-surface recipe for Studio and live rendering. Nullable user overrides
+ * inherit these defaults; they do not silently fall back to a different value at each call site.
+ */
+internal fun liquidGlassSurfaceRecipe(
+    surface: LiquidGlassSurface,
+    overrides: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+): LiquidGlassSurfaceRecipe {
+    val safeOverrides = overrides.sanitized()
+    val defaults = when (surface) {
+        LiquidGlassSurface.PLAYER -> LiquidGlassSurfaceRecipe(50f, 10f, 8f, 12f, 0.05f)
+        LiquidGlassSurface.STREAM_FILTERS -> LiquidGlassSurfaceRecipe(50f, 10f, 6f, 8f, 0.35f)
+        LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.38f)
+        LiquidGlassSurface.STREAM_RESULTS -> LiquidGlassSurfaceRecipe(15f, 14f, 6f, 9f, 0.30f)
+        LiquidGlassSurface.DETAILS -> LiquidGlassSurfaceRecipe(50f, 14f, 8f, 12f, 0.30f)
+        LiquidGlassSurface.DETAIL_HEADER -> LiquidGlassSurfaceRecipe(0f, 16f, 0f, 0f, 0.55f)
+        LiquidGlassSurface.DETAIL_CHIPS -> LiquidGlassSurfaceRecipe(25f, 10f, 4f, 6f, 0.28f)
+        LiquidGlassSurface.DETAIL_CONTENT_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.28f)
+        LiquidGlassSurface.DETAIL_PRIMARY_ACTION -> LiquidGlassSurfaceRecipe(50f, 14f, 6f, 9f, 0.30f)
+        LiquidGlassSurface.DETAIL_TRAILER_SELECTOR -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.22f)
+        LiquidGlassSurface.DETAIL_TRAILER_MENU -> LiquidGlassSurfaceRecipe(50f, 14f, 6f, 9f, 0.28f)
+        LiquidGlassSurface.DETAIL_EPISODE_SEARCH -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
+        LiquidGlassSurface.DETAIL_EPISODE_GO_TO -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
+        LiquidGlassSurface.DETAIL_EPISODE_SORT -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.24f)
+        LiquidGlassSurface.CATEGORY_HEADER_TITLE -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
+        LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
+        LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.22f)
+        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.22f)
+        LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
+        LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
+        LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.25f)
+        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.24f)
+        LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.18f)
+        LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.18f)
+        LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 18f, 8f, 12f, 0.35f)
+    }
+    return defaults.copy(
+        cornerRadiusPercent = safeOverrides.cornerRadiusPercent ?: defaults.cornerRadiusPercent,
+        blurRadiusDp = safeOverrides.blurRadiusDp ?: defaults.blurRadiusDp,
+        refractionHeightDp = safeOverrides.refractionHeightDp ?: defaults.refractionHeightDp,
+        refractionAmountDp = safeOverrides.refractionAmountDp ?: defaults.refractionAmountDp,
+        tintOpacity = safeOverrides.tintOpacity ?: defaults.tintOpacity,
+    )
 }
 
 /** A composite, production-shaped preview that lets users tune related surfaces together. */
