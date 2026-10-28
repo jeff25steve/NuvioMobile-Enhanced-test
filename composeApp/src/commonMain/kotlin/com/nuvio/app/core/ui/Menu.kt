@@ -74,11 +74,11 @@ fun Menu(
         baseModifier.liquidGlassForSurface(
             surface = glassSurface,
             shape = shape,
-            tint = tokens.colors.surfacePopover.copy(alpha = 0.24f),
+            tint = tokens.colors.surfacePopover.copy(alpha = 0.28f),
             fallback = tokens.colors.surfacePopover.copy(alpha = 0.72f),
-            blurRadius = 18.dp,
-            refractionHeight = 10.dp,
-            refractionAmount = 16.dp,
+            blurRadius = 14.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
         )
     } else {
         baseModifier
