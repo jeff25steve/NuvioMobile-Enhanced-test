@@ -197,8 +197,6 @@ import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_background_image_tip
-import nuvio.composeapp.generated.resources.settings_liquid_glass_expand_controls
-import nuvio.composeapp.generated.resources.settings_liquid_glass_collapse_controls
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
