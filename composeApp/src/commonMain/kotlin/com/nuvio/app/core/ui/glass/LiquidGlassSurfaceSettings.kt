@@ -489,13 +489,11 @@ internal fun liquidGlassShape(
     if (!shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled)) {
         return defaultShape
     }
-    // Full-width scroll-edge headers remain rectangular. Apply the same 0–50 slider range used by
-    // navigation glass, but scale each component's own corners rather than making every card a
-    // huge percentage-based oval. Keep the exact returned shape as the single clip/lens/highlight
-    // source so the edge highlight follows every live slider update.
+    val recipe = liquidGlassSurfaceRecipe(surface, overrides)
+    // Full-width scroll-edge headers remain rectangular. Scale each component's own native corners
+    // using the same resolved recipe that supplies Studio's initial slider values and render effects.
     if (defaultShape === RectangleShape || defaultShape !is CornerBasedShape) return defaultShape
-    val radiusPercent = overrides.cornerRadiusPercent ?: return defaultShape
-    return scaleLiquidGlassCornerShape(defaultShape, radiusPercent)
+    return scaleLiquidGlassCornerShape(defaultShape, recipe.cornerRadiusPercent)
 }
 
 /** Slider range matches the navigation bar: 0 = square, 50 = original pill/corner shape. */
@@ -606,22 +604,22 @@ internal fun Modifier.liquidGlassForSurface(
     } else {
         LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     }
+    val recipe = liquidGlassSurfaceRecipe(surface, overrides)
     val materialStyle = LiquidGlassStyle(
         material = effectiveLiquidGlassMaterial(
             surface = surface,
             material = overrides.material,
             refractionSupported = isLiquidRefractionSupported(),
-            cornerRadiusPercent = overrides.cornerRadiusPercent,
+            cornerRadiusPercent = recipe.cornerRadiusPercent,
         ),
     )
     val enabled = shouldRenderLiquidGlassSurface(surface, overrides, isPreview, LiquidGlassSettings.enabled) &&
         materialStyle.usesBackdrop
-    // Apply the current per-surface radius here as well as in shape-aware call sites. This
-    // covers production controls used by Studio previews that pass their original call-site shape.
-    // scaleLiquidGlassCornerShape unwraps an earlier scaling, so helper callers are not scaled twice.
+    // Apply the resolved recipe even when the user has not saved an explicit radius override.
+    // Unwrap prior preview scaling before applying the selected value to avoid scaling twice.
     val effectiveShape = effectiveLiquidGlassSurfaceShape(
         shape = shape,
-        cornerRadiusPercent = overrides.cornerRadiusPercent,
+        cornerRadiusPercent = recipe.cornerRadiusPercent,
         enabled = enabled,
     )
     if (!enabled) {
@@ -632,19 +630,15 @@ internal fun Modifier.liquidGlassForSurface(
         }
     }
 
-    val effectiveTint = overrides.tintOpacity?.let { tint.copy(alpha = it) } ?: tint
-    val effectiveBlur = if (materialStyle.usesBlur) {
-        overrides.blurRadiusDp?.dp ?: blurRadius
-    } else {
-        0.dp
-    }
+    val effectiveTint = if (tint.alpha > 0f) tint.copy(alpha = recipe.tintOpacity) else tint
+    val effectiveBlur = if (materialStyle.usesBlur) recipe.blurRadiusDp.dp else 0.dp
     val effectiveRefractionHeight = if (materialStyle.usesLens && surface.supportsLens) {
-        overrides.refractionHeightDp?.dp ?: refractionHeight
+        recipe.refractionHeightDp.dp
     } else {
         0.dp
     }
     val effectiveRefractionAmount = if (materialStyle.usesLens && surface.supportsLens) {
-        overrides.refractionAmountDp?.dp ?: refractionAmount
+        recipe.refractionAmountDp.dp
     } else {
         0.dp
     }
