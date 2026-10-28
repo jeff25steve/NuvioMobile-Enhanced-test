@@ -124,7 +124,6 @@ import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
-import com.nuvio.app.features.library.LibraryCalendarGlassSurface
 import com.nuvio.app.features.library.LibraryCalendarGlassPreview
 import com.nuvio.app.features.library.LibraryViewMode
 import com.nuvio.app.features.library.LibraryLayoutMode
@@ -2849,7 +2848,7 @@ private fun LiquidGlassLibraryPreview(
                     ) {
                         val cardShape = liquidGlassShape(
                             surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-                            defaultShape = RoundedCornerShape(16.dp),
+                            defaultShape = MaterialTheme.shapes.medium,
                             preview = true,
                         )
                         val cardGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
@@ -2860,7 +2859,8 @@ private fun LiquidGlassLibraryPreview(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(66.dp)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clip(cardShape)
                                 .then(
                                     if (cardGlassEnabled) {
                                         Modifier.liquidGlassForSurface(
@@ -2875,9 +2875,7 @@ private fun LiquidGlassLibraryPreview(
                                             preview = true,
                                         )
                                     } else {
-                                        Modifier
-                                            .clip(cardShape)
-                                            .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.58f))
+                                        Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow, cardShape)
                                     },
                                 )
                                 .then(
@@ -2890,21 +2888,79 @@ private fun LiquidGlassLibraryPreview(
                                 .clickable { onSelectSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS) },
                             contentAlignment = Alignment.CenterStart,
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
-                                contentDescription = stringResource(
-                                    Res.string.settings_liquid_glass_surface_library_cloud_cards,
-                                ),
-                                modifier = Modifier.padding(start = 18.dp).size(22.dp),
-                                tint = liquidGlassIconTint(
-                                    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-                                    if (cardGlassEnabled) {
-                                        MaterialTheme.nuvio.colors.textSecondary
-                                    } else {
-                                        MaterialTheme.nuvio.colors.textMuted
-                                    },
-                                ),
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
+                                    contentDescription = stringResource(
+                                        Res.string.settings_liquid_glass_surface_library_cloud_cards,
+                                    ),
+                                    modifier = Modifier.padding(top = 2.dp).size(22.dp),
+                                    tint = liquidGlassIconTint(
+                                        LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                                        if (cardGlassEnabled) {
+                                            MaterialTheme.nuvio.colors.textSecondary
+                                        } else {
+                                            MaterialTheme.nuvio.colors.textMuted
+                                        },
+                                    ),
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        text = it.matchText,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (cardGlassEnabled) {
+                                            MaterialTheme.nuvio.colors.textPrimary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${it.providerId.substringAfter(':')} • ${it.type.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (cardGlassEnabled) {
+                                            MaterialTheme.nuvio.colors.textSecondary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "Ready • 3 files",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (cardGlassEnabled) {
+                                            MaterialTheme.nuvio.colors.textMuted
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1,
+                                    )
+                                }
+                                if (it.type != CloudLibraryItemType.File) {
+                                    IconButton(
+                                        onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS) },
+                                        modifier = Modifier.size(32.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = stringResource(Res.string.action_play),
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3061,7 +3117,10 @@ private fun LiquidGlassLibraryPreview(
                         onSectionSelected = {},
                         onTypeSelected = { savedType = it },
                         onSortSelected = { savedSort = it.name },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .padding(top = 8.dp, bottom = 14.dp),
                         typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
                         sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
                         previewGlass = true,
