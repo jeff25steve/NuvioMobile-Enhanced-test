@@ -68,6 +68,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 @Composable
@@ -297,9 +298,10 @@ private fun FilterChip(
     } else {
         defaultShape
     }
-    Box(
-        modifier = Modifier
-            .graphicsLayer {
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
@@ -363,5 +365,6 @@ private fun FilterChip(
                 )
             }
         }
+    }
     }
 }
