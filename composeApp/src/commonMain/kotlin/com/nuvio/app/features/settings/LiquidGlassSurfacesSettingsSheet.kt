@@ -3040,8 +3040,7 @@ private fun LiquidGlassLibraryPreview(
                                 } else {
                                     Modifier
                                 },
-                            )
-                            .padding(horizontal = 3.dp, vertical = 2.dp),
+                            ),
                         selectedMode = viewMode,
                         showServers = false,
                         onModeSelected = { viewModeName = it.name },
