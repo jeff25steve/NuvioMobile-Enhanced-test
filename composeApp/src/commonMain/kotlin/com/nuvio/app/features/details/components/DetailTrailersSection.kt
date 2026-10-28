@@ -130,9 +130,9 @@ fun DetailTrailersSection(
                             shape = selectorShape,
                             tint = selectorTint,
                             fallback = selectorFallback,
-                            blurRadius = 14.dp,
-                            refractionHeight = 8.dp,
-                            refractionAmount = 12.dp,
+                            blurRadius = 12.dp,
+                            refractionHeight = 6.dp,
+                            refractionAmount = 9.dp,
                         )
                     } else {
                         Modifier
