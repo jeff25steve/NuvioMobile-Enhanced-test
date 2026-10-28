@@ -38,6 +38,7 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
 
@@ -97,9 +98,10 @@ fun NuvioDropdownChip(
         Modifier
     }
 
-    Row(
-        modifier = modifier
-            .then(selectionFrameModifier)
+    LiquidGlassTextContrastScope(enabled = glassEnabled) {
+        Row(
+            modifier = modifier
+                .then(selectionFrameModifier)
             .then(containerModifier)
             .then(
                 if (enabled) {
@@ -133,6 +135,7 @@ fun NuvioDropdownChip(
                 tokens.colors.borderDefault
             },
         )
+    }
     }
 
     if (isSheetVisible) {
