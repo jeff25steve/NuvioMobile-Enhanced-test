@@ -100,6 +100,8 @@ enum class LiquidGlassSurface {
             LIBRARY_SAVED_TYPE_FILTER,
             LIBRARY_SAVED_SORT_FILTER,
             LIBRARY_CLOUD_FILTERS,
+            LIBRARY_CLOUD_SEARCH,
+            SEARCH,
             BOTTOM_SHEETS,
             DETAIL_TRAILER_SELECTOR,
             DETAIL_TRAILER_MENU,
@@ -111,8 +113,6 @@ enum class LiquidGlassSurface {
             STREAM_RESULTS,
             DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS,
-            SEARCH,
-            LIBRARY_CLOUD_SEARCH,
             LIBRARY_CLOUD_CARDS,
             SETTINGS -> false
         }
