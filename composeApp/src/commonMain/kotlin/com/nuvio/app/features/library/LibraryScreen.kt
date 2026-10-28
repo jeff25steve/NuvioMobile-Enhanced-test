@@ -1268,6 +1268,13 @@ internal fun LibrarySourceSwitch(
     trailingActions: @Composable RowScope.() -> Unit = {},
     onPreviewModeSelected: ((LibraryViewMode) -> Unit)? = null,
 ) {
+    val isPreview = onPreviewModeSelected != null
+    val sourceSwitchGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY,
+        preview = isPreview,
+        platformSupported = if (isPreview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
+    )
+    LiquidGlassTextContrastScope(enabled = sourceSwitchGlassEnabled) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1305,6 +1312,7 @@ internal fun LibrarySourceSwitch(
             verticalAlignment = Alignment.CenterVertically,
             content = trailingActions,
         )
+    }
     }
 }
 
