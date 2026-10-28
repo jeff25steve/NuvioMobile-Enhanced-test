@@ -2960,7 +2960,7 @@
     <string name="settings_liquid_glass_group_library">Library</string>
     <string name="settings_liquid_glass_group_library_description">Saved and Cloud controls, release calendar</string>
     <string name="settings_liquid_glass_preview_library">Library preview</string>
-    <string name="settings_liquid_glass_preview_library_description">Switch between Saved and Cloud to edit filters, search and cards.</string>
+    <string name="settings_liquid_glass_preview_library_description">Switch between Saved and Cloud, or open the calendar to edit its popup.</string>
     <string name="settings_liquid_glass_library_background_title">Cloud background image</string>
     <string name="settings_liquid_glass_library_background_description">Choose a background for Cloud Library only. It stays separate from the Settings wallpaper and is saved on this device profile.</string>
     <string name="settings_liquid_glass_library_background_choose">Choose image</string>
