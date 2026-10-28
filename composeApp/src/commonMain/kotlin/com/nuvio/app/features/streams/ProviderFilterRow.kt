@@ -310,11 +310,11 @@ private fun FilterChip(
                     Modifier.liquidGlassForSurface(
                         surface = LiquidGlassSurface.STREAM_FILTERS,
                         shape = chipShape,
-                        tint = containerColor,
+                        tint = containerColor.copy(alpha = 0.35f),
                         fallback = containerColor,
-                        blurRadius = 14.dp,
-                        refractionHeight = 8.dp,
-                        refractionAmount = 12.dp,
+                        blurRadius = 10.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 8.dp,
                         preview = preview,
                     )
                 } else {
