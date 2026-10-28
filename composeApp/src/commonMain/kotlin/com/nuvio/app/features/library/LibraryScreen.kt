@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1954,6 +1955,66 @@ private fun CloudSkeletonBlock(
     )
 }
 
+/**
+ * Shared glass container for the live release-calendar dialog and Studio preview.
+ * Keeping geometry, tint, blur, fallback and surface settings in one place prevents the preview
+ * from drifting away from the actual popup.
+ */
+@Composable
+internal fun LibraryCalendarGlassSurface(
+    modifier: Modifier = Modifier,
+    previewGlass: Boolean = false,
+    selectedPreview: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val surface = LiquidGlassSurface.LIBRARY_CALENDAR
+    val platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported()
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = surface,
+        preview = previewGlass,
+        platformSupported = platformSupported,
+    )
+    val shape = liquidGlassShape(
+        surface = surface,
+        defaultShape = RoundedCornerShape(28.dp),
+        preview = previewGlass,
+    )
+    Surface(
+        modifier = modifier
+            .then(
+                if (glassEnabled) {
+                    Modifier.liquidGlassForSurface(
+                        surface = surface,
+                        shape = shape,
+                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+                        fallback = MaterialTheme.colorScheme.surface,
+                        blurRadius = 16.dp,
+                        refractionHeight = 3.dp,
+                        refractionAmount = 5.dp,
+                        withHighlight = true,
+                        withShadow = false,
+                        preview = previewGlass,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (selectedPreview) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape)
+                } else {
+                    Modifier
+                },
+            )
+            .then(onClick?.let { click -> Modifier.clickable(onClick = click) } ?: Modifier),
+        shape = shape,
+        color = if (glassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
+        shadowElevation = 18.dp,
+        content = content,
+    )
+}
+
 @Composable
 private fun LibraryReleaseCalendarPanel(
     events: List<LibraryCalendarEvent>,
@@ -2023,16 +2084,13 @@ private fun LibraryReleaseCalendarPanel(
                     .clickable(onClick = onDismiss),
             )
 
-            Surface(
+            LibraryCalendarGlassSurface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .widthIn(max = 760.dp)
                     .fillMaxWidth()
-                    .height(panelHeight)
-                    .clickable(onClick = {}),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(28.dp),
-                shadowElevation = 18.dp,
+                    .height(panelHeight),
+                onClick = {},
             ) {
                 Column(
                     modifier = Modifier
