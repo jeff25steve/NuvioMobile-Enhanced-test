@@ -2811,7 +2811,24 @@ private fun LiquidGlassLibraryPreview(
                             CloudLibrarySearchField(
                                 query = cloudQuery,
                                 onQueryChange = { cloudQuery = it },
-                                modifier = Modifier.padding(horizontal = 8.dp),
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .then(
+                                        if (cloudSearchGlassEnabled) {
+                                            Modifier.liquidGlassForSurface(
+                                                surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                                shape = cloudSearchShape,
+                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = cloudSearchRecipe.tintOpacity),
+                                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                                blurRadius = cloudSearchRecipe.blurRadiusDp.dp,
+                                                refractionHeight = cloudSearchRecipe.refractionHeightDp.dp,
+                                                refractionAmount = cloudSearchRecipe.refractionAmountDp.dp,
+                                                preview = true,
+                                            )
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
                                 transparentContainer = cloudSearchGlassEnabled,
                                 shape = cloudSearchShape,
                                 showOutline = shouldDrawNuvioInputFieldOutline(
@@ -2847,11 +2864,11 @@ private fun LiquidGlassLibraryPreview(
                                         Modifier.liquidGlassForSurface(
                                             surface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
                                             shape = cardShape,
-                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = cloudCardsRecipe.tintOpacity),
                                             fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                            blurRadius = defaultRecipe.blurRadiusDp.dp,
-                                            refractionHeight = 8.dp,
-                                            refractionAmount = 12.dp,
+                                            blurRadius = cloudCardsRecipe.blurRadiusDp.dp,
+                                            refractionHeight = cloudCardsRecipe.refractionHeightDp.dp,
+                                            refractionAmount = cloudCardsRecipe.refractionAmountDp.dp,
                                             withShadow = true,
                                             preview = true,
                                         )
@@ -2927,42 +2944,43 @@ private fun LiquidGlassLibraryPreview(
                     defaultShape = RoundedCornerShape(20.dp),
                     preview = true,
                 )
+                val sourceSwitchGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                    surface = LiquidGlassSurface.LIBRARY,
+                    preview = true,
+                    platformSupported = rendererAvailable,
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (isLiquidGlassSurfaceEffectivelyEnabled(
-                                    surface = LiquidGlassSurface.LIBRARY,
-                                    preview = true,
-                                    platformSupported = rendererAvailable,
-                                )
-                            ) {
-                                Modifier.liquidGlassForSurface(
-                                    surface = LiquidGlassSurface.LIBRARY,
-                                    shape = sourceSwitchShape,
-                                    tint = MaterialTheme.colorScheme.surface.copy(
-                                        alpha = defaultRecipe.tintOpacity.coerceIn(0.12f, 0.34f),
-                                    ),
-                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                    blurRadius = defaultRecipe.blurRadiusDp.dp,
-                                    refractionHeight = defaultRecipe.refractionHeightDp.dp,
-                                    refractionAmount = defaultRecipe.refractionAmountDp.dp,
-                                    preview = true,
-                                )
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .then(
-                            if (selectedSurface == LiquidGlassSurface.LIBRARY) {
-                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, sourceSwitchShape)
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .padding(horizontal = 3.dp, vertical = 2.dp),
+                        .padding(horizontal = 8.dp),
                 ) {
                     LibrarySourceSwitch(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (sourceSwitchGlassEnabled) {
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY,
+                                        shape = sourceSwitchShape,
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = libraryRecipe.tintOpacity),
+                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                        blurRadius = libraryRecipe.blurRadiusDp.dp,
+                                        refractionHeight = libraryRecipe.refractionHeightDp.dp,
+                                        refractionAmount = libraryRecipe.refractionAmountDp.dp,
+                                        preview = true,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .then(
+                                if (selectedSurface == LiquidGlassSurface.LIBRARY) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, sourceSwitchShape)
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .padding(horizontal = 3.dp, vertical = 2.dp),
                         selectedMode = viewMode,
                         showServers = false,
                         onModeSelected = { viewModeName = it.name },
@@ -2998,7 +3016,7 @@ private fun LiquidGlassLibraryPreview(
                                         ),
                                     )
                                 }
-                                IconButton(onClick = { onSelectSurface(LiquidGlassSurface.LIBRARY) }) {
+                                IconButton(onClick = { showCalendarPreview = true }) {
                                     Icon(
                                         imageVector = Icons.Rounded.CalendarMonth,
                                         contentDescription = null,
