@@ -279,8 +279,11 @@ internal fun DetailActionButtons(
                                 Modifier.liquidGlassForSurface(
                                     surface = LiquidGlassSurface.DETAILS,
                                     shape = moreSurfaceShape,
-                                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
                                     fallback = Color.Transparent,
+                                    blurRadius = 14.dp,
+                                    refractionHeight = 8.dp,
+                                    refractionAmount = 12.dp,
                                     preview = isGlassPreview,
                                 )
                             } else {
@@ -345,8 +348,11 @@ internal fun DetailActionButtons(
                             Modifier.liquidGlassForSurface(
                                 surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
                                 shape = downloadSurfaceShape,
-                                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
                                 fallback = Color.Transparent,
+                                blurRadius = 14.dp,
+                                refractionHeight = 6.dp,
+                                refractionAmount = 9.dp,
                                 preview = isGlassPreview,
                             )
                         } else {
@@ -730,8 +736,11 @@ internal fun DetailIconAction(
                     Modifier.liquidGlassForSurface(
                         surface = LiquidGlassSurface.DETAILS,
                         shape = actionSurfaceShape,
-                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
                         fallback = Color.Transparent,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
                         preview = previewMode,
                     )
                 } else {
