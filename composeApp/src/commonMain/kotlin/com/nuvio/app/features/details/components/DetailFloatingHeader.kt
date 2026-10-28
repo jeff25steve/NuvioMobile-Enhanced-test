@@ -109,9 +109,9 @@ fun DetailFloatingHeader(
                 .liquidGlassForSurface(
                     surface = LiquidGlassSurface.DETAIL_HEADER,
                     shape = RectangleShape,
-                    tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.7f),
+                    tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.55f),
                     fallback = surfaceColor,
-                    blurRadius = 24.dp,
+                    blurRadius = 16.dp,
                     withHighlight = false,
                     explicitBackdrop = glassBackdrop,
                     useExplicitBackdrop = true,
