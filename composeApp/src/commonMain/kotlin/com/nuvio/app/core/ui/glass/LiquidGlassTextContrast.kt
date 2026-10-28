@@ -34,7 +34,6 @@ internal fun NuvioThemeTokens.withLiquidGlassTextContrast(enabled: Boolean): Nuv
                 textSecondary = Color(0xFFE1E6EB),
                 textMuted = Color(0xFFCBD2D9),
                 textDisabled = Color(0xFFADB6BF),
-                neutral = Color(0xFFCBD2D9),
             ),
         )
     }
