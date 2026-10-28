@@ -74,6 +74,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
@@ -3371,41 +3372,108 @@ private fun LiquidGlassPlayerPreview(
                             CircleShape,
                         ),
                 )
-                // The old preview used only very soft gradients, so increasing blur or refraction
-                // barely changed its appearance. Keep crisp scene edges under the controls so the
-                // sliders demonstrate the same treatment users see over detailed video frames.
+                // Use a stylized cinematic landscape instead of decorative diagonal strokes.
+                // The layered silhouettes and scattered lights provide real edges for blur/refraction
+                // to sample while keeping the preview atmospheric rather than diagram-like.
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
-                    val fineStroke = 0.8.dp.toPx()
-                    val edgeStroke = 2.2.dp.toPx()
-                    for (index in 0..11) {
-                        val x = w * (0.06f + index * 0.078f)
-                        drawLine(
-                            color = Color.White.copy(alpha = if (index % 3 == 0) 0.24f else 0.075f),
-                            start = Offset(x, h * 0.06f),
-                            end = Offset(x + w * 0.055f, h * 0.94f),
-                            strokeWidth = if (index % 3 == 0) edgeStroke else fineStroke,
+                    val starPoints = listOf(
+                        Offset(w * 0.08f, h * 0.20f),
+                        Offset(w * 0.19f, h * 0.13f),
+                        Offset(w * 0.31f, h * 0.28f),
+                        Offset(w * 0.43f, h * 0.15f),
+                        Offset(w * 0.57f, h * 0.24f),
+                        Offset(w * 0.73f, h * 0.12f),
+                        Offset(w * 0.88f, h * 0.22f),
+                        Offset(w * 0.95f, h * 0.37f),
+                    )
+                    starPoints.forEachIndexed { index, point ->
+                        val color = when (index % 3) {
+                            0 -> Color(0xFFC8F0FF)
+                            1 -> Color(0xFFFFD9BA)
+                            else -> Color(0xFFD7C9FF)
+                        }
+                        drawCircle(
+                            color = color.copy(alpha = if (index % 3 == 0) 0.58f else 0.34f),
+                            radius = (if (index % 3 == 0) 1.7f else 1.1f).dp.toPx(),
+                            center = point,
                         )
                     }
-                    drawLine(
-                        color = Color(0xFF83D7E7).copy(alpha = 0.66f),
-                        start = Offset(w * 0.10f, h * 0.72f),
-                        end = Offset(w * 0.39f, h * 0.72f),
-                        strokeWidth = edgeStroke,
+
+                    val distantRidge = Path().apply {
+                        moveTo(0f, h * 0.64f)
+                        cubicTo(w * 0.12f, h * 0.57f, w * 0.19f, h * 0.43f, w * 0.31f, h * 0.54f)
+                        cubicTo(w * 0.43f, h * 0.65f, w * 0.48f, h * 0.47f, w * 0.60f, h * 0.51f)
+                        cubicTo(w * 0.73f, h * 0.57f, w * 0.83f, h * 0.42f, w, h * 0.56f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(
+                        path = distantRidge,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF52647A), Color(0xFF273246)),
+                            startY = h * 0.42f,
+                            endY = h,
+                        ),
                     )
-                    drawLine(
-                        color = Color(0xFFF4C6AB).copy(alpha = 0.72f),
-                        start = Offset(w * 0.65f, h * 0.27f),
-                        end = Offset(w * 0.93f, h * 0.27f),
-                        strokeWidth = edgeStroke * 1.4f,
+
+                    val middleRidge = Path().apply {
+                        moveTo(0f, h * 0.77f)
+                        cubicTo(w * 0.13f, h * 0.68f, w * 0.23f, h * 0.64f, w * 0.36f, h * 0.76f)
+                        cubicTo(w * 0.49f, h * 0.88f, w * 0.57f, h * 0.67f, w * 0.70f, h * 0.72f)
+                        cubicTo(w * 0.82f, h * 0.76f, w * 0.90f, h * 0.67f, w, h * 0.74f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(
+                        path = middleRidge,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF263245), Color(0xFF131A28)),
+                            startY = h * 0.63f,
+                            endY = h,
+                        ),
                     )
-                    drawLine(
-                        color = Color(0xFFB8A2DA).copy(alpha = 0.52f),
-                        start = Offset(w * 0.58f, h * 0.14f),
-                        end = Offset(w * 0.87f, h * 0.86f),
-                        strokeWidth = edgeStroke,
+
+                    val foregroundRidge = Path().apply {
+                        moveTo(0f, h * 0.91f)
+                        cubicTo(w * 0.18f, h * 0.82f, w * 0.29f, h * 0.96f, w * 0.46f, h * 0.87f)
+                        cubicTo(w * 0.63f, h * 0.78f, w * 0.76f, h * 0.94f, w, h * 0.83f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(
+                        path = foregroundRidge,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF17202C), Color(0xFF090D16)),
+                            startY = h * 0.77f,
+                            endY = h,
+                        ),
                     )
+
+                    val horizonLights = listOf(
+                        Offset(w * 0.12f, h * 0.78f),
+                        Offset(w * 0.20f, h * 0.82f),
+                        Offset(w * 0.28f, h * 0.76f),
+                        Offset(w * 0.39f, h * 0.83f),
+                        Offset(w * 0.66f, h * 0.79f),
+                        Offset(w * 0.78f, h * 0.81f),
+                        Offset(w * 0.89f, h * 0.76f),
+                    )
+                    horizonLights.forEachIndexed { index, point ->
+                        drawCircle(
+                            color = if (index % 2 == 0) {
+                                Color(0xFFFFC98B).copy(alpha = 0.72f)
+                            } else {
+                                Color(0xFF91DDEB).copy(alpha = 0.60f)
+                            },
+                            radius = (if (index % 3 == 0) 2.2f else 1.3f).dp.toPx(),
+                            center = point,
+                        )
+                    }
                 }
             }
 
