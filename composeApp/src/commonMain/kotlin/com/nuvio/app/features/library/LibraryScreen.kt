@@ -2015,6 +2015,143 @@ internal fun LibraryCalendarGlassSurface(
     )
 }
 
+/**
+ * Compact preview of the same calendar panel used by the live Library dialog. It intentionally
+ * shares the actual popup surface so Studio changes show immediately on the matching live surface.
+ */
+@Composable
+internal fun LibraryCalendarGlassPreview(
+    modifier: Modifier = Modifier,
+    selectedPreview: Boolean,
+    onSelect: () -> Unit,
+    onDismissPreview: () -> Unit,
+) {
+    val weekdays = listOf("M", "T", "W", "T", "F", "S", "S")
+    var selectedDay by rememberSaveable { mutableStateOf(18) }
+
+    LibraryCalendarGlassSurface(
+        modifier = modifier,
+        previewGlass = true,
+        selectedPreview = selectedPreview,
+        onClick = onSelect,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.library_calendar_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = stringResource(Res.string.library_calendar_exact_dates_only),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(
+                    onClick = onDismissPreview,
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(Res.string.action_close),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                weekdays.forEach { weekday ->
+                    Text(
+                        text = weekday,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            repeat(5) { week ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    repeat(7) { dayOfWeek ->
+                        val day = week * 7 + dayOfWeek + 1
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(22.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (day == selectedDay) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                )
+                                .clickable(enabled = day <= 31) {
+                                    selectedDay = day
+                                    onSelect()
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (day <= 31) {
+                                Text(
+                                    text = day.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (day == selectedDay) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(Res.string.library_calendar_today),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(Res.string.library_calendar_open),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun LibraryReleaseCalendarPanel(
     events: List<LibraryCalendarEvent>,
