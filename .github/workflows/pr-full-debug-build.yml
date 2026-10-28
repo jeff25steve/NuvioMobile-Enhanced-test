@@ -81,6 +81,15 @@ jobs:
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
           cargo install cargo-ndk --locked
 
+      - name: Inspect generated Compose string resource accessors
+        run: |
+          set -euo pipefail
+          ./gradlew :composeApp:generateResourceAccessorsForCommonMain
+          echo "=== Generated resource accessor source files ==="
+          find composeApp/build/generated/compose/resourceGenerator/kotlin -type f -name '*.kt' -print | sort
+          echo "=== Liquid Glass editor accessor matches ==="
+          grep -R -n -E 'settings_liquid_glass_(customize|surface_library_calendar)' composeApp/build/generated/compose/resourceGenerator/kotlin || true
+
       - name: Build fullDebug APK
         run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
 
