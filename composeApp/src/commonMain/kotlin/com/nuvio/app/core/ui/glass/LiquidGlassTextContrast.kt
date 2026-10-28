@@ -43,7 +43,7 @@ internal fun NuvioThemeTokens.withLiquidGlassTextContrast(enabled: Boolean): Nuv
  * glass. Keep the blur low so it improves separation without making text look outlined or fuzzy.
  */
 internal fun TextStyle.withLiquidGlassTextShadow(enabled: Boolean): TextStyle =
-    if (enabled) copy(shadow = LiquidGlassReadableTextShadow) else this
+    if (enabled) copy(shadow = shadow ?: LiquidGlassReadableTextShadow) else this
 
 /**
  * Material3 text colors are used directly by many controls, so update their semantic foreground
