@@ -2687,7 +2687,9 @@ private fun LiquidGlassLibraryPreview(
     var cloudProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var cloudTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var cloudQuery by rememberSaveable { mutableStateOf("") }
-    var showCalendarPreview by rememberSaveable { mutableStateOf(false) }
+    var showCalendarPreview by rememberSaveable(selectedSurface) {
+        mutableStateOf(selectedSurface == LiquidGlassSurface.LIBRARY_CALENDAR)
+    }
 
     val cloudPreviewItems = remember {
         listOf(
