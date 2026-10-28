@@ -238,11 +238,11 @@ private fun SettingsCard(
                 Modifier.liquidGlassForSurface(
                     surface = LiquidGlassSurface.SETTINGS,
                     shape = cardShape,
-                    tint = tokens.colors.surface.copy(alpha = 0.45f),
+                    tint = tokens.colors.surface.copy(alpha = 0.18f),
                     fallback = tokens.colors.surface,
-                    blurRadius = 14.dp,
-                    refractionHeight = 8.dp,
-                    refractionAmount = 12.dp,
+                    blurRadius = 12.dp,
+                    refractionHeight = 6.dp,
+                    refractionAmount = 9.dp,
                     preview = previewGlass,
                 )
             } else {
@@ -357,11 +357,11 @@ internal fun TabletPageHeader(
                     .liquidGlassForSurface(
                         surface = LiquidGlassSurface.SETTINGS,
                         shape = shape,
-                        tint = tokens.colors.surface.copy(alpha = 0.45f),
+                        tint = tokens.colors.surface.copy(alpha = 0.18f),
                         fallback = tokens.colors.surface,
-                        blurRadius = 14.dp,
-                        refractionHeight = 8.dp,
-                        refractionAmount = 12.dp,
+                        blurRadius = 12.dp,
+                        refractionHeight = 6.dp,
+                        refractionAmount = 9.dp,
                     )
                     .border(
                         BorderStroke(tokens.borders.hairline, tokens.colors.borderSubtle),
