@@ -811,11 +811,15 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(restored.details, restored.detailContentCards)
         assertEquals(restored.details, restored.detailPrimaryAction)
         assertEquals(restored.streamSelection, restored.streamResults)
+    }
 
-        val legacyLibrary = decodeLiquidGlassSurfaceSettings(
+    @Test
+    fun olderLibraryPreferencesSeedCalendarOverrides() {
+        val legacy = decodeLiquidGlassSurfaceSettings(
             """{"library":{"enabled":false,"blurRadiusDp":9.0}}""",
         )
-        assertEquals(legacyLibrary.library, legacyLibrary.libraryCalendar)
+
+        assertEquals(legacy.library, legacy.libraryCalendar)
     }
 
     @Test
