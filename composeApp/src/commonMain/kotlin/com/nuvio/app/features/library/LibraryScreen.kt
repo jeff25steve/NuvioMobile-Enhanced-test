@@ -2009,6 +2009,7 @@ internal fun LibraryCalendarGlassSurface(
             .then(onClick?.let { click -> Modifier.clickable(onClick = click) } ?: Modifier),
         shape = shape,
         color = if (glassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 18.dp,
         content = content,
     )
