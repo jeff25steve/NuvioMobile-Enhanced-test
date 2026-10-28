@@ -75,7 +75,7 @@ fun NuvioDropdownChip(
         Modifier.liquidGlassForSurface(
             surface = glassSurface,
             shape = chipShape,
-            tint = tokens.colors.surface.copy(alpha = 0.20f),
+            tint = tokens.colors.surface.copy(alpha = 0.25f),
             fallback = tokens.colors.surface,
             blurRadius = 12.dp,
             refractionHeight = 6.dp,
