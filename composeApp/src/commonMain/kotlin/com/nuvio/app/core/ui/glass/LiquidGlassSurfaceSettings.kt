@@ -43,6 +43,7 @@ enum class LiquidGlassSurface {
     LIBRARY_CLOUD_FILTERS,
     LIBRARY_CLOUD_SEARCH,
     LIBRARY_CLOUD_CARDS,
+    LIBRARY_CALENDAR,
     SETTINGS,
     BOTTOM_SHEETS,
     DETAIL_TRAILER_SELECTOR,
@@ -101,6 +102,7 @@ enum class LiquidGlassSurface {
             LIBRARY_SAVED_SORT_FILTER,
             LIBRARY_CLOUD_FILTERS,
             LIBRARY_CLOUD_SEARCH,
+            LIBRARY_CALENDAR,
             SEARCH,
             BOTTOM_SHEETS,
             DETAIL_TRAILER_SELECTOR,
@@ -236,6 +238,8 @@ internal fun liquidGlassSurfaceRecipe(
         LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.34f)
         LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.38f)
+        // Dense date grids and agenda text need a frosted, high-contrast modal by default.
+        LiquidGlassSurface.LIBRARY_CALENDAR -> LiquidGlassSurfaceRecipe(44f, 16f, 3f, 5f, 0.58f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.42f)
         LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 18f, 8f, 12f, 0.50f)
     }
@@ -285,6 +289,7 @@ internal enum class LiquidGlassSurfaceGroup(val surfaces: List<LiquidGlassSurfac
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            LiquidGlassSurface.LIBRARY_CALENDAR,
         ),
     ),
 }
@@ -330,6 +335,8 @@ internal data class LiquidGlassSurfacesSettings(
     val libraryCloudFilters: LiquidGlassSurfaceOverrides = library,
     val libraryCloudSearch: LiquidGlassSurfaceOverrides = library,
     val libraryCloudCards: LiquidGlassSurfaceOverrides = library,
+    // Legacy Library overrides also seed the new calendar surface, while future edits stay independent.
+    val libraryCalendar: LiquidGlassSurfaceOverrides = library,
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val bottomSheets: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
 ) {
@@ -357,6 +364,7 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> libraryCloudFilters
         LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> libraryCloudSearch
         LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> libraryCloudCards
+        LiquidGlassSurface.LIBRARY_CALENDAR -> libraryCalendar
         LiquidGlassSurface.SETTINGS -> settings
         LiquidGlassSurface.BOTTOM_SHEETS -> bottomSheets
     }
@@ -390,6 +398,7 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> copy(libraryCloudFilters = safe)
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> copy(libraryCloudSearch = safe)
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> copy(libraryCloudCards = safe)
+            LiquidGlassSurface.LIBRARY_CALENDAR -> copy(libraryCalendar = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
             LiquidGlassSurface.BOTTOM_SHEETS -> copy(bottomSheets = safe)
         }
@@ -419,6 +428,7 @@ internal data class LiquidGlassSurfacesSettings(
         libraryCloudFilters = libraryCloudFilters.sanitized(),
         libraryCloudSearch = libraryCloudSearch.sanitized(),
         libraryCloudCards = libraryCloudCards.sanitized(),
+        libraryCalendar = libraryCalendar.sanitized(),
         settings = settings.sanitized(),
         bottomSheets = bottomSheets.sanitized(),
     )
