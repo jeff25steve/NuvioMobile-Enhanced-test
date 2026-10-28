@@ -28,6 +28,9 @@ import androidx.compose.ui.window.PopupProperties
 import com.nuvio.app.core.ui.nuvio
 import kotlin.math.abs
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 
 internal val PlayerPlaybackSpeedOptions: List<Float> =
@@ -44,6 +47,10 @@ internal fun PlayerSpeedPopup(
     val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
     val positionProvider = remember(gapPx) { AboveAnchorPositionProvider(gapPx) }
     val accent = MaterialTheme.nuvio.colors.accent
+    val playerGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.PLAYER,
+        platformSupported = isLiquidGlassSupported(),
+    )
 
     Popup(
         popupPositionProvider = positionProvider,
@@ -65,6 +72,7 @@ internal fun PlayerSpeedPopup(
                 .padding(vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            LiquidGlassTextContrastScope(enabled = playerGlassEnabled) {
             PlayerPlaybackSpeedOptions.asReversed().forEach { speed ->
                 val selected = abs(currentSpeed - speed) < 0.01f
                 Text(
@@ -81,6 +89,7 @@ internal fun PlayerSpeedPopup(
                         .padding(vertical = 6.dp)
                         .width(64.dp),
                 )
+            }
             }
         }
     }
