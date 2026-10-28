@@ -275,7 +275,15 @@ fun CatalogScreen(
 }
 
 internal fun categoryHeaderUsesPosterBackdrop(surface: LiquidGlassSurface): Boolean =
-    surface == LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+    surface == LiquidGlassSurface.CATEGORY_HEADER_TITLE ||
+        surface == LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
+
+/** In the Studio preview, render the real glass effect only on the component being edited. */
+internal fun categoryHeaderPreviewUsesGlass(
+    surface: LiquidGlassSurface,
+    previewMode: Boolean,
+    selectedPreviewSurface: LiquidGlassSurface?,
+): Boolean = !previewMode || selectedPreviewSurface == null || selectedPreviewSurface == surface
 
 @Composable
 internal fun CatalogHeader(
@@ -300,8 +308,12 @@ internal fun CatalogHeader(
     val titleSurface = LiquidGlassSurface.CATEGORY_HEADER_TITLE
     val backSurface = LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
     val posterBackdrop = LocalLiquidGlassBackdrop.current
-    val titleGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
-    val backGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
+    val titleGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
+    val backGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
+    val titleGlassEnabled = titleGlassConfigured &&
+        categoryHeaderPreviewUsesGlass(titleSurface, previewMode, selectedPreviewSurface)
+    val backGlassEnabled = backGlassConfigured &&
+        categoryHeaderPreviewUsesGlass(backSurface, previewMode, selectedPreviewSurface)
     val titleShape = liquidGlassShape(titleSurface, RoundedCornerShape(16.dp))
     val backShape = liquidGlassShape(backSurface, RoundedCornerShape(20.dp))
     val titleGlassModifier = if (titleGlassEnabled) {
@@ -395,8 +407,8 @@ internal fun CatalogHeader(
                     },
                 )
                 .padding(
-                    horizontal = if (titleGlassEnabled || (previewMode && selectedPreviewSurface == titleSurface)) 12.dp else 0.dp,
-                    vertical = if (titleGlassEnabled || (previewMode && selectedPreviewSurface == titleSurface)) 8.dp else 0.dp,
+                    horizontal = if (titleGlassConfigured || (previewMode && selectedPreviewSurface == titleSurface)) 12.dp else 0.dp,
+                    vertical = if (titleGlassConfigured || (previewMode && selectedPreviewSurface == titleSurface)) 8.dp else 0.dp,
                 ),
         ) {
             LiquidGlassTextContrastScope(enabled = titleGlassEnabled) {

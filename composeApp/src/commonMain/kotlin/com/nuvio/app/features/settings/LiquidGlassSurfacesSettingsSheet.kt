@@ -2243,7 +2243,9 @@ private fun LiquidGlassCatalogHeaderPreview(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 88.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    // Simulate a scrolled catalog: portrait posters pass behind the fixed header,
+                // making the sampled backdrop visible under both preview targets.
+                .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 repeat(2) { rowIndex ->
@@ -2257,7 +2259,7 @@ private fun LiquidGlassCatalogHeaderPreview(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(70.dp)
+                                    .aspectRatio(0.68f)
                                     .clip(RoundedCornerShape(7.dp))
                                     .background(
                                         Brush.verticalGradient(
