@@ -184,6 +184,7 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.LIBRARY_CALENDAR,
             LiquidGlassSurface.SEARCH,
             LiquidGlassSurface.BOTTOM_SHEETS,
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
@@ -290,6 +291,52 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(7f, recipe.refractionHeightDp)
         assertEquals(11f, recipe.refractionAmountDp)
         assertEquals(0.41f, recipe.tintOpacity)
+    }
+
+    @Test
+    fun libraryCalendarHasAnIndependentReadableGlassDefault() {
+        val surface = LiquidGlassSurface.LIBRARY_CALENDAR
+        val recipe = liquidGlassSurfaceRecipe(surface)
+
+        assertTrue(surface.defaultEnabled)
+        assertEquals(LiquidGlassMaterial.FROSTED, surface.defaultMaterial)
+        assertEquals(44f, recipe.cornerRadiusPercent)
+        assertEquals(16f, recipe.blurRadiusDp)
+        assertEquals(3f, recipe.refractionHeightDp)
+        assertEquals(5f, recipe.refractionAmountDp)
+        assertEquals(0.58f, recipe.tintOpacity)
+        assertTrue(surface in LiquidGlassSurfaceGroup.LIBRARY.surfaces)
+
+        val customized = LiquidGlassSurfaceOverrides(
+            enabled = false,
+            tintOpacity = 0.62f,
+            blurRadiusDp = 20f,
+        )
+        val updated = LiquidGlassSurfacesSettings().withSurface(surface, customized)
+        assertEquals(customized, updated.forSurface(surface))
+        assertEquals(LiquidGlassSurfaceOverrides(), updated.forSurface(LiquidGlassSurface.LIBRARY))
+    }
+
+    @Test
+    fun libraryPreviewRecipesRemainIndependentOfTheCurrentlySelectedSurface() {
+        val settings = LiquidGlassSurfacesSettings().withSurface(
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            LiquidGlassSurfaceOverrides(blurRadiusDp = 24f, tintOpacity = 0.70f),
+        )
+
+        val libraryRecipe = liquidGlassSurfaceRecipe(
+            LiquidGlassSurface.LIBRARY,
+            settings.forSurface(LiquidGlassSurface.LIBRARY),
+        )
+        val cloudCardsRecipe = liquidGlassSurfaceRecipe(
+            LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+            settings.forSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS),
+        )
+
+        assertEquals(12f, libraryRecipe.blurRadiusDp)
+        assertEquals(0.30f, libraryRecipe.tintOpacity)
+        assertEquals(24f, cloudCardsRecipe.blurRadiusDp)
+        assertEquals(0.70f, cloudCardsRecipe.tintOpacity)
     }
 
     @Test
