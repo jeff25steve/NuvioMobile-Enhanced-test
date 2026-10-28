@@ -64,6 +64,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -482,6 +483,7 @@ fun SearchScreen(
                                     null
                                 }
                                 if (searchGlassEnabled) {
+                                    LiquidGlassTextContrastScope(enabled = true) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -510,6 +512,7 @@ fun SearchScreen(
                                                 glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
                                             ),
                                         )
+                                    }
                                     }
                                 } else {
                                     NuvioInputField(
