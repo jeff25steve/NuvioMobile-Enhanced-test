@@ -233,7 +233,7 @@ internal fun EpisodeNavigatorBar(
         Modifier.liquidGlassForSurface(
             surface = searchSurface,
             shape = fieldShape,
-            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.24f),
             fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
             blurRadius = 12.dp,
             refractionHeight = 6.dp,
@@ -367,7 +367,7 @@ private fun EpisodeNavigatorChip(
         Modifier.liquidGlassForSurface(
             surface = surface,
             shape = shape,
-            tint = tokens.colors.surfaceSheet.copy(alpha = 0.18f),
+            tint = tokens.colors.surfaceSheet.copy(alpha = 0.24f),
             fallback = tokens.colors.surfaceSheet.copy(alpha = 0.6f),
             blurRadius = 12.dp,
             refractionHeight = 6.dp,
