@@ -52,6 +52,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.SolidGlassBar
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
@@ -352,7 +353,9 @@ internal fun FloatingNavigationBar(
                                     }
                                 },
                             ) {
-                                JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
+                                LiquidGlassTextContrastScope(enabled = glassMode.bar || glassMode.selectionLens) {
+                                    JellyTabRow(items, labelFraction, motion, active = false, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels, inactiveColorOverride = defaultIconColorOverride)
+                                }
                             }
                             if (liquidGlassIconsBackdrop != null) {
                                 // Capture the active tab row only when explicitly requested.
@@ -548,7 +551,9 @@ internal fun FloatingNavigationBar(
                                             },
                                         ),
                                 ) {
-                                    JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                    LiquidGlassTextContrastScope(enabled = glassMode.bar || glassMode.selectionLens) {
+                                        JellyTabRow(items, labelFraction, motion, active = true, compactSize = compactSize, modifier = Modifier.matchParentSize(), inlineLabels = inlineLabels)
+                                    }
                                 }
                             }
                         }
