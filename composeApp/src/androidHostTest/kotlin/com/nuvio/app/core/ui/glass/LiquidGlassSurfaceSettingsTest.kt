@@ -811,6 +811,11 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(restored.details, restored.detailContentCards)
         assertEquals(restored.details, restored.detailPrimaryAction)
         assertEquals(restored.streamSelection, restored.streamResults)
+
+        val legacyLibrary = decodeLiquidGlassSurfaceSettings(
+            """{"library":{"enabled":false,"blurRadiusDp":9.0}}""",
+        )
+        assertEquals(legacyLibrary.library, legacyLibrary.libraryCalendar)
     }
 
     @Test
@@ -850,6 +855,15 @@ class LiquidGlassSurfaceSettingsTest {
                 withVibrancy = false,
                 withHighlight = false,
                 withShadow = true,
+            ),
+        ).withSurface(
+            LiquidGlassSurface.LIBRARY_CALENDAR,
+            LiquidGlassSurfaceOverrides(
+                enabled = true,
+                blurRadiusDp = 16f,
+                refractionHeightDp = 3f,
+                refractionAmountDp = 5f,
+                tintOpacity = 0.58f,
             ),
         )
 
