@@ -307,11 +307,11 @@ internal fun CatalogHeader(
         Modifier.liquidGlassForSurface(
             surface = titleSurface,
             shape = titleShape,
-            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
             fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
-            blurRadius = 14.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            blurRadius = 12.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
             explicitBackdrop = posterBackdrop.takeIf { categoryHeaderUsesPosterBackdrop(titleSurface) },
             useExplicitBackdrop = true,
         )
@@ -322,11 +322,11 @@ internal fun CatalogHeader(
         Modifier.liquidGlassForSurface(
             surface = backSurface,
             shape = backShape,
-            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
+            tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
             fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
-            blurRadius = 14.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            blurRadius = 12.dp,
+            refractionHeight = 6.dp,
+            refractionAmount = 9.dp,
             explicitBackdrop = posterBackdrop.takeIf { categoryHeaderUsesPosterBackdrop(backSurface) },
             useExplicitBackdrop = true,
         )
