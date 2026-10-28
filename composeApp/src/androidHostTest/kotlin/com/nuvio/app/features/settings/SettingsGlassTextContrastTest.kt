@@ -85,6 +85,18 @@ class SettingsGlassTextContrastTest {
     }
 
     @Test
+    fun liquidGlassTextShadowPreservesAnExistingShadow() {
+        val existingShadow = androidx.compose.ui.graphics.Shadow(
+            color = Color.Red,
+            offset = Offset(2f, 3f),
+            blurRadius = 5f,
+        )
+        val original = TextStyle(shadow = existingShadow)
+
+        assertEquals(existingShadow, original.withLiquidGlassTextShadow(true).shadow)
+    }
+
+    @Test
     fun disabledGlassTextContrastLeavesThemeTokensUnchanged() {
         val original = defaultNuvioThemeTokens(
             palette = ThemeColors.White,
