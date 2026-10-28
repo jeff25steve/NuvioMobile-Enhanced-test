@@ -1009,14 +1009,7 @@ private fun LazyListScope.cloudLibraryContent(
 
             if (selectedItem != null) {
                 item {
-                    CompositionLocalProvider(
-                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                            enabled = cloudCardsGlassEnabled,
-                        ),
-                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                            enabled = cloudCardsGlassEnabled,
-                        ),
-                    ) {
+                    LiquidGlassTextContrastScope(enabled = cloudCardsGlassEnabled) {
                         CloudLibraryFilePicker(
                             item = selectedItem,
                             onBack = onBackToItems,
@@ -1027,14 +1020,7 @@ private fun LazyListScope.cloudLibraryContent(
                 }
             } else {
                 item {
-                    CompositionLocalProvider(
-                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                            enabled = cloudFiltersGlassEnabled,
-                        ),
-                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                            enabled = cloudFiltersGlassEnabled,
-                        ),
-                    ) {
+                    LiquidGlassTextContrastScope(enabled = cloudFiltersGlassEnabled) {
                         CloudLibraryToolbar(
                             uiState = uiState,
                             selectedProviderId = selectedProviderId,
@@ -1049,14 +1035,7 @@ private fun LazyListScope.cloudLibraryContent(
                 }
 
                 item(key = "cloud-library-search") {
-                    CompositionLocalProvider(
-                        LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                            enabled = cloudSearchGlassEnabled,
-                        ),
-                        LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                            enabled = cloudSearchGlassEnabled,
-                        ),
-                    ) {
+                    LiquidGlassTextContrastScope(enabled = cloudSearchGlassEnabled) {
                         val defaultSearchShape = RoundedCornerShape(12.dp)
                         val searchShape = liquidGlassShape(
                             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
@@ -1142,14 +1121,7 @@ private fun LazyListScope.cloudLibraryContent(
                         items = filteredItems,
                         key = { item -> item.stableKey },
                     ) { item ->
-                        CompositionLocalProvider(
-                            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                                enabled = cloudCardsGlassEnabled,
-                            ),
-                            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                                enabled = cloudCardsGlassEnabled,
-                            ),
-                        ) {
+                        LiquidGlassTextContrastScope(enabled = cloudCardsGlassEnabled) {
                             CloudLibraryRow(
                                 item = item,
                                 onClick = { onItemSelected(item) },
