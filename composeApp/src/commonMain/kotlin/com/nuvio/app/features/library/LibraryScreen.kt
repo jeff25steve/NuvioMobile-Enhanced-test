@@ -110,6 +110,7 @@ import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -1172,6 +1173,7 @@ internal fun CloudLibrarySearchField(
     showOutline: Boolean = true,
     onGlassSurfaceInteracted: (() -> Unit)? = null,
 ) {
+    LiquidGlassTextContrastScope(enabled = transparentContainer) {
     val tokens = MaterialTheme.nuvio
     val inputTextStyle = MaterialTheme.typography.bodyLarge
         .merge(LocalTextStyle.current)
@@ -1227,6 +1229,7 @@ internal fun CloudLibrarySearchField(
         },
         colors = colors,
     )
+    }
 }
 
 private fun LazyListScope.cloudLibraryTorboxApiKeyConnectItem(
@@ -1979,10 +1982,11 @@ internal fun LibraryCalendarGlassSurface(
         defaultShape = RoundedCornerShape(28.dp),
         preview = previewGlass,
     )
-    Surface(
-        modifier = modifier
-            .then(
-                if (glassEnabled) {
+    LiquidGlassTextContrastScope(enabled = glassEnabled) {
+        Surface(
+            modifier = modifier
+                .then(
+                    if (glassEnabled) {
                     Modifier.liquidGlassForSurface(
                         surface = surface,
                         shape = shape,
@@ -2013,6 +2017,7 @@ internal fun LibraryCalendarGlassSurface(
         shadowElevation = 18.dp,
         content = content,
     )
+    }
 }
 
 /**
