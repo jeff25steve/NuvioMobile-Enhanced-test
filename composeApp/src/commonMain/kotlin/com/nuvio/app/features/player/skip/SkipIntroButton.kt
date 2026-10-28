@@ -45,6 +45,9 @@ import nuvio.composeapp.generated.resources.player_skip_movie_credits
 import nuvio.composeapp.generated.resources.player_skip_to_post_credits
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
@@ -102,6 +105,10 @@ fun SkipIntroButton(
     }
 
     val isVisible = shouldShow && (!autoHidden || controlsVisible)
+    val playerGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.PLAYER,
+        platformSupported = isLiquidGlassSupported(),
+    )
 
     AnimatedVisibility(
         visible = isVisible,
@@ -124,6 +131,7 @@ fun SkipIntroButton(
                 )
                 .clickable(enabled = canSkip) { onSkip() },
         ) {
+            LiquidGlassTextContrastScope(enabled = playerGlassEnabled) {
             Row(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -140,6 +148,7 @@ fun SkipIntroButton(
                     fontSize = 14.sp,
                     modifier = Modifier.padding(start = 8.dp),
                 )
+            }
             }
             Box(
                 modifier = Modifier
