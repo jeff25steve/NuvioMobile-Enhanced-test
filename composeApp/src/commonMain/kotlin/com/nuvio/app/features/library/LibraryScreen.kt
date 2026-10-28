@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1967,7 +1966,7 @@ internal fun LibraryCalendarGlassSurface(
     previewGlass: Boolean = false,
     selectedPreview: Boolean = false,
     onClick: (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
 ) {
     val surface = LiquidGlassSurface.LIBRARY_CALENDAR
     val platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported()
