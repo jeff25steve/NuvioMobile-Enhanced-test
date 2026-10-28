@@ -488,7 +488,7 @@ fun SearchScreen(
                                             .liquidGlassForSurface(
                                                 surface = LiquidGlassSurface.SEARCH,
                                                 shape = searchFieldShape,
-                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
                                                 fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                                 blurRadius = 12.dp,
                                                 refractionHeight = 6.dp,
