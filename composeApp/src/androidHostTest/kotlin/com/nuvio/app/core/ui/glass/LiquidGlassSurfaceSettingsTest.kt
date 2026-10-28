@@ -246,7 +246,7 @@ class LiquidGlassSurfaceSettingsTest {
         assertEquals(14f, recipe.blurRadiusDp)
         assertEquals(6f, recipe.refractionHeightDp)
         assertEquals(9f, recipe.refractionAmountDp)
-        assertEquals(0.30f, recipe.tintOpacity)
+        assertEquals(0.32f, recipe.tintOpacity)
 
         val nativeShape = RoundedCornerShape(12.dp)
         val effectiveShape = effectiveLiquidGlassSurfaceShape(
@@ -256,6 +256,18 @@ class LiquidGlassSurfaceSettingsTest {
         ) as CornerBasedShape
         val effectiveRadiusPx = effectiveShape.topStart.toPx(Size(100f, 100f), Density(1f))
         assertTrue(kotlin.math.abs(effectiveRadiusPx - 3.6f) < 0.01f)
+    }
+
+    @Test
+    fun textBearingGlassDefaultsUseMoreTintThanTheMediaPlayer() {
+        val defaults = LiquidGlassSurface.entries.associateWith { surface ->
+            liquidGlassSurfaceRecipe(surface)
+        }
+
+        assertTrue(defaults.getValue(LiquidGlassSurface.PLAYER).tintOpacity < 0.10f)
+        assertTrue(defaults.getValue(LiquidGlassSurface.SEARCH).tintOpacity >= 0.30f)
+        assertTrue(defaults.getValue(LiquidGlassSurface.DETAIL_TRAILER_MENU).tintOpacity >= 0.40f)
+        assertTrue(defaults.getValue(LiquidGlassSurface.BOTTOM_SHEETS).tintOpacity >= 0.45f)
     }
 
     @Test
