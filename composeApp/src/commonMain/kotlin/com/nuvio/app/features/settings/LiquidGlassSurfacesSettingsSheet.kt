@@ -2244,7 +2244,7 @@ private fun LiquidGlassCatalogHeaderPreview(
                 modifier = Modifier
                     .fillMaxSize()
                     // Simulate a scrolled catalog: portrait posters pass behind the fixed header,
-                // making the sampled backdrop visible under both preview targets.
+                    // making the sampled backdrop visible under both preview targets.
                 .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
