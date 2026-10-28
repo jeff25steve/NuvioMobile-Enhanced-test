@@ -36,6 +36,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 
 private val MenuShape = RoundedCornerShape(NuvioTokens.Space.s20)
@@ -105,7 +106,12 @@ fun Menu(
             selectionHighlight -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
             else -> BorderStroke(tokens.borders.thin, SurfaceEdge)
         },
-        content = content,
+        content = {
+            val menuScope = this
+            LiquidGlassTextContrastScope(enabled = useGlass) {
+                content.invoke(menuScope)
+            }
+        },
     )
 }
 
