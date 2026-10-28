@@ -140,8 +140,8 @@ internal fun effectiveLiquidGlassMaterial(
 }
 
 /**
- * Nullable values inherit the exact recipe at each call site. That is important for surfaces such
- * as the player where different controls intentionally use different blur and refraction values.
+ * Nullable values inherit this surface's shared default recipe. The recipe is resolved identically
+ * by Studio previews and the runtime renderer, so an untouched slider still describes the live look.
  */
 @Serializable
 internal data class LiquidGlassSurfaceOverrides(
