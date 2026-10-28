@@ -67,6 +67,7 @@ import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
@@ -398,6 +399,7 @@ internal fun CatalogHeader(
                     vertical = if (titleGlassEnabled || (previewMode && selectedPreviewSurface == titleSurface)) 8.dp else 0.dp,
                 ),
         ) {
+            LiquidGlassTextContrastScope(enabled = titleGlassEnabled) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = title,
@@ -416,6 +418,7 @@ internal fun CatalogHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
             }
         }
     }
