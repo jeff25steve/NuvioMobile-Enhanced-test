@@ -590,9 +590,8 @@ fun LibraryScreen(
                                 Modifier.liquidGlassForSurface(
                                     surface = LiquidGlassSurface.LIBRARY,
                                     shape = shape,
-                                    // Match the Studio preview's subtle Library recipe. The
-                                    // old 0.28 tint made the live switch much more opaque than preview.
-                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                    // Match the Studio preview's subtle Library recipe.
+                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
                                     fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                     blurRadius = 12.dp,
                                     refractionHeight = 6.dp,
@@ -1081,7 +1080,7 @@ private fun LazyListScope.cloudLibraryContent(
                                         Modifier.liquidGlassForSurface(
                                             surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
                                             shape = searchShape,
-                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.24f),
                                             fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                             blurRadius = 12.dp,
                                             refractionHeight = 6.dp,
@@ -1431,7 +1430,7 @@ internal fun CloudLibraryToolbar(
                             Modifier.liquidGlassForSurface(
                                 surface = LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
                                 shape = refreshShape,
-                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.20f),
+                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
                                 fallback = MaterialTheme.colorScheme.surfaceContainerLow,
                                 blurRadius = 12.dp,
                                 refractionHeight = 6.dp,
