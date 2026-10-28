@@ -2055,6 +2055,7 @@ internal fun LibraryCalendarGlassPreview(
                 title = stringResource(Res.string.library_calendar_title),
                 subtitle = stringResource(Res.string.library_calendar_exact_dates_only),
                 onDismiss = onDismissPreview,
+                onRefresh = onSelect,
                 compact = true,
             )
             LazyColumn(
@@ -2380,11 +2381,12 @@ private fun LibraryCalendarTopBar(
     onDismiss: () -> Unit,
     isRefreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    compact: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 22.dp),
+            .padding(bottom = if (compact) 8.dp else 22.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -2392,11 +2394,11 @@ private fun LibraryCalendarTopBar(
             modifier = Modifier
                 .weight(1f)
                 .padding(top = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 5.dp),
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineLarge,
+                style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
@@ -2414,11 +2416,11 @@ private fun LibraryCalendarTopBar(
             IconButton(
                 onClick = onRefresh,
                 enabled = !isRefreshing,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(if (compact) 32.dp else 40.dp),
             ) {
                 if (isRefreshing) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(if (compact) 18.dp else 20.dp),
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -2426,7 +2428,7 @@ private fun LibraryCalendarTopBar(
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = stringResource(Res.string.library_calendar_refresh),
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(if (compact) 18.dp else 22.dp),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -2434,12 +2436,12 @@ private fun LibraryCalendarTopBar(
         }
         IconButton(
             onClick = onDismiss,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(if (compact) 32.dp else 40.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = stringResource(Res.string.action_close),
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(if (compact) 18.dp else 22.dp),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
