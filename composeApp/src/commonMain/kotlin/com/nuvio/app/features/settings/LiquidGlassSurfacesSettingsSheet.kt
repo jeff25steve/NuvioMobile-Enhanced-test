@@ -42,8 +42,6 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
@@ -70,8 +68,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.collapse
-import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -307,7 +303,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
     val standaloneSurfaces = remember(customizableSurfaces) {
         liquidGlassStandaloneSurfaces(customizableSurfaces)
     }
-    var expandedGroupName by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val editorListState = rememberLazyListState()
     var savedRootListIndex by rememberSaveable { mutableStateOf(0) }
@@ -440,66 +435,18 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         }
                         val title = stringResource(titleRes)
                         val description = stringResource(descriptionRes)
-                        val expanded = expandedGroupName == group.name
-
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            LiquidGlassSurfaceGroupListItem(
-                                group = group,
-                                title = title,
-                                description = description,
-                                isTablet = isTablet,
-                                expanded = expanded,
-                                onToggleExpanded = {
-                                    expandedGroupName = if (expanded) null else group.name
-                                },
-                                onOpenPreview = {
-                                    captureRootListPosition()
-                                    selectedPreviewLayoutName = group.name
-                                    selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
-                                    linkGlassEffects = false
-                                },
-                            )
-
-                            AnimatedVisibility(visible = expanded) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.settings_liquid_glass_controls_in,
-                                            title,
-                                        ),
-                                        modifier = Modifier.padding(
-                                            horizontal = if (isTablet) 24.dp else 16.dp,
-                                            vertical = 4.dp,
-                                        ),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    group.surfaces.filter { it in customizableSurfaces }.forEach { surface ->
-                                        LiquidGlassSurfaceListItem(
-                                            surface = surface,
-                                            overrides = settings.forSurface(surface),
-                                            isTablet = isTablet,
-                                            onOpen = {
-                                                captureRootListPosition()
-                                                selectedPreviewLayoutName = null
-                                                selectedSurfaceName = surface.name
-                                            },
-                                            onToggle = { enabled ->
-                                                onSurfaceChanged(
-                                                    surface,
-                                                    settings.forSurface(surface).copy(enabled = enabled),
-                                                )
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        LiquidGlassSurfaceGroupListItem(
+                            group = group,
+                            title = title,
+                            description = description,
+                            isTablet = isTablet,
+                            onOpenPreview = {
+                                captureRootListPosition()
+                                selectedPreviewLayoutName = group.name
+                                selectedSurfaceName = group.surfaces.firstOrNull { it in customizableSurfaces }?.name
+                                linkGlassEffects = false
+                            },
+                        )
                     }
                 }
 
@@ -707,8 +654,6 @@ private fun LiquidGlassSurfaceGroupListItem(
     title: String,
     description: String,
     isTablet: Boolean,
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
     onOpenPreview: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -720,10 +665,6 @@ private fun LiquidGlassSurfaceGroupListItem(
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
     val iconGlyphSize = if (isTablet) 26.dp else 22.dp
-    val toggleLabel = stringResource(
-        if (expanded) Res.string.settings_liquid_glass_collapse_controls
-        else Res.string.settings_liquid_glass_expand_controls,
-    )
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 24.dp else 16.dp),
         shape = tokens.shapes.card,
@@ -735,11 +676,8 @@ private fun LiquidGlassSurfaceGroupListItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClickLabel = toggleLabel, role = Role.Button, onClick = onToggleExpanded)
                     .semantics(mergeDescendants = true) {
                         heading()
-                        if (expanded) collapse { onToggleExpanded(); true }
-                        else expand { onToggleExpanded(); true }
                     }
                     .padding(horizontal = 18.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -769,11 +707,6 @@ private fun LiquidGlassSurfaceGroupListItem(
                     Text(text = title, style = MaterialTheme.typography.titleMedium, color = tokens.colors.textPrimary)
                     Text(text = description, style = MaterialTheme.typography.bodySmall, color = tokens.colors.textSecondary)
                 }
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
-                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
