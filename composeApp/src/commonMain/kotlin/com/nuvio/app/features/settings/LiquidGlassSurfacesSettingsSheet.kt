@@ -126,6 +126,7 @@ import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
 import com.nuvio.app.features.library.LibraryCalendarGlassPreview
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.features.library.LibraryViewMode
 import com.nuvio.app.features.library.LibraryLayoutMode
 import com.nuvio.app.features.library.LibrarySortOption
@@ -2728,13 +2729,6 @@ private fun LiquidGlassLibraryPreview(
             .getOrDefault(LibrarySortOption.ADDED_DESC)
     }
     val rendererAvailable = isLiquidGlassAvailable()
-    val enabledTextContrast = rendererAvailable && liquidGlassLibraryPreviewSurfaces.any { surface ->
-        isLiquidGlassSurfaceEffectivelyEnabled(
-            surface = surface,
-            preview = true,
-            platformSupported = rendererAvailable,
-        )
-    }
     val baseBackground = MaterialTheme.colorScheme.background
     val headerHeight = if (viewMode == LibraryViewMode.Cloud) 132.dp else 190.dp
 
@@ -2764,12 +2758,6 @@ private fun LiquidGlassLibraryPreview(
         CompositionLocalProvider(
             LocalLiquidGlassBackdrop provides backdrop,
             LocalLiquidGlassPreviewSettings provides settings,
-            LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
-                enabled = enabledTextContrast,
-            ),
-            LocalTextStyle provides LocalTextStyle.current.withSettingsGlassTextShadow(
-                enabled = enabledTextContrast,
-            ),
         ) {
             if (viewMode == LibraryViewMode.Cloud) {
                 LazyColumn(
@@ -2914,6 +2902,7 @@ private fun LiquidGlassLibraryPreview(
                                         },
                                     ),
                                 )
+                                LiquidGlassTextContrastScope(enabled = cardGlassEnabled) {
                                 Column(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -2951,6 +2940,7 @@ private fun LiquidGlassLibraryPreview(
                                         },
                                         maxLines = 1,
                                     )
+                                }
                                 }
                                 if (item.type != CloudLibraryItemType.File) {
                                     IconButton(
@@ -3112,6 +3102,19 @@ private fun LiquidGlassLibraryPreview(
                             entries = emptyList(),
                         )
                     }
+                    val savedTypeGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                        surface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                        preview = true,
+                        platformSupported = rendererAvailable,
+                    )
+                    val savedSortGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                        surface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                        preview = true,
+                        platformSupported = rendererAvailable,
+                    )
+                    LiquidGlassTextContrastScope(
+                        enabled = savedTypeGlassEnabled || savedSortGlassEnabled,
+                    ) {
                     LibrarySavedControls(
                         layoutMode = LibraryLayoutMode.VERTICAL,
                         sourceMode = LibrarySourceMode.LOCAL,
@@ -3130,6 +3133,7 @@ private fun LiquidGlassLibraryPreview(
                         selectedPreviewSurface = selectedSurface,
                         onPreviewSurfaceSelected = onSelectSurface,
                     )
+                    }
                 }
             }
             if (showCalendarPreview) {
@@ -3208,6 +3212,13 @@ private fun LiquidGlassBottomSheetPreview(
                     preview = true,
                 ),
         ) {
+            LiquidGlassTextContrastScope(
+                enabled = isLiquidGlassSurfaceEffectivelyEnabled(
+                    surface = LiquidGlassSurface.BOTTOM_SHEETS,
+                    preview = true,
+                    platformSupported = isLiquidGlassAvailable(),
+                ),
+            ) {
             NuvioBottomSheetActionRow(
                 title = stringResource(Res.string.compose_settings_page_appearance),
                 icon = Icons.Rounded.Settings,
@@ -3219,6 +3230,7 @@ private fun LiquidGlassBottomSheetPreview(
                 icon = Icons.Rounded.Settings,
                 onClick = {},
             )
+            }
         }
     }
 }
@@ -3549,6 +3561,7 @@ private fun LiquidGlassSearchPreview(
                     .align(Alignment.TopCenter)
                     .padding(horizontal = 8.dp),
             ) {
+                LiquidGlassTextContrastScope(enabled = glassSurfaceEnabled) {
                 NuvioInputField(
                     value = "",
                     onValueChange = {},
@@ -3561,6 +3574,7 @@ private fun LiquidGlassSearchPreview(
                         glassRimCanRender = glassSurfaceEnabled && isLiquidGlassBackdropReady(previewBackdrop),
                     ),
                 )
+                }
             }
         }
     }
