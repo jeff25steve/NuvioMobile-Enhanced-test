@@ -210,6 +210,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_available_streams
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_cast_crew
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_choose_source
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_seasons_header
 import nuvio.composeapp.generated.resources.cloud_library_playable_file_count
 import nuvio.composeapp.generated.resources.cloud_library_status_ready
 import nuvio.composeapp.generated.resources.collections_editor_tmdb_genre_comedy
@@ -1251,7 +1252,7 @@ private fun LiquidGlassDetailPagePreview(
                 )
 
                 Text(
-                    text = stringResource(Res.string.details_seasons).uppercase(),
+                    text = stringResource(Res.string.settings_liquid_glass_preview_seasons_header),
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
