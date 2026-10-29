@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Category
@@ -456,7 +457,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 text = stringResource(Res.string.settings_liquid_glass_customize),
@@ -468,11 +469,29 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = introTokens.colors.textSecondary,
                             )
-                            Text(
-                                text = stringResource(Res.string.settings_liquid_glass_global_note),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = introTokens.colors.textSecondary,
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(introTokens.colors.borderSubtle.copy(alpha = 0.55f)),
                             )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(top = 1.dp).size(18.dp),
+                                    tint = introTokens.colors.textSecondary,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.settings_liquid_glass_global_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = introTokens.colors.textSecondary,
+                                )
+                            }
                         }
                     }
                 }
