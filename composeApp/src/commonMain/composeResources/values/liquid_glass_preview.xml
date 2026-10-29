@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Cast &amp; Crew</string>
+    <string name="settings_liquid_glass_preview_choose_source">Choose a source to start playback</string>
+    <string name="settings_liquid_glass_preview_available_streams">Available streams</string>
+</resources>

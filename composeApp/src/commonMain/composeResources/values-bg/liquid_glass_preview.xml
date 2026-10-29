@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Актьорски състав и екип</string>
+    <string name="settings_liquid_glass_preview_choose_source">Изберете източник, за да започнете възпроизвеждане</string>
+    <string name="settings_liquid_glass_preview_available_streams">Налични потоци</string>
+</resources>

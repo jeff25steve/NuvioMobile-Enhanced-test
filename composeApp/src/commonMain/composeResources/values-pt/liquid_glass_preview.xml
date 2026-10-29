@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Elenco e equipa</string>
+    <string name="settings_liquid_glass_preview_choose_source">Escolha uma fonte para iniciar a reprodução</string>
+    <string name="settings_liquid_glass_preview_available_streams">Fontes disponíveis</string>
+</resources>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Cast en crew</string>
+    <string name="settings_liquid_glass_preview_choose_source">Kies een bron om af te spelen</string>
+    <string name="settings_liquid_glass_preview_available_streams">Beschikbare streams</string>
+</resources>

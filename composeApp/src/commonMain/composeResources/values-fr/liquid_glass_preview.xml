@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Distribution et équipe</string>
+    <string name="settings_liquid_glass_preview_choose_source">Choisissez une source pour lancer la lecture</string>
+    <string name="settings_liquid_glass_preview_available_streams">Sources disponibles</string>
+</resources>

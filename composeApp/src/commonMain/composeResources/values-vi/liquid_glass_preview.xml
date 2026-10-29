@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Diễn viên và ê-kíp</string>
+    <string name="settings_liquid_glass_preview_choose_source">Chọn nguồn để bắt đầu phát</string>
+    <string name="settings_liquid_glass_preview_available_streams">Luồng khả dụng</string>
+</resources>

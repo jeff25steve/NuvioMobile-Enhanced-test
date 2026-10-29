@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Szereplők és stáb</string>
+    <string name="settings_liquid_glass_preview_choose_source">Válasszon forrást a lejátszás indításához</string>
+    <string name="settings_liquid_glass_preview_available_streams">Elérhető adatfolyamok</string>
+</resources>

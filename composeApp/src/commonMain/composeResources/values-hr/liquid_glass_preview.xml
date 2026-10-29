@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Glumačka postava i ekipa</string>
+    <string name="settings_liquid_glass_preview_choose_source">Odaberite izvor za početak reprodukcije</string>
+    <string name="settings_liquid_glass_preview_available_streams">Dostupni streamovi</string>
+</resources>

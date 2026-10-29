@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Pemeran dan kru</string>
+    <string name="settings_liquid_glass_preview_choose_source">Pilih sumber untuk mulai memutar</string>
+    <string name="settings_liquid_glass_preview_available_streams">Stream tersedia</string>
+</resources>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Актёры и съёмочная группа</string>
+    <string name="settings_liquid_glass_preview_choose_source">Выберите источник для начала воспроизведения</string>
+    <string name="settings_liquid_glass_preview_available_streams">Доступные потоки</string>
+</resources>

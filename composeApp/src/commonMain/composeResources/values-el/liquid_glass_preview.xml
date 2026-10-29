@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Συντελεστές και συνεργείο</string>
+    <string name="settings_liquid_glass_preview_choose_source">Επιλέξτε πηγή για να ξεκινήσει η αναπαραγωγή</string>
+    <string name="settings_liquid_glass_preview_available_streams">Διαθέσιμες ροές</string>
+</resources>

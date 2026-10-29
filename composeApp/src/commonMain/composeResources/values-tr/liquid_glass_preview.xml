@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Oyuncular ve ekip</string>
+    <string name="settings_liquid_glass_preview_choose_source">Oynatmayı başlatmak için bir kaynak seçin</string>
+    <string name="settings_liquid_glass_preview_available_streams">Kullanılabilir akışlar</string>
+</resources>

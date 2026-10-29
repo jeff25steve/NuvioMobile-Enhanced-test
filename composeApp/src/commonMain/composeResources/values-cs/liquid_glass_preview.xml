@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Obsazení a štáb</string>
+    <string name="settings_liquid_glass_preview_choose_source">Vyberte zdroj pro spuštění přehrávání</string>
+    <string name="settings_liquid_glass_preview_available_streams">Dostupné streamy</string>
+</resources>

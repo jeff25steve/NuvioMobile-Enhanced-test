@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Distribuție și echipă</string>
+    <string name="settings_liquid_glass_preview_choose_source">Alege o sursă pentru a începe redarea</string>
+    <string name="settings_liquid_glass_preview_available_streams">Surse disponibile</string>
+</resources>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">Medvirkende og crew</string>
+    <string name="settings_liquid_glass_preview_choose_source">Velg en kilde for å starte avspilling</string>
+    <string name="settings_liquid_glass_preview_available_streams">Tilgjengelige strømmer</string>
+</resources>

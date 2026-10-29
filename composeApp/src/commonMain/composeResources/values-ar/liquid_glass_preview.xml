@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_liquid_glass_preview_cast_crew">فريق التمثيل والطاقم</string>
+    <string name="settings_liquid_glass_preview_choose_source">اختر مصدرًا لبدء التشغيل</string>
+    <string name="settings_liquid_glass_preview_available_streams">التدفقات المتاحة</string>
+</resources>
