@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.nuvio.app.features.settings.shouldUseLiquidGlassCustomizeSheetCardGlass
 
 class LiquidGlassStudioGroupingTest {
     @Test
