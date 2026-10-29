@@ -104,6 +104,9 @@ import com.nuvio.app.core.ui.NuvioSystemBackHandler
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.catalog.CatalogHeader
+import com.nuvio.app.features.catalog.CatalogHeaderPreviewGrid
+import com.nuvio.app.features.catalog.CATEGORY_HEADER_PREVIEW_SUBTITLE
+import com.nuvio.app.features.catalog.CATEGORY_HEADER_PREVIEW_TITLE
 import com.nuvio.app.features.details.components.DetailActions
 import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
@@ -2203,20 +2206,10 @@ private fun LiquidGlassSurfacePreview(
 private fun LiquidGlassCatalogHeaderPreview(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
-    onSelectSurface: ((LiquidGlassSurface) -> Unit)?,
+    onSelectSurface: (LiquidGlassSurface) -> Unit?,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
-    val posterColors = remember {
-        listOf(
-            Color(0xFF775F5A),
-            Color(0xFF425B6D),
-            Color(0xFF7D6B3D),
-            Color(0xFF66506F),
-            Color(0xFF3D6557),
-            Color(0xFF9B594F),
-        )
-    }
 
     Box(
         modifier = modifier
@@ -2232,74 +2225,11 @@ private fun LiquidGlassCatalogHeaderPreview(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFF16191F),
-                                Color(0xFF4B3940),
-                                Color(0xFF19242B),
-                                Color(0xFF101318),
-                            ),
-                        ),
-                    ),
+                    .background(MaterialTheme.colorScheme.background),
             )
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Simulate a scrolled catalog: portrait posters pass behind the fixed header,
-                    // making the sampled backdrop visible under both preview targets.
-                .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                repeat(2) { rowIndex ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        repeat(3) { columnIndex ->
-                            val posterIndex = (rowIndex * 3 + columnIndex) % posterColors.size
-                            val posterColor = posterColors[posterIndex]
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(0.68f)
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                posterColor.copy(alpha = 0.95f),
-                                                posterColor.copy(alpha = 0.55f),
-                                                Color(0xFF17191E),
-                                            ),
-                                        ),
-                                    ),
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(
-                                        text = listOf("DRAMA", "ORIGINAL", "SERIES")[columnIndex],
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 7.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        text = listOf("North Shore", "After Hours", "The Return")[posterIndex % 3],
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Use the real catalog poster tile/grid so the title glass samples artwork,
+            // card sizing and labels from the same content layer as CatalogScreen.
+            CatalogHeaderPreviewGrid(modifier = Modifier.fillMaxSize())
         }
 
         CompositionLocalProvider(
@@ -2307,8 +2237,8 @@ private fun LiquidGlassCatalogHeaderPreview(
             LocalLiquidGlassPreviewSettings provides settings,
         ) {
             CatalogHeader(
-                title = "HBO Max - Series",
-                subtitle = "Netflix",
+                title = CATEGORY_HEADER_PREVIEW_TITLE,
+                subtitle = CATEGORY_HEADER_PREVIEW_SUBTITLE,
                 onBack = {},
                 modifier = Modifier.fillMaxWidth(),
                 previewMode = true,
@@ -2318,6 +2248,7 @@ private fun LiquidGlassCatalogHeaderPreview(
         }
     }
 }
+
 
 @Composable
 private fun LiquidGlassDetailControlPreview(
