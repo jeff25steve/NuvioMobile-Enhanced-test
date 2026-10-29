@@ -204,8 +204,8 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier.fillMaxWidth(),
     ) {
-        // Keep a solid fallback underneath the capture so an unavailable or not-yet-ready
-        // backdrop never exposes scrolling Settings rows through the pinned header.
+        // Keep a deliberate underlay beneath the header: normal surfaces use the solid
+        // screen background, while artwork-backed callers can supply a fading contrast scrim.
         Row(
             modifier = Modifier
                 .matchParentSize()
