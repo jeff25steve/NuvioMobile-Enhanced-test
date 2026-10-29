@@ -7,6 +7,14 @@ import kotlin.test.assertTrue
 
 class LibraryGlassLayoutTest {
     @Test
+    fun calendarInnerSurfaceUsesTranslucencyOnlyWhenGlassAndBackdropAreReady() {
+        assertTrue(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = true))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = false))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = false, backdropReady = true))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = false, backdropReady = false))
+    }
+
+    @Test
     fun calendarGlassAloneKeepsLibraryBackdropCaptureActive() {
         assertTrue(
             libraryBackdropCaptureRequired(masterEnabled = true) {
