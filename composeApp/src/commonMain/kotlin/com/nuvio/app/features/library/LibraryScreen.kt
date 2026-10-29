@@ -2088,6 +2088,11 @@ internal fun LibraryCalendarGlassPreview(
     }
     val selectedDate = parseLibraryCalendarDate(selectedDateIso)
     val noEventsByDate = remember { emptyMap<String, List<LibraryCalendarEvent>>() }
+    val calendarGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CALENDAR,
+        preview = true,
+        platformSupported = isLiquidGlassAvailable(),
+    )
 
     LibraryCalendarGlassSurface(
         modifier = modifier,
@@ -2120,6 +2125,7 @@ internal fun LibraryCalendarGlassPreview(
                         eventsByDate = noEventsByDate,
                         selectedDateIso = selectedDateIso,
                         todayIso = today.iso,
+                        glassEnabled = calendarGlassEnabled,
                         onPrevious = {
                             visibleMonth = visibleMonth.previous()
                             selectedDateIso = defaultLibraryCalendarSelection(
@@ -2185,6 +2191,10 @@ private fun LibraryReleaseCalendarPanel(
             .sortedWith(compareBy<LibraryCalendarEvent> { it.date.iso }.thenBy { it.sortTitle.lowercase() })
     }
     val eventsByDate = remember(events) { events.groupBy { event -> event.date.iso } }
+    val calendarGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = LiquidGlassSurface.LIBRARY_CALENDAR,
+        platformSupported = isLiquidGlassSupported(),
+    )
 
     val selectedEvents = eventsByDate[selectedDateIso].orEmpty()
     val handleEventClick: ((LibraryCalendarEvent) -> Unit)? = when {
@@ -2282,6 +2292,7 @@ private fun LibraryReleaseCalendarPanel(
                                             eventsByDate = eventsByDate,
                                             selectedDateIso = selectedDateIso,
                                             todayIso = todayIso,
+                                            glassEnabled = calendarGlassEnabled,
                                             onPrevious = {
                                                 monthNavigationDirection = -1
                                                 onMonthRequested(visibleMonth.previous())
@@ -2346,6 +2357,7 @@ private fun LibraryReleaseCalendarPanel(
                                         eventsByDate = eventsByDate,
                                         selectedDateIso = selectedDateIso,
                                         todayIso = todayIso,
+                                            glassEnabled = calendarGlassEnabled,
                                         onPrevious = {
                                             monthNavigationDirection = -1
                                             onMonthRequested(visibleMonth.previous())
@@ -2725,6 +2737,7 @@ private fun LibraryCalendarCard(
     eventsByDate: Map<String, List<LibraryCalendarEvent>>,
     selectedDateIso: String?,
     todayIso: String,
+    glassEnabled: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onToday: () -> Unit,
@@ -2746,11 +2759,17 @@ private fun LibraryCalendarCard(
     }
     Surface(
         modifier = swipeModifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (glassEnabled) {
+            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.22f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
+            MaterialTheme.colorScheme.outlineVariant.copy(
+                alpha = if (glassEnabled) 0.28f else 0.48f,
+            ),
         ),
     ) {
         Column(
