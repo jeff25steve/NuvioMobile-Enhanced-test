@@ -7,6 +7,38 @@ import kotlin.test.assertTrue
 
 class LiquidGlassStudioGroupingTest {
     @Test
+    fun customizeSheetCardsUseTheSameGlassOnlyWhenTheSheetBackdropIsReady() {
+        assertTrue(
+            shouldUseLiquidGlassCustomizeSheetCardGlass(
+                sheetGlassEnabled = true,
+                backdropReady = true,
+                nativeSheet = false,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassCustomizeSheetCardGlass(
+                sheetGlassEnabled = true,
+                backdropReady = false,
+                nativeSheet = false,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassCustomizeSheetCardGlass(
+                sheetGlassEnabled = false,
+                backdropReady = true,
+                nativeSheet = false,
+            ),
+        )
+        assertFalse(
+            shouldUseLiquidGlassCustomizeSheetCardGlass(
+                sheetGlassEnabled = true,
+                backdropReady = true,
+                nativeSheet = true,
+            ),
+        )
+    }
+
+    @Test
     fun settingsSurfaceOverrideControlsGlassVisibility() {
         val defaults = LiquidGlassSurfacesSettings()
         val surface = LiquidGlassSurface.SETTINGS
