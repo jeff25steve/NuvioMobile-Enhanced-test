@@ -2292,7 +2292,7 @@ private fun LibraryReleaseCalendarPanel(
                                             eventsByDate = eventsByDate,
                                             selectedDateIso = selectedDateIso,
                                             todayIso = todayIso,
-                                            glassEnabled = calendarGlassEnabled,
+                                            glassEnabled = glassEnabled,
                                             onPrevious = {
                                                 monthNavigationDirection = -1
                                                 onMonthRequested(visibleMonth.previous())
@@ -2357,7 +2357,7 @@ private fun LibraryReleaseCalendarPanel(
                                         eventsByDate = eventsByDate,
                                         selectedDateIso = selectedDateIso,
                                         todayIso = todayIso,
-                                        glassEnabled = calendarGlassEnabled,
+                                        glassEnabled = glassEnabled,
                                         onPrevious = {
                                             monthNavigationDirection = -1
                                             onMonthRequested(visibleMonth.previous())
