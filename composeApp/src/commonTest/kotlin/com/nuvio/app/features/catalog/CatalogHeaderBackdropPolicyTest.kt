@@ -1,6 +1,8 @@
 package com.nuvio.app.features.catalog
 
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
+import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
 import com.nuvio.app.features.home.PosterShape
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,6 +10,38 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CatalogHeaderBackdropPolicyTest {
+    @Test
+    fun categoryHeaderTitleClipIsRemovedWhenGlassIsOff() {
+        val surface = LiquidGlassSurface.CATEGORY_HEADER_TITLE
+        val defaultOverrides = LiquidGlassSurfaceOverrides()
+
+        val enabled = shouldRenderLiquidGlassSurface(
+            surface = surface,
+            overrides = defaultOverrides,
+            preview = false,
+            masterEnabled = true,
+            platformSupported = true,
+        )
+        val globallyDisabled = shouldRenderLiquidGlassSurface(
+            surface = surface,
+            overrides = defaultOverrides,
+            preview = false,
+            masterEnabled = false,
+            platformSupported = true,
+        )
+        val individuallyDisabled = shouldRenderLiquidGlassSurface(
+            surface = surface,
+            overrides = defaultOverrides.copy(enabled = false),
+            preview = false,
+            masterEnabled = true,
+            platformSupported = true,
+        )
+
+        assertTrue(categoryHeaderTitleClipRequired(enabled))
+        assertFalse(categoryHeaderTitleClipRequired(globallyDisabled))
+        assertFalse(categoryHeaderTitleClipRequired(individuallyDisabled))
+    }
+
     @Test
     fun categoryHeaderPreviewUsesDeterministicPosterArtworkForCatalogTiles() {
         val items = categoryHeaderPreviewItems()
