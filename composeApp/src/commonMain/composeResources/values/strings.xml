@@ -2950,7 +2950,7 @@
     <string name="compose_player_via">Via %1$s</string>
     <string name="settings_liquid_glass_customize">Customize Liquid Glass</string>
     <string name="settings_liquid_glass_customize_action">Customize</string>
-    <string name="settings_liquid_glass_customize_description">Choose a section to preview its glass. Use the switches below to turn areas on or off.</string>
+    <string name="settings_liquid_glass_customize_description">Preview an area below, or use its switch to turn Liquid Glass on or off.</string>
     <string name="settings_liquid_glass_group_detail_page">Detail page</string>
     <string name="settings_liquid_glass_group_detail_page_description">Headers, actions, cards and trailers</string>
     <string name="settings_liquid_glass_preview_detail_page">Detail page preview</string>
@@ -2978,7 +2978,7 @@
     <string name="settings_liquid_glass_collapse_controls">Hide controls</string>
     <string name="settings_liquid_glass_preview_layout">Preview</string>
     <string name="settings_liquid_glass_controls_in">%1$s controls</string>
-    <string name="settings_liquid_glass_global_note">The main switch on the Settings page controls glass across the app.</string>
+    <string name="settings_liquid_glass_global_note">The main Settings switch controls Liquid Glass throughout Nuvio.</string>
     <string name="settings_liquid_glass_surface_description">Changes affect this area only.</string>
     <string name="settings_liquid_glass_surface_material_header">Glass material</string>
     <string name="settings_liquid_glass_surface_highlight_description">Adds a subtle rim light that follows the glass shape.</string>
