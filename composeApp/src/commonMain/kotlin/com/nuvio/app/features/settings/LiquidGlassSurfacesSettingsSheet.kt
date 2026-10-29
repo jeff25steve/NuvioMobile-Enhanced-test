@@ -207,6 +207,13 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_desc
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_available_streams
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_cast_crew
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_choose_source
+import nuvio.composeapp.generated.resources.cloud_library_playable_file_count
+import nuvio.composeapp.generated.resources.cloud_library_status_ready
+import nuvio.composeapp.generated.resources.collections_editor_tmdb_genre_comedy
+import nuvio.composeapp.generated.resources.media_series
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_description
@@ -1111,7 +1118,7 @@ private fun LiquidGlassDetailPagePreview(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "2024  •  Series  •  Comedy",
+                            text = "2024  •  ${stringResource(Res.string.media_series)}  •  ${stringResource(Res.string.collections_editor_tmdb_genre_comedy)}",
                             color = Color.White.copy(alpha = 0.82f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -1202,7 +1209,7 @@ private fun LiquidGlassDetailPagePreview(
                 }
 
                 Text(
-                    text = "CAST & CREW",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_cast_crew),
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
@@ -1244,7 +1251,7 @@ private fun LiquidGlassDetailPagePreview(
                 )
 
                 Text(
-                    text = "SEASONS",
+                    text = stringResource(Res.string.details_seasons).uppercase(),
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
@@ -1554,7 +1561,7 @@ private fun LiquidGlassStreamPickerPreview(
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
                 Text(
-                    text = "Choose a source to start playback",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_choose_source),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp),
@@ -1601,7 +1608,7 @@ private fun LiquidGlassStreamPickerPreview(
                 }
 
                 Text(
-                    text = "AVAILABLE STREAMS",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_available_streams),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
@@ -2947,7 +2954,7 @@ private fun LiquidGlassLibraryPreview(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
-                                        text = "Ready • 3 files",
+                                        text = "${stringResource(Res.string.cloud_library_status_ready)} • ${stringResource(Res.string.cloud_library_playable_file_count, 3)}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (cardGlassEnabled) {
                                             MaterialTheme.nuvio.colors.textMuted
