@@ -307,17 +307,17 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
-    fun libraryCalendarHasAnIndependentReadableGlassDefault() {
+    fun libraryCalendarDefaultLetsTheBackdropRemainVisibleThroughRealBlur() {
         val surface = LiquidGlassSurface.LIBRARY_CALENDAR
         val recipe = liquidGlassSurfaceRecipe(surface)
 
         assertTrue(surface.defaultEnabled)
         assertEquals(LiquidGlassMaterial.FROSTED, surface.defaultMaterial)
         assertEquals(44f, recipe.cornerRadiusPercent)
-        assertEquals(16f, recipe.blurRadiusDp)
+        assertEquals(20f, recipe.blurRadiusDp)
         assertEquals(3f, recipe.refractionHeightDp)
         assertEquals(5f, recipe.refractionAmountDp)
-        assertEquals(0.58f, recipe.tintOpacity)
+        assertEquals(0.28f, recipe.tintOpacity)
         assertTrue(surface in LiquidGlassSurfaceGroup.LIBRARY.surfaces)
 
         val customized = LiquidGlassSurfaceOverrides(
