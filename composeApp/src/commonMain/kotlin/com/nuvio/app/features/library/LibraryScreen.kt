@@ -206,11 +206,9 @@ import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
-internal fun libraryGlassControlsNeedContentInset(
+internal fun librarySavedControlsNeedContentInset(
     hasSavedControls: Boolean,
-    savedTypeGlassEnabled: Boolean,
-    savedSortGlassEnabled: Boolean,
-): Boolean = hasSavedControls && (savedTypeGlassEnabled || savedSortGlassEnabled)
+): Boolean = hasSavedControls
 
 internal fun libraryHeaderUsesArtworkBackdrop(
     sourceMode: LibraryViewMode,
@@ -736,11 +734,7 @@ fun LibraryScreen(
                 // the initial position so section headings do not show through the controls;
                 // after scrolling, poster content can still move beneath the glass naturally.
                 topPadding = if (
-                    libraryGlassControlsNeedContentInset(
-                        hasSavedControls = hasSavedControls,
-                        savedTypeGlassEnabled = savedTypeGlassEnabled,
-                        savedSortGlassEnabled = savedSortGlassEnabled,
-                    )
+                    librarySavedControlsNeedContentInset(hasSavedControls = hasSavedControls)
                 ) {
                     savedControlsInset
                 } else {
