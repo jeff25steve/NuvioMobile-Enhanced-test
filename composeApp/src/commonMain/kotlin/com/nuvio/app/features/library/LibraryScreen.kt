@@ -730,9 +730,9 @@ fun LibraryScreen(
             NuvioScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
-                // Glass filters are pinned outside the scrolling content. Reserve their space at
-                // the initial position so section headings do not show through the controls;
-                // after scrolling, poster content can still move beneath the glass naturally.
+                // Saved filters are pinned outside the scrolling content. Always reserve their
+                // space initially so the first section heading stays visible regardless of material;
+                // after scrolling, poster content can pass beneath the pinned controls.
                 topPadding = if (
                     librarySavedControlsNeedContentInset(hasSavedControls = hasSavedControls)
                 ) {
