@@ -110,6 +110,7 @@ import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
@@ -210,6 +211,19 @@ internal fun libraryGlassControlsNeedContentInset(
     savedTypeGlassEnabled: Boolean,
     savedSortGlassEnabled: Boolean,
 ): Boolean = hasSavedControls && (savedTypeGlassEnabled || savedSortGlassEnabled)
+
+/** Any enabled Library surface needs the capture layer, including the calendar popup. */
+internal fun libraryBackdropCaptureRequired(
+    masterEnabled: Boolean,
+    isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
+): Boolean = masterEnabled &&
+    LiquidGlassSurfaceGroup.LIBRARY.surfaces.any(isSurfacePreferenceEnabled)
+
+/** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
+internal fun shouldUseLibraryContentBackdropForCalendar(
+    sourceMode: LibraryViewMode,
+    calendarGlassEnabled: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Saved && calendarGlassEnabled
 
 @Composable
 fun LibraryScreen(
@@ -515,9 +529,12 @@ fun LibraryScreen(
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH)
     val cloudCardsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
-    val anyLibraryGlassEnabled = libraryGlassEnabled || savedTypeGlassEnabled ||
-        savedSortGlassEnabled || cloudFiltersGlassEnabled || cloudSearchGlassEnabled ||
-        cloudCardsGlassEnabled
+    val calendarGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
+    val anyLibraryGlassEnabled = libraryBackdropCaptureRequired(
+        masterEnabled = LiquidGlassSettings.enabled,
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
     val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
         uiState.isLoaded && uiState.sections.isNotEmpty()
@@ -898,29 +915,41 @@ fun LibraryScreen(
     }
 
     if (showReleaseCalendar) {
-        LibraryReleaseCalendarPanel(
-            events = releaseCalendarEvents,
-            isLoading = releaseCalendarLoading,
-            onDismiss = { showReleaseCalendar = false },
-            onPosterClick = onPosterClick,
-            onCalendarEpisodeClick = onCalendarEpisodeClick,
-            onMonthRequested = { month ->
-                coroutineScope.launch {
-                    LibraryReleaseCalendarCache.ensureMonth(uiState.items, month.key)
-                }
+        // Dialog is outside the main Library provider. Supply captured content explicitly so
+        // runtime glass samples the Library beneath it instead of falling back to a solid tint.
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides if (
+                shouldUseLibraryContentBackdropForCalendar(sourceMode, calendarGlassEnabled)
+            ) {
+                libraryContentBackdrop
+            } else {
+                null
             },
-            failedSeriesCount = releaseCalendarFailedSeriesCount,
-            onRefresh = {
-                coroutineScope.launch {
-                    LibraryReleaseCalendarCache.forceRefresh(uiState.items)
-                }
-            },
-            onRetryFailed = {
-                coroutineScope.launch {
-                    LibraryReleaseCalendarCache.retryFailed(uiState.items)
-                }
-            },
-        )
+        ) {
+            LibraryReleaseCalendarPanel(
+                events = releaseCalendarEvents,
+                isLoading = releaseCalendarLoading,
+                onDismiss = { showReleaseCalendar = false },
+                onPosterClick = onPosterClick,
+                onCalendarEpisodeClick = onCalendarEpisodeClick,
+                onMonthRequested = { month ->
+                    coroutineScope.launch {
+                        LibraryReleaseCalendarCache.ensureMonth(uiState.items, month.key)
+                    }
+                },
+                failedSeriesCount = releaseCalendarFailedSeriesCount,
+                onRefresh = {
+                    coroutineScope.launch {
+                        LibraryReleaseCalendarCache.forceRefresh(uiState.items)
+                    }
+                },
+                onRetryFailed = {
+                    coroutineScope.launch {
+                        LibraryReleaseCalendarCache.retryFailed(uiState.items)
+                    }
+                },
+            )
+        }
     }
 
     if (showTorboxConnectDialog) {
