@@ -379,6 +379,9 @@ internal fun CatalogHeaderPreviewGrid(modifier: Modifier = Modifier) {
     }
 }
 
+/** Apply the rounded title clip only while that title's glass material is rendered. */
+internal fun categoryHeaderTitleClipRequired(titleGlassEnabled: Boolean): Boolean = titleGlassEnabled
+
 /** In the Studio preview, render the real glass effect only on the component being edited. */
 internal fun categoryHeaderPreviewUsesGlass(
     surface: LiquidGlassSurface,
@@ -498,7 +501,13 @@ internal fun CatalogHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(titleGlassModifier)
-                .clip(titleShape)
+                .then(
+                    if (categoryHeaderTitleClipRequired(titleGlassEnabled)) {
+                        Modifier.clip(titleShape)
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(titleSelectionBorder)
                 .then(
                     if (previewMode && onPreviewSurfaceSelected != null) {
