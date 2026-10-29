@@ -2036,9 +2036,9 @@ internal fun LibraryCalendarGlassSurface(
                     Modifier.liquidGlassForSurface(
                         surface = surface,
                         shape = shape,
-                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
                         fallback = MaterialTheme.colorScheme.surface,
-                        blurRadius = 16.dp,
+                        blurRadius = 20.dp,
                         refractionHeight = 3.dp,
                         refractionAmount = 5.dp,
                         withHighlight = true,
