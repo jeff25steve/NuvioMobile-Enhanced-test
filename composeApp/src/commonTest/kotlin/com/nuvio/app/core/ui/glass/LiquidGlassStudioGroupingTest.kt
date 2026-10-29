@@ -4,34 +4,34 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import com.nuvio.app.features.settings.shouldUseLiquidGlassCustomizeSheetCardGlass
+import com.nuvio.app.features.settings.shouldUseLiquidGlassCustomizeSheetCardOverlay
 
 class LiquidGlassStudioGroupingTest {
     @Test
-    fun customizeSheetCardsUseTheSameGlassOnlyWhenTheSheetBackdropIsReady() {
+    fun customizeSheetCardsUseThinOverlayOnlyWhenParentGlassIsReady() {
         assertTrue(
-            shouldUseLiquidGlassCustomizeSheetCardGlass(
+            shouldUseLiquidGlassCustomizeSheetCardOverlay(
                 sheetGlassEnabled = true,
                 backdropReady = true,
                 nativeSheet = false,
             ),
         )
         assertFalse(
-            shouldUseLiquidGlassCustomizeSheetCardGlass(
+            shouldUseLiquidGlassCustomizeSheetCardOverlay(
                 sheetGlassEnabled = true,
                 backdropReady = false,
                 nativeSheet = false,
             ),
         )
         assertFalse(
-            shouldUseLiquidGlassCustomizeSheetCardGlass(
+            shouldUseLiquidGlassCustomizeSheetCardOverlay(
                 sheetGlassEnabled = false,
                 backdropReady = true,
                 nativeSheet = false,
             ),
         )
         assertFalse(
-            shouldUseLiquidGlassCustomizeSheetCardGlass(
+            shouldUseLiquidGlassCustomizeSheetCardOverlay(
                 sheetGlassEnabled = true,
                 backdropReady = true,
                 nativeSheet = true,
