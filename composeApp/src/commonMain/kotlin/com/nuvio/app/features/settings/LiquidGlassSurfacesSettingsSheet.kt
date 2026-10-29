@@ -268,6 +268,48 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
+internal fun shouldUseLiquidGlassCustomizeSheetCardGlass(
+    sheetGlassEnabled: Boolean,
+    backdropReady: Boolean,
+    nativeSheet: Boolean,
+): Boolean = sheetGlassEnabled && backdropReady && !nativeSheet
+
+private data class LiquidGlassCustomizeSheetCardStyle(
+    val modifier: Modifier,
+    val containerColor: Color,
+)
+
+@Composable
+private fun liquidGlassCustomizeSheetCardStyle(
+    shape: Shape,
+    fallbackColor: Color,
+): LiquidGlassCustomizeSheetCardStyle {
+    val backdrop = LocalNuvioSheetBackdrop.current?.backdrop
+    val useGlass = shouldUseLiquidGlassCustomizeSheetCardGlass(
+        sheetGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = LiquidGlassSurface.BOTTOM_SHEETS,
+            platformSupported = isLiquidGlassSupported(),
+        ),
+        backdropReady = backdrop?.isReady == true,
+        nativeSheet = usesNativeNuvioBottomSheet,
+    )
+    if (!useGlass || backdrop == null) {
+        return LiquidGlassCustomizeSheetCardStyle(
+            modifier = Modifier,
+            containerColor = fallbackColor,
+        )
+    }
+
+    return LiquidGlassCustomizeSheetCardStyle(
+        modifier = Modifier.nuvioSheetSurface(
+            backdrop = backdrop,
+            shape = shape,
+            containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
+        ),
+        containerColor = Color.Transparent,
+    )
+}
+
 @Composable
 internal fun LiquidGlassSurfaceSettingsDrafts(
     content: @Composable (LiquidGlassSurfacesSettings) -> Unit,
@@ -383,12 +425,18 @@ internal fun LiquidGlassSurfacesSettingsSheet(
             if (selectedSurface == null && selectedPreviewLayout == null) {
                 item {
                     val introTokens = MaterialTheme.nuvio
+                    val introCardShape = introTokens.shapes.card
+                    val introCardGlass = liquidGlassCustomizeSheetCardStyle(
+                        shape = introCardShape,
+                        fallbackColor = introTokens.colors.surfaceCard,
+                    )
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-                        shape = introTokens.shapes.card,
-                        color = introTokens.colors.surfaceCard,
+                            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+                            .then(introCardGlass.modifier),
+                        shape = introCardShape,
+                        color = introCardGlass.containerColor,
                         contentColor = introTokens.colors.textPrimary,
                         border = BorderStroke(
                             introTokens.borders.thin,
@@ -570,12 +618,18 @@ private fun LiquidGlassSurfaceListItem(
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
     val iconGlyphSize = if (isTablet) 26.dp else 22.dp
+    val cardShape = tokens.shapes.card
+    val cardGlass = liquidGlassCustomizeSheetCardStyle(
+        shape = cardShape,
+        fallbackColor = tokens.colors.surfaceCard,
+    )
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = tokens.shapes.card,
-        color = tokens.colors.surfaceCard,
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+            .then(cardGlass.modifier),
+        shape = cardShape,
+        color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
         border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
     ) {
@@ -658,10 +712,18 @@ private fun LiquidGlassSurfaceGroupListItem(
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
     val iconGlyphSize = if (isTablet) 26.dp else 22.dp
+    val cardShape = tokens.shapes.card
+    val cardGlass = liquidGlassCustomizeSheetCardStyle(
+        shape = cardShape,
+        fallbackColor = tokens.colors.surfaceCard,
+    )
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = tokens.shapes.card,
-        color = tokens.colors.surfaceCard,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+            .then(cardGlass.modifier),
+        shape = cardShape,
+        color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
         border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
     ) {
