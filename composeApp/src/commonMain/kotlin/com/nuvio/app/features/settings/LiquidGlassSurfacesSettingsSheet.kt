@@ -2206,7 +2206,7 @@ private fun LiquidGlassSurfacePreview(
 private fun LiquidGlassCatalogHeaderPreview(
     settings: LiquidGlassSurfacesSettings,
     selectedSurface: LiquidGlassSurface,
-    onSelectSurface: (LiquidGlassSurface) -> Unit?,
+    onSelectSurface: ((LiquidGlassSurface) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
