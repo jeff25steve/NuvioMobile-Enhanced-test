@@ -269,7 +269,14 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
-internal fun shouldUseLiquidGlassCustomizeSheetCardGlass(
+private const val LiquidGlassCustomizeSheetCardOverlayAlpha = 0.36f
+private const val LiquidGlassCustomizeSheetCardBorderAlpha = 0.68f
+
+/**
+ * Apple recommends avoiding stacked Liquid Glass materials. Cards inside the glass sheet use a
+ * quiet translucent fill instead of capturing and blurring the same backdrop a second time.
+ */
+internal fun shouldUseLiquidGlassCustomizeSheetCardOverlay(
     sheetGlassEnabled: Boolean,
     backdropReady: Boolean,
     nativeSheet: Boolean,
@@ -278,15 +285,17 @@ internal fun shouldUseLiquidGlassCustomizeSheetCardGlass(
 private data class LiquidGlassCustomizeSheetCardStyle(
     val modifier: Modifier,
     val containerColor: Color,
+    val borderColor: Color,
 )
 
 @Composable
 private fun liquidGlassCustomizeSheetCardStyle(
     shape: Shape,
     fallbackColor: Color,
+    fallbackBorderColor: Color,
 ): LiquidGlassCustomizeSheetCardStyle {
     val backdrop = LocalNuvioSheetBackdrop.current?.backdrop
-    val useGlass = shouldUseLiquidGlassCustomizeSheetCardGlass(
+    val useOverlay = shouldUseLiquidGlassCustomizeSheetCardOverlay(
         sheetGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
             surface = LiquidGlassSurface.BOTTOM_SHEETS,
             platformSupported = isLiquidGlassSupported(),
@@ -294,20 +303,20 @@ private fun liquidGlassCustomizeSheetCardStyle(
         backdropReady = backdrop?.isReady == true,
         nativeSheet = usesNativeNuvioBottomSheet,
     )
-    if (!useGlass || backdrop == null) {
+    if (!useOverlay || backdrop == null) {
         return LiquidGlassCustomizeSheetCardStyle(
             modifier = Modifier,
             containerColor = fallbackColor,
+            borderColor = fallbackBorderColor,
         )
     }
 
+    // The parent sheet already supplies real blur and refraction. A translucent dark film
+    // separates the cards from that material without stacking another blur/lens pipeline.
     return LiquidGlassCustomizeSheetCardStyle(
-        modifier = Modifier.nuvioSheetSurface(
-            backdrop = backdrop,
-            shape = shape,
-            containerColor = MaterialTheme.nuvio.colors.surfaceSheet,
-        ),
+        modifier = Modifier.background(fallbackColor.copy(alpha = LiquidGlassCustomizeSheetCardOverlayAlpha), shape),
         containerColor = Color.Transparent,
+        borderColor = fallbackBorderColor.copy(alpha = fallbackBorderColor.alpha * LiquidGlassCustomizeSheetCardBorderAlpha),
     )
 }
 
@@ -430,6 +439,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                     val introCardGlass = liquidGlassCustomizeSheetCardStyle(
                         shape = introCardShape,
                         fallbackColor = introTokens.colors.surfaceCard,
+                        fallbackBorderColor = introTokens.colors.borderStrong,
                     )
                     Surface(
                         modifier = Modifier
@@ -441,7 +451,7 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         contentColor = introTokens.colors.textPrimary,
                         border = BorderStroke(
                             introTokens.borders.thin,
-                            introTokens.colors.borderStrong,
+                            introCardGlass.borderColor,
                         ),
                     ) {
                         Column(
@@ -623,6 +633,7 @@ private fun LiquidGlassSurfaceListItem(
     val cardGlass = liquidGlassCustomizeSheetCardStyle(
         shape = cardShape,
         fallbackColor = tokens.colors.surfaceCard,
+        fallbackBorderColor = tokens.colors.borderStrong,
     )
     Surface(
         modifier = Modifier
@@ -632,7 +643,7 @@ private fun LiquidGlassSurfaceListItem(
         shape = cardShape,
         color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
-        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
+        border = BorderStroke(tokens.borders.thin, cardGlass.borderColor),
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp),
@@ -717,6 +728,7 @@ private fun LiquidGlassSurfaceGroupListItem(
     val cardGlass = liquidGlassCustomizeSheetCardStyle(
         shape = cardShape,
         fallbackColor = tokens.colors.surfaceCard,
+        fallbackBorderColor = tokens.colors.borderStrong,
     )
     Surface(
         modifier = Modifier
@@ -726,7 +738,7 @@ private fun LiquidGlassSurfaceGroupListItem(
         shape = cardShape,
         color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
-        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
+        border = BorderStroke(tokens.borders.thin, cardGlass.borderColor),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
