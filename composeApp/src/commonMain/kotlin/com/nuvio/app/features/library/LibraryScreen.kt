@@ -114,6 +114,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
@@ -227,6 +228,12 @@ internal fun shouldUseLibraryContentBackdropForCalendar(
     sourceMode: LibraryViewMode,
     calendarGlassEnabled: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Saved && calendarGlassEnabled
+
+/** Avoid translucent inner calendar surfaces while the outer material must use its solid fallback. */
+internal fun shouldRenderLibraryCalendarGlass(
+    surfaceEnabled: Boolean,
+    backdropReady: Boolean,
+): Boolean = surfaceEnabled && backdropReady
 
 @Composable
 fun LibraryScreen(
@@ -2014,14 +2021,18 @@ internal fun LibraryCalendarGlassSurface(
     previewGlass: Boolean = false,
     selectedPreview: Boolean = false,
     onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
+    content: @Composable (glassEnabled: Boolean) -> Unit,
 ) {
     val surface = LiquidGlassSurface.LIBRARY_CALENDAR
     val platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported()
-    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+    val surfaceEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = surface,
         preview = previewGlass,
         platformSupported = platformSupported,
+    )
+    val glassEnabled = shouldRenderLibraryCalendarGlass(
+        surfaceEnabled = surfaceEnabled,
+        backdropReady = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current),
     )
     val shape = liquidGlassShape(
         surface = surface,
@@ -2061,7 +2072,7 @@ internal fun LibraryCalendarGlassSurface(
         color = if (glassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 18.dp,
-        content = content,
+        content = { content(glassEnabled) },
     )
     }
 }
@@ -2088,18 +2099,12 @@ internal fun LibraryCalendarGlassPreview(
     }
     val selectedDate = parseLibraryCalendarDate(selectedDateIso)
     val noEventsByDate = remember { emptyMap<String, List<LibraryCalendarEvent>>() }
-    val calendarGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
-        surface = LiquidGlassSurface.LIBRARY_CALENDAR,
-        preview = true,
-        platformSupported = isLiquidGlassAvailable(),
-    )
-
     LibraryCalendarGlassSurface(
         modifier = modifier,
         previewGlass = true,
         selectedPreview = selectedPreview,
         onClick = onSelect,
-    ) {
+    ) { glassEnabled ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -2125,7 +2130,7 @@ internal fun LibraryCalendarGlassPreview(
                         eventsByDate = noEventsByDate,
                         selectedDateIso = selectedDateIso,
                         todayIso = today.iso,
-                        glassEnabled = calendarGlassEnabled,
+                        glassEnabled = glassEnabled,
                         onPrevious = {
                             visibleMonth = visibleMonth.previous()
                             selectedDateIso = defaultLibraryCalendarSelection(
@@ -2191,11 +2196,6 @@ private fun LibraryReleaseCalendarPanel(
             .sortedWith(compareBy<LibraryCalendarEvent> { it.date.iso }.thenBy { it.sortTitle.lowercase() })
     }
     val eventsByDate = remember(events) { events.groupBy { event -> event.date.iso } }
-    val calendarGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
-        surface = LiquidGlassSurface.LIBRARY_CALENDAR,
-        platformSupported = isLiquidGlassSupported(),
-    )
-
     val selectedEvents = eventsByDate[selectedDateIso].orEmpty()
     val handleEventClick: ((LibraryCalendarEvent) -> Unit)? = when {
         onCalendarEpisodeClick != null -> { event ->
@@ -2244,7 +2244,7 @@ private fun LibraryReleaseCalendarPanel(
                     .fillMaxWidth()
                     .height(panelHeight),
                 onClick = {},
-            ) {
+            ) { glassEnabled ->
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
