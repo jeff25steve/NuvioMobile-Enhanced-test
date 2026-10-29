@@ -1,9 +1,9 @@
 package com.nuvio.app.features.library
 
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 
 class LibraryGlassLayoutTest {
     @Test
@@ -44,6 +44,7 @@ class LibraryGlassLayoutTest {
             ),
         )
     }
+
     @Test
     fun glassFilterOverlayReservesSpaceOnlyWhenSavedControlsAreVisibleAndGlassEnabled() {
         assertFalse(
