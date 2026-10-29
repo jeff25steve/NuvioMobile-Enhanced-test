@@ -1,11 +1,27 @@
 package com.nuvio.app.features.catalog
 
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.features.home.PosterShape
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CatalogHeaderBackdropPolicyTest {
+    @Test
+    fun categoryHeaderPreviewUsesDeterministicPosterArtworkForCatalogTiles() {
+        val items = categoryHeaderPreviewItems()
+
+        assertEquals(9, items.size)
+        assertTrue(items.all { it.name.isNotBlank() })
+        assertTrue(items.all { it.posterShape == PosterShape.Poster })
+        assertTrue(
+            items.all { item ->
+                item.poster?.startsWith("https://image.tmdb.org/t/p/w342/") == true
+            },
+        )
+    }
+
     @Test
     fun posterBackdropIsAvailableToBothCategoryHeaderGlassSurfacesOnly() {
         assertTrue(categoryHeaderUsesPosterBackdrop(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON))
