@@ -71,6 +71,7 @@ enum class LiquidGlassSurface {
             DETAILS,
             DETAIL_PRIMARY_ACTION,
             DETAIL_TRAILER_SELECTOR,
+            LIBRARY,
             CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassMaterial.LIQUID
             else -> LiquidGlassMaterial.FROSTED
@@ -233,7 +234,7 @@ internal fun liquidGlassSurfaceRecipe(
         LiquidGlassSurface.CATEGORY_HEADER_TITLE -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
         LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
         LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
-        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.30f)
+        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.22f)
         LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)

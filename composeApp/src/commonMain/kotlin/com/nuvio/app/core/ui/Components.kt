@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -159,6 +160,10 @@ fun NuvioScreenHeader(
     onBack: (() -> Unit)? = null,
     useSettingsGlass: Boolean = false,
     glassSurface: LiquidGlassSurface? = null,
+    /** Optional edge-to-edge background behind the header content, such as a fading artwork scrim. */
+    backgroundBrushOverride: Brush? = null,
+    /** Horizontal inset for header content when its background intentionally spans edge-to-edge. */
+    contentHorizontalPadding: Dp = 0.dp,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
@@ -171,6 +176,15 @@ fun NuvioScreenHeader(
     val headerShape = settingsHeaderShape(
         settingsGlassEnabled = settingsGlassEnabled,
         defaultShape = tokens.shapes.compactCard,
+    )
+    val headerBackgroundModifier = backgroundBrushOverride?.let { brush ->
+        Modifier.background(brush)
+    } ?: Modifier.background(
+        if (glassSurface != null && settingsGlassEnabled) {
+            Color.Transparent
+        } else {
+            tokens.colors.background
+        },
     )
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
         !LocalNativeNavigationBarHidden.current &&
@@ -195,13 +209,7 @@ fun NuvioScreenHeader(
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .background(
-                    if (glassSurface != null && settingsGlassEnabled) {
-                        Color.Transparent
-                    } else {
-                        tokens.colors.background
-                    },
-                )
+                .then(headerBackgroundModifier)
                 .nuvioConsumePointerEvents(),
         ) {}
         if (settingsGlassEnabled) {
@@ -231,6 +239,7 @@ fun NuvioScreenHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = contentHorizontalPadding)
                 .padding(top = resolvedTopPadding, bottom = NuvioTokens.Space.s4),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,

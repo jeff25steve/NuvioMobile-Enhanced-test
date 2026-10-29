@@ -212,6 +212,11 @@ internal fun libraryGlassControlsNeedContentInset(
     savedSortGlassEnabled: Boolean,
 ): Boolean = hasSavedControls && (savedTypeGlassEnabled || savedSortGlassEnabled)
 
+internal fun libraryHeaderUsesArtworkBackdrop(
+    sourceMode: LibraryViewMode,
+    artworkBackgroundActive: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
+
 /** Any enabled Library surface needs the capture layer, including the calendar popup. */
 internal fun libraryBackdropCaptureRequired(
     masterEnabled: Boolean,
@@ -536,6 +541,23 @@ fun LibraryScreen(
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
+    val cloudHeaderBackdropActive = libraryHeaderUsesArtworkBackdrop(
+        sourceMode = sourceMode,
+        artworkBackgroundActive = cloudBackgroundActive || LocalDynamicArtworkBackgroundActive.current,
+    )
+    val cloudHeaderBackgroundBrush = remember(cloudHeaderBackdropActive) {
+        if (cloudHeaderBackdropActive) {
+            Brush.verticalGradient(
+                colorStops = arrayOf(
+                    0f to Color.Black.copy(alpha = 0.38f),
+                    0.58f to Color.Black.copy(alpha = 0.18f),
+                    1f to Color.Transparent,
+                ),
+            )
+        } else {
+            null
+        }
+    }
     val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
         uiState.isLoaded && uiState.sections.isNotEmpty()
     val savedControlsInset = 72.dp
@@ -591,9 +613,11 @@ fun LibraryScreen(
                             LibrarySourceMode.PUBLICMETADB -> stringResource(Res.string.library_publicmetadb_title)
                         }
                     },
-                    // Keep the title on Nuvio's normal screen background; LIBRARY glass belongs
-                    // to the source-switch surface below, not a full-width slab behind the title.
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    // On Cloud, let artwork continue behind the status bar and title.
+                    // A fading scrim preserves white-text contrast without a hard black rectangle.
+                    modifier = if (cloudHeaderBackdropActive) Modifier else Modifier.padding(horizontal = 16.dp),
+                    backgroundBrushOverride = cloudHeaderBackgroundBrush,
+                    contentHorizontalPadding = if (cloudHeaderBackdropActive) 16.dp else 0.dp,
                 )
                 LibrarySourceSwitch(
                     selectedMode = sourceMode,
@@ -605,16 +629,20 @@ fun LibraryScreen(
                         .padding(horizontal = 16.dp)
                         .then(
                             if (libraryGlassEnabled) {
-                                val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(20.dp))
+                                val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(50.dp))
                                 Modifier.liquidGlassForSurface(
                                     surface = LiquidGlassSurface.LIBRARY,
                                     shape = shape,
-                                    // Match the Studio preview's subtle Library recipe.
+                                    // Apple-like capsule material: show the wallpaper while keeping
+                                    // a restrained tint, soft edge and legible selected segment.
                                     tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
                                     fallback = MaterialTheme.nuvio.colors.surfaceCard,
                                     blurRadius = 12.dp,
                                     refractionHeight = 6.dp,
                                     refractionAmount = 9.dp,
+                                ).border(
+                                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)),
+                                    shape,
                                 )
                             } else {
                                 Modifier
@@ -1284,6 +1312,7 @@ internal fun LibrarySourceSwitch(
         LibraryChip(
             label = stringResource(Res.string.library_source_saved),
             selected = selectedMode == LibraryViewMode.Saved,
+            glassSelection = sourceSwitchGlassEnabled,
             onClick = {
                 onModeSelected(LibraryViewMode.Saved)
                 onPreviewModeSelected?.invoke(LibraryViewMode.Saved)
@@ -1292,6 +1321,7 @@ internal fun LibrarySourceSwitch(
         LibraryChip(
             label = stringResource(Res.string.library_source_cloud),
             selected = selectedMode == LibraryViewMode.Cloud,
+            glassSelection = sourceSwitchGlassEnabled,
             onClick = {
                 onModeSelected(LibraryViewMode.Cloud)
                 onPreviewModeSelected?.invoke(LibraryViewMode.Cloud)
@@ -1301,6 +1331,7 @@ internal fun LibrarySourceSwitch(
             LibraryChip(
                 label = stringResource(Res.string.library_source_servers),
                 selected = selectedMode == LibraryViewMode.Servers,
+                glassSelection = sourceSwitchGlassEnabled,
                 onClick = {
                     onModeSelected(LibraryViewMode.Servers)
                     onPreviewModeSelected?.invoke(LibraryViewMode.Servers)
@@ -1473,15 +1504,26 @@ private fun LibraryChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
+    glassSelection: Boolean = false,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val chipShape = if (glassSelection) RoundedCornerShape(50.dp) else RoundedCornerShape(18.dp)
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(chipShape)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = if (selected) colorScheme.primaryContainer else colorScheme.surfaceContainerLow,
-        border = if (selected) BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.45f)) else null,
+        shape = chipShape,
+        color = when {
+            glassSelection && selected -> colorScheme.onSurface.copy(alpha = 0.15f)
+            glassSelection -> Color.Transparent
+            selected -> colorScheme.primaryContainer
+            else -> colorScheme.surfaceContainerLow
+        },
+        border = when {
+            glassSelection && selected -> BorderStroke(1.dp, colorScheme.onSurface.copy(alpha = 0.22f))
+            selected && !glassSelection -> BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.45f))
+            else -> null
+        },
     ) {
         Row(
             modifier = if (expanded) {
@@ -1500,6 +1542,7 @@ private fun LibraryChip(
                 style = MaterialTheme.typography.labelMedium,
                 color = when {
                     error -> colorScheme.error
+                    selected && glassSelection -> colorScheme.onSurface
                     selected -> colorScheme.onPrimaryContainer
                     else -> colorScheme.onSurfaceVariant
                 },
