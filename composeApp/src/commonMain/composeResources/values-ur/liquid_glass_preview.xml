@@ -2,4 +2,5 @@
     <string name="settings_liquid_glass_preview_cast_crew">اداکار اور عملہ</string>
     <string name="settings_liquid_glass_preview_choose_source">پلے بیک شروع کرنے کے لیے ایک ماخذ منتخب کریں</string>
     <string name="settings_liquid_glass_preview_available_streams">دستیاب اسٹریمز</string>
+    <string name="settings_liquid_glass_preview_seasons_header">سیزنز</string>
 </resources>

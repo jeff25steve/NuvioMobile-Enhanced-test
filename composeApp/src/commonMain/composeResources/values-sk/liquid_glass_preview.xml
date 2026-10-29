@@ -1,5 +1,6 @@
 <resources>
-    <string name="settings_liquid_glass_preview_cast_crew">Obsadenie a štáb</string>
+    <string name="settings_liquid_glass_preview_cast_crew">OBSADENIE A ŠTÁB</string>
     <string name="settings_liquid_glass_preview_choose_source">Vyberte zdroj na spustenie prehrávania</string>
-    <string name="settings_liquid_glass_preview_available_streams">Dostupné streamy</string>
+    <string name="settings_liquid_glass_preview_available_streams">DOSTUPNÉ STREAMY</string>
+    <string name="settings_liquid_glass_preview_seasons_header">SEZÓNY</string>
 </resources>

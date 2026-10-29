@@ -2,4 +2,5 @@
     <string name="settings_liquid_glass_preview_cast_crew">অভিনয়শিল্পী ও কলাকুশলী</string>
     <string name="settings_liquid_glass_preview_choose_source">প্লেব্যাক শুরু করতে একটি উৎস বেছে নিন</string>
     <string name="settings_liquid_glass_preview_available_streams">উপলভ্য স্ট্রিম</string>
+    <string name="settings_liquid_glass_preview_seasons_header">সিজনসমূহ</string>
 </resources>

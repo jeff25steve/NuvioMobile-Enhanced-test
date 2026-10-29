@@ -2,4 +2,5 @@
     <string name="settings_liquid_glass_preview_cast_crew">キャストとスタッフ</string>
     <string name="settings_liquid_glass_preview_choose_source">再生を開始するソースを選択</string>
     <string name="settings_liquid_glass_preview_available_streams">利用可能なストリーム</string>
+    <string name="settings_liquid_glass_preview_seasons_header">シーズン</string>
 </resources>

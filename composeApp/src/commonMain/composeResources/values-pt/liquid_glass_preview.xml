@@ -1,5 +1,6 @@
 <resources>
-    <string name="settings_liquid_glass_preview_cast_crew">Elenco e equipa</string>
+    <string name="settings_liquid_glass_preview_cast_crew">ELENCO E EQUIPA</string>
     <string name="settings_liquid_glass_preview_choose_source">Escolha uma fonte para iniciar a reprodução</string>
-    <string name="settings_liquid_glass_preview_available_streams">Fontes disponíveis</string>
+    <string name="settings_liquid_glass_preview_available_streams">FONTES DISPONÍVEIS</string>
+    <string name="settings_liquid_glass_preview_seasons_header">TEMPORADAS</string>
 </resources>
