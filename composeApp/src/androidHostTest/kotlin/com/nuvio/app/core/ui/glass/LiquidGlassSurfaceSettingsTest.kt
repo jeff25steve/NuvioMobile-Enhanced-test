@@ -241,6 +241,18 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun librarySourceSwitchDefaultsToCapsuleLiquidGlass() {
+        val surface = LiquidGlassSurface.LIBRARY
+        val recipe = liquidGlassSurfaceRecipe(surface)
+
+        assertEquals(LiquidGlassMaterial.LIQUID, surface.defaultMaterial)
+        assertTrue(surface.supportsLens)
+        assertEquals(50f, recipe.cornerRadiusPercent)
+        assertEquals(12f, recipe.blurRadiusDp)
+        assertEquals(0.22f, recipe.tintOpacity)
+    }
+
+    @Test
     fun defaultSurfaceRecipeSuppliesRuntimeValuesWhenNoOverridesAreSaved() {
         val surface = LiquidGlassSurface.STREAM_RESULTS
         val recipe = liquidGlassSurfaceRecipe(surface, LiquidGlassSurfaceOverrides())

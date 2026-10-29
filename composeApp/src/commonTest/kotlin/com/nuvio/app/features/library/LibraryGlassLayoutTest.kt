@@ -46,6 +46,28 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun artworkHeaderFadeIsOnlyUsedForCloudLibraryWithAnActiveBackdrop() {
+        assertTrue(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Cloud,
+                artworkBackgroundActive = true,
+            ),
+        )
+        assertFalse(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                artworkBackgroundActive = true,
+            ),
+        )
+        assertFalse(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Cloud,
+                artworkBackgroundActive = false,
+            ),
+        )
+    }
+
+    @Test
     fun glassFilterOverlayReservesSpaceOnlyWhenSavedControlsAreVisibleAndGlassEnabled() {
         assertFalse(
             libraryGlassControlsNeedContentInset(
