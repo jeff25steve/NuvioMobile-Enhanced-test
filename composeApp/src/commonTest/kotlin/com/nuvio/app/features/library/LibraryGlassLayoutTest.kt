@@ -68,33 +68,15 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun glassFilterOverlayReservesSpaceOnlyWhenSavedControlsAreVisibleAndGlassEnabled() {
+    fun savedFilterOverlayReservesInitialListSpaceWheneverControlsAreVisible() {
         assertFalse(
-            libraryGlassControlsNeedContentInset(
+            librarySavedControlsNeedContentInset(
                 hasSavedControls = false,
-                savedTypeGlassEnabled = true,
-                savedSortGlassEnabled = false,
-            ),
-        )
-        assertFalse(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = true,
-                savedTypeGlassEnabled = false,
-                savedSortGlassEnabled = false,
             ),
         )
         assertTrue(
-            libraryGlassControlsNeedContentInset(
+            librarySavedControlsNeedContentInset(
                 hasSavedControls = true,
-                savedTypeGlassEnabled = true,
-                savedSortGlassEnabled = false,
-            ),
-        )
-        assertTrue(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = true,
-                savedTypeGlassEnabled = false,
-                savedSortGlassEnabled = true,
             ),
         )
     }
