@@ -107,6 +107,7 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.nuvio.app.core.i18n.localizedMonthName
 import com.nuvio.app.core.i18n.localizedShortMonthName
+import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
@@ -219,7 +220,7 @@ internal fun libraryHeaderUsesArtworkBackdrop(
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
 
 internal fun librarySavedHeaderScrimHeight(headerHeight: Dp, topInset: Dp): Dp =
-    headerHeight + topInset + 8.dp
+    (headerHeight + topInset - NuvioTokens.Space.s4).coerceAtLeast(0.dp)
 
 internal fun librarySavedHeaderUsesGlassScrim(
     sourceMode: LibraryViewMode,

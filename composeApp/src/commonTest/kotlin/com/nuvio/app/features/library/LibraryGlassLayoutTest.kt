@@ -56,9 +56,9 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun savedHeaderScrimHeightUsesOnlyTitleHeaderAndTopInset() {
+    fun savedHeaderScrimStopsBeforeHeaderBottomPadding() {
         assertEquals(
-            80.dp,
+            68.dp,
             librarySavedHeaderScrimHeight(headerHeight = 52.dp, topInset = 20.dp),
         )
     }
