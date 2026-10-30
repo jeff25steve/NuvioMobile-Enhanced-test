@@ -3,6 +3,7 @@ package com.nuvio.app.features.settings
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
+import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceRecipe
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -50,23 +51,23 @@ class LiquidGlassPreviewSizingTest {
     fun libraryPreviewRecipesMatchTheirProductionGlassDefaults() {
         val defaults = LiquidGlassSurfaceOverrides()
         assertEquals(
-            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
             surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER, defaults),
         )
         assertEquals(
-            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
             surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER, defaults),
         )
         assertEquals(
-            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.20f),
+            LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
             surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS, defaults),
         )
         assertEquals(
-            LiquidGlassSurfaceRecipe(36f, 14f, 8f, 12f, 0.18f),
+            LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.34f),
             surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, defaults),
         )
         assertEquals(
-            LiquidGlassSurfaceRecipe(15f, 14f, 8f, 12f, 0.18f),
+            LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.38f),
             surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_CARDS, defaults),
         )
     }
