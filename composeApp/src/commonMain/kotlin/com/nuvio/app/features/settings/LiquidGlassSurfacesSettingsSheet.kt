@@ -35,7 +35,7 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -695,7 +695,7 @@ private fun LiquidGlassSurfaceListItem(
                                 imageVector = leadingIcon,
                                 contentDescription = null,
                                 modifier = Modifier.size(iconGlyphSize),
-                                tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                                tint = tokens.colors.textPrimary,
                             )
                         }
                     }
@@ -746,7 +746,7 @@ private fun LiquidGlassSurfaceGroupListItem(
     val icon = when (group) {
         LiquidGlassSurfaceGroup.DETAIL_PAGE -> Icons.Rounded.Movie
         LiquidGlassSurfaceGroup.STREAM_PICKER -> Icons.Rounded.Tune
-        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.Category
+        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.TextFields
         LiquidGlassSurfaceGroup.LIBRARY -> Icons.Rounded.VideoLibrary
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
@@ -791,7 +791,7 @@ private fun LiquidGlassSurfaceGroupListItem(
                             imageVector = icon,
                             contentDescription = null,
                             modifier = Modifier.size(iconGlyphSize),
-                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                            tint = tokens.colors.textPrimary,
                         )
                     }
                 }
