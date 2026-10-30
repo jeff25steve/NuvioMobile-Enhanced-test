@@ -4061,7 +4061,7 @@ internal fun surfacePreviewRecipe(
 ): LiquidGlassSurfaceRecipe = liquidGlassSurfaceRecipe(surface, overrides)
 
 internal fun liquidGlassSurfaceDefaultHighlightEnabled(surface: LiquidGlassSurface): Boolean =
-    surface != LiquidGlassSurface.DETAIL_HEADER
+    surface.defaultWithHighlight
 
 private fun resolvedGlassEffects(
     surface: LiquidGlassSurface,
