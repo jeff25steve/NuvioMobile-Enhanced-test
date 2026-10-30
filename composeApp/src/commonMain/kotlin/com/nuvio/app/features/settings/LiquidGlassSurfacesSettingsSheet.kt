@@ -823,7 +823,7 @@ private fun LiquidGlassSurfaceEditorHeader(
     isTablet: Boolean,
     onBack: () -> Unit,
 ) {
-    val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
+    val recipe = remember(surface, overrides) { liquidGlassSurfaceRecipe(surface, overrides) }
     val title = liquidGlassSurfaceTitle(surface)
     Column(
         modifier = Modifier
@@ -1721,7 +1721,7 @@ private fun LiquidGlassSurfaceEditorControls(
     val title = liquidGlassSurfaceTitle(surface)
     val enabled = overrides.enabled ?: surface.defaultEnabled
     val refractionSupported = isLiquidRefractionSupported()
-    val recipe = remember(surface, overrides) { surfacePreviewRecipe(surface, overrides) }
+    val recipe = remember(surface, overrides) { liquidGlassSurfaceRecipe(surface, overrides) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showLibraryCloudBackgroundControls) {
             // Keep the profile image subscription and native picker out of unrelated surface editors.
@@ -1925,7 +1925,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_nav_bar_glass_highlight),
                     description = stringResource(Res.string.settings_liquid_glass_surface_highlight_description),
-                    checked = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
+                    checked = overrides.withHighlight ?: surface.defaultWithHighlight,
                     isTablet = isTablet,
                     onCheckedChange = { onChanged(overrides.copy(withHighlight = it)) },
                 )
@@ -2734,16 +2734,16 @@ private fun LiquidGlassLibraryPreview(
         }
     }
     val libraryRecipe = remember(settings) {
-        surfacePreviewRecipe(LiquidGlassSurface.LIBRARY, settings.forSurface(LiquidGlassSurface.LIBRARY))
+        liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY, settings.forSurface(LiquidGlassSurface.LIBRARY))
     }
     val cloudSearchRecipe = remember(settings) {
-        surfacePreviewRecipe(
+        liquidGlassSurfaceRecipe(
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
             settings.forSurface(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH),
         )
     }
     val cloudCardsRecipe = remember(settings) {
-        surfacePreviewRecipe(
+        liquidGlassSurfaceRecipe(
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
             settings.forSurface(LiquidGlassSurface.LIBRARY_CLOUD_CARDS),
         )
@@ -4055,19 +4055,11 @@ private fun LiquidGlassSearchPreviewPosterTile(
     }
 }
 
-internal fun surfacePreviewRecipe(
-    surface: LiquidGlassSurface,
-    overrides: LiquidGlassSurfaceOverrides,
-): LiquidGlassSurfaceRecipe = liquidGlassSurfaceRecipe(surface, overrides)
-
-internal fun liquidGlassSurfaceDefaultHighlightEnabled(surface: LiquidGlassSurface): Boolean =
-    surface.defaultWithHighlight
-
 private fun resolvedGlassEffects(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
 ): LiquidGlassSurfaceOverrides {
-    val recipe = surfacePreviewRecipe(surface, overrides)
+    val recipe = liquidGlassSurfaceRecipe(surface, overrides)
     return overrides.copy(
         enabled = overrides.enabled ?: surface.defaultEnabled,
         blurRadiusDp = overrides.blurRadiusDp ?: recipe.blurRadiusDp,
@@ -4075,7 +4067,7 @@ private fun resolvedGlassEffects(
         refractionAmountDp = overrides.refractionAmountDp ?: recipe.refractionAmountDp,
         tintOpacity = overrides.tintOpacity ?: recipe.tintOpacity,
         withVibrancy = overrides.withVibrancy ?: true,
-        withHighlight = overrides.withHighlight ?: liquidGlassSurfaceDefaultHighlightEnabled(surface),
+        withHighlight = overrides.withHighlight ?: surface.defaultWithHighlight,
         withShadow = overrides.withShadow ?: surface.defaultWithShadow,
         chromaticAberration = overrides.chromaticAberration ?: false,
         depthEffect = overrides.depthEffect ?: false,

@@ -80,7 +80,7 @@ enum class LiquidGlassSurface {
     val supportsLens: Boolean
         get() = this != DETAIL_HEADER
 
-    /** Settings navigation icons follow the active app theme, not a per-surface glass tint. */
+    /** Only surfaces with live icon-tint consumers expose the per-surface custom icon-color control. */
     val supportsIconTint: Boolean
         get() = when (this) {
             PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,

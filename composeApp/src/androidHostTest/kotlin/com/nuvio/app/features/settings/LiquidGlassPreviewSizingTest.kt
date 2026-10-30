@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceRecipe
+import com.nuvio.app.core.ui.glass.liquidGlassSurfaceRecipe
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -29,16 +30,16 @@ class LiquidGlassPreviewSizingTest {
 
     @Test
     fun highlightSwitchDefaultsMatchProductionSurfaceRecipes() {
-        assertEquals(false, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.DETAIL_HEADER))
-        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.DETAILS))
-        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.BOTTOM_SHEETS))
-        assertEquals(true, liquidGlassSurfaceDefaultHighlightEnabled(LiquidGlassSurface.STREAM_RESULTS))
+        assertEquals(false, LiquidGlassSurface.DETAIL_HEADER.defaultWithHighlight)
+        assertEquals(true, LiquidGlassSurface.DETAILS.defaultWithHighlight)
+        assertEquals(true, LiquidGlassSurface.BOTTOM_SHEETS.defaultWithHighlight)
+        assertEquals(true, LiquidGlassSurface.STREAM_RESULTS.defaultWithHighlight)
     }
 
     @Test
     fun everyLiquidGlassSurfaceHasAValidPreviewRecipe() {
         LiquidGlassSurface.entries.forEach { surface ->
-            val recipe = surfacePreviewRecipe(surface, LiquidGlassSurfaceOverrides())
+            val recipe = liquidGlassSurfaceRecipe(surface, LiquidGlassSurfaceOverrides())
             assertTrue(recipe.cornerRadiusPercent.isFinite() && recipe.cornerRadiusPercent in 0f..50f, surface.name)
             assertTrue(recipe.blurRadiusDp.isFinite() && recipe.blurRadiusDp in 0f..32f, surface.name)
             assertTrue(recipe.refractionHeightDp.isFinite() && recipe.refractionHeightDp in 0f..48f, surface.name)
@@ -52,23 +53,23 @@ class LiquidGlassPreviewSizingTest {
         val defaults = LiquidGlassSurfaceOverrides()
         assertEquals(
             LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
-            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER, defaults),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER, defaults),
         )
         assertEquals(
             LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
-            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER, defaults),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER, defaults),
         )
         assertEquals(
             LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f),
-            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS, defaults),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS, defaults),
         )
         assertEquals(
             LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.34f),
-            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, defaults),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, defaults),
         )
         assertEquals(
             LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.38f),
-            surfacePreviewRecipe(LiquidGlassSurface.LIBRARY_CLOUD_CARDS, defaults),
+            liquidGlassSurfaceRecipe(LiquidGlassSurface.LIBRARY_CLOUD_CARDS, defaults),
         )
     }
 
