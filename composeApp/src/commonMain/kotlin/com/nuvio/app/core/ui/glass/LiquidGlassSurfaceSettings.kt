@@ -480,8 +480,8 @@ internal fun shouldRenderLiquidGlassSurface(
     (preview || (masterEnabled && platformSupported))
 
 /**
- * Uses existing call-site values unless the user has explicitly overridden them. Existing glass
- * recipes therefore remain pixel-for-pixel unchanged until that area is customized.
+ * Resolve corner geometry from the same per-surface recipe used by the renderer and Studio preview.
+ * Disabled surfaces and shapes without per-corner geometry retain their original shape.
  */
 @Composable
 internal fun liquidGlassShape(
