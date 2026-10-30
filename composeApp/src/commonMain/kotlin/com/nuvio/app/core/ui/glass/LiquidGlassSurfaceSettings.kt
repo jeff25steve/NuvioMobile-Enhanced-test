@@ -80,12 +80,13 @@ enum class LiquidGlassSurface {
     val supportsLens: Boolean
         get() = this != DETAIL_HEADER
 
+    /** Settings navigation icons follow the active app theme, not a per-surface glass tint. */
     val supportsIconTint: Boolean
         get() = when (this) {
             PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,
             DETAIL_EPISODE_SEARCH, CATEGORY_HEADER_BACK_BUTTON, SEARCH, LIBRARY,
             LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER, LIBRARY_CLOUD_FILTERS,
-            LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> true
+            LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
             DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, LIBRARY_CALENDAR, BOTTOM_SHEETS -> false
