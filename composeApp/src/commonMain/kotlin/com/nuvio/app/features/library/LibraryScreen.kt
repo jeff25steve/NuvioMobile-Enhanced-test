@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -215,6 +216,14 @@ internal fun libraryHeaderUsesArtworkBackdrop(
     sourceMode: LibraryViewMode,
     artworkBackgroundActive: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
+
+internal fun librarySavedHeaderUsesGlassScrim(
+    sourceMode: LibraryViewMode,
+    librarySurfaceGlassEnabled: Boolean,
+    savedTypeGlassEnabled: Boolean,
+    savedSortGlassEnabled: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Saved &&
+    (librarySurfaceGlassEnabled || savedTypeGlassEnabled || savedSortGlassEnabled)
 
 /** Any enabled Library surface needs the capture layer, including the calendar popup. */
 internal fun libraryBackdropCaptureRequired(
@@ -563,6 +572,33 @@ fun LibraryScreen(
             null
         }
     }
+    val savedHeaderScrimEnabled = librarySavedHeaderUsesGlassScrim(
+        sourceMode = sourceMode,
+        librarySurfaceGlassEnabled = libraryGlassEnabled,
+        savedTypeGlassEnabled = savedTypeGlassEnabled,
+        savedSortGlassEnabled = savedSortGlassEnabled,
+    )
+    val headerDensity = LocalDensity.current
+    var libraryHeaderHeight by remember(headerDensity) { mutableStateOf(0.dp) }
+    val savedHeaderScrimBrush = remember(
+        savedHeaderScrimEnabled,
+        MaterialTheme.colorScheme.background,
+    ) {
+        if (savedHeaderScrimEnabled) {
+            Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.28f),
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.12f),
+                    Color.Transparent,
+                ),
+            )
+        } else {
+            null
+        }
+    }
+    val savedHeaderTransparentBrush = remember {
+        Brush.horizontalGradient(colors = listOf(Color.Transparent, Color.Transparent))
+    }
     val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
         uiState.isLoaded && uiState.sections.isNotEmpty()
     val savedControlsInset = 72.dp
@@ -599,9 +635,20 @@ fun LibraryScreen(
         ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth()) {
+            if (savedHeaderScrimEnabled && libraryHeaderHeight > 0.dp) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(libraryHeaderHeight + 8.dp)
+                        .background(savedHeaderScrimBrush ?: Color.Transparent),
+                )
+            }
             androidx.compose.foundation.layout.Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        libraryHeaderHeight = with(headerDensity) { size.height.toDp() }
+                    }
                     .padding(LocalVerticalBarPadding.current),
             ) {
                 NuvioScreenHeader(
@@ -621,7 +668,11 @@ fun LibraryScreen(
                     // On Cloud, let artwork continue behind the status bar and title.
                     // A fading scrim preserves white-text contrast without a hard black rectangle.
                     modifier = if (cloudHeaderBackdropActive) Modifier else Modifier.padding(horizontal = 16.dp),
-                    backgroundBrushOverride = cloudHeaderBackgroundBrush,
+                    backgroundBrushOverride = when {
+                        cloudHeaderBackdropActive -> cloudHeaderBackgroundBrush
+                        savedHeaderScrimEnabled -> savedHeaderTransparentBrush
+                        else -> null
+                    },
                     contentHorizontalPadding = if (cloudHeaderBackdropActive) 16.dp else 0.dp,
                 )
                 LibrarySourceSwitch(
@@ -723,7 +774,8 @@ fun LibraryScreen(
                 )
             }
 
-            Box(
+            Box(modifier = Modifier.fillMaxSize()) {
+            NuvioScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
@@ -733,9 +785,6 @@ fun LibraryScreen(
                             Modifier
                         },
                     ),
-            ) {
-            NuvioScreen(
-                modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
                 // Saved filters are pinned outside the scrolling content. Always reserve their
                 // space initially so the first section heading stays visible regardless of material;
