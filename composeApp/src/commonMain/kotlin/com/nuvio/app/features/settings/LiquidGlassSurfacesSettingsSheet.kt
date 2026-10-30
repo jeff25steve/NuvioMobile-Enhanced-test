@@ -4088,4 +4088,3 @@ private fun resolvedGlassEffects(
     ).sanitized()
 }
 
-/** The preview shape follows the current live override; null continues to use this surface's recipe. */
