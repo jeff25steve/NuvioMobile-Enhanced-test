@@ -17,19 +17,121 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun calendarGlassAloneKeepsLibraryBackdropCaptureActive() {
+    fun backgroundBackdropCaptureFollowsOnlyTheVisibleLibraryGlassSurfaces() {
         assertTrue(
-            libraryBackdropCaptureRequired(masterEnabled = true) {
-                it == LiquidGlassSurface.LIBRARY_CALENDAR
-            },
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = false) {
-                it == LiquidGlassSurface.LIBRARY_CALENDAR
-            },
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_CARDS },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = true) { false },
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Servers,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Servers,
+                masterEnabled = true,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_FILTERS },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                masterEnabled = false,
+                platformSupported = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                masterEnabled = true,
+                platformSupported = false,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH },
+        )
+    }
+
+    @Test
+    fun contentBackdropCaptureIsLimitedToSavedFiltersAndCalendar() {
+        assertTrue(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = false,
+                calendarGlassEnabled = false,
+            ),
+        )
+        assertTrue(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = true,
+                calendarGlassEnabled = false,
+            ),
+        )
+        assertTrue(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+                calendarGlassEnabled = true,
+            ),
+        )
+        assertFalse(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Saved,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+                calendarGlassEnabled = false,
+            ),
+        )
+        assertFalse(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Cloud,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = true,
+                calendarGlassEnabled = true,
+            ),
+        )
+        assertFalse(
+            librarySavedContentBackdropCaptureRequired(
+                sourceMode = LibraryViewMode.Servers,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = true,
+                calendarGlassEnabled = true,
+            ),
         )
     }
 
