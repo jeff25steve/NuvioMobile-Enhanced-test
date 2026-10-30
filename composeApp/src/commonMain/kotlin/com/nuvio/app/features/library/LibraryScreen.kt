@@ -111,9 +111,7 @@ import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
-import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
-import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceGroup
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
@@ -158,8 +156,6 @@ import com.nuvio.app.core.ui.DialogButtonStyle
 import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.settings.isLocalBackgroundImageUri
-import com.nuvio.app.features.settings.withSettingsGlassTextContrast
-import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.MetaVideo
@@ -230,12 +226,40 @@ internal fun librarySavedHeaderUsesGlassScrim(
 ): Boolean = sourceMode == LibraryViewMode.Saved &&
     (librarySurfaceGlassEnabled || savedTypeGlassEnabled || savedSortGlassEnabled)
 
-/** Any enabled Library surface needs the capture layer, including the calendar popup. */
+/**
+ * Capture the screen-background layer only for Glass surfaces visible in the active Library tab.
+ * Saved filters and the calendar use a separate content capture below the pinned controls.
+ */
 internal fun libraryBackdropCaptureRequired(
+    sourceMode: LibraryViewMode,
     masterEnabled: Boolean,
+    platformSupported: Boolean,
     isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
-): Boolean = masterEnabled &&
-    LiquidGlassSurfaceGroup.LIBRARY.surfaces.any(isSurfacePreferenceEnabled)
+): Boolean {
+    if (!masterEnabled || !platformSupported) return false
+
+    val sourceSwitchEnabled = isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
+    val activeTabSurfaceEnabled = when (sourceMode) {
+        LibraryViewMode.Saved,
+        LibraryViewMode.Servers,
+        -> false
+        LibraryViewMode.Cloud -> (
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS) ||
+                isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) ||
+                isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
+            )
+    }
+    return sourceSwitchEnabled || activeTabSurfaceEnabled
+}
+
+/** Only Saved filters and the calendar sample the scrolling Saved Library content. */
+internal fun librarySavedContentBackdropCaptureRequired(
+    sourceMode: LibraryViewMode,
+    savedTypeGlassEnabled: Boolean,
+    savedSortGlassEnabled: Boolean,
+    calendarGlassEnabled: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Saved &&
+    (savedTypeGlassEnabled || savedSortGlassEnabled || calendarGlassEnabled)
 
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
 internal fun shouldUseLibraryContentBackdropForCalendar(
@@ -541,23 +565,33 @@ fun LibraryScreen(
     }
     val libraryBackdrop = rememberNuvioBackdrop()
     val libraryContentBackdrop = rememberNuvioBackdrop()
-    val libraryGlassEnabled = LiquidGlassSettings.enabled &&
+    val liquidGlassPlatformSupported = isLiquidGlassAvailable()
+    val liquidGlassRuntimeEnabled = LiquidGlassSettings.enabled && liquidGlassPlatformSupported
+    val libraryGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
-    val savedTypeGlassEnabled = LiquidGlassSettings.enabled &&
+    val savedTypeGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER)
-    val savedSortGlassEnabled = LiquidGlassSettings.enabled &&
+    val savedSortGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
-    val cloudFiltersGlassEnabled = LiquidGlassSettings.enabled &&
+    val cloudFiltersGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
-    val cloudSearchGlassEnabled = LiquidGlassSettings.enabled &&
+    val cloudSearchGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH)
-    val cloudCardsGlassEnabled = LiquidGlassSettings.enabled &&
+    val cloudCardsGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
-    val calendarGlassEnabled = LiquidGlassSettings.enabled &&
+    val calendarGlassEnabled = liquidGlassRuntimeEnabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
-    val anyLibraryGlassEnabled = libraryBackdropCaptureRequired(
+    val libraryBackgroundBackdropCaptureEnabled = libraryBackdropCaptureRequired(
+        sourceMode = sourceMode,
         masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = liquidGlassPlatformSupported,
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
+    val libraryContentBackdropCaptureEnabled = librarySavedContentBackdropCaptureRequired(
+        sourceMode = sourceMode,
+        savedTypeGlassEnabled = savedTypeGlassEnabled,
+        savedSortGlassEnabled = savedSortGlassEnabled,
+        calendarGlassEnabled = calendarGlassEnabled,
     )
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
     val cloudHeaderBackdropActive = libraryHeaderUsesArtworkBackdrop(
@@ -615,7 +649,7 @@ fun LibraryScreen(
     Box(modifier = modifier.fillMaxSize()) {
         // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
         // is drawn above it when present. Draw it even with Liquid Glass disabled.
-        if (anyLibraryGlassEnabled || sourceMode == LibraryViewMode.Cloud) {
+        if (libraryBackgroundBackdropCaptureEnabled || sourceMode == LibraryViewMode.Cloud) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -623,7 +657,10 @@ fun LibraryScreen(
                         if (sourceMode == LibraryViewMode.Cloud) Color.Black
                         else MaterialTheme.colorScheme.background,
                     )
-                    .then(if (anyLibraryGlassEnabled) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
+                    .then(
+                        if (libraryBackgroundBackdropCaptureEnabled) Modifier.nuvioBackdropSource(libraryBackdrop)
+                        else Modifier
+                    ),
             ) {
                 if (cloudBackgroundActive) {
                     cloudBackgroundImageRequest?.let { request ->
@@ -638,7 +675,7 @@ fun LibraryScreen(
             }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
+            LocalLiquidGlassBackdrop provides if (libraryBackgroundBackdropCaptureEnabled) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
             ),
@@ -797,7 +834,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (sourceMode == LibraryViewMode.Saved && anyLibraryGlassEnabled) {
+                        if (libraryContentBackdropCaptureEnabled) {
                             Modifier.nuvioBackdropSource(libraryContentBackdrop)
                         } else {
                             Modifier
