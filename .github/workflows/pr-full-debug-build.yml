@@ -1,3 +1,4 @@
+# Integration validation trigger for the merged Library + enhanced tree (2026-10-30)
 name: PR Full Debug Build
 
 on:
