@@ -17,19 +17,20 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun calendarGlassAloneKeepsLibraryBackdropCaptureActive() {
+    fun calendarBackdropCaptureRequiresAnEnabledSurfaceAndSupportedRenderer() {
         assertTrue(
-            libraryBackdropCaptureRequired(masterEnabled = true) {
+            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = true) {
                 it == LiquidGlassSurface.LIBRARY_CALENDAR
             },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = false) {
-                it == LiquidGlassSurface.LIBRARY_CALENDAR
-            },
+            libraryBackdropCaptureRequired(masterEnabled = false, platformSupported = true) { true },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = true) { false },
+            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = false) { true },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = true) { false },
         )
     }
 
@@ -56,10 +57,14 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun savedHeaderScrimHeightUsesOnlyTitleHeaderAndTopInset() {
+    fun savedHeaderScrimEndsAtTitleHeaderBottomPaddingAndNeverBecomesNegative() {
         assertEquals(
-            80.dp,
+            68.dp,
             librarySavedHeaderScrimHeight(headerHeight = 52.dp, topInset = 20.dp),
+        )
+        assertEquals(
+            0.dp,
+            librarySavedHeaderScrimHeight(headerHeight = 2.dp, topInset = 1.dp),
         )
     }
 

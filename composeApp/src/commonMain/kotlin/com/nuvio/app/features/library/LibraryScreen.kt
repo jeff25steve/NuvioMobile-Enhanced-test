@@ -134,6 +134,7 @@ import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.shimmer
@@ -155,8 +156,6 @@ import com.nuvio.app.core.ui.DialogButtonStyle
 import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.settings.isLocalBackgroundImageUri
-import com.nuvio.app.features.settings.withSettingsGlassTextContrast
-import com.nuvio.app.features.settings.withSettingsGlassTextShadow
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.MetaVideo
@@ -217,7 +216,7 @@ internal fun libraryHeaderUsesArtworkBackdrop(
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
 
 internal fun librarySavedHeaderScrimHeight(headerHeight: Dp, topInset: Dp): Dp =
-    headerHeight + topInset + 8.dp
+    (headerHeight + topInset - NuvioTokens.Space.s4).coerceAtLeast(0.dp)
 
 internal fun librarySavedHeaderUsesGlassScrim(
     sourceMode: LibraryViewMode,
@@ -230,8 +229,9 @@ internal fun librarySavedHeaderUsesGlassScrim(
 /** Any enabled Library surface needs the capture layer, including the calendar popup. */
 internal fun libraryBackdropCaptureRequired(
     masterEnabled: Boolean,
+    platformSupported: Boolean,
     isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
-): Boolean = masterEnabled &&
+): Boolean = masterEnabled && platformSupported &&
     LiquidGlassSurfaceGroup.LIBRARY.surfaces.any(isSurfacePreferenceEnabled)
 
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
@@ -554,6 +554,7 @@ fun LibraryScreen(
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
     val anyLibraryGlassEnabled = libraryBackdropCaptureRequired(
         masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = isLiquidGlassAvailable(),
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
     val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
