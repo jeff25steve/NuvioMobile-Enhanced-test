@@ -103,7 +103,6 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-            LiquidGlassSurface.SETTINGS,
         )
         LiquidGlassSurface.entries.forEach { surface ->
             assertEquals(surface in tintableSurfaces, surface.supportsIconTint, surface.name)
