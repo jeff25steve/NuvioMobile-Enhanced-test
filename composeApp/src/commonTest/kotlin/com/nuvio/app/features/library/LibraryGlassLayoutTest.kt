@@ -1,7 +1,9 @@
 package com.nuvio.app.features.library
 
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -50,6 +52,14 @@ class LibraryGlassLayoutTest {
                 sourceMode = LibraryViewMode.Cloud,
                 calendarGlassEnabled = true,
             ),
+        )
+    }
+
+    @Test
+    fun savedHeaderScrimHeightUsesOnlyTitleHeaderAndTopInset() {
+        assertEquals(
+            80.dp,
+            librarySavedHeaderScrimHeight(headerHeight = 52.dp, topInset = 20.dp),
         )
     }
 
