@@ -240,9 +240,7 @@ internal fun libraryBackdropCaptureRequired(
 
     val sourceSwitchEnabled = isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
     val activeTabSurfaceEnabled = when (sourceMode) {
-        LibraryViewMode.Saved,
-        LibraryViewMode.Servers,
-        -> false
+        LibraryViewMode.Saved, LibraryViewMode.Servers -> false
         LibraryViewMode.Cloud -> (
             isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS) ||
                 isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) ||
