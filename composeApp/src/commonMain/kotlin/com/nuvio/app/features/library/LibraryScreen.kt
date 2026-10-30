@@ -580,15 +580,16 @@ fun LibraryScreen(
     )
     val headerDensity = LocalDensity.current
     var libraryHeaderHeight by remember(sourceMode, headerDensity) { mutableStateOf(0.dp) }
+    val savedHeaderBackground = MaterialTheme.colorScheme.background
     val savedHeaderScrimBrush = remember(
         savedHeaderScrimEnabled,
-        MaterialTheme.colorScheme.background,
+        savedHeaderBackground,
     ) {
         Brush.verticalGradient(
             colors = if (savedHeaderScrimEnabled) {
                 listOf(
-                    MaterialTheme.colorScheme.background.copy(alpha = 0.28f),
-                    MaterialTheme.colorScheme.background.copy(alpha = 0.12f),
+                    savedHeaderBackground.copy(alpha = 0.28f),
+                    savedHeaderBackground.copy(alpha = 0.12f),
                     Color.Transparent,
                 )
             } else {
