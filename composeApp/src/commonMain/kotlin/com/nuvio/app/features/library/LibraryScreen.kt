@@ -584,17 +584,17 @@ fun LibraryScreen(
         savedHeaderScrimEnabled,
         MaterialTheme.colorScheme.background,
     ) {
-        if (savedHeaderScrimEnabled) {
-            Brush.verticalGradient(
-                colors = listOf(
+        Brush.verticalGradient(
+            colors = if (savedHeaderScrimEnabled) {
+                listOf(
                     MaterialTheme.colorScheme.background.copy(alpha = 0.28f),
                     MaterialTheme.colorScheme.background.copy(alpha = 0.12f),
                     Color.Transparent,
-                ),
-            )
-        } else {
-            null
-        }
+                )
+            } else {
+                listOf(Color.Transparent, Color.Transparent)
+            },
+        )
     }
     val savedHeaderTransparentBrush = remember {
         Brush.horizontalGradient(colors = listOf(Color.Transparent, Color.Transparent))
@@ -640,7 +640,7 @@ fun LibraryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(libraryHeaderHeight + 8.dp)
-                        .background(savedHeaderScrimBrush ?: Color.Transparent),
+                        .background(savedHeaderScrimBrush),
                 )
             }
             androidx.compose.foundation.layout.Column(
