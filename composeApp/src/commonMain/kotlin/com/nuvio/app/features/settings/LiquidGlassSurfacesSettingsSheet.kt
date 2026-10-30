@@ -32,9 +32,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -104,6 +105,9 @@ import com.nuvio.app.core.ui.NuvioSystemBackHandler
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.usesNativeNuvioBottomSheet
 import com.nuvio.app.features.catalog.CatalogHeader
+import com.nuvio.app.features.catalog.CatalogHeaderPreviewGrid
+import com.nuvio.app.features.catalog.CATEGORY_HEADER_PREVIEW_SUBTITLE
+import com.nuvio.app.features.catalog.CATEGORY_HEADER_PREVIEW_TITLE
 import com.nuvio.app.features.details.components.DetailActions
 import com.nuvio.app.features.details.components.DetailFloatingHeader
 import com.nuvio.app.features.details.components.DetailGlassChipsPreview
@@ -159,6 +163,7 @@ import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
@@ -202,6 +207,14 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_desc
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_layout
 import nuvio.composeapp.generated.resources.settings_liquid_glass_suggested
 import nuvio.composeapp.generated.resources.settings_liquid_glass_global_note
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_available_streams
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_cast_crew
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_choose_source
+import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_seasons_header
+import nuvio.composeapp.generated.resources.cloud_library_playable_file_count
+import nuvio.composeapp.generated.resources.cloud_library_status_ready
+import nuvio.composeapp.generated.resources.collections_editor_tmdb_genre_comedy
+import nuvio.composeapp.generated.resources.media_series
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_description
@@ -264,6 +277,57 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_bottom_sheets_description
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
+
+private const val LiquidGlassCustomizeSheetCardOverlayAlpha = 0.36f
+private const val LiquidGlassCustomizeSheetCardBorderAlpha = 0.68f
+
+/**
+ * Apple recommends avoiding stacked Liquid Glass materials. Cards inside the glass sheet use a
+ * quiet translucent fill instead of capturing and blurring the same backdrop a second time.
+ */
+internal fun shouldUseLiquidGlassCustomizeSheetCardOverlay(
+    sheetGlassEnabled: Boolean,
+    backdropReady: Boolean,
+    nativeSheet: Boolean,
+): Boolean = sheetGlassEnabled && backdropReady && !nativeSheet
+
+private data class LiquidGlassCustomizeSheetCardStyle(
+    val modifier: Modifier,
+    val containerColor: Color,
+    val borderColor: Color,
+)
+
+@Composable
+private fun liquidGlassCustomizeSheetCardStyle(
+    shape: Shape,
+    fallbackColor: Color,
+    fallbackBorderColor: Color,
+): LiquidGlassCustomizeSheetCardStyle {
+    val backdrop = LocalNuvioSheetBackdrop.current?.backdrop
+    val useOverlay = shouldUseLiquidGlassCustomizeSheetCardOverlay(
+        sheetGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = LiquidGlassSurface.BOTTOM_SHEETS,
+            platformSupported = isLiquidGlassSupported(),
+        ),
+        backdropReady = backdrop?.isReady == true,
+        nativeSheet = usesNativeNuvioBottomSheet,
+    )
+    if (!useOverlay || backdrop == null) {
+        return LiquidGlassCustomizeSheetCardStyle(
+            modifier = Modifier,
+            containerColor = fallbackColor,
+            borderColor = fallbackBorderColor,
+        )
+    }
+
+    // The parent sheet already supplies real blur and refraction. A translucent dark film
+    // separates the cards from that material without stacking another blur/lens pipeline.
+    return LiquidGlassCustomizeSheetCardStyle(
+        modifier = Modifier.background(fallbackColor.copy(alpha = LiquidGlassCustomizeSheetCardOverlayAlpha), shape),
+        containerColor = Color.Transparent,
+        borderColor = fallbackBorderColor.copy(alpha = fallbackBorderColor.alpha * LiquidGlassCustomizeSheetCardBorderAlpha),
+    )
+}
 
 @Composable
 internal fun LiquidGlassSurfaceSettingsDrafts(
@@ -380,21 +444,28 @@ internal fun LiquidGlassSurfacesSettingsSheet(
             if (selectedSurface == null && selectedPreviewLayout == null) {
                 item {
                     val introTokens = MaterialTheme.nuvio
+                    val introCardShape = introTokens.shapes.card
+                    val introCardGlass = liquidGlassCustomizeSheetCardStyle(
+                        shape = introCardShape,
+                        fallbackColor = introTokens.colors.surfaceCard,
+                        fallbackBorderColor = introTokens.colors.borderStrong,
+                    )
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-                        shape = introTokens.shapes.card,
-                        color = introTokens.colors.surfaceCard,
+                            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+                            .then(introCardGlass.modifier),
+                        shape = introCardShape,
+                        color = introCardGlass.containerColor,
                         contentColor = introTokens.colors.textPrimary,
                         border = BorderStroke(
                             introTokens.borders.thin,
-                            introTokens.colors.borderStrong,
+                            introCardGlass.borderColor,
                         ),
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 text = stringResource(Res.string.settings_liquid_glass_customize),
@@ -406,11 +477,29 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = introTokens.colors.textSecondary,
                             )
-                            Text(
-                                text = stringResource(Res.string.settings_liquid_glass_global_note),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = introTokens.colors.textSecondary,
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(introTokens.colors.borderSubtle.copy(alpha = 0.55f)),
                             )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(top = 1.dp).size(18.dp),
+                                    tint = introTokens.colors.textSecondary,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.settings_liquid_glass_global_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = introTokens.colors.textSecondary,
+                                )
+                            }
                         }
                     }
                 }
@@ -567,14 +656,21 @@ private fun LiquidGlassSurfaceListItem(
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
     val iconGlyphSize = if (isTablet) 26.dp else 22.dp
+    val cardShape = tokens.shapes.card
+    val cardGlass = liquidGlassCustomizeSheetCardStyle(
+        shape = cardShape,
+        fallbackColor = tokens.colors.surfaceCard,
+        fallbackBorderColor = tokens.colors.borderStrong,
+    )
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = tokens.shapes.card,
-        color = tokens.colors.surfaceCard,
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+            .then(cardGlass.modifier),
+        shape = cardShape,
+        color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
-        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
+        border = BorderStroke(tokens.borders.thin, cardGlass.borderColor),
     ) {
         Column(
             modifier = Modifier.padding(vertical = 12.dp),
@@ -599,7 +695,7 @@ private fun LiquidGlassSurfaceListItem(
                                 imageVector = leadingIcon,
                                 contentDescription = null,
                                 modifier = Modifier.size(iconGlyphSize),
-                                tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                                tint = tokens.colors.textPrimary,
                             )
                         }
                     }
@@ -650,17 +746,26 @@ private fun LiquidGlassSurfaceGroupListItem(
     val icon = when (group) {
         LiquidGlassSurfaceGroup.DETAIL_PAGE -> Icons.Rounded.Movie
         LiquidGlassSurfaceGroup.STREAM_PICKER -> Icons.Rounded.Tune
-        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.Category
+        LiquidGlassSurfaceGroup.CATEGORY_HEADER -> Icons.Rounded.TextFields
         LiquidGlassSurfaceGroup.LIBRARY -> Icons.Rounded.VideoLibrary
     }
     val iconSize = if (isTablet) 42.dp else 36.dp
     val iconGlyphSize = if (isTablet) 26.dp else 22.dp
+    val cardShape = tokens.shapes.card
+    val cardGlass = liquidGlassCustomizeSheetCardStyle(
+        shape = cardShape,
+        fallbackColor = tokens.colors.surfaceCard,
+        fallbackBorderColor = tokens.colors.borderStrong,
+    )
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = if (isTablet) 24.dp else 16.dp),
-        shape = tokens.shapes.card,
-        color = tokens.colors.surfaceCard,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (isTablet) 24.dp else 16.dp)
+            .then(cardGlass.modifier),
+        shape = cardShape,
+        color = cardGlass.containerColor,
         contentColor = tokens.colors.textPrimary,
-        border = BorderStroke(tokens.borders.thin, tokens.colors.borderStrong),
+        border = BorderStroke(tokens.borders.thin, cardGlass.borderColor),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -686,7 +791,7 @@ private fun LiquidGlassSurfaceGroupListItem(
                             imageVector = icon,
                             contentDescription = null,
                             modifier = Modifier.size(iconGlyphSize),
-                            tint = liquidGlassIconTint(LiquidGlassSurface.SETTINGS, tokens.colors.textMuted),
+                            tint = tokens.colors.textPrimary,
                         )
                     }
                 }
@@ -1014,7 +1119,7 @@ private fun LiquidGlassDetailPagePreview(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "2024  •  Series  •  Comedy",
+                            text = "2024  •  ${stringResource(Res.string.media_series)}  •  ${stringResource(Res.string.collections_editor_tmdb_genre_comedy)}",
                             color = Color.White.copy(alpha = 0.82f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -1105,7 +1210,7 @@ private fun LiquidGlassDetailPagePreview(
                 }
 
                 Text(
-                    text = "CAST & CREW",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_cast_crew),
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
@@ -1147,7 +1252,7 @@ private fun LiquidGlassDetailPagePreview(
                 )
 
                 Text(
-                    text = "SEASONS",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_seasons_header),
                     modifier = Modifier.padding(start = 14.dp, top = 4.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
@@ -1457,7 +1562,7 @@ private fun LiquidGlassStreamPickerPreview(
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
                 Text(
-                    text = "Choose a source to start playback",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_choose_source),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp),
@@ -1504,7 +1609,7 @@ private fun LiquidGlassStreamPickerPreview(
                 }
 
                 Text(
-                    text = "AVAILABLE STREAMS",
+                    text = stringResource(Res.string.settings_liquid_glass_preview_available_streams),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
@@ -2207,16 +2312,6 @@ private fun LiquidGlassCatalogHeaderPreview(
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()
-    val posterColors = remember {
-        listOf(
-            Color(0xFF775F5A),
-            Color(0xFF425B6D),
-            Color(0xFF7D6B3D),
-            Color(0xFF66506F),
-            Color(0xFF3D6557),
-            Color(0xFF9B594F),
-        )
-    }
 
     Box(
         modifier = modifier
@@ -2232,74 +2327,11 @@ private fun LiquidGlassCatalogHeaderPreview(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFF16191F),
-                                Color(0xFF4B3940),
-                                Color(0xFF19242B),
-                                Color(0xFF101318),
-                            ),
-                        ),
-                    ),
+                    .background(MaterialTheme.colorScheme.background),
             )
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Simulate a scrolled catalog: portrait posters pass behind the fixed header,
-                    // making the sampled backdrop visible under both preview targets.
-                .padding(top = 12.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                repeat(2) { rowIndex ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        repeat(3) { columnIndex ->
-                            val posterIndex = (rowIndex * 3 + columnIndex) % posterColors.size
-                            val posterColor = posterColors[posterIndex]
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(0.68f)
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                posterColor.copy(alpha = 0.95f),
-                                                posterColor.copy(alpha = 0.55f),
-                                                Color(0xFF17191E),
-                                            ),
-                                        ),
-                                    ),
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(
-                                        text = listOf("DRAMA", "ORIGINAL", "SERIES")[columnIndex],
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 7.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        text = listOf("North Shore", "After Hours", "The Return")[posterIndex % 3],
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Use the real catalog poster tile/grid so the title glass samples artwork,
+            // card sizing and labels from the same content layer as CatalogScreen.
+            CatalogHeaderPreviewGrid(modifier = Modifier.fillMaxSize())
         }
 
         CompositionLocalProvider(
@@ -2307,8 +2339,8 @@ private fun LiquidGlassCatalogHeaderPreview(
             LocalLiquidGlassPreviewSettings provides settings,
         ) {
             CatalogHeader(
-                title = "HBO Max - Series",
-                subtitle = "Netflix",
+                title = CATEGORY_HEADER_PREVIEW_TITLE,
+                subtitle = CATEGORY_HEADER_PREVIEW_SUBTITLE,
                 onBack = {},
                 modifier = Modifier.fillMaxWidth(),
                 previewMode = true,
@@ -2318,6 +2350,7 @@ private fun LiquidGlassCatalogHeaderPreview(
         }
     }
 }
+
 
 @Composable
 private fun LiquidGlassDetailControlPreview(
@@ -2922,7 +2955,7 @@ private fun LiquidGlassLibraryPreview(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
-                                        text = "Ready • 3 files",
+                                        text = "${stringResource(Res.string.cloud_library_status_ready)} • ${stringResource(Res.string.cloud_library_playable_file_count, 3)}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (cardGlassEnabled) {
                                             MaterialTheme.nuvio.colors.textMuted
@@ -4028,7 +4061,7 @@ internal fun surfacePreviewRecipe(
 ): LiquidGlassSurfaceRecipe = liquidGlassSurfaceRecipe(surface, overrides)
 
 internal fun liquidGlassSurfaceDefaultHighlightEnabled(surface: LiquidGlassSurface): Boolean =
-    surface != LiquidGlassSurface.DETAIL_HEADER
+    surface.defaultWithHighlight
 
 private fun resolvedGlassEffects(
     surface: LiquidGlassSurface,
@@ -4055,4 +4088,3 @@ private fun resolvedGlassEffects(
     ).sanitized()
 }
 
-/** The preview shape follows the current live override; null continues to use this surface's recipe. */

@@ -103,7 +103,6 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
             LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-            LiquidGlassSurface.SETTINGS,
         )
         LiquidGlassSurface.entries.forEach { surface ->
             assertEquals(surface in tintableSurfaces, surface.supportsIconTint, surface.name)
@@ -208,6 +207,7 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
+            LiquidGlassSurface.LIBRARY,
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
         )
 
@@ -238,6 +238,18 @@ class LiquidGlassSurfaceSettingsTest {
                 cornerRadiusPercent = 50f,
             ),
         )
+    }
+
+    @Test
+    fun librarySourceSwitchDefaultsToCapsuleLiquidGlass() {
+        val surface = LiquidGlassSurface.LIBRARY
+        val recipe = liquidGlassSurfaceRecipe(surface)
+
+        assertEquals(LiquidGlassMaterial.LIQUID, surface.defaultMaterial)
+        assertTrue(surface.supportsLens)
+        assertEquals(50f, recipe.cornerRadiusPercent)
+        assertEquals(12f, recipe.blurRadiusDp)
+        assertEquals(0.22f, recipe.tintOpacity)
     }
 
     @Test
@@ -294,17 +306,17 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
-    fun libraryCalendarHasAnIndependentReadableGlassDefault() {
+    fun libraryCalendarDefaultLetsTheBackdropRemainVisibleThroughRealBlur() {
         val surface = LiquidGlassSurface.LIBRARY_CALENDAR
         val recipe = liquidGlassSurfaceRecipe(surface)
 
         assertTrue(surface.defaultEnabled)
         assertEquals(LiquidGlassMaterial.FROSTED, surface.defaultMaterial)
         assertEquals(44f, recipe.cornerRadiusPercent)
-        assertEquals(16f, recipe.blurRadiusDp)
+        assertEquals(20f, recipe.blurRadiusDp)
         assertEquals(3f, recipe.refractionHeightDp)
         assertEquals(5f, recipe.refractionAmountDp)
-        assertEquals(0.58f, recipe.tintOpacity)
+        assertEquals(0.28f, recipe.tintOpacity)
         assertTrue(surface in LiquidGlassSurfaceGroup.LIBRARY.surfaces)
 
         val customized = LiquidGlassSurfaceOverrides(

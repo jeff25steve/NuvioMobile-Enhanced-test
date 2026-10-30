@@ -278,6 +278,110 @@ internal fun categoryHeaderUsesPosterBackdrop(surface: LiquidGlassSurface): Bool
     surface == LiquidGlassSurface.CATEGORY_HEADER_TITLE ||
         surface == LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON
 
+internal const val CATEGORY_HEADER_PREVIEW_TITLE = "Popular This Week - Movies"
+internal const val CATEGORY_HEADER_PREVIEW_SUBTITLE = "Letterboxd"
+
+/** Fixed, local preview data keeps Studio deterministic while using the production catalog tile UI. */
+internal fun categoryHeaderPreviewItems(): List<MetaPreview> = listOf(
+    MetaPreview(
+        id = "category-preview-dune-part-two",
+        type = "movie",
+        name = "Dune: Part Two",
+        poster = "https://image.tmdb.org/t/p/w342/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+        releaseInfo = "2024",
+    ),
+    MetaPreview(
+        id = "category-preview-the-batman",
+        type = "movie",
+        name = "The Batman",
+        poster = "https://image.tmdb.org/t/p/w342/74xTEgt7R36Fpooo50r9T25onhq.jpg",
+        releaseInfo = "2022",
+    ),
+    MetaPreview(
+        id = "category-preview-spider-verse",
+        type = "movie",
+        name = "Spider-Man: Across the Spider-Verse",
+        poster = "https://image.tmdb.org/t/p/w342/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+        releaseInfo = "2023",
+    ),
+    MetaPreview(
+        id = "category-preview-oppenheimer",
+        type = "movie",
+        name = "Oppenheimer",
+        poster = "https://image.tmdb.org/t/p/w342/ptpr0kGAckfQkJeJIt8st5dglvd.jpg",
+        releaseInfo = "2023",
+    ),
+    MetaPreview(
+        id = "category-preview-avatar-way-of-water",
+        type = "movie",
+        name = "Avatar: The Way of Water",
+        poster = "https://image.tmdb.org/t/p/w342/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg",
+        releaseInfo = "2022",
+    ),
+    MetaPreview(
+        id = "category-preview-wonka",
+        type = "movie",
+        name = "Wonka",
+        poster = "https://image.tmdb.org/t/p/w342/qhb1qOilapbapxWQn9jtRCMwXJF.jpg",
+        releaseInfo = "2023",
+    ),
+    MetaPreview(
+        id = "category-preview-barbie",
+        type = "movie",
+        name = "Barbie",
+        poster = "https://image.tmdb.org/t/p/w342/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg",
+        releaseInfo = "2023",
+    ),
+    MetaPreview(
+        id = "category-preview-guardians-three",
+        type = "movie",
+        name = "Guardians of the Galaxy Vol. 3",
+        poster = "https://image.tmdb.org/t/p/w342/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg",
+        releaseInfo = "2023",
+    ),
+    MetaPreview(
+        id = "category-preview-the-creator",
+        type = "movie",
+        name = "The Creator",
+        poster = "https://image.tmdb.org/t/p/w342/vBZ0qvaRxqEhZwl6LWmruJqWE8Z.jpg",
+        releaseInfo = "2023",
+    ),
+)
+
+/** Uses the same poster tile, sizing, labels and corner-radius preference as CatalogScreen. */
+@Composable
+internal fun CatalogHeaderPreviewGrid(modifier: Modifier = Modifier) {
+    val previewItems = remember { categoryHeaderPreviewItems() }
+    val posterCardStyle = rememberPosterCardStyleUiState()
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val columns = remember(maxWidth) { catalogGridColumnsForWidth(maxWidth) }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            state = rememberLazyGridState(initialFirstVisibleItemIndex = columns),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            items(
+                items = previewItems,
+                key = { item -> item.stableKey() },
+            ) { item ->
+                CatalogPosterTile(
+                    item = item,
+                    cornerRadiusDp = posterCardStyle.cornerRadiusDp,
+                    hideLabels = posterCardStyle.hideLabelsEnabled,
+                    isWatched = false,
+                )
+            }
+        }
+    }
+}
+
+/** Apply the rounded title clip only while that title's glass material is rendered. */
+internal fun categoryHeaderTitleClipRequired(titleGlassEnabled: Boolean): Boolean = titleGlassEnabled
+
 /** In the Studio preview, render the real glass effect only on the component being edited. */
 internal fun categoryHeaderPreviewUsesGlass(
     surface: LiquidGlassSurface,
@@ -397,7 +501,13 @@ internal fun CatalogHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(titleGlassModifier)
-                .clip(titleShape)
+                .then(
+                    if (categoryHeaderTitleClipRequired(titleGlassEnabled)) {
+                        Modifier.clip(titleShape)
+                    } else {
+                        Modifier
+                    },
+                )
                 .then(titleSelectionBorder)
                 .then(
                     if (previewMode && onPreviewSurfaceSelected != null) {

@@ -71,6 +71,7 @@ enum class LiquidGlassSurface {
             DETAILS,
             DETAIL_PRIMARY_ACTION,
             DETAIL_TRAILER_SELECTOR,
+            LIBRARY,
             CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassMaterial.LIQUID
             else -> LiquidGlassMaterial.FROSTED
@@ -79,15 +80,16 @@ enum class LiquidGlassSurface {
     val supportsLens: Boolean
         get() = this != DETAIL_HEADER
 
+    /** Settings navigation icons follow the active app theme, not a per-surface glass tint. */
     val supportsIconTint: Boolean
         get() = when (this) {
             PLAYER, DETAILS, DETAIL_HEADER, DETAIL_PRIMARY_ACTION, DETAIL_TRAILER_SELECTOR,
             DETAIL_EPISODE_SEARCH, CATEGORY_HEADER_BACK_BUTTON, SEARCH, LIBRARY,
             LIBRARY_SAVED_TYPE_FILTER, LIBRARY_SAVED_SORT_FILTER, LIBRARY_CLOUD_FILTERS,
-            LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS, SETTINGS -> true
+            LIBRARY_CLOUD_SEARCH, LIBRARY_CLOUD_CARDS -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
-            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, LIBRARY_CALENDAR, BOTTOM_SHEETS -> false
+            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, LIBRARY_CALENDAR, SETTINGS, BOTTOM_SHEETS -> false
         }
 
     val defaultEnabled: Boolean
@@ -233,14 +235,14 @@ internal fun liquidGlassSurfaceRecipe(
         LiquidGlassSurface.CATEGORY_HEADER_TITLE -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
         LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.25f)
         LiquidGlassSurface.SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
-        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.30f)
+        LiquidGlassSurface.LIBRARY -> LiquidGlassSurfaceRecipe(50f, 12f, 6f, 9f, 0.22f)
         LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_CLOUD_FILTERS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.32f)
         LiquidGlassSurface.LIBRARY_CLOUD_SEARCH -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.34f)
         LiquidGlassSurface.LIBRARY_CLOUD_CARDS -> LiquidGlassSurfaceRecipe(15f, 12f, 6f, 9f, 0.38f)
         // Dense date grids and agenda text need a frosted, high-contrast modal by default.
-        LiquidGlassSurface.LIBRARY_CALENDAR -> LiquidGlassSurfaceRecipe(44f, 16f, 3f, 5f, 0.58f)
+        LiquidGlassSurface.LIBRARY_CALENDAR -> LiquidGlassSurfaceRecipe(44f, 20f, 3f, 5f, 0.28f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.42f)
         LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 18f, 8f, 12f, 0.50f)
     }
@@ -478,8 +480,8 @@ internal fun shouldRenderLiquidGlassSurface(
     (preview || (masterEnabled && platformSupported))
 
 /**
- * Uses existing call-site values unless the user has explicitly overridden them. Existing glass
- * recipes therefore remain pixel-for-pixel unchanged until that area is customized.
+ * Resolve corner geometry from the same per-surface recipe used by the renderer and Studio preview.
+ * Disabled surfaces and shapes without per-corner geometry retain their original shape.
  */
 @Composable
 internal fun liquidGlassShape(

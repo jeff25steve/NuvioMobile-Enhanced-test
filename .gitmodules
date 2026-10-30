@@ -1,7 +1,7 @@
 [submodule "MPVKit"]
 	path = MPVKit
-	url = https://github.com/NuvioMedia/MPVKit.git
-	branch = Nuvio
+	url = https://github.com/luqmanfadlli/MPVKit.git
+	branch = nuvio-enhanced
 
 [submodule "libass-android"]
 	path = libass-android

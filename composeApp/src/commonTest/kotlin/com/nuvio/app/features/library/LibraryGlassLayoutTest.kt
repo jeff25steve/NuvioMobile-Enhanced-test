@@ -1,38 +1,144 @@
 package com.nuvio.app.features.library
 
+import androidx.compose.ui.unit.dp
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LibraryGlassLayoutTest {
     @Test
-    fun glassFilterOverlayReservesSpaceOnlyWhenSavedControlsAreVisibleAndGlassEnabled() {
+    fun calendarInnerSurfaceUsesTranslucencyOnlyWhenGlassAndBackdropAreReady() {
+        assertTrue(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = true))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = false))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = false, backdropReady = true))
+        assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = false, backdropReady = false))
+    }
+
+    @Test
+    fun calendarGlassAloneKeepsLibraryBackdropCaptureActive() {
+        assertTrue(
+            libraryBackdropCaptureRequired(masterEnabled = true) {
+                it == LiquidGlassSurface.LIBRARY_CALENDAR
+            },
+        )
         assertFalse(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = false,
-                savedTypeGlassEnabled = true,
-                savedSortGlassEnabled = false,
+            libraryBackdropCaptureRequired(masterEnabled = false) {
+                it == LiquidGlassSurface.LIBRARY_CALENDAR
+            },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(masterEnabled = true) { false },
+        )
+    }
+
+    @Test
+    fun liveCalendarUsesLibraryContentBackdropOnlyWhenGlassIsEnabledInSavedMode() {
+        assertTrue(
+            shouldUseLibraryContentBackdropForCalendar(
+                sourceMode = LibraryViewMode.Saved,
+                calendarGlassEnabled = true,
             ),
         )
         assertFalse(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = true,
+            shouldUseLibraryContentBackdropForCalendar(
+                sourceMode = LibraryViewMode.Saved,
+                calendarGlassEnabled = false,
+            ),
+        )
+        assertFalse(
+            shouldUseLibraryContentBackdropForCalendar(
+                sourceMode = LibraryViewMode.Cloud,
+                calendarGlassEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun savedHeaderScrimHeightUsesOnlyTitleHeaderAndTopInset() {
+        assertEquals(
+            80.dp,
+            librarySavedHeaderScrimHeight(headerHeight = 52.dp, topInset = 20.dp),
+        )
+    }
+
+    @Test
+    fun savedHeaderScrimIsLimitedToSavedModeAndEnabledLibraryGlass() {
+        assertTrue(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = true,
                 savedTypeGlassEnabled = false,
                 savedSortGlassEnabled = false,
             ),
         )
         assertTrue(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = true,
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
                 savedTypeGlassEnabled = true,
                 savedSortGlassEnabled = false,
             ),
         )
         assertTrue(
-            libraryGlassControlsNeedContentInset(
-                hasSavedControls = true,
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
                 savedTypeGlassEnabled = false,
                 savedSortGlassEnabled = true,
+            ),
+        )
+        assertFalse(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertFalse(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Cloud,
+                librarySurfaceGlassEnabled = true,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun artworkHeaderFadeIsOnlyUsedForCloudLibraryWithAnActiveBackdrop() {
+        assertTrue(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Cloud,
+                artworkBackgroundActive = true,
+            ),
+        )
+        assertFalse(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                artworkBackgroundActive = true,
+            ),
+        )
+        assertFalse(
+            libraryHeaderUsesArtworkBackdrop(
+                sourceMode = LibraryViewMode.Cloud,
+                artworkBackgroundActive = false,
+            ),
+        )
+    }
+
+    @Test
+    fun savedFilterOverlayReservesInitialListSpaceWheneverControlsAreVisible() {
+        assertFalse(
+            librarySavedControlsNeedContentInset(
+                hasSavedControls = false,
+            ),
+        )
+        assertTrue(
+            librarySavedControlsNeedContentInset(
+                hasSavedControls = true,
             ),
         )
     }
