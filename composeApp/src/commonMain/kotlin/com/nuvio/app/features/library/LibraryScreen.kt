@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.calculateTopPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
@@ -216,6 +217,9 @@ internal fun libraryHeaderUsesArtworkBackdrop(
     sourceMode: LibraryViewMode,
     artworkBackgroundActive: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
+
+internal fun librarySavedHeaderScrimHeight(headerHeight: Dp, topInset: Dp): Dp =
+    headerHeight + topInset + 8.dp
 
 internal fun librarySavedHeaderUsesGlassScrim(
     sourceMode: LibraryViewMode,
@@ -580,6 +584,10 @@ fun LibraryScreen(
     )
     val headerDensity = LocalDensity.current
     var libraryHeaderHeight by remember(sourceMode, headerDensity) { mutableStateOf(0.dp) }
+    val savedHeaderScrimHeight = librarySavedHeaderScrimHeight(
+        headerHeight = libraryHeaderHeight,
+        topInset = LocalVerticalBarPadding.current.calculateTopPadding(),
+    )
     val savedHeaderBackground = MaterialTheme.colorScheme.background
     val savedHeaderScrimBrush = remember(
         savedHeaderScrimEnabled,
@@ -640,16 +648,13 @@ fun LibraryScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(libraryHeaderHeight + 8.dp)
+                        .height(savedHeaderScrimHeight)
                         .background(savedHeaderScrimBrush),
                 )
             }
             androidx.compose.foundation.layout.Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onSizeChanged { size ->
-                        libraryHeaderHeight = with(headerDensity) { size.height.toDp() }
-                    }
                     .padding(LocalVerticalBarPadding.current),
             ) {
                 NuvioScreenHeader(
@@ -668,7 +673,19 @@ fun LibraryScreen(
                     },
                     // On Cloud, let artwork continue behind the status bar and title.
                     // A fading scrim preserves white-text contrast without a hard black rectangle.
-                    modifier = if (cloudHeaderBackdropActive) Modifier else Modifier.padding(horizontal = 16.dp),
+                    modifier = (if (cloudHeaderBackdropActive) {
+                        Modifier
+                    } else {
+                        Modifier.padding(horizontal = 16.dp)
+                    }).then(
+                        if (sourceMode == LibraryViewMode.Saved) {
+                            Modifier.onSizeChanged { size ->
+                                libraryHeaderHeight = with(headerDensity) { size.height.toDp() }
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
                     backgroundBrushOverride = when {
                         cloudHeaderBackdropActive -> cloudHeaderBackgroundBrush
                         savedHeaderScrimEnabled -> savedHeaderTransparentBrush
