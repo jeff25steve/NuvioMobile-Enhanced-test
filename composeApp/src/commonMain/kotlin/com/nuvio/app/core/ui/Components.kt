@@ -422,9 +422,10 @@ fun NuvioInputField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
+    shape: Shape = MaterialTheme.nuvio.shapes.compactCard,
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
-    shape: Shape = RoundedCornerShape(NuvioTokens.Radius.lg),
+    shape: Shape = MaterialTheme.nuvio.shapes.compactCard,
     showOutline: Boolean = true,
 ) {
     val tokens = MaterialTheme.nuvio
