@@ -579,7 +579,7 @@ fun LibraryScreen(
         savedSortGlassEnabled = savedSortGlassEnabled,
     )
     val headerDensity = LocalDensity.current
-    var libraryHeaderHeight by remember(headerDensity) { mutableStateOf(0.dp) }
+    var libraryHeaderHeight by remember(sourceMode, headerDensity) { mutableStateOf(0.dp) }
     val savedHeaderScrimBrush = remember(
         savedHeaderScrimEnabled,
         MaterialTheme.colorScheme.background,
