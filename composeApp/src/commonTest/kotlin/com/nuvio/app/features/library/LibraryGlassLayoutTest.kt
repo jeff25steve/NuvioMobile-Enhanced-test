@@ -54,6 +54,50 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun savedHeaderScrimIsLimitedToSavedModeAndEnabledLibraryGlass() {
+        assertTrue(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = true,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertTrue(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertTrue(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = true,
+            ),
+        )
+        assertFalse(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertFalse(
+            librarySavedHeaderUsesGlassScrim(
+                sourceMode = LibraryViewMode.Cloud,
+                librarySurfaceGlassEnabled = true,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun artworkHeaderFadeIsOnlyUsedForCloudLibraryWithAnActiveBackdrop() {
         assertTrue(
             libraryHeaderUsesArtworkBackdrop(
