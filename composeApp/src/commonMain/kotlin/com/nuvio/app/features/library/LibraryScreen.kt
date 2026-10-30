@@ -778,6 +778,8 @@ fun LibraryScreen(
             NuvioScreen(
                 modifier = Modifier
                     .fillMaxSize()
+                    // Capture only the scrolling poster layer; pinned glass controls sample it
+                    // as siblings and must never be included in their own backdrop source.
                     .then(
                         if (sourceMode == LibraryViewMode.Saved && anyLibraryGlassEnabled) {
                             Modifier.nuvioBackdropSource(libraryContentBackdrop)
