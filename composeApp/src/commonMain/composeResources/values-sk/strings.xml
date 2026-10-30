@@ -2559,6 +2559,7 @@
         <item quantity="few">%d tituly</item>
         <item quantity="many">%d titulov</item>
         <item quantity="other">%d titulov</item>
+    </plurals>
     <string name="player_engine_switching_automatic_message">Prehrávanie zlyhalo – prepína sa na %1$s...</string>
     <string name="stream_info_server">Server</string>
     <string name="settings_group_you">Vy</string>
