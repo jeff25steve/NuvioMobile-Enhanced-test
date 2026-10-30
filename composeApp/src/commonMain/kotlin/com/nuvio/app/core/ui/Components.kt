@@ -425,7 +425,6 @@ fun NuvioInputField(
     shape: Shape = MaterialTheme.nuvio.shapes.compactCard,
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
-    shape: Shape = MaterialTheme.nuvio.shapes.compactCard,
     showOutline: Boolean = true,
 ) {
     val tokens = MaterialTheme.nuvio
