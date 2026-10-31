@@ -74,14 +74,14 @@ class LiquidGlassPreviewCornerRadiusTest {
     }
 
     @Test
-    fun categoryTitleAndBackButtonUseTheSameLiquidGlassMaterialAndRecipe() {
+    fun categoryTitleAndBackButtonKeepTheirIntendedMaterialsAndSharedRecipe() {
         assertEquals(
-            LiquidGlassMaterial.LIQUID,
+            LiquidGlassMaterial.FROSTED,
             LiquidGlassSurface.CATEGORY_HEADER_TITLE.defaultMaterial,
         )
         assertEquals(
+            LiquidGlassMaterial.LIQUID,
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON.defaultMaterial,
-            LiquidGlassSurface.CATEGORY_HEADER_TITLE.defaultMaterial,
         )
         assertEquals(
             liquidGlassSurfaceRecipe(LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON),
