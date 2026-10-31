@@ -68,6 +68,7 @@ private fun AvatarChoiceItem(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val imageUrl = avatarImageUrl(avatar)
     Box(
         modifier = modifier
             .clip(CircleShape)
@@ -82,16 +83,15 @@ private fun AvatarChoiceItem(
             )
             .clickable(onClick = onClick)
             .semantics {
-                contentDescription = avatar.displayName
+                if (imageUrl == null) contentDescription = avatar.displayName
                 role = Role.Button
             },
         contentAlignment = Alignment.Center,
     ) {
-        val imageUrl = avatarImageUrl(avatar)
         if (imageUrl != null) {
             NuvioAsyncImage(
                 imageUrl = imageUrl,
-                contentDescription = null,
+                contentDescription = avatar.displayName,
                 modifier = Modifier.fillMaxSize().clip(CircleShape),
                 contentScale = ContentScale.Crop,
                 animateIfPossible = true,
