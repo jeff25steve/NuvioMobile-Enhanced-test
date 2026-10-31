@@ -13,6 +13,7 @@ internal expect fun isNativeLiquidGlassControlsAvailable(): Boolean
 internal expect fun NuvioNativeLiquidGlassSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    accessibilityLabel: String,
     modifier: Modifier = Modifier,
 )
 
@@ -24,8 +25,40 @@ internal expect fun NuvioNativeLiquidGlassSegmentedControl(
     modifier: Modifier = Modifier,
 )
 
-/** Keep Liquid Glass settings available when either the Compose renderer or native iOS exists. */
+@Composable
+internal expect fun NuvioNativeLiquidGlassButton(
+    title: String? = null,
+    systemImage: String? = null,
+    accessibilityLabel: String,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+)
+
+@Composable
+internal expect fun NuvioNativeLiquidGlassSearchField(
+    value: String,
+    placeholder: String,
+    accessibilityLabel: String,
+    focusRequestCount: Int = 0,
+    shouldBeFocused: Boolean = false,
+    onValueChange: (String) -> Unit,
+    onSearch: () -> Unit = {},
+    onFocusChanged: (Boolean) -> Unit = {},
+    modifier: Modifier = Modifier,
+)
+
+/** Keep Liquid Glass settings visible if either the Compose renderer or native iOS exists. */
 internal fun shouldExposeLiquidGlassSettings(
     composeRendererAvailable: Boolean,
     nativeControlsAvailable: Boolean,
 ): Boolean = composeRendererAvailable || nativeControlsAvailable
+
+internal fun shouldUseNativeLiquidGlassButton(
+    operatingSystemMajorVersion: Long,
+    masterEnabled: Boolean,
+    surfaceEnabled: Boolean,
+    preview: Boolean,
+): Boolean = operatingSystemMajorVersion >= 26L && masterEnabled && surfaceEnabled && !preview
