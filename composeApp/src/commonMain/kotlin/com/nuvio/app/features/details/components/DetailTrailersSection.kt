@@ -41,6 +41,9 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.Menu
 import com.nuvio.app.core.ui.MenuItem
+import com.nuvio.app.core.ui.NativeLiquidGlassMenuOption
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassOptionMenu
+import com.nuvio.app.core.ui.isNativeLiquidGlassOptionMenuAvailable
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
@@ -56,6 +59,7 @@ import com.nuvio.app.features.details.MetaTrailer
 import nuvio.composeapp.generated.resources.*
 import nuvio.composeapp.generated.resources.detail_tab_trailer
 import nuvio.composeapp.generated.resources.detail_trailer_category_count
+import nuvio.composeapp.generated.resources.action_cancel
 import nuvio.composeapp.generated.resources.detail_trailers_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -94,6 +98,11 @@ fun DetailTrailersSection(
     }
 
     val selectedTrailers = grouped[selectedCategory].orEmpty()
+    val useNativeTrailerCategoryMenu = !previewMenuInitiallyExpanded &&
+        onPreviewSurfaceSelected == null &&
+        selectedPreviewSurface == null &&
+        isNativeLiquidGlassOptionMenuAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_TRAILER_MENU)
     val posterCardStyle = rememberPosterCardStyleUiState()
     val userCornerRadius = posterCardStyle.cornerRadiusDp.dp
 
@@ -188,25 +197,48 @@ fun DetailTrailersSection(
                         }
                     }
 
-                    Menu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                        glassSurface = LiquidGlassSurface.DETAIL_TRAILER_MENU,
-                        onGlassSurfaceInteracted = onPreviewSurfaceSelected?.let { onSelected ->
-                            { onSelected(LiquidGlassSurface.DETAIL_TRAILER_MENU) }
-                        },
-                        selectionHighlight = selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
-                    ) {
-                        grouped.keys.forEach { category ->
-                            val count = grouped[category]?.size ?: 0
-                            MenuItem(
-                                text = stringResource(Res.string.detail_trailer_category_count, category, count),
-                                selected = category == selectedCategory,
-                                onClick = {
-                                    selectedCategory = category
-                                    menuExpanded = false
-                                },
-                            )
+                    if (useNativeTrailerCategoryMenu) {
+                        NuvioNativeLiquidGlassOptionMenu(
+                            visible = menuExpanded,
+                            title = null,
+                            cancelLabel = stringResource(Res.string.action_cancel),
+                            options = grouped.map { (category, categoryTrailers) ->
+                                NativeLiquidGlassMenuOption(
+                                    id = category,
+                                    title = stringResource(
+                                        Res.string.detail_trailer_category_count,
+                                        category,
+                                        categoryTrailers.size,
+                                    ),
+                                )
+                            },
+                            selectedOptionId = selectedCategory,
+                            onOptionSelected = { category ->
+                                if (category in grouped) selectedCategory = category
+                            },
+                            onDismiss = { menuExpanded = false },
+                        )
+                    } else {
+                        Menu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            glassSurface = LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                            onGlassSurfaceInteracted = onPreviewSurfaceSelected?.let { onSelected ->
+                                { onSelected(LiquidGlassSurface.DETAIL_TRAILER_MENU) }
+                            },
+                            selectionHighlight = selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                        ) {
+                            grouped.keys.forEach { category ->
+                                val count = grouped[category]?.size ?: 0
+                                MenuItem(
+                                    text = stringResource(Res.string.detail_trailer_category_count, category, count),
+                                    selected = category == selectedCategory,
+                                    onClick = {
+                                        selectedCategory = category
+                                        menuExpanded = false
+                                    },
+                                )
+                            }
                         }
                     }
                 }
