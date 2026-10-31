@@ -256,16 +256,17 @@ private class LiquidGlassNativeButton : UIButton(frame = CGRectMake(0.0, 0.0, 0.
 
 @OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
+    // Kotlin/Native 2.4.10 retains full C names for strict UIKit NS_ENUM entries.
     private var valueListener: (String) -> Unit = {}
     private var searchListener: () -> Unit = {}
     private var focusListener: (Boolean) -> Unit = {}
     private var lastFocusRequestCount = 0
     private var wasComposeFocused = false
     init {
-        searchBarStyle = UISearchBarStyle.minimal
+        searchBarStyle = UISearchBarStyle.UISearchBarStyleMinimal
         setShowsCancelButton(false, animated = false)
-        searchTextField.returnKeyType = UIReturnKeyType.search
-        searchTextField.clearButtonMode = UITextFieldViewMode.always
+        searchTextField.returnKeyType = UIReturnKeyType.UIReturnKeySearch
+        searchTextField.clearButtonMode = UITextFieldViewMode.UITextFieldViewModeAlways
         searchTextField.addTarget(this, NSSelectorFromString("handleTextChanged"), UIControlEventEditingChanged)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingBegan"), UIControlEventEditingDidBegin)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingEnded"), UIControlEventEditingDidEnd)
