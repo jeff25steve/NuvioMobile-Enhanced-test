@@ -57,6 +57,8 @@ import com.nuvio.app.core.ui.labelRes
 import com.nuvio.app.isIos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
+import com.nuvio.app.core.ui.shouldExposeLiquidGlassSettings
 import nuvio.composeapp.generated.resources.settings_appearance_dynamic_artwork_background
 import nuvio.composeapp.generated.resources.settings_appearance_dynamic_artwork_background_description
 import nuvio.composeapp.generated.resources.settings_appearance_catalog_accent
@@ -267,13 +269,14 @@ internal fun LazyListScope.appearanceSettingsContent(
                     isTablet = isTablet,
                     onCheckedChange = ThemeSettingsRepository::setShowCatalogAccent,
                 )
-                if (isLiquidGlassAvailable()) {
+                if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
                         description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
                         checked = liquidGlassEffectsEnabled,
                         isTablet = isTablet,
+                        nativeLiquidGlassSwitch = true,
                         onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
                     )
                     SettingsGroupDivider(isTablet = isTablet)

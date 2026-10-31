@@ -23,3 +23,9 @@ internal expect fun NuvioNativeLiquidGlassSegmentedControl(
     onSelectionChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 )
+
+/** Keep Liquid Glass settings available when either the Compose renderer or native iOS exists. */
+internal fun shouldExposeLiquidGlassSettings(
+    composeRendererAvailable: Boolean,
+    nativeControlsAvailable: Boolean,
+): Boolean = composeRendererAvailable || nativeControlsAvailable

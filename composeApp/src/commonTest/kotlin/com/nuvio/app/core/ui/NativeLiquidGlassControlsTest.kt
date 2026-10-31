@@ -11,4 +11,12 @@ class NativeLiquidGlassControlsTest {
         assertTrue(shouldUseNativeLiquidGlassControls(26L))
         assertTrue(shouldUseNativeLiquidGlassControls(27L))
     }
+
+    @Test
+    fun liquidGlassSettingsRemainVisibleForNativeIosEvenWithoutComposeRenderer() {
+        assertFalse(shouldExposeLiquidGlassSettings(false, false))
+        assertTrue(shouldExposeLiquidGlassSettings(false, true))
+        assertTrue(shouldExposeLiquidGlassSettings(true, false))
+        assertTrue(shouldExposeLiquidGlassSettings(true, true))
+    }
 }
