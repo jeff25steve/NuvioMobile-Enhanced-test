@@ -1,6 +1,9 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches:
+      - "ci/verify-pr-liquid-glass-editor-linux-20261031"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -41,6 +44,9 @@ jobs:
           else
             touch local.properties
           fi
+
+      - name: Run shared and Android host tests
+        run: ./gradlew :composeApp:testAndroidHostTest --stacktrace
 
       - name: Set up Rust
         run: |
