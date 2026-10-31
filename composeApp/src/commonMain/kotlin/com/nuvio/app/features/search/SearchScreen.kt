@@ -50,6 +50,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.network.NetworkCondition
 import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSearchField
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
@@ -63,6 +65,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -118,6 +121,9 @@ fun SearchScreen(
     val searchBackdrop = rememberNuvioBackdrop()
     val searchGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SEARCH)
+    val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.SEARCH, platformSupported = true)
+    var nativeFocusRequestCount by remember { mutableStateOf(0) }
     var searchHeaderHeight by remember { mutableStateOf(152.dp) }
     val density = LocalDensity.current
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -131,7 +137,12 @@ fun SearchScreen(
 
     ScreenActivityEffect(searchFocusRequestCount) { screenActive ->
         if (screenActive && searchFocusRequestCount > 0) {
-            focusRequester.requestFocus()
+            if (nativeSearchEnabled) {
+                nativeFocusRequestCount = searchFocusRequestCount
+                isSearchFocused = true
+            } else {
+                focusRequester.requestFocus()
+            }
         }
     }
 
@@ -482,37 +493,49 @@ fun SearchScreen(
                                 } else {
                                     null
                                 }
-                                if (searchGlassEnabled) {
+                                if (nativeSearchEnabled) {
+                                    NuvioNativeLiquidGlassSearchField(
+                                        value = query,
+                                        placeholder = stringResource(Res.string.compose_search_placeholder),
+                                        accessibilityLabel = stringResource(Res.string.compose_nav_search),
+                                        focusRequestCount = nativeFocusRequestCount,
+                                        shouldBeFocused = isSearchFocused,
+                                        onValueChange = { query = it },
+                                        onSearch = {},
+                                        onFocusChanged = { isSearchFocused = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                } else if (searchGlassEnabled) {
                                     LiquidGlassTextContrastScope(enabled = true) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .liquidGlassForSurface(
-                                                surface = LiquidGlassSurface.SEARCH,
-                                                shape = searchFieldShape,
-                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
-                                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                                blurRadius = 12.dp,
-                                                refractionHeight = 6.dp,
-                                                refractionAmount = 9.dp,
-                                            ),
-                                    ) {
-                                        NuvioInputField(
-                                            value = query,
-                                            onValueChange = { query = it },
-                                            placeholder = stringResource(Res.string.compose_search_placeholder),
+                                        Box(
                                             modifier = Modifier
-                                                .focusRequester(focusRequester)
-                                                .onFocusChanged { isSearchFocused = it.isFocused },
-                                            trailingContent = trailingContent,
-                                            containerColor = Color.Transparent,
-                                            shape = searchFieldShape,
-                                            showOutline = shouldDrawNuvioInputFieldOutline(
-                                                glassSurfaceEnabled = searchGlassEnabled,
-                                                glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
-                                            ),
-                                        )
-                                    }
+                                                .fillMaxWidth()
+                                                .liquidGlassForSurface(
+                                                    surface = LiquidGlassSurface.SEARCH,
+                                                    shape = searchFieldShape,
+                                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                                    blurRadius = 12.dp,
+                                                    refractionHeight = 6.dp,
+                                                    refractionAmount = 9.dp,
+                                                ),
+                                        ) {
+                                            NuvioInputField(
+                                                value = query,
+                                                onValueChange = { query = it },
+                                                placeholder = stringResource(Res.string.compose_search_placeholder),
+                                                modifier = Modifier
+                                                    .focusRequester(focusRequester)
+                                                    .onFocusChanged { isSearchFocused = it.isFocused },
+                                                trailingContent = trailingContent,
+                                                containerColor = Color.Transparent,
+                                                shape = searchFieldShape,
+                                                showOutline = shouldDrawNuvioInputFieldOutline(
+                                                    glassSurfaceEnabled = searchGlassEnabled,
+                                                    glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
+                                                ),
+                                            )
+                                        }
                                     }
                                 } else {
                                     NuvioInputField(
