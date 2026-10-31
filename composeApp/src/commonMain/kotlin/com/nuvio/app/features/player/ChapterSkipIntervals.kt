@@ -26,7 +26,10 @@ internal object ChapterSkipIntervals {
     private val RECAP_PATTERN = Regex("^\\s*(recap|previously(\\s+on.*)?)\\s*$", RegexOption.IGNORE_CASE)
     private val INTRO_PATTERN = Regex("^\\s*intro\\s*$", RegexOption.IGNORE_CASE)
 
-    private val POST_CREDITS_PATTERN = Regex("(post|mid|after)[\\s-]credits", RegexOption.IGNORE_CASE)
+    private val POST_CREDITS_PATTERN = Regex(
+        "^\\s*(post|after)[\\s-]credits(?:\\s*\\d+)?\\s*$",
+        RegexOption.IGNORE_CASE,
+    )
 
     fun fromChapters(
         chapters: List<PlayerChapter>,
