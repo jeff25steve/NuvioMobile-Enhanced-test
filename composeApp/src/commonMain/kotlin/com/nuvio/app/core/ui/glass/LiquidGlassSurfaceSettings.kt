@@ -72,7 +72,6 @@ enum class LiquidGlassSurface {
             DETAIL_PRIMARY_ACTION,
             DETAIL_TRAILER_SELECTOR,
             LIBRARY,
-            CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassMaterial.LIQUID
             else -> LiquidGlassMaterial.FROSTED
         }
