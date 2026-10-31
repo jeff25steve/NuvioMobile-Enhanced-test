@@ -220,6 +220,7 @@ import nuvio.composeapp.generated.resources.media_series
 import nuvio.composeapp.generated.resources.settings_liquid_glass_reset
 import nuvio.composeapp.generated.resources.settings_liquid_glass_done
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_ios_native_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_lens_requires_rounded_corners
 import nuvio.composeapp.generated.resources.settings_liquid_glass_lens_requires_active_refraction
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_detail_page
@@ -1785,6 +1786,7 @@ private fun LiquidGlassSurfaceEditorControls(
 ) {
     val title = liquidGlassSurfaceTitle(surface)
     val enabled = overrides.enabled ?: surface.defaultEnabled
+    val nativeControlsAvailable = isNativeLiquidGlassControlsAvailable()
     val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface, overrides) { liquidGlassSurfaceRecipe(surface, overrides) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1880,7 +1882,7 @@ private fun LiquidGlassSurfaceEditorControls(
             }
             NuvioBottomSheetDivider()
         }
-        onLinkGlassEffectsChanged?.let { onLinkChanged ->
+        if (!nativeControlsAvailable) onLinkGlassEffectsChanged?.let { onLinkChanged ->
             LiquidGlassEditorSwitchRow(
                 title = stringResource(Res.string.settings_liquid_glass_link_effects),
                 description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
@@ -1903,6 +1905,16 @@ private fun LiquidGlassSurfaceEditorControls(
             onCheckedChange = { onChanged(overrides.copy(enabled = it)) },
         )
 
+        if (nativeControlsAvailable) {
+            if (enabled) {
+                Text(
+                    text = stringResource(Res.string.settings_liquid_glass_ios_native_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        } else {
         AnimatedVisibility(visible = enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 val effectiveCornerRadiusPercent =
@@ -2112,7 +2124,8 @@ private fun LiquidGlassSurfaceEditorControls(
                 }
             }
         }
-        Row(
+        }
+        if (!nativeControlsAvailable) Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.End,
         ) {
