@@ -72,7 +72,6 @@ enum class LiquidGlassSurface {
             DETAIL_PRIMARY_ACTION,
             DETAIL_TRAILER_SELECTOR,
             LIBRARY,
-            CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON -> LiquidGlassMaterial.LIQUID
             else -> LiquidGlassMaterial.FROSTED
         }
@@ -97,6 +96,7 @@ enum class LiquidGlassSurface {
             PLAYER,
             STREAM_FILTERS,
             STREAM_SELECTION,
+            STREAM_RESULTS,
             DETAILS,
             DETAIL_HEADER,
             DETAIL_PRIMARY_ACTION,
@@ -115,7 +115,6 @@ enum class LiquidGlassSurface {
             DETAIL_EPISODE_SORT,
             CATEGORY_HEADER_TITLE,
             CATEGORY_HEADER_BACK_BUTTON -> true
-            STREAM_RESULTS,
             DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS,
             LIBRARY_CLOUD_CARDS,

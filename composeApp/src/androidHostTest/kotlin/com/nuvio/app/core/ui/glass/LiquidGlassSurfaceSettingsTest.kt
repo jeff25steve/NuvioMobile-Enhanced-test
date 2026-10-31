@@ -169,11 +169,12 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
-    fun glassDefaultsPrioritizeFloatingControlsAndKeepContentSurfacesQuiet() {
+    fun glassDefaultsPrioritizeControlsAndKeepPassiveContentSurfacesQuiet() {
         val enabledByDefault = setOf(
             LiquidGlassSurface.PLAYER,
             LiquidGlassSurface.STREAM_FILTERS,
             LiquidGlassSurface.STREAM_SELECTION,
+            LiquidGlassSurface.STREAM_RESULTS,
             LiquidGlassSurface.DETAILS,
             LiquidGlassSurface.DETAIL_HEADER,
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
@@ -197,6 +198,38 @@ class LiquidGlassSurfaceSettingsTest {
         LiquidGlassSurface.entries.forEach { surface ->
             assertEquals(surface in enabledByDefault, surface.defaultEnabled, surface.name)
         }
+    }
+
+    @Test
+    fun streamResultsFollowTheMasterGlassSwitchAndKeepPerSurfaceOptOut() {
+        val surface = LiquidGlassSurface.STREAM_RESULTS
+        val defaults = LiquidGlassSurfaceOverrides()
+
+        assertTrue(surface.defaultEnabled)
+        assertTrue(
+            shouldRenderLiquidGlassSurface(
+                surface = surface,
+                overrides = defaults,
+                preview = false,
+                masterEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldRenderLiquidGlassSurface(
+                surface = surface,
+                overrides = defaults,
+                preview = false,
+                masterEnabled = false,
+            ),
+        )
+        assertFalse(
+            shouldRenderLiquidGlassSurface(
+                surface = surface,
+                overrides = defaults.copy(enabled = false),
+                preview = false,
+                masterEnabled = true,
+            ),
+        )
     }
 
     @Test
