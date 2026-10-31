@@ -131,6 +131,8 @@ import com.nuvio.app.core.ui.DisintegratingContainer
 import com.nuvio.app.core.ui.DisintegrationRequest
 import com.nuvio.app.core.ui.NuvioDropdownChip
 import com.nuvio.app.core.ui.NuvioDropdownOption
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSegmentedControl
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.core.ui.nuvio
@@ -1372,48 +1374,81 @@ internal fun LibrarySourceSwitch(
         preview = isPreview,
         platformSupported = if (isPreview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
+    val nativeSegmentedControlEnabled = !isPreview &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = LiquidGlassSurface.LIBRARY,
+            platformSupported = true,
+        )
+    val sourceModes = buildList {
+        add(LibraryViewMode.Saved)
+        add(LibraryViewMode.Cloud)
+        if (showServers) add(LibraryViewMode.Servers)
+    }
+    val sourceLabels = sourceModes.map { mode ->
+        when (mode) {
+            LibraryViewMode.Saved -> stringResource(Res.string.library_source_saved)
+            LibraryViewMode.Cloud -> stringResource(Res.string.library_source_cloud)
+            LibraryViewMode.Servers -> stringResource(Res.string.library_source_servers)
+        }
+    }
+
     LiquidGlassTextContrastScope(enabled = sourceSwitchGlassEnabled) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LibraryChip(
-            label = stringResource(Res.string.library_source_saved),
-            selected = selectedMode == LibraryViewMode.Saved,
-            glassSelection = sourceSwitchGlassEnabled,
-            onClick = {
-                onModeSelected(LibraryViewMode.Saved)
-                onPreviewModeSelected?.invoke(LibraryViewMode.Saved)
-            },
-        )
-        LibraryChip(
-            label = stringResource(Res.string.library_source_cloud),
-            selected = selectedMode == LibraryViewMode.Cloud,
-            glassSelection = sourceSwitchGlassEnabled,
-            onClick = {
-                onModeSelected(LibraryViewMode.Cloud)
-                onPreviewModeSelected?.invoke(LibraryViewMode.Cloud)
-            },
-        )
-        if (showServers) {
-            LibraryChip(
-                label = stringResource(Res.string.library_source_servers),
-                selected = selectedMode == LibraryViewMode.Servers,
-                glassSelection = sourceSwitchGlassEnabled,
-                onClick = {
-                    onModeSelected(LibraryViewMode.Servers)
-                    onPreviewModeSelected?.invoke(LibraryViewMode.Servers)
-                },
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (nativeSegmentedControlEnabled) {
+                NuvioNativeLiquidGlassSegmentedControl(
+                    items = sourceLabels,
+                    selectedIndex = sourceModes.indexOf(selectedMode).coerceAtLeast(0),
+                    modifier = Modifier.weight(1f),
+                    onSelectionChanged = { index ->
+                        sourceModes.getOrNull(index)?.let { mode ->
+                            onModeSelected(mode)
+                            onPreviewModeSelected?.invoke(mode)
+                        }
+                    },
+                )
+            } else {
+                LibraryChip(
+                    label = sourceLabels[0],
+                    selected = selectedMode == LibraryViewMode.Saved,
+                    glassSelection = sourceSwitchGlassEnabled,
+                    onClick = {
+                        onModeSelected(LibraryViewMode.Saved)
+                        onPreviewModeSelected?.invoke(LibraryViewMode.Saved)
+                    },
+                )
+                LibraryChip(
+                    label = sourceLabels[1],
+                    selected = selectedMode == LibraryViewMode.Cloud,
+                    glassSelection = sourceSwitchGlassEnabled,
+                    onClick = {
+                        onModeSelected(LibraryViewMode.Cloud)
+                        onPreviewModeSelected?.invoke(LibraryViewMode.Cloud)
+                    },
+                )
+                if (showServers) {
+                    LibraryChip(
+                        label = sourceLabels[2],
+                        selected = selectedMode == LibraryViewMode.Servers,
+                        glassSelection = sourceSwitchGlassEnabled,
+                        onClick = {
+                            onModeSelected(LibraryViewMode.Servers)
+                            onPreviewModeSelected?.invoke(LibraryViewMode.Servers)
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = trailingActions,
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = trailingActions,
-        )
-    }
     }
 }
 

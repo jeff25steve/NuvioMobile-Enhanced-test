@@ -41,6 +41,9 @@ import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.action_cancel
+import org.jetbrains.compose.resources.stringResource
 
 data class NuvioDropdownOption(
     val key: String,
@@ -68,6 +71,15 @@ fun NuvioDropdownChip(
         preview = previewGlass,
         platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
+    val nativeMenuEnabled = shouldUseNativeLiquidGlassDropdown(
+        nativeControlsAvailable = isNativeLiquidGlassControlsAvailable(),
+        controlEnabled = enabled,
+        previewGlass = previewGlass,
+        hasGlassSurface = glassSurface != null,
+        surfaceGlassEnabled = glassSurface?.let { surface ->
+            isLiquidGlassSurfaceEffectivelyEnabled(surface, preview = false, platformSupported = true)
+        } == true,
+    )
     val defaultShape = tokens.shapes.compactCard
     val chipShape = glassSurface?.let { surface ->
         liquidGlassShape(surface, defaultShape, preview = previewGlass)
@@ -87,6 +99,7 @@ fun NuvioDropdownChip(
         Modifier.clip(chipShape).background(tokens.colors.surface)
     }
     var isSheetVisible by remember { mutableStateOf(false) }
+    var isNativeMenuVisible by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
@@ -107,7 +120,11 @@ fun NuvioDropdownChip(
                 if (enabled) {
                     Modifier.clickable {
                         onGlassSurfaceInteracted?.invoke()
-                        isSheetVisible = true
+                        if (nativeMenuEnabled) {
+                            isNativeMenuVisible = true
+                        } else {
+                            isSheetVisible = true
+                        }
                     }
                 } else {
                     Modifier
@@ -137,6 +154,19 @@ fun NuvioDropdownChip(
         )
     }
     }
+
+    NuvioNativeLiquidGlassOptionMenu(
+        visible = isNativeMenuVisible && nativeMenuEnabled,
+        title = title,
+        cancelLabel = stringResource(Res.string.action_cancel),
+        options = options.map { option -> NativeLiquidGlassMenuOption(id = option.key, title = option.label) },
+        selectedOptionId = selectedKey,
+        onOptionSelected = { selectedId ->
+            options.firstOrNull { option -> option.key == selectedId }?.let(onSelected)
+            isNativeMenuVisible = false
+        },
+        onDismiss = { isNativeMenuVisible = false },
+    )
 
     if (isSheetVisible) {
         NuvioDropdownOptionsSheet(

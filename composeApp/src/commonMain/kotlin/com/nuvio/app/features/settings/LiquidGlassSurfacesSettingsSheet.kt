@@ -93,6 +93,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSwitch
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioInputField
@@ -713,10 +715,17 @@ private fun LiquidGlassSurfaceListItem(
                         color = tokens.colors.textPrimary,
                     )
                 }
-                androidx.compose.material3.Switch(
-                    checked = enabled,
-                    onCheckedChange = onToggle,
-                )
+                if (isNativeLiquidGlassControlsAvailable()) {
+                    NuvioNativeLiquidGlassSwitch(
+                        checked = enabled,
+                        onCheckedChange = onToggle,
+                    )
+                } else {
+                    androidx.compose.material3.Switch(
+                        checked = enabled,
+                        onCheckedChange = onToggle,
+                    )
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

@@ -16,6 +16,18 @@ internal fun shouldUseNativeLiquidGlassOptionMenu(
 
 internal expect fun isNativeLiquidGlassOptionMenuAvailable(): Boolean
 
+internal fun shouldUseNativeLiquidGlassDropdown(
+    nativeControlsAvailable: Boolean,
+    controlEnabled: Boolean,
+    previewGlass: Boolean,
+    hasGlassSurface: Boolean,
+    surfaceGlassEnabled: Boolean,
+): Boolean = nativeControlsAvailable &&
+    controlEnabled &&
+    !previewGlass &&
+    hasGlassSurface &&
+    surfaceGlassEnabled
+
 @Composable
 internal expect fun NuvioNativeLiquidGlassOptionMenu(
     visible: Boolean,
