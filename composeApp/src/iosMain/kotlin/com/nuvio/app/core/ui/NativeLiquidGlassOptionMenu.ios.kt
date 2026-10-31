@@ -17,6 +17,7 @@ import platform.UIKit.UIAlertControllerStyleAlert
 import platform.UIKit.UIDevice
 import platform.UIKit.UIPresentationController
 import platform.UIKit.UIUserInterfaceIdiomPad
+import platform.UIKit.presentationController
 import platform.darwin.NSObject
 
 @OptIn(ExperimentalForeignApi::class)

@@ -94,6 +94,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSwitch
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioInputField
@@ -2209,6 +2210,7 @@ private fun LiquidGlassSurfacePreview(
                             )
 
                             LiquidGlassSurface.STREAM_SELECTION -> LiquidGlassStreamSearchPreview(
+                                surface = surface,
                                 modifier = Modifier.fillMaxSize(),
                             )
 
@@ -3840,6 +3842,7 @@ private fun LiquidGlassDetailHeaderPreview(
 
 @Composable
 private fun LiquidGlassStreamSearchPreview(
+    surface: LiquidGlassSurface,
     modifier: Modifier = Modifier,
 ) {
     val backdrop = rememberNuvioBackdrop()

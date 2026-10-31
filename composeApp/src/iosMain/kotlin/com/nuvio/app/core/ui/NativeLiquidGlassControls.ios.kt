@@ -11,10 +11,12 @@ import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
-import platform.CoreGraphics.CGRectZero
+import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSProcessInfo
 import platform.Foundation.NSSelectorFromString
 import platform.UIKit.UIButton
+import platform.UIKit.accessibilityLabel
 import platform.UIKit.UIButtonConfiguration
 import platform.UIKit.UIControlEventEditingChanged
 import platform.UIKit.UIControlEventEditingDidBegin
@@ -26,11 +28,11 @@ import platform.UIKit.UIImage
 import platform.UIKit.UIGestureRecognizerStateBegan
 import platform.UIKit.UILongPressGestureRecognizer
 import platform.UIKit.UISearchBar
-import platform.UIKit.UISearchBarStyleMinimal
+import platform.UIKit.UISearchBarStyle
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISwitch
-import platform.UIKit.UITextFieldViewModeAlways
-import platform.UIKit.UIReturnKeySearch
+import platform.UIKit.UITextFieldViewMode
+import platform.UIKit.UIReturnKeyType
 
 @OptIn(ExperimentalForeignApi::class)
 internal actual fun isNativeLiquidGlassControlsAvailable(): Boolean {
@@ -157,7 +159,7 @@ internal actual fun NuvioNativeLiquidGlassSearchField(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private class LiquidGlassNativeSwitch : UISwitch(frame = CGRectZero) {
+private class LiquidGlassNativeSwitch : UISwitch(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
     var valueChangedListener: ((Boolean) -> Unit)? = null
     init {
         addTarget(this, NSSelectorFromString("handleValueChanged"), UIControlEventValueChanged)
@@ -169,7 +171,7 @@ private class LiquidGlassNativeSwitch : UISwitch(frame = CGRectZero) {
 @OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeSegmentedControl(
     initialItems: List<String>,
-) : UISegmentedControl(frame = CGRectZero) {
+) : UISegmentedControl(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
     private var itemTitles: List<String> = emptyList()
     var selectionChangedListener: ((Int) -> Unit)? = null
     init {
@@ -189,7 +191,7 @@ private class LiquidGlassNativeSegmentedControl(
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
+private class LiquidGlassNativeButton : UIButton(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
     private var clickListener: () -> Unit = {}
     private var longClickListener: (() -> Unit)? = null
     private var lastTitle: String? = null
@@ -221,9 +223,9 @@ private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
     ) {
         clickListener = onClick
         longClickListener = onLongClick
-        longPressRecognizer.isEnabled = enabled && onLongClick != null
+        longPressRecognizer.enabled = enabled && onLongClick != null
         if (lastEnabled != enabled) {
-            isEnabled = enabled
+            this.enabled = enabled
             lastEnabled = enabled
         }
         if (lastAccessibilityLabel != accessibilityLabel) {
@@ -245,25 +247,25 @@ private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
         }
     }
     @ObjCAction
-    fun handleTap() { if (isEnabled) clickListener() }
+    fun handleTap() { if (this.enabled) clickListener() }
     @ObjCAction
     fun handleLongPress(recognizer: UILongPressGestureRecognizer) {
-        if (recognizer.state == UIGestureRecognizerStateBegan && isEnabled) longClickListener?.invoke()
+        if (recognizer.state == UIGestureRecognizerStateBegan && enabled) longClickListener?.invoke()
     }
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
+private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
     private var valueListener: (String) -> Unit = {}
     private var searchListener: () -> Unit = {}
     private var focusListener: (Boolean) -> Unit = {}
     private var lastFocusRequestCount = 0
     private var wasComposeFocused = false
     init {
-        searchBarStyle = UISearchBarStyleMinimal
+        searchBarStyle = UISearchBarStyle.Minimal
         setShowsCancelButton(false, animated = false)
-        searchTextField.returnKeyType = UIReturnKeySearch
-        searchTextField.clearButtonMode = UITextFieldViewModeAlways
+        searchTextField.returnKeyType = UIReturnKeyType.Search
+        searchTextField.clearButtonMode = UITextFieldViewMode.Always
         searchTextField.addTarget(this, NSSelectorFromString("handleTextChanged"), UIControlEventEditingChanged)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingBegan"), UIControlEventEditingDidBegin)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingEnded"), UIControlEventEditingDidEnd)
