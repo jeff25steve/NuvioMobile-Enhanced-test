@@ -682,6 +682,7 @@ internal fun LiquidGlassSettingsSwitchRow(
         NuvioNativeLiquidGlassSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            accessibilityLabel = title,
             modifier = Modifier.padding(start = 4.dp),
         )
     }
