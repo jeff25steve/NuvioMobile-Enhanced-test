@@ -29,7 +29,7 @@ import platform.UIKit.UISearchBar
 import platform.UIKit.UISearchBarStyleMinimal
 import platform.UIKit.UISegmentedControl
 import platform.UIKit.UISwitch
-import platform.UIKit.UITextFieldViewModeWhileEditing
+import platform.UIKit.UITextFieldViewModeAlways
 import platform.UIKit.UIReturnKeySearch
 
 @OptIn(ExperimentalForeignApi::class)
@@ -264,7 +264,7 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
         searchBarStyle = UISearchBarStyleMinimal
         setShowsCancelButton(false, animated = false)
         searchTextField.returnKeyType = UIReturnKeySearch
-        searchTextField.clearButtonMode = UITextFieldViewModeWhileEditing
+        searchTextField.clearButtonMode = UITextFieldViewModeAlways
         searchTextField.addTarget(this, NSSelectorFromString("handleTextChanged"), UIControlEventEditingChanged)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingBegan"), UIControlEventEditingDidBegin)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingEnded"), UIControlEventEditingDidEnd)
