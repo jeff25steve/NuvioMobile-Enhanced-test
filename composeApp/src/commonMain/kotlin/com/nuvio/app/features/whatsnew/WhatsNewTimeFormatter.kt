@@ -1,6 +1,7 @@
 package com.nuvio.app.features.whatsnew
 
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.monthsUntil
 import kotlinx.datetime.periodUntil
 import kotlin.time.Instant
 
@@ -45,14 +46,15 @@ internal fun calculateLastCheckedAge(
     val start = Instant.fromEpochMilliseconds(fetchedAtMillis)
     val end = Instant.fromEpochMilliseconds(effectiveNowMillis)
     val calendarPeriod = start.periodUntil(end, timeZone)
+    val wholeCalendarMonths = start.monthsUntil(end, timeZone).coerceAtLeast(0)
 
     return when {
-        calendarPeriod.years >= 1 -> LastCheckedAge(
-            amount = calendarPeriod.years.toLong(),
+        wholeCalendarMonths >= 12 -> LastCheckedAge(
+            amount = (wholeCalendarMonths / 12).toLong(),
             unit = LastCheckedUnit.YEAR,
         )
-        calendarPeriod.months >= 1 -> LastCheckedAge(
-            amount = calendarPeriod.months.toLong(),
+        wholeCalendarMonths >= 1 -> LastCheckedAge(
+            amount = wholeCalendarMonths.toLong(),
             unit = LastCheckedUnit.MONTH,
         )
         calendarPeriod.days >= 7 -> LastCheckedAge(
