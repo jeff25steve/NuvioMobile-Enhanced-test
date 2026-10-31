@@ -115,7 +115,7 @@ class RootTabHostTest {
             }
         }
 
-        for (tab in listOf(AppScreenTab.Search, AppScreenTab.Library, AppScreenTab.Settings, AppScreenTab.Home)) {
+        for (tab in listOf(AppScreenTab.Search, AppScreenTab.Library, AppScreenTab.LiveTv, AppScreenTab.Settings, AppScreenTab.Home)) {
             select(tab)
             compose.runOnIdle { assertEquals(setOf(tab), runningEffects) }
         }
