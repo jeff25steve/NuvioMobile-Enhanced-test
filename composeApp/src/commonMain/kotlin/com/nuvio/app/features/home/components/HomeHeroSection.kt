@@ -59,8 +59,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.semantics.invisibleToUser
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -609,9 +608,10 @@ internal fun HomeHeroSection(
                                                 alpha = ((visibility - 0.5f) * 2f).coerceIn(0f, 1f)
                                                 translationX = -offset * heroWidthPx * HERO_CONTENT_PARALLAX
                                             }
-                                            .semantics {
-                                                if (!isCurrentLayer) invisibleToUser()
-                                            },
+                                            .then(
+                                                if (isCurrentLayer) Modifier
+                                                else Modifier.clearAndSetSemantics { },
+                                            ),
                                     ) {
                                         HeroContentBlock(
                                             item = layerItem,
