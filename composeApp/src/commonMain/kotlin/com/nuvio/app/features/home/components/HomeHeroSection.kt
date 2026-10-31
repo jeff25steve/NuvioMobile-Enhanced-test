@@ -599,6 +599,7 @@ internal fun HomeHeroSection(
                             ) {
                                 visiblePages.forEach { layer ->
                                     val layerItem = items[layer.itemIndex]
+                                    val isCurrentLayer = layer.page == pagerState.currentPage
                                     key(layerItem.stableKey()) {
                                     Box(
                                         modifier = Modifier
