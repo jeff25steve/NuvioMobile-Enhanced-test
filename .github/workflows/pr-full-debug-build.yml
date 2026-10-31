@@ -45,6 +45,12 @@ jobs:
             touch local.properties
           fi
 
+      - name: Set up Java 21 for Robolectric SDK 36 tests
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Run shared and Android host tests
         run: ./gradlew :composeApp:testAndroidHostTest --stacktrace
 
@@ -92,6 +98,13 @@ jobs:
             composeApp/build/reports/tests/testAndroidHostTest/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Restore Java 17 for Android APK build
+        if: always()
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
 
       - name: Set up Rust
         run: |
