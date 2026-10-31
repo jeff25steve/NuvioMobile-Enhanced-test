@@ -11,6 +11,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +22,9 @@ import androidx.compose.ui.uikit.LocalUIViewController
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.ComposeUIViewController
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import platform.Foundation.NSProcessInfo
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
 import platform.UIKit.UIColor
 import platform.UIKit.UIModalPresentationPageSheet
@@ -50,7 +56,14 @@ internal actual fun NuvioNativeModalBottomSheet(
     val sheetBackdrop = LocalNuvioSheetBackdrop.current
     val latestContent = rememberUpdatedState(content)
     val latestOnDismissRequest = rememberUpdatedState(onDismissRequest)
-    val latestContainerColor = rememberUpdatedState(containerColor)
+    val usesNativeLiquidGlassSheetBackground = shouldUseNativeLiquidGlassSheetBackground(
+        operatingSystemMajorVersion = NSProcessInfo.processInfo.operatingSystemVersion.majorVersion,
+        surfaceGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.BOTTOM_SHEETS),
+    )
+    val latestContainerColor = rememberUpdatedState(
+        if (usesNativeLiquidGlassSheetBackground) Color.Transparent else containerColor,
+    )
+    val nativeSheetController = remember { mutableStateOf<UIViewController?>(null) }
     val latestContentColor = rememberUpdatedState(contentColor)
     val latestModifier = rememberUpdatedState(modifier)
     val colorScheme = MaterialTheme.colorScheme
@@ -72,6 +85,13 @@ internal actual fun NuvioNativeModalBottomSheet(
     val latestThemePalette = rememberUpdatedState(themePalette)
     val latestDensity = rememberUpdatedState(density)
     val latestRippleConfiguration = rememberUpdatedState(rippleConfiguration)
+
+    SideEffect {
+        nativeSheetController.value?.view?.apply {
+            backgroundColor = latestContainerColor.value.toUIColor()
+            opaque = latestContainerColor.value.alpha >= 1f
+        }
+    }
 
     DisposableEffect(parentViewController) {
         val contentController = ComposeUIViewController {
@@ -111,6 +131,7 @@ internal actual fun NuvioNativeModalBottomSheet(
         val sheetController = contentController
         sheetController.modalPresentationStyle = UIModalPresentationPageSheet
         sheetController.view.backgroundColor = latestContainerColor.value.toUIColor()
+        sheetController.view.opaque = latestContainerColor.value.alpha >= 1f
         (sheetController.presentationController() as? UISheetPresentationController)?.apply {
             if (fullHeight) {
                 detents = listOf(UISheetPresentationControllerDetent.largeDetent())
@@ -139,6 +160,7 @@ internal actual fun NuvioNativeModalBottomSheet(
             completion = null,
         )
         activeNativeBottomSheet = sheetController
+        nativeSheetController.value = sheetController
         activeNativeBottomSheetDelegate = dismissalDelegate
         parentViewController.presentViewController(
             viewControllerToPresent = sheetController,
@@ -150,6 +172,9 @@ internal actual fun NuvioNativeModalBottomSheet(
             if (activeNativeBottomSheet === sheetController) {
                 activeNativeBottomSheet = null
                 activeNativeBottomSheetDelegate = null
+            }
+            if (nativeSheetController.value === sheetController) {
+                nativeSheetController.value = null
             }
             if (sheetController.presentingViewController != null) {
                 sheetController.dismissViewControllerAnimated(
