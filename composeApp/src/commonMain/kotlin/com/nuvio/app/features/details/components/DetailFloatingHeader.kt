@@ -236,6 +236,7 @@ private fun DetailFloatingHeaderAction(
         NuvioNativeLiquidGlassButton(
             systemImage = if (isSaved) "books.vertical.fill" else "plus",
             accessibilityLabel = contentDescription,
+            selected = isSaved,
             enabled = enabled,
             onClick = onClick,
             modifier = Modifier.size(40.dp),

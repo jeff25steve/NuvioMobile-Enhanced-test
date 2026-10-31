@@ -156,6 +156,7 @@ internal actual fun NuvioNativeLiquidGlassSearchField(
     )
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeSwitch : UISwitch(frame = CGRectZero) {
     var valueChangedListener: ((Boolean) -> Unit)? = null
     init {
@@ -165,6 +166,7 @@ private class LiquidGlassNativeSwitch : UISwitch(frame = CGRectZero) {
     fun handleValueChanged() { valueChangedListener?.invoke(on) }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeSegmentedControl(
     initialItems: List<String>,
 ) : UISegmentedControl(frame = CGRectZero) {
@@ -186,6 +188,7 @@ private class LiquidGlassNativeSegmentedControl(
     fun handleValueChanged() { selectionChangedListener?.invoke(selectedSegmentIndex.toInt()) }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
     private var clickListener: () -> Unit = {}
     private var longClickListener: (() -> Unit)? = null
@@ -249,6 +252,7 @@ private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
     }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
     private var valueListener: (String) -> Unit = {}
     private var searchListener: () -> Unit = {}

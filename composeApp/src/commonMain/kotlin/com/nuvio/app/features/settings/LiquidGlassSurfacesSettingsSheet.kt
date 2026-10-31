@@ -719,6 +719,7 @@ private fun LiquidGlassSurfaceListItem(
                     NuvioNativeLiquidGlassSwitch(
                         checked = enabled,
                         onCheckedChange = onToggle,
+                        accessibilityLabel = title,
                     )
                 } else {
                     androidx.compose.material3.Switch(
