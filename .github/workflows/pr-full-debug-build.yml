@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "ci/liquid-glass-studio-enhanced-fix-20261026"
-      - "ci/liquid-glass-editor-everywhere-linux-20261031"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
