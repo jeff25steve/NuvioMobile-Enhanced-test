@@ -581,7 +581,6 @@ internal fun SettingsSwitchRow(
     enabled: Boolean = true,
     isTablet: Boolean,
     horizontalPadding: Dp = if (isTablet) 20.dp else 16.dp,
-    nativeLiquidGlassSwitch: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -617,26 +616,74 @@ internal fun SettingsSwitchRow(
                 )
             }
         }
-        if (nativeLiquidGlassSwitch && isNativeLiquidGlassControlsAvailable()) {
-            NuvioNativeLiquidGlassSwitch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                modifier = Modifier.padding(start = 4.dp),
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            modifier = Modifier.padding(start = 4.dp),
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = tokens.colors.onAccent,
+                checkedTrackColor = tokens.colors.accent,
+                uncheckedThumbColor = tokens.colors.textMuted,
+                uncheckedTrackColor = tokens.colors.borderDefault,
+            ),
+        )
+    }
+}
+
+@Composable
+internal fun LiquidGlassSettingsSwitchRow(
+    title: String,
+    description: String?,
+    checked: Boolean,
+    isTablet: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    if (!isNativeLiquidGlassControlsAvailable()) {
+        SettingsSwitchRow(
+            title = title,
+            description = description,
+            checked = checked,
+            isTablet = isTablet,
+            onCheckedChange = onCheckedChange,
+        )
+        return
+    }
+
+    val tokens = MaterialTheme.nuvio
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(
+                horizontal = if (isTablet) 20.dp else 16.dp,
+                vertical = if (isTablet) 16.dp else 14.dp,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = tokens.colors.textPrimary,
+                fontWeight = FontWeight.Medium,
             )
-        } else {
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-                modifier = Modifier.padding(start = 4.dp),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = tokens.colors.onAccent,
-                    checkedTrackColor = tokens.colors.accent,
-                    uncheckedThumbColor = tokens.colors.textMuted,
-                    uncheckedTrackColor = tokens.colors.borderDefault,
-                ),
-            )
+            if (!description.isNullOrBlank()) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tokens.colors.textMuted,
+                )
+            }
         }
+        NuvioNativeLiquidGlassSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.padding(start = 4.dp),
+        )
     }
 }
 

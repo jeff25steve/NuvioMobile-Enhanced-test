@@ -93,7 +93,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
-import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSwitch
 import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioDropdownOption
@@ -1719,62 +1718,6 @@ private fun liquidGlassPreviewStreamGroups(): List<AddonStreamGroup> = listOf(
 )
 
 @Composable
-private fun LiquidGlassEditorSwitchRow(
-    title: String,
-    description: String?,
-    checked: Boolean,
-    isTablet: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    if (!isNativeLiquidGlassControlsAvailable()) {
-        SettingsSwitchRow(
-            title = title,
-            description = description,
-            checked = checked,
-            isTablet = isTablet,
-            onCheckedChange = onCheckedChange,
-        )
-        return
-    }
-
-    val tokens = MaterialTheme.nuvio
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(
-                horizontal = if (isTablet) 20.dp else 16.dp,
-                vertical = if (isTablet) 16.dp else 14.dp,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f).padding(end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = tokens.colors.textPrimary,
-                fontWeight = FontWeight.Medium,
-            )
-            if (!description.isNullOrBlank()) {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = tokens.colors.textMuted,
-                )
-            }
-        }
-        NuvioNativeLiquidGlassSwitch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-    }
-}
-
-@Composable
 private fun LiquidGlassSurfaceEditorControls(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
@@ -1884,7 +1827,7 @@ private fun LiquidGlassSurfaceEditorControls(
         }
         if (!nativeControlsAvailable) {
             onLinkGlassEffectsChanged?.let { onLinkChanged ->
-                LiquidGlassEditorSwitchRow(
+                LiquidGlassSettingsSwitchRow(
                     title = stringResource(Res.string.settings_liquid_glass_link_effects),
                     description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
                     checked = linkGlassEffects,
@@ -1893,7 +1836,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 )
             }
         }
-        LiquidGlassEditorSwitchRow(
+        LiquidGlassSettingsSwitchRow(
             title = title,
             description = stringResource(
                 if (surface == LiquidGlassSurface.BOTTOM_SHEETS) {

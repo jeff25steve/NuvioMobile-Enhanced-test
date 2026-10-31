@@ -271,12 +271,11 @@ internal fun LazyListScope.appearanceSettingsContent(
                 )
                 if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    SettingsSwitchRow(
+                    LiquidGlassSettingsSwitchRow(
                         title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
                         description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
                         checked = liquidGlassEffectsEnabled,
                         isTablet = isTablet,
-                        nativeLiquidGlassSwitch = true,
                         onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
                     )
                     SettingsGroupDivider(isTablet = isTablet)
