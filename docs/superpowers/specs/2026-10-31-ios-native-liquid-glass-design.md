@@ -82,3 +82,16 @@ The iOS Compose fallback is not Apple's Liquid Glass. Do not describe it as nati
 - Light/dark appearance, Reduce Transparency, Increased Contrast, VoiceOver, Dynamic Type, iPad, rotation, sheet presentation/dismissal, and player/PiP transitions are checked where relevant.
 - Compose foreground remains sharp and interactive above any native material.
 - Android tests/build are run as regression checks for shared code changes.
+
+## Player video backdrop — explicit validation gate
+
+The current iOS player renders video into a custom `CAMetalLayer` (`MetalLayer` in `iosApp/iosApp/Player/MetalLayer.swift`) with `framebufferOnly = true`. The `MPVPlayerViewController` adds this layer directly to its root view's layer tree. Apple documents `CAMetalLayer` as a Metal drawable presentation layer and `UIVisualEffectView` as an effect that acts on content layered behind it, but those API descriptions do not guarantee the exact sampling/refracting behavior for Nuvio's Metal video layer and current Compose/UIKit view hierarchy.
+
+Therefore, placing a `UIVisualEffectView(UIGlassEffect)` above the MPV layer is a hypothesis, not an approved production design. Before implementing a player surface registry or changing player controls:
+
+1. Validate on iOS 26+ that a native glass view attached inside the real MPV controller actually samples the currently presented video, rather than showing a flat/black/transparent material.
+2. Validate that Compose controls remain sharp above it and all Compose touch, gesture, VoiceOver and accessibility behavior remains intact.
+3. Validate source replacement, orientation/size changes, mini-player/PiP transitions, and view-controller disposal remove stale effect views.
+4. If the sampling or layering check fails, stop this approach. Evaluate a different bounded native host that contains both its material and foreground control content, or retain the existing fallback for that surface until a safe route is proven. Do not use private Core Animation backdrop APIs or copy full video frames to CPU memory as a workaround.
+
+The plan must keep this validation as a gate before any production player control is migrated.
