@@ -1718,6 +1718,62 @@ private fun liquidGlassPreviewStreamGroups(): List<AddonStreamGroup> = listOf(
 )
 
 @Composable
+private fun LiquidGlassEditorSwitchRow(
+    title: String,
+    description: String?,
+    checked: Boolean,
+    isTablet: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    if (!isNativeLiquidGlassControlsAvailable()) {
+        SettingsSwitchRow(
+            title = title,
+            description = description,
+            checked = checked,
+            isTablet = isTablet,
+            onCheckedChange = onCheckedChange,
+        )
+        return
+    }
+
+    val tokens = MaterialTheme.nuvio
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(
+                horizontal = if (isTablet) 20.dp else 16.dp,
+                vertical = if (isTablet) 16.dp else 14.dp,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = tokens.colors.textPrimary,
+                fontWeight = FontWeight.Medium,
+            )
+            if (!description.isNullOrBlank()) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = tokens.colors.textMuted,
+                )
+            }
+        }
+        NuvioNativeLiquidGlassSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+    }
+}
+
+@Composable
 private fun LiquidGlassSurfaceEditorControls(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
@@ -1825,7 +1881,7 @@ private fun LiquidGlassSurfaceEditorControls(
             NuvioBottomSheetDivider()
         }
         onLinkGlassEffectsChanged?.let { onLinkChanged ->
-            SettingsSwitchRow(
+            LiquidGlassEditorSwitchRow(
                 title = stringResource(Res.string.settings_liquid_glass_link_effects),
                 description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
                 checked = linkGlassEffects,
@@ -1833,7 +1889,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 onCheckedChange = onLinkChanged,
             )
         }
-        SettingsSwitchRow(
+        LiquidGlassEditorSwitchRow(
             title = title,
             description = stringResource(
                 if (surface == LiquidGlassSurface.BOTTOM_SHEETS) {
