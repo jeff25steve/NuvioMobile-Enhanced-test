@@ -240,6 +240,7 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
             LiquidGlassSurface.DETAIL_TRAILER_SELECTOR,
             LiquidGlassSurface.LIBRARY,
+            LiquidGlassSurface.CATEGORY_HEADER_TITLE,
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
         )
 
