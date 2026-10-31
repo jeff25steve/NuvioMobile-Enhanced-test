@@ -359,8 +359,8 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("feat(home): add mobile background selection"),
         )
         assertEquals(
-            "Added TVDB anime ID preference to avoid per-season IMDB splits (#1952)",
-            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Add TVDB anime ID preference to avoid per-season IMDB splits (#1952)"),
+            "Added TVDB anime ID preference to avoid per-season IMDb splits (#1952)",
+            WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay("Add TVDB anime ID preference to avoid per-season IMDb splits (#1952)"),
         )
         assertEquals(
             "Open iOS playback in fullscreen",
@@ -516,7 +516,7 @@ class WhatsNewSnapshotBuilderTest {
         val body = """
             - fix(home): match continue watching badge colors to tv @tapframe
             - perf(navigation): reduce root tab switch stalls @tapframe
-            - Add TVDB anime ID preference to avoid per-season IMDB splits (#1952) @skoruppa
+            - Add TVDB anime ID preference to avoid per-season IMDb splits (#1952) @skoruppa
             - Revert "perf(navigation): reduce tab switch animation stalls" @tapframe
             - fix(player): keep android landscape lock during exit @tapframe
             - fix(profiles): add active profile toast and back button @tapframe
@@ -537,7 +537,7 @@ class WhatsNewSnapshotBuilderTest {
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay(cleaned.last().text),
         )
         assertEquals(
-            "Added TVDB anime ID preference to avoid per-season IMDB splits (#1952)",
+            "Added TVDB anime ID preference to avoid per-season IMDb splits (#1952)",
             WhatsNewSnapshotBuilder.formatReleaseNoteForDisplay(cleaned[2].text),
         )
     }
