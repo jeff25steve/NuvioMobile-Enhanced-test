@@ -7,7 +7,6 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
-import kotlinx.cinterop.useContents
 import platform.Foundation.NSData
 import platform.PhotosUI.PHPickerConfiguration
 import platform.PhotosUI.PHPickerFilter
@@ -95,9 +94,8 @@ private class SettingsBackgroundPickerDelegate(
 @OptIn(ExperimentalForeignApi::class)
 private fun normalizeBackgroundImage(data: NSData): ByteArray {
     val image = UIImage(data = data) ?: error("Unsupported image.")
-    val imageDimensions = image.size.useContents { width to height }
-    val width = imageDimensions.first
-    val height = imageDimensions.second
+    val width = image.size.width
+    val height = image.size.height
     val scale = image.scale
     require(
         width > 0.0 && width.isFinite() &&
@@ -111,7 +109,7 @@ private fun normalizeBackgroundImage(data: NSData): ByteArray {
     }
     val ratio = min(1.0, MaximumBackgroundImageDimensionPx / maximumPixelDimension)
     val targetSize = CGSizeMake(width * ratio, height * ratio)
-    require(targetSize.useContents { width > 0.0 && height > 0.0 }) { "Unsupported image." }
+    require(targetSize.width > 0.0 && targetSize.height > 0.0) { "Unsupported image." }
 
     // Decode through UIKit's native thumbnail path before encoding, avoiding a full-resolution
     // render into a temporary bitmap for very large photos.

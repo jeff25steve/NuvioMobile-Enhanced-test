@@ -24,8 +24,6 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
 import platform.Foundation.NSProcessInfo
 import platform.UIKit.UIAdaptivePresentationControllerDelegateProtocol
 import platform.UIKit.UIColor
@@ -43,7 +41,7 @@ internal actual val usesNativeNuvioBottomSheet: Boolean = true
 private var activeNativeBottomSheet: UIViewController? = null
 private var activeNativeBottomSheetDelegate: NuvioNativeBottomSheetDelegate? = null
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalForeignApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal actual fun NuvioNativeModalBottomSheet(
     onDismissRequest: () -> Unit,
@@ -59,7 +57,7 @@ internal actual fun NuvioNativeModalBottomSheet(
     val latestContent = rememberUpdatedState(content)
     val latestOnDismissRequest = rememberUpdatedState(onDismissRequest)
     val usesNativeLiquidGlassSheetBackground = shouldUseNativeLiquidGlassSheetBackground(
-        operatingSystemMajorVersion = NSProcessInfo.processInfo.operatingSystemVersion.useContents { majorVersion.toLong() },
+        operatingSystemMajorVersion = NSProcessInfo.processInfo.operatingSystemVersion.majorVersion,
         surfaceGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.BOTTOM_SHEETS),
     )
     val latestContainerColor = rememberUpdatedState(

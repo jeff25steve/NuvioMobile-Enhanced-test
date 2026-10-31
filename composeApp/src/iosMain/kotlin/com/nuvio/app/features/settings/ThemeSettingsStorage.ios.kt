@@ -26,7 +26,6 @@ import platform.posix.rename
 import platform.UIKit.UIDevice
 import platform.UIKit.UIUserInterfaceIdiomPad
 
-@OptIn(ExperimentalForeignApi::class)
 actual object ThemeSettingsStorage {
     private const val selectedThemeKey = "selected_theme"
     private const val customThemeColorsKey = "custom_theme_colors"
@@ -289,7 +288,7 @@ actual object ThemeSettingsStorage {
     private fun isValidCustomBackgroundImageSize(path: String): Boolean {
         val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, error = null)
             ?: return false
-        val size = (attributes[NSFileSize] as? NSNumber)?.longLongValue ?: return false
+        val size = (attributes.objectForKey(NSFileSize) as? NSNumber)?.longLongValue ?: return false
         return size in 1..CUSTOM_SETTINGS_BACKGROUND_MAX_IMAGE_BYTES.toLong()
     }
 
@@ -441,11 +440,9 @@ actual object ThemeSettingsStorage {
         return "${NSHomeDirectory()}/Library/Application Support/NuvioSettingsBackgrounds/$key.jpg"
     }
 
-    // Kotlin/Native maps Objective-C booleans to NSNumber for Objective-C object parameters.
-    @Suppress("CAST_NEVER_SUCCEEDS")
     private fun excludeFromBackup(path: String): Boolean =
         NSURL.fileURLWithPath(path).setResourceValue(
-            true as NSNumber,
+            NSNumber.numberWithBool(true),
             forKey = NSURLIsExcludedFromBackupKey,
             error = null,
         )

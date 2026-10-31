@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       configuration:
-        description: Production-optimized or fast validation build
+        description: Fast full-featured Debug build or production-optimized Release build
         required: true
         type: choice
         options:
           - Debug
           - Release
-        default: Release
+        default: Debug
 
 permissions:
   contents: read
@@ -24,16 +24,16 @@ concurrency:
 
 jobs:
   build:
-    name: Build unsigned full ${{ inputs.configuration || 'Release' }} IPA
+    name: Build unsigned full ${{ inputs.configuration || 'Debug' }} IPA
     runs-on: xcode-27
-    timeout-minutes: ${{ inputs.configuration == 'Debug' && 30 || 180 }}
+    timeout-minutes: ${{ (inputs.configuration || 'Debug') == 'Debug' && 60 || 180 }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       GRADLE_OPTS: -Dfile.encoding=UTF-8
-      IOS_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+      IOS_CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
       KOTLIN_DAEMON_JVMARGS: -Xmx1024M
       NUVIO_GRADLE_JVMARGS: -Xmx2048M -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=768M -XX:+UseG1GC
-      NUVIO_KOTLIN_NATIVE_JVMARGS: -Xmx9216M -XX:+UseG1GC
+      NUVIO_KOTLIN_NATIVE_JVMARGS: ${{ (inputs.configuration || 'Debug') == 'Release' && '-Xmx9216M -XX:+UseG1GC' || '-Xmx4096M -XX:+UseG1GC' }}
       RELEASE_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
       CONTRIBUTIONS_URL: https://api.github.com/repos/luqmanfadlli/NuvioMobile-Enhanced/contributors?per_page=100
 
@@ -119,7 +119,7 @@ jobs:
       - name: Prepare iOS dependencies
         run: ./scripts/prepare-ios-dependencies.sh
 
-      - name: Build unsigned full ${{ inputs.configuration || 'Release' }} IPA
+      - name: Build unsigned full ${{ inputs.configuration || 'Debug' }} IPA
         run: |
           (
             while sleep 60; do
@@ -157,7 +157,7 @@ jobs:
       - name: Upload test IPA
         uses: actions/upload-artifact@v7
         with:
-          name: nuvio-test-${{ inputs.configuration || 'Release' }}-ipa-${{ github.sha }}
+          name: nuvio-test-${{ inputs.configuration || 'Debug' }}-ipa-${{ github.sha }}
           path: build/ios-ipa/*.ipa
           if-no-files-found: error
           retention-days: 7
