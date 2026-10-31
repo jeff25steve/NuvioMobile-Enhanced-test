@@ -79,6 +79,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSearchField
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.nuvio
@@ -228,6 +231,10 @@ internal fun EpisodeNavigatorBar(
     val tokens = MaterialTheme.nuvio
     val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
     val searchGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
+    val nativeSearchEnabled = onPreviewSurfaceSelected == null &&
+        selectedPreviewSurface == null &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(searchSurface, platformSupported = true)
     val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
     val searchSelected = selectedPreviewSurface == searchSurface
     val searchSurfaceModifier = if (searchGlassEnabled) {
@@ -262,64 +269,75 @@ internal fun EpisodeNavigatorBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LiquidGlassTextContrastScope(enabled = searchGlassEnabled) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 44.dp)
-                    .then(searchSurfaceModifier)
-                    .then(searchSelectionBorder)
-                    .onLiquidGlassPreviewSurfaceTap(
-                        surface = searchSurface,
-                        onSurfaceSelected = onPreviewSurfaceSelected,
-                    )
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = liquidGlassIconTint(searchSurface, tokens.colors.textMuted),
-                    modifier = Modifier.size(18.dp),
-                )
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (state.query.isEmpty()) {
-                        Text(
-                            text = stringResource(Res.string.episode_navigator_search_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = tokens.colors.textMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    BasicTextField(
+                if (nativeSearchEnabled) {
+                    NuvioNativeLiquidGlassSearchField(
                         value = state.query,
+                        placeholder = stringResource(Res.string.episode_navigator_search_hint),
+                        accessibilityLabel = stringResource(Res.string.episode_navigator_search_hint),
                         onValueChange = { state.query = it },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = tokens.colors.textPrimary),
-                        cursorBrush = SolidColor(tokens.colors.accent),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = { state.query.trim().toIntOrNull()?.let(onSubmitNumber) },
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { focus ->
-                                if (focus.isFocused) onPreviewSurfaceSelected?.invoke(searchSurface)
-                            },
+                        onSearch = { state.query.trim().toIntOrNull()?.let(onSubmitNumber) },
+                        modifier = Modifier.weight(1f),
                     )
-                }
-                if (state.query.isNotEmpty()) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(Res.string.episode_navigator_clear_search),
-                        tint = tokens.colors.textMuted,
+                } else {
+                    Row(
                         modifier = Modifier
-                            .size(18.dp)
-                            .clickable { state.query = "" },
-                    )
+                            .weight(1f)
+                            .heightIn(min = 44.dp)
+                            .then(searchSurfaceModifier)
+                            .then(searchSelectionBorder)
+                            .onLiquidGlassPreviewSurfaceTap(
+                                surface = searchSurface,
+                                onSurfaceSelected = onPreviewSurfaceSelected,
+                            )
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = liquidGlassIconTint(searchSurface, tokens.colors.textMuted),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                            if (state.query.isEmpty()) {
+                                Text(
+                                    text = stringResource(Res.string.episode_navigator_search_hint),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = tokens.colors.textMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            BasicTextField(
+                                value = state.query,
+                                onValueChange = { state.query = it },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = tokens.colors.textPrimary),
+                                cursorBrush = SolidColor(tokens.colors.accent),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = { state.query.trim().toIntOrNull()?.let(onSubmitNumber) },
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onFocusChanged { focus ->
+                                        if (focus.isFocused) onPreviewSurfaceSelected?.invoke(searchSurface)
+                                    },
+                            )
+                        }
+                        if (state.query.isNotEmpty()) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(Res.string.episode_navigator_clear_search),
+                                tint = tokens.colors.textMuted,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clickable { state.query = "" },
+                            )
+                        }
+                    }
                 }
-            }
             }
             EpisodeNavigatorChip(
                 text = stringResource(Res.string.episode_navigator_go_to),
@@ -363,6 +381,20 @@ private fun EpisodeNavigatorChip(
     val tokens = MaterialTheme.nuvio
     val nativeShape = RoundedCornerShape(14.dp)
     val surface = glassSurface
+    val nativeGlassEnabled = surface != null &&
+        onPreviewSurfaceSelected == null &&
+        selectedPreviewSurface == null &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(surface, platformSupported = true)
+    if (nativeGlassEnabled) {
+        NuvioNativeLiquidGlassButton(
+            title = text,
+            accessibilityLabel = text,
+            onClick = onClick,
+            modifier = Modifier.heightIn(min = 44.dp),
+        )
+        return
+    }
     val glassEnabled = surface != null && isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(surface)
     val shape = surface?.let { liquidGlassShape(it, nativeShape) } ?: nativeShape
     val isSelected = surface != null && selectedPreviewSurface == surface
