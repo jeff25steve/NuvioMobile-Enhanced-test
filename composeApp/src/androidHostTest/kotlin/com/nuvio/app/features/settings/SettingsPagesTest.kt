@@ -138,10 +138,11 @@ class SettingsPagesTest {
         compose.setContent {
             NuvioTheme {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    if (page.value != SettingsPage.Playback) {
-                        item {
-                            Button(onClick = { page.value = page.value.previousPage()!! }) { Text("Back") }
-                        }
+                    item {
+                        Button(
+                            enabled = page.value != SettingsPage.Playback,
+                            onClick = { page.value = page.value.previousPage()!! },
+                        ) { Text("Back") }
                     }
                     playbackSettingsContent(false, page.value) { page.value = it }
                 }
