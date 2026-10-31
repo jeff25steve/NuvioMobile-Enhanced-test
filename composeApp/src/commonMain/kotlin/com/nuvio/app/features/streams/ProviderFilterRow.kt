@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
@@ -66,6 +68,7 @@ import nuvio.composeapp.generated.resources.streams_unpin_source
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
@@ -289,6 +292,29 @@ private fun FilterChip(
         label = "filter_chip_content",
     )
     val defaultShape = RoundedCornerShape(16.dp)
+    val nativeGlassAllowed = !preview &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            LiquidGlassSurface.STREAM_FILTERS,
+            platformSupported = true,
+        )
+    if (nativeGlassAllowed) {
+        NuvioNativeLiquidGlassButton(
+            title = label,
+            systemImage = when {
+                isPinned -> "pin.fill"
+                label == null && icon != null -> "arrow.clockwise"
+                else -> null
+            },
+            accessibilityLabel = contentDescription ?: label ?: stringResource(Res.string.collections_tab_all),
+            selected = isSelected,
+            enabled = true,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = Modifier.height(36.dp),
+        )
+        return
+    }
     val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
         LiquidGlassSurface.STREAM_FILTERS,
         preview = preview,
