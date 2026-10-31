@@ -97,10 +97,10 @@ fun DetailFloatingHeader(
         preview = previewGlass,
         platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
-    val nativeHeaderGlassEnabled = !previewGlass &&
-        isNativeLiquidGlassControlsAvailable() &&
+    val nativeHeaderGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(
             LiquidGlassSurface.DETAIL_HEADER,
+            preview = previewGlass,
             platformSupported = true,
         )
     var logoLoadError by remember(meta.id, meta.logo) {

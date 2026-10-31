@@ -276,9 +276,7 @@ internal fun DetailActionButtons(
                 } else {
                     isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS)
                 }
-                val useNativeMoreButton = !isGlassPreview &&
-                    isNativeLiquidGlassControlsAvailable() &&
-                    moreGlassEnabled
+                val useNativeMoreButton = isNativeLiquidGlassControlsAvailable() && moreGlassEnabled
                 if (useNativeMoreButton) {
                     NuvioNativeLiquidGlassButton(
                         systemImage = "ellipsis",
@@ -360,12 +358,15 @@ internal fun DetailActionButtons(
     }
 
         if (onDownloadClick != null) {
-            val useNativeDownloadButton = !isGlassPreview &&
-                isNativeLiquidGlassControlsAvailable() &&
-                isLiquidGlassSurfaceEffectivelyEnabled(
-                    LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
-                    platformSupported = true,
-                )
+            val useNativeDownloadButton = isNativeLiquidGlassControlsAvailable() &&
+                if (isGlassPreview) {
+                    previewPrimaryGlass
+                } else {
+                    isLiquidGlassSurfaceEffectivelyEnabled(
+                        LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                        platformSupported = true,
+                    )
+                }
             if (useNativeDownloadButton) {
                 NuvioNativeLiquidGlassButton(
                     title = stringResource(Res.string.details_download_action),
@@ -772,13 +773,16 @@ internal fun DetailIconAction(
     previewGlass: Boolean = false,
     previewMode: Boolean = false,
 ) {
-    val nativeGlassActive = !previewMode &&
-        nativeSystemImage != null &&
+    val nativeGlassActive = nativeSystemImage != null &&
         isNativeLiquidGlassControlsAvailable() &&
-        isLiquidGlassSurfaceEffectivelyEnabled(
-            LiquidGlassSurface.DETAILS,
-            platformSupported = true,
-        )
+        if (previewMode) {
+            previewGlass
+        } else {
+            isLiquidGlassSurfaceEffectivelyEnabled(
+                LiquidGlassSurface.DETAILS,
+                platformSupported = true,
+            )
+        }
     if (nativeGlassActive) {
         NuvioNativeLiquidGlassButton(
             systemImage = nativeSystemImage,

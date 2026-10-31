@@ -1395,10 +1395,10 @@ internal fun LibrarySourceSwitch(
         preview = isPreview,
         platformSupported = if (isPreview) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
-    val nativeSegmentedControlEnabled = !isPreview &&
-        isNativeLiquidGlassControlsAvailable() &&
+    val nativeSegmentedControlEnabled = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(
             surface = LiquidGlassSurface.LIBRARY,
+            preview = isPreview,
             platformSupported = true,
         )
     val sourceModes = buildList {

@@ -231,10 +231,14 @@ internal fun EpisodeNavigatorBar(
     val tokens = MaterialTheme.nuvio
     val searchSurface = LiquidGlassSurface.DETAIL_EPISODE_SEARCH
     val searchGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(searchSurface)
-    val nativeSearchEnabled = onPreviewSurfaceSelected == null &&
-        selectedPreviewSurface == null &&
-        isNativeLiquidGlassControlsAvailable() &&
-        isLiquidGlassSurfaceEffectivelyEnabled(searchSurface, platformSupported = true)
+    val nativeSearchPreview = onPreviewSurfaceSelected != null || selectedPreviewSurface != null
+    val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            searchSurface,
+            preview = nativeSearchPreview,
+            platformSupported = true,
+        ) &&
+        (!nativeSearchPreview || selectedPreviewSurface == null || selectedPreviewSurface == searchSurface)
     val fieldShape = liquidGlassShape(searchSurface, RoundedCornerShape(14.dp))
     val searchSelected = selectedPreviewSurface == searchSurface
     val searchSurfaceModifier = if (searchGlassEnabled) {
@@ -381,16 +385,26 @@ private fun EpisodeNavigatorChip(
     val tokens = MaterialTheme.nuvio
     val nativeShape = RoundedCornerShape(14.dp)
     val surface = glassSurface
+    val isPreview = onPreviewSurfaceSelected != null || selectedPreviewSurface != null
     val nativeGlassEnabled = surface != null &&
-        onPreviewSurfaceSelected == null &&
-        selectedPreviewSurface == null &&
         isNativeLiquidGlassControlsAvailable() &&
-        isLiquidGlassSurfaceEffectivelyEnabled(surface, platformSupported = true)
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface,
+            preview = isPreview,
+            platformSupported = true,
+        ) &&
+        (!isPreview || selectedPreviewSurface == null || selectedPreviewSurface == surface)
     if (nativeGlassEnabled) {
         NuvioNativeLiquidGlassButton(
             title = text,
             accessibilityLabel = text,
-            onClick = onClick,
+            onClick = {
+                if (isPreview && surface != null) {
+                    onPreviewSurfaceSelected?.invoke(surface)
+                } else {
+                    onClick()
+                }
+            },
             modifier = Modifier.heightIn(min = 44.dp),
         )
         return

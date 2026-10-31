@@ -2852,6 +2852,13 @@ private fun LiquidGlassLibraryPreview(
                             CloudLibrarySearchField(
                                 query = cloudQuery,
                                 onQueryChange = { cloudQuery = it },
+                                nativeGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
+                                    (selectedSurface == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) &&
+                                    isLiquidGlassSurfaceEffectivelyEnabled(
+                                        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                        preview = true,
+                                        platformSupported = true,
+                                    ),
                                 modifier = Modifier
                                     .padding(horizontal = 8.dp, vertical = 8.dp)
                                     .then(

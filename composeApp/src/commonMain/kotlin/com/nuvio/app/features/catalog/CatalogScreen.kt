@@ -416,11 +416,13 @@ internal fun CatalogHeader(
     val posterBackdrop = LocalLiquidGlassBackdrop.current
     val titleGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
     val backGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
-    val nativeBackGlassEnabled = !previewMode &&
-        onPreviewSurfaceSelected == null &&
-        selectedPreviewSurface == null &&
-        isNativeLiquidGlassControlsAvailable() &&
-        isLiquidGlassSurfaceEffectivelyEnabled(backSurface, platformSupported = true)
+    val nativeBackGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            backSurface,
+            preview = previewMode,
+            platformSupported = true,
+        ) &&
+        (!previewMode || selectedPreviewSurface == null || selectedPreviewSurface == backSurface)
     val titleGlassEnabled = titleGlassConfigured &&
         categoryHeaderPreviewUsesGlass(titleSurface, previewMode, selectedPreviewSurface)
     val backGlassEnabled = backGlassConfigured &&
@@ -488,7 +490,13 @@ internal fun CatalogHeader(
                 NuvioNativeLiquidGlassButton(
                     systemImage = "chevron.left",
                     accessibilityLabel = stringResource(Res.string.action_back),
-                    onClick = onBack,
+                    onClick = {
+                        if (previewMode && onPreviewSurfaceSelected != null) {
+                            onPreviewSurfaceSelected(backSurface)
+                        } else {
+                            onBack()
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

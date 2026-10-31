@@ -69,7 +69,6 @@ import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
-import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -251,6 +250,7 @@ private fun RefreshChip(
         isSelected = false,
         onClick = onClick,
         preview = preview,
+        nativeRotationDegrees = rotation.value,
     )
 }
 
@@ -265,6 +265,7 @@ private fun FilterChip(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     preview: Boolean = false,
+    nativeRotationDegrees: Float = 0f,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -292,10 +293,10 @@ private fun FilterChip(
         label = "filter_chip_content",
     )
     val defaultShape = RoundedCornerShape(16.dp)
-    val nativeGlassAllowed = !preview &&
-        isNativeLiquidGlassControlsAvailable() &&
+    val nativeGlassAllowed = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(
             LiquidGlassSurface.STREAM_FILTERS,
+            preview = preview,
             platformSupported = true,
         )
     if (nativeGlassAllowed) {
@@ -311,7 +312,9 @@ private fun FilterChip(
             enabled = true,
             onClick = onClick,
             onLongClick = onLongClick,
-            modifier = Modifier.height(36.dp),
+            modifier = Modifier
+                .height(36.dp)
+                .graphicsLayer { rotationZ = nativeRotationDegrees },
         )
         return
     }

@@ -130,11 +130,15 @@ fun DetailTrailersSection(
                 Box {
                     val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
                     val selectorGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
-                    val selectorNativeGlassEnabled = onPreviewSurfaceSelected == null &&
-                        selectedPreviewSurface == null &&
-                        !previewMenuInitiallyExpanded &&
-                        isNativeLiquidGlassControlsAvailable() &&
-                        isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface, platformSupported = true)
+                    val selectorPreview = onPreviewSurfaceSelected != null || selectedPreviewSurface != null
+                    val selectorNativeGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
+                        isLiquidGlassSurfaceEffectivelyEnabled(
+                            selectorSurface,
+                            preview = selectorPreview,
+                            platformSupported = true,
+                        ) &&
+                        (!selectorPreview || selectedPreviewSurface == null || selectedPreviewSurface == selectorSurface) &&
+                        !previewMenuInitiallyExpanded
                     val selectorShape = liquidGlassShape(
                         surface = selectorSurface,
                         defaultShape = RoundedCornerShape(sizing.selectorRadius),
@@ -166,7 +170,13 @@ fun DetailTrailersSection(
                             title = selectedCategory,
                             systemImage = "chevron.down",
                             accessibilityLabel = selectedCategory,
-                            onClick = { menuExpanded = true },
+                            onClick = {
+                                if (selectorPreview) {
+                                    onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                } else {
+                                    menuExpanded = true
+                                }
+                            },
                             modifier = Modifier.height(36.dp),
                         )
                     } else {
