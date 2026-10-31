@@ -42,8 +42,29 @@ jobs:
             touch local.properties
           fi
 
-      - name: Run Liquid Glass host tests
-        run: ./gradlew :composeApp:testAndroidHostTest --tests 'com.nuvio.app.core.ui.glass.*' --stacktrace
+      - name: Run Liquid Glass feature host tests
+        run: |
+          ./gradlew :composeApp:testAndroidHostTest \\
+            --tests 'com.nuvio.app.core.ui.NuvioSheetBackdropCaptureTest' \\
+            --tests 'com.nuvio.app.core.ui.SettingsGlassChromeTest' \\
+            --tests 'com.nuvio.app.core.ui.NativeBottomSheetGlassTest' \\
+            --tests 'com.nuvio.app.core.ui.NativeLiquidGlassControlsTest' \\
+            --tests 'com.nuvio.app.core.ui.NativeLiquidGlassOptionMenuTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassEffectSettingsTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassRadiusRefreshTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassSurfaceSettingsTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScopeTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassPreviewCornerRadiusTest' \\
+            --tests 'com.nuvio.app.core.ui.glass.LiquidGlassStudioGroupingTest' \\
+            --tests 'com.nuvio.app.features.player.PlayerLiquidGlassCaptureLifecycleTest' \\
+            --tests 'com.nuvio.app.features.player.PlayerLiquidGlassResponsivenessTest' \\
+            --tests 'com.nuvio.app.features.settings.LiquidGlassPreviewSizingTest' \\
+            --tests 'com.nuvio.app.features.settings.NavigationBarGlassSettingsTest' \\
+            --tests 'com.nuvio.app.features.settings.SettingsGlassTextContrastTest' \\
+            --tests 'com.nuvio.app.features.settings.LiquidGlassEditorScrollTargetTest' \\
+            --tests 'com.nuvio.app.features.catalog.CatalogHeaderBackdropPolicyTest' \\
+            --tests 'com.nuvio.app.features.library.LibraryGlassLayoutTest' \\
+            --stacktrace
 
       - name: Set up Rust
         run: |
