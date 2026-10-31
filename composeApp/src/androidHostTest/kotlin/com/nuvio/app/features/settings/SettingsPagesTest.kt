@@ -4,8 +4,6 @@ import android.app.Application
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -138,30 +136,29 @@ class SettingsPagesTest {
         compose.setContent {
             NuvioTheme {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    item {
-                        Button(
-                            enabled = page.value != SettingsPage.Playback,
-                            onClick = { page.value = page.value.previousPage()!! },
-                        ) { Text("Back") }
-                    }
                     playbackSettingsContent(false, page.value) { page.value = it }
                 }
             }
         }
         compose.onNodeWithText("Player interface").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(SettingsPage.PlaybackInterface, page.value) }
         compose.onNodeWithText("Touch Gestures").performScrollTo().performClick()
         assertFalse(PlayerSettingsRepository.uiState.value.touchGesturesEnabled)
         assertEquals(false, PlayerSettingsStorage.loadTouchGesturesEnabled())
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.runOnIdle { page.value = page.value.previousPage()!! }
+        compose.runOnIdle { assertEquals(SettingsPage.Playback, page.value) }
         compose.onNodeWithText("Audio").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(SettingsPage.PlaybackAudio, page.value) }
         compose.onNodeWithText("Preferred Audio Language").performClick()
         compose.onNodeWithText("Original language").performClick()
         assertEquals("original", PlayerSettingsRepository.uiState.value.preferredAudioLanguage)
         compose.runOnIdle { PlayerSettingsRepository.onProfileChanged() }
         assertFalse(PlayerSettingsRepository.uiState.value.touchGesturesEnabled)
         assertEquals("original", PlayerSettingsRepository.uiState.value.preferredAudioLanguage)
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.runOnIdle { page.value = page.value.previousPage()!! }
+        compose.runOnIdle { assertEquals(SettingsPage.Playback, page.value) }
         compose.onNodeWithText("Player").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(SettingsPage.PlaybackPlayer, page.value) }
         compose.onNodeWithText("Auto-switch engine on playback error").performScrollTo().performClick()
         assertFalse(PlayerSettingsRepository.uiState.value.autoSwitchPlaybackEngineOnError)
         assertEquals(false, PlayerSettingsStorage.loadAutoSwitchPlaybackEngineOnError())
@@ -170,7 +167,8 @@ class SettingsPagesTest {
         compose.onNodeWithText("Playback Engine").performClick()
         compose.onNodeWithText("libmpv").performClick()
         assertEquals(AndroidPlaybackEngine.Libmpv, PlayerSettingsRepository.uiState.value.androidPlaybackEngine)
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.runOnIdle { page.value = page.value.previousPage()!! }
+        compose.runOnIdle { assertEquals(SettingsPage.Playback, page.value) }
         compose.onNodeWithText("Buffer and cache").assertDoesNotExist()
     }
 
