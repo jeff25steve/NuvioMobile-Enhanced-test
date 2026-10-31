@@ -1608,6 +1608,13 @@ private fun LiquidGlassStreamPickerPreview(
                             onQueryChange = {},
                             modifier = Modifier.fillMaxWidth(),
                             preview = true,
+                            nativeGlassEnabled = selectedSurface == LiquidGlassSurface.STREAM_SELECTION &&
+                                isNativeLiquidGlassControlsAvailable() &&
+                                isLiquidGlassSurfaceEffectivelyEnabled(
+                                    LiquidGlassSurface.STREAM_SELECTION,
+                                    preview = true,
+                                    platformSupported = true,
+                                ),
                         )
                     }
                     GlassPreviewHotspot(
@@ -3892,6 +3899,13 @@ private fun LiquidGlassStreamSearchPreview(
                     onQueryChange = {},
                     modifier = Modifier.fillMaxWidth(),
                     preview = true,
+                    nativeGlassEnabled = surface == LiquidGlassSurface.STREAM_SELECTION &&
+                        isNativeLiquidGlassControlsAvailable() &&
+                        isLiquidGlassSurfaceEffectivelyEnabled(
+                            LiquidGlassSurface.STREAM_SELECTION,
+                            preview = true,
+                            platformSupported = true,
+                        ),
                 )
                 ResumeBanner(
                     positionMs = null,

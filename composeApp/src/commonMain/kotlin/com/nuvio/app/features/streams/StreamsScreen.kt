@@ -65,6 +65,8 @@ import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSearchField
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
@@ -98,6 +100,7 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -1532,7 +1535,24 @@ internal fun StreamSearchField(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     preview: Boolean = false,
+    nativeGlassEnabled: Boolean? = null,
 ) {
+    val useNativeGlassSearch = isNativeLiquidGlassControlsAvailable() &&
+        (nativeGlassEnabled ?: isLiquidGlassSurfaceEffectivelyEnabled(
+            LiquidGlassSurface.STREAM_SELECTION,
+            preview = preview,
+            platformSupported = true,
+        ))
+    if (useNativeGlassSearch) {
+        NuvioNativeLiquidGlassSearchField(
+            value = query,
+            placeholder = stringResource(Res.string.streams_search_placeholder),
+            accessibilityLabel = stringResource(Res.string.streams_search_placeholder),
+            onValueChange = onQueryChange,
+            modifier = modifier.fillMaxWidth(),
+        )
+        return
+    }
     val trailingContent: (@Composable () -> Unit)? = if (query.isEmpty()) null else {
         {
             IconButton(onClick = { onQueryChange("") }) {
