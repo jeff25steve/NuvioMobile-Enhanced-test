@@ -276,8 +276,9 @@ internal fun DetailActionButtons(
                 } else {
                     isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS)
                 }
-                val useNativeMoreButton = !isGlassPreview && isNativeLiquidGlassControlsAvailable() && moreGlassEnabled
-                val moreGlassActive = !actionsExpanded && moreGlassEnabled
+                val useNativeMoreButton = !isGlassPreview &&
+                    isNativeLiquidGlassControlsAvailable() &&
+                    moreGlassEnabled
                 if (useNativeMoreButton) {
                     NuvioNativeLiquidGlassButton(
                         systemImage = "ellipsis",
@@ -290,66 +291,71 @@ internal fun DetailActionButtons(
                         modifier = Modifier.size(iconButtonSize),
                     )
                 } else {
-                val moreSurfaceShape = if (moreGlassActive) {
-                    liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
-                } else {
-                    CircleShape
-                }
-                Surface(
-                    modifier = Modifier
-                        .size(iconButtonSize)
-                        .then(
-                            if (moreGlassActive) {
-                                Modifier.liquidGlassForSurface(
-                                    surface = LiquidGlassSurface.DETAILS,
-                                    shape = moreSurfaceShape,
-                                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-                                    fallback = Color.Transparent,
-                                    blurRadius = 14.dp,
-                                    refractionHeight = 8.dp,
-                                    refractionAmount = 12.dp,
-                                    preview = isGlassPreview,
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-                    shape = moreSurfaceShape,
-                    color = if (actionsExpanded) {
-                        MaterialTheme.colorScheme.onBackground
-                    } else if (moreGlassActive) {
-                        Color.Transparent
+                    val moreGlassActive = !actionsExpanded && moreGlassEnabled
+                    val moreSurfaceShape = if (moreGlassActive) {
+                        liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.82f)
-                    },
-                    contentColor = if (actionsExpanded) {
-                        MaterialTheme.colorScheme.background
-                    } else {
-                        liquidGlassIconTint(LiquidGlassSurface.DETAILS, MaterialTheme.colorScheme.onSurface, preview = isGlassPreview)
-                    },
-                ) {
-                    Box(
+                        CircleShape
+                    }
+                    Surface(
                         modifier = Modifier
                             .size(iconButtonSize)
-                            .clickable(role = Role.Button) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                actionsExpanded = !actionsExpanded
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreHoriz,
-                            contentDescription = actionsMenuLabel,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer {
-                                    rotationZ = 90f * menuProgress
+                            .then(
+                                if (moreGlassActive) {
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.DETAILS,
+                                        shape = moreSurfaceShape,
+                                        tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                                        fallback = Color.Transparent,
+                                        blurRadius = 14.dp,
+                                        refractionHeight = 8.dp,
+                                        refractionAmount = 12.dp,
+                                        preview = isGlassPreview,
+                                    )
+                                } else {
+                                    Modifier
                                 },
-                        )
+                            ),
+                        shape = moreSurfaceShape,
+                        color = if (actionsExpanded) {
+                            MaterialTheme.colorScheme.onBackground
+                        } else if (moreGlassActive) {
+                            Color.Transparent
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.82f)
+                        },
+                        contentColor = if (actionsExpanded) {
+                            MaterialTheme.colorScheme.background
+                        } else {
+                            liquidGlassIconTint(
+                                LiquidGlassSurface.DETAILS,
+                                MaterialTheme.colorScheme.onSurface,
+                                preview = isGlassPreview,
+                            )
+                        },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(iconButtonSize)
+                                .clickable(role = Role.Button) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    actionsExpanded = !actionsExpanded
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreHoriz,
+                                contentDescription = actionsMenuLabel,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        rotationZ = 90f * menuProgress
+                                    },
+                            )
+                        }
                     }
                 }
-
-                }            }
+            }
         }
     }
 
@@ -369,68 +375,73 @@ internal fun DetailActionButtons(
                     modifier = Modifier.fillMaxWidth().height(buttonHeight),
                 )
             } else {
-            val downloadGlassActive = if (isGlassPreview) {
-                previewPrimaryGlass
-            } else {
-                isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
-            }
-            val downloadSurfaceShape = if (downloadGlassActive) {
-                liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape, preview = isGlassPreview)
-            } else {
-                playShape
-            }
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(buttonHeight)
-                    .then(
-                        if (downloadGlassActive) {
-                            Modifier.liquidGlassForSurface(
-                                surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
-                                shape = downloadSurfaceShape,
-                                tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-                                fallback = Color.Transparent,
-                                blurRadius = 14.dp,
-                                refractionHeight = 6.dp,
-                                refractionAmount = 9.dp,
-                                preview = isGlassPreview,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ),
-                shape = downloadSurfaceShape,
-                color = if (downloadGlassActive) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, MaterialTheme.colorScheme.onSurface, preview = isGlassPreview),
-            ) {
-                LiquidGlassTextContrastScope(enabled = downloadGlassActive) {
-                Row(
+                val downloadGlassActive = if (isGlassPreview) {
+                    previewPrimaryGlass
+                } else {
+                    isLiquidGlassSupported() &&
+                        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_PRIMARY_ACTION)
+                }
+                val downloadSurfaceShape = if (downloadGlassActive) {
+                    liquidGlassShape(LiquidGlassSurface.DETAIL_PRIMARY_ACTION, playShape, preview = isGlassPreview)
+                } else {
+                    playShape
+                }
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(role = Role.Button, onClick = onDownloadClick)
-                        .height(buttonHeight),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                        .height(buttonHeight)
+                        .then(
+                            if (downloadGlassActive) {
+                                Modifier.liquidGlassForSurface(
+                                    surface = LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                                    shape = downloadSurfaceShape,
+                                    tint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                                    fallback = Color.Transparent,
+                                    blurRadius = 14.dp,
+                                    refractionHeight = 6.dp,
+                                    refractionAmount = 9.dp,
+                                    preview = isGlassPreview,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    shape = downloadSurfaceShape,
+                    color = if (downloadGlassActive) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = liquidGlassIconTint(
+                        LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                        MaterialTheme.colorScheme.onSurface,
+                        preview = isGlassPreview,
+                    ),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (isTablet) 20.dp else 18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(Res.string.details_download_action),
-                        style = if (isTablet) {
-                            MaterialTheme.typography.titleMedium
-                        } else {
-                            MaterialTheme.typography.titleSmall
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    LiquidGlassTextContrastScope(enabled = downloadGlassActive) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(role = Role.Button, onClick = onDownloadClick)
+                                .height(buttonHeight),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(if (isTablet) 20.dp else 18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(Res.string.details_download_action),
+                                style = if (isTablet) {
+                                    MaterialTheme.typography.titleMedium
+                                } else {
+                                    MaterialTheme.typography.titleSmall
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
-                }
-            }
             }
         }
         onRateClick?.let { rate ->

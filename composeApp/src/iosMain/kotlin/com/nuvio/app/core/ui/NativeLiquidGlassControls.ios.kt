@@ -255,6 +255,7 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
     private var focusListener: (Boolean) -> Unit = {}
     private var lastFocusRequestCount = 0
     private var wasComposeFocused = false
+    private var wasComposeFocused = false
     init {
         searchBarStyle = UISearchBarStyleMinimal
         setShowsCancelButton(false, animated = false)
