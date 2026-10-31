@@ -189,13 +189,19 @@ private class LiquidGlassNativeSegmentedControl(
 private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
     private var clickListener: () -> Unit = {}
     private var longClickListener: (() -> Unit)? = null
+    private var lastTitle: String? = null
+    private var lastSystemImage: String? = null
+    private var lastSelected: Boolean? = null
+    private var lastEnabled: Boolean? = null
+    private var lastAccessibilityLabel: String? = null
     private val longPressRecognizer = UILongPressGestureRecognizer(
         target = this,
         action = NSSelectorFromString("handleLongPress:"),
     )
     init {
         addTarget(this, NSSelectorFromString("handleTap"), UIControlEventTouchUpInside)
-        longPressRecognizer.cancelsTouchesInView = false
+        // A recognized long press must not also trigger UIControlEventTouchUpInside.
+        longPressRecognizer.cancelsTouchesInView = true
         longPressRecognizer.delaysTouchesBegan = false
         longPressRecognizer.delaysTouchesEnded = false
         longPressRecognizer.minimumPressDuration = 0.48
@@ -213,16 +219,27 @@ private class LiquidGlassNativeButton : UIButton(frame = CGRectZero) {
         clickListener = onClick
         longClickListener = onLongClick
         longPressRecognizer.isEnabled = enabled && onLongClick != null
-        isEnabled = enabled
-        this.accessibilityLabel = accessibilityLabel
-        val config = if (selected) {
-            UIButtonConfiguration.prominentGlassButtonConfiguration()
-        } else {
-            UIButtonConfiguration.glassButtonConfiguration()
+        if (lastEnabled != enabled) {
+            isEnabled = enabled
+            lastEnabled = enabled
         }
-        config.title = title
-        config.image = systemImage?.let { UIImage.systemImageNamed(it) }
-        configuration = config
+        if (lastAccessibilityLabel != accessibilityLabel) {
+            this.accessibilityLabel = accessibilityLabel
+            lastAccessibilityLabel = accessibilityLabel
+        }
+        if (lastTitle != title || lastSystemImage != systemImage || lastSelected != selected) {
+            val config = if (selected) {
+                UIButtonConfiguration.prominentGlassButtonConfiguration()
+            } else {
+                UIButtonConfiguration.glassButtonConfiguration()
+            }
+            config.title = title
+            config.image = systemImage?.let { UIImage.systemImageNamed(it) }
+            configuration = config
+            lastTitle = title
+            lastSystemImage = systemImage
+            lastSelected = selected
+        }
     }
     @ObjCAction
     fun handleTap() { if (isEnabled) clickListener() }
@@ -237,6 +254,7 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
     private var searchListener: () -> Unit = {}
     private var focusListener: (Boolean) -> Unit = {}
     private var lastFocusRequestCount = 0
+    private var wasComposeFocused = false
     init {
         searchBarStyle = UISearchBarStyleMinimal
         setShowsCancelButton(false, animated = false)
@@ -265,9 +283,17 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectZero) {
         if (searchTextField.text != value) searchTextField.text = value
         if (focusRequestCount > lastFocusRequestCount) {
             lastFocusRequestCount = focusRequestCount
+            wasComposeFocused = true
             searchTextField.becomeFirstResponder()
-        } else if (!shouldBeFocused && searchTextField.isFirstResponder) {
-            searchTextField.resignFirstResponder()
+        } else if (shouldBeFocused) {
+            // Do not resign during the brief interval between UIKit beginning editing and the
+            // Compose focus callback reaching the next recomposition.
+            wasComposeFocused = true
+        } else if (wasComposeFocused) {
+            wasComposeFocused = false
+            if (searchTextField.isFirstResponder) {
+                searchTextField.resignFirstResponder()
+            }
         }
     }
     @ObjCAction

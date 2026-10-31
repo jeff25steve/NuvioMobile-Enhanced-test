@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.nuvio.app.core.ui.NuvioBackButton
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -414,6 +416,11 @@ internal fun CatalogHeader(
     val posterBackdrop = LocalLiquidGlassBackdrop.current
     val titleGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(titleSurface)
     val backGlassConfigured = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(backSurface)
+    val nativeBackGlassEnabled = !previewMode &&
+        onPreviewSurfaceSelected == null &&
+        selectedPreviewSurface == null &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(backSurface, platformSupported = true)
     val titleGlassEnabled = titleGlassConfigured &&
         categoryHeaderPreviewUsesGlass(titleSurface, previewMode, selectedPreviewSurface)
     val backGlassEnabled = backGlassConfigured &&
@@ -477,23 +484,32 @@ internal fun CatalogHeader(
                 .clip(backShape)
                 .then(backSelectionBorder),
         ) {
-            CompositionLocalProvider(
-                LocalUseNativeNavigation provides (if (previewMode) false else LocalUseNativeNavigation.current),
-            ) {
-                NuvioBackButton(
-                    onClick = {
-                        if (previewMode && onPreviewSurfaceSelected != null) {
-                            onPreviewSurfaceSelected(backSurface)
-                        } else {
-                            onBack()
-                        }
-                    },
+            if (nativeBackGlassEnabled) {
+                NuvioNativeLiquidGlassButton(
+                    systemImage = "chevron.left",
+                    accessibilityLabel = stringResource(Res.string.action_back),
+                    onClick = onBack,
                     modifier = Modifier.fillMaxSize(),
-                    shape = backShape,
-                    containerColor = if (backGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
-                    contentColor = liquidGlassIconTint(backSurface, MaterialTheme.colorScheme.onSurface),
-                    iconSize = 24.dp,
                 )
+            } else {
+                CompositionLocalProvider(
+                    LocalUseNativeNavigation provides (if (previewMode) false else LocalUseNativeNavigation.current),
+                ) {
+                    NuvioBackButton(
+                        onClick = {
+                            if (previewMode && onPreviewSurfaceSelected != null) {
+                                onPreviewSurfaceSelected(backSurface)
+                            } else {
+                                onBack()
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        shape = backShape,
+                        containerColor = if (backGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surface,
+                        contentColor = liquidGlassIconTint(backSurface, MaterialTheme.colorScheme.onSurface),
+                        iconSize = 24.dp,
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.NuvioBackButton
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.platformPhysicalTopInset
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.isIos
@@ -95,6 +97,12 @@ fun DetailFloatingHeader(
         preview = previewGlass,
         platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
+    val nativeHeaderGlassEnabled = !previewGlass &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            LiquidGlassSurface.DETAIL_HEADER,
+            platformSupported = true,
+        )
     var logoLoadError by remember(meta.id, meta.logo) {
         mutableStateOf(false)
     }
@@ -138,14 +146,23 @@ fun DetailFloatingHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (interactive && !useNativeNavigation) {
-                    NuvioBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(40.dp),
-                        containerColor = Color.Transparent,
-                        contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
-                        buttonSize = 40.dp,
-                        iconSize = 24.dp,
-                    )
+                    if (nativeHeaderGlassEnabled) {
+                        NuvioNativeLiquidGlassButton(
+                            systemImage = "chevron.left",
+                            accessibilityLabel = stringResource(Res.string.action_back),
+                            onClick = onBack,
+                            modifier = Modifier.size(40.dp),
+                        )
+                    } else {
+                        NuvioBackButton(
+                            onClick = onBack,
+                            modifier = Modifier.size(40.dp),
+                            containerColor = Color.Transparent,
+                            contentColor = liquidGlassIconTint(LiquidGlassSurface.DETAIL_HEADER, MaterialTheme.colorScheme.onBackground, preview = previewGlass),
+                            buttonSize = 40.dp,
+                            iconSize = 24.dp,
+                        )
+                    }
                 } else {
                     Box(modifier = Modifier.size(40.dp))
                 }
@@ -183,6 +200,7 @@ fun DetailFloatingHeader(
                     isSaved = isSaved,
                     enabled = interactive,
                     previewGlass = previewGlass,
+                    nativeGlassEnabled = nativeHeaderGlassEnabled,
                     onClick = onToggleSaved,
                 )
             }
@@ -206,19 +224,30 @@ private fun DetailFloatingHeaderAction(
     isSaved: Boolean,
     enabled: Boolean,
     previewGlass: Boolean,
+    nativeGlassEnabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val contentDescription = if (isSaved) {
+        stringResource(Res.string.hero_remove_from_library)
+    } else {
+        stringResource(Res.string.hero_add_to_library)
+    }
+    if (nativeGlassEnabled) {
+        NuvioNativeLiquidGlassButton(
+            systemImage = if (isSaved) "books.vertical.fill" else "plus",
+            accessibilityLabel = contentDescription,
+            enabled = enabled,
+            onClick = onClick,
+            modifier = Modifier.size(40.dp),
+        )
+        return
+    }
     Box(
         modifier = Modifier
             .size(40.dp)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        val contentDescription = if (isSaved) {
-            stringResource(Res.string.hero_remove_from_library)
-        } else {
-            stringResource(Res.string.hero_add_to_library)
-        }
         if (isSaved) {
             Icon(
                 painter = painterResource(Res.drawable.sidebar_library),
