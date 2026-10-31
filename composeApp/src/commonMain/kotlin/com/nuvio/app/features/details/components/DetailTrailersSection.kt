@@ -42,8 +42,10 @@ import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.Menu
 import com.nuvio.app.core.ui.MenuItem
 import com.nuvio.app.core.ui.NativeLiquidGlassMenuOption
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
 import com.nuvio.app.core.ui.NuvioNativeLiquidGlassOptionMenu
 import com.nuvio.app.core.ui.isNativeLiquidGlassOptionMenuAvailable
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
@@ -128,6 +130,11 @@ fun DetailTrailersSection(
                 Box {
                     val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
                     val selectorGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
+                    val selectorNativeGlassEnabled = onPreviewSurfaceSelected == null &&
+                        selectedPreviewSurface == null &&
+                        !previewMenuInitiallyExpanded &&
+                        isNativeLiquidGlassControlsAvailable() &&
+                        isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface, platformSupported = true)
                     val selectorShape = liquidGlassShape(
                         surface = selectorSurface,
                         defaultShape = RoundedCornerShape(sizing.selectorRadius),
@@ -154,46 +161,56 @@ fun DetailTrailersSection(
                         Modifier
                     }
 
-                    Surface(
-                        shape = selectorShape,
-                        color = if (selectorGlassEnabled) Color.Transparent else selectorFallback,
-                        tonalElevation = 0.dp,
-                        modifier = selectorModifier
-                            .clip(selectorShape)
-                            .then(selectorBorder)
-                            .clickable {
-                                onPreviewSurfaceSelected?.invoke(selectorSurface)
-                                menuExpanded = true
-                            },
-                    ) {
-                        LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
-                        Row(
-                            modifier = Modifier.padding(
-                                horizontal = sizing.selectorHorizontalPadding,
-                                vertical = sizing.selectorVerticalPadding,
-                            ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    if (selectorNativeGlassEnabled) {
+                        NuvioNativeLiquidGlassButton(
+                            title = selectedCategory,
+                            systemImage = "chevron.down",
+                            accessibilityLabel = selectedCategory,
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.height(36.dp),
+                        )
+                    } else {
+                        Surface(
+                            shape = selectorShape,
+                            color = if (selectorGlassEnabled) Color.Transparent else selectorFallback,
+                            tonalElevation = 0.dp,
+                            modifier = selectorModifier
+                                .clip(selectorShape)
+                                .then(selectorBorder)
+                                .clickable {
+                                    onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                    menuExpanded = true
+                                },
                         ) {
-                            Text(
-                                text = selectedCategory,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Icon(
-                                imageVector = Icons.Filled.ExpandMore,
-                                contentDescription = null,
-                                tint = liquidGlassIconTint(
-                                    surface = selectorSurface,
-                                    default = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
-                                modifier = Modifier.size(sizing.selectorIconSize),
-                            )
-                        }
+                            LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
+                                Row(
+                                    modifier = Modifier.padding(
+                                        horizontal = sizing.selectorHorizontalPadding,
+                                        vertical = sizing.selectorVerticalPadding,
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        text = selectedCategory,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.ExpandMore,
+                                        contentDescription = null,
+                                        tint = liquidGlassIconTint(
+                                            surface = selectorSurface,
+                                            default = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                        modifier = Modifier.size(sizing.selectorIconSize),
+                                    )
+                                }
+                            }
                         }
                     }
 
