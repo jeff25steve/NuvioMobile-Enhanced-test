@@ -1882,14 +1882,16 @@ private fun LiquidGlassSurfaceEditorControls(
             }
             NuvioBottomSheetDivider()
         }
-        if (!nativeControlsAvailable) onLinkGlassEffectsChanged?.let { onLinkChanged ->
-            LiquidGlassEditorSwitchRow(
-                title = stringResource(Res.string.settings_liquid_glass_link_effects),
-                description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
-                checked = linkGlassEffects,
-                isTablet = isTablet,
-                onCheckedChange = onLinkChanged,
-            )
+        if (!nativeControlsAvailable) {
+            onLinkGlassEffectsChanged?.let { onLinkChanged ->
+                LiquidGlassEditorSwitchRow(
+                    title = stringResource(Res.string.settings_liquid_glass_link_effects),
+                    description = stringResource(Res.string.settings_liquid_glass_link_effects_description),
+                    checked = linkGlassEffects,
+                    isTablet = isTablet,
+                    onCheckedChange = onLinkChanged,
+                )
+            }
         }
         LiquidGlassEditorSwitchRow(
             title = title,
@@ -1915,7 +1917,7 @@ private fun LiquidGlassSurfaceEditorControls(
                 )
             }
         } else {
-        AnimatedVisibility(visible = enabled) {
+            AnimatedVisibility(visible = enabled) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 val effectiveCornerRadiusPercent =
                     overrides.cornerRadiusPercent ?: recipe.cornerRadiusPercent
@@ -2125,12 +2127,14 @@ private fun LiquidGlassSurfaceEditorControls(
             }
         }
         }
-        if (!nativeControlsAvailable) Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
-                Text(stringResource(Res.string.settings_liquid_glass_reset))
+        if (!nativeControlsAvailable) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { onChanged(LiquidGlassSurfaceOverrides()) }) {
+                    Text(stringResource(Res.string.settings_liquid_glass_reset))
+                }
             }
         }
     }
