@@ -48,7 +48,26 @@
 
 Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 
-### Task 2: Player native glass surface registry and UIKit video-layer host
+### Task 2: Prove native Liquid Glass can sample the actual MPV video layer (spike gate)
+
+**Files:**
+- Test-only addition if supported by the existing iOS test target: `iosApp/iosAppTests/PlayerNativeGlassSamplingTests.swift`
+- Inspect only: `iosApp/iosApp/Player/MPVPlayerBridge.swift`, `iosApp/iosApp/Player/MetalLayer.swift`, `composeApp/src/iosMain/kotlin/com/nuvio/app/features/player/PlayerEngine.ios.kt`
+
+**Known facts:**
+- The player view owns a custom `CAMetalLayer` and uses `framebufferOnly = true`.
+- Compose controls are rendered above the `UIKitViewController` interop surface.
+- UIKit's `UIVisualEffectView` is intended to affect content behind it, but the framework documentation does not promise that this exact Metal/Compose composition is sampled as desired.
+
+- [ ] Build a minimal native iOS 26+ proof using the actual MPV player controller and one `UIVisualEffectView(effect: UIGlassEffect())` added above the video layer, without touching production controls.
+- [ ] Run on an iOS 26+ simulator and, when possible, a physical device with moving video. Confirm the glass shows the live video rather than black, clear, or a frozen surface.
+- [ ] Confirm the Compose controls above the effect remain sharp, hittable, accessible and correctly layered.
+- [ ] Check resize/orientation and controller teardown; ensure the effect view is removed with the player view.
+- [ ] Record result and screenshot/video evidence. If sampling or z-order fails, stop this route and revise the player design; do not add a production registry or copy video frames to CPU memory.
+
+**Gate:** No production player overlay or control changes until this spike is verified on iOS 26+.
+
+### Task 3: Player native glass surface registry and UIKit video-layer host (only after Task 2 passes)
 
 **Files:**
 - Create: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerNativeGlassRegistry.kt`
@@ -69,14 +88,13 @@ Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 - [ ] Run the new common tests and confirm the expected failures before implementation.
 - [ ] Implement the registry and composition local; create it per PlayerScreen composition.
 - [ ] Register each existing `playerLiquidGlass` modifier's measured bounds and effective settings; remove registrations on disposal.
-- [ ] In `PlayerEngine.ios.kt`, update native `UIVisualEffectView` children attached to the existing MPV player controller view. Use the existing video view as the source behind the material and keep Compose controls above it.
-- [ ] Reuse effect views by key; remove stale views; never create iOS 26-only UIKit objects before the OS availability check.
+- [ ] In `PlayerEngine.ios.kt`, update/reuse native `UIVisualEffectView` children only on iOS 26+, attached to the verified MPV player controller view.
 - [ ] Ensure native material views do not intercept touches or enter the accessibility tree; Compose remains the foreground semantic/control layer.
-- [ ] Verify whether the MPV Metal layer is sampled correctly and Compose foreground remains sharp. If view ordering fails in simulator, stop this implementation and switch to a bounded host that contains both material and foreground; do not ship a guessed overlay.
 - [ ] Test source change, controls hide/show, rotation, resize, background/foreground, and PiP cleanup.
 - [ ] Run common tests, Android regression tests, iOS simulator compile/build and iOS UI verification when an Xcode runner is available.
 
-### Task 3: Native player speed menu
+
+### Task 4: Native player speed menu
 
 **Files:**
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerSpeedPopup.kt`
@@ -95,7 +113,7 @@ Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 - [ ] Preserve keyboard, pointer, VoiceOver, focus and dismissal behavior.
 - [ ] Run tests and iOS/Android builds when available.
 
-### Task 4: Detail functional surfaces
+### Task 5: Detail functional surfaces
 
 **Files to inspect and migrate in separate commits:**
 - `composeApp/src/commonMain/kotlin/com/nuvio/app/features/details/components/DetailActionButtons.kt`
@@ -113,7 +131,7 @@ Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 - [ ] Migrate one component/group at a time; do not bulk-replace Compose controls with inert native decorations.
 - [ ] Verify VoiceOver and Dynamic Type for each native group.
 
-### Task 5: Stream picker, search and library controls
+### Task 6: Stream picker, search and library controls
 
 **Files to inspect and migrate in separate commits:**
 - `composeApp/src/commonMain/kotlin/com/nuvio/app/features/streams/ProviderFilterRow.kt`
@@ -130,7 +148,7 @@ Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 - [ ] Migrate one bounded group at a time using native UIKit/SwiftUI material and foreground controls.
 - [ ] Verify scroll, keyboard, focus, VoiceOver and screen-size behavior.
 
-### Task 6: Platform-aware Liquid Glass settings editor
+### Task 7: Platform-aware Liquid Glass settings editor
 
 **Files:**
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/settings/LiquidGlassSurfacesSettingsSheet.kt`
@@ -147,7 +165,7 @@ Commit: `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1`.
 - [ ] Never clear or migrate stored Android-specific values when editing settings on iOS.
 - [ ] Keep translations within the existing resource system and avoid duplicate platform settings.
 
-### Task 7: Final cross-platform regression gate
+### Task 8: Final cross-platform regression gate
 
 - [ ] Run the relevant common test suite.
 - [ ] Run Android host tests and build; confirm Android renderer output is unchanged.
