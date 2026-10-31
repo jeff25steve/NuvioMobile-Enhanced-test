@@ -52,6 +52,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.rounded.Download
 import com.nuvio.app.core.ui.AppIconResource
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.accentBrush
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
@@ -89,6 +91,7 @@ data class DetailSecondaryAction(
     val label: String,
     val icon: ImageVector,
     val drawable: DrawableResource? = null,
+    val nativeSystemImage: String? = null,
     val isActive: Boolean = false,
     val onClick: () -> Unit = {},
     val onLongClick: (() -> Unit)? = null,
@@ -205,6 +208,7 @@ internal fun DetailActionButtons(
                 DetailIconAction(
                     label = pinnedAction.label,
                     icon = pinnedAction.icon,
+                    nativeSystemImage = pinnedAction.nativeSystemImage,
                     active = pinnedAction.isActive,
                     progress = 1f,
                     size = iconButtonSize,
@@ -234,6 +238,7 @@ internal fun DetailActionButtons(
                                 label = action.label,
                                 icon = action.icon,
                                 drawable = action.drawable,
+                                nativeSystemImage = action.nativeSystemImage,
                                 active = action.isActive,
                                 progress = menuProgress,
                                 size = iconButtonSize,
@@ -263,10 +268,28 @@ internal fun DetailActionButtons(
             if (hasSecondaryActions) {
                 val moreGlassEnabled = if (isGlassPreview) {
                     previewDetailsGlass
+                } else if (isNativeLiquidGlassControlsAvailable()) {
+                    isLiquidGlassSurfaceEffectivelyEnabled(
+                        LiquidGlassSurface.DETAILS,
+                        platformSupported = true,
+                    )
                 } else {
                     isLiquidGlassSupported() && isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAILS)
                 }
+                val useNativeMoreButton = !isGlassPreview && isNativeLiquidGlassControlsAvailable() && moreGlassEnabled
                 val moreGlassActive = !actionsExpanded && moreGlassEnabled
+                if (useNativeMoreButton) {
+                    NuvioNativeLiquidGlassButton(
+                        systemImage = "ellipsis",
+                        accessibilityLabel = actionsMenuLabel,
+                        selected = actionsExpanded,
+                        onClick = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            actionsExpanded = !actionsExpanded
+                        },
+                        modifier = Modifier.size(iconButtonSize),
+                    )
+                } else {
                 val moreSurfaceShape = if (moreGlassActive) {
                     liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
                 } else {
@@ -325,11 +348,27 @@ internal fun DetailActionButtons(
                         )
                     }
                 }
-            }
+
+                }            }
         }
     }
 
         if (onDownloadClick != null) {
+            val useNativeDownloadButton = !isGlassPreview &&
+                isNativeLiquidGlassControlsAvailable() &&
+                isLiquidGlassSurfaceEffectivelyEnabled(
+                    LiquidGlassSurface.DETAIL_PRIMARY_ACTION,
+                    platformSupported = true,
+                )
+            if (useNativeDownloadButton) {
+                NuvioNativeLiquidGlassButton(
+                    title = stringResource(Res.string.details_download_action),
+                    systemImage = "arrow.down.to.line",
+                    accessibilityLabel = stringResource(Res.string.details_download_action),
+                    onClick = onDownloadClick,
+                    modifier = Modifier.fillMaxWidth().height(buttonHeight),
+                )
+            } else {
             val downloadGlassActive = if (isGlassPreview) {
                 previewPrimaryGlass
             } else {
@@ -391,6 +430,7 @@ internal fun DetailActionButtons(
                     )
                 }
                 }
+            }
             }
         }
         onRateClick?.let { rate ->
@@ -491,6 +531,7 @@ private fun detailActionSet(
         DetailSecondaryAction(
             label = stringResource(if (shuffleEnabled) Res.string.shuffle_stop else Res.string.random_episode_title),
             icon = Icons.Default.Shuffle,
+            nativeSystemImage = "shuffle",
             isActive = shuffleEnabled,
             onClick = onClick,
         )
@@ -498,6 +539,7 @@ private fun detailActionSet(
     val watchedAction = DetailSecondaryAction(
         label = stringResource(if (isWatched) Res.string.hero_mark_unwatched else Res.string.hero_mark_watched),
         icon = if (isWatched) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+        nativeSystemImage = if (isWatched) "eye" else "eye.slash",
         isActive = isWatched,
         onClick = onWatchedClick,
     )
@@ -505,6 +547,7 @@ private fun detailActionSet(
         label = stringResource(if (isSaved) Res.string.hero_remove_from_library else Res.string.hero_add_to_library),
         icon = Icons.Default.Add,
         drawable = Res.drawable.sidebar_library.takeIf { isSaved },
+        nativeSystemImage = "plus",
         isActive = isSaved,
         onClick = onSaveClick,
         onLongClick = onSaveLongClick,
@@ -514,10 +557,10 @@ private fun detailActionSet(
     val externalLabel = stringResource(Res.string.streams_open_external_player)
     val iconActions = buildList {
         onDownloadClick?.let { download ->
-            add(DetailSecondaryAction(label = downloadLabel, icon = Icons.Rounded.Download, onClick = download))
+            add(DetailSecondaryAction(label = downloadLabel, icon = Icons.Rounded.Download, nativeSystemImage = "arrow.down.to.line", onClick = download))
         }
         onPlayFromStartClick?.let { playFromStart ->
-            add(DetailSecondaryAction(label = playFromStartLabel, icon = Icons.Rounded.Replay, onClick = playFromStart))
+            add(DetailSecondaryAction(label = playFromStartLabel, icon = Icons.Rounded.Replay, nativeSystemImage = "backward.end", onClick = playFromStart))
         }
         shuffleAction?.let(::add)
         onPlayExternallyClick?.let { playExternally ->
@@ -525,6 +568,7 @@ private fun detailActionSet(
                 DetailSecondaryAction(
                     label = externalLabel,
                     icon = Icons.AutoMirrored.Rounded.OpenInNew,
+                    nativeSystemImage = "arrow.up.right.square",
                     onClick = playExternally,
                 ),
             )
@@ -687,6 +731,7 @@ private fun DetailIconActionRow(
                     label = action.label,
                     icon = action.icon,
                     drawable = action.drawable,
+                    nativeSystemImage = action.nativeSystemImage,
                     active = action.isActive,
                     progress = 1f,
                     size = layout.size,
@@ -711,10 +756,38 @@ internal fun DetailIconAction(
     modifier: Modifier = Modifier,
     size: Dp,
     drawable: DrawableResource? = null,
+    nativeSystemImage: String? = null,
     onLongClick: (() -> Unit)? = null,
     previewGlass: Boolean = false,
     previewMode: Boolean = false,
 ) {
+    val nativeGlassActive = !previewMode &&
+        !active &&
+        drawable == null &&
+        nativeSystemImage != null &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            LiquidGlassSurface.DETAILS,
+            platformSupported = true,
+        )
+    if (nativeGlassActive) {
+        NuvioNativeLiquidGlassButton(
+            systemImage = nativeSystemImage,
+            accessibilityLabel = label,
+            enabled = true,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = modifier
+                .size(size)
+                .graphicsLayer {
+                    alpha = progress
+                    scaleX = 0.86f + (0.14f * progress)
+                    scaleY = 0.86f + (0.14f * progress)
+                },
+        )
+        return
+    }
+
     val glassActive = !active && (
         if (previewMode) {
             previewGlass
