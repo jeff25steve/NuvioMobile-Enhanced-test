@@ -1,8 +1,10 @@
 package com.nuvio.app.core.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.interop.UIKitView
+import androidx.compose.ui.viewinterop.UIKitView
 import androidx.compose.ui.unit.dp
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
@@ -21,6 +23,7 @@ internal actual fun isNativeLiquidGlassControlsAvailable(): Boolean {
     return shouldUseNativeLiquidGlassControls(majorVersion)
 }
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 internal actual fun NuvioNativeLiquidGlassSwitch(
     checked: Boolean,
@@ -43,6 +46,7 @@ internal actual fun NuvioNativeLiquidGlassSwitch(
     )
 }
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 internal actual fun NuvioNativeLiquidGlassSegmentedControl(
     items: List<String>,
