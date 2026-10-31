@@ -1,9 +1,9 @@
 name: PR Full Debug Build
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [enhanced]
+  push:
+    branches:
+      - "ci/verify-liquid-glass-only-linux-20261031"
   workflow_dispatch:
 
 permissions:
@@ -41,6 +41,9 @@ jobs:
           else
             touch local.properties
           fi
+
+      - name: Run Liquid Glass host tests
+        run: ./gradlew :composeApp:testAndroidHostTest --tests 'com.nuvio.app.core.ui.glass.*' --stacktrace
 
       - name: Set up Rust
         run: |
