@@ -102,6 +102,7 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
             LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
             LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+            LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
         )
         LiquidGlassSurface.entries.forEach { surface ->
             assertEquals(surface in tintableSurfaces, surface.supportsIconTint, surface.name)
@@ -378,7 +379,7 @@ class LiquidGlassSurfaceSettingsTest {
         )
 
         assertEquals(12f, libraryRecipe.blurRadiusDp)
-        assertEquals(0.30f, libraryRecipe.tintOpacity)
+        assertEquals(0.22f, libraryRecipe.tintOpacity)
         assertEquals(24f, cloudCardsRecipe.blurRadiusDp)
         assertEquals(0.70f, cloudCardsRecipe.tintOpacity)
     }
@@ -776,6 +777,7 @@ class LiquidGlassSurfaceSettingsTest {
                 LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
                 LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
                 LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                LiquidGlassSurface.LIBRARY_CALENDAR,
             ),
             LiquidGlassSurfaceGroup.LIBRARY.surfaces,
         )
