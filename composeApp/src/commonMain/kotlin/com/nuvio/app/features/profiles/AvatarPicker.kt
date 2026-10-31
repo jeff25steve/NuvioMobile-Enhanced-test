@@ -19,6 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioAsyncImage
 
@@ -76,14 +80,18 @@ private fun AvatarChoiceItem(
                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                 shape = CircleShape,
             )
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = avatar.displayName
+                role = Role.Button
+            },
         contentAlignment = Alignment.Center,
     ) {
         val imageUrl = avatarImageUrl(avatar)
         if (imageUrl != null) {
             NuvioAsyncImage(
                 imageUrl = imageUrl,
-                contentDescription = avatar.displayName,
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize().clip(CircleShape),
                 contentScale = ContentScale.Crop,
                 animateIfPossible = true,
