@@ -80,6 +80,14 @@ fun NuvioDropdownChip(
             isLiquidGlassSurfaceEffectivelyEnabled(surface, preview = false, platformSupported = true)
         } == true,
     )
+    val nativeTriggerEnabled = enabled &&
+        glassSurface != null &&
+        isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = glassSurface,
+            preview = previewGlass,
+            platformSupported = true,
+        )
     val defaultShape = tokens.shapes.compactCard
     val chipShape = glassSurface?.let { surface ->
         liquidGlassShape(surface, defaultShape, preview = previewGlass)
@@ -111,48 +119,58 @@ fun NuvioDropdownChip(
         Modifier
     }
 
-    LiquidGlassTextContrastScope(enabled = glassEnabled) {
-        Row(
+    val openOptions: () -> Unit = {
+        onGlassSurfaceInteracted?.invoke()
+        if (nativeMenuEnabled) {
+            isNativeMenuVisible = true
+        } else {
+            isSheetVisible = true
+        }
+    }
+
+    if (nativeTriggerEnabled) {
+        val nativeWidth = (label.length * 8 + 44).coerceIn(92, 224).dp
+        NuvioNativeLiquidGlassButton(
+            title = label,
+            systemImage = "chevron.down",
+            accessibilityLabel = "$title, $label",
+            enabled = enabled,
+            onClick = openOptions,
             modifier = modifier
                 .then(selectionFrameModifier)
-            .then(containerModifier)
-            .then(
-                if (enabled) {
-                    Modifier.clickable {
-                        onGlassSurfaceInteracted?.invoke()
-                        if (nativeMenuEnabled) {
-                            isNativeMenuVisible = true
-                        } else {
-                            isSheetVisible = true
-                        }
-                    }
-                } else {
-                    Modifier
-                },
-            )
-            .padding(horizontal = NuvioTokens.Space.s12, vertical = tokens.components.chipVerticalPadding),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) tokens.colors.textPrimary else tokens.colors.textDisabled,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+                .size(width = nativeWidth, height = 40.dp),
         )
-        Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
-            contentDescription = null,
-            modifier = Modifier.size(NuvioTokens.Icon.sm + NuvioTokens.Space.s2),
-            tint = if (enabled) {
-                glassSurface?.let { surface -> liquidGlassIconTint(surface, tokens.colors.textMuted) }
-                    ?: tokens.colors.textMuted
-            } else {
-                tokens.colors.borderDefault
-            },
-        )
-    }
+    } else {
+        LiquidGlassTextContrastScope(enabled = glassEnabled) {
+            Row(
+                modifier = modifier
+                    .then(selectionFrameModifier)
+                    .then(containerModifier)
+                    .then(if (enabled) Modifier.clickable(onClick = openOptions) else Modifier)
+                    .padding(horizontal = NuvioTokens.Space.s12, vertical = tokens.components.chipVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (enabled) tokens.colors.textPrimary else tokens.colors.textDisabled,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    modifier = Modifier.size(NuvioTokens.Icon.sm + NuvioTokens.Space.s2),
+                    tint = if (enabled) {
+                        glassSurface?.let { surface -> liquidGlassIconTint(surface, tokens.colors.textMuted) }
+                            ?: tokens.colors.textMuted
+                    } else {
+                        tokens.colors.borderDefault
+                    },
+                )
+            }
+        }
     }
 
     NuvioNativeLiquidGlassOptionMenu(
