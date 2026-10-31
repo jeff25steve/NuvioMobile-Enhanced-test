@@ -804,7 +804,9 @@ fun LibraryScreen(
             val windowSize = LocalWindowInfo.current.containerSize
             val density = LocalDensity.current
             val windowShortSide = with(density) { minOf(windowSize.width, windowSize.height).toDp() }
-            val isLandscape = maxWidth > maxHeight
+            // Preserve the pre-overlay grid breakpoint: the old content viewport began below the toolbar.
+            val contentViewportHeight = (maxHeight - libraryToolbarHeight).coerceAtLeast(0.dp)
+            val isLandscape = maxWidth > contentViewportHeight
             val gridColumns = remember(isLandscape, windowShortSide) {
                 libraryGridColumnCount(
                     isLandscape = isLandscape,
