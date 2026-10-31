@@ -2,41 +2,83 @@
 
 ## Intent
 
-Make Nuvio's designated glass surfaces use genuine Apple Liquid Glass on supported iOS versions while preserving the shared Compose feature model and Android renderer.
+Make Nuvio's designated functional glass surfaces use genuine Apple Liquid Glass on iOS 26 and later. Preserve the shared Compose feature logic and callbacks where practical, the existing Android renderer, per-surface user choices, accessibility, and older-iOS fallback behavior.
 
-## Architecture
+The target is feature parity in intent and platform-native behavior, not pixel-for-pixel parity with Android's custom renderer.
 
-- Android remains on the existing local Kyant Backdrop / RenderEffect renderer.
-- iOS 26 and later use native SwiftUI/UIKit materials for surfaces that are already owned by native iOS containers or controls.
-- iOS versions before 26 retain the existing compatible Compose/native fallback.
-- Compose surfaces are migrated individually only when their full foreground content, hit testing, accessibility and lifecycle can be hosted correctly by UIKit/SwiftUI. A global UIKit overlay is not an acceptable substitute because it can cover or blur Compose foreground content.
+## Current architecture and confirmed implementation
 
-## Existing native iOS implementation
+### Native iOS surfaces already using Apple's design
 
-- NativeNavContentView already uses native SwiftUI TabView and NavigationStack on iOS 26+, allowing the system to render navigation glass.
-- NuvioGlassTabBar / NuvioSegmentedTabBar already use UIVisualEffectView backed by UIGlassEffect.
-- Profile switching already uses a native SwiftUI popover.
-- NativeBottomSheet.ios.kt already presents a native UIModalPresentationPageSheet; its opaque Compose/controller backgrounds currently cover the system sheet material.
+- `NativeNavContentView` uses SwiftUI `TabView` and `NavigationStack` on the iOS 26 native-navigation path. These standard system components receive Liquid Glass automatically.
+- `NuvioGlassTabBar` / `NuvioSegmentedTabBar` use UIKit `UIVisualEffectView` backed by `UIGlassEffect()`.
+- The profile switcher is already presented as a native SwiftUI popover from the tab bar.
+- `NativeBottomSheet.ios.kt` presents a native `UIModalPresentationPageSheet`. Commit `cdbfe0b14076a065589db0705b22d9ebbeb7b8b1` makes the Compose host and presented controller transparent on iOS 26+ only when the effective `BOTTOM_SHEETS` setting is enabled, allowing the system sheet material to show through. Older iOS and disabled settings retain the configured background.
 
-## Phase 1 scope
+### Compose surfaces still lacking native Liquid Glass on iOS
 
-- Let the native page-sheet surface show through on iOS 26+ when the effective BOTTOM_SHEETS glass setting is enabled.
-- Keep the native sheet opaque when the master switch or surface switch is disabled.
-- Keep the existing background on iOS 25 and earlier.
-- Keep the Compose sheet content, theme propagation, detents, dismissal delegate, drag handle and lifecycle behaviour unchanged.
-- Do not change Android code or the shared Kyant renderer.
+- Player: `PlayerLiquidGlass.kt` uses the shared Compose/Backdrop renderer, while `PlayerLiquidGlass.ios.kt` currently returns no video-frame backdrop. Player controls therefore do not receive real native Liquid Glass yet.
+- Player speed selector: `PlayerSpeedPopup.kt` is a Compose popup, not a native iOS menu.
+- Detail actions and selectors: shared Compose components such as `DetailActionButtons.kt`, `DetailTrailersSection.kt`, and related detail headers/navigation controls rely on the shared renderer or Compose surfaces.
+- Stream picker and search controls: shared Compose surfaces such as `ProviderFilterRow.kt` and the search controls remain Compose-rendered.
+- Library controls: the library filter/search/calendar areas are Compose-rendered. Passive cloud content cards are intentionally disabled by default and should stay that way unless a surface is genuinely a functional control.
 
-## Approaches
+The iOS Compose fallback is not Apple's Liquid Glass. Do not describe it as native glass.
 
-1. Enable RenderEffect globally on iOS: rejected. The current Kyant renderer is based on Android RenderEffect / runtime shaders and is not an iOS native Liquid Glass backend.
-2. Put a global UIKit glass overlay over Compose: rejected. The overlay can obscure or blur Compose foreground controls and create touch/accessibility/z-order regressions.
-3. Adopt native glass at existing native boundaries, then migrate individual controls: selected. It uses the same native framework path as Nuvio's current iOS navigation and preserves Compose for shared screen content.
+## Selected architecture
 
-## Constraints and non-goals
+1. Keep native system-owned UI native. Prefer SwiftUI/UIKit navigation bars, tab bars, menus, popovers, and sheets. Their system materials adapt to OS, appearance, accessibility preferences, focus, and overlap.
+2. For player controls over video, investigate a narrowly scoped native UIKit material layer attached to the existing native MPV player view. Compose owns the visible controls and callbacks; UIKit owns only the native glass material beneath those controls. This is viable only if simulator testing proves the effect view samples the video layer and leaves Compose foreground content sharp.
+3. For other Compose surfaces, migrate the complete bounded functional control into a native host where practical. A UIKit overlay containing only a glass background is not sufficient: it covers Compose foreground content. Avoid a generic global overlay or one nested Compose controller per small card.
+4. Prefer standard native system controls such as `UIMenu` for discrete option menus where semantics and behavior match. Keep shared Compose menus when the content or interaction cannot be represented faithfully by a native menu.
+5. Retain Compose for shared business logic, playback state, and callbacks. Native views are presentation adapters; they must not duplicate state or introduce a second persistence layer.
 
-- No new dependencies.
-- Do not move or duplicate settings ownership.
-- Do not change Android appearance or renderer behaviour.
-- Do not apply glass to passive content cards simply to increase coverage; follow Apple's guidance to reserve glass for functional/navigation layers.
-- Native material appearance is controlled by iOS. Existing Android-specific blur/refraction tuning does not have exact one-to-one UIKit equivalents and must not be faked with custom iOS blur recipes.
-- Subsequent surface migrations must be separate, reviewable steps with platform-specific tests and lifecycle/accessibility checks.
+## Material and settings mapping
+
+- iOS 26+: use Apple's `UIGlassEffect` / SwiftUI `.glassEffect()` and system presentation materials, not custom blur, RenderEffect, custom shaders, or a visual imitation.
+- iOS 25 and earlier: preserve the existing non-native fallback.
+- Use the native `regular` and `clear` materials only where the actual component and content justify them. Apple controls the final dynamic rendering; do not translate Android blur/refraction sliders into invented iOS blur values.
+- Preserve existing saved per-surface settings. Do not delete, migrate, or silently rewrite stored values merely because an individual iOS surface cannot expose the same low-level tuning.
+- For iOS controls that cannot meaningfully use Android-specific tuning, make unsupported controls unavailable or clearly platform-scoped rather than implying they affect Apple's material. Keep the enable/disable surface choice functional.
+- Keep passive media/content cards non-glass by default. Glass belongs to the functional/navigation layer.
+
+## Goals
+
+- Designated functional glass surfaces use genuine native materials on supported iOS.
+- Existing iOS navigation, profile switching, and native sheet behavior remain native.
+- Controls remain legible, accessible, tappable, and correctly layered.
+- Per-surface enablement and global enablement are respected.
+- Android rendering, settings, and behavior remain unchanged.
+
+## Non-goals
+
+- Rewriting the entire Nuvio application in SwiftUI.
+- Replacing Compose business logic, navigation state, playback state, or settings ownership wholesale.
+- Enabling a UIKit overlay above the whole Compose canvas.
+- Making passive content cards glass merely to maximize coverage.
+- Faking arbitrary Kyant blur/refraction parameters with UIKit blur or tint stacks.
+
+## Approaches considered
+
+1. **Enable Kyant/RenderEffect for iOS:** rejected. The current renderer is not Apple's Liquid Glass backend and the platform API support differs.
+2. **Put a generic UIKit glass view over Compose:** rejected. Overlay placement covers Compose content in the same region, risks touch/accessibility/z-order regressions, and cannot selectively blur only the background of a Compose component.
+3. **Use native system UI and bounded per-surface native hosts:** selected. It matches Nuvio's existing native navigation/tab-bar implementation, preserves Compose logic, and limits UIKit interop to components that can be proven safe.
+
+## Constraints
+
+- No new dependency unless a specific gap is demonstrated and approved by the existing architecture.
+- No changes to Android rendering.
+- No changes to website/backend-owned configuration.
+- No global UIKit overlays, duplicated app state, or blanket Compose-to-SwiftUI rewrite.
+- iOS 25 and earlier retain a usable fallback.
+- Respect VoiceOver, Dynamic Type, Reduce Transparency, Increased Contrast, dark/light appearance, iPad layout, rotation, multitasking, and player lifecycle.
+- Every migration batch is independently reviewable and tested on iOS. If native layering fails, stop that surface and choose a different hosting boundary rather than shipping a visual imitation.
+
+## Verification requirements
+
+- iOS 26+ simulator: real native glass appears, follows enabled settings, and samples the intended background.
+- iOS 25 simulator: fallback remains legible and functional without referencing unavailable APIs at runtime.
+- Global and per-surface glass disabled: original fallback remains.
+- Light/dark appearance, Reduce Transparency, Increased Contrast, VoiceOver, Dynamic Type, iPad, rotation, sheet presentation/dismissal, and player/PiP transitions are checked where relevant.
+- Compose foreground remains sharp and interactive above any native material.
+- Android tests/build are run as regression checks for shared code changes.
