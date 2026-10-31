@@ -262,10 +262,10 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectMake(0.0, 0
     private var lastFocusRequestCount = 0
     private var wasComposeFocused = false
     init {
-        searchBarStyle = UISearchBarStyle.Minimal
+        searchBarStyle = UISearchBarStyle.minimal
         setShowsCancelButton(false, animated = false)
-        searchTextField.returnKeyType = UIReturnKeyType.Search
-        searchTextField.clearButtonMode = UITextFieldViewMode.Always
+        searchTextField.returnKeyType = UIReturnKeyType.search
+        searchTextField.clearButtonMode = UITextFieldViewMode.always
         searchTextField.addTarget(this, NSSelectorFromString("handleTextChanged"), UIControlEventEditingChanged)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingBegan"), UIControlEventEditingDidBegin)
         searchTextField.addTarget(this, NSSelectorFromString("handleEditingEnded"), UIControlEventEditingDidEnd)
