@@ -132,6 +132,7 @@ import com.nuvio.app.core.ui.DisintegrationRequest
 import com.nuvio.app.core.ui.NuvioDropdownChip
 import com.nuvio.app.core.ui.NuvioDropdownOption
 import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSegmentedControl
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSearchField
 import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
@@ -1174,6 +1175,11 @@ private fun LazyListScope.cloudLibraryContent(
                         CloudLibrarySearchField(
                             query = searchQuery,
                             onQueryChange = onSearchQueryChange,
+                            nativeGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
+                                isLiquidGlassSurfaceEffectivelyEnabled(
+                                    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                    platformSupported = true,
+                                ),
                             transparentContainer = cloudSearchGlassEnabled,
                             shape = searchShape,
                             showOutline = shouldDrawNuvioInputFieldOutline(
@@ -1268,67 +1274,82 @@ internal fun CloudLibrarySearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    nativeGlassEnabled: Boolean = false,
     transparentContainer: Boolean = false,
     shape: Shape = RoundedCornerShape(12.dp),
     showOutline: Boolean = true,
     onGlassSurfaceInteracted: (() -> Unit)? = null,
 ) {
     LiquidGlassTextContrastScope(enabled = transparentContainer) {
-    val tokens = MaterialTheme.nuvio
-    val inputTextStyle = MaterialTheme.typography.bodyLarge
-        .merge(LocalTextStyle.current)
-        .copy(color = if (transparentContainer) tokens.colors.textPrimary else MaterialTheme.colorScheme.onSurface)
-    val colors = when {
-        !transparentContainer -> OutlinedTextFieldDefaults.colors()
-        showOutline -> OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-        )
-        else -> OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Transparent,
-            unfocusedBorderColor = Color.Transparent,
-            disabledBorderColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-        )
-    }
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .onFocusChanged { state -> if (state.isFocused) onGlassSurfaceInteracted?.invoke() },
-        singleLine = true,
-        shape = shape,
-        textStyle = inputTextStyle,
-        placeholder = {
-            Text(
-                text = stringResource(Res.string.cloud_library_search_label),
-                color = if (transparentContainer) tokens.colors.textMuted else MaterialTheme.colorScheme.onSurfaceVariant,
+        if (nativeGlassEnabled) {
+            val placeholder = stringResource(Res.string.cloud_library_search_label)
+            NuvioNativeLiquidGlassSearchField(
+                value = query,
+                placeholder = placeholder,
+                accessibilityLabel = placeholder,
+                onValueChange = onQueryChange,
+                onFocusChanged = { focused ->
+                    if (focused) onGlassSurfaceInteracted?.invoke()
+                },
+                modifier = modifier.fillMaxWidth(),
             )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = null,
-                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, MaterialTheme.colorScheme.onSurfaceVariant),
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+        } else {
+            val tokens = MaterialTheme.nuvio
+            val inputTextStyle = MaterialTheme.typography.bodyLarge
+                .merge(LocalTextStyle.current)
+                .copy(color = if (transparentContainer) tokens.colors.textPrimary else MaterialTheme.colorScheme.onSurface)
+            val colors = when {
+                !transparentContainer -> OutlinedTextFieldDefaults.colors()
+                showOutline -> OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                )
+                else -> OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                )
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { state -> if (state.isFocused) onGlassSurfaceInteracted?.invoke() },
+                singleLine = true,
+                shape = shape,
+                textStyle = inputTextStyle,
+                placeholder = {
+                    Text(
+                        text = stringResource(Res.string.cloud_library_search_label),
+                        color = if (transparentContainer) tokens.colors.textMuted else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                leadingIcon = {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(Res.string.compose_search_clear),
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = null,
                         tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, MaterialTheme.colorScheme.onSurfaceVariant),
                     )
-                }
-            }
-        },
-        colors = colors,
-    )
+                },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { onQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(Res.string.compose_search_clear),
+                                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH, MaterialTheme.colorScheme.onSurfaceVariant),
+                            )
+                        }
+                    }
+                },
+                colors = colors,
+            )
+        }
     }
 }
 
