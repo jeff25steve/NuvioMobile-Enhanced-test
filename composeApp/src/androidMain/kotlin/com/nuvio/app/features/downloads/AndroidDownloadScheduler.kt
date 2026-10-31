@@ -111,7 +111,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
             } else item
         if (transfer.item.status == DownloadStatus.Downloading && Build.VERSION.SDK_INT >= 34 &&
             jobScheduler().getPendingJob(transfer.jobId) == null) {
-            reschedule(item.fileName)
+            pause(item.fileName)
             transfer = store.get(item.fileName) ?: transfer
         }
         return transfer.item
