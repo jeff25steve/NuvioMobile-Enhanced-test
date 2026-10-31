@@ -558,7 +558,7 @@ private fun detailActionSet(
         label = stringResource(if (isSaved) Res.string.hero_remove_from_library else Res.string.hero_add_to_library),
         icon = Icons.Default.Add,
         drawable = Res.drawable.sidebar_library.takeIf { isSaved },
-        nativeSystemImage = "plus",
+        nativeSystemImage = if (isSaved) "books.vertical.fill" else "plus",
         isActive = isSaved,
         onClick = onSaveClick,
         onLongClick = onSaveLongClick,
@@ -773,8 +773,6 @@ internal fun DetailIconAction(
     previewMode: Boolean = false,
 ) {
     val nativeGlassActive = !previewMode &&
-        !active &&
-        drawable == null &&
         nativeSystemImage != null &&
         isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(
@@ -785,6 +783,7 @@ internal fun DetailIconAction(
         NuvioNativeLiquidGlassButton(
             systemImage = nativeSystemImage,
             accessibilityLabel = label,
+            selected = active,
             enabled = true,
             onClick = onClick,
             onLongClick = onLongClick,
