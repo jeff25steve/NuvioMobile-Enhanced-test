@@ -64,13 +64,43 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Configure runtime properties
-        if: env.RELEASE_PROPERTIES_BASE64 != ''
         run: |
-          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
-          sed -i '' -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
-          if [[ -n "${CONTRIBUTIONS_URL}" ]]; then
-            printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
+          set -euo pipefail
+
+          # Gradle declares local.properties as an input to generateRuntimeConfigs.
+          # The optional repository secret may be absent, but the file itself must exist.
+          if [[ -n "\${RELEASE_PROPERTIES_BASE64}" ]]; then
+            printf '%s' "\${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
+          else
+            : > local.properties
           fi
+
+          # Discard machine-specific values and stale backend discovery values while retaining
+          # optional service credentials provided through the repository secret.
+          sed -i '' -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE|NUVIO_SUPABASE_URL|NUVIO_SUPABASE_ANON_KEY|NUVIO_SUPABASE_FALLBACK_URL|CONTRIBUTIONS_URL)[[:space:]]*=/d' local.properties
+
+          discovery_json="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            https://api.nuvio.tv/.well-known/nuvio)"
+
+          nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
+          nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
+
+          test -n "$nuvio_backend_url"
+          test -n "$nuvio_publishable_key"
+
+          {
+            printf 'NUVIO_SUPABASE_URL=%s\n' "$nuvio_backend_url"
+            printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "$nuvio_publishable_key"
+            printf 'NUVIO_SUPABASE_FALLBACK_URL=\n'
+            if [[ -n "\${CONTRIBUTIONS_URL}" ]]; then
+              printf 'CONTRIBUTIONS_URL=%s\n' "\${CONTRIBUTIONS_URL}"
+            fi
+          } >> local.properties
+
+          test -s local.properties
+          grep -Eq '^NUVIO_SUPABASE_URL=.+$' local.properties
+          grep -Eq '^NUVIO_SUPABASE_ANON_KEY=.+$'
 
       - name: Constrain Gradle memory for the hosted runner
         run: |
