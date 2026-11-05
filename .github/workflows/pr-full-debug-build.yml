@@ -1,6 +1,9 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches:
+      - "ci/player-logo-title-apk-linux-20261105"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
@@ -41,6 +44,67 @@ jobs:
           else
             touch local.properties
           fi
+
+      - name: Set up Java 21 for Robolectric SDK 36 tests
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Run shared and Android host tests
+        run: ./gradlew :composeApp:testAndroidHostTest --stacktrace
+
+      - name: Summarize host-test failures
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          report_dir = Path("composeApp/build/test-results/testAndroidHostTest")
+          reports = sorted(report_dir.glob("TEST-*.xml"))
+          if not reports:
+              print(f"No JUnit XML reports found under {report_dir}")
+              raise SystemExit(0)
+
+          total = failed = errors = skipped = 0
+          for report in reports:
+              root = ET.parse(report).getroot()
+              total += int(root.attrib.get("tests", 0))
+              failed += int(root.attrib.get("failures", 0))
+              errors += int(root.attrib.get("errors", 0))
+              skipped += int(root.attrib.get("skipped", 0))
+              for case in root.iter("testcase"):
+                  problem = next((child for child in case if child.tag in ("failure", "error")), None)
+                  if problem is None:
+                      continue
+                  name = f"{case.attrib.get('classname', report.stem)}.{case.attrib.get('name', '<unknown>')}"
+                  print(f"\n===== {problem.tag.upper()}: {name} =====")
+                  print(problem.attrib.get("message", "(no message)"))
+                  detail = (problem.text or "").strip()
+                  if detail:
+                      print(detail[:6000])
+          print(f"\nHOST TEST TOTALS: {total} tests, {failed} failures, {errors} errors, {skipped} skipped")
+          PY
+
+      - name: Upload host-test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-host-test-reports-${{ github.sha }}
+          path: |
+            composeApp/build/test-results/testAndroidHostTest/
+            composeApp/build/reports/tests/testAndroidHostTest/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Restore Java 17 for Android APK build
+        if: always()
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
 
       - name: Set up Rust
         run: |
