@@ -128,7 +128,6 @@ internal fun PlayerControlsShell(
     useLegacyLayout: Boolean = false,
     showRemainingTime: Boolean = false,
     onRuntimeClick: () -> Unit = {},
-    releaseInfo: String? = null,
     badges: List<StreamBadge> = emptyList(),
     hideDetails: Boolean = false,
     onNextEpisodeClick: (() -> Unit)? = null,
@@ -187,6 +186,7 @@ internal fun PlayerControlsShell(
     titleLogo: String? = null,
     showTitleLogo: Boolean = false,
 ) {
+    val titleLogoImageLoaded = remember(titleLogo, showTitleLogo) { mutableStateOf(false) }
     if (foldLayout) {
         FoldControls(
             title = title,
@@ -287,6 +287,7 @@ internal fun PlayerControlsShell(
                     title = title,
                     titleLogo = titleLogo,
                     showTitleLogo = showTitleLogo,
+                    imageLoadedState = titleLogoImageLoaded,
                     streamTitle = streamTitle,
                     providerName = providerName,
                     seasonNumber = seasonNumber,
@@ -432,9 +433,10 @@ internal fun PlayerControlsShell(
                             seasonNumber = seasonNumber,
                             episodeNumber = episodeNumber,
                             episodeTitle = episodeTitle,
-                            releaseInfo = releaseInfo,
                             metrics = metrics,
                             badges = badges,
+                            showTitleArtwork = !showParentalGuide,
+                            imageLoadedState = titleLogoImageLoaded,
                         )
                     }
                     Row(
@@ -519,6 +521,7 @@ private fun PlayerHeader(
     title: String,
     titleLogo: String?,
     showTitleLogo: Boolean,
+    imageLoadedState: androidx.compose.runtime.MutableState<Boolean>,
     streamTitle: String,
     providerName: String,
     seasonNumber: Int?,
@@ -571,6 +574,7 @@ private fun PlayerHeader(
                         title = title,
                         logoUrl = titleLogo,
                         showLogo = showTitleLogo,
+                        imageLoadedState = imageLoadedState,
                         textStyle = typeScale.titleLg.copy(
                             fontSize = metrics.titleSize,
                             lineHeight = metrics.titleSize * 1.16f,
