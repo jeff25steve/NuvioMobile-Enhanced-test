@@ -1,9 +1,7 @@
 name: Player Logo Title Linux Build
 
 on:
-  push:
-    branches:
-      - "ci/player-logo-title-apk-linux-20261105"
+  workflow_dispatch:
 
 permissions:
   contents: read
