@@ -51,6 +51,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Verify player title artwork fallback first
+        run: ./gradlew :composeApp:testAndroidHostTest --tests com.nuvio.app.features.player.PlayerTitleArtworkTest --stacktrace
+
       - name: Run shared and Android host tests
         run: ./gradlew :composeApp:testAndroidHostTest --stacktrace
 
