@@ -72,7 +72,7 @@ jobs:
             touch local.properties
           fi
           if [[ -n "${CONTRIBUTIONS_URL}" ]]; then
-            printf 'CONTRIBUTIONS_URL=%s\\n' "${CONTRIBUTIONS_URL}" >> local.properties
+            printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
           fi
 
       - name: Constrain Gradle memory for the hosted runner
