@@ -87,6 +87,58 @@ class AndroidDownloadTransferTest {
     }
 
     @Test
+    fun chunkedPartialResponseWithWrongRangeLengthIsRolledBack(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes 5-6/11")
+                    .setChunkedBody(" world", 2),
+            )
+            val directory = temporary.newFolder()
+            val partial = File(directory, "video.mkv.part").apply { writeText("hello") }
+
+            assertFailsWith<IOException> {
+                transferAndroidDownload(
+                    downloadItem(server.url("/video").toString()),
+                    FileDownloadSink(partial),
+                    null,
+                    onHeaders = { _, _ -> },
+                    onProgress = { _, _ -> },
+                )
+            }
+
+            assertEquals("hello", partial.readText())
+        }
+    }
+
+    @Test
+    fun contentLengthMustMatchTheInclusiveContentRange(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes 5-6/11")
+                    .setBody(" world"),
+            )
+            val directory = temporary.newFolder()
+            val partial = File(directory, "video.mkv.part").apply { writeText("hello") }
+
+            assertFailsWith<IOException> {
+                transferAndroidDownload(
+                    downloadItem(server.url("/video").toString()),
+                    FileDownloadSink(partial),
+                    null,
+                    onHeaders = { _, _ -> },
+                    onProgress = { _, _ -> },
+                )
+            }
+
+            assertEquals("hello", partial.readText())
+        }
+    }
+
+    @Test
     fun truncatedResponseNeverBecomesCompletedFile(): Unit = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("abcdefghij").setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
