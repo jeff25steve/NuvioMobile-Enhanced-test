@@ -7,6 +7,23 @@ import kotlin.test.assertTrue
 
 class PluginProfileOperationGateTest {
     @Test
+    fun accountCleanupBlocksNewPluginWorkUntilCleanupFinishes() {
+        val gate = PluginProfileOperationGate(initialProfileId = 1)
+        val old = assertNotNull(gate.current(1))
+        gate.beginAccountCleanup()
+
+        var cached = false
+        assertFalse(gate.isCurrent(old))
+        assertFalse(gate.runIfCurrent(old) { cached = true })
+        assertFalse(cached)
+        assertTrue(gate.current(1) == null)
+
+        gate.endAccountCleanup()
+        assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
+    }
+
+
+    @Test
     fun profileChangeInvalidatesPreviousPluginRefresh() {
         val gate = PluginProfileOperationGate(initialProfileId = 1)
         val old = assertNotNull(gate.current(1))
