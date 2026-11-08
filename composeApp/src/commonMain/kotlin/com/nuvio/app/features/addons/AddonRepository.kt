@@ -72,39 +72,37 @@ object AddonRepository {
     fun initialize() {
         val activeProfileId = ProfileRepository.activeProfileId
         val operation = activateProfile(activeProfileId) ?: return
-        val shouldLoad = readIfCurrent(operation) {
-            if (initialized) {
-                false
-            } else {
-                initialized = true
+        var storedUrls: List<String> = emptyList()
+        var existingByUrl: Map<String, ManagedAddon> = emptyMap()
+        var enabledByUrl: Map<String, Boolean> = emptyMap()
+        val loaded = runIfCurrent(operation) {
+            if (!initialized || currentProfileId != operation.profileId) {
                 currentProfileId = operation.profileId
-                true
+                storedUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(operation.profileId))
+                enabledByUrl = loadLocalEnabledStates(operation.profileId)
+                existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
+                _uiState.value = if (storedUrls.isEmpty()) {
+                    AddonsUiState()
+                } else {
+                    AddonsUiState(
+                        addons = storedUrls.map { manifestUrl ->
+                            existingByUrl[manifestUrl].toPendingAddon(
+                                manifestUrl = manifestUrl,
+                                enabled = enabledByUrl[manifestUrl],
+                            )
+                        },
+                    )
+                }
+                initialized = true
+            } else {
+                existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
             }
         }
-        if (shouldLoad != true) return
+        if (!loaded || !isCurrentOperation(operation)) return
 
-        log.d { "initialize() — loading local addons for profile ${operation.profileId}" }
-        val storedUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(operation.profileId))
-        val enabledByUrl = loadLocalEnabledStates(operation.profileId)
         log.d { "initialize() — local addon count: ${storedUrls.size}" }
         InAppLogger.info("Addons/Repository", "initialize profile=${operation.profileId} localAddons=${storedUrls.size}")
-
-        val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
-        val applied = runIfCurrent(operation) {
-            _uiState.value = if (storedUrls.isEmpty()) {
-                AddonsUiState()
-            } else {
-                AddonsUiState(
-                    addons = storedUrls.map { manifestUrl ->
-                        existingByUrl[manifestUrl].toPendingAddon(
-                            manifestUrl = manifestUrl,
-                            enabled = enabledByUrl[manifestUrl],
-                        )
-                    },
-                )
-            }
-        }
-        if (!applied || storedUrls.isEmpty()) return
+        if (storedUrls.isEmpty()) return
 
         storedUrls.forEach { manifestUrl ->
             if (!isCurrentOperation(operation)) return@forEach
