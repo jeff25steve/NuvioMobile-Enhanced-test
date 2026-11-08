@@ -166,7 +166,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
         val scopedKeys = defaults.dictionaryRepresentation().keys
             .mapNotNull { it as? String }
             .filter { key -> key == scheduledIdsKey || key.startsWith("${scheduledIdsKey}_") }
-        scopedKeys.forEach(defaults::removeObjectForKey)
+        scopedKeys.forEach { key -> defaults.removeObjectForKey(key) }
 
         val attachmentPath = NSTemporaryDirectory().trimEnd('/') + "/" + attachmentDirectoryName
         if (NSFileManager.defaultManager.fileExistsAtPath(attachmentPath) &&

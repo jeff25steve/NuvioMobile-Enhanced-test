@@ -240,7 +240,9 @@ internal actual object EpisodeReleaseNotificationPlatform {
     }
 
     actual suspend fun clearAllEpisodeReleaseNotifications() {
-        val context = appContext ?: return
+        val context = checkNotNull(appContext) {
+            "Episode release notification platform is not initialized"
+        }
 
         stateMutex.withLock {
             withContext(Dispatchers.IO) {
@@ -274,12 +276,12 @@ internal actual object EpisodeReleaseNotificationPlatform {
                 cancelLegacyWork(context)
 
                 val editor = prefs.edit()
-                scheduledKeys.forEach(editor::remove)
+                scheduledKeys.forEach { key -> editor.remove(key) }
                 prefs.all.keys
                     .filter { key ->
                         key == legacyScheduledIdsKey || key.startsWith("${legacyScheduledIdsKey}_")
                     }
-                    .forEach(editor::remove)
+                    .forEach { key -> editor.remove(key) }
                 editor
                     .remove(deliveredIdsKey)
                     .remove(legacyScheduledIdsKey)
