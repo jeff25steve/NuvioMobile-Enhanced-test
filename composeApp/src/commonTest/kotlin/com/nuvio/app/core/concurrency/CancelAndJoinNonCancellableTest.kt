@@ -67,5 +67,6 @@ class CancelAndJoinNonCancellableTest {
         waiter.join()
 
         assertTrue(operation.isCompleted)
+        assertTrue(waiter.isCancelled)
     }
 }
