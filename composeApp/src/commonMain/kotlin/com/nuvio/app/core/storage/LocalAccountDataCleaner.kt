@@ -2,6 +2,7 @@ package com.nuvio.app.core.storage
 
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
+import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -35,6 +36,10 @@ import com.nuvio.app.features.profiles.ProfilePinCacheStorage
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.profiles.MAX_PROFILES
 import com.nuvio.app.features.search.SearchRepository
+import com.nuvio.app.features.search.SearchHistoryRepository
+import com.nuvio.app.features.tmdb.TmdbSettingsRepository
+import com.nuvio.app.features.mdblist.MdbListSettingsRepository
+import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.servers.ServerRepository
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.settings.ThemeSettingsStorage
@@ -139,6 +144,11 @@ internal object LocalAccountDataCleaner {
         }
 
         ProfileRepository.clearInMemory()
+        CustomPosterUrlRepository.clearLocalState()
+        SearchHistoryRepository.clearLocalState()
+        TmdbSettingsRepository.onProfileChanged()
+        MdbListSettingsRepository.onProfileChanged()
+        DebridSettingsRepository.onProfileChanged()
         MemberAccessRepository.clearLocalState()
         AddonRepository.clearLocalState()
         ServerRepository.clearLocalState()

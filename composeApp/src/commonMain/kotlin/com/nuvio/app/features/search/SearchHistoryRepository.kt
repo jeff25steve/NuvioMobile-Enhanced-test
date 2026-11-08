@@ -33,6 +33,13 @@ object SearchHistoryRepository {
         loadFromDisk()
     }
 
+    fun clearLocalState() {
+        hasLoaded = false
+        recentSearches = emptyList()
+        _enabled.value = true
+        publish()
+    }
+
     fun setEnabled(enabled: Boolean) {
         ensureLoaded()
         if (_enabled.value == enabled) return
