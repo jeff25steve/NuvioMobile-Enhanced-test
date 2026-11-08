@@ -108,7 +108,11 @@ private class AnimeShaderProgram(
         val tapOffsetLocation: Int,
     )
 
-    private class Target(val texId: Int, val fboId: Int, val size: MpvTextureSize)
+    private class TextureBinding(var texId: Int, var size: MpvTextureSize)
+
+    private class Target(val texId: Int, val fboId: Int, val size: MpvTextureSize) {
+        val binding = TextureBinding(texId = texId, size = size)
+    }
 
     private val quad: FloatBuffer = ByteBuffer
         .allocateDirect(QUAD.size * 4)
@@ -122,6 +126,10 @@ private class AnimeShaderProgram(
     private var plan = MpvShaderPlan(emptyList(), MpvTextureSize(0, 0))
     private val compiled = mutableMapOf<MpvUserShaderPass, CompiledPass>()
     private val targets = mutableListOf<Target?>()
+    private val outputFramebuffer = IntArray(1)
+    private val inputTextureBinding = TextureBinding(texId = 0, size = MpvTextureSize(0, 0))
+    private val textureBindings = mutableMapOf<String, TextureBinding>()
+    private val copyPassBinds = listOf(MAIN)
     private var copyPass: CompiledPass? = null
     private var inputSize = MpvTextureSize(0, 0)
     private var disabled = false
@@ -176,34 +184,53 @@ private class AnimeShaderProgram(
 
     override fun drawFrame(inputTexId: Int, presentationTimeUs: Long) {
         try {
-            val outputFbo = IntArray(1)
-            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outputFbo, 0)
+            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outputFramebuffer, 0)
             GLES20.glDisable(GLES20.GL_BLEND)
-            val textures = mutableMapOf(MAIN to (inputTexId to inputSize))
+
+            // Media3 serializes GL program calls on the context-owning thread. Reuse this
+            // program's bindings rather than creating maps, pairs and lists for every frame.
+            val textures = textureBindings
+            textures.clear()
+            inputTextureBinding.texId = inputTexId
+            inputTextureBinding.size = inputSize
+            textures[MAIN] = inputTextureBinding
+
             var mainWrittenToOutput = false
             plan.passes.forEachIndexed { index, planned ->
                 val target = targets[index]
                 if (target == null) {
-                    GlUtil.focusFramebufferUsingCurrentContext(outputFbo[0], planned.size.width, planned.size.height)
+                    GlUtil.focusFramebufferUsingCurrentContext(
+                        outputFramebuffer[0],
+                        planned.size.width,
+                        planned.size.height,
+                    )
                     mainWrittenToOutput = true
                 } else {
                     GlUtil.focusFramebufferUsingCurrentContext(target.fboId, planned.size.width, planned.size.height)
                 }
-                draw(compiled.getValue(planned.pass), planned.binds.map { textures.getValue(it) })
+                draw(compiled.getValue(planned.pass), planned.binds, textures)
                 if (target != null) {
-                    textures[planned.target] = target.texId to target.size
+                    textures[planned.target] = target.binding
                 }
             }
             if (!mainWrittenToOutput) {
                 val main = textures.getValue(MAIN)
                 val output = plan.outputSize
-                GlUtil.focusFramebufferUsingCurrentContext(outputFbo[0], output.width, output.height)
-                val tapOffset = if (main.second == output) {
-                    0f to 0f
+                GlUtil.focusFramebufferUsingCurrentContext(
+                    outputFramebuffer[0],
+                    output.width,
+                    output.height,
+                )
+                val tapOffsetX: Float
+                val tapOffsetY: Float
+                if (main.size == output) {
+                    tapOffsetX = 0f
+                    tapOffsetY = 0f
                 } else {
-                    0.25f / output.width.toFloat() to 0.25f / output.height.toFloat()
+                    tapOffsetX = 0.25f / output.width.toFloat()
+                    tapOffsetY = 0.25f / output.height.toFloat()
                 }
-                draw(checkNotNull(copyPass), listOf(main), tapOffset)
+                draw(checkNotNull(copyPass), copyPassBinds, textures, tapOffsetX, tapOffsetY)
             }
             GlUtil.checkGlError()
         } catch (error: GlUtil.GlException) {
@@ -235,15 +262,20 @@ private class AnimeShaderProgram(
 
     private fun draw(
         pass: CompiledPass,
-        inputs: List<Pair<Int, MpvTextureSize>>,
-        tapOffset: Pair<Float, Float> = 0f to 0f,
+        bindNames: List<String>,
+        textures: Map<String, TextureBinding>,
+        tapOffsetX: Float = 0f,
+        tapOffsetY: Float = 0f,
     ) {
         GLES20.glUseProgram(pass.program)
         if (pass.tapOffsetLocation >= 0) {
-            GLES20.glUniform2f(pass.tapOffsetLocation, tapOffset.first, tapOffset.second)
+            GLES20.glUniform2f(pass.tapOffsetLocation, tapOffsetX, tapOffsetY)
         }
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-        inputs.forEachIndexed { unit, (texId, size) ->
+        for (unit in bindNames.indices) {
+            val binding = textures.getValue(bindNames[unit])
+            val texId = binding.texId
+            val size = binding.size
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + unit)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
             GLES20.glUniform1i(pass.samplerLocations[unit], unit)
