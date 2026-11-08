@@ -722,16 +722,18 @@ actual object PluginRepository {
         profileId: Int,
         operation: PluginProfileOperation,
     ) {
-        if (profileId != operation.profileId || !isCurrentOperation(operation)) return
-        if (readIfCurrent(operation) { initialized && currentProfileId == profileId } == true) return
-
-        val loadedState = loadStateAsUiState(profileId)
+        if (profileId != operation.profileId) return
+        var requiresMigration = false
         val applied = runIfCurrent(operation) {
-            currentProfileId = profileId
-            _uiState.value = loadedState.state
-            initialized = true
+            if (!initialized || currentProfileId != profileId) {
+                val loadedState = loadStateAsUiState(profileId)
+                currentProfileId = profileId
+                _uiState.value = loadedState.state
+                initialized = true
+                requiresMigration = loadedState.requiresMigration
+            }
         }
-        if (applied && loadedState.requiresMigration) {
+        if (applied && requiresMigration) {
             persist(operation)
         }
     }
