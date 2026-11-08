@@ -4,6 +4,7 @@
 **Working branch:** `main-build-testing`  
 **Review started from:** `e86df525fa0c633adc753467220592d45bb0a1f9`  
 **This continuation rechecked:** `a9f6d930cb6ee436046bf54b9e1e4533e993cf62`  
+**This continuation (8 November) rechecked:** `943bdb1c71ad5f4f523f9dd1b61138a608cbeeec`  
 **Live TV continuation base:** `75fa9c2d6fcabb104320ff2b41c9d1ee2e9e4217`  
 **Scope:** Android phones/tablets and iPhone/iPad. Shared Kotlin is reviewed with both targets in mind.
 
@@ -166,3 +167,24 @@ Verification: source-level diff and call-path review only. No tests, Android/iOS
 ### Anime4K profile-sync scope reviewed
 
 The new Android-host tests for Anime4K local settings exercise PlayerSettingsStorage.exportToSyncPayload/replaceFromSyncPayload. The Android/iOS platform implementations omit the Anime4K keys from profile-sync payloads, preserving device-local behaviour. The similarly named SettingsConfigTransfer utility is a separate manual settings/configuration transfer path, not the profile-sync implementation under test; its handling was left unchanged rather than conflating the two flows.
+
+
+### Profile and supporter assets — concurrency and lifecycle hardening (8 November 2026)
+
+The prior pass had identified that `ProfileBackgroundRepository` is a process-wide singleton called from Compose UI, while its catalog RPC and asset jobs run on `Dispatchers.Default`. Its mutable `remoteCatalog`, hydration/load flags, and `loadJob`/`assetLoadJob` references were read and written without a shared synchronization boundary. A profile/account invalidation could therefore race an older request completing, and replacing a preload could still allow work already in flight to publish after the newer request was active.
+
+The repository now uses the project's existing multiplatform AtomicFU `SynchronizedObject` monitor to protect its compound state transitions and catalog publication. Network calls and job joins remain outside the monitor. Lazy job creation makes the job reference visible before work starts; replaced jobs are cancelled after leaving the critical section. An invalidation generation prevents a request from a prior cache/catalog lifecycle from publishing, while a monotonically increasing asset-request ID prevents a superseded selection/preload from publishing into the current catalog. The existing asset-version check remains in place as a second guard. Cached selected images are still published immediately as before; when a portrait asset has a configured path but no portrait cache entry, the cached landscape remains the temporary fallback while the portrait is fetched.
+
+Both profile backgrounds and supporter avatars previously created one child coroutine per server-returned asset in a single `map { async { ... } }.awaitAll()` fan-out. The shared `mapInBatchesConcurrently` helper now creates at most four child jobs at a time, awaits that batch, then starts the next. It retains source ordering, propagates parent cancellation through structured concurrency, and bounds both in-flight asset work and the number of suspended child jobs. All catalog entries are still loaded; no item cap, ordering, selected-image priority, cache key, entitlement rule, persistence format, or UI was changed. This is a concurrency bound, not a byte-accurate cap on the final images retained in the catalog.
+
+The avatar repository also had plain in-flight booleans accessed by screen refreshes and its long-lived membership observer. Those flags were replaced with coroutine `Mutex.tryLock()` single-flight gates, preserving the old "skip when already fetching" behaviour without racing the check/set. A shared AtomicFU monitor now protects catalog/entitlement/hydration/refresh metadata transitions and the combined standard/member cache-payload snapshot, preventing parallel standard and member refreshes from persisting mixed or lost catalog state. No suspending call is made while this monitor is held.
+
+No dependencies, build scripts, Gradle settings, resources, CI workflows, signing, Android/iOS storage adapters, profile settings, website-owned configuration, Liquid Glass Editor, navigation, or visual assets were modified. The implementation reuses the already declared AtomicFU 0.32.1 and kotlinx.coroutines 1.10.2 APIs.
+
+Research basis:
+- Kotlin's [shared mutable state and concurrency guidance](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html) documents the races caused by shared mutable state on multi-threaded dispatchers.
+- The official [kotlinx.coroutines Semaphore and synchronization APIs](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/) describe fair, cancellable concurrency limits; this implementation uses bounded batches so it also avoids creating a large queue of waiting child jobs.
+- The official [AtomicFU multiplatform locks API](https://github.com/Kotlin/kotlinx-atomicfu/blob/master/_autodocs/api-reference/atomicfu-locks-synchronized.md) documents the cross-platform monitor used by the project's existing synchronized metadata cache.
+- The Kotlin developer discussion [Best Practices for parallelizing different types of IO](https://discuss.kotlinlang.org/t/best-practices-for-parallelizing-different-types-of-io/24878) cautions that concurrency strategy should fit the workload rather than blindly assigning a dispatcher. The Stack Overflow discussion [Kotlin async/await with limited parallelism](https://stackoverflow.com/questions/71675069/kotlin-async-await-with-limited-parallelism) explains the distinction between dispatcher parallelism and task concurrency. A targeted Reddit search did not return a relevant, verifiable implementation discussion, so Reddit is not cited as evidence.
+
+A common regression test covers the batch concurrency ceiling, source-order preservation, empty input, and cancellation before subsequent batches. The tests are added but have not been executed: running Gradle tests would start a build, which remains prohibited until explicit authorisation. Static review only; no runtime or performance measurement is claimed.

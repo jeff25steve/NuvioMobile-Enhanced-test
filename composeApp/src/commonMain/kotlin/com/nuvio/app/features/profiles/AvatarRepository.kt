@@ -1,6 +1,7 @@
 package com.nuvio.app.features.profiles
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.mapInBatchesConcurrently
 import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.features.membership.CosmeticEntitlement
@@ -9,18 +10,18 @@ import com.nuvio.app.features.membership.MemberAssetStorage
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.storage.storage
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -32,6 +33,7 @@ import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
 private const val MemberAvatarBucket = "membership-profile-avatars"
+private const val MaxConcurrentMemberAvatarDownloads = 4
 private val AvatarCatalogRefreshInterval = 15.minutes
 
 @Serializable
@@ -65,14 +67,18 @@ object AvatarRepository {
     private val _avatars = MutableStateFlow<List<AvatarCatalogItem>>(emptyList())
     val avatars: StateFlow<List<AvatarCatalogItem>> = _avatars.asStateFlow()
 
+    // State is shared by screen refreshes and the long-lived membership observer.
+    // Keep mutations/persistence atomic, and never hold this monitor across suspension.
+    private val stateLock = SynchronizedObject()
+    private val standardFetchMutex = Mutex()
+    private val memberFetchMutex = Mutex()
+
     private var standardCatalog = emptyList<AvatarCatalogItem>()
     private var memberCatalog = emptyList<AvatarCatalogItem>()
     private var memberCatalogMetadata = emptyList<MemberAvatarCatalogItem>()
     private var standardLoaded = false
     private var cacheHydrated = false
     private var accessObserverStarted = false
-    private var standardFetchInFlight = false
-    private var memberFetchInFlight = false
     private var hasMemberAccess = false
     private var lastStandardRefresh: TimeMark? = null
     private var lastMemberRefresh: TimeMark? = null
@@ -95,115 +101,139 @@ object AvatarRepository {
     suspend fun fetchAvatars() {
         hydrateFromCacheIfNeeded()
         ensureMemberAccessObserver()
-        if (standardLoaded && standardCatalog.isNotEmpty()) {
-            publishCatalog()
-            return
+        val standardCatalogAvailable = synchronized(stateLock) {
+            val available = standardLoaded && standardCatalog.isNotEmpty()
+            if (available) publishCatalogLocked()
+            available
         }
+        if (standardCatalogAvailable) return
         fetchStandardCatalog()
     }
 
     suspend fun refreshAvatars(force: Boolean = false) {
         hydrateFromCacheIfNeeded()
         ensureMemberAccessObserver()
-        if (force || isRefreshDue(lastStandardRefresh)) {
-            fetchStandardCatalog()
+        val refreshState = synchronized(stateLock) {
+            (force || isRefreshDue(lastStandardRefresh)) to
+                (hasMemberAccess && (force || isRefreshDue(lastMemberRefresh)))
         }
-        if (hasMemberAccess && (force || isRefreshDue(lastMemberRefresh))) {
-            fetchMemberCatalog()
-        }
+        if (refreshState.first) fetchStandardCatalog()
+        if (refreshState.second) fetchMemberCatalog()
     }
 
     private fun isRefreshDue(lastRefresh: TimeMark?): Boolean =
         lastRefresh == null || lastRefresh.elapsedNow() >= AvatarCatalogRefreshInterval
 
     private fun hydrateFromCacheIfNeeded() {
-        if (cacheHydrated) return
-        cacheHydrated = true
-
-        val payload = AvatarStorage.loadPayload().orEmpty().trim()
-        if (payload.isEmpty()) return
-
-        val stored = runCatching {
-            json.decodeFromString<StoredAvatarCatalogPayload>(payload)
-        }.getOrNull() ?: return
-
-        standardCatalog = stored.items
-            .filter { it.isActive }
-            .sortedWith(compareBy({ it.category }, { it.sortOrder }))
-        memberCatalogMetadata = stored.memberItems
-        memberCatalog = memberCatalogMetadata
-            .mapNotNull(::loadCachedMemberAvatar)
-            .sortedWith(compareBy({ it.category }, { it.sortOrder }))
-        standardLoaded = standardCatalog.isNotEmpty()
-        publishCatalog()
-    }
-
-    private fun ensureMemberAccessObserver() {
-        if (accessObserverStarted) return
-        accessObserverStarted = true
-        MemberAccessRepository.ensureStarted()
-        hasMemberAccess = MemberAccessRepository.access.value.entitlements
-            .includes(CosmeticEntitlement.PROFILE_AVATARS)
-        publishCatalog()
-        if (hasMemberAccess) scope.launch { fetchMemberCatalog() }
-        scope.launch {
-            MemberAccessRepository.access.collectLatest { access ->
-                val nextAccess = access.entitlements.includes(CosmeticEntitlement.PROFILE_AVATARS)
-                if (nextAccess == hasMemberAccess) return@collectLatest
-                hasMemberAccess = nextAccess
-                if (nextAccess) {
-                    fetchMemberCatalog()
-                } else {
-                    publishCatalog()
+        synchronized(stateLock) {
+            if (!cacheHydrated) {
+                cacheHydrated = true
+                val payload = AvatarStorage.loadPayload().orEmpty().trim()
+                if (payload.isNotEmpty()) {
+                    val stored = runCatching {
+                        json.decodeFromString<StoredAvatarCatalogPayload>(payload)
+                    }.getOrNull()
+                    if (stored != null) {
+                        standardCatalog = stored.items
+                            .filter { it.isActive }
+                            .sortedWith(compareBy({ it.category }, { it.sortOrder }))
+                        memberCatalogMetadata = stored.memberItems
+                        memberCatalog = memberCatalogMetadata
+                            .mapNotNull(::loadCachedMemberAvatar)
+                            .sortedWith(compareBy({ it.category }, { it.sortOrder }))
+                        standardLoaded = standardCatalog.isNotEmpty()
+                        publishCatalogLocked()
+                    }
                 }
             }
         }
     }
 
+    private fun ensureMemberAccessObserver() {
+        val shouldStart = synchronized(stateLock) {
+            if (accessObserverStarted) {
+                false
+            } else {
+                accessObserverStarted = true
+                true
+            }
+        }
+        if (!shouldStart) return
+
+        MemberAccessRepository.ensureStarted()
+        val initialAccess = MemberAccessRepository.access.value.entitlements
+            .includes(CosmeticEntitlement.PROFILE_AVATARS)
+        synchronized(stateLock) {
+            hasMemberAccess = initialAccess
+            publishCatalogLocked()
+        }
+        if (initialAccess) scope.launch { fetchMemberCatalog() }
+        scope.launch {
+            MemberAccessRepository.access.collectLatest { access ->
+                val nextAccess = access.entitlements.includes(CosmeticEntitlement.PROFILE_AVATARS)
+                val shouldFetch = synchronized(stateLock) {
+                    if (nextAccess == hasMemberAccess) {
+                        false
+                    } else {
+                        hasMemberAccess = nextAccess
+                        if (!nextAccess) publishCatalogLocked()
+                        nextAccess
+                    }
+                }
+                if (shouldFetch) fetchMemberCatalog()
+            }
+        }
+    }
+
     private suspend fun fetchStandardCatalog() {
-        if (standardFetchInFlight) return
-        standardFetchInFlight = true
+        if (!standardFetchMutex.tryLock()) return
         try {
             val result = SupabaseProvider.client.postgrest.rpc("get_avatar_catalog")
             val items = result.decodeList<AvatarCatalogItem>()
-            standardCatalog = items.filter { it.isActive }.sortedWith(
-                compareBy({ it.category }, { it.sortOrder }),
-            )
-            standardLoaded = true
-            lastStandardRefresh = TimeSource.Monotonic.markNow()
-            publishCatalog()
-            saveCachedCatalog()
+            synchronized(stateLock) {
+                standardCatalog = items.filter { it.isActive }.sortedWith(
+                    compareBy({ it.category }, { it.sortOrder }),
+                )
+                standardLoaded = true
+                lastStandardRefresh = TimeSource.Monotonic.markNow()
+                publishCatalogLocked()
+                saveCachedCatalogLocked()
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             log.e(error) { "Failed to fetch avatar catalog" }
         } finally {
-            standardFetchInFlight = false
+            standardFetchMutex.unlock()
         }
     }
 
     private suspend fun fetchMemberCatalog() {
-        if (memberFetchInFlight) return
-        memberFetchInFlight = true
+        if (!memberFetchMutex.tryLock()) return
         try {
             val remote = SupabaseProvider.client.postgrest
                 .rpc("get_member_profile_avatar_catalog")
                 .decodeList<MemberAvatarCatalogItem>()
-            lastMemberRefresh = TimeSource.Monotonic.markNow()
-            memberCatalogMetadata = remote
-            saveCachedCatalog()
-            memberCatalog = coroutineScope {
-                remote.map { item ->
-                    async { loadMemberAvatar(item) }
-                }.awaitAll().filterNotNull()
-            }.sortedWith(compareBy({ it.category }, { it.sortOrder }))
-            publishCatalog()
+            synchronized(stateLock) {
+                lastMemberRefresh = TimeSource.Monotonic.markNow()
+                memberCatalogMetadata = remote
+                saveCachedCatalogLocked()
+            }
+            val loadedCatalog = mapInBatchesConcurrently(
+                items = remote,
+                batchSize = MaxConcurrentMemberAvatarDownloads,
+                transform = ::loadMemberAvatar,
+            ).filterNotNull().sortedWith(compareBy({ it.category }, { it.sortOrder }))
+            synchronized(stateLock) {
+                memberCatalog = loadedCatalog
+                publishCatalogLocked()
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             log.w(error) { "Unable to load supporter avatar catalog" }
         } finally {
-            memberFetchInFlight = false
+            memberFetchMutex.unlock()
         }
     }
 
@@ -248,7 +278,7 @@ object AvatarRepository {
             memberOnly = true,
         )
 
-    private fun saveCachedCatalog() {
+    private fun saveCachedCatalogLocked() {
         AvatarStorage.savePayload(
             json.encodeToString(
                 StoredAvatarCatalogPayload(
@@ -259,7 +289,7 @@ object AvatarRepository {
         )
     }
 
-    private fun publishCatalog() {
+    private fun publishCatalogLocked() {
         _avatars.value = availableAvatarCatalog(
             standardCatalog = standardCatalog,
             memberCatalog = memberCatalog,
