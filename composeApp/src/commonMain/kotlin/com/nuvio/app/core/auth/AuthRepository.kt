@@ -1,6 +1,7 @@
 package com.nuvio.app.core.auth
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.cancelAndJoinNonCancellable
 import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
@@ -30,6 +31,7 @@ object AuthRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("AuthRepository")
     private val sessionGeneration = AuthSessionGeneration()
+    private val sessionOperationGate = AuthSessionOperationGate()
 
     private val _state = MutableStateFlow<AuthState>(AuthState.Loading)
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -158,10 +160,10 @@ object AuthRepository {
         )
     }
 
-    suspend fun signUpWithEmail(email: String, password: String): Result<Unit> {
+    suspend fun signUpWithEmail(email: String, password: String): Result<Unit> = withSessionOperation {
         val client = SupabaseProvider.client
         val generation = sessionGeneration.current()
-        return runCatchingUnlessCancelled {
+        runCatchingUnlessCancelled {
             _error.value = null
             client.auth.signUpWith(Email) {
                 this.email = email
@@ -180,10 +182,10 @@ object AuthRepository {
         }
     }
 
-    suspend fun signInWithEmail(email: String, password: String): Result<Unit> {
+    suspend fun signInWithEmail(email: String, password: String): Result<Unit> = withSessionOperation {
         val client = SupabaseProvider.client
         val generation = sessionGeneration.current()
-        return runCatchingUnlessCancelled {
+        runCatchingUnlessCancelled {
             _error.value = null
             client.auth.signInWith(Email) {
                 this.email = email
@@ -200,6 +202,33 @@ object AuthRepository {
             _error.value = error.safeAuthErrorDescription()
                 ?: getString(Res.string.auth_sign_in_failed)
         }
+    }
+
+    private suspend fun <T> withSessionOperation(block: suspend () -> T): T {
+        val job = currentCoroutineContext()[Job]
+            ?: error("Authentication session operation requires a coroutine Job")
+        val operation = sessionOperationGate.beginOperation(job)
+            ?: throw CancellationException("Authentication is paused during a server switch")
+        return try {
+            block()
+        } finally {
+            sessionOperationGate.finishOperation(operation)
+        }
+    }
+
+    /**
+     * Blocks new credential operations, cancels existing operations and waits for their
+     * Supabase session imports to finish unwinding before the old client's session is cleared.
+     */
+    suspend fun beginServerSwitch() {
+        val operations = sessionOperationGate.beginServerSwitch()
+        sessionGeneration.invalidate()
+        trustNextSessionWithoutValidation = false
+        cancelAndJoinNonCancellable(operations)
+    }
+
+    fun endServerSwitch() {
+        sessionOperationGate.endServerSwitch()
     }
 
     suspend fun signOut(): Result<Unit> {
