@@ -92,98 +92,102 @@ internal object LocalAccountDataCleaner {
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
-        val profileBackgroundImagesRemoved = withContext(Dispatchers.IO) {
-            clearProfileBackgroundImages(
-                profileIndices = 1..MAX_PROFILES,
-                removeSettingsImage = { profileIndex ->
-                    ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
-                },
-                removeCloudImage = { profileIndex ->
-                    ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
-                },
-            )
-        }
-
-        var profileAuthenticationCleanupFailed = false
-        (1..MAX_PROFILES).forEach { profileIndex ->
-            val removed = try {
-                ProfilePinCacheStorage.removePayload(profileIndex)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                false
+        try {
+            MemberAccessRepository.clearLocalState()
+            val profileBackgroundImagesRemoved = withContext(Dispatchers.IO) {
+                clearProfileBackgroundImages(
+                    profileIndices = 1..MAX_PROFILES,
+                    removeSettingsImage = { profileIndex ->
+                        ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
+                    },
+                    removeCloudImage = { profileIndex ->
+                        ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                    },
+                )
             }
-            if (!removed) profileAuthenticationCleanupFailed = true
-        }
 
-        if (!cleanupUserId.isNullOrBlank()) {
-            val biometricRemoved = try {
-                withContext(Dispatchers.IO) {
-                    ProfileBiometricAuth.disable(1, cleanupUserId)
+            var profileAuthenticationCleanupFailed = false
+            (1..MAX_PROFILES).forEach { profileIndex ->
+                val removed = try {
+                    ProfilePinCacheStorage.removePayload(profileIndex)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    false
                 }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                false
+                if (!removed) profileAuthenticationCleanupFailed = true
             }
-            if (!biometricRemoved) profileAuthenticationCleanupFailed = true
-        }
 
-        ensureTrackingProvidersRegistered()
-        TrackingProviderRegistry.removeStoredProfiles(1..MAX_PROFILES)
-        SyncManager.cancelAccountSync()
-        WatchProgressSourceCoordinator.clearLocalState()
-        ProfileSettingsSync.clearAccountState()
-        ContinueWatchingEnrichmentCache.clearLocalState()
-        WatchProgressRepository.clearLocalState()
-        WatchedRepository.clearLocalState()
-        LiveTvRepository.clearLocalState()
-        val liveTvCacheCleared = withContext(Dispatchers.IO) { LiveTvCacheStore.clear() }
-        LibraryRepository.runAccountStorageWipe {
-            wipePlatformStorage()
-        }
+            if (!cleanupUserId.isNullOrBlank()) {
+                val biometricRemoved = try {
+                    withContext(Dispatchers.IO) {
+                        ProfileBiometricAuth.disable(1, cleanupUserId)
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    false
+                }
+                if (!biometricRemoved) profileAuthenticationCleanupFailed = true
+            }
 
-        ProfileRepository.clearInMemory()
-        CustomPosterUrlRepository.clearLocalState()
-        SearchHistoryRepository.clearLocalState()
-        TmdbSettingsRepository.onProfileChanged()
-        MdbListSettingsRepository.onProfileChanged()
-        DebridSettingsRepository.onProfileChanged()
-        MemberAccessRepository.clearLocalState()
-        AddonRepository.clearLocalState()
-        ServerRepository.clearLocalState()
-        if (AppFeaturePolicy.pluginsEnabled) {
-            PluginRepository.clearLocalState()
-        }
-        HomeRepository.clear()
-        HomeCatalogSettingsRepository.clearLocalState()
-        MetaScreenSettingsRepository.clearLocalState()
-        com.nuvio.app.features.shuffle.EpisodeShuffleRepository.clearLocalState()
-        LibraryRepository.clearLocalState()
-        LibraryDisplaySettingsRepository.clearLocalState()
-        ContinueWatchingPreferencesRepository.clearLocalState()
-        EpisodeReleaseNotificationsRepository.clearLocalState()
-        CollectionMobileSettingsRepository.clearLocalState()
-        CollectionRepository.clearLocalState()
-        ThemeSettingsRepository.clearLocalState()
-        PosterCardStyleRepository.clearLocalState()
-        CardDepthStyleRepository.clearLocalState()
-        TrackingProviderRegistry.clearLocalState()
-        TrackingSettingsRepository.clearLocalState()
-        PlayerSettingsRepository.clearLocalState()
-        StreamBadgeSettingsRepository.clearLocalState()
-        P2pSettingsRepository.clearLocalState()
-        CatalogRepository.clear()
-        StreamsRepository.clear()
-        MetaDetailsRepository.clear()
-        SearchRepository.reset()
-        SubtitleRepository.clear()
-        PlayerLaunchStore.clear()
-        StreamLaunchStore.clear()
-        StreamContextStore.clear()
+            ensureTrackingProvidersRegistered()
+            TrackingProviderRegistry.removeStoredProfiles(1..MAX_PROFILES)
+            SyncManager.cancelAccountSync()
+            WatchProgressSourceCoordinator.clearLocalState()
+            ProfileSettingsSync.clearAccountState()
+            ContinueWatchingEnrichmentCache.clearLocalState()
+            WatchProgressRepository.clearLocalState()
+            WatchedRepository.clearLocalState()
+            LiveTvRepository.clearLocalState()
+            val liveTvCacheCleared = withContext(Dispatchers.IO) { LiveTvCacheStore.clear() }
+            LibraryRepository.runAccountStorageWipe {
+                wipePlatformStorage()
+            }
 
-        if (!profileBackgroundImagesRemoved || profileAuthenticationCleanupFailed || !liveTvCacheCleared) {
-            throw IllegalStateException("Local profile data cleanup could not be confirmed")
+            ProfileRepository.clearInMemory()
+            CustomPosterUrlRepository.clearLocalState()
+            SearchHistoryRepository.clearLocalState()
+            TmdbSettingsRepository.onProfileChanged()
+            MdbListSettingsRepository.onProfileChanged()
+            DebridSettingsRepository.onProfileChanged()
+            AddonRepository.clearLocalState()
+            ServerRepository.clearLocalState()
+            if (AppFeaturePolicy.pluginsEnabled) {
+                PluginRepository.clearLocalState()
+            }
+            HomeRepository.clear()
+            HomeCatalogSettingsRepository.clearLocalState()
+            MetaScreenSettingsRepository.clearLocalState()
+            com.nuvio.app.features.shuffle.EpisodeShuffleRepository.clearLocalState()
+            LibraryRepository.clearLocalState()
+            LibraryDisplaySettingsRepository.clearLocalState()
+            ContinueWatchingPreferencesRepository.clearLocalState()
+            EpisodeReleaseNotificationsRepository.clearLocalState()
+            CollectionMobileSettingsRepository.clearLocalState()
+            CollectionRepository.clearLocalState()
+            ThemeSettingsRepository.clearLocalState()
+            PosterCardStyleRepository.clearLocalState()
+            CardDepthStyleRepository.clearLocalState()
+            TrackingProviderRegistry.clearLocalState()
+            TrackingSettingsRepository.clearLocalState()
+            PlayerSettingsRepository.clearLocalState()
+            StreamBadgeSettingsRepository.clearLocalState()
+            P2pSettingsRepository.clearLocalState()
+            CatalogRepository.clear()
+            StreamsRepository.clear()
+            MetaDetailsRepository.clear()
+            SearchRepository.reset()
+            SubtitleRepository.clear()
+            PlayerLaunchStore.clear()
+            StreamLaunchStore.clear()
+            StreamContextStore.clear()
+
+            if (!profileBackgroundImagesRemoved || profileAuthenticationCleanupFailed || !liveTvCacheCleared) {
+                throw IllegalStateException("Local profile data cleanup could not be confirmed")
+            }
+        } finally {
+            MemberAccessRepository.onAccountCleanupFinished()
         }
     }
 
