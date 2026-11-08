@@ -483,7 +483,7 @@ Verification limits: the complete iOS download delegate implementation, common d
 
 ### Android custom DNS — honour answer lifetimes and bound resolver cache (8 November 2026)
 
-A fresh Android networking audit found that Nuvio's custom DNS-over-HTTPS resolver has three related cache-correctness and resource-lifetime problems.
+A fresh Android networking audit found that Nuvio's custom DNS-over-HTTPS resolver has four related cache-correctness and resource-lifetime problems.
 
 The current resolver path is confirmed:
 - SharedOkHttpClient installs NuvioDns as its DNS implementation.
