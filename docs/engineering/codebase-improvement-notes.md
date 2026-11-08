@@ -276,3 +276,26 @@ Research basis:
 - Context7 confirmed the existing AtomicFU multiplatform synchronization APIs already used elsewhere in this codebase; no new dependency or concurrency primitive was introduced.
 
 A common regression test file covers the profile/generation predicate and the exact notification-identifier prefix used by account cleanup. It was authored but not run. Static source and API checks only: no Kotlin compile, Android/iOS build, Gradle test, Xcode task or CI workflow was executed. No UI, resources, settings ownership, website configuration, notification timings, payload fields, dependency versions or build configuration were changed.
+
+
+
+### iOS background downloads — verify resumed-segment I/O and release failed task handles (8 November 2026)
+
+A focused review of the iOS background-download adapter found two independent failure-path defects in `DownloadsPlatformDownloader.ios.kt`:
+
+- `copyByAppending()` previously treated any non-positive `fread()` result as normal EOF, ignored the byte count returned by `fwrite()`, and ignored both `fclose()` results. A short read caused by an I/O error or a short write could therefore be mistaken for a complete copy. Because `appendFile()` uses this result to decide whether to rename the partial file into its final destination and report download success, this could promote incomplete data to a completed download. Buffered output failures can also be reported only when the stream is flushed/closed.
+- `finishWithFailure()` removed the active-download entry but left the corresponding `NSURLSessionDownloadTask` in `tasksByDownloadId`. When a failure originates from `didFinishDownloadingToURL`, the subsequent completion delegate callback can no longer pass `activeFor(task)`, because the active entry has already been removed. The task map then retains the obsolete task reference.
+
+The append routine now distinguishes a clean EOF from an input-stream error using `feof()` and `ferror()`, rejects incomplete `fwrite()` counts and output-stream errors, and includes successful closure of both streams in the copy result. The temporary response file is removed only after all read, write and close checks succeed. `finishWithFailure()` now removes the task-map entry as well as the active-download entry before invoking the failure callback.
+
+The API surface uses the existing Kotlin/Native `platform.posix` library; its iOS platform definition includes `stdio.h`. No dependency, source-set, build setting, download URL, HTTP behavior, resume format, persistence key, UI, notification, or Android implementation was changed. The broader `IosBackgroundDownloadCoordinatorImpl` cross-thread map/state-machine issue remains intentionally deferred as recorded above; this change does not claim to make those maps thread-safe.
+
+Research basis:
+- Apple's [iOS fread/fwrite manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/fread.3.html) documents short item counts on stream errors/EOF and directs callers to `feof()`/`ferror()` to distinguish them.
+- Apple's [iOS feof/ferror manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/feof.3.html) documents the stream EOF and error indicators.
+- The Open Group [POSIX fwrite specification](https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/fwrite.html) defines the returned count as the number of elements successfully written.
+- The Open Group [POSIX fclose specification](https://pubs.opengroup.org/onlinepubs/9699919799/functions/fclose.html) specifies that close flushes buffered output and reports failure when flushing/closing fails.
+- JetBrains' [Kotlin/Native C interop documentation](https://kotlinlang.org/docs/native-c-interop.html) confirms platform libraries provide POSIX bindings; the current Kotlin Native iOS [posix.def](https://github.com/JetBrains/kotlin/blob/master/kotlin-native/platformLibs/src/platform/ios/posix.def) includes `stdio.h`.
+- A relevant practitioner discussion, [fclose return value check](https://stackoverflow.com/questions/1954273/fclose-return-value-check), describes delayed write failures being reported at close and the data-loss risk from ignoring that result. No directly applicable Reddit discussion was found, so Reddit is not cited as evidence.
+
+Verification limits: inspected the complete edited iOS adapter, the `appendFile()` caller and its success/failure path, all `finishWithFailure()` call sites in the file, existing iOS POSIX imports, the Kotlin/Native platform binding definition, and the branch's version catalog. GitHub's resulting commit diff and a fresh branch/file fetch were checked; exact source guards for EOF, input errors, short writes, output errors, both close results, and task-map cleanup were confirmed. No regression test was added or run in this restricted pass, and no Kotlin compile, Gradle task, Xcode task, build, CI workflow, or build-triggering check was started, as required. These changes therefore remain statically reviewed but not compiler- or runtime-verified.
