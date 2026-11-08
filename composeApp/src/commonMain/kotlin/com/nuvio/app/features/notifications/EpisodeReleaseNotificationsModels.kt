@@ -65,6 +65,17 @@ internal fun isEpisodeReleaseNotificationOperationCurrent(
 internal fun isEpisodeReleaseNotificationIdentifier(identifier: String): Boolean =
     identifier.startsWith(EpisodeReleaseNotificationIdentifierPrefix)
 
+internal fun isEpisodeReleaseNotificationSchedulingAllowed(
+    token: EpisodeReleaseNotificationProfileToken,
+    activeProfileId: Int,
+    currentGeneration: Int,
+    isEnabled: Boolean,
+    accountCleanupInProgress: Boolean,
+): Boolean =
+    isEnabled &&
+        !accountCleanupInProgress &&
+        isEpisodeReleaseNotificationOperationCurrent(token, activeProfileId, currentGeneration)
+
 internal const val EpisodeReleaseNotificationHour = 9
 internal const val EpisodeReleaseNotificationMinute = 0
 internal const val MinReasonableSavedAtEpochMs = 946684800000L

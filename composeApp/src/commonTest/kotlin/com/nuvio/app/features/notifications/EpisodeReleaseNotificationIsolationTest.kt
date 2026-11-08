@@ -16,6 +16,39 @@ class EpisodeReleaseNotificationIsolationTest {
     }
 
     @Test
+    fun `scheduling requires current profile enabled state and no cleanup`() {
+        val token = EpisodeReleaseNotificationProfileToken(profileId = 2, generation = 7)
+
+        assertTrue(
+            isEpisodeReleaseNotificationSchedulingAllowed(
+                token = token,
+                activeProfileId = 2,
+                currentGeneration = 7,
+                isEnabled = true,
+                accountCleanupInProgress = false,
+            ),
+        )
+        assertFalse(
+            isEpisodeReleaseNotificationSchedulingAllowed(
+                token = token,
+                activeProfileId = 2,
+                currentGeneration = 7,
+                isEnabled = false,
+                accountCleanupInProgress = false,
+            ),
+        )
+        assertFalse(
+            isEpisodeReleaseNotificationSchedulingAllowed(
+                token = token,
+                activeProfileId = 2,
+                currentGeneration = 7,
+                isEnabled = true,
+                accountCleanupInProgress = true,
+            ),
+        )
+    }
+
+    @Test
     fun `account cleanup recognises only episode release notification identifiers`() {
         assertTrue(isEpisodeReleaseNotificationIdentifier("episode-release-2-123-456-2026-11-08"))
         assertTrue(isEpisodeReleaseNotificationIdentifier("episode-release-test-2-123"))

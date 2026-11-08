@@ -170,6 +170,17 @@ object EpisodeReleaseNotificationsRepository {
                 currentGeneration = profileGeneration,
             )
 
+    private fun isSchedulingAllowed(token: EpisodeReleaseNotificationProfileToken): Boolean =
+        synchronized(stateLock) {
+            isEpisodeReleaseNotificationSchedulingAllowed(
+                token = token,
+                activeProfileId = ProfileRepository.activeProfileId,
+                currentGeneration = profileGeneration,
+                isEnabled = _uiState.value.isEnabled,
+                accountCleanupInProgress = accountCleanupInProgress,
+            )
+        }
+
     private fun updateUiState(
         token: EpisodeReleaseNotificationProfileToken,
         transform: (EpisodeReleaseNotificationsUiState) -> EpisodeReleaseNotificationsUiState,
@@ -214,10 +225,6 @@ object EpisodeReleaseNotificationsRepository {
         scope.launch {
             if (!isCurrentOperation(token)) return@launch
             if (!enabled) {
-                runCatchingUnlessCancelled { clearProfileNotifications(token) }
-                    .onFailure { error ->
-                        log.w { "Failed to clear episode release notifications: ${error.message}" }
-                    }
                 if (!updateUiState(token) {
                         it.copy(
                             isEnabled = false,
@@ -228,6 +235,10 @@ object EpisodeReleaseNotificationsRepository {
                         )
                     }) return@launch
                 persist(token)
+                runCatchingUnlessCancelled { clearProfileNotifications(token) }
+                    .onFailure { error ->
+                        log.w { "Failed to clear episode release notifications: ${error.message}" }
+                    }
                 return@launch
             }
 
@@ -427,7 +438,7 @@ object EpisodeReleaseNotificationsRepository {
         if (!isCurrentOperation(token)) return
 
         val testTargetTitle = currentTestTarget()?.name
-        val permissionError = if (_uiState.value.isEnabled && !granted) {
+        val permissionError = if (!granted) {
             getString(Res.string.settings_notifications_permission_disabled)
         } else {
             null
@@ -436,7 +447,7 @@ object EpisodeReleaseNotificationsRepository {
             state.copy(
                 permissionGranted = granted,
                 testTargetTitle = testTargetTitle,
-                errorMessage = permissionError ?: state.errorMessage,
+                errorMessage = if (state.isEnabled && !granted) permissionError else state.errorMessage,
             )
         }
 
@@ -511,18 +522,18 @@ object EpisodeReleaseNotificationsRepository {
                     }
                 if (!isCurrentOperation(token)) return@withLock
                 val testTargetTitle = currentTestTarget()?.name
-                val permissionError = if (_uiState.value.isEnabled && !permissionGranted) {
+                val permissionError = if (!permissionGranted) {
                     getString(Res.string.settings_notifications_permission_disabled)
                 } else {
                     null
                 }
-                updateUiState(token) {
-                    it.copy(
+                updateUiState(token) { state ->
+                    state.copy(
                         isLoading = false,
                         permissionGranted = permissionGranted,
                         scheduledCount = 0,
                         testTargetTitle = testTargetTitle,
-                        errorMessage = permissionError,
+                        errorMessage = if (state.isEnabled && !permissionGranted) permissionError else null,
                     )
                 }
                 return@withLock
@@ -589,7 +600,7 @@ object EpisodeReleaseNotificationsRepository {
 
             runCatchingUnlessCancelled {
                 platformOperationsMutex.withLock {
-                    if (isCurrentOperation(token)) {
+                    if (isSchedulingAllowed(token)) {
                         EpisodeReleaseNotificationPlatform.scheduleEpisodeReleaseNotifications(
                             profileId = token.profileId,
                             requests = requests,
@@ -599,17 +610,21 @@ object EpisodeReleaseNotificationsRepository {
             }.onFailure { error ->
                 log.e(error) { "Failed to schedule episode release notifications" }
             }
-            if (!isCurrentOperation(token)) return@withLock
+            if (!isSchedulingAllowed(token)) return@withLock
 
             val testTargetTitle = currentTestTarget()?.name
-            updateUiState(token) {
-                it.copy(
-                    isLoading = false,
-                    permissionGranted = true,
-                    scheduledCount = requests.size,
-                    testTargetTitle = testTargetTitle,
-                    errorMessage = null,
-                )
+            updateUiState(token) { state ->
+                if (!state.isEnabled) {
+                    state.copy(isLoading = false, scheduledCount = 0, errorMessage = null)
+                } else {
+                    state.copy(
+                        isLoading = false,
+                        permissionGranted = true,
+                        scheduledCount = requests.size,
+                        testTargetTitle = testTargetTitle,
+                        errorMessage = null,
+                    )
+                }
             }
         }
     }
