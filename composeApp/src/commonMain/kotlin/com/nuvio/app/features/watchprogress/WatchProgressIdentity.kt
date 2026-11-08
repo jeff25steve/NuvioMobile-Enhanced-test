@@ -104,15 +104,30 @@ internal fun Collection<WatchProgressEntry>.newestByProgressKey(): Map<String, W
 internal fun Collection<WatchProgressEntry>.resolveIdentityForUpsert(
     candidate: WatchProgressEntry,
 ): WatchProgressEntry {
-    val logicalMatches = filter { existing ->
-        existing.parentMetaId == candidate.parentMetaId &&
-            existing.seasonNumber == candidate.seasonNumber &&
-            existing.episodeNumber == candidate.episodeNumber
+    var freshestLogicalMatch: WatchProgressEntry? = null
+    var freshestPlaybackMatch: WatchProgressEntry? = null
+
+    for (entry in this) {
+        if (
+            entry.parentMetaId != candidate.parentMetaId ||
+            entry.seasonNumber != candidate.seasonNumber ||
+            entry.episodeNumber != candidate.episodeNumber
+        ) {
+            continue
+        }
+
+        if (freshestLogicalMatch == null || entry.isFresherThan(freshestLogicalMatch)) {
+            freshestLogicalMatch = entry
+        }
+        if (
+            entry.videoId == candidate.videoId &&
+            (freshestPlaybackMatch == null || entry.isFresherThan(freshestPlaybackMatch))
+        ) {
+            freshestPlaybackMatch = entry
+        }
     }
-    val existing = logicalMatches
-        .filter { entry -> entry.videoId == candidate.videoId }
-        .maxWithOrNull(watchProgressEntryFreshnessComparator)
-        ?: logicalMatches.maxWithOrNull(watchProgressEntryFreshnessComparator)
+
+    val existing = freshestPlaybackMatch ?: freshestLogicalMatch
     val progressKey = existing?.resolvedProgressKey() ?: candidate.resolvedProgressKey()
     return candidate.copy(progressKey = progressKey)
 }
@@ -123,18 +138,29 @@ internal fun Collection<WatchProgressEntry>.resolveProgressForVideo(
     seasonNumber: Int? = null,
     episodeNumber: Int? = null,
 ): WatchProgressEntry? {
-    val candidates = asSequence()
-        .filter { entry -> entry.videoId == videoId }
-        .filter { entry -> parentMetaId == null || entry.parentMetaId == parentMetaId }
-        .filter { entry -> seasonNumber == null || entry.seasonNumber == seasonNumber }
-        .filter { entry -> episodeNumber == null || entry.episodeNumber == episodeNumber }
-        .toList()
-    if (candidates.isEmpty()) return null
-    val logicalIdentities = candidates.mapTo(mutableSetOf()) { entry ->
-        Triple(entry.parentMetaId, entry.seasonNumber, entry.episodeNumber)
+    var logicalIdentity: Triple<String, Int?, Int?>? = null
+    var freshestMatch: WatchProgressEntry? = null
+
+    for (entry in this) {
+        if (entry.videoId != videoId) continue
+        if (parentMetaId != null && entry.parentMetaId != parentMetaId) continue
+        if (seasonNumber != null && entry.seasonNumber != seasonNumber) continue
+        if (episodeNumber != null && entry.episodeNumber != episodeNumber) continue
+
+        val candidateIdentity = Triple(entry.parentMetaId, entry.seasonNumber, entry.episodeNumber)
+        val existingIdentity = logicalIdentity
+        if (existingIdentity == null) {
+            logicalIdentity = candidateIdentity
+        } else if (candidateIdentity != existingIdentity) {
+            return null
+        }
+
+        if (freshestMatch == null || entry.isFresherThan(freshestMatch)) {
+            freshestMatch = entry
+        }
     }
-    if (logicalIdentities.size > 1) return null
-    return candidates.maxWithOrNull(watchProgressEntryFreshnessComparator)
+
+    return freshestMatch
 }
 
 internal data class WatchProgressIdentityReconciliation(
@@ -151,18 +177,25 @@ internal fun reconcileLocalProgressKeysWithSnapshot(
     serverEntries: Collection<ProgressSyncRecord>,
     localEntries: Collection<WatchProgressEntry>,
 ): WatchProgressIdentityReconciliation {
-    val serverKeys = serverEntries.mapTo(mutableSetOf(), ProgressSyncRecord::resolvedProgressKey)
-    val uniqueServerKeyByLogicalIdentity = serverEntries
-        .groupBy { record ->
-            Triple(record.contentId, record.season, record.episode)
+    val serverKeys = mutableSetOf<String>()
+    val uniqueServerKeyByLogicalIdentity = mutableMapOf<Triple<String, Int?, Int?>, String>()
+    val ambiguousServerIdentities = mutableSetOf<Triple<String, Int?, Int?>>()
+
+    for (record in serverEntries) {
+        val progressKey = record.resolvedProgressKey()
+        serverKeys += progressKey
+
+        val identity = Triple(record.contentId, record.season, record.episode)
+        if (identity in ambiguousServerIdentities) continue
+
+        val existingKey = uniqueServerKeyByLogicalIdentity[identity]
+        if (existingKey == null) {
+            uniqueServerKeyByLogicalIdentity[identity] = progressKey
+        } else if (existingKey != progressKey) {
+            uniqueServerKeyByLogicalIdentity.remove(identity)
+            ambiguousServerIdentities += identity
         }
-        .mapNotNull { (identity, records) ->
-            records.map(ProgressSyncRecord::resolvedProgressKey)
-                .distinct()
-                .singleOrNull()
-                ?.let { key -> identity to key }
-        }
-        .toMap()
+    }
     val migrations = linkedMapOf<String, String>()
     val reconciled = localEntries.map { entry ->
         val localKey = entry.resolvedProgressKey()

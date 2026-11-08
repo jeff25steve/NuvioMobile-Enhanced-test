@@ -145,12 +145,34 @@ data class WatchProgressUiState(
 
     /** Secondary compatibility lookup; multiple server rows may share a video id. */
     val byVideoId: Map<String, WatchProgressEntry>
-        get() = entries
-            .groupBy(WatchProgressEntry::videoId)
-            .mapNotNull { (videoId, candidates) ->
-                candidates.resolveProgressForVideo(videoId)?.let { entry -> videoId to entry }
+        get() {
+            val result = linkedMapOf<String, WatchProgressEntry>()
+            val identityByVideoId = mutableMapOf<String, Triple<String, Int?, Int?>>()
+            val ambiguousVideoIds = mutableSetOf<String>()
+
+            for (entry in entries) {
+                val videoId = entry.videoId
+                if (videoId in ambiguousVideoIds) continue
+
+                val identity = Triple(entry.parentMetaId, entry.seasonNumber, entry.episodeNumber)
+                val existingIdentity = identityByVideoId[videoId]
+                if (existingIdentity == null) {
+                    identityByVideoId[videoId] = identity
+                    result[videoId] = entry
+                } else if (identity != existingIdentity) {
+                    identityByVideoId.remove(videoId)
+                    result.remove(videoId)
+                    ambiguousVideoIds += videoId
+                } else {
+                    val current = result.getValue(videoId)
+                    if (entry.isFresherThan(current)) {
+                        result[videoId] = entry
+                    }
+                }
             }
-            .toMap()
+
+            return result
+        }
 
     fun byVideoIdForContent(parentMetaId: String): Map<String, WatchProgressEntry> {
         val result = linkedMapOf<String, WatchProgressEntry>()

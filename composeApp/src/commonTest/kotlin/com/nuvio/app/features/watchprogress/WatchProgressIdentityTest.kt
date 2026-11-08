@@ -302,6 +302,73 @@ class WatchProgressIdentityTest {
         assertEquals("remote-exact-key", resolved.progressKey)
     }
 
+
+    @Test
+    fun `video id compatibility projection keeps the freshest row for one logical identity`() {
+        val older = entry(
+            parentMetaId = "show",
+            videoId = "shared-video",
+            progressKey = "opaque",
+            lastUpdatedEpochMs = 10L,
+            lastPositionMs = 100L,
+        )
+        val newer = older.copy(
+            lastUpdatedEpochMs = 20L,
+            lastPositionMs = 200L,
+        )
+
+        val projected = WatchProgressUiState(entries = listOf(older, newer)).byVideoId
+
+        assertEquals(listOf("shared-video"), projected.keys.toList())
+        assertEquals(200L, projected.getValue("shared-video").lastPositionMs)
+    }
+
+    @Test
+    fun `optimistic update falls back to freshest logical alias when playback id differs`() {
+        val olderAlias = entry(
+            parentMetaId = "show",
+            videoId = "provider-video-a",
+            progressKey = "opaque-a",
+            lastUpdatedEpochMs = 10L,
+        )
+        val newerAlias = olderAlias.copy(
+            videoId = "provider-video-b",
+            progressKey = "opaque-b",
+            lastUpdatedEpochMs = 20L,
+        )
+        val candidate = olderAlias.copy(
+            videoId = "provider-video-c",
+            progressKey = null,
+            lastUpdatedEpochMs = 30L,
+        )
+
+        val resolved = listOf(olderAlias, newerAlias).resolveIdentityForUpsert(candidate)
+
+        assertEquals("opaque-b", resolved.progressKey)
+    }
+
+    @Test
+    fun `snapshot does not migrate a local key when one logical identity has conflicting server keys`() {
+        val local = entry(
+            parentMetaId = "show",
+            videoId = "show:1:2",
+            progressKey = "show_s1e2",
+            lastUpdatedEpochMs = 20L,
+        )
+        val serverEntries = listOf(
+            record(contentId = "show", progressKey = "opaque-a", lastWatched = 10L),
+            record(contentId = "show", progressKey = "opaque-b", lastWatched = 15L),
+        )
+
+        val result = reconcileLocalProgressKeysWithSnapshot(
+            serverEntries = serverEntries,
+            localEntries = listOf(local),
+        )
+
+        assertEquals("show_s1e2", result.entries.single().resolvedProgressKey())
+        assertTrue(result.migratedKeys.isEmpty())
+    }
+
     @Test
     fun `snapshot keeps distinct keys that share a playback video id`() {
         val merged = WatchProgressRepository.mergeWatchProgressEntriesPreservingUnsynced(

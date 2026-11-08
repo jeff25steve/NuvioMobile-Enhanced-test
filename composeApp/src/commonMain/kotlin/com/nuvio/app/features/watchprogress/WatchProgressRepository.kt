@@ -841,7 +841,7 @@ object WatchProgressRepository {
             val decision = decideWatchProgressDeltaEvent(
                 current = current,
                 event = event,
-                isLocalDirty = progressKey in dirtyProgressKeysSnapshot(),
+                isLocalDirty = isProgressDirty(progressKey),
             )
             when (decision.type) {
                 WatchProgressDeltaDecisionType.UPSERT -> {
@@ -1042,8 +1042,9 @@ object WatchProgressRepository {
         val targetGeneration = profileGeneration
         val targetSource = activeSource
         val missingMetadataEntries = currentEntries()
-            .filter(WatchProgressEntry::needsRemoteMetadataEnrichment)
-            .filterNot { entry -> isMetadataEnrichmentBackedOff(entry) }
+            .filter { entry ->
+                entry.needsRemoteMetadataEnrichment() && !isMetadataEnrichmentBackedOff(entry)
+            }
         val entriesToResolve = missingMetadataEntries.continueWatchingEntries(
             limit = WATCH_PROGRESS_METADATA_RESOLUTION_LIMIT,
         )
@@ -1719,6 +1720,11 @@ object WatchProgressRepository {
     private fun dirtyProgressKeysSnapshot(): Set<String> =
         synchronized(entriesLock) {
             dirtyProgressKeys.toSet()
+        }
+
+    private fun isProgressDirty(progressKey: String): Boolean =
+        synchronized(entriesLock) {
+            progressKey in dirtyProgressKeys
         }
 
     private fun replaceDirtyProgressKeys(keys: Collection<String>) {
