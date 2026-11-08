@@ -6,6 +6,7 @@
 **This continuation rechecked:** `a9f6d930cb6ee436046bf54b9e1e4533e993cf62`  
 **This continuation (8 November) rechecked:** `943bdb1c71ad5f4f523f9dd1b61138a608cbeeec`  
 **Live TV continuation base:** `75fa9c2d6fcabb104320ff2b41c9d1ee2e9e4217`  
+**This continuation (8 November, Android resumable-download audit) rechecked:** `1edc2294d8da643abe0a81e6583036f972ca0dc1`  
 **Scope:** Android phones/tablets and iPhone/iPad. Shared Kotlin is reviewed with both targets in mind.
 
 These notes are cumulative. Re-check the live branch before using any item: later commits may already contain a fix.
@@ -299,3 +300,37 @@ Research basis:
 - A relevant practitioner discussion, [fclose return value check](https://stackoverflow.com/questions/1954273/fclose-return-value-check), describes delayed write failures being reported at close and the data-loss risk from ignoring that result. No directly applicable Reddit discussion was found, so Reddit is not cited as evidence.
 
 Verification limits: inspected the complete edited iOS adapter, the `appendFile()` caller and its success/failure path, all `finishWithFailure()` call sites in the file, existing iOS POSIX imports, the Kotlin/Native platform binding definition, and the branch's version catalog. GitHub's resulting commit diff and a fresh branch/file fetch were checked; exact source guards for EOF, input errors, short writes, output errors, both close results, and task-map cleanup were confirmed. No regression test was added or run in this restricted pass, and no Kotlin compile, Gradle task, Xcode task, build, CI workflow, or build-triggering check was started, as required. These changes therefore remain statically reviewed but not compiler- or runtime-verified.
+
+
+
+### Android resumable downloads — validate exact Content-Range payloads and restore partial sinks (8 November 2026)
+
+A source-level audit of the Android download transfer uncovered a data-integrity gap in `AndroidDownloadTransfer.kt`. The existing parser retained only the first byte and complete representation length from `Content-Range`, discarding the inclusive last-byte position. The transfer therefore checked that a 206 response began at the requested offset and that the final accumulated count equalled the inferred/declared file total, but it did not prove that the response body actually contained the byte interval declared by the response.
+
+For example, with an existing 5-byte partial file, a response declaring `Content-Range: bytes 5-6/11` but carrying a 6-byte body could previously be accepted: the accumulated count became 11 and matched the advertised total, even though the header only described a 2-byte range.
+
+The Android-only fix makes these checks explicit:
+
+- `DownloadContentRange` now retains the first byte, inclusive last byte and optional complete length. The parser rejects reversed ranges, inclusive-length overflow, out-of-range complete lengths and numeric complete-length values that overflow `Long` instead of treating an invalid numeric total as the unknown-length `*` form.
+- When OkHttp exposes a response-body length, a 206 payload whose `Content-Length` differs from the inclusive range length is rejected before opening the sink.
+- For unknown-length/chunked bodies, the transfer counts actual bytes against the declared range. It stops reading once the body exceeds the declared interval and, on a short or oversized clean response, truncates the sink back to the original offset before returning an error. The rollback is synced to storage.
+- The internal `DownloadSink` contract now supports truncation for both app-private files (`RandomAccessFile.setLength`) and Storage Access Framework documents (`FileChannel.truncate`). Both implementations refuse to extend a sink during rollback; this prevents accidentally manufacturing zero-filled bytes if the file is already shorter than the captured offset.
+- An invalid range is a permanent protocol error rather than a transient network failure, so the scheduler does not repeatedly download the same malformed response. If rollback reduces the byte count, the throttled progress reporter now publishes that decrease immediately, keeping persisted/UI progress aligned with the actual partial file.
+- Range validation/rollback runs before the final cancellation check, so cancellation arriving immediately after the response body closes cannot bypass integrity repair.
+
+The existing 416 restart, normal 200 fallback, strong-ETag/Last-Modified request handling, progress cadence, download location choice, retry limits for transient I/O, and completion path remain otherwise unchanged. No dependency, API endpoint, persistence format, resource, user setting, UI, build configuration, or iOS source was changed.
+
+Regression coverage was added in `AndroidDownloadTransferTest.kt` for inclusive range byte counts and overflowed totals, known-length header/body mismatch, unknown-length chunked mismatch with prefix rollback, and non-retry classification of invalid ranges. The already-existing valid resume, ignored-range restart, 416 retry, truncated-body and cancellation tests were retained.
+
+Research basis:
+- The IETF [RFC 9110 §14.1.2 and §14.4](https://www.rfc-editor.org/rfc/rfc9110.html) defines the last byte of a byte range as inclusive, specifies that `Content-Range` identifies the returned range, and states that a numeric complete length must be greater than the last byte. It also allows a server to return only portions of requested ranges and expects the client to request remaining portions where appropriate.
+- The IETF [RFC 9110 §15.3.7](https://www.rfc-editor.org/rfc/rfc9110.html) defines 206 Partial Content as carrying one or more partial representations; this is why the payload must be checked against the exact range rather than only the overall file total.
+- The project's Android source uses OkHttp 4.12.0, whose response-body length can be unknown; the transfer therefore checks the actual byte count when `contentLength()` is unavailable. The project test dependency is MockWebServer 5.3.2, whose official [MockResponse.setChunkedBody API](https://square.github.io/okhttp/5.x/mockwebserver/okhttp3.mockwebserver/-mock-response/set-chunked-body.html) is used for the chunked-response regression case.
+- Oracle's [Java 17 FileChannel documentation](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/nio/channels/FileChannel.html) specifies that `truncate(size)` discards bytes beyond the new end and does not extend a shorter file. The [RandomAccessFile documentation](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/io/RandomAccessFile.html) and [FileDescriptor.sync documentation](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/io/FileDescriptor.html) support the private-file rollback and persistence calls. These JDK APIs are also part of the Android Java I/O surface used by this Android target.
+- The repository's `AndroidDownloadExport.sink()` was inspected and confirmed to route persisted document-URI partials through `DocumentDownloadSink`, so both the private and SAF rollback paths are covered by the shared sink contract.
+
+### Android range-resume follow-up deliberately left open
+
+A separate standards edge was identified but not changed in this batch: a 206 response whose `Content-Range` uses an unknown complete length (`*`) can represent only one portion of an open-ended range, with the remaining bytes requiring another Range request. The existing transfer still derives its completion total from the response-body length in this case, and therefore cannot prove that an unknown-total segment was the final segment. Correctly supporting this requires a bounded multi-response continuation state machine and explicit treatment of the terminating 416 response, validator retention, and sources that do not provide a validator. Simply setting the total to null would still allow the current function to return success after one partial segment; simply rejecting every `*` response would regress sources that use unknown-length ranges. Leave this path unchanged until that state-machine change can be separately designed and covered, rather than claiming unknown-total range completion is fixed.
+
+Verification limits: reviewed the four complete changed Android source/test files, the SAF export adapter, the Android scheduler's worker retry and progress path, the current version catalog/build dependency declarations, and the exact branch commit diffs. GitHub re-fetches and static source checks confirmed both sink implementations provide rollback, the parser retains all range fields, content-length and streamed-byte guards are present, invalid ranges are non-retryable, and progress can move backwards after rollback. Regression tests were authored but not run: executing Gradle tests would start a build, which remains prohibited until explicit authorisation. No Kotlin compilation, Android build, Xcode build, CI workflow or build-triggering check was started. The implementation therefore remains statically reviewed, not compiler- or runtime-verified.
