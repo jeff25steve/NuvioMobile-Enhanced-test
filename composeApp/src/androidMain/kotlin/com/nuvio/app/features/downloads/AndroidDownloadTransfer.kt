@@ -23,6 +23,20 @@ internal val downloadHttpClient = OkHttpClient.Builder()
 
 internal class DownloadHttpException(val statusCode: Int) : IOException("Download failed: HTTP $statusCode")
 
+internal class InvalidDownloadRangeException(
+    message: String,
+    cause: Throwable? = null,
+) : IOException(message, cause)
+
+internal data class DownloadContentRange(
+    val firstByte: Long,
+    val lastByteInclusive: Long,
+    val completeLength: Long?,
+) {
+    val byteCount: Long
+        get() = lastByteInclusive - firstByte + 1L
+}
+
 internal suspend fun transferAndroidDownload(
     item: DownloadItem,
     sink: DownloadSink,
@@ -61,19 +75,30 @@ internal suspend fun transferAndroidDownload(
                         return@use
                     }
                     if (!response.isSuccessful) throw DownloadHttpException(response.code)
-                    val range = response.header("Content-Range")?.let(::parseDownloadContentRange)
                     val resumed = response.code == 206
-                    if (resumed && (range == null || range.first != offset)) {
-                        throw IOException("Server returned an invalid download range")
+                    val range = if (resumed) {
+                        response.header("Content-Range")?.let(::parseDownloadContentRange)
+                    } else {
+                        null
+                    }
+                    if (resumed && (range == null || range.firstByte != offset)) {
+                        throw InvalidDownloadRangeException("Server returned an invalid download range")
                     }
                     val startingBytes = if (resumed) offset else 0L
                     val body = response.body ?: throw IOException("Download response is empty")
                     val contentLength = body.contentLength().takeIf { it >= 0L }
-                    val totalBytes = range?.second ?: contentLength?.let { startingBytes + it }
+                    val expectedRangeBytes = range?.byteCount
+                    if (expectedRangeBytes != null && contentLength != null && contentLength != expectedRangeBytes) {
+                        throw InvalidDownloadRangeException(
+                            "Server response length does not match Content-Range",
+                        )
+                    }
+                    val totalBytes = range?.completeLength ?: contentLength?.let { startingBytes + it }
                     val responseValidator = response.header("ETag")?.takeUnless { it.startsWith("W/") }
                         ?: response.header("Last-Modified")
                     onHeaders(totalBytes, responseValidator)
                     var downloaded = startingBytes
+                    var responseBytesRead = 0L
                     onProgress(downloaded, totalBytes)
                     body.byteStream().use { input ->
                         sink.open(append = resumed && offset > 0L).use { output ->
@@ -83,6 +108,7 @@ internal suspend fun transferAndroidDownload(
                                 val size = input.read(buffer)
                                 if (size == -1) break
                                 output.write(buffer, 0, size)
+                                responseBytesRead += size
                                 downloaded += size
                                 onProgress(downloaded, totalBytes)
                             }
@@ -90,6 +116,20 @@ internal suspend fun transferAndroidDownload(
                         }
                     }
                     ensureActive()
+                    if (expectedRangeBytes != null && responseBytesRead != expectedRangeBytes) {
+                        try {
+                            sink.truncate(startingBytes)
+                        } catch (rollbackError: Exception) {
+                            throw InvalidDownloadRangeException(
+                                "Invalid partial response and its downloaded bytes could not be rolled back",
+                                rollbackError,
+                            )
+                        }
+                        onProgress(startingBytes, totalBytes)
+                        throw InvalidDownloadRangeException(
+                            "Server response length does not match Content-Range",
+                        )
+                    }
                     if (totalBytes != null && downloaded != totalBytes) {
                         throw IOException("Download ended before all bytes were received")
                     }
@@ -109,11 +149,16 @@ internal suspend fun transferAndroidDownload(
     }
 }
 
-internal fun parseDownloadContentRange(value: String): Pair<Long, Long?>? {
+internal fun parseDownloadContentRange(value: String): DownloadContentRange? {
     val match = Regex("bytes (\\d+)-(\\d+)/(\\d+|\\*)").matchEntire(value.trim()) ?: return null
     val start = match.groupValues[1].toLongOrNull() ?: return null
     val end = match.groupValues[2].toLongOrNull() ?: return null
-    val total = match.groupValues[3].toLongOrNull()
-    if (end < start || (total != null && end >= total)) return null
-    return start to total
+    val totalText = match.groupValues[3]
+    val total = if (totalText == "*") null else totalText.toLongOrNull() ?: return null
+    if (end < start || end - start == Long.MAX_VALUE || (total != null && end >= total)) return null
+    return DownloadContentRange(
+        firstByte = start,
+        lastByteInclusive = end,
+        completeLength = total,
+    )
 }
