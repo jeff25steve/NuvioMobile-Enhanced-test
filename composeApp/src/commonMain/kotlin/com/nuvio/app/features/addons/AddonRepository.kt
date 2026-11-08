@@ -130,6 +130,24 @@ object AddonRepository {
         }
     }
 
+    fun beginAccountCleanup() {
+        profileOperationGate.beginAccountCleanup {
+            cancelActiveRefreshes()
+            val pushJobs = synchronized(pushJobsLock) {
+                pushJobsByProfile.values.toList().also { pushJobsByProfile.clear() }
+            }
+            pushJobs.forEach(Job::cancel)
+            currentProfileId = 1
+            initialized = false
+            pulledFromServer = false
+            _uiState.value = AddonsUiState()
+        }
+    }
+
+    fun endAccountCleanup() {
+        profileOperationGate.endAccountCleanup()
+    }
+
     fun clearLocalState() {
         InAppLogger.info("Addons/Repository", "clear local in-memory state")
         profileOperationGate.invalidate(1) {
