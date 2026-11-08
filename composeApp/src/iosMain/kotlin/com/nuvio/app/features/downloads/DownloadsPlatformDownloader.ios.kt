@@ -593,7 +593,9 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 
 @OptIn(ExperimentalForeignApi::class)
 private fun truncatePathToLength(path: String, length: Long): Boolean {
-    if (length < 0L || posixTruncate(path, length) != 0) return false
+    if (length < 0L) return false
+    val currentLength = fileSizeOrNull(path) ?: return false
+    if (currentLength < length || posixTruncate(path, length) != 0) return false
     return fileSizeOrNull(path) == length
 }
 
