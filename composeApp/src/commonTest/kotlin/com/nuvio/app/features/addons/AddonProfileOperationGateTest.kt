@@ -7,6 +7,23 @@ import kotlin.test.assertTrue
 
 class AddonProfileOperationGateTest {
     @Test
+    fun accountCleanupBlocksNewWorkUntilCleanupFinishes() {
+        val gate = AddonProfileOperationGate(initialProfileId = 1)
+        val old = assertNotNull(gate.current(1))
+        gate.beginAccountCleanup()
+
+        var published = false
+        assertFalse(gate.isCurrent(old))
+        assertTrue(gate.current(1) == null)
+        assertFalse(gate.runIfCurrent(old) { published = true })
+        assertFalse(published)
+
+        gate.endAccountCleanup()
+        assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
+    }
+
+
+    @Test
     fun switchingProfilesInvalidatesEarlierOperations() {
         val gate = AddonProfileOperationGate(initialProfileId = 1)
         val primary = assertNotNull(gate.current(1))
