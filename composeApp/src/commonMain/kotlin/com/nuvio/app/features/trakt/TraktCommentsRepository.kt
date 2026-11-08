@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.features.addons.httpGetTextWithHeaders
 import com.nuvio.app.features.addons.httpRequestRaw
 import com.nuvio.app.features.details.MetaDetails
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,6 +21,18 @@ private val INLINE_SPOILER_REGEX = Regex(
 private val INLINE_SPOILER_TAG_REGEX = Regex("\\[/?spoiler\\]", RegexOption.IGNORE_CASE)
 
 private val commentsJson = Json { ignoreUnknownKeys = true }
+
+internal suspend fun <T> bestEffortTraktCommentsLookup(
+    request: suspend () -> T,
+    onFailure: (Exception) -> Unit,
+): T? = try {
+    request()
+} catch (error: CancellationException) {
+    throw error
+} catch (error: Exception) {
+    onFailure(error)
+    null
+}
 
 object TraktCommentsRepository {
     private val log = Logger.withTag("TraktComments")
@@ -174,22 +187,24 @@ object TraktCommentsRepository {
     ): ResolvedCommentsTarget? {
         val headers = TraktAuthRepository.authorizedHeaders() ?: return null
         val url = "https://api.trakt.tv/search/tmdb/$tmdbId?type=${type.apiValue}"
-        return try {
-            val responseText = httpGetTextWithHeaders(url, headers)
-            val results = commentsJson.decodeFromString<List<TraktCommentsSearchResultDto>>(responseText)
-            val matched = results.firstOrNull {
-                it.type.equals(type.apiValue, ignoreCase = true)
-            }
-            val ids = when (type) {
-                TraktCommentsType.MOVIE -> matched?.movie?.ids
-                TraktCommentsType.SHOW -> matched?.show?.ids
-            }
-            val pathId = ids?.bestPathId() ?: return null
-            ResolvedCommentsTarget(type, pathId)
-        } catch (e: Exception) {
-            log.w(e) { "TMDB→Trakt lookup failed for tmdbId=$tmdbId" }
-            null
-        }
+        return bestEffortTraktCommentsLookup(
+            request = {
+                val responseText = httpGetTextWithHeaders(url, headers)
+                val results = commentsJson.decodeFromString<List<TraktCommentsSearchResultDto>>(responseText)
+                val matched = results.firstOrNull {
+                    it.type.equals(type.apiValue, ignoreCase = true)
+                }
+                val ids = when (type) {
+                    TraktCommentsType.MOVIE -> matched?.movie?.ids
+                    TraktCommentsType.SHOW -> matched?.show?.ids
+                }
+                val pathId = ids?.bestPathId()
+                pathId?.let { ResolvedCommentsTarget(type, it) }
+            },
+            onFailure = { error ->
+                log.w(error) { "TMDB→Trakt lookup failed for tmdbId=$tmdbId" }
+            },
+        )
     }
 }
 

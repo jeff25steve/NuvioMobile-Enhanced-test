@@ -228,3 +228,14 @@ Profile selection now invokes both existing hooks alongside their owning feature
 The similarly named `TraktSettingsRepository` was reviewed but not wired: no production call site was established in the inspected feature paths, and the active progress/library settings are owned by `TrackingSettingsRepository`. It was left unchanged rather than reviving a potentially legacy path.
 
 Verification: direct consumers in `StreamsScreen`, `ProviderFilterRow`, and `MetaDetailsScreen` were inspected; the Android/iOS storage adapters and account-cleaner key coverage were checked. Static source/call-site review only; tests, compilation, builds and CI remain unrun by instruction.
+
+
+### Trakt comments — preserve coroutine cancellation in optional ID lookup (8 November 2026)
+
+The TMDB-to-Trakt fallback lookup in `TraktCommentsRepository.resolveViaTraktSearch` caught every `Exception` and converted it to a nullable “no result”. Coroutine `CancellationException` is an `Exception`, so closing/navigating away from a details request while this lookup was suspended could be swallowed as an ordinary failed lookup. That breaks structured cancellation and can allow the parent request to continue into its empty-page path instead of stopping.
+
+The fallback now uses a small internal `bestEffortTraktCommentsLookup` helper: ordinary lookup errors are reported through the existing logger and still become `null`, but cancellation is rethrown unchanged. The HTTP call, target-resolution order, result parsing, log message, fallback UI and comment cache are otherwise unchanged. Three common tests cover cancellation identity/propagation, ordinary failure conversion/log callback, and success preservation.
+
+Research basis: Kotlin's official [cancellation and timeouts guide](https://kotlinlang.org/docs/cancellation-and-timeouts.html) says catching `CancellationException` without rethrowing breaks cancellation propagation and explicitly directs callers to rethrow it. The code path was traced from the active `MetaDetailsScreen` comments loaders to `resolveViaTraktSearch`; cancellation from the surrounding `getCommentsPage` request was already rethrown by its outer transport catch, so the nested fallback catch was the specific suppression point.
+
+Static source checks only. The common regression tests were added but not executed because test/build execution remains prohibited until explicit authorisation.
