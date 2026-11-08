@@ -110,6 +110,106 @@ private const val maxRestorableWatchedPayloadChars = 4 * 1024 * 1024
 internal fun shouldRestoreWatchedPayload(payloadLength: Int): Boolean =
     payloadLength <= maxRestorableWatchedPayloadChars
 
+private data class WatchedStableDeleteIdentity(
+    val contentId: String,
+    val season: Int?,
+    val episode: Int?,
+)
+
+private fun watchedDeleteTypesCompatible(remoteType: String, localType: String): Boolean {
+    if (remoteType.equals(localType, ignoreCase = true)) return true
+    return remoteType.isSeriesLikeWatchedType() && localType.isSeriesLikeWatchedType()
+}
+
+/**
+ * Lazily created for a delta page only when a DELETE needs a stable-identity fallback.
+ * Buckets retain the same entry iteration order as the backing LinkedHashMap so the
+ * first compatible alias remains the selected deletion target.
+ */
+internal class WatchedStableDeleteIndex(
+    private val targetItems: MutableMap<String, WatchedItem>,
+) {
+    private val orderByKey = mutableMapOf<String, Long>()
+    private val keysByIdentity = mutableMapOf<WatchedStableDeleteIdentity, MutableList<String>>()
+    private var nextOrder = 0L
+
+    init {
+        targetItems.forEach { (key, item) ->
+            orderByKey[key] = nextOrder++
+            addToBucket(key, identityOf(item), orderByKey.getValue(key))
+        }
+    }
+
+    fun findKey(
+        contentId: String,
+        contentType: String,
+        season: Int?,
+        episode: Int?,
+    ): String? {
+        val keys = keysByIdentity[WatchedStableDeleteIdentity(contentId, season, episode)]
+            ?: return null
+        return keys.firstOrNull { key ->
+            targetItems[key]?.let { item ->
+                watchedDeleteTypesCompatible(remoteType = contentType, localType = item.type)
+            } == true
+        }
+    }
+
+    fun upsert(key: String, item: WatchedItem) {
+        val previous = targetItems[key]
+        if (previous == null) {
+            targetItems[key] = item
+            val order = nextOrder++
+            orderByKey[key] = order
+            addToBucket(key, identityOf(item), order)
+            return
+        }
+
+        targetItems[key] = item
+        val previousIdentity = identityOf(previous)
+        val updatedIdentity = identityOf(item)
+        if (previousIdentity != updatedIdentity) {
+            removeFromBucket(key, previousIdentity)
+            addToBucket(key, updatedIdentity, orderByKey.getValue(key))
+        }
+    }
+
+    fun remove(key: String): WatchedItem? {
+        val removed = targetItems.remove(key) ?: return null
+        removeFromBucket(key, identityOf(removed))
+        orderByKey.remove(key)
+        return removed
+    }
+
+    private fun addToBucket(
+        key: String,
+        identity: WatchedStableDeleteIdentity,
+        order: Long,
+    ) {
+        val keys = keysByIdentity.getOrPut(identity) { mutableListOf<String>() }
+        val insertionIndex = keys.indexOfFirst { existingKey ->
+            (orderByKey[existingKey] ?: Long.MAX_VALUE) > order
+        }
+        if (insertionIndex < 0) {
+            keys += key
+        } else {
+            keys.add(insertionIndex, key)
+        }
+    }
+
+    private fun removeFromBucket(key: String, identity: WatchedStableDeleteIdentity) {
+        val keys = keysByIdentity[identity] ?: return
+        keys.remove(key)
+        if (keys.isEmpty()) keysByIdentity.remove(identity)
+    }
+
+    private fun identityOf(item: WatchedItem) = WatchedStableDeleteIdentity(
+        contentId = item.id,
+        season = item.season,
+        episode = item.episode,
+    )
+}
+
 object WatchedRepository {
     private data class WatchedRefreshOperation(
         val profileId: Int,
@@ -613,6 +713,8 @@ object WatchedRepository {
         var preservedDirtyCount = 0
         var acknowledgedDirtyCount = 0
         var ignoredCount = 0
+        var fallbackDeleteSearchCount = 0
+        var stableDeleteIndex: WatchedStableDeleteIndex? = null
 
         events.forEach { event ->
             val key = watchedItemKey(event.contentType, event.contentId, event.season, event.episode)
@@ -635,7 +737,12 @@ object WatchedRepository {
                     ) {
                         preservedDirtyCount += 1
                     } else {
-                        targetItems[key] = remoteItem
+                        val index = stableDeleteIndex
+                        if (index == null) {
+                            targetItems[key] = remoteItem
+                        } else {
+                            index.upsert(key, remoteItem)
+                        }
                         if (dirtyKeys.remove(key)) {
                             acknowledgedDirtyCount += 1
                         }
@@ -646,13 +753,33 @@ object WatchedRepository {
                     val matchingKey = if (key in targetItems) {
                         key
                     } else {
-                        findWatchedItemStableDeleteKey(
-                            targetItems = targetItems,
-                            contentId = event.contentId,
-                            contentType = event.contentType,
-                            season = event.season,
-                            episode = event.episode,
-                        )
+                        fallbackDeleteSearchCount += 1
+                        val index = stableDeleteIndex
+                        if (index != null) {
+                            index.findKey(
+                                contentId = event.contentId,
+                                contentType = event.contentType,
+                                season = event.season,
+                                episode = event.episode,
+                            )
+                        } else if (fallbackDeleteSearchCount < 2) {
+                            findWatchedItemStableDeleteKey(
+                                targetItems = targetItems,
+                                contentId = event.contentId,
+                                contentType = event.contentType,
+                                season = event.season,
+                                episode = event.episode,
+                            )
+                        } else {
+                            val newIndex = WatchedStableDeleteIndex(targetItems)
+                            stableDeleteIndex = newIndex
+                            newIndex.findKey(
+                                contentId = event.contentId,
+                                contentType = event.contentType,
+                                season = event.season,
+                                episode = event.episode,
+                            )
+                        }
                     }
                     if (matchingKey == null) {
                         return@forEach
@@ -661,7 +788,12 @@ object WatchedRepository {
                         preservedDirtyCount += 1
                         return@forEach
                     }
-                    val removedItem = targetItems.remove(matchingKey)
+                    val index = stableDeleteIndex
+                    val removedItem = if (index == null) {
+                        targetItems.remove(matchingKey)
+                    } else {
+                        index.remove(matchingKey)
+                    }
                     if (removedItem != null) {
                         removedCount += 1
                         if (matchingKey != key) {
@@ -695,11 +827,6 @@ object WatchedRepository {
             item.season == season &&
             item.episode == episode
     }?.key
-
-    private fun watchedDeleteTypesCompatible(remoteType: String, localType: String): Boolean {
-        if (remoteType.equals(localType, ignoreCase = true)) return true
-        return remoteType.isSeriesLikeWatchedType() && localType.isSeriesLikeWatchedType()
-    }
 
     private fun itemsForSourceSnapshot(source: WatchProgressSource): List<WatchedItem> =
         itemsStore.read { nuvioItems, providerItems, _, _ ->
