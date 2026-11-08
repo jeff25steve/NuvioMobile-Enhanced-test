@@ -285,14 +285,19 @@ internal class LibraryLocalState {
     }
 
     fun removeById(id: String): LibraryLocalMutation = synchronized(lock) {
-        val removedEntries = itemsById
-            .filterValues { item -> item.id == id }
-        removedEntries.forEach { (key, item) ->
-            itemsById.remove(key)
+        var affectedCount = 0
+        val iterator = itemsById.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            val key = entry.key
+            val item = entry.value
+            if (item.id != id) continue
+
+            iterator.remove()
             pendingUpsertKeysByKey.remove(key)
             pendingDeleteKeysByKey[key] = item.toLibrarySyncKey()
+            affectedCount += 1
         }
-        val affectedCount = removedEntries.size
         if (affectedCount > 0) {
             revision += 1L
             contentRevision += 1L
