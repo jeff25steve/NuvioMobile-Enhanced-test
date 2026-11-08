@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
  */
 internal suspend fun cancelAndJoinNonCancellable(jobs: Collection<Job>) {
     if (jobs.isEmpty()) return
-    jobs.forEach(Job::cancel)
+    jobs.forEach { it.cancel() }
     withContext(NonCancellable) {
         jobs.joinAll()
     }
