@@ -1,6 +1,7 @@
 package com.nuvio.app.features.auth
 
 import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.DeviceLinkAuthRepository
 import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.network.ServerConfiguration
 import com.nuvio.app.core.network.ServerConfigurationRepository
@@ -101,14 +102,17 @@ object ServerConnectionController {
         if (_state.value.isSwitching) return
         scope.launch {
             _state.update { it.copy(isSwitching = true, failure = null, switchFailure = null) }
+            DeviceLinkAuthRepository.beginServerSwitch()
             try {
                 if (AuthRepository.prepareForServerSwitch().isFailure) {
+                    AuthRepository.reinitialize()
                     _state.update {
                         it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.SessionClear)
                     }
                     return@launch
                 }
                 if (!save()) {
+                    AuthRepository.reinitialize()
                     _state.update { it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.Save) }
                     return@launch
                 }
@@ -119,9 +123,14 @@ object ServerConnectionController {
                     activeServer = ServerConfigurationRepository.active.value,
                 )
             } catch (error: CancellationException) {
+                AuthRepository.reinitialize()
+                _state.update { it.copy(isSwitching = false) }
                 throw error
             } catch (_: Throwable) {
+                AuthRepository.reinitialize()
                 _state.update { it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.Restart) }
+            } finally {
+                DeviceLinkAuthRepository.endServerSwitch()
             }
         }
     }
