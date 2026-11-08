@@ -26,6 +26,15 @@ class AndroidDownloadTransferTest {
     @get:Rule val temporary = TemporaryFolder()
 
     @Test
+    fun contentRangePreservesInclusiveEndAndRejectsOverflowedTotal() {
+        val range = parseDownloadContentRange("bytes 5-10/11")
+
+        assertEquals(6L, range?.byteCount)
+        assertEquals(11L, range?.completeLength)
+        assertNull(parseDownloadContentRange("bytes 0-1/9223372036854775808"))
+    }
+
+    @Test
     fun resumesPartialFileWithRangeAndValidator(): Unit = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 5-10/11")
@@ -179,6 +188,7 @@ class AndroidDownloadTransferTest {
         assertTrue(shouldRetryAndroidDownload(DownloadHttpException(503), 0))
         assertTrue(shouldRetryAndroidDownload(DownloadHttpException(429), 0))
         assertFalse(shouldRetryAndroidDownload(DownloadHttpException(403), 0))
+        assertFalse(shouldRetryAndroidDownload(InvalidDownloadRangeException("invalid Content-Range"), 0))
         assertFalse(shouldRetryAndroidDownload(IOException("connection lost"), 4))
     }
 }
