@@ -49,6 +49,9 @@ suspend fun resolveWatchedBadgesBulk(
     // Use the full watchedKeys from UI state which includes extra keys from
     // provider alternate IDs (e.g. Simkl anime alternate MAL/Kitsu keys).
     val watchedKeys = WatchedRepository.uiState.value.watchedKeys
+    // Episode completion is queried repeatedly across series metadata. Index the
+    // completed playback IDs once rather than scanning all progress rows per episode.
+    val completedPlaybackIds = completedPlaybackVideoIds(progressEntries)
 
     log.i { "Bulk badge resolution starting: ${touchedSeriesIds.size} series candidates" }
 
@@ -84,9 +87,7 @@ suspend fun resolveWatchedBadgesBulk(
                     },
                     isEpisodeCompleted = { episode ->
                         val playbackId = meta.episodePlaybackId(episode)
-                        progressEntries.any { entry ->
-                            entry.videoId == playbackId && entry.isEffectivelyCompleted
-                        }
+                        playbackId in completedPlaybackIds
                     },
                 )
                 resolvedStates[watchedItemKey(meta.type, meta.id)] = isFullyWatched
@@ -153,25 +154,44 @@ private fun getActiveProviderSiblingMap(): Map<String, Set<String>> {
     }.orEmpty()
 }
 
-private fun extractContentIdFromWatchedKey(key: String): String? {
-    // Format: "type:contentId:season:episode"
-    // Split from the end to handle contentIds with colons (like "tmdb:123")
-    val parts = key.split(':')
-    if (parts.size < 4) return null
-    // Last two parts are season and episode (-1:-1)
-    // First part is type, everything in between is contentId
-    val type = parts.first()
-    val season = parts[parts.size - 2]
-    val episode = parts.last()
-    if (season.toIntOrNull() == null || episode.toIntOrNull() == null) return null
-    val contentId = parts.subList(1, parts.size - 2).joinToString(":")
+internal fun completedPlaybackVideoIds(entries: Collection<WatchProgressEntry>): Set<String> {
+    val result = HashSet<String>()
+    for (entry in entries) {
+        if (entry.isEffectivelyCompleted) {
+            result += entry.videoId
+        }
+    }
+    return result
+}
+
+/**
+ * Extracts the content ID from a "type:contentId:season:episode" key.
+ * Finds the numeric suffix from the end so provider IDs containing colons remain intact.
+ */
+internal fun extractContentIdFromWatchedKey(key: String): String? {
+    val episodeSeparator = key.lastIndexOf(':')
+    if (episodeSeparator < 0) return null
+    val seasonSeparator = key.lastIndexOf(':', episodeSeparator - 1)
+    if (seasonSeparator < 0) return null
+
+    val typeSeparator = key.indexOf(':')
+    if (typeSeparator < 0 || seasonSeparator <= typeSeparator) return null
+    if (key.substring(seasonSeparator + 1, episodeSeparator).toIntOrNull() == null) return null
+    if (key.substring(episodeSeparator + 1).toIntOrNull() == null) return null
+
+    val contentId = key.substring(typeSeparator + 1, seasonSeparator)
     return contentId.takeIf { it.isNotBlank() }
 }
 
-private fun rebuildWatchedKeyWithSiblingId(originalKey: String, siblingId: String): String? {
-    val parts = originalKey.split(':')
-    if (parts.size < 4) return null
-    val type = parts.first()
+/** Rebuilds a fully-watched key while keeping the original type prefix. */
+internal fun rebuildWatchedKeyWithSiblingId(originalKey: String, siblingId: String): String? {
+    val typeSeparator = originalKey.indexOf(':')
+    if (typeSeparator < 0) return null
+    val seasonSeparator = originalKey.indexOf(':', typeSeparator + 1)
+    if (seasonSeparator < 0) return null
+    if (originalKey.indexOf(':', seasonSeparator + 1) < 0) return null
+
+    val type = originalKey.substring(0, typeSeparator)
     return watchedItemKey(type = type, id = siblingId)
 }
 
