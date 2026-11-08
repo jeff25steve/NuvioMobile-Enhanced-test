@@ -1,8 +1,10 @@
 package com.nuvio.app.core.auth
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -19,6 +21,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -26,6 +30,7 @@ import org.jetbrains.compose.resources.getString
 object AuthRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("AuthRepository")
+    private val sessionGeneration = AuthSessionGeneration()
 
     private val _state = MutableStateFlow<AuthState>(AuthState.Loading)
     val state: StateFlow<AuthState> = _state.asStateFlow()
@@ -42,6 +47,8 @@ object AuthRepository {
         if (initialized) return
         initialized = true
 
+        val generation = sessionGeneration.begin()
+        val client = SupabaseProvider.client
         val savedAnonId = AuthStorage.loadAnonymousUserId()
         if (savedAnonId != null) {
             _state.value = AuthState.Authenticated(
@@ -52,57 +59,92 @@ object AuthRepository {
         }
 
         sessionStatusJob = scope.launch {
-            SupabaseProvider.client.auth.sessionStatus.collect { status ->
+            client.auth.sessionStatus.collect { status ->
+                if (!sessionGeneration.isCurrent(generation)) return@collect
                 if (AuthStorage.loadAnonymousUserId() != null) return@collect
                 when (status) {
                     is SessionStatus.Authenticated -> {
                         val user = status.session.user
                         val userId = user?.id.orEmpty()
-                        if (!validateRemoteSession(userId)) return@collect
-                        _state.value = AuthState.Authenticated(
-                            userId = userId,
-                            email = user?.email,
-                            isAnonymous = false,
-                        )
+                        if (
+                            !validateRemoteSession(
+                                userId = userId,
+                                generation = generation,
+                                retrieveUser = { client.auth.retrieveUserForCurrentSession(false) },
+                                clearSession = { client.auth.clearSession() },
+                            )
+                        ) return@collect
+                        sessionGeneration.runIfCurrent(generation) {
+                            _state.value = AuthState.Authenticated(
+                                userId = userId,
+                                email = user?.email,
+                                isAnonymous = false,
+                            )
+                        }
                     }
                     is SessionStatus.NotAuthenticated -> {
-                        _state.value = AuthState.Unauthenticated
+                        sessionGeneration.runIfCurrent(generation) {
+                            _state.value = AuthState.Unauthenticated
+                        }
                     }
                     is SessionStatus.Initializing -> {
                         if (AuthStorage.loadAnonymousUserId() == null) {
-                            _state.value = AuthState.Loading
+                            sessionGeneration.runIfCurrent(generation) {
+                                _state.value = AuthState.Loading
+                            }
                         }
                     }
                     is SessionStatus.RefreshFailure -> {
-                        _state.value = AuthState.Unauthenticated
+                        sessionGeneration.runIfCurrent(generation) {
+                            _state.value = AuthState.Unauthenticated
+                        }
                     }
                 }
             }
         }
     }
 
-    private suspend fun validateRemoteSession(userId: String): Boolean {
+    private suspend fun validateRemoteSession(
+        userId: String,
+        generation: Long,
+        retrieveUser: suspend () -> Unit,
+        clearSession: suspend () -> Unit,
+    ): Boolean {
+        if (!sessionGeneration.isCurrent(generation)) return false
         if (userId.isBlank() || validatedRemoteUserId == userId) return true
         if (trustNextSessionWithoutValidation) {
-            trustNextSessionWithoutValidation = false
-            validatedRemoteUserId = userId
-            return true
-        }
-
-        return runCatching {
-            SupabaseProvider.client.auth.retrieveUserForCurrentSession(false)
-            validatedRemoteUserId = userId
-            true
-        }.getOrElse { e ->
-            if (isInvalidRemoteSessionError(e)) {
-                log.w(e) { "Stored Supabase session no longer belongs to an active account; clearing local auth" }
-                clearLocalSessionAfterRemoteInvalidation()
-                false
-            } else {
-                log.w(e) { "Unable to validate stored Supabase session; keeping cached auth state" }
-                true
+            return sessionGeneration.runIfCurrent(generation) {
+                trustNextSessionWithoutValidation = false
+                validatedRemoteUserId = userId
             }
         }
+
+        val validation = runCatchingUnlessCancelled {
+            retrieveUser()
+        }
+        if (!sessionGeneration.isCurrent(generation)) return false
+
+        return validation.fold(
+            onSuccess = {
+                sessionGeneration.runIfCurrent(generation) {
+                    validatedRemoteUserId = userId
+                }
+            },
+            onFailure = { error ->
+                if (isInvalidRemoteSessionError(error)) {
+                    log.w(error) { "Stored Supabase session no longer belongs to an active account; clearing local auth" }
+                    clearLocalSessionAfterRemoteInvalidation(
+                        accountUserId = userId,
+                        clearSession = clearSession,
+                        shouldContinue = { sessionGeneration.isCurrent(generation) },
+                    )
+                    false
+                } else {
+                    log.w(error) { "Unable to validate stored Supabase session; keeping cached auth state" }
+                    sessionGeneration.isCurrent(generation)
+                }
+            },
+        )
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -117,31 +159,48 @@ object AuthRepository {
         )
     }
 
-    suspend fun signUpWithEmail(email: String, password: String): Result<Unit> = runCatching {
-        _error.value = null
-        SupabaseProvider.client.auth.signUpWith(Email) {
-            this.email = email
-            this.password = password
+    suspend fun signUpWithEmail(email: String, password: String): Result<Unit> {
+        val client = SupabaseProvider.client
+        val generation = sessionGeneration.current()
+        return runCatchingUnlessCancelled {
+            _error.value = null
+            client.auth.signUpWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            currentCoroutineContext().ensureActive()
+            val trusted = sessionGeneration.runIfCurrent(generation) {
+                trustNextSessionWithoutValidation = true
+            }
+            if (!trusted) throw CancellationException("Authentication backend changed during sign-up")
+            Unit
+        }.onFailure { error ->
+            log.e(error) { "Email sign-up failed" }
+            _error.value = error.safeAuthErrorDescription()
+                ?: getString(Res.string.auth_sign_up_failed)
         }
-        trustNextSessionWithoutValidation = true
-        Unit
-    }.onFailure { e ->
-        log.e(e) { "Email sign-up failed" }
-        _error.value = e.safeAuthErrorDescription()
-            ?: getString(Res.string.auth_sign_up_failed)
     }
 
-    suspend fun signInWithEmail(email: String, password: String): Result<Unit> = runCatching {
-        _error.value = null
-        SupabaseProvider.client.auth.signInWith(Email) {
-            this.email = email
-            this.password = password
+    suspend fun signInWithEmail(email: String, password: String): Result<Unit> {
+        val client = SupabaseProvider.client
+        val generation = sessionGeneration.current()
+        return runCatchingUnlessCancelled {
+            _error.value = null
+            client.auth.signInWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            currentCoroutineContext().ensureActive()
+            val trusted = sessionGeneration.runIfCurrent(generation) {
+                trustNextSessionWithoutValidation = true
+            }
+            if (!trusted) throw CancellationException("Authentication backend changed during sign-in")
+            Unit
+        }.onFailure { error ->
+            log.e(error) { "Email sign-in failed" }
+            _error.value = error.safeAuthErrorDescription()
+                ?: getString(Res.string.auth_sign_in_failed)
         }
-        trustNextSessionWithoutValidation = true
-    }.onFailure { e ->
-        log.e(e) { "Email sign-in failed" }
-        _error.value = e.safeAuthErrorDescription()
-            ?: getString(Res.string.auth_sign_in_failed)
     }
 
     suspend fun signOut(): Result<Unit> {
@@ -187,6 +246,8 @@ object AuthRepository {
 
     suspend fun prepareForServerSwitch(): Result<Unit> {
         _error.value = null
+        sessionGeneration.invalidate()
+        trustNextSessionWithoutValidation = false
         val anonymousClear = runCatching { AuthStorage.clearAnonymousUserId() }
         validatedRemoteUserId = null
         val sessionClear = runCatching { SupabaseProvider.client.auth.clearSession() }
@@ -198,6 +259,7 @@ object AuthRepository {
     }
 
     fun reinitialize() {
+        sessionGeneration.invalidate()
         sessionStatusJob?.cancel()
         sessionStatusJob = null
         initialized = false
@@ -210,21 +272,32 @@ object AuthRepository {
         if (!isInvalidRemoteSessionError(error)) return false
 
         log.w(error) { "$source failed because the current Supabase account/session is no longer valid; clearing local auth" }
-        clearLocalSessionAfterRemoteInvalidation()
+        val accountUserId = (state.value as? AuthState.Authenticated)?.userId
+        val client = SupabaseProvider.client
+        clearLocalSessionAfterRemoteInvalidation(
+            accountUserId = accountUserId,
+            clearSession = { client.auth.clearSession() },
+        )
         return true
     }
 
-    private suspend fun clearLocalSessionAfterRemoteInvalidation() {
+    private suspend fun clearLocalSessionAfterRemoteInvalidation(
+        accountUserId: String?,
+        clearSession: suspend () -> Unit,
+        shouldContinue: () -> Boolean = { true },
+    ) {
+        if (!shouldContinue()) return
         _error.value = null
-        val accountUserId = (state.value as? AuthState.Authenticated)?.userId
         AuthStorage.clearAnonymousUserId()
         validatedRemoteUserId = null
         runCatching {
-            SupabaseProvider.client.auth.clearSession()
-        }.onFailure { e ->
-            log.w(e) { "Failed to clear Supabase session after remote invalidation; continuing local reset" }
+            clearSession()
+        }.onFailure { error ->
+            log.w(error) { "Failed to clear Supabase session after remote invalidation; continuing local reset" }
         }
+        if (!shouldContinue()) return
         val localCleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
+        if (!shouldContinue()) return
         _state.value = AuthState.Unauthenticated
         localCleanup.onFailure { error ->
             log.e(error) { "Local account cleanup failed after remote session invalidation" }
