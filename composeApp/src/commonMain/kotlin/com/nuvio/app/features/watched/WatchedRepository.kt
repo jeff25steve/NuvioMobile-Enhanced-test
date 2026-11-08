@@ -1105,8 +1105,7 @@ object WatchedRepository {
             nuvioItems = nuvioItems,
             providerItems = providerItems,
         )
-            .map(WatchedItem::normalizedMarkedAt)
-            .sortedByDescending { it.markedAtEpochMs }
+            .normalizedAndSortedByNewestMarkedAt()
         val fullyWatchedSeriesKeys = fullyWatchedSeriesKeysForSource(activeSource)
         val watchedKeys = items.mapTo(linkedSetOf()) {
             watchedItemKey(it.type, it.id, it.season, it.episode)
@@ -1210,9 +1209,7 @@ object WatchedRepository {
                 addAll(loadedProviders)
             }
             StoredWatchedPayload(
-                items = nuvioItems.values
-                    .map(WatchedItem::normalizedMarkedAt)
-                    .sortedByDescending { it.markedAtEpochMs },
+                items = nuvioItems.values.normalizedAndSortedByNewestMarkedAt(),
                 fullyWatchedSeriesKeys = nuvioFullyWatchedSeriesKeys,
                 expandedSiblingKeys = expandedSiblingKeys,
                 lastSuccessfulPushEpochMs = lastSuccessfulPushEpochMs,
@@ -1364,25 +1361,27 @@ internal fun mergeWatchedSnapshot(
     dirtyKeys: Set<String>,
     acknowledgeDirtyByPresence: Boolean = false,
 ): WatchedSnapshotMerge {
-    val remoteByKey = serverItems
-        .map(WatchedItem::normalizedMarkedAt)
-        .associateBy { watchedItemKey(it.type, it.id, it.season, it.episode) }
-        .toMutableMap()
-    val localByKey = localItems
-        .map(WatchedItem::normalizedMarkedAt)
-        .associateBy { watchedItemKey(it.type, it.id, it.season, it.episode) }
-    val remainingDirtyKeys = dirtyKeys
-        .filterTo(mutableSetOf()) { key -> key in localByKey }
+    val remoteByKey = linkedMapOf<String, WatchedItem>()
+    serverItems.forEach { item ->
+        val normalized = item.normalizedMarkedAt()
+        remoteByKey[watchedItemKey(normalized.type, normalized.id, normalized.season, normalized.episode)] = normalized
+    }
+    val localByKey = linkedMapOf<String, WatchedItem>()
+    localItems.forEach { item ->
+        val normalized = item.normalizedMarkedAt()
+        localByKey[watchedItemKey(normalized.type, normalized.id, normalized.season, normalized.episode)] = normalized
+    }
+    val remainingDirtyKeys = linkedSetOf<String>()
 
-    remainingDirtyKeys.toList().forEach { key ->
-        val localItem = localByKey.getValue(key)
+    dirtyKeys.forEach { key ->
+        val localItem = localByKey[key] ?: return@forEach
         val remoteItem = remoteByKey[key]
         if (remoteItem == null) {
             remoteByKey[key] = localItem
-        } else if (acknowledgeDirtyByPresence || remoteItem.markedAtEpochMs >= localItem.markedAtEpochMs) {
-            remainingDirtyKeys -= key
-        } else {
+            remainingDirtyKeys += key
+        } else if (!acknowledgeDirtyByPresence && remoteItem.markedAtEpochMs < localItem.markedAtEpochMs) {
             remoteByKey[key] = localItem
+            remainingDirtyKeys += key
         }
     }
 
@@ -1398,20 +1397,19 @@ internal fun acknowledgeSuccessfulWatchedPush(
     pushedItems: Collection<WatchedItem>,
 ): Set<String> {
     val remainingDirtyKeys = dirtyKeys.toMutableSet()
-    pushedItems
-        .map(WatchedItem::normalizedMarkedAt)
-        .forEach { pushedItem ->
-            val key = watchedItemKey(
-                type = pushedItem.type,
-                id = pushedItem.id,
-                season = pushedItem.season,
-                episode = pushedItem.episode,
-            )
-            val currentItem = currentItems[key]?.normalizedMarkedAt()
-            if (currentItem == null || currentItem.markedAtEpochMs <= pushedItem.markedAtEpochMs) {
-                remainingDirtyKeys -= key
-            }
+    pushedItems.forEach { rawPushedItem ->
+        val pushedItem = rawPushedItem.normalizedMarkedAt()
+        val key = watchedItemKey(
+            type = pushedItem.type,
+            id = pushedItem.id,
+            season = pushedItem.season,
+            episode = pushedItem.episode,
+        )
+        val currentItem = currentItems[key]?.normalizedMarkedAt()
+        if (currentItem == null || currentItem.markedAtEpochMs <= pushedItem.markedAtEpochMs) {
+            remainingDirtyKeys -= key
         }
+    }
     return remainingDirtyKeys
 }
 
