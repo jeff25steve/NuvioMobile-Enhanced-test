@@ -730,3 +730,55 @@ Other plugin-runtime observations not promoted:
 Source revisions inspected: full plugin repository (`082de91cd4c391a9a893a57c9b223cd79f0d9d66`), plugin runtime (`a5a1cc763ae26665c6c672ead362026632e6a61c`), FetchBridge (`0b97b0f10febce1ffe87f96bd9fb0b43470b48fb`), Android Full host test `PluginSyncTest.kt` (`47fff071e3c59c0a9936cfd16be025d5b120ea03`), Android Play Store and iOS App Store disabled stubs (`a42594a1b0b314e13507121af17de3c0152c96b4`), and Addon HTTP platform implementations Android (`9d1f94dd0425149bb03ab361a8a8411daff6c966`) / iOS (`c556d5b8fd3c15d8dca9a88898ef4c0224206883`).
 
 Verification limits: this was static source and test inspection only. No plugin cancellation/profile race was reproduced, no tests were run, and no test/build/CI files or production source were changed. No Gradle, Xcode or build-triggering process was started.
+
+
+### Watch-party session ownership — reject stale snapshots and queued room messages (8 November 2026)
+
+A focused audit of the watch-party state machine found two related asynchronous ownership gaps. Both could publish data from a previous party after the user had joined another party.
+
+#### Stale RPC snapshots
+
+`PartyRepository` runs its work on `Dispatchers.Default.limitedParallelism(1)`, but several remote actions are launched in the repository-wide scope and suspend during PostgREST RPCs:
+- `removeMember` captures the active party, awaits `watch_party_remove_member`, then applies the returned snapshot.
+- `setHostOnly` optimistically updates local state, awaits `watch_party_set_host_only`, and previously rolled back or applied the returned snapshot without confirming that the same party remained active.
+- `publishMedia` similarly applies the completed `watch_party_update` result by mutating whichever party is active at completion time.
+- `refreshMembers` awaits a heartbeat and also emits a follow-on `MemberJoined` event using the live repository state.
+
+The start/create/join path is mutex-protected, but these independent commands do not hold that mutex across their network operations. A request started for party A can therefore resume after a switch to party B. Previously `applySnapshot` matched no request owner: in particular, a party-A error snapshot such as `not_member` or `party_ended` could trigger rejoin/finish handling against party B. Even when snapshot application is rejected, `refreshMembers` also needs to suppress its follow-on event rather than reading and announcing a member from the new room.
+
+#### Queued chat messages
+
+`PartyChannel.open` collects broadcast events inside the party session scope. `PartyRepository.onMessage` forwards a received chat payload to `PartyChat.receive`, which launches a new coroutine in PartyChat's separate process-lifetime scope. Closing the old PartyChannel cancels its collector jobs and removes the channel, but it cannot retract a chat callback that has already been queued in PartyChat's independent scope. Before this change, `PartyChat.receive` only checked that some room was active; a queued event from party A could therefore be decoded and appended after party B had become the active room.
+
+#### Implemented change
+
+The following minimal shared-code changes were committed:
+- Added `isPartySessionCurrent` and `isPartySnapshotCurrent` ownership predicates. Error snapshots may omit party details, so they are accepted only when the original request's party is still the active party; a response that identifies a different party is rejected.
+- Every asynchronous snapshot publication path now passes its captured party ID into `applySnapshot`, which checks both the captured request owner and the current session before processing success or error responses.
+- The `setHostOnly` optimistic rollback is now conditional on the original party still being active.
+- `refreshMembers` checks session ownership before publishing its follow-on member-joined event.
+- `PartyRepository` now passes the event's originating party ID to `PartyChat.receive`. The queued PartyChat job drops the payload unless that exact room is still active.
+
+This does not add locks around network operations, change the party protocol, alter playback sequence ordering, or change user-visible layout/animation behaviour. It is shared Kotlin code used by Android and iOS; no platform-specific implementation was needed.
+
+#### Regression coverage and evidence
+
+Added `PartySessionOwnershipTest` covering: a current session with a matching response; a server error snapshot with no party body; a response from another party; an old request completing after a switch; and a request completing after the party has ended.
+
+Research and implementation cross-checks:
+- Kotlin's official [Coroutine context and dispatchers documentation](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html) explains dispatcher confinement and that coroutines can suspend and later resume; single-thread confinement does not make a multi-suspension network operation atomic with respect to other coroutines.
+- Kotlin's official [Shared mutable state and concurrency documentation](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html) describes thread confinement as a way to protect state, while the repository's suspending RPC boundaries still permit interleaving between confined coroutines.
+- The repository's own `PartyChannel.kt` confirms that broadcast collectors are children of the party session scope and are cancelled during channel close. It also shows the handoff to `PartyRepository.onMessage`; PartyChat then deliberately uses a separate process-lifetime scope, which is why an explicit room-owner check is needed at the second asynchronous boundary.
+- Supabase Kotlin 3.4.1 release notes and its official [removeChannel guidance](https://supabase.com/docs/reference/kotlin/removechannel) were checked to distinguish channel teardown from cleanup of already-forwarded application work. Channel removal is not a substitute for validating the owner of an already-enqueued application callback.
+- Community searches surfaced Supabase Realtime concurrency/reconnect discussions, but no discussion was treated as proof of this app-level state race. The finding is established by the app's source-level data flow.
+
+Rejected alternatives:
+- A broad mutex around all watch-party RPCs would serialize unrelated operations and hold coordination while waiting on network I/O. The request already has a stable party ID, so an ownership check at publication is smaller.
+- Checking only `snapshot.party.id` is insufficient because error snapshots can have `party == null`; the captured request party must also match the active local party.
+- Relying only on `PartyChannel.close()` is insufficient because chat callbacks are re-dispatched to PartyChat's independent scope.
+- Comparing only the live room to a payload-derived field is not possible: broadcast chat payloads do not carry the party ID. The channel callback's captured party ID is the correct owner token.
+- A server repository first-use concern was also checked: `ServerRepository.call` captures its generation before `connection()` ensures loading, which can increment the generation. Current callers reach `refreshLibraries` from `MediaServerSettingsPage` after `MediaServersSettingsPage`/the detail page has already called `ensureLoaded()`; no failing current caller was found, so this was not changed.
+
+Source files reviewed: `PartyRepository.kt`, `PartyChat.kt`, `PartyChannel.kt`, `PartyApi.kt`, `PartyModels.kt`, and the existing Party sync/chat/stream tests. New regression test: `PartySessionOwnershipTest.kt`.
+
+Verification limits: complete remote diffs and all snapshot/chat receive call sites were re-fetched after the change. The branch diff was limited to the party model helper, party repository, party chat repository and the new common test, plus this cumulative note. Tests were authored but not executed. No Gradle task, Kotlin compilation, Android/iOS build, Xcode task, CI workflow or build-triggering process was started. Runtime reproduction and compiler verification remain outstanding.
