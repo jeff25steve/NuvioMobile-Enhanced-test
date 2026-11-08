@@ -1042,3 +1042,40 @@ A source-level comparison of Android and iOS `httpRequestRaw()` found a memory-s
 - The returned response retains no more than `maxResponseBodyBytes` response bytes plus its one-byte truncation probe. Temporary array growth can briefly overlap old and new buffers, so peak allocation is O(cap), not exactly cap; it does not scale with the full response size.
 - Re-fetched the latest branch head before editing and confirmed it was `0bb8fd601343c4984bf0f44ebee9cca3bf60f9a5`. Changed platform files, Ktor 3.4.1 source, source-set dependencies and the new regression tests were inspected.
 - Regression tests were authored but not executed. No Gradle tests, compile, Android build, iOS/Xcode build, CI workflow or other build-triggering command was started. The change remains statically reviewed, not compiler- or runtime-verified.
+
+
+### YouTube trailer extraction — preserve caller cancellation across fallback probes (8 November 2026)
+
+A focused cancellation audit of the full in-app YouTube trailer extraction path found that ordinary Kotlin `runCatching` was used around several suspending network operations. Kotlin's standard `runCatching` catches every `Throwable`, including `CancellationException`. In this path that could make an abandoned trailer lookup continue through alternative YouTube clients/probes, and on iOS a cancelled response-body read could be converted to an empty body while the request was still reported as successful.
+
+#### Affected paths and root cause
+
+- `InAppYouTubeExtractor.extract()` wrapped the entire extraction and its 30-second `withTimeout` in `runCatching`. This converted both caller cancellation and the extractor's own timeout into an indistinguishable ordinary failure.
+- The per-YouTube-client fallback loop wrapped `fetchPlayerResponse()` and parsing in `runCatching`. Cancelling the player lookup could be treated as a failed client and the loop would proceed to later clients.
+- HLS manifest retrieval in `resolveHls()` also ran inside `runCatching`, which could consume cancellation during its suspend request.
+- iOS `TrailerExtractionPlatform.performRequest()` wrapped `response.bodyAsText()` in `runCatching` and substituted an empty string. A cancelled response read could therefore yield a response object containing an empty body.
+- The Android and iOS `isUrlReachable()` implementations wrapped their suspend probe operations in `runCatching`, converting cancellation into an ordinary unreachable result.
+
+#### Implementation
+
+- Reused the existing `com.nuvio.app.core.concurrency.runCatchingUnlessCancelled` helper at every affected suspend boundary. It preserves the existing `Result` fallback contract for ordinary failures while rethrowing `CancellationException` unchanged.
+- Replaced the outer extractor timeout with `withTimeoutOrNull(EXTRACTOR_TIMEOUT_MS)`. The extractor's own 30-second deadline still returns `null` and is logged as a timeout, while cancellation from the caller remains cancellation rather than being converted to a recoverable no-result response.
+- The per-client fallback loop and HLS candidate fallback still continue for ordinary HTTP/parsing errors; they now stop promptly when the caller cancels.
+- iOS response-body read failures still produce the existing empty-body fallback for ordinary non-cancellation failures, but cancellation now propagates.
+- Android and iOS reachability probes still return false for ordinary probe failures, but cancellation now propagates out of the probe tier.
+- No candidate priority, probe count, request URL/headers/body, per-request timeout, response data shape, media selection, playback UI or navigation was changed.
+
+#### Evidence and cross-checks
+
+- The helper already existed at `composeApp/src/commonMain/kotlin/com/nuvio/app/core/concurrency/RunCatchingUnlessCancelled.kt` and has common tests proving cancellation identity, ordinary failure capture and successful-value preservation. This change reuses it rather than introducing another helper.
+- Kotlin's official [coroutine cancellation guidance](https://kotlinlang.org/docs/cancellation-and-timeouts.html) requires cancellation exceptions to be rethrown after cleanup instead of treated as ordinary failures.
+- Kotlin's [withTimeoutOrNull API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/with-timeout-or-null.html) returns null for its own timeout and propagates nested/parent timeout cancellation that does not belong to that invocation.
+- Exact Ktor 3.4.1 `HttpTimeout.kt` declares `HttpRequestTimeoutException` as an `IOException`; the Ktor connection/socket timeout types are also I/O exceptions. Thus individual Ktor request timeouts remain ordinary recoverable client failures inside `runCatchingUnlessCancelled`, preserving the existing fallback to the next client. The extractor's separate outer `withTimeoutOrNull` is the overall deadline. Source: https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/plugins/HttpTimeout.kt
+- Ktor's tagged 3.4.1 Darwin adapter uses that configured request timeout and maps NSURLSession timeout errors to the Ktor socket timeout I/O type: https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-darwin/darwin/src/io/ktor/client/engine/darwin/TimeoutUtils.kt
+- The Android probe remains a synchronous OkHttp call with its existing 2-second per-call timeout on `Dispatchers.IO`; it was not converted to a new transport/callback abstraction.
+
+#### Verification limits
+
+- Inspected the complete common extractor, both Android/iOS trailer transport implementations, the existing shared cancellation helper and its tests, the Ktor 3.4.1 timeout source and current pinned dependency declarations.
+- Added tests confirming the helper preserves its own `withTimeoutOrNull` timeout as a successful null result and rethrows caller cancellation through that timeout wrapper. Existing helper tests also cover cancellation identity, ordinary failure and success.
+- Tests were authored but not executed. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started. These changes are statically reviewed but not compiler- or runtime-verified.
