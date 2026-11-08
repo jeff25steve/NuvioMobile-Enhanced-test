@@ -55,13 +55,19 @@ internal fun MetaPreview.homePosterImages(
     val isLandscapeMode = useLandscapeBackdropMode || posterCardStyle.catalogLandscapeModeEnabled
     val effectiveLandscapePoster = if (posterCardStyle.alwaysShowLandscapeClearlogo) null else landscapePoster
     val imageUrl = if (isLandscapeMode) {
-        effectiveLandscapePoster ?: banner ?: poster
-    } else poster
-    val fallbackImageUrl = if (isLandscapeMode && !effectiveLandscapePoster.isNullOrBlank()) {
-        // Landscape custom poster -> fall back to original backdrop, then portrait
-        banner ?: rawPosterUrl
+        effectiveLandscapePoster?.takeIf { it.isNotBlank() }
+            ?: banner?.takeIf { it.isNotBlank() }
+            ?: poster?.takeIf { it.isNotBlank() }
     } else {
-        rawPosterUrl
+        poster?.takeIf { it.isNotBlank() }
+    }
+    val fallbackImageUrl = if (isLandscapeMode && !effectiveLandscapePoster.isNullOrBlank()) {
+        // Keep the fallback in the same shape when available before dropping to portrait art.
+        banner?.takeIf { it.isNotBlank() && it != imageUrl }
+            ?: rawLandscapePosterUrl?.takeIf { it.isNotBlank() && it != imageUrl }
+            ?: rawPosterUrl?.takeIf { it.isNotBlank() && it != imageUrl }
+    } else {
+        rawPosterUrl?.takeIf { it.isNotBlank() && it != imageUrl }
     }
     return HomePosterImages(
         imageUrl = imageUrl,

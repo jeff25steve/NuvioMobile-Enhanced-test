@@ -41,7 +41,7 @@ fun MetaPreview.withCustomPosterUrl(pattern: String): MetaPreview {
         poster = resolvedPoster ?: poster,
         rawPosterUrl = rawPosterUrl ?: poster,
         landscapePoster = resolvedLandscape ?: landscapePoster,
-        rawLandscapePosterUrl = if (rawPosterUrl == null) landscapePoster else rawLandscapePosterUrl,
+        rawLandscapePosterUrl = rawLandscapePosterUrl?.takeIf { it.isNotBlank() } ?: landscapePoster,
     )
 }
 

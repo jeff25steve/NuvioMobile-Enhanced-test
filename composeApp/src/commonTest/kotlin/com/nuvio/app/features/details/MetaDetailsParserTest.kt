@@ -307,6 +307,25 @@ class MetaDetailsParserTest {
         assertEquals("https://img/landscape.jpg", result.background)
     }
 
+    @Test
+    fun `parse skips blank background before landscape poster fallback`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "tt1",
+                "type": "movie",
+                "name": "Movie",
+                "background": " ",
+                "landscapePoster": "https://img/landscape.jpg"
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("https://img/landscape.jpg", result.background)
+    }
+
     private fun parseEpisode(runtime: JsonElement?): MetaVideo {
         val payload = buildJsonObject {
             put("id", "show")

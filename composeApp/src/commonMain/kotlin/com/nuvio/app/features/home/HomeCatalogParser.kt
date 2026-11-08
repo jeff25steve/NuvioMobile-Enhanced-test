@@ -49,7 +49,9 @@ internal object HomeCatalogParser {
                     type = type,
                     name = name,
                     poster = meta.string("poster"),
-                    banner = meta.string("banner") ?: meta.string("background") ?: landscapePoster,
+                    banner = meta.string("banner")?.takeIf { it.isNotBlank() }
+                        ?: meta.string("background")?.takeIf { it.isNotBlank() }
+                        ?: landscapePoster,
                     logo = meta.string("logo"),
                     posterShape = meta.string("posterShape").toPosterShape(),
                     description = meta.string("description"),

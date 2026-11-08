@@ -74,6 +74,25 @@ class CustomPosterOverlayTest {
         assertEquals("https://example.com/imdb/landscape/tt0137523.jpg", result.poster)
     }
 
+    @Test
+    fun withCustomPosterUrl_preserves_original_landscape_when_raw_poster_is_already_captured() {
+        val item = MetaPreview(
+            id = "tt0137523",
+            type = "movie",
+            name = "Test",
+            poster = "https://old-service.com/poster.jpg",
+            rawPosterUrl = "https://original.com/poster.jpg",
+            landscapePoster = "https://addon.com/landscape.jpg",
+        )
+
+        val overlaid = item.withCustomPosterUrl(shapePattern)
+        assertEquals("https://addon.com/landscape.jpg", overlaid.rawLandscapePosterUrl)
+        assertEquals("https://example.com/imdb/landscape/tt0137523.jpg", overlaid.landscapePoster)
+
+        val restored = overlaid.reapplyCustomPosterUrl("")
+        assertEquals("https://addon.com/landscape.jpg", restored.landscapePoster)
+    }
+
     // -- reapplyCustomPosterUrl --
 
     @Test

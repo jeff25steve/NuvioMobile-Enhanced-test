@@ -139,4 +139,37 @@ class HomeCatalogParserTest {
         assertEquals(null, item.runtime)
         assertEquals(null, item.status)
     }
+    @Test
+    fun `parse catalog response skips blank banner and background before landscape poster fallback`() {
+        val result = HomeCatalogParser.parseCatalogResponse(
+            payload = """
+                {
+                  "metas": [
+                    {
+                      "id": "tt1",
+                      "type": "movie",
+                      "name": "Backdrop",
+                      "banner": "",
+                      "background": "https://img/background.jpg",
+                      "landscapePoster": "https://img/landscape.jpg"
+                    },
+                    {
+                      "id": "tt2",
+                      "type": "movie",
+                      "name": "Landscape",
+                      "banner": " ",
+                      "background": "",
+                      "landscapePoster": "https://img/landscape-2.jpg"
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("https://img/background.jpg", "https://img/landscape-2.jpg"),
+            result.items.map { it.banner },
+        )
+    }
+
 }

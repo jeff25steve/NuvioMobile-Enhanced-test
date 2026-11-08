@@ -39,7 +39,8 @@ internal object MetaDetailsParser {
                 (meta[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
             },
             poster = meta.string("poster"),
-            background = meta.string("background") ?: meta.string("landscapePoster")?.takeIf(String::isNotBlank),
+            background = meta.string("background")?.takeIf { it.isNotBlank() }
+                ?: meta.string("landscapePoster")?.takeIf { it.isNotBlank() },
             logo = meta.string("logo"),
             description = meta.string("description"),
             releaseInfo = meta.string("releaseInfo"),
