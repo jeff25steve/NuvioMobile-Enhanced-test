@@ -33,10 +33,11 @@ internal class FetchBridge : HostModule {
             try {
                 performNativeFetch(url, method, headersJson, bodyKind, body, followRedirects)
             } catch (t: Throwable) {
-                log.e(t) { "Fetch bridge error for $method $url" }
+                val errorType = t::class.simpleName ?: "Throwable"
+                log.e { "Fetch bridge error for $method ($errorType)" }
                 InAppLogger.error(
                     "PluginRuntime/Fetch",
-                    "$method ${InAppLogger.redactUrl(url)} failed: ${InAppLogger.throwableSummary(t)}",
+                    "$method failed ($errorType)",
                 )
                 JsonObject(
                     mapOf(

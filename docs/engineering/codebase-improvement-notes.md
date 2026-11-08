@@ -966,3 +966,39 @@ This follow-up began from the previous authentication/server-switch investigatio
 - Cancelling a tracked add-on/plugin push stops local work and its cancellable transport, but cannot roll back an RPC the backend has already accepted. The current repository changes do not add a server-side deletion tombstone, RPC idempotency key or transaction contract; verify the deployed RLS/RPC behavior before claiming that a sign-out/account deletion prevents every already-accepted write from committing.
 - Add-on/plugin gate tests do not yet simulate the full repository with an in-flight HTTP response, storage write, account wipe and profile transition. Add end-to-end fake transport/storage tests with a narrow injection seam before treating this work as fully verified.
 - The previous backend-A/backend-B in-flight Supabase session-import integration test is still outstanding.
+
+
+### Sentry network breadcrumbs and plugin fetch errors — remove URL secrets from diagnostics (8 November 2026)
+
+A security/privacy pass over the Android add-on HTTP client found that its custom Sentry interceptor removed query strings and fragments but not URL user-info or path data. This matters for user-supplied add-on/plugin endpoints that can embed Basic Auth credentials in a URL or use opaque/private path tokens. The interceptor also copied the raw URL path and raw exception message into separately named breadcrumb fields, which bypassed the URL query/fragment stripping. The full plugin fetch bridge separately wrote the unredacted request URL and exception object to Kermit and copied the exception message into the in-app log buffer on failure.
+
+#### Pinned-source evidence and root cause
+
+- The app pins OkHttp 4.12.0 in `composeApp/build.gradle.kts`, Sentry 8.47.0 in `gradle/libs.versions.toml`, and Kermit 2.0.5 in the version catalog.
+- The Android `AddonHttpClientProvider` installs `SentryNetworkBreadcrumbInterceptor` on the client used by add-on/plugin HTTP requests. The interceptor's prior `scrubbedUrl()` removed only query and fragment; it retained URL username/password and the endpoint path.
+- Exact OkHttp 4.12.0 tagged source documents `HttpUrl.redact()` as stripping username, password, query and fragment and replacing the path with `/...`, while retaining the URL's scheme and host. This avoids a hand-written URL parser and is available in the app's pinned version.
+- Exact Sentry Java 8.47.0 `Breadcrumb.http(url, method)` source parses the supplied URL and stores it as the breadcrumb's `url` data field. The interceptor additionally added `path` and `error_message` custom fields. Sentry's official Java data-scrubbing guidance warns that application-defined breadcrumb data may require custom scrubbing; setting `sendDefaultPii=false` or clearing the event's HTTP request/user fields does not by itself remove arbitrary fields manually attached to breadcrumbs.
+- The plugin fetch bridge's failure branch called Kermit with the original URL and Throwable (including its message/stack) and placed `throwableSummary(t)` in the local debug log. Exception messages can themselves include a full request URL, so redacting the URL argument alone is not enough.
+
+#### Implemented changes
+
+- Sentry's URL now uses the pinned OkHttp `HttpUrl.redact()` implementation. The breadcrumb retains the request scheme/host and generic redacted path, without user-info, endpoint path, query or fragment.
+- Removed the separately attached raw `path` field and raw `error_message` field. Method/status, elapsed duration, severity, host and exception type remain available for request diagnostics.
+- The plugin fetch error log no longer includes the raw URL or Throwable. Kermit and the in-app debug log now record only the request method and exception type. The exception message and original URL remain in the JSON fetch-error result returned to the plugin, preserving the existing plugin-facing response contract.
+- Added two Android host regression tests for credentials/path/query/fragment redaction and retention of scheme/host.
+
+#### Cross-checks and scope
+
+- OkHttp 4.12.0 tagged `HttpUrl.kt`: https://raw.githubusercontent.com/square/okhttp/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/HttpUrl.kt
+- Sentry Java 8.47.0 tagged `Breadcrumb.java`, `Scope.java` and `SentryOptions.java`: https://raw.githubusercontent.com/getsentry/sentry-java/8.47.0/sentry/src/main/java/io/sentry/Breadcrumb.java, https://raw.githubusercontent.com/getsentry/sentry-java/8.47.0/sentry/src/main/java/io/sentry/Scope.java, https://raw.githubusercontent.com/getsentry/sentry-java/8.47.0/sentry/src/main/java/io/sentry/SentryOptions.java
+- Sentry's official Java sensitive-data guidance: https://docs.sentry.io/platforms/java/guides/spring/data-management/sensitive-data/
+- Context7's Kermit API reference confirms the message-lambda error overload used to record an exception type without attaching the Throwable. The project version catalog pins Kermit 2.0.5; no dependency was changed.
+- No request URL, authentication header, response body, request body, plugin API shape, redirect policy, HTTP configuration, download behavior or platform storage was changed. No global `beforeBreadcrumb` policy was added, avoiding changes to unrelated breadcrumbs.
+
+#### Verification and remaining limits
+
+- Re-fetched the target branch head immediately before the change and confirmed it was still `42e9d3dfc49d33244da86fcd942bd0bc1c450e0b`; no remote divergence was observed at that point.
+- The complete changed source files and the new test file were inspected after writing, together with the Android client construction path, plugin fetch bridge, Sentry initializer, pinned dependency declarations and test source-set dependencies.
+- Regression tests were authored but not run. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started, as explicitly required. The change remains source-reviewed, not compiler- or runtime-verified.
+- The Sentry breadcrumb intentionally continues to include the request host and the plugin fetch's plugin-facing error response intentionally retains the original URL/message. This is deliberate compatibility/diagnostic scope, not a claim that all telemetry or plugin-visible data is anonymised. If hostnames themselves are considered sensitive for this app's Sentry policy, that requires a separate decision to remove host-level correlation.
+- Final review was performed by the author in this session; no reviewer/subagent tool is available in the connected tool set.
