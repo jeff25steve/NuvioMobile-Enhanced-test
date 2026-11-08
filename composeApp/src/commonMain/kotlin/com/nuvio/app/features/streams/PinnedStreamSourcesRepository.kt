@@ -21,6 +21,11 @@ object PinnedStreamSourcesRepository {
         loadFromDisk()
     }
 
+    fun clearLocalState() {
+        hasLoaded = false
+        _pinnedSourceIds.value = emptyList()
+    }
+
     fun sourceKeyFor(addonId: String, sourceName: String?): String {
         val source = sourceName?.trim()?.takeIf { it.isNotEmpty() }
         return if (source == null) addonId else "$addonId|$source"

@@ -214,3 +214,17 @@ Research basis:
 The iOS `IosBackgroundDownloadCoordinatorImpl` also holds mutable task/active-download/pending-pause maps. Its URLSession delegate callbacks are serialized by the explicitly configured one-operation delegate queue, but app-initiated start/cancel operations can arrive on other threads. Safely consolidating that entire task state machine requires coordinated start reservations, cancellation ordering and resume-data handling; this pass does not make an incomplete lock-only change that could block the UI during file finalisation or alter pause/resume semantics. This remains a verified follow-up rather than a claim of complete iOS coordinator thread-safety.
 
 Verification for this batch: exact call sites, profile-scoped Android/iOS storage adapters, source imports and existing dependency versions were reviewed. Static consistency checks only; no Gradle test, Kotlin compile, Android/iOS build, Xcode task or CI workflow was started.
+
+
+### Profile switching — pinned stream sources and Trakt comments setting state (8 November 2026)
+
+A follow-up call-site audit compared common repositories with the profile-selection lifecycle. Two active profile-scoped repositories exposed their own `onProfileChanged()` hooks but were not wired into `ProfileRepository.selectProfile()`:
+
+- `PinnedStreamSourcesRepository` is consumed by both the stream filter row and stream cards. Its platform storage uses `ProfileScopedKey`, but its process-wide `hasLoaded` flag and StateFlow retained the previous profile's pinned source IDs after a switch. The Stream Badge settings repository reload does not reload this separate state holder.
+- `TraktCommentsSettings` is loaded by `MetaDetailsScreen` and its Android/iOS storage keys are profile-scoped. It also had an existing reload hook that profile selection did not invoke, so the comments enabled/disabled preference could carry over from the prior profile in the running process.
+
+Profile selection now invokes both existing hooks alongside their owning feature lifecycles. Both repositories also expose `clearLocalState()`, and the account cleaner resets their in-memory state after the existing platform preference wipe. The Android wipe already clears the full `nuvio_stream_badge_settings` and Trakt-comments preference files; the iOS key inventory already removes `pinned_stream_sources` and `comments_enabled`. No storage keys, sync payloads, visual behaviour, or settings ownership were changed.
+
+The similarly named `TraktSettingsRepository` was reviewed but not wired: no production call site was established in the inspected feature paths, and the active progress/library settings are owned by `TrackingSettingsRepository`. It was left unchanged rather than reviving a potentially legacy path.
+
+Verification: direct consumers in `StreamsScreen`, `ProviderFilterRow`, and `MetaDetailsScreen` were inspected; the Android/iOS storage adapters and account-cleaner key coverage were checked. Static source/call-site review only; tests, compilation, builds and CI remain unrun by instruction.

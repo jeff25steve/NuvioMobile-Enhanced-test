@@ -19,6 +19,11 @@ object TraktCommentsSettings {
         loadFromDisk()
     }
 
+    fun clearLocalState() {
+        hasLoaded = false
+        _enabled.value = true
+    }
+
     fun setEnabled(value: Boolean) {
         ensureLoaded()
         if (_enabled.value == value) return
