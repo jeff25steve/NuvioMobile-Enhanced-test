@@ -1060,9 +1060,9 @@ A focused cancellation audit of the full in-app YouTube trailer extraction path 
 
 - Reused the existing `com.nuvio.app.core.concurrency.runCatchingUnlessCancelled` helper at every affected suspend boundary. It preserves the existing `Result` fallback contract for ordinary failures while rethrowing `CancellationException` unchanged.
 - Replaced the outer extractor timeout with `withTimeoutOrNull(EXTRACTOR_TIMEOUT_MS)`. The extractor's own 30-second deadline still returns `null` and is logged as a timeout, while cancellation from the caller remains cancellation rather than being converted to a recoverable no-result response.
-- The per-client fallback loop and HLS candidate fallback still continue for ordinary HTTP/parsing errors; they now stop promptly when the caller cancels.
+- The per-client fallback loop and HLS candidate fallback still continue for ordinary HTTP/parsing errors; they now stop when the caller cancels rather than continuing to other candidates.
 - iOS response-body read failures still produce the existing empty-body fallback for ordinary non-cancellation failures, but cancellation now propagates.
-- Android and iOS reachability probes still return false for ordinary probe failures, but cancellation now propagates out of the probe tier.
+- Android and iOS reachability probes still return false for ordinary probe failures, but cancellation now propagates out of the probe tier. The Android probe still uses its existing synchronous OkHttp `execute()` on `Dispatchers.IO`, so an already-running call can take up to its existing 2-second per-call timeout to return before coroutine cancellation is observed; this patch does not make that blocking call immediately interruptible.
 - No candidate priority, probe count, request URL/headers/body, per-request timeout, response data shape, media selection, playback UI or navigation was changed.
 
 #### Evidence and cross-checks
