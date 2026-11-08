@@ -139,10 +139,13 @@ object EpisodeReleaseNotificationsRepository {
 
     suspend fun clearPlatformNotificationsForAccountWipe() {
         platformOperationsMutex.withLock {
-            runCatchingUnlessCancelled {
+            try {
                 EpisodeReleaseNotificationPlatform.clearAllEpisodeReleaseNotifications()
-            }.onFailure { error ->
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 log.e(error) { "Failed to clear episode release notifications during account cleanup" }
+                throw error
             }
         }
     }
