@@ -127,6 +127,24 @@ actual object PluginRepository {
         }
     }
 
+    actual fun beginAccountCleanup() {
+        profileOperationGate.beginAccountCleanup {
+            cancelActiveRefreshes()
+            cancelPushJobs()
+            synchronized(persistenceLock) {
+                persistenceGeneration.incrementAndGet()
+                persistedRevisionByProfile.clear()
+            }
+            currentProfileId = 1
+            initialized = false
+            _uiState.value = PluginsUiState()
+        }
+    }
+
+    actual fun endAccountCleanup() {
+        profileOperationGate.endAccountCleanup()
+    }
+
     actual fun clearLocalState() {
         profileOperationGate.invalidate(1) {
             cancelActiveRefreshes()
