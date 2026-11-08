@@ -498,7 +498,7 @@ object AddonRepository {
         val scheduled = runIfCurrent(operation) {
             synchronized(activeRefreshJobsLock) {
                 val existingJob = activeRefreshJobs[manifestUrl]
-                if (existingJob?.isActive == true) {
+                if (existingJob != null && !existingJob.isCompleted) {
                     InAppLogger.debug("Addons/Manifest", "refresh skipped active url=${InAppLogger.redactUrl(manifestUrl)}")
                 } else {
                     markRefreshing(manifestUrl)
