@@ -48,6 +48,7 @@ import platform.posix.fopen
 import platform.posix.fread
 import platform.posix.ferror
 import platform.posix.fwrite
+import platform.posix.truncate as posixTruncate
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -394,13 +395,39 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
             return
         }
 
-        val statusCode = (downloadTask.response as? NSHTTPURLResponse)?.statusCode?.toInt() ?: 200
+        val response = downloadTask.response as? NSHTTPURLResponse
+        val statusCode = response?.statusCode?.toInt() ?: 200
         val base = resolveDownloadsBaseDirectory()
         val scopedStarted = base.scopedUrl?.startAccessingSecurityScopedResource() ?: false
         try {
             val tempPath = "${base.path}/${request.destinationFileName}.part"
             val destinationPath = "${base.path}/${request.destinationFileName}"
             val requestedRange = resumeOffset(downloadTask)
+            val existingPartialSize = fileSizeOrNull(tempPath) ?: 0L
+            val responseTempPath = didFinishDownloadingToURL.path.orEmpty()
+            val partialRange = if (statusCode == 206) {
+                val range = response
+                    ?.valueForHTTPHeaderField("Content-Range")
+                    ?.let(::parseDownloadContentRange)
+                val segmentSize = fileSizeOrNull(responseTempPath)
+                if (
+                    range == null ||
+                    range.completeLength == null ||
+                    range.firstByte != requestedRange ||
+                    existingPartialSize != requestedRange ||
+                    segmentSize != range.byteCount
+                ) {
+                    removePathIfExists(responseTempPath)
+                    finishWithFailure(
+                        downloadId,
+                        runBlocking { getString(Res.string.downloads_error_finalize_file_failed) },
+                    )
+                    return
+                }
+                range
+            } else {
+                null
+            }
 
             if (statusCode == 416 && !( active?.retriedWithoutRange ?: false)) {
                 removePathIfExists(tempPath)
@@ -425,14 +452,15 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                 return
             }
 
-            val isPartialResume = statusCode == 206 && requestedRange > 0L
+            val isPartialResume = partialRange != null && requestedRange > 0L
             if (!isPartialResume) {
                 removePathIfExists(tempPath)
             }
             val appended = appendFile(
-                fromPath = didFinishDownloadingToURL.path.orEmpty(),
+                fromPath = responseTempPath,
                 toPath = tempPath,
                 append = isPartialResume,
+                rollbackLength = existingPartialSize,
             )
             if (!appended) {
                 finishWithFailure(
@@ -440,6 +468,33 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                     runBlocking { getString(Res.string.downloads_error_finalize_file_failed) },
                 )
                 return
+            }
+
+            if (partialRange != null) {
+                val completeLength = checkNotNull(partialRange.completeLength)
+                val assembledSize = fileSizeOrNull(tempPath)
+                val expectedEndExclusive = partialRange.lastByteInclusive + 1L
+                if (assembledSize != expectedEndExclusive || assembledSize > completeLength) {
+                    if (!truncatePathToLength(tempPath, existingPartialSize)) {
+                        removePathIfExists(tempPath)
+                    }
+                    finishWithFailure(
+                        downloadId,
+                        runBlocking { getString(Res.string.downloads_error_finalize_file_failed) },
+                    )
+                    return
+                }
+                if (assembledSize < completeLength) {
+                    activeDownloads.remove(downloadId)
+                    tasksByDownloadId.remove(downloadId)
+                    startOrResume(
+                        downloadId = downloadId,
+                        request = request,
+                        rangeStart = assembledSize,
+                        callbacks = active?.callbacks,
+                    )
+                    return
+                }
             }
 
             removePathIfExists(destinationPath)
@@ -545,11 +600,26 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun appendFile(fromPath: String, toPath: String, append: Boolean): Boolean {
+private fun truncatePathToLength(path: String, length: Long): Boolean {
+    if (length < 0L || posixTruncate(path, length) != 0) return false
+    return fileSizeOrNull(path) == length
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun appendFile(
+    fromPath: String,
+    toPath: String,
+    append: Boolean,
+    rollbackLength: Long,
+): Boolean {
     if (!append) {
         return NSFileManager.defaultManager.moveItemAtPath(fromPath, toPath, null)
     }
-    return copyByAppending(fromPath, toPath)
+    if (copyByAppending(fromPath, toPath)) return true
+    if (!truncatePathToLength(toPath, rollbackLength)) {
+        removePathIfExists(toPath)
+    }
+    return false
 }
 
 @OptIn(ExperimentalForeignApi::class)
