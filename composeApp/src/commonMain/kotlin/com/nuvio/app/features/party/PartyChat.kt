@@ -132,9 +132,9 @@ object PartyChat {
         }
     }
 
-    internal fun receive(payload: JsonObject) {
+    internal fun receive(expectedPartyId: String, payload: JsonObject) {
         scope.launch {
-            if (room == null) return@launch
+            if (!isPartySessionCurrent(expectedPartyId, room?.partyId)) return@launch
             val message = runCatching { PartyApi.json.decodeFromJsonElement(PartyChatPayload.serializer(), payload) }
                 .getOrNull() ?: return@launch
             apply(listOf(message), replaceOlder = false, notify = true)
