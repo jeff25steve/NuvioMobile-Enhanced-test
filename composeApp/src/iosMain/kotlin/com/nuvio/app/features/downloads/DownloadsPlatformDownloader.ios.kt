@@ -42,9 +42,11 @@ import platform.Foundation.setValue
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.valueForHTTPHeaderField
 import platform.UIKit.UIApplication
+import platform.posix.feof
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fread
+import platform.posix.ferror
 import platform.posix.fwrite
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
@@ -494,9 +496,8 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 
     private fun finishWithFailure(downloadId: String, message: String) {
         val callbacks = activeDownloads.remove(downloadId)?.callbacks
-        if (callbacks != null) {
-            callbacks.onFailure(message)
-        }
+        tasksByDownloadId.remove(downloadId)
+        callbacks?.onFailure(message)
     }
 
     private fun reportProgress(downloadId: String, downloadedBytes: Long, totalBytes: Long?) {
@@ -560,20 +561,27 @@ private fun copyByAppending(fromPath: String, toPath: String): Boolean {
         return false
     }
 
-    val ok = runCatching {
+    val copied = runCatching {
         val buffer = ByteArray(64 * 1024)
         buffer.usePinned { pinned ->
             while (true) {
                 val read = fread(pinned.addressOf(0), 1uL, buffer.size.convert(), input).toInt()
-                if (read <= 0) break
-                fwrite(pinned.addressOf(0), 1uL, read.convert(), output)
+                if (read == 0) {
+                    return@usePinned feof(input) != 0 && ferror(input) == 0
+                }
+                if (ferror(input) != 0) return@usePinned false
+
+                val written = fwrite(pinned.addressOf(0), 1uL, read.convert(), output).toInt()
+                if (written != read || ferror(output) != 0) return@usePinned false
             }
+            true
         }
-        true
     }.getOrDefault(false)
 
-    fclose(input)
-    fclose(output)
+    // fclose flushes buffered output, so its result is part of the copy's success.
+    val inputClosed = fclose(input) == 0
+    val outputClosed = fclose(output) == 0
+    val ok = copied && inputClosed && outputClosed
     if (ok) {
         NSFileManager.defaultManager.removeItemAtPath(fromPath, null)
     }
