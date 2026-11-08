@@ -1,6 +1,30 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
+import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_clear
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_choose
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_saving
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_error
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_preview
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background_description
+import nuvio.composeapp.generated.resources.settings_appearance_custom_settings_background
+import kotlinx.coroutines.CancellationException
+import com.nuvio.app.features.profiles.ProfileRepository
+import coil3.request.ImageRequest
+import coil3.request.CachePolicy
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +57,8 @@ import com.nuvio.app.core.ui.labelRes
 import com.nuvio.app.isIos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
+import com.nuvio.app.core.ui.shouldExposeLiquidGlassSettings
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects
 import nuvio.composeapp.generated.resources.settings_appearance_liquid_glass_effects_description
 import kotlinx.coroutines.launch
@@ -76,11 +102,57 @@ internal fun LazyListScope.appearanceSettingsContent(
             }
         }
     }
-    appBackgroundSettingsItem(isTablet = isTablet)
     item {
         var showLanguageSheet by remember { mutableStateOf(false) }
         var showLanguageRestartDialog by remember { mutableStateOf(false) }
         val layoutDirection = LocalLayoutDirection.current
+        var showLiquidGlassSurfacesSheet by remember { mutableStateOf(false) }
+        val customSettingsBackgroundImageUri by remember {
+            ThemeSettingsRepository.ensureLoaded()
+            ThemeSettingsRepository.customSettingsBackgroundImageUri
+        }.collectAsStateWithLifecycle()
+        val customSettingsBackgroundImageRevision by remember {
+            ThemeSettingsRepository.customSettingsBackgroundImageRevision
+        }.collectAsStateWithLifecycle()
+        val settingsBackgroundImageContext = LocalPlatformContext.current
+        val settingsBackgroundImageRequest = remember(
+            customSettingsBackgroundImageUri,
+            customSettingsBackgroundImageRevision,
+            settingsBackgroundImageContext,
+        ) {
+            customSettingsBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
+                ImageRequest.Builder(settingsBackgroundImageContext)
+                    .data(imageUri)
+                    .memoryCacheKey("$imageUri#settings-background-$customSettingsBackgroundImageRevision")
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.DISABLED)
+                    .build()
+            }
+        }
+        var isSavingSettingsBackground by remember { mutableStateOf(false) }
+        var settingsBackgroundImageError by remember { mutableStateOf(false) }
+        val settingsBackgroundScope = rememberCoroutineScope()
+        val settingsBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
+            onImageSelected = { bytes ->
+                val targetProfileId = ProfileRepository.activeProfileId
+                settingsBackgroundImageError = false
+                isSavingSettingsBackground = true
+                settingsBackgroundScope.launch {
+                    val saved = try {
+                        ThemeSettingsRepository.saveCustomSettingsBackgroundImageForStudio(bytes, targetProfileId)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        false
+                    }
+                    isSavingSettingsBackground = false
+                    if (ProfileRepository.activeProfileId == targetProfileId) {
+                        settingsBackgroundImageError = !saved
+                    }
+                }
+            },
+            onError = { settingsBackgroundImageError = true },
+        )
         var showAppIconPicker by remember { mutableStateOf(false) }
         val liquidGlassEffectsEnabled by ThemeSettingsRepository.liquidGlassEffectsEnabled.collectAsStateWithLifecycle()
         SettingsSection(
@@ -95,14 +167,21 @@ internal fun LazyListScope.appearanceSettingsContent(
                     isTablet = isTablet,
                     onCheckedChange = onAmoledToggle,
                 )
-                if (isLiquidGlassAvailable()) {
+                if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    SettingsSwitchRow(
+                    LiquidGlassSettingsSwitchRow(
                         title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
                         description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
                         checked = liquidGlassEffectsEnabled,
                         isTablet = isTablet,
                         onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_liquid_glass_customize),
+                        description = stringResource(Res.string.settings_liquid_glass_customize_description),
+                        isTablet = isTablet,
+                        onClick = { showLiquidGlassSurfacesSheet = true },
                     )
                 }
                 SettingsGroupDivider(isTablet = isTablet)
@@ -163,6 +242,18 @@ internal fun LazyListScope.appearanceSettingsContent(
                     showAppIconPicker = false
                 },
             )
+        }
+
+        if (showLiquidGlassSurfacesSheet) {
+            LiquidGlassSurfaceSettingsDrafts { surfaceSettings ->
+                LiquidGlassSurfacesSettingsSheet(
+                    isTablet = isTablet,
+                    settings = surfaceSettings,
+                    onSurfaceChanged = ThemeSettingsRepository::updateLiquidGlassSurfaceOverrides,
+                    onSave = ThemeSettingsRepository::saveLiquidGlassSurfaceSettings,
+                    onDismiss = { showLiquidGlassSurfacesSheet = false },
+                )
+            }
         }
     }
 }

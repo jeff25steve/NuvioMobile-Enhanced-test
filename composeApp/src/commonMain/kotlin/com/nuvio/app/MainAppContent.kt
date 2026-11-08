@@ -8,8 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import com.nuvio.app.core.ui.background.AppBackgroundRepository
-import com.nuvio.app.core.ui.background.OpaqueAppSurfaces
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,7 +131,6 @@ import com.nuvio.app.features.library.toLibraryItem
 import com.nuvio.app.features.library.toMetaPreview
 import com.nuvio.app.features.livetv.LiveTvChannel
 import com.nuvio.app.features.livetv.LiveTvRepository
-import com.nuvio.app.features.livetv.LiveTvVodPlayback
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.notifications.EpisodeReleaseNotificationsRepository
 import com.nuvio.app.features.p2p.P2pSettingsRepository
@@ -191,7 +188,6 @@ import com.nuvio.app.features.updater.rememberAppUpdaterController
 import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watching.application.WatchingActions
 import com.nuvio.app.features.watching.application.WatchingState
-import com.nuvio.app.features.watching.application.canMarkWatched
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository
 import com.nuvio.app.features.watchprogress.ResumePromptRepository
@@ -938,7 +934,6 @@ internal fun MainAppContent(
                 sendSkipSegments = shouldSendSkipSegments,
                 preferredLanguage = playerSettingsUiState.preferredSubtitleLanguage,
                 secondaryLanguage = playerSettingsUiState.secondaryPreferredSubtitleLanguage,
-                subtitleExtras = launch.subtitleExtras,
                 onOverlayMessage = { message -> StreamsRepository.setOverlayVisible(true, message) },
             )
             StreamsRepository.setOverlayVisible(false)
@@ -1502,11 +1497,6 @@ internal fun MainAppContent(
             }
         }
 
-        val onContinueWatchingMarkWatched: (ContinueWatchingItem) -> Unit = { item ->
-            continueWatchingDisintegrationRequests.arm(continueWatchingItemKey(item))
-            WatchingActions.markContinueWatchingWatched(item)
-        }
-
         val onContinueWatchingLongPress: (ContinueWatchingItem) -> Unit = { item ->
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
             val zoomAnchor = PosterZoomAnchorHolder.consume()
@@ -1539,32 +1529,6 @@ internal fun MainAppContent(
                 )
                 navController.navigate(PlayerRoute(launchId = launchId))
             }
-        }
-
-        val onLiveTvVodClick: (LiveTvVodPlayback) -> Unit = { vod ->
-            val launchId = PlayerLaunchStore.put(
-                PlayerLaunch(
-                    profileId = activePlaybackProfileId,
-                    title = vod.title,
-                    sourceUrl = vod.streamUrl,
-                    sourceHeaders = vod.headers,
-                    streamType = vod.streamType,
-                    poster = vod.posterUrl,
-                    background = vod.episodeThumbnail ?: vod.posterUrl,
-                    seasonNumber = vod.seasonNumber,
-                    episodeNumber = vod.episodeNumber,
-                    episodeTitle = vod.episodeTitle,
-                    episodeThumbnail = vod.episodeThumbnail,
-                    streamTitle = vod.episodeTitle ?: vod.title,
-                    providerName = "Live TV",
-                    providerAddonId = "live-tv",
-                    contentType = "vod",
-                    videoId = null,
-                    parentMetaId = vod.id,
-                    parentMetaType = "live",
-                ),
-            )
-            navController.navigate(PlayerRoute(launchId = launchId))
         }
 
         AppUpdaterHost(
@@ -1726,7 +1690,6 @@ internal fun MainAppContent(
                                 onContinueWatchingClick = onContinueWatchingClick,
                                 onContinueWatchingLongPress = onContinueWatchingLongPress,
                                 onLiveTvChannelClick = onLiveTvChannelClick,
-                                onLiveTvVodClick = onLiveTvVodClick,
                                 onSwitchProfile = onSwitchProfile,
                                 onEditProfile = pushEditProfile,
                                 onSettingsPageClick = if (useNativeNavigation && !isTabletLayout) {
@@ -1810,46 +1773,40 @@ internal fun MainAppContent(
                     )
                 }
                 entry<DetailRoute> { route ->
-                    OpaqueAppSurfaces {
-                        DetailsDestination(
-                            route = route,
-                            navController = navController,
-                            onPlay = onPlay,
-                            onPlayManually = onPlayManually,
-                            onDownload = onDownloadContent,
-                            onPlayExternally = onPlayExternally,
-                            onPlayFromStart = onPlayFromStart,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = LocalNavAnimatedContentScope.current,
-                        )
-                    }
+                    DetailsDestination(
+                        route = route,
+                        navController = navController,
+                        onPlay = onPlay,
+                        onPlayManually = onPlayManually,
+                        onDownload = onDownloadContent,
+                        onPlayExternally = onPlayExternally,
+                        onPlayFromStart = onPlayFromStart,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = LocalNavAnimatedContentScope.current,
+                    )
                 }
                 entry<PersonDetailRoute> { route ->
-                    OpaqueAppSurfaces {
-                        PersonDestination(
-                            route = route,
-                            navController = navController,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = LocalNavAnimatedContentScope.current,
-                        )
-                    }
+                    PersonDestination(
+                        route = route,
+                        navController = navController,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = LocalNavAnimatedContentScope.current,
+                    )
                 }
                 entry<EntityBrowseRoute> { route ->
                     EntityDestination(route = route, navController = navController)
                 }
                 entry<StreamRoute> { route ->
-                    OpaqueAppSurfaces {
-                        StreamDestination(
-                            route = route,
-                            onLandscapeLoadingChanged = { visible ->
-                                if (currentRoute == route) streamLandscapeLoadingVisible = visible
-                            },
-                            navController = navController,
-                            p2pEnabled = p2pSettingsUiState.p2pEnabled,
-                            openExternalPlayback = ::openExternalPlayback,
-                            openExternalStreamUrl = ::openExternalStreamUrl,
-                        )
-                    }
+                    StreamDestination(
+                        route = route,
+                        onLandscapeLoadingChanged = { visible ->
+                            if (currentRoute == route) streamLandscapeLoadingVisible = visible
+                        },
+                        navController = navController,
+                        p2pEnabled = p2pSettingsUiState.p2pEnabled,
+                        openExternalPlayback = ::openExternalPlayback,
+                        openExternalStreamUrl = ::openExternalStreamUrl,
+                    )
                 }
                 entry<PlayerRoute>(
                     metadata = if (isIos) {
@@ -1879,23 +1836,17 @@ internal fun MainAppContent(
                     ) {
                         HostedPlayerRoutePlaceholder(route)
                     } else {
-                    DisposableEffect(Unit) {
-                        AppBackgroundRepository.suspend()
-                        onDispose { AppBackgroundRepository.resume() }
-                    }
-                    OpaqueAppSurfaces {
-                        PlayerDestination(
-                            route = route,
-                            navController = navController,
-                            externalPlayerId = playerSettingsUiState.externalPlayerId,
-                            externalPlayerNotConfiguredText = externalPlayerNotConfiguredText,
-                            externalPlayerFailedText = externalPlayerFailedText,
-                            onExternalPlayerLaunch = { launch -> lastExternalPlayerLaunch = launch },
-                            launchExternalPlayer = launchExternalPlayer,
-                            openExternalStreamUrl = ::openExternalStreamUrl,
-                            onOpenPartyMedia = ::openPartyMedia,
-                        )
-                    }
+                    PlayerDestination(
+                        route = route,
+                        navController = navController,
+                        externalPlayerId = playerSettingsUiState.externalPlayerId,
+                        externalPlayerNotConfiguredText = externalPlayerNotConfiguredText,
+                        externalPlayerFailedText = externalPlayerFailedText,
+                        onExternalPlayerLaunch = { launch -> lastExternalPlayerLaunch = launch },
+                        launchExternalPlayer = launchExternalPlayer,
+                        openExternalStreamUrl = ::openExternalStreamUrl,
+                        onOpenPartyMedia = ::openPartyMedia,
+                    )
                     }
                 }
                 entry<CatalogRoute> { route ->
@@ -2302,15 +2253,6 @@ internal fun MainAppContent(
                                         ),
                                     )
                                 }
-                                if (item.canMarkWatched()) {
-                                    add(
-                                        PosterZoomOverlayAction(
-                                            icon = Icons.Default.CheckCircle,
-                                            label = stringResource(Res.string.hero_mark_watched),
-                                            onSelected = { onContinueWatchingMarkWatched(item) },
-                                        ),
-                                    )
-                                }
                                 add(
                                     PosterZoomOverlayAction(
                                         icon = Icons.Default.DeleteOutline,
@@ -2352,9 +2294,6 @@ internal fun MainAppContent(
                     ?.let { item -> { onContinueWatchingStartFromBeginning(item) } },
                 onPlayManually = selectedContinueWatchingForActions
                     ?.let { item -> { onContinueWatchingPlayManually(item) } },
-                onMarkWatched = selectedContinueWatchingForActions
-                    ?.takeIf { it.canMarkWatched() }
-                    ?.let { item -> { onContinueWatchingMarkWatched(item) } },
                 onRemove = {
                     selectedContinueWatchingForActions?.let(onContinueWatchingRemove)
                 },

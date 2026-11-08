@@ -61,7 +61,9 @@ import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.collections_tab_all
 import nuvio.composeapp.generated.resources.streams_refresh
 import org.jetbrains.compose.resources.stringResource
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 internal fun PlayerSidePanel(
@@ -283,7 +285,7 @@ private fun AddonFilterChip(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = contentColor,
+                tint = if (hasError || isSelected) contentColor else liquidGlassIconTint(LiquidGlassSurface.PLAYER, contentColor),
                 modifier = Modifier.size(20.dp).then(iconModifier),
             )
         } else {

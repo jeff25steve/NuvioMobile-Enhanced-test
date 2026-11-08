@@ -9,6 +9,7 @@ import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
@@ -30,7 +31,19 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.nuvio.app.core.ui.glass.LiquidGlassBackdropHost
+import com.nuvio.app.core.ui.glass.LiquidGlassSettings
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewOverrides
+import com.nuvio.app.core.ui.glass.LocalLiquidGlassPreviewSettings
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import com.nuvio.app.core.ui.glass.ambientLiquidGlass
+import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
+import com.nuvio.app.core.ui.glass.isLiquidRefractionSupported
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
+import com.nuvio.app.core.ui.glass.shouldRenderLiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.liquidGlassSurfaceRecipe
 import kotlin.math.roundToInt
 
 internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
@@ -40,16 +53,17 @@ internal val PlayerGlassTint = Color(0xFF101014).copy(alpha = 0.52f)
 // ---------------------------------------------------------------------------------------------
 
 /** Light blur so the video stays readable through the glass. */
-internal val PlayerGlassBlur: Dp = 6.dp
+internal val PlayerGlassBlur: Dp = 10.dp
 
 /** Near-clear: a faint white sheen instead of a dark fill. */
 internal val PlayerGlassSurfaceTint = Color.White.copy(alpha = 0.05f)
 
 /**
- * How strongly the blurred video copy is drawn inside the glass. Below 1 the live video shows through,
- * so the glass stays translucent (and never turns dark if a captured frame comes back black).
+ * Keep the blurred frame dominant inside the glass. The raw video is still visible around the
+ * controls; a half-opacity copy on top of it made blur/refraction sliders barely perceptible.
+ * Failed/black frame captures are discarded by VideoFrameBackdrop before they can be published.
  */
-internal const val PlayerGlassBackdropOpacity = 0.55f
+internal const val PlayerGlassBackdropOpacity = 0.9f
 
 /** Used when there is no live backdrop (Android < 12, protected/DRM video, glass turned off). */
 internal val PlayerGlassFallback = Color.White.copy(alpha = 0.08f)
@@ -59,6 +73,40 @@ internal val PlayerGlassRim = Color.White.copy(alpha = 0.22f)
 
 /** False when "Glass Backgrounds on Controls" is off: player buttons and pills draw no backing. */
 internal val LocalPlayerControlGlassEnabled = staticCompositionLocalOf { true }
+
+/**
+ * Keep the blur slider perceptible when a platform cannot supply a live video backdrop. This is
+ * only a translucent fallback film—not a claim that blur/refraction can run without source pixels.
+ */
+internal fun playerGlassFallbackAlpha(baseAlpha: Float, blurRadiusDp: Float): Float {
+    val safeBaseAlpha = baseAlpha.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0.08f
+    val safeBlurRadius = blurRadiusDp.takeIf { it.isFinite() }?.coerceIn(0f, 32f) ?: 0f
+    return (safeBaseAlpha + (safeBlurRadius / 32f) * 0.12f).coerceIn(0f, 0.22f)
+}
+
+/**
+ * A live backdrop supplies actual lens refraction. Without one, let refraction sliders still tune
+ * a restrained edge cue rather than leaving every lens control visually inert.
+ */
+internal fun playerGlassRimAlpha(
+    rimAlpha: Float,
+    surfaceEnabled: Boolean,
+    highlightEnabled: Boolean,
+    backdropReady: Boolean,
+    lensEnabled: Boolean,
+    refractionHeightDp: Float,
+    refractionAmountDp: Float,
+    masterEnabled: Boolean = true,
+): Float {
+    if (!masterEnabled) return 0f
+    if (surfaceEnabled && !highlightEnabled) return 0f
+    val baseAlpha = rimAlpha.coerceIn(0f, 1f)
+    if (!surfaceEnabled || backdropReady || !lensEnabled) return baseAlpha
+    val heightStrength = refractionHeightDp.takeIf { it.isFinite() }?.coerceIn(0f, 48f)?.div(48f) ?: 0f
+    val amountStrength = refractionAmountDp.takeIf { it.isFinite() }?.coerceIn(0f, 48f)?.div(48f) ?: 0f
+    val lensStrength = (heightStrength + amountStrength) / 2f
+    return baseAlpha * (0.35f + 0.65f * lensStrength)
+}
 
 /**
  * The one glass recipe every player control uses: Kyant backdrop with vibrancy, a light blur, lens
@@ -80,19 +128,87 @@ internal fun Modifier.playerLiquidGlass(
     isControl: Boolean = true,
 ): Modifier {
     if (isControl && !LocalPlayerControlGlassEnabled.current) return this
-    val glass = clip(shape).ambientLiquidGlass(
-        shape = shape,
-        tint = tint,
-        fallback = fallback,
-        blurRadius = blurRadius,
-        refractionHeight = refractionHeight,
-        refractionAmount = refractionAmount,
-        withVibrancy = true,
-        withHighlight = true,
-        withShadow = false,
-        backdropOpacity = backdropOpacity,
+    val previewOverrides = LocalLiquidGlassPreviewSettings.current?.forSurface(LiquidGlassSurface.PLAYER)
+        ?: LocalLiquidGlassPreviewOverrides.current
+    val overrides = previewOverrides ?: LiquidGlassSettings.surfaceOverrides.forSurface(LiquidGlassSurface.PLAYER)
+    val recipe = liquidGlassSurfaceRecipe(LiquidGlassSurface.PLAYER, overrides)
+    val materialStyle = LiquidGlassStyle(
+        material = effectiveLiquidGlassMaterial(
+            surface = LiquidGlassSurface.PLAYER,
+            material = overrides.material,
+            refractionSupported = isLiquidRefractionSupported(),
+            cornerRadiusPercent = recipe.cornerRadiusPercent,
+        ),
     )
-    return if (rim) glass.border(0.75.dp, PlayerGlassRim, shape) else glass
+    val enabled = shouldRenderLiquidGlassSurface(
+        surface = LiquidGlassSurface.PLAYER,
+        overrides = overrides,
+        preview = previewOverrides != null,
+        masterEnabled = LiquidGlassSettings.enabled,
+    ) && materialStyle.usesBackdrop
+    val effectiveShape = if (enabled) {
+        liquidGlassShape(
+            surface = LiquidGlassSurface.PLAYER,
+            defaultShape = shape,
+            preview = previewOverrides != null,
+        )
+    } else {
+        shape
+    }
+    val effectiveTint = if (enabled && tint.alpha > 0f) tint.copy(alpha = recipe.tintOpacity) else tint
+    val effectiveBlur = if (materialStyle.usesBlur) recipe.blurRadiusDp.dp else 0.dp
+    val effectiveRefractionHeight = if (materialStyle.usesLens) {
+        recipe.refractionHeightDp.dp
+    } else {
+        0.dp
+    }
+    val effectiveRefractionAmount = if (materialStyle.usesLens) {
+        recipe.refractionAmountDp.dp
+    } else {
+        0.dp
+    }
+    val hasReadyBackdrop = isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+    val effectiveFallback = if (enabled && !hasReadyBackdrop && materialStyle.usesBlur) {
+        fallback.copy(alpha = playerGlassFallbackAlpha(fallback.alpha, effectiveBlur.value))
+    } else {
+        fallback
+    }
+    val glass = if (!enabled) {
+        // The master switch and this area's switch both restore the original fallback appearance.
+        clip(shape).background(fallback, shape)
+    } else {
+        clip(effectiveShape).ambientLiquidGlass(
+            shape = effectiveShape,
+            tint = effectiveTint,
+            fallback = effectiveFallback,
+            blurRadius = effectiveBlur,
+            refractionHeight = effectiveRefractionHeight,
+            refractionAmount = effectiveRefractionAmount,
+            withVibrancy = overrides.withVibrancy ?: true,
+            withHighlight = overrides.withHighlight ?: true,
+            withShadow = overrides.withShadow ?: false,
+            backdropOpacity = backdropOpacity,
+            chromaticAberration = overrides.chromaticAberration ?: false,
+            depthEffect = overrides.depthEffect ?: false,
+            preview = previewOverrides != null,
+        )
+    }
+    val surfacePreferenceEnabled = overrides.enabled ?: LiquidGlassSurface.PLAYER.defaultEnabled
+    val effectiveRimAlpha = playerGlassRimAlpha(
+        rimAlpha = PlayerGlassRim.alpha,
+        surfaceEnabled = surfacePreferenceEnabled,
+        highlightEnabled = overrides.withHighlight ?: true,
+        backdropReady = hasReadyBackdrop,
+        lensEnabled = materialStyle.usesLens,
+        refractionHeightDp = effectiveRefractionHeight.value,
+        refractionAmountDp = effectiveRefractionAmount.value,
+        masterEnabled = previewOverrides != null || LiquidGlassSettings.enabled,
+    )
+    return if (rim && effectiveRimAlpha > 0f) {
+        glass.border(0.75.dp, PlayerGlassRim.copy(alpha = effectiveRimAlpha), effectiveShape)
+    } else {
+        glass
+    }
 }
 
 // Keep the captured frame identical to the real picture so the glass reads as transparent (no dimming).

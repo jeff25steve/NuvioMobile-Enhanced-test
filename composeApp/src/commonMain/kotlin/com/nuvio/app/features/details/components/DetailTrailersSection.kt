@@ -2,6 +2,7 @@ package com.nuvio.app.features.details.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,15 +42,28 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.ui.Menu
 import com.nuvio.app.core.ui.MenuItem
+import com.nuvio.app.core.ui.NativeLiquidGlassMenuOption
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassButton
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassOptionMenu
+import com.nuvio.app.core.ui.isNativeLiquidGlassOptionMenuAvailable
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.backdropControlColor
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaTrailer
 import nuvio.composeapp.generated.resources.*
 import nuvio.composeapp.generated.resources.detail_tab_trailer
 import nuvio.composeapp.generated.resources.detail_trailer_category_count
+import nuvio.composeapp.generated.resources.action_cancel
 import nuvio.composeapp.generated.resources.detail_trailers_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -58,6 +74,9 @@ fun DetailTrailersSection(
     modifier: Modifier = Modifier,
     showHeader: Boolean = true,
     horizontalScrollPadding: Dp = 0.dp,
+    onPreviewSurfaceSelected: ((LiquidGlassSurface) -> Unit)? = null,
+    selectedPreviewSurface: LiquidGlassSurface? = null,
+    previewMenuInitiallyExpanded: Boolean = false,
 ) {
     if (trailers.isEmpty()) return
 
@@ -78,9 +97,16 @@ fun DetailTrailersSection(
             ?: grouped.keys.first()
     }
     var selectedCategory by remember(grouped) { mutableStateOf(initialCategory) }
-    var menuExpanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember(grouped, previewMenuInitiallyExpanded) {
+        mutableStateOf(previewMenuInitiallyExpanded)
+    }
 
     val selectedTrailers = grouped[selectedCategory].orEmpty()
+    val useNativeTrailerCategoryMenu = !previewMenuInitiallyExpanded &&
+        onPreviewSurfaceSelected == null &&
+        selectedPreviewSurface == null &&
+        isNativeLiquidGlassOptionMenuAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.DETAIL_TRAILER_MENU)
     val posterCardStyle = rememberPosterCardStyleUiState()
     val userCornerRadius = posterCardStyle.cornerRadiusDp.dp
 
@@ -120,38 +146,80 @@ fun DetailTrailersSection(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(
-                                text = selectedCategory,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Icon(
-                                imageVector = Icons.Filled.ExpandMore,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(sizing.selectorIconSize),
-                            )
+                            LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
+                                Row(
+                                    modifier = Modifier.padding(
+                                        horizontal = sizing.selectorHorizontalPadding,
+                                        vertical = sizing.selectorVerticalPadding,
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        text = selectedCategory,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.ExpandMore,
+                                        contentDescription = null,
+                                        tint = liquidGlassIconTint(
+                                            surface = selectorSurface,
+                                            default = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                        modifier = Modifier.size(sizing.selectorIconSize),
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    Menu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        grouped.keys.forEach { category ->
-                            val count = grouped[category]?.size ?: 0
-                            MenuItem(
-                                text = stringResource(Res.string.detail_trailer_category_count, category, count),
-                                selected = category == selectedCategory,
-                                onClick = {
-                                    selectedCategory = category
-                                    menuExpanded = false
-                                },
-                            )
+                    if (useNativeTrailerCategoryMenu) {
+                        NuvioNativeLiquidGlassOptionMenu(
+                            visible = menuExpanded,
+                            title = null,
+                            cancelLabel = stringResource(Res.string.action_cancel),
+                            options = grouped.map { (category, categoryTrailers) ->
+                                NativeLiquidGlassMenuOption(
+                                    id = category,
+                                    title = stringResource(
+                                        Res.string.detail_trailer_category_count,
+                                        category,
+                                        categoryTrailers.size,
+                                    ),
+                                )
+                            },
+                            selectedOptionId = selectedCategory,
+                            onOptionSelected = { category ->
+                                if (category in grouped) selectedCategory = category
+                            },
+                            onDismiss = { menuExpanded = false },
+                        )
+                    } else {
+                        Menu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            glassSurface = LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                            onGlassSurfaceInteracted = onPreviewSurfaceSelected?.let { onSelected ->
+                                { onSelected(LiquidGlassSurface.DETAIL_TRAILER_MENU) }
+                            },
+                            selectionHighlight = selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_MENU,
+                        ) {
+                            grouped.keys.forEach { category ->
+                                val count = grouped[category]?.size ?: 0
+                                MenuItem(
+                                    text = stringResource(Res.string.detail_trailer_category_count, category, count),
+                                    selected = category == selectedCategory,
+                                    onClick = {
+                                        selectedCategory = category
+                                        menuExpanded = false
+                                    },
+                                )
+                            }
                         }
                     }
                 }

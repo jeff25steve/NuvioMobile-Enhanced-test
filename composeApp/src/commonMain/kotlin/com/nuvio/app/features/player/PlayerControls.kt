@@ -111,6 +111,9 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 import com.nuvio.app.core.i18n.localizedEpisodeTitle
 import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 
 @Composable
 internal fun PlayerControlsShell(
@@ -238,6 +241,7 @@ internal fun PlayerControlsShell(
     var timelineHeight by remember { mutableStateOf(0.dp) }
     val glassActive = isAmbientLiquidGlassActive()
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        LiquidGlassTextContrastScope(enabled = glassActive) {
         val centerControlHeight = metrics.playIconSize + maxOf(metrics.playButtonPadding, metrics.sideButtonPadding) * 2
         val centerBottomPadding = if (useLegacyLayout) metrics.centerLift else maxOf(
             metrics.centerLift,
@@ -514,6 +518,7 @@ internal fun PlayerControlsShell(
             }
         }
     }
+        }
 }
 
 @Composable
@@ -686,7 +691,7 @@ private fun PlayerHeader(
                                             buttonSize = metrics.headerIconSize + 16.dp,
                                             iconSize = metrics.headerIconSize,
                                             onClick = onPartyClick,
-                                            tint = if (partyActive) MaterialTheme.colorScheme.primary else Color.White,
+                                            tint = if (partyActive) MaterialTheme.colorScheme.primary else liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                                         )
                                     }
                                 }
@@ -779,7 +784,7 @@ private fun PlayerHeader(
                         modifier = Modifier.playerLiquidGlass(CircleShape, refractionHeight = 6.dp, refractionAmount = 8.dp),
                         shape = CircleShape,
                         containerColor = Color.Transparent,
-                        contentColor = Color.White,
+                        contentColor = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                         buttonSize = metrics.headerIconSize + 16.dp,
                         iconSize = metrics.headerIconSize,
                         contentDescription = stringResource(Res.string.compose_player_close),
@@ -789,7 +794,6 @@ private fun PlayerHeader(
         }
     }
 }
-
 
 @Composable
 internal fun PlayerHeaderIconButton(
@@ -814,7 +818,7 @@ internal fun PlayerHeaderIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = tint,
+            tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, tint),
             modifier = Modifier.size(iconSize),
         )
     }
@@ -888,14 +892,14 @@ private fun SkipStepIcon(seconds: Int, forward: Boolean, size: Dp) {
         else -> null
     }
     if (numbered != null) {
-        Icon(numbered, contentDescription = null, tint = Color.White, modifier = Modifier.size(size))
+        Icon(numbered, contentDescription = null, tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White), modifier = Modifier.size(size))
         return
     }
     Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
         Icon(
             imageVector = Icons.Rounded.Replay,
             contentDescription = null,
-            tint = Color.White,
+            tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { if (forward) scaleX = -1f },
@@ -948,7 +952,7 @@ internal fun PlayPauseControlButton(
                 } else {
                     stringResource(Res.string.detail_btn_play)
                 },
-                tint = Color.White,
+                tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                 modifier = Modifier.size(metrics.playIconSize),
             )
         }
@@ -1439,7 +1443,7 @@ internal fun LockedPlayerOverlay(
                 Icon(
                     imageVector = Icons.Rounded.Lock,
                     contentDescription = stringResource(Res.string.compose_player_unlock_controls),
-                    tint = Color.White,
+                    tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                     modifier = Modifier.size(34.dp),
                 )
             }
@@ -1582,14 +1586,14 @@ private fun PlayerActionPillButton(
             painter != null -> Icon(
                 painter = painter,
                 contentDescription = label,
-                tint = Color.White,
+                tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                 modifier = Modifier.size(18.dp),
             )
 
             icon != null -> Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = Color.White,
+                tint = liquidGlassIconTint(LiquidGlassSurface.PLAYER, Color.White),
                 modifier = Modifier.size(18.dp),
             )
         }

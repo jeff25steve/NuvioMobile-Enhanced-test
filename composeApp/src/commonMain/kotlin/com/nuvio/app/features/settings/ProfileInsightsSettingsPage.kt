@@ -1,8 +1,5 @@
 package com.nuvio.app.features.settings
 
-import com.nuvio.app.core.ui.background.LocalAppBackgroundActive
-import com.nuvio.app.core.ui.background.appBackgroundCover
-import com.nuvio.app.core.ui.background.appGlassBackdrop
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
@@ -106,13 +103,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.format.resolveReleaseInfoForDisplay
 import com.nuvio.app.core.ui.platformPhysicalTopInset
 import com.nuvio.app.core.ui.NuvioPrimaryButton
-import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.accentBrush
 import com.nuvio.app.core.ui.gradientMask
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.NuvioAsyncImage
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.details.MetaLookupOutcome
 import com.nuvio.app.features.details.MetaDetails
@@ -405,7 +406,7 @@ private fun ProfileInsightsBody(
                 title = stringResource(Res.string.profile_insights_section_taste),
                 isTablet = isTablet,
             ) {
-                ProfileTasteCard(stats = stats, factsProgress = factsProgress)
+                ProfileTasteCard(isTablet = isTablet, stats = stats, factsProgress = factsProgress)
             }
         }
     }
@@ -510,12 +511,7 @@ private fun ProfileInsightsHeroBounded(
             .border(1.dp, Color.White.copy(alpha = 0.12f), shape),
     ) {
         if (profile != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .appGlassBackdrop(shape)
-                    .background(tokens.colors.surface, shape),
-            )
+            ProfileBackgroundBackdrop(profile = profile, modifier = Modifier.matchParentSize())
         } else {
             Box(
                 modifier = Modifier
@@ -619,13 +615,6 @@ private fun ProfileInsightsHeroCinematic(
             .aspectRatio(1f),
     ) {
         BoxWithConstraints(modifier = Modifier.matchParentSize()) {
-            if (profile != null) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .appBackgroundCover(Color.Transparent),
-                )
-            }
             val leftInset = tokens.spacing.screenHorizontal + 40.dp
             val rightInset = tokens.spacing.screenHorizontal + 160.dp
             val bleedWidth = maxWidth + leftInset + rightInset
@@ -639,6 +628,10 @@ private fun ProfileInsightsHeroCinematic(
                     .offset(x = -leftInset, y = -topExtension),
             ) {
                 if (profile != null) {
+                    ProfileBackgroundBackdrop(
+                        profile = profile,
+                        modifier = Modifier.matchParentSize(),
+                    )
                 } else {
                     Box(
                         modifier = Modifier
@@ -654,7 +647,7 @@ private fun ProfileInsightsHeroCinematic(
                             ),
                     )
                 }
-                if (!LocalAppBackgroundActive.current) Box(
+                Box(
                     modifier = Modifier
                         .matchParentSize()
                         .background(
@@ -968,10 +961,32 @@ private fun ProfileMetricPill(
 @Composable
 private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
     val tokens = MaterialTheme.nuvio
+    val surface = LiquidGlassSurface.SETTINGS
+    val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+        surface = surface,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val shape = liquidGlassShape(surface, tokens.shapes.card)
     Surface(
-        modifier = Modifier.fillMaxWidth().appGlassBackdrop(tokens.shapes.card),
-        color = tokens.colors.surface,
-        shape = tokens.shapes.card,
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (glassEnabled) {
+                    Modifier.liquidGlassForSurface(
+                        surface = surface,
+                        shape = shape,
+                        tint = tokens.colors.surface.copy(alpha = 0.18f),
+                        fallback = tokens.colors.surface,
+                        blurRadius = 14.dp,
+                        refractionHeight = 8.dp,
+                        refractionAmount = 12.dp,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+        color = if (glassEnabled) Color.Transparent else tokens.colors.surface,
+        shape = shape,
         border = BorderStroke(1.dp, tokens.colors.borderSubtle),
     ) {
         Column(
@@ -1185,6 +1200,7 @@ private fun ProfileInsightPosterTile(
 
 @Composable
 private fun ProfileTasteCard(
+    isTablet: Boolean,
     stats: ProfileInsightsStats,
     factsProgress: ProfileTitleFactsProgress? = null,
 ) {
@@ -1197,7 +1213,7 @@ private fun ProfileTasteCard(
     }
     val topSignal = stats.topGenre ?: fallbackType ?: stringResource(Res.string.profile_insights_taste_empty)
 
-    NuvioSurfaceCard {
+    SettingsSurfaceCard(isTablet = isTablet) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -1810,6 +1826,7 @@ private fun buildProfileInsightsCore(
         episodesWatchedCount = watchedItems.profileWatchedEpisodeCount(),
         ongoingSeriesCount = ongoingSeriesItems.size,
         libraryCount = libraryItems.size,
+        // Resolved against title facts in ProfileInsightsCore.resolveStats().
         trackedDurationMs = 0L,
         recentActivityCount = recentActivityCount,
         upcomingCount = upcomingLibraryCount,
@@ -2565,6 +2582,8 @@ private fun buildProfileWatchedTitleGenreSegments(
         }
 }
 
+// Addons and TMDB name genres differently ("Sci-Fi" vs "Science Fiction", TV-only combined
+// genres such as "Action & Adventure"). Normalize so every device and source counts alike.
 private val profileGenreAliases = mapOf(
     "sci-fi" to "Science Fiction",
     "sci fi" to "Science Fiction",
@@ -2585,6 +2604,8 @@ private class ProfileTitleFacts(
     val runtimeMinutes: Int?,
     val episodeRuntimeMinutes: Map<Long, Int>,
     val resolvedAtEpochMs: Long,
+    // Seeded from the shared meta cache: runtimes only. Its genres may be TMDB-enriched or
+    // localized, so it is still fetched from the addon to keep genres consistent across devices.
     val partial: Boolean = false,
 )
 
@@ -2748,6 +2769,7 @@ private object ProfileTitleFactsStore {
         _facts.value = emptyMap()
         failures.clear()
         attemptedFetchKeys.clear()
+        // A clear should visibly start over; the clear itself is limited to once an hour.
         budgetWindowStartedAtEpochMs = WatchedClock.nowEpochMs()
         fetchesInWindow = 0
         syncFailedKeys()
@@ -2826,6 +2848,7 @@ private object ProfileTitleFactsStore {
                 targets.forEach { key ->
                     launch {
                         permits.withPermit {
+                            // An addon started rate-limiting while we waited for a permit.
                             if (WatchedClock.nowEpochMs() < pausedUntilEpochMs) return@withPermit
                             val (kind, id) = key.profileSplitTitleKey() ?: return@withPermit
                             if (!attemptedFetchKeys.add(key)) return@withPermit
@@ -2841,6 +2864,7 @@ private object ProfileTitleFactsStore {
                                         if (pending.size >= PUBLISH_BATCH_SIZE) publish(pending)
                                     }
                                     is MetaLookupOutcome.Throttled -> {
+                                        // Not the title's fault: retry it once the addon allows.
                                         attemptedFetchKeys.remove(key)
                                         pausedUntilEpochMs = maxOf(pausedUntilEpochMs, outcome.retryAtEpochMs)
                                     }
@@ -2854,6 +2878,7 @@ private object ProfileTitleFactsStore {
                                 recordFailure(key)
                                 profileInsightsLog.w(error) { "Failed to hydrate title facts for $kind/$id" }
                             } finally {
+                                // Cancelled mid-flight (e.g. the tab was left): allow a retry next time.
                                 if (!settled) attemptedFetchKeys.remove(key)
                             }
                         }
@@ -2936,6 +2961,7 @@ private object ProfileTitleFactsStore {
     }
 }
 
+// How far genre/runtime hydration has got, so partial numbers are not mistaken for final ones.
 private class ProfileTitleFactsProgress(
     val detailsResolved: Int,
     val detailsTotal: Int,

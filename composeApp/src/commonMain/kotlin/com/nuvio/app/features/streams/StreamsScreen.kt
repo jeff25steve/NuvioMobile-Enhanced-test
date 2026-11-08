@@ -2,11 +2,9 @@ package com.nuvio.app.features.streams
 
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +68,9 @@ import com.nuvio.app.core.ui.LocalOnBackdrop
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.NuvioInputField
+import com.nuvio.app.core.ui.NuvioNativeLiquidGlassSearchField
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
+import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
@@ -104,8 +105,14 @@ import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
-import com.nuvio.app.core.ui.glass.ambientLiquidGlass
-import com.nuvio.app.core.ui.glass.isAmbientLiquidGlassActive
+import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
+import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
+import com.nuvio.app.core.ui.glass.liquidGlassForSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
+import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.NuvioTokens
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -395,7 +402,6 @@ fun StreamsScreen(
             )
         }
 
-
         StreamActionsSheet(
             stream = streamActionsTarget,
             externalPlayerEnabled = playerSettings.externalPlayerEnabled,
@@ -583,6 +589,7 @@ internal fun ResumeBanner(
     positionMs: Long?,
     progressFraction: Float? = null,
     modifier: Modifier = Modifier,
+    preview: Boolean = false,
 ) {
     val resumeText = when {
         progressFraction != null && progressFraction > 0f -> stringResource(
@@ -596,13 +603,38 @@ internal fun ResumeBanner(
         else -> null
     } ?: return
 
+    val defaultShape = RoundedCornerShape(18.dp)
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_SELECTION,
+        preview = preview,
+        platformSupported = isLiquidGlassSupported(),
+    )
+    val shape = if (glassAllowed) {
+        liquidGlassShape(LiquidGlassSurface.STREAM_SELECTION, defaultShape, preview = preview)
+    } else {
+        defaultShape
+    }
+    val fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .ambientLiquidGlass(
-                shape = RoundedCornerShape(18.dp),
-                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                fallback = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            .then(
+                if (glassAllowed) {
+                    Modifier
+                        .clip(shape)
+                        .liquidGlassForSurface(
+                            surface = LiquidGlassSurface.STREAM_SELECTION,
+                            shape = shape,
+                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.38f),
+                            fallback = fallback,
+                            blurRadius = 14.dp,
+                            refractionHeight = 8.dp,
+                            refractionAmount = 12.dp,
+                            preview = preview,
+                        )
+                } else {
+                    Modifier.clip(shape).background(fallback, shape)
+                },
             )
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -612,6 +644,7 @@ internal fun ResumeBanner(
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
         )
+    }
     }
 }
 
@@ -1387,7 +1420,7 @@ private fun EmptyStateBlock(
             imageVector = Icons.Rounded.SearchOff,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            tint = liquidGlassIconTint(LiquidGlassSurface.STREAM_SELECTION, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -1472,19 +1505,45 @@ internal fun StreamSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    preview: Boolean = false,
+    nativeGlassEnabled: Boolean? = null,
 ) {
+    val useNativeGlassSearch = isNativeLiquidGlassControlsAvailable() &&
+        (nativeGlassEnabled ?: isLiquidGlassSurfaceEffectivelyEnabled(
+            LiquidGlassSurface.STREAM_SELECTION,
+            preview = preview,
+            platformSupported = true,
+        ))
+    if (useNativeGlassSearch) {
+        NuvioNativeLiquidGlassSearchField(
+            value = query,
+            placeholder = stringResource(Res.string.streams_search_placeholder),
+            accessibilityLabel = stringResource(Res.string.streams_search_placeholder),
+            onValueChange = onQueryChange,
+            modifier = modifier.fillMaxWidth(),
+        )
+        return
+    }
     val trailingContent: (@Composable () -> Unit)? = if (query.isEmpty()) null else {
         {
             IconButton(onClick = { onQueryChange("") }) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.streams_search_clear),
-                    tint = MaterialTheme.nuvio.colors.textMuted,
+                    tint = liquidGlassIconTint(
+                        LiquidGlassSurface.STREAM_SELECTION,
+                        MaterialTheme.nuvio.colors.textMuted,
+                        preview = preview,
+                    ),
                 )
             }
         }
     }
-    if (!isAmbientLiquidGlassActive()) {
+    val glassAllowed = isLiquidGlassSurfaceEffectivelyEnabled(
+        LiquidGlassSurface.STREAM_SELECTION,
+        preview = preview,
+    ) && (preview || isLiquidGlassSupported())
+    if (!glassAllowed) {
         NuvioInputField(
             value = query,
             onValueChange = onQueryChange,
@@ -1495,17 +1554,30 @@ internal fun StreamSearchField(
         return
     }
     val tokens = MaterialTheme.nuvio
-    val fieldShape = RoundedCornerShape(NuvioTokens.Radius.lg)
+    val fieldShape = liquidGlassShape(
+        LiquidGlassSurface.STREAM_SELECTION,
+        RoundedCornerShape(NuvioTokens.Radius.lg),
+        preview = preview,
+    )
+    val glassRimCanRender = glassAllowed && isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current)
+    val drawNativeOutline = shouldDrawNuvioInputFieldOutline(
+        glassSurfaceEnabled = glassAllowed,
+        glassRimCanRender = glassRimCanRender,
+    )
+    LiquidGlassTextContrastScope(enabled = glassAllowed) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(fieldShape)
-            .ambientLiquidGlass(
+            .liquidGlassForSurface(
+                surface = LiquidGlassSurface.STREAM_SELECTION,
                 shape = fieldShape,
-                tint = Color.White.copy(alpha = 0.05f).compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)),
+                tint = Color.White.copy(alpha = 0.05f).compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha)).copy(alpha = 0.38f),
                 fallback = tokens.colors.surfaceCard,
                 blurRadius = 14.dp,
                 refractionHeight = 8.dp,
+                refractionAmount = 12.dp,
+                preview = preview,
             ),
     ) {
         OutlinedTextField(
@@ -1524,13 +1596,15 @@ internal fun StreamSearchField(
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
             trailingIcon = trailingContent,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = tokens.colors.borderFocus,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.12f),
+                focusedBorderColor = if (drawNativeOutline) tokens.colors.borderFocus else Color.Transparent,
+                unfocusedBorderColor = if (drawNativeOutline) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                disabledBorderColor = if (drawNativeOutline) Color.White.copy(alpha = 0.12f) else Color.Transparent,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
                 cursorColor = tokens.colors.accent,
             ),
         )
+    }
     }
 }
 

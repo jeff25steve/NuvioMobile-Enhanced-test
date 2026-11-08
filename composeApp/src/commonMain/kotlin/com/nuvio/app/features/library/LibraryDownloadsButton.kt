@@ -1,5 +1,8 @@
 package com.nuvio.app.features.library
 
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.liquidGlassIconTint
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
@@ -47,7 +50,7 @@ internal fun LibraryDownloadsButton(onClick: () -> Unit) {
                 modifier = Modifier.gradientMask(MaterialTheme.themePalette.accentBrush()),
                 tint = Color.White,
             )
-            else -> DownloadIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> DownloadIcon(tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant))
         }
     }
 }
