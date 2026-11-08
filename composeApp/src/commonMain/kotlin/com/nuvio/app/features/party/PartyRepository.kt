@@ -155,7 +155,7 @@ object PartyRepository {
         scope.launch {
             val party = _state.value.party ?: return@launch
             val snapshot = runRemote { PartyApi.removeMember(party.id, deviceId(), memberId) } ?: return@launch
-            applySnapshot(snapshot)
+            applySnapshot(snapshot, expectedPartyId = party.id)
         }
     }
 
@@ -165,8 +165,10 @@ object PartyRepository {
             if (!party.isHost || party.hostOnly == enabled) return@launch
             updateParty { it.copy(hostOnly = enabled) }
             val snapshot = runRemote { PartyApi.setHostOnly(party.id, deviceId(), enabled) }
-            if (snapshot?.party == null) updateParty { it.copy(hostOnly = party.hostOnly) }
-            snapshot?.let(::applySnapshot)
+            if (snapshot?.party == null) {
+                updatePartyIfCurrent(party.id) { it.copy(hostOnly = party.hostOnly) }
+            }
+            snapshot?.let { applySnapshot(it, expectedPartyId = party.id) }
         }
     }
 
@@ -206,7 +208,7 @@ object PartyRepository {
             }
             persistJob?.cancel()
             val snapshot = runRemote { PartyApi.update(party.id, deviceId(), media, next) }
-            snapshot?.let(::applySnapshot)
+            snapshot?.let { applySnapshot(it, expectedPartyId = party.id) }
         }
     }
 
@@ -370,7 +372,7 @@ object PartyRepository {
                     ?.let { decode(it, PartyStream.serializer()) }
                     ?.takeIf { isShareableStreamUrl(it.url) }
             }
-            "chat" -> PartyChat.receive(payload)
+            "chat" -> PartyChat.receive(party.id, payload)
         }
     }
 
@@ -426,14 +428,15 @@ object PartyRepository {
     private suspend fun refreshMembers(announceMemberId: String?) {
         val party = _state.value.party ?: return
         val snapshot = runRemote { PartyApi.heartbeat(party.id, deviceId()) } ?: return
-        applySnapshot(snapshot)
+        applySnapshot(snapshot, expectedPartyId = party.id)
         val name = _state.value.party?.member(announceMemberId)?.displayName
         if (announceMemberId != null && announceMemberId != party.memberId && name != null) {
             _events.tryEmit(PartyEvent.MemberJoined(name))
         }
     }
 
-    private fun applySnapshot(snapshot: PartySnapshot) {
+    private fun applySnapshot(snapshot: PartySnapshot, expectedPartyId: String) {
+        if (!isPartySnapshotCurrent(expectedPartyId, _state.value.party?.id, snapshot.party?.id)) return
         when (snapshot.error) {
             null -> Unit
             "not_member" -> {
@@ -538,7 +541,7 @@ object PartyRepository {
             delay(PERSIST_DELAY)
             val party = _state.value.party ?: return@launch
             val playback = _playback.value ?: return@launch
-            runRemote { PartyApi.update(party.id, deviceId(), null, playback) }?.let { applySnapshot(it) }
+            runRemote { PartyApi.update(party.id, deviceId(), null, playback) }?.let { applySnapshot(it, expectedPartyId = party.id) }
         }
     }
 
@@ -547,7 +550,7 @@ object PartyRepository {
             delay(HEARTBEAT_INTERVAL)
             val party = _state.value.party ?: return
             val snapshot = runRemote { PartyApi.heartbeat(party.id, deviceId()) } ?: continue
-            applySnapshot(snapshot)
+            applySnapshot(snapshot, expectedPartyId = party.id)
         }
     }
 
@@ -625,6 +628,14 @@ object PartyRepository {
     }
 
     private fun currentScopeActive(): Boolean = sessionScope?.isActive == true
+
+    private fun updatePartyIfCurrent(partyId: String, transform: (ActiveParty) -> ActiveParty) {
+        _state.update { state ->
+            val current = state.party ?: return@update state
+            if (!isPartySessionCurrent(partyId, current.id)) return@update state
+            state.copy(party = transform(current))
+        }
+    }
 
     private fun updateParty(transform: (ActiveParty) -> ActiveParty) {
         _state.update { state -> state.party?.let { state.copy(party = transform(it)) } ?: state }
