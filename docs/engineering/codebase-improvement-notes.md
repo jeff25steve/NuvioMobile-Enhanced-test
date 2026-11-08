@@ -652,3 +652,46 @@ Rejected approaches:
 Source revisions inspected: `AddonRepository.kt` (`8b3ccf3e0e9259e225183a0ab5e6356049d0d1a7`), `ProfileRepository.kt` (`be26d1861594d0671535f7e15c7172ef70849b18`), `SyncManager.kt` (`a8a49eb6f1b6d9eeacdff2e45b4b6f113328981f`), and the existing cancellation-aware helper `RunCatchingUnlessCancelled.kt` (`7bd938118bad9240b0fb4cf551d1939eac439e2d`).
 
 Verification limits: the full add-on state lifecycle, profile-switch call ordering, sync request cancellation path and current sync tests were statically inspected. No dedicated AddonRepository cancellation/profile-race test exists in the current common-test tree. No tests or builds were started, and no production/test code was changed because the test-first cycle remains unauthorised.
+
+
+### Full plugin repository — cancelled refresh can publish across profile boundaries (8 November 2026)
+
+The full-feature plugin repository was audited after the add-on findings. It has a separate profile-persistence generation/revision system, but that protection applies to persistence snapshots; it does not protect in-memory refresh-result publication.
+
+Source-confirmed behavior in `fullCommonMain/features/plugins/PluginRepository.kt`:
+- `pullFromServer(profileId)` resolves/loads a profile, then wraps the whole suspend sync body in standard `runCatching`. It logs all failures (including cancellation) and returns normally, so the ordered sync runner cannot distinguish an interrupted Plugins step from an ordinary completed step.
+- `addRepository(rawUrl)` catches `Throwable` around `fetchRepositoryData`, converting cancellation into an ordinary repository-install failure.
+- `refreshRepositoryInternal` starts jobs in a repository-owned `SupervisorJob + Dispatchers.Default` scope. It wraps `fetchRepositoryData` in standard `runCatching`; after cancellation it still enters the state-update block and writes its result by matching only `manifestUrl`.
+- `onProfileChanged` cancels the refresh jobs and resets `currentProfileId` and `_uiState`, but does not invalidate a profile/generation token for the active refresh result. If profile A and B both have a repository at URL U, an A refresh cancelled during the request can still apply its failure/result to B's U entry. The update can overwrite B's name, version, scraper list, enabled preferences (captured from A's previous scraper map), refreshing flag and error state. It then calls `persist()`, whose new snapshot uses the current profile B and can persist that mixed A/B state to B.
+- The existing refresh-job map uses an object-identity guard before removing a job entry; retain this protection. It does not prevent the separate shared-state update.
+- `fetchRepositoryData` captures `storageProfileId` before its network work, which is good for scraper-code file placement. However, every scraper code fetch is itself wrapped in standard `runCatching { httpGetText(codeUrl) ... }.getOrNull()`; cancellation can be mistaken for an optional scraper failure and the manifest loop continues rather than immediately aborting. The parent refresh still needs an explicit generation guard when it attempts to publish its final result.
+- `pushToServer` is another repository-owned coroutine with standard `runCatching`; it has no captured profile snapshot or job registry. Its exact remote ordering/overwrite semantics were not established, so no separate lost-update or wrong-account defect is asserted.
+
+Important distinction: `PluginPersistenceSnapshot(profileId, generation, revision, state)`, the monotonically increasing persistence revision and per-profile persisted revision map already protect stale persistence snapshots from overwriting newer snapshots of the same profile. Do not remove or duplicate that work. The gap is between profile ownership of a live refresh and the subsequent UI-state commit.
+
+Platform scope:
+- This implementation is in `fullCommonMain`, shared by the full-feature mobile variants. The inspected Android Play Store and iOS App Store source sets deliberately use disabled plugin stubs; do not apply this finding to those variants.
+- The current Android Full host test suite has tests for empty/non-empty remote sync, failed sync preserving cache, refresh without upload, and explicit removal upload. It has no cancellation or cross-profile refresh-race test.
+
+Recommended test-first follow-up:
+- Start repository A's URL U refresh and suspend it at manifest or scraper-code fetch; switch to profile B with the same URL U and start B's refresh; resume A's cancellation. Assert A cannot change any of B's repository/scraper state, B's enabled flags, or B's refresh-job registration, and cannot persist A's stale preferences to B.
+- Cancel `pullFromServer` during the remote select and assert cancellation propagates to `runOrderedProfileSync`, not logged as a completed Plugins step.
+- Cancel `addRepository` during its fetch and assert the caller sees cancellation rather than `AddPluginRepositoryResult.Error`.
+- Ensure a cancelled scraper-code request aborts the refresh rather than silently dropping that scraper and returning a partial repository.
+- Capture a profile ID plus generation when the operation starts; check that identity immediately before any `_uiState` update, persistence snapshot or push. Cancellation is necessary but cannot replace the ownership check.
+- Preserve the existing per-profile persistence revision logic, job identity removal check, profile sharing rules and disabled platform stubs.
+
+Cross-checks and existing architecture:
+- Kotlin's official cancellation guidance and kotlinx.coroutines issue #1814 explain why catching `CancellationException` as an ordinary result breaks structured cancellation: https://kotlinlang.org/docs/cancellation-and-timeouts.html and https://github.com/Kotlin/kotlinx.coroutines/issues/1814
+- This repository's `SyncManager.runOrderedProfileSync` explicitly rethrows cancellation, and its Android Full host tests already use MockWebServer to exercise real repository sync/refresh behavior. Extend that existing test style rather than inventing a new test harness.
+- The plugin code's generation/revision persistence mechanism is real and should be retained; it is not equivalent to checking that the same profile/generation still owns an asynchronous refresh result.
+
+Other plugin-runtime observations not promoted:
+- `PluginRuntime.executePlugin` uses `withTimeout(60_000)` and rethrows the resulting failure with `getOrThrow()`; no timeout defect is asserted there.
+- `getPluginSettingsLayout` has an outer `catch(Exception)` around a `withTimeout` scope. This is a cancellation-sensitive pattern, but it was not promoted without a dedicated timeout/caller-cancellation test against the exact runtime implementation.
+- `FetchBridge.performNativeFetch` bridges the synchronous QuickJS host callback with `runBlocking` around the suspend HTTP transport. This can block the plugin execution thread until the request finishes; Android uses an OkHttp call with cancellation wired to the runBlocking job, while iOS uses the Ktor Darwin client. The plugin runtime and HTTP read/connect timeouts are bounded, so no change was justified without measuring real fetch contention or confirming the QuickJS API's supported asynchronous bridge contract.
+- GitHub code searches for the plugin concurrency constant and server RPC identifier returned no useful indexed results; no conclusions depend on those searches.
+
+Source revisions inspected: full plugin repository (`082de91cd4c391a9a893a57c9b223cd79f0d9d66`), plugin runtime (`a5a1cc763ae26665c6c672ead362026632e6a61c`), FetchBridge (`0b97b0f10febce1ffe87f96bd9fb0b43470b48fb`), Android Full host test `PluginSyncTest.kt` (`47fff071e3c59c0a9936cfd16be025d5b120ea03`), Android Play Store and iOS App Store disabled stubs (`a42594a1b0b314e13507121af17de3c0152c96b4`), and Addon HTTP platform implementations Android (`9d1f94dd0425149bb03ab361a8a8411daff6c966`) / iOS (`c556d5b8fd3c15d8dca9a88898ef4c0224206883`).
+
+Verification limits: this was static source and test inspection only. No plugin cancellation/profile race was reproduced, no tests were run, and no test/build/CI files or production source were changed. No Gradle, Xcode or build-triggering process was started.
