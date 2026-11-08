@@ -253,6 +253,8 @@ object HomeRepository {
         if (currentDefinitions.isEmpty() && cachedSections.isNotEmpty()) return
         val snapshot = HomeCatalogSettingsRepository.snapshot()
         val preferences = snapshot.preferences
+        val definitions = currentDefinitions
+        val sectionsByCacheKey = cachedSections
         val todayIsoDate = if (snapshot.hideUnreleasedContent) CurrentDateProvider.todayIsoDate() else null
         CustomPosterUrlRepository.ensureLoaded()
         val posterPattern = CustomPosterUrlRepository.patternForScreen(com.nuvio.app.core.poster.CustomPosterScreen.HOME)
@@ -261,14 +263,22 @@ object HomeRepository {
         fun HomeCatalogSection.withPosterOverlay(): HomeCatalogSection =
             copy(items = items.reapplyCustomPosterUrls(posterPattern))
 
-        val entries = currentDefinitions
+        // The overlay is deterministic for one publish. Share its mapped items between
+        // the visible rows and hero candidates, but keep release filtering separate because
+        // its result depends on the current clock.
+        val posterOverlayByCacheKey = mutableMapOf<String, HomeCatalogSection?>()
+        fun HomeCatalogDefinition.sectionWithPosterOverlay(): HomeCatalogSection? =
+            posterOverlayByCacheKey.getOrPut(cacheKey) {
+                sectionsByCacheKey[cacheKey]?.withPosterOverlay()
+            }
+
+        val entries = definitions
             .sortedBy { definition -> preferences[definition.key]?.order ?: Int.MAX_VALUE }
             .mapNotNull { definition ->
                 val preference = preferences[definition.key]
                 if (preference?.enabled == false) return@mapNotNull null
 
-                val section = cachedSections[definition.cacheKey]
-                    ?.withPosterOverlay()
+                val section = definition.sectionWithPosterOverlay()
                     ?.withReleaseFilter()
                     ?: return@mapNotNull null
                 if (section.items.isEmpty()) return@mapNotNull null
@@ -284,13 +294,13 @@ object HomeRepository {
 
         val catalogHeroItems = if (snapshot.heroEnabled) {
             val heroRandom = Random((requestKey?.hashCode() ?: 0).absoluteValue + 1)
-            currentDefinitions
-                .filter { definition -> preferences[definition.key]?.heroSourceEnabled != false }
-                .mapNotNull { definition -> cachedSections[definition.cacheKey] }
-                .map { section -> section.withPosterOverlay().withReleaseFilter() }
-                .flatMap { section -> section.items }
-                .distinctBy { item -> "${item.type}:${item.id}" }
-                .shuffled(heroRandom)
+            collectDistinctHomeHeroItems(
+                definitions = definitions,
+                preferences = preferences,
+                sectionForDefinition = { definition ->
+                    definition.sectionWithPosterOverlay()?.withReleaseFilter()
+                },
+            ).shuffled(heroRandom)
                 .take(HOME_HERO_ITEM_LIMIT)
         } else {
             emptyList()
@@ -581,4 +591,24 @@ private fun prioritizeDefinitions(
         }
     }
     return priority + remainder
+}
+
+
+/**
+ * Collects the first occurrence of each media item in definition order without
+ * materializing intermediate filtered, mapped, flattened, and distinct lists.
+ */
+internal fun collectDistinctHomeHeroItems(
+    definitions: List<HomeCatalogDefinition>,
+    preferences: Map<String, HomeCatalogPreference>,
+    sectionForDefinition: (HomeCatalogDefinition) -> HomeCatalogSection?,
+): List<MetaPreview> = buildList {
+    val seenKeys = HashSet<String>()
+    for (definition in definitions) {
+        if (preferences[definition.key]?.heroSourceEnabled == false) continue
+        val section = sectionForDefinition(definition) ?: continue
+        for (item in section.items) {
+            if (seenKeys.add(item.stableKey())) add(item)
+        }
+    }
 }
