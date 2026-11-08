@@ -10,7 +10,8 @@ internal data class DownloadContentRange(
 }
 
 internal fun parseDownloadContentRange(value: String): DownloadContentRange? {
-    val match = Regex("bytes (\\d+)-(\\d+)/(\\d+|\\*)").matchEntire(value.trim()) ?: return null
+    val match = Regex("bytes (\\d+)-(\\d+)/(\\d+|\\*)", RegexOption.IGNORE_CASE)
+        .matchEntire(value.trim()) ?: return null
     val start = match.groupValues[1].toLongOrNull() ?: return null
     val end = match.groupValues[2].toLongOrNull() ?: return null
     val totalText = match.groupValues[3]
