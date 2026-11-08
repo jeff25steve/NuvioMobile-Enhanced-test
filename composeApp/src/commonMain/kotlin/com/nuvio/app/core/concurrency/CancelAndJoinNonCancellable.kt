@@ -2,6 +2,8 @@ package com.nuvio.app.core.concurrency
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
 
@@ -17,6 +19,7 @@ internal suspend fun cancelAndJoinNonCancellable(jobs: Collection<Job>) {
     withContext(NonCancellable) {
         jobs.joinAll()
     }
+    currentCoroutineContext().ensureActive()
 }
 
 internal suspend fun cancelAndJoinNonCancellable(job: Job?) {
