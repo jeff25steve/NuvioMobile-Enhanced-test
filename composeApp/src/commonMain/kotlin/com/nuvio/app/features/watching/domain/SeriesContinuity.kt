@@ -45,16 +45,26 @@ fun continueWatchingProgressEntries(
     progressRecords: List<WatchingProgressRecord>,
     limit: Int = DefaultContinueWatchingLimit,
 ): List<WatchingProgressRecord> {
-    val (seriesEntries, nonSeriesEntries) = progressRecords.partition { record ->
-        record.content.type.isSeriesLikeWatchingContentType() ||
-            (record.seasonNumber != null && record.episodeNumber != null)
-    }
-    val latestPerSeries = seriesEntries
-        .groupBy { record -> record.content.id.trim() }
-        .values
-        .mapNotNull { entries -> entries.maxWithOrNull(watchingProgressRecencyComparator) }
+    val nonSeriesEntries = ArrayList<WatchingProgressRecord>()
+    val latestPerSeries = linkedMapOf<String, WatchingProgressRecord>()
 
-    return (nonSeriesEntries + latestPerSeries)
+    progressRecords.forEach { record ->
+        val isSeriesEntry = record.content.type.isSeriesLikeWatchingContentType() ||
+            (record.seasonNumber != null && record.episodeNumber != null)
+        if (!isSeriesEntry) {
+            nonSeriesEntries += record
+        } else {
+            val seriesId = record.content.id.trim()
+            val currentLatest = latestPerSeries[seriesId]
+            if (currentLatest == null ||
+                watchingProgressRecencyComparator.compare(record, currentLatest) > 0
+            ) {
+                latestPerSeries[seriesId] = record
+            }
+        }
+    }
+
+    return (nonSeriesEntries + latestPerSeries.values)
         .filterNot { record -> record.isCompleted }
         .sortedByDescending { record -> record.lastUpdatedEpochMs }
         .take(limit)

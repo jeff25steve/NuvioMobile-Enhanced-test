@@ -152,11 +152,17 @@ data class WatchProgressUiState(
             }
             .toMap()
 
-    fun byVideoIdForContent(parentMetaId: String): Map<String, WatchProgressEntry> =
-        entries
-            .filter { entry -> entry.parentMetaId == parentMetaId }
-            .groupBy(WatchProgressEntry::videoId)
-            .mapValues { (_, candidates) -> candidates.maxWith(watchProgressEntryFreshnessComparator) }
+    fun byVideoIdForContent(parentMetaId: String): Map<String, WatchProgressEntry> {
+        val result = linkedMapOf<String, WatchProgressEntry>()
+        entries.forEach { entry ->
+            if (entry.parentMetaId != parentMetaId) return@forEach
+            val current = result[entry.videoId]
+            if (current == null || entry.isFresherThan(current)) {
+                result[entry.videoId] = entry
+            }
+        }
+        return result
+    }
 
     fun progressForVideo(
         videoId: String,

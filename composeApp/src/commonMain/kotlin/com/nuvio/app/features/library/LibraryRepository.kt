@@ -634,7 +634,7 @@ object LibraryRepository {
                 LibrarySection(
                     type = type,
                     displayTitle = type.toLibraryDisplayTitle(),
-                    items = typeItems.sortedByDescending { it.savedAtEpochMs },
+                    items = typeItems,
                 )
             }
             .sortedBy { it.displayTitle }
