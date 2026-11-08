@@ -282,6 +282,31 @@ class LibraryRepositoryTest {
         assertEquals(listOf("remote-new"), result.snapshot.items.map { it.id })
     }
 
+    @Test
+    fun `removeById removes every matching type and records only those deletions`() {
+        val state = LibraryLocalState()
+        val token = state.beginProfileLoad(profileId = 1).snapshot.token
+        state.completeProfileLoad(
+            token = token,
+            activeProfileId = 1,
+            items = listOf(
+                libraryItem(id = "shared", savedAtEpochMs = 1L),
+                libraryItem(id = "shared", savedAtEpochMs = 2L).copy(type = "series"),
+                libraryItem(id = "untouched", savedAtEpochMs = 3L),
+            ),
+        )
+        state.upsert(libraryItem(id = "shared", savedAtEpochMs = 4L))
+        state.upsert(libraryItem(id = "shared", savedAtEpochMs = 5L).copy(type = "series"))
+
+        val mutation = state.removeById("shared")
+
+        assertEquals(2, mutation.affectedCount)
+        assertEquals(listOf("untouched"), mutation.snapshot.items.map { it.id })
+        assertTrue(mutation.snapshot.pendingUpsertKeys.isEmpty())
+        assertEquals(setOf("shared"), mutation.snapshot.pendingDeleteKeys.map { it.contentId }.toSet())
+        assertEquals(setOf("movie", "series"), mutation.snapshot.pendingDeleteKeys.map { it.contentType }.toSet())
+    }
+
     private fun libraryItem(id: String, savedAtEpochMs: Long): LibraryItem =
         LibraryItem(
             id = id,
