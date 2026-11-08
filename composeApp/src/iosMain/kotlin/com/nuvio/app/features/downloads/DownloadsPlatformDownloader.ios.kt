@@ -1,11 +1,13 @@
 package com.nuvio.app.features.downloads
 
+import com.nuvio.app.core.concurrency.IdentityKeyedRegistry
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +55,7 @@ private const val DOWNLOAD_RESOURCE_TIMEOUT_SECONDS = 24.0 * 60.0 * 60.0
 private const val PROGRESS_MIN_INTERVAL_SECONDS = 0.5
 private const val PROGRESS_MIN_BYTE_DELTA = 512L * 1024L
 
-private val backgroundSessionCompletionHandlers = mutableMapOf<String, () -> Unit>()
+private val backgroundSessionCompletionHandlers = IdentityKeyedRegistry<String, () -> Unit>()
 
 /**
  * Addon subtitles are fetched alongside the video. The download itself runs on a background
@@ -61,15 +63,14 @@ private val backgroundSessionCompletionHandlers = mutableMapOf<String, () -> Uni
  * tracked per download so cancelling the download cancels it too.
  */
 private val subtitlePreparationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-private val subtitlePreparationJobs = mutableMapOf<String, Job>()
+private val subtitlePreparationJobs = IdentityKeyedRegistry<String, Job>()
 
 @OptIn(ExperimentalForeignApi::class)
 private fun prepareDownloadSubtitles(downloadId: String, request: DownloadPlatformRequest) {
-    subtitlePreparationJobs.remove(downloadId)?.cancel()
     val destinationUri = resolveDownloadsBaseDirectory().withAccess { downloadsDirectory ->
         NSURL.fileURLWithPath("$downloadsDirectory/${request.destinationFileName}").absoluteString
     } ?: return
-    val job = subtitlePreparationScope.launch {
+    val job = subtitlePreparationScope.launch(start = CoroutineStart.LAZY) {
         try {
             DownloadSubtitles.prepare(request.item, destinationUri)
         } catch (error: CancellationException) {
@@ -78,8 +79,15 @@ private fun prepareDownloadSubtitles(downloadId: String, request: DownloadPlatfo
             // Bundled subtitles are best effort; never fail the video download over them.
         }
     }
-    subtitlePreparationJobs[downloadId] = job
-    job.invokeOnCompletion { subtitlePreparationJobs.remove(downloadId) }
+
+    // Publish the replacement before cancelling its predecessor. An old job may finish
+    // immediately after cancellation, so its completion must remove only itself.
+    val previousJob = subtitlePreparationJobs.replace(downloadId, job)
+    job.invokeOnCompletion {
+        subtitlePreparationJobs.removeIfSame(downloadId, job)
+    }
+    previousJob?.cancel()
+    job.start()
 }
 
 private fun cancelDownloadSubtitles(downloadId: String) {
@@ -90,7 +98,7 @@ fun handleDownloadsBackgroundEvents(
     identifier: String,
     completionHandler: () -> Unit,
 ) {
-    backgroundSessionCompletionHandlers[identifier] = completionHandler
+    backgroundSessionCompletionHandlers.replace(identifier, completionHandler)
     IosBackgroundDownloadCoordinator.ensureSessionCreated()
 }
 

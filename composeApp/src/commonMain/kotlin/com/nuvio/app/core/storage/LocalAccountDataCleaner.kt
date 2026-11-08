@@ -56,6 +56,7 @@ import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentCache
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import com.nuvio.app.features.watchprogress.WatchProgressSourceCoordinator
 import com.nuvio.app.features.watched.WatchedRepository
+import com.nuvio.app.features.trakt.TraktLibraryRepository
 
 /**
  * Removes every profile-scoped local Liquid Glass background even if one file cannot be deleted.
@@ -170,6 +171,7 @@ internal object LocalAccountDataCleaner {
             PosterCardStyleRepository.clearLocalState()
             CardDepthStyleRepository.clearLocalState()
             TrackingProviderRegistry.clearLocalState()
+            TraktLibraryRepository.clearLocalState()
             TrackingSettingsRepository.clearLocalState()
             PlayerSettingsRepository.clearLocalState()
             StreamBadgeSettingsRepository.clearLocalState()

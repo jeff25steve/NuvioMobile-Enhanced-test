@@ -34,6 +34,7 @@ import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.settings.ThemeSettingsStorage
 import com.nuvio.app.features.streams.StreamBadgeSettingsRepository
 import com.nuvio.app.features.tracking.TrackingProviderRegistry
+import com.nuvio.app.features.trakt.TraktLibraryRepository
 import com.nuvio.app.features.tracking.TrackingSettingsRepository
 import com.nuvio.app.features.tmdb.TmdbSettingsRepository
 import com.nuvio.app.features.watched.WatchedRepository
@@ -182,6 +183,7 @@ object ProfileRepository {
         TrackingSettingsRepository.onProfileChanged()
         ensureTrackingProvidersRegistered()
         TrackingProviderRegistry.onProfileChanged()
+        TraktLibraryRepository.onProfileChanged()
         LibraryRepository.onProfileChanged(profileIndex)
         LibraryDisplaySettingsRepository.onProfileChanged()
         WatchProgressRepository.onProfileChanged(profileIndex)
