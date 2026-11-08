@@ -188,13 +188,19 @@ internal class AndroidDownloadScheduler(val context: Context) {
         }
         try {
             var lastProgressAt = 0L
+            var lastReportedProgressBytes = -1L
             val onHeaders: (Long?, String?) -> Unit = { total, validator ->
                 updateActive(transfer) { it.copy(validator = validator, item = it.item.copy(totalBytes = total)) }
             }
             val reportProgress: (Long, Long?) -> Unit = { bytes, total ->
                 val now = SystemClock.elapsedRealtime()
-                if (now - lastProgressAt >= 1_000L || bytes == total) {
+                if (
+                    bytes < lastReportedProgressBytes ||
+                    now - lastProgressAt >= 1_000L ||
+                    bytes == total
+                ) {
                     lastProgressAt = now
+                    lastReportedProgressBytes = bytes
                     updateActive(transfer) {
                         it.copy(
                             retryCount = if (bytes > it.item.downloadedBytes) 0 else it.retryCount,
@@ -354,6 +360,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
 
 internal fun shouldRetryAndroidDownload(error: Exception, retries: Int): Boolean =
     retries < 4 && when (error) {
+        is InvalidDownloadRangeException -> false
         is DownloadHttpException -> error.statusCode == 408 || error.statusCode == 429 || error.statusCode in 500..599
         is IOException -> true
         else -> false
