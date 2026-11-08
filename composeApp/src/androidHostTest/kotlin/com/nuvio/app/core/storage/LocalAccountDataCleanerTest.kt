@@ -8,6 +8,9 @@ import com.nuvio.app.features.tracking.WatchProgressSource
 import com.nuvio.app.features.watchprogress.CachedNextUpItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentCache
 import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentStorage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -125,6 +128,50 @@ class LocalAccountDataCleanerTest {
         assertSame(failure, thrown)
         assertTrue(snapshots().isEmpty())
         assertFalse(save("cleanup resolver", cleanupGeneration))
+    }
+
+    @Test
+    fun accountCleanupAttemptsEveryStepAfterEarlierFailures() = runBlocking {
+        val attempts = mutableListOf<Int>()
+        val failures = runAccountCleanupSteps(
+            listOf(
+                {
+                    attempts += 1
+                    error("simulated notification cleanup failure")
+                },
+                {
+                    attempts += 2
+                },
+                {
+                    attempts += 3
+                    error("simulated cache cleanup failure")
+                },
+            ),
+        )
+
+        assertEquals(listOf(1, 2, 3), attempts)
+        assertEquals(2, failures.size)
+    }
+
+    @Test
+    fun mandatoryCleanupFinishesBeforeCallerCancellationIsPropagated() = runBlocking {
+        val cleanupStarted = CompletableDeferred<Unit>()
+        val allowCleanupToFinish = CompletableDeferred<Unit>()
+        val cleanup = launch {
+            runNonCancellableCleanup {
+                cleanupStarted.complete(Unit)
+                allowCleanupToFinish.await()
+            }
+        }
+
+        cleanupStarted.await()
+        cleanup.cancel()
+        assertFalse(cleanup.isCompleted)
+
+        allowCleanupToFinish.complete(Unit)
+        cleanup.join()
+
+        assertTrue(cleanup.isCancelled)
     }
 
     private fun snapshots(): List<CachedNextUpItem> =
