@@ -9,6 +9,8 @@ import com.nuvio.app.core.network.ServerDiscoveryException
 import com.nuvio.app.core.network.ServerDiscoveryFailure
 import com.nuvio.app.core.network.ServerDiscoveryService
 import com.nuvio.app.core.network.SupabaseProvider
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,8 @@ data class ServerConnectionUiState(
 
 object ServerConnectionController {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val switchLock = SynchronizedObject()
+    private var switchInProgress = false
     private val _state = MutableStateFlow(ServerConnectionUiState())
     val state: StateFlow<ServerConnectionUiState> = _state.asStateFlow()
     private var discoveryJob: Job? = null
@@ -99,10 +103,19 @@ object ServerConnectionController {
     }
 
     private fun switchServer(save: () -> Boolean) {
-        if (_state.value.isSwitching) return
+        val acquired = synchronized(switchLock) {
+            if (switchInProgress || _state.value.isSwitching) {
+                false
+            } else {
+                switchInProgress = true
+                _state.update { it.copy(isSwitching = true, failure = null, switchFailure = null) }
+                DeviceLinkAuthRepository.beginServerSwitch()
+                true
+            }
+        }
+        if (!acquired) return
+
         scope.launch {
-            _state.update { it.copy(isSwitching = true, failure = null, switchFailure = null) }
-            DeviceLinkAuthRepository.beginServerSwitch()
             try {
                 if (AuthRepository.prepareForServerSwitch().isFailure) {
                     AuthRepository.reinitialize()
@@ -131,6 +144,9 @@ object ServerConnectionController {
                 _state.update { it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.Restart) }
             } finally {
                 DeviceLinkAuthRepository.endServerSwitch()
+                synchronized(switchLock) {
+                    switchInProgress = false
+                }
             }
         }
     }
