@@ -20,6 +20,13 @@ data class RawHttpResponse(
 /** Default safety limit for generic and plugin-provided HTTP responses. */
 internal const val DefaultRawHttpResponseMaxBytes = 1024 * 1024
 
+/** Keep request-body support consistent between the Android and iOS add-on transports. */
+internal fun addonRequestMethodAllowsBody(method: String): Boolean =
+    when (method.uppercase()) {
+        "POST", "PUT", "PATCH", "DELETE" -> true
+        else -> false
+    }
+
 expect suspend fun httpGetText(url: String): String
 
 expect suspend fun httpPostJson(url: String, body: String): String

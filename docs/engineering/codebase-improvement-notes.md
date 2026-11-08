@@ -1002,3 +1002,43 @@ A security/privacy pass over the Android add-on HTTP client found that its custo
 - Regression tests were authored but not run. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started, as explicitly required. The change remains source-reviewed, not compiler- or runtime-verified.
 - The Sentry breadcrumb intentionally continues to include the request host and the plugin fetch's plugin-facing error response intentionally retains the original URL/message. This is deliberate compatibility/diagnostic scope, not a claim that all telemetry or plugin-visible data is anonymised. If hostnames themselves are considered sensitive for this app's Sentry policy, that requires a separate decision to remove host-level correlation.
 - Final review was performed by the author in this session; no reviewer/subagent tool is available in the connected tool set.
+
+
+### iOS add-on raw HTTP — stream response bodies within the configured cap and align request policies (8 November 2026)
+
+A source-level comparison of Android and iOS `httpRequestRaw()` found a memory-safety/performance issue plus two concrete platform parity gaps.
+
+#### Root causes confirmed in the branch
+
+- The Android adapter reads an OkHttp response stream incrementally and stops at `maxResponseBodyBytes`, retaining only the configured prefix plus a one-byte truncation probe.
+- The iOS adapter called `response.body<ByteArray>()`, which fully materialised the response before it copied only the configured prefix. The default limit is 1 MiB, but the actual allocation therefore scaled with the untrusted server's entire response, not with the intended cap. A large or unbounded add-on/plugin response could consume excessive memory or terminate the app before the cap was applied.
+- Android's raw request-body predicate explicitly included POST, PUT, PATCH and DELETE. iOS only set a body for POST, PUT and PATCH, silently dropping a supplied DELETE body.
+- The common `httpRequestRaw` contract exposes `followRedirects`; Android chooses a redirect-disabled OkHttp client when it is false, while iOS ignored the argument and always used its default Ktor client.
+
+#### Implementation
+
+- iOS now executes raw requests with Ktor 3.4.1 `prepareRequest { ... }.execute { ... }` and reads `bodyAsChannel()` incrementally. The reader grows its working byte array only as bytes arrive, stops at the configured maximum, and probes at most one additional byte to preserve the existing `...[truncated]` marker behavior for known- and unknown-length responses. It checks the channel close cause so a failed short response is not quietly reported as complete. The returned `bodyBytes`, decoded `body`, URL, status, status text and headers retain the existing response contract.
+- Ktor's streaming `HttpStatement.execute(block)` also performs response cleanup in a `finally` block. The application does not retain an open channel or add another coroutine/job for this request.
+- The redirect-disabled iOS client is created lazily only when a caller passes `followRedirects = false`; the existing default client continues to serve normal requests. The redirect policy is now honoured without replacing the platform URLSession delegate or changing redirect behaviour for the other add-on HTTP methods.
+- Request-body eligibility now has one shared common helper used by both Android and iOS. DELETE bodies are sent on iOS in the same cases already supported on Android; GET, HEAD and other unsupported methods remain bodyless.
+- Added common tests for the shared request-body method contract and iOS tests for capped reads, buffer growth past the initial 16 KiB allocation, exact-limit responses, zero-byte limits, and empty responses.
+
+#### Evidence and research cross-checks
+
+- The branch pins Ktor 3.4.1; no dependency or build configuration change was needed.
+- Ktor 3.4.1 `HttpStatement.kt` shows that `execute(block)` obtains a streaming response and calls `response.cleanup()` in `finally`. Its streaming fetch path marks the request to skip eager body saving; its cleanup cancels the raw body channel and joins the response job.
+- Ktor 3.4.1 `HttpResponse.kt` exposes `bodyAsChannel()`, and `ByteReadChannelOperations.kt` documents/implements `readAvailable(ByteArray, offset, length)`, EOF and channel close-cause behavior.
+- Ktor's official response documentation states that ordinary `HttpResponse.body()` loads the full response into memory and recommends `prepareGet/prepareRequest(...).execute { ... }` with `ByteReadChannel` for streaming: https://ktor.io/docs/client-responses.html#streaming
+- Exact sources: https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/statement/HttpStatement.kt, https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/statement/HttpResponse.kt, https://github.com/ktorio/ktor/blob/3.4.1/ktor-io/common/src/io/ktor/utils/io/ByteReadChannelOperations.kt
+- Ktor 3.4.1 `HttpClientConfig.kt` defines `followRedirects`; `HttpClient.kt` installs `HttpRedirect` only when that property is true. The 3.4.1 Darwin `KtorNSURLSessionDelegate.kt` returns `null` in `willPerformHTTPRedirection`, leaving redirection to Ktor's own plugin. This confirms separate clients with different config values are the correct supported boundary for this API. Sources: https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/HttpClientConfig.kt, https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/HttpClient.kt, https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-darwin/darwin/src/io/ktor/client/engine/darwin/KtorNSURLSessionDelegate.kt
+- Ktor's official redirect documentation: https://ktor.io/docs/client-redirect.html
+- Practitioner corroboration: Ktor issue #4900 (2025) reproduces whole-response memory growth from non-streaming `.get()` and reports resolution with `.prepareGet(...).execute { ... }`: https://github.com/ktorio/ktor/issues/4900. Older iOS reports #1639 and #1000/#1167 were treated as historical context only; they do not establish a Ktor 3.4.1 defect. The pinned 3.4.1 Darwin source was checked directly.
+- No direct Reddit/social post was sufficiently specific or stronger than the tagged Ktor source and maintainers' issue discussion; none is used as evidence.
+
+#### Scope, compatibility and verification limits
+
+- Android's body-size reader and redirect selection were otherwise left intact. The shared method helper preserves the exact existing Android POST/PUT/PATCH/DELETE set. The iOS default redirect-enabled client, timeout values, request headers, body serialization, response URL/status/headers, text decoding and truncation suffix remain unchanged.
+- Only the lazily-created no-redirect client is additional; no redirect behavior is changed for normal requests.
+- The returned response retains no more than `maxResponseBodyBytes` response bytes plus its one-byte truncation probe. Temporary array growth can briefly overlap old and new buffers, so peak allocation is O(cap), not exactly cap; it does not scale with the full response size.
+- Re-fetched the latest branch head before editing and confirmed it was `0bb8fd601343c4984bf0f44ebee9cca3bf60f9a5`. Changed platform files, Ktor 3.4.1 source, source-set dependencies and the new regression tests were inspected.
+- Regression tests were authored but not executed. No Gradle tests, compile, Android build, iOS/Xcode build, CI workflow or other build-triggering command was started. The change remains statically reviewed, not compiler- or runtime-verified.

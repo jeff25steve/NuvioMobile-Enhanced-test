@@ -136,12 +136,6 @@ private data class LimitedReadResult(
     val truncated: Boolean,
 )
 
-private fun requestAllowsBody(method: String): Boolean =
-    when (method.uppercase()) {
-        "POST", "PUT", "PATCH", "DELETE" -> true
-        else -> false
-    }
-
 private fun Map<String, String>.withoutAcceptEncoding(): Map<String, String> =
     entries
         .filterNot { (key, _) -> key.equals("Accept-Encoding", ignoreCase = true) }
@@ -210,7 +204,7 @@ private suspend fun executeTextRequest(
         builder.header(key, value)
     }
 
-    val request = if (requestAllowsBody(normalizedMethod)) {
+    val request = if (addonRequestMethodAllowsBody(normalizedMethod)) {
         val contentType = sanitizedHeaders.getHeaderIgnoreCase("Content-Type")
             ?: if (normalizedMethod == "POST") "application/x-www-form-urlencoded" else "application/json"
         // Preserve exact media type and avoid implicit charset rewriting used in signed APIs like MovieBox.
@@ -327,7 +321,7 @@ actual suspend fun httpRequestRaw(
             builder.header(key, value)
         }
 
-        val request = if (requestAllowsBody(normalizedMethod)) {
+        val request = if (addonRequestMethodAllowsBody(normalizedMethod)) {
             val contentType = sanitizedHeaders.getHeaderIgnoreCase("Content-Type")
                 ?: if (normalizedMethod == "POST") "application/x-www-form-urlencoded" else "application/json"
             val requestBody = (bodyBytes ?: body.toByteArray(Charsets.UTF_8))

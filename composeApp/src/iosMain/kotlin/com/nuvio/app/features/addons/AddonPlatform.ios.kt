@@ -1,27 +1,31 @@
 package com.nuvio.app.features.addons
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.accept
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
-import io.ktor.client.request.request
+import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.network_empty_response_body
 import nuvio.composeapp.generated.resources.network_request_failed_http
 import org.jetbrains.compose.resources.getString
 import platform.Foundation.NSUserDefaults
+
+
 
 actual object AddonStorage {
     private const val addonUrlsKey = "installed_manifest_urls"
@@ -72,13 +76,20 @@ private fun parseEnabledStateLine(line: String): Pair<String, Boolean>? {
     return url to enabled
 }
 
-private val addonHttpClient = HttpClient(Darwin) {
-    install(HttpTimeout) {
-        requestTimeoutMillis = 60_000
-        connectTimeoutMillis = 60_000
-        socketTimeoutMillis = 60_000
+private fun createAddonHttpClient(followRedirects: Boolean): HttpClient =
+    HttpClient(Darwin) {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 60_000
+            connectTimeoutMillis = 60_000
+            socketTimeoutMillis = 60_000
+        }
+        expectSuccess = false
+        this.followRedirects = followRedirects
     }
-    expectSuccess = false
+
+private val addonHttpClient = createAddonHttpClient(followRedirects = true)
+private val addonHttpClientWithoutRedirects by lazy {
+    createAddonHttpClient(followRedirects = false)
 }
 
 actual suspend fun httpGetText(url: String): String =
@@ -162,6 +173,76 @@ actual suspend fun httpPostJsonWithHeaders(
             payload
         }
 
+internal data class LimitedAddonResponseBody(
+    val bytes: ByteArray,
+    val truncated: Boolean,
+)
+
+/**
+ * Read at most [maxBytes] from a response channel, without materialising the full response.
+ * One extra byte is probed so chunked/unknown-length responses retain the existing truncation signal.
+ */
+internal suspend fun readAddonResponseBodyAtMost(
+    channel: ByteReadChannel,
+    maxBytes: Int,
+): LimitedAddonResponseBody {
+    val limit = maxBytes.coerceAtLeast(0)
+    var buffer = ByteArray(minOf(limit, 16 * 1024))
+    var totalRead = 0
+
+    while (totalRead < limit) {
+        if (totalRead == buffer.size) {
+            val nextCapacity = if (buffer.size >= limit - buffer.size) {
+                limit
+            } else {
+                buffer.size * 2
+            }
+            buffer = buffer.copyOf(maxOf(totalRead + 1, nextCapacity).coerceAtMost(limit))
+        }
+
+        val read = channel.readAvailable(
+            buffer = buffer,
+            offset = totalRead,
+            length = minOf(buffer.size - totalRead, limit - totalRead),
+        )
+        when {
+            read < 0 -> {
+                channel.closedCause?.let { throw it }
+                break
+            }
+            read == 0 -> {
+                if (!channel.awaitContent()) {
+                    channel.closedCause?.let { throw it }
+                    break
+                }
+            }
+            else -> totalRead += read
+        }
+    }
+
+    val truncated = if (totalRead == limit) channel.hasMoreResponseBytes() else false
+    val bytes = if (totalRead == buffer.size) buffer else buffer.copyOf(totalRead)
+    return LimitedAddonResponseBody(bytes = bytes, truncated = truncated)
+}
+
+private suspend fun ByteReadChannel.hasMoreResponseBytes(): Boolean {
+    val probe = ByteArray(1)
+    while (true) {
+        val read = readAvailable(buffer = probe, offset = 0, length = 1)
+        when {
+            read < 0 -> {
+                closedCause?.let { throw it }
+                return false
+            }
+            read > 0 -> return true
+            !awaitContent() -> {
+                closedCause?.let { throw it }
+                return false
+            }
+        }
+    }
+}
+
 actual suspend fun httpRequestRaw(
     method: String,
     url: String,
@@ -170,30 +251,34 @@ actual suspend fun httpRequestRaw(
     followRedirects: Boolean,
     maxResponseBodyBytes: Int,
     bodyBytes: ByteArray?,
-): RawHttpResponse =
-    addonHttpClient
-        .request {
-            url(url)
-            this.method = HttpMethod.parse(method.uppercase())
-            headers.forEach { (key, value) ->
-                header(key, value)
-            }
-            if (this.method == HttpMethod.Post || this.method == HttpMethod.Put || this.method == HttpMethod.Patch) {
-                setBody(bodyBytes ?: body)
-            }
+): RawHttpResponse {
+    val client = if (followRedirects) addonHttpClient else addonHttpClientWithoutRedirects
+    val requestMethod = method.uppercase()
+
+    return client.prepareRequest {
+        url(url)
+        this.method = HttpMethod.parse(requestMethod)
+        headers.forEach { (key, value) ->
+            header(key, value)
         }
-        .let { response ->
-            val receivedBytes = response.body<ByteArray>()
-            val limitedBytes = receivedBytes.copyOf(minOf(receivedBytes.size, maxResponseBodyBytes.coerceAtLeast(0)))
-            val decoded = limitedBytes.decodeToString()
-            RawHttpResponse(
-                status = response.status.value,
-                statusText = response.status.description,
-                url = response.call.request.url.toString(),
-                body = if (receivedBytes.size > limitedBytes.size) "$decoded\n...[truncated]" else decoded,
-                bodyBytes = limitedBytes,
-                headers = response.headers.entries().associate { (name, values) ->
-                    name.lowercase() to values.joinToString(",")
-                },
-            )
+        if (addonRequestMethodAllowsBody(requestMethod)) {
+            setBody(bodyBytes ?: body)
         }
+    }.execute { response ->
+        val limitedBody = readAddonResponseBodyAtMost(
+            channel = response.bodyAsChannel(),
+            maxBytes = maxResponseBodyBytes,
+        )
+        val decoded = limitedBody.bytes.decodeToString()
+        RawHttpResponse(
+            status = response.status.value,
+            statusText = response.status.description,
+            url = response.call.request.url.toString(),
+            body = if (limitedBody.truncated) "$decoded\n...[truncated]" else decoded,
+            bodyBytes = limitedBody.bytes,
+            headers = response.headers.entries().associate { (name, values) ->
+                name.lowercase() to values.joinToString(",")
+            },
+        )
+    }
+}
