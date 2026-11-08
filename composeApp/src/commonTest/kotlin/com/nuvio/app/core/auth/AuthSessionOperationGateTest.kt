@@ -23,6 +23,17 @@ class AuthSessionOperationGateTest {
     }
 
     @Test
+    fun concurrentOperationsKeepIndependentOwnershipTokens() {
+        val gate = AuthSessionOperationGate()
+        val first = assertNotNull(gate.beginOperation(Job()))
+        val second = assertNotNull(gate.beginOperation(Job()))
+
+        assertTrue(gate.isCurrent(first))
+        assertTrue(gate.isCurrent(second))
+        assertEquals(2, gate.beginServerSwitch().size)
+    }
+
+    @Test
     fun operationsCanStartAgainAfterSwitchEnds() {
         val gate = AuthSessionOperationGate()
         gate.beginServerSwitch()
