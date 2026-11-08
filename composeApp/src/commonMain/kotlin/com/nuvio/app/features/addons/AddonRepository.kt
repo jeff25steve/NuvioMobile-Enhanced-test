@@ -71,9 +71,8 @@ object AddonRepository {
 
     fun initialize() {
         val activeProfileId = ProfileRepository.activeProfileId
-        val effectiveProfileId = resolveEffectiveProfileId(activeProfileId)
-        val operation = activateProfile(effectiveProfileId) ?: return
-        val shouldLoad = runIfCurrent(operation) {
+        val operation = activateProfile(activeProfileId) ?: return
+        val shouldLoad = readIfCurrent(operation) {
             if (initialized) {
                 false
             } else {
@@ -150,10 +149,9 @@ object AddonRepository {
 
     suspend fun pullFromServer(profileId: Int) {
         if (profileId != ProfileRepository.activeProfileId) return
-        val effectiveProfileId = resolveEffectiveProfileId(profileId)
-        val operation = activateProfile(effectiveProfileId) ?: return
+        val operation = activateProfile(profileId) ?: return
         val client = SupabaseProvider.client
-        val wasAlreadyPulled = runIfCurrent(operation) { pulledFromServer }
+        val wasAlreadyPulled = readIfCurrent(operation) { pulledFromServer } ?: return
         log.i {
             "pullFromServer() — profileId=${operation.profileId}, initialized=${initialized}, " +
                 "pulledFromServer=$wasAlreadyPulled"
@@ -321,14 +319,10 @@ object AddonRepository {
         }
         InAppLogger.debug("Addons/Repository", "addAddon normalized=${InAppLogger.redactUrl(manifestUrl)}")
 
-        val alreadyInstalled = runIfCurrent(operation) {
+        val alreadyInstalled = readIfCurrent(operation) {
             _uiState.value.addons.any { it.manifestUrl == manifestUrl }
-        }
-        if (!alreadyInstalled) {
-            if (!isCurrentOperation(operation)) {
-                throw CancellationException("Add-on profile changed before installation started")
-            }
-        } else {
+        } ?: throw CancellationException("Add-on profile changed before installation started")
+        if (alreadyInstalled) {
             InAppLogger.warn("Addons/Repository", "addAddon duplicate url=${InAppLogger.redactUrl(manifestUrl)}")
             return AddAddonResult.Error(getString(Res.string.addon_already_installed))
         }
@@ -665,16 +659,31 @@ object AddonRepository {
         AddonStorage.loadAddonEnabledStates(profileId)
             .mapKeys { (url, _) -> ensureManifestSuffix(url) }
 
-    private fun activateProfile(profileId: Int): AddonProfileOperation? {
-        if (profileId != ProfileRepository.activeProfileId) return null
-        profileOperationGate.current(profileId)?.let { return it }
+    private fun activateProfile(requestedProfileId: Int): AddonProfileOperation? {
+        if (requestedProfileId != ProfileRepository.activeProfileId) return null
+        val effectiveProfileId = resolveEffectiveProfileId(requestedProfileId)
+        profileOperationGate.current(effectiveProfileId)?.let { return it }
         cancelActiveRefreshes()
-        return profileOperationGate.invalidate(profileId) {
-            currentProfileId = profileId
+        return profileOperationGate.invalidate(effectiveProfileId) {
+            currentProfileId = effectiveProfileId
             initialized = false
             pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
+    }
+
+    private fun <T> readIfCurrent(
+        operation: AddonProfileOperation,
+        block: () -> T,
+    ): T? {
+        var result: T? = null
+        if (!runIfCurrent(operation) {
+                result = block()
+            }
+        ) {
+            return null
+        }
+        return result
     }
 
     private fun currentProfileOperation(): AddonProfileOperation? {
