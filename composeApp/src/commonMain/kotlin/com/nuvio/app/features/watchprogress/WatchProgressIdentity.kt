@@ -221,3 +221,64 @@ internal fun reconcileLocalProgressKeysWithSnapshot(
         migratedKeys = migrations,
     )
 }
+
+/**
+ * Removes stored rows matching either the exact resolved key or the same
+ * parent/season/episode identity as any requested row.
+ */
+internal fun removeStoredLocalWatchProgressEntries(
+    entriesByProgressKey: MutableMap<String, WatchProgressEntry>,
+    dirtyProgressKeys: MutableSet<String>,
+    entries: Collection<WatchProgressEntry>,
+): List<WatchProgressEntry> {
+    if (entries.isEmpty()) return emptyList()
+
+    val targetKeys = entries.mapTo(mutableSetOf()) { it.resolvedProgressKey() }
+    val targetIdentities = entries.mapTo(mutableSetOf()) { target ->
+        Triple(target.parentMetaId, target.seasonNumber, target.episodeNumber)
+    }
+    val removed = ArrayList<WatchProgressEntry>()
+    val iterator = entriesByProgressKey.entries.iterator()
+    while (iterator.hasNext()) {
+        val storedEntry = iterator.next()
+        val localEntry = storedEntry.value
+        if (localEntry.resolvedProgressKey() !in targetKeys) {
+            val identity = Triple(localEntry.parentMetaId, localEntry.seasonNumber, localEntry.episodeNumber)
+            if (identity !in targetIdentities) continue
+        }
+
+        val progressKey = storedEntry.key
+        iterator.remove()
+        dirtyProgressKeys.remove(progressKey)
+        removed += localEntry
+    }
+    return removed
+}
+
+/** Removes selected playable video IDs without intermediate map/list copies. */
+internal fun removeLocalWatchProgressEntriesForVideoIds(
+    entriesByProgressKey: MutableMap<String, WatchProgressEntry>,
+    dirtyProgressKeys: MutableSet<String>,
+    videoIds: Collection<String>,
+    parentMetaId: String?,
+): List<WatchProgressEntry> {
+    if (videoIds.isEmpty()) return emptyList()
+
+    val ids = videoIds.toSet()
+    val removed = ArrayList<WatchProgressEntry>()
+    val iterator = entriesByProgressKey.entries.iterator()
+    while (iterator.hasNext()) {
+        val storedEntry = iterator.next()
+        val localEntry = storedEntry.value
+        if (localEntry.videoId !in ids || (parentMetaId != null && localEntry.parentMetaId != parentMetaId)) {
+            continue
+        }
+
+        val progressKey = storedEntry.key
+        iterator.remove()
+        dirtyProgressKeys.remove(progressKey)
+        removed += localEntry
+    }
+    return removed
+}
+
