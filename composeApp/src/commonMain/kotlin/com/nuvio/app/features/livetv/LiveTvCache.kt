@@ -1,6 +1,7 @@
 package com.nuvio.app.features.livetv
 
 import com.nuvio.app.core.storage.AppFileCache
+import com.nuvio.app.features.profiles.ProfilePinCrypto
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -157,21 +158,72 @@ internal object LiveTvCacheStore {
             AppFileCache.write(EpgCachePath, liveTvCacheJson.encodeToString(payload))
         }
     }
+
+    fun clear(): Boolean {
+        fun clearPath(path: String): Boolean = runCatching {
+            AppFileCache.write(path, "")
+            AppFileCache.read(path).isNullOrBlank()
+        }.getOrDefault(false)
+
+        val channelsCleared = clearPath(ChannelsCachePath)
+        val epgCleared = clearPath(EpgCachePath)
+        return channelsCleared && epgCleared
+    }
 }
 
-internal fun liveTvChannelSourceSignature(state: LiveTvUiState): String = buildString {
-    state.playlists.filter { it.isEnabled }.forEach { playlist ->
-        append(playlist.id).append('|').append(playlist.type.name).append('|')
-        append(playlist.source.length).append(':').append(playlist.source.hashCode()).append(';')
-    }
-    val xtream = state.xtreamSettings
-    if (xtream.isConfigured && xtream.isEnabled) {
-        append("x|").append(xtream.serverUrl).append('|').append(xtream.username).append('|')
-        append(xtream.password.hashCode()).append(';')
-    }
-    val stalker = state.stalkerSettings
-    if (stalker.isConfigured && stalker.isEnabled) {
-        append("s|").append(stalker.portalUrl).append('|').append(stalker.macAddress).append('|')
-        append(stalker.username).append(';')
-    }
-}.let { raw -> "${raw.length}:${raw.hashCode()}" }
+internal fun liveTvChannelSourceSignature(
+    state: LiveTvUiState,
+    accountUserId: String,
+    profileIndex: Int,
+): String = ProfilePinCrypto.sha256Hex(
+        buildString {
+            appendSignatureField("live-tv-channel-sources-v3")
+            appendSignatureField(accountUserId)
+            appendSignatureField(profileIndex.toString())
+            val enabledPlaylists = state.playlists.filter { it.isEnabled }
+            append(enabledPlaylists.size).append(';')
+            enabledPlaylists.forEach { playlist ->
+                appendSignatureField(playlist.id)
+                appendSignatureField(playlist.type.name)
+                appendSignatureField(playlist.name)
+                appendSignatureField(playlist.source)
+            }
+
+            val xtream = state.xtreamSettings
+            appendSignatureField("xtream")
+            val xtreamActive = xtream.isConfigured && xtream.isEnabled
+            appendSignatureField(if (xtreamActive) "enabled" else "disabled")
+            if (xtreamActive) {
+                appendSignatureField(xtream.serverUrl)
+                appendSignatureField(xtream.username)
+                appendSignatureField(xtream.password)
+            }
+
+            val stalker = state.stalkerSettings
+            appendSignatureField("stalker")
+            val stalkerActive = stalker.isConfigured && stalker.isEnabled
+            appendSignatureField(if (stalkerActive) "enabled" else "disabled")
+            if (stalkerActive) {
+                appendSignatureField(stalker.portalUrl)
+                appendSignatureField(stalker.macAddress)
+                appendSignatureField(stalker.username)
+                appendSignatureField(stalker.password)
+            }
+        },
+    )
+
+internal fun liveTvEpgSourceSignature(
+    channelSourceSignature: String,
+    requestCacheKeys: List<String>,
+): String = ProfilePinCrypto.sha256Hex(
+    buildString {
+        appendSignatureField("live-tv-epg-sources-v2")
+        appendSignatureField(channelSourceSignature)
+        append(requestCacheKeys.size).append(';')
+        requestCacheKeys.forEach { appendSignatureField(it) }
+    },
+)
+
+private fun StringBuilder.appendSignatureField(value: String) {
+    append(value.length).append(':').append(value).append(';')
+}

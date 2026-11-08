@@ -1,6 +1,9 @@
 package com.nuvio.app.features.livetv
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthState
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.addons.httpGetText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
 import kotlin.time.Clock
@@ -24,6 +28,8 @@ object LiveTvRepository {
     val uiState: StateFlow<LiveTvUiState> = _uiState.asStateFlow()
 
     private var hasLoaded = false
+    private var loadedAccountUserId: String? = null
+    private var loadedProfileIndex: Int? = null
     private var channelsRequested = false
     private var channelsSignature: String? = null
     private var refreshJob: Job? = null
@@ -33,7 +39,14 @@ object LiveTvRepository {
     private val epgGuideCache = mutableMapOf<String, LiveTvCachedEpgGuide>()
 
     fun ensureLoaded() {
+        val accountUserId = (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
+        val profileIndex = ProfileRepository.activeProfileId
+        if (hasLoaded && (loadedAccountUserId != accountUserId || loadedProfileIndex != profileIndex)) {
+            resetInMemoryState()
+        }
         if (hasLoaded) return
+        loadedAccountUserId = accountUserId
+        loadedProfileIndex = profileIndex
         hasLoaded = true
         val playlists = loadSavedPlaylists()
         _uiState.value = LiveTvUiState(
@@ -52,19 +65,51 @@ object LiveTvRepository {
         publishNavigationVisibility()
     }
 
+    fun onProfileChanged() {
+        resetInMemoryState()
+        ensureLoaded()
+    }
+
+    suspend fun clearLocalState() {
+        val activeJobs = withContext(Dispatchers.Main) {
+            listOfNotNull(refreshJob, epgJob).also {
+                resetInMemoryState()
+            }
+        }
+        activeJobs.joinAll()
+    }
+
+    private fun resetInMemoryState() {
+        refreshJob?.cancel()
+        refreshJob = null
+        epgJob?.cancel()
+        epgJob = null
+        hasLoaded = false
+        loadedAccountUserId = null
+        loadedProfileIndex = null
+        channelsRequested = false
+        channelsSignature = null
+        restoredEpg = null
+        detectedEpgUrls = emptyList()
+        epgGuideCache.clear()
+        clearCachedStalkerSession()
+        _uiState.value = LiveTvUiState()
+        publishNavigationVisibility()
+    }
+
     fun ensureChannelsLoaded() {
         ensureLoaded()
         if (channelsRequested) return
         channelsRequested = true
         val state = _uiState.value
         if (!state.hasPlaylist) return
-        val signature = liveTvChannelSourceSignature(state)
+        val signature = currentLiveTvChannelSourceSignature(state)
         _uiState.value = state.copy(isLoading = true, errorMessage = null)
         refreshJob = scope.launch {
             val cachedChannels = withContext(Dispatchers.Default) { LiveTvCacheStore.loadChannels() }
                 ?.takeIf { it.signature == signature && it.channels.isNotEmpty() }
             restoredEpg = withContext(Dispatchers.Default) { LiveTvCacheStore.loadEpg() }
-            if (cachedChannels != null && liveTvChannelSourceSignature(_uiState.value) == signature) {
+            if (cachedChannels != null && currentLiveTvChannelSourceSignature(_uiState.value) == signature) {
                 detectedEpgUrls = cachedChannels.epgUrls
                 channelsSignature = signature
                 _uiState.value = _uiState.value.copy(
@@ -320,7 +365,7 @@ object LiveTvRepository {
         }
 
         channelsRequested = true
-        val signature = liveTvChannelSourceSignature(currentState)
+        val signature = currentLiveTvChannelSourceSignature(currentState)
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         refreshJob?.cancel()
         refreshJob = scope.launch {
@@ -656,8 +701,18 @@ private const val LIVE_TV_MAX_RECENT_CHANNELS = 30
 
 private const val LIVE_TV_EPG_CACHE_TTL_MILLIS = 24L * 60L * 60L * 1000L
 
+private fun currentLiveTvChannelSourceSignature(state: LiveTvUiState): String =
+    liveTvChannelSourceSignature(
+        state = state,
+        accountUserId = (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty(),
+        profileIndex = ProfileRepository.activeProfileId,
+    )
+
 private fun liveTvEpgSignature(state: LiveTvUiState, requests: List<LiveTvEpgRequest>): String =
-    liveTvChannelSourceSignature(state) + "#" + requests.joinToString("|") { it.cacheKey }.let { "${it.length}:${it.hashCode()}" }
+    liveTvEpgSourceSignature(
+        channelSourceSignature = currentLiveTvChannelSourceSignature(state),
+        requestCacheKeys = requests.map { it.cacheKey },
+    )
 
 internal data class LiveTvCachedEpgGuide(
     val guide: LiveTvEpgGuide,

@@ -9,6 +9,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 
 private const val STALKER_PLAYLIST_ID = "provider:stalker"
 private const val XTREAM_PLAYLIST_ID = "provider:xtream"
@@ -61,7 +63,16 @@ private suspend fun xtreamRequest(
 }
 
 private data class StalkerSession(val settings: LiveTvStalkerSettings, val token: String)
+private val cachedStalkerSessionLock = SynchronizedObject()
 private var cachedStalkerSession: StalkerSession? = null
+private var cachedStalkerSessionGeneration = 0
+
+internal fun clearCachedStalkerSession() {
+    synchronized(cachedStalkerSessionLock) {
+        cachedStalkerSession = null
+        cachedStalkerSessionGeneration++
+    }
+}
 
 internal suspend fun fetchStalkerChannels(settings: LiveTvStalkerSettings): List<LiveTvChannel> {
     val session = stalkerSession(settings.normalized())
@@ -139,10 +150,21 @@ internal suspend fun preparePortalChannelForPlayback(channel: LiveTvChannel, set
 }
 
 private suspend fun stalkerSession(settings: LiveTvStalkerSettings): StalkerSession {
-    cachedStalkerSession?.takeIf { it.settings == settings && it.token.isNotBlank() }?.let { return it }
+    val (cached, generation) = synchronized(cachedStalkerSessionLock) {
+        cachedStalkerSession
+            ?.takeIf { it.settings == settings && it.token.isNotBlank() } to cachedStalkerSessionGeneration
+    }
+    cached?.let { return it }
+
     val token = stalkerRequest(settings, null, "stb", "handshake").js().string("token").orEmpty()
     require(token.isNotBlank()) { "Stalker Portal did not return an authorization token." }
-    return StalkerSession(settings, token).also { cachedStalkerSession = it }
+    val session = StalkerSession(settings, token)
+    synchronized(cachedStalkerSessionLock) {
+        if (generation == cachedStalkerSessionGeneration) {
+            cachedStalkerSession = session
+        }
+    }
+    return session
 }
 
 private suspend fun stalkerRequest(

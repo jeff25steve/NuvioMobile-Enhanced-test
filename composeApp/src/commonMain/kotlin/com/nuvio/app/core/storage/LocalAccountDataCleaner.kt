@@ -20,6 +20,8 @@ import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.HomeRepository
 import com.nuvio.app.features.library.LibraryRepository
+import com.nuvio.app.features.livetv.LiveTvCacheStore
+import com.nuvio.app.features.livetv.LiveTvRepository
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.library.LibraryDisplaySettingsRepository
 import com.nuvio.app.features.notifications.EpisodeReleaseNotificationsRepository
@@ -130,6 +132,8 @@ internal object LocalAccountDataCleaner {
         ContinueWatchingEnrichmentCache.clearLocalState()
         WatchProgressRepository.clearLocalState()
         WatchedRepository.clearLocalState()
+        LiveTvRepository.clearLocalState()
+        val liveTvCacheCleared = withContext(Dispatchers.IO) { LiveTvCacheStore.clear() }
         LibraryRepository.runAccountStorageWipe {
             wipePlatformStorage()
         }
@@ -168,7 +172,7 @@ internal object LocalAccountDataCleaner {
         StreamLaunchStore.clear()
         StreamContextStore.clear()
 
-        if (!profileBackgroundImagesRemoved || profileAuthenticationCleanupFailed) {
+        if (!profileBackgroundImagesRemoved || profileAuthenticationCleanupFailed || !liveTvCacheCleared) {
             throw IllegalStateException("Local profile data cleanup could not be confirmed")
         }
     }

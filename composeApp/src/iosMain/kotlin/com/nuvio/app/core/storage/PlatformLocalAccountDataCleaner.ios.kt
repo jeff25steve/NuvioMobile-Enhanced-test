@@ -13,6 +13,7 @@ internal actual object PlatformLocalAccountDataCleaner {
         "avatar_catalog_payload",
         "anonymous_user_id",
         "member_access_payload",
+        "NuvioLiveTvNavigationVisible",
     )
     private val profilePinCachePrefixes = listOf("profile_pin_cache_")
     private val profileIndexedPrefixes = listOf(
@@ -70,6 +71,17 @@ internal actual object PlatformLocalAccountDataCleaner {
         "pending_watch_progress_source",
         "collection_mobile_settings_payload",
         "collections_payload",
+        "playlist_url",
+        "playlists_blob",
+        "favorite_channel_ids_blob",
+        "last_watched_channel_id",
+        "recent_channel_ids",
+        "channel_view_mode",
+        "navigation_enabled",
+        "stalker_settings",
+        "xtream_settings",
+        "epg_sources_blob",
+        "epg_auto_detect_enabled",
         "enhanced_local_liquid_glass_effects",
         "enhanced_local_liquid_glass_surface_settings",
     )

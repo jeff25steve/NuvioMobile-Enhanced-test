@@ -70,6 +70,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 import com.nuvio.app.core.ui.NuvioIconActionButton
 import com.nuvio.app.core.ui.NuvioInputField
@@ -79,6 +81,7 @@ import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.nuvioPlatformExtraTopPadding
 import com.nuvio.app.features.home.components.HomeEmptyStateCard
+import com.nuvio.app.features.profiles.ProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
@@ -109,10 +112,15 @@ fun LiveTvScreen(
     scrollToTopRequests: Flow<Unit> = emptyFlow(),
     onChannelClick: (LiveTvChannel) -> Unit,
 ) {
-    val uiState by remember {
+    val authState by AuthRepository.state.collectAsStateWithLifecycle()
+    val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
+    val authenticatedUserId = (authState as? AuthState.Authenticated)?.userId
+    val activeProfileIndex = profileState.activeProfile?.profileIndex ?: ProfileRepository.activeProfileId
+
+    LaunchedEffect(authenticatedUserId, activeProfileIndex) {
         LiveTvRepository.ensureChannelsLoaded()
-        LiveTvRepository.uiState
-    }.collectAsStateWithLifecycle()
+    }
+    val uiState by LiveTvRepository.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val showBackToTop by remember {
