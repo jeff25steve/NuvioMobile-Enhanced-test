@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
-import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.providers.builtin.Email
