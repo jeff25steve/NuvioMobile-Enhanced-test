@@ -16,6 +16,14 @@ class DownloadContentRangeTest {
     }
 
     @Test
+    fun acceptsCaseInsensitiveRangeUnitNames() {
+        val range = parseDownloadContentRange("BYTES 5-10/11")
+
+        assertEquals(6L, range?.byteCount)
+        assertEquals(11L, range?.completeLength)
+    }
+
+    @Test
     fun preservesUnknownCompleteLengthWithoutInventingAnEnd() {
         val range = parseDownloadContentRange("bytes 42-1233/*")
 
