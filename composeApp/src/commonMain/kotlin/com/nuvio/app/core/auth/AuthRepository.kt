@@ -329,7 +329,10 @@ object AuthRepository {
             return
         }
         _error.value = null
-        AuthStorage.clearAnonymousUserId()
+        val anonymousClear = runCatching { AuthStorage.clearAnonymousUserId() }
+            .onFailure { error ->
+                log.w(error) { "Failed to clear anonymous auth storage after remote invalidation" }
+            }
         validatedRemoteUserId = null
         val sessionClear = runCatching {
             clearSession()
@@ -347,7 +350,8 @@ object AuthRepository {
             log.e(error) { "Local account cleanup failed after remote session invalidation" }
         }
         currentCoroutineContext().ensureActive()
-        val cancellation = sessionClear.exceptionOrNull() as? CancellationException
+        val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
+            ?: sessionClear.exceptionOrNull() as? CancellationException
             ?: localCleanup.exceptionOrNull() as? CancellationException
         if (cancellation != null) throw cancellation
     }
