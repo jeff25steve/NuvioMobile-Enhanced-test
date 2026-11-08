@@ -902,3 +902,62 @@ Further source inspection of the earlier auth/device-link changes found a missin
 Files changed in this batch: `AuthRepository.kt`, new `AuthSessionOperationGate.kt`, `DeviceLinkAuthRepository.kt`, new `CancelAndJoinNonCancellable.kt`, `ServerConnectionController.kt`, new `AuthSessionOperationGateTest.kt`, and new `CancelAndJoinNonCancellableTest.kt`.
 
 Verification limits: remote source and all changed call sites were re-fetched; the complete diff against the previous reviewed head contains only these seven implementation/test files plus this note. Tests were authored but not executed. No Gradle test or compile task, Android build, iOS/Xcode build, CI workflow or build-triggering process was started. The current code is not compiler- or runtime-verified.
+
+
+### Account cleanup and profile-owned add-on/plugin work (8 November 2026)
+
+This follow-up began from the previous authentication/server-switch investigation and continued the open account-cleanup and add-on/plugin profile-isolation items. The working branch remained `main-build-testing`; no branch switch, merge, reset or rebase was performed.
+
+#### Account cleanup — root cause and changes
+
+- `LocalAccountDataCleaner.wipe()` previously ran its cleanup body sequentially, so an exception from an early operation (for example, clearing scheduled episode-release notifications) prevented later profile credential, cache, library and setting cleanup from being attempted.
+- Added `runAccountCleanupSteps` to execute every independent local cleanup step, collect failures, and aggregate them after the finalizers. `EpisodeReleaseNotificationsRepository.onAccountCleanupFinished()` and `MemberAccessRepository.onAccountCleanupFinished()` remain in a `finally` path and are independently attempted.
+- Added `runNonCancellableCleanup`: the local cleanup sequence runs under `NonCancellable`, then the original caller context is checked with `ensureActive()`. A pending cancellation is propagated after mandatory local cleanup; if cleanup also failed, that failure is attached as suppressed diagnostic context. The protected region contains local operations only. Remote delete/sign-out requests remain cancellable.
+- Profile background images, PIN cache payloads, biometric material, Live TV cache, platform storage and the existing repository/cache reset list retain their existing ownership and deletion targets. Failures from background-image, PIN-cache, biometric and Live TV cleanup are surfaced in the final incomplete-cleanup result rather than silently treated as success.
+- `AuthRepository.signOut()` now attempts local session clearing (if remote sign-out failed) and all local cleanup steps after the remote request has finished or failed. It propagates cancellation after the local cleanup boundary and reports ordinary cleanup failures.
+- `AuthRepository.deleteAccount()` now treats a successful `delete-account` function response as the irreversible-success boundary. After that confirmation, it attempts remote sign-out but does not let a sign-out failure skip local `auth.clearSession()` and local account-data cleanup. The delete request itself remains cancellable; if it is cancelled or fails before a success response is received, whether the backend committed the deletion is not knowable from this client result and remains a backend-contract/reconciliation question.
+- Invalid-session recovery now treats anonymous local auth-key removal as best-effort, continues to clear the Supabase session and local account data, and propagates captured cancellation after cleanup rather than exiting at the first local-key failure.
+- Pinned Supabase Kotlin 3.4.1 `AuthImpl.clearSession()` only deletes session/code-verifier storage, updates local `sessionStatus`, and stops auto-refresh; it does not issue a logout HTTP request. This makes it suitable for the local fallback after the remote request has already been attempted.
+
+#### Add-ons — profile-owned asynchronous work
+
+- Added `AddonProfileOperationGate` and common-test coverage. Its token carries both the effective storage profile and a generation; leaving a profile and later returning to the same profile index does not revive an earlier operation.
+- Guarded initial local-state publication, server pulls, add-manifest completion, refresh publication, synchronous remove/move/enable mutations, and profile-scoped persistence with the operation token.
+- Preserved secondary-profile `usesPrimaryAddons` behavior by resolving the effective profile for storage and ownership while confirming the requested profile remains active. No parallel per-secondary copy or new storage key was introduced.
+- Add-on installation captures its Supabase client only after URL/duplicate/profile validation and before the manifest request. Deferred push work captures an immutable repository snapshot, fixed profile ID and the originating Supabase client before the debounce, and is tracked/cancelled by profile.
+- Profile transitions and account cleanup invalidate the token before cancelling old refresh registrations. Registration and cancellation share the gate ordering so a refresh cannot be inserted between invalidation and cancellation.
+- Corrected lazy refresh de-duplication: a `CoroutineStart.LAZY` job is not yet `isActive`, so an `isActive`-only check could permit a second refresh before the first was started. The repositories now consider any registered non-completed job already scheduled.
+
+#### Full plugins — profile, cache and deferred-push ownership
+
+- Added `PluginProfileOperationGate` in the full-feature source set with Android full-host tests. It tracks the effective profile and generation and serializes profile invalidation with state publication and synchronous scraper-code cache writes.
+- Guarded plugin server pulls, repository adds/removals, scraper toggles, plugin-setting changes, refresh publication and repository-state loading. A suspended manifest/code fetch checks its operation after each network boundary; cancellation is rethrown, not converted into a normal fetch error.
+- Each scraper-code cache write is performed inside the profile gate with the operation's captured profile ID. `persist(operation)` captures a profile-specific immutable snapshot and runs the existing revision/generation persistence path only while that operation remains current. The prior stored-state shape, per-profile keys and `persistenceRevision` ordering remain unchanged.
+- Deferred plugin pushes now capture repository rows, profile ID and Supabase client at the user action/refresh boundary, track one pending push per profile, cancel the previous queued job, and rethrow cancellation. They no longer read the mutable current profile or whichever Supabase client happens to be active after the debounce.
+- Full-feature Android/iOS implementations continue to use their existing profile-indexed scraper-code paths. The Android Play Store and iOS App Store disabled-plugin stubs were not changed. No plugin runtime, manifest schema, backend RPC payload or platform storage format was changed.
+
+#### Source and API evidence checked
+
+- App dependency pins rechecked in `gradle/libs.versions.toml`: Kotlin 2.4.10, kotlinx-coroutines 1.10.2, atomicfu 0.32.1, Ktor 3.4.1 and Supabase Kotlin 3.4.1.
+- Supabase Kotlin 3.4.1 tagged sources, not later 3.9.0 snippets: [AuthImpl.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/AuthImpl.kt), [Auth.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/Auth.kt), and [SessionManager.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/SessionManager.kt). These establish the suspend auth/session-storage APIs and local `clearSession()` behavior.
+- Kotlin coroutine cancellation and context documentation: [cancellation and timeouts](https://kotlinlang.org/docs/cancellation-and-timeouts.html), [withContext](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/with-context.html), and [Job.cancelAndJoin](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/cancel-and-join.html). The local-only `NonCancellable` cleanup pattern is bounded and explicitly re-checks the original caller context afterwards.
+- The current repo's [Android add-on HTTP transport](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/androidMain/kotlin/com/nuvio/app/features/addons/AddonPlatform.android.kt) uses `suspendCancellableCoroutine` and calls `OkHttp Call.cancel()` on cancellation. Its [iOS transport](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/iosMain/kotlin/com/nuvio/app/features/addons/AddonPlatform.ios.kt) uses suspendable Ktor/Darwin requests. The profile guards therefore address the actual post-response/cache/publication race without introducing another HTTP abstraction.
+- Plugin persistence and ownership were checked against the current [full-feature PluginRepository](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/fullCommonMain/kotlin/com/nuvio/app/features/plugins/PluginRepository.kt), [Android full PluginStorage](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/androidFull/kotlin/com/nuvio/app/features/plugins/PluginPlatform.android.kt), and [iOS full PluginStorage](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/iosFull/kotlin/com/nuvio/app/features/plugins/PluginPlatform.ios.kt).
+- Exa searches and Context7 documentation were used to corroborate the Kotlin cancellation contract and discover related SDK/community pitfalls. Community threads were treated as leads only; code changes were grounded in the pinned dependency source and actual repository implementations. No directly relevant social-media or Reddit implementation was found that was stronger than those sources.
+
+#### Tests added and verification limits
+
+- `LocalAccountDataCleanerTest` now has focused tests for continuing after multiple cleanup-step failures and completing required cleanup before caller cancellation is propagated.
+- `AddonProfileOperationGateTest` covers profile invalidation, stale-publication rejection, repeated reads for the same active profile and switch-away/switch-back invalidation.
+- `PluginProfileOperationGateTest` covers profile refresh invalidation, rejecting a stale scraper-cache write, returning to a prior profile without reviving old work, and repeated reads for the same profile.
+- Tests were written before the corresponding new gate/helper code, but were not run. RED/GREEN behavior has not been observed and is not claimed. The repository-level async behavior still needs integration tests with controllable HTTP responses and storage to prove races end-to-end.
+- No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow, or build-triggering process was started. These changes are source-reviewed only and are not compiler/runtime verified.
+
+#### Rejected approaches and remaining gaps
+
+- Rejected wrapping remote delete, remote sign-out, plugin HTTP fetches or add-on HTTP fetches in `NonCancellable`; these requests must remain cancellable.
+- Rejected changing plugin/add-on storage schemas, Supabase RPC payloads, backend ownership, plugin runtime execution or the App Store/Play Store plugin-disable stubs; the demonstrated races can be addressed at existing ownership/persistence boundaries.
+- Rejected using only a profile integer as an operation identity; switching away and returning to the same index can make stale work appear current. The generation token is required.
+- A cancellation or timeout while the remote delete-account request is in flight can leave its server outcome ambiguous if the server committed but the response was lost. A reliable reconciliation/status contract is a backend concern and was not invented client-side.
+- Add-on/plugin gate tests do not yet simulate the full repository with an in-flight HTTP response, storage write, account wipe and profile transition. Add end-to-end fake transport/storage tests with a narrow injection seam before treating this work as fully verified.
+- The previous backend-A/backend-B in-flight Supabase session-import integration test is still outstanding.
