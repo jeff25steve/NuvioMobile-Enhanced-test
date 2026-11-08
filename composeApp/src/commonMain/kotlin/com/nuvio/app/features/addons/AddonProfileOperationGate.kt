@@ -26,9 +26,13 @@ internal class AddonProfileOperationGate(initialProfileId: Int = 1) {
         AddonProfileOperation(profileId, generation)
     }
 
-    fun invalidate(nextProfileId: Int): AddonProfileOperation = synchronized(lock) {
+    fun invalidate(
+        nextProfileId: Int,
+        block: () -> Unit = {},
+    ): AddonProfileOperation = synchronized(lock) {
         profileId = nextProfileId
         generation += 1L
+        block()
         AddonProfileOperation(profileId, generation)
     }
 
