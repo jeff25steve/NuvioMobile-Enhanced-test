@@ -81,7 +81,7 @@ object AddonRepository {
                 true
             }
         }
-        if (!shouldLoad) return
+        if (shouldLoad != true) return
 
         log.d { "initialize() — loading local addons for profile ${operation.profileId}" }
         val storedUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(operation.profileId))
@@ -619,8 +619,15 @@ object AddonRepository {
                 }
             }
         }
-        val previous = synchronized(pushJobsLock) {
-            pushJobsByProfile.put(profileId, pushJob!!)
+        var previous: Job? = null
+        val queued = runIfCurrent(operation) {
+            previous = synchronized(pushJobsLock) {
+                pushJobsByProfile.put(profileId, pushJob!!)
+            }
+        }
+        if (!queued) {
+            pushJob?.cancel()
+            return
         }
         previous?.cancel()
         pushJob!!.start()
@@ -698,10 +705,15 @@ object AddonRepository {
     private fun runIfCurrent(
         operation: AddonProfileOperation,
         block: () -> Unit,
-    ): Boolean = profileOperationGate.runIfCurrent(operation) {
-        if (resolveEffectiveProfileId(ProfileRepository.activeProfileId) == operation.profileId) {
-            block()
+    ): Boolean {
+        var ran = false
+        val current = profileOperationGate.runIfCurrent(operation) {
+            if (resolveEffectiveProfileId(ProfileRepository.activeProfileId) == operation.profileId) {
+                block()
+                ran = true
+            }
         }
+        return current && ran
     }
 
     private fun cancelActiveRefreshes() {
