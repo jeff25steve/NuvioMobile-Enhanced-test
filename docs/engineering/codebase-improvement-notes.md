@@ -479,3 +479,58 @@ Evidence references:
 - Native engine test asserting the request-ID-zero expiry event only when a non-zero inactivity timeout is configured: https://github.com/NuvioMedia/nuvio-engine/blob/167f8541d2e07212a9cf7034b9ca4a0c3b6be4d3/tests/engine_api_test.cpp
 
 Verification limits: the complete iOS download delegate implementation, common download repository, Android download scheduler/adapter, both download storage adapters, profile-switch call path, download settings repository and profile-scoped key helper were statically inspected. The iOS P2P timeout configuration and native event generation/test path were also inspected at the exact Engine source revision used for this integration. Notes-only change; no production source or test code was modified. No Gradle test, Kotlin compilation, Android/iOS build, Xcode task, CI workflow or other build-triggering process was started. The iOS download concurrency/profile-lifecycle defects and download-location storage-scope mismatch remain open for a dedicated migration/state-machine design and regression coverage.
+
+
+### Android custom DNS — honour answer lifetimes and bound resolver cache (8 November 2026)
+
+A fresh Android networking audit found that Nuvio's custom DNS-over-HTTPS resolver has three related cache-correctness and resource-lifetime problems.
+
+The current resolver path is confirmed:
+- SharedOkHttpClient installs NuvioDns as its DNS implementation.
+- DnsPlatform.android exposes that shared OkHttp client to the Ktor platform engine.
+- AndroidDownloadTransfer creates its download OkHttp client with the same NuvioDns instance.
+- DnsSettingsRepository exposes System, Cloudflare, Google, AdGuard and Quad9 providers; changing provider updates NuvioDns.provider and clears the current cache.
+- The dependency catalog and Android module were checked: OkHttp is explicitly pinned to 4.12.0, and Ktor is 3.4.1.
+
+Confirmed issues:
+1. NuvioDns.lookup clamps every successful DNS answer TTL to at least 60 seconds with coerceIn(60, 3600). That can retain an address longer than the DNS publisher authorised, and it caches an answer whose TTL was zero even though zero means the answer is for the current transaction only. The one-hour upper cap is a valid conservative cap; the 60-second lower bound is not a safe general rule for a DoH client.
+2. DnsMessage.parseAnswer updates its TTL minimum only for resource records whose type matches the current A or AAAA query. A response containing a shorter-lived CNAME record and a longer-lived terminal address record therefore caches the resolved address using only the A/AAAA TTL. The CNAME can change before that cache entry expires.
+3. DohClient.query reads the DNS wire response but ignores the HTTP Age response header. A DoH response served from an intermediary cache may already have spent part of its lifetime in that cache; the remaining client cache lifetime must account for that age.
+4. The positive lookup cache is an unbounded ConcurrentHashMap. It checks expiry on a lookup, but an expired entry is not removed when its hostname is not requested again. New unique hostnames therefore accumulate for the process lifetime unless the user changes DNS providers, which clears the entire map. This is an unbounded memory-retention path on a resolver used by app HTTP traffic and direct downloads.
+
+Evidence:
+- The source implementation was inspected in full: NuvioDns.kt, its DnsMessage and DohClient helpers, SharedOkHttpClient.kt, DnsPlatform.android.kt, ApiHttpClient.android.kt, DnsSettings.kt, and AndroidDownloadTransfer.kt.
+- RFC 1035 section 3.2.1 defines TTL and states that zero-TTL records are only for the current transaction and should not be cached: https://www.rfc-editor.org/rfc/rfc1035.html
+- RFC 8484 section 5.1 requires a DoH client to account for the HTTP Age response header when calculating the remaining DNS TTL. It also says that the HTTP freshness lifetime must not exceed the smallest TTL in the DNS Answer section, and recommends using that smallest TTL: https://www.rfc-editor.org/rfc/rfc8484.html
+- RFC 2181 section 8 clarifies that TTL is a maximum lifetime, not a mandatory lifetime; an implementation may impose an upper bound, but increasing a smaller TTL is not required or implied: https://www.rfc-editor.org/rfc/rfc2181.html
+- Cloudflare's DNS TTL documentation explains that cached address updates take effect according to the advertised TTL, illustrating why extending a short TTL can delay endpoint changes: https://developers.cloudflare.com/dns/manage-dns-records/reference/ttl/
+- OkHttp's Dns API documentation/source states that custom DNS implementations must be safe for concurrent use and that the returned list is the ordered set of addresses attempted by OkHttp: https://github.com/square/okhttp/blob/master/okhttp/src/main/java/okhttp3/Dns.java. The current concurrent-map implementation respects concurrent access, but a future bounded cache must retain that property.
+
+Recommended minimal implementation for a separately authorised test-first batch:
+- Calculate remaining TTL as the minimum TTL across all records in the response Answer section, minus the non-negative HTTP Age value. Treat a remaining lifetime of zero or less as non-cacheable; do not promote it to 60 seconds. Continue to apply a reasonable upper cap.
+- Keep the resolved addresses usable for the current lookup even when the answer must not be cached.
+- Replace the unbounded map with a small access-ordered bounded cache. Expired entries should be removed when observed; insertion should evict least-recently-used entries when the capacity is reached. Keep network I/O outside the cache lock and retain provider-specific keys plus provider-change invalidation.
+- Do not add request single-flight or parallel A/AAAA queries in this patch. They are separate performance policies and require measurements; the correctness/resource defects above do not depend on them.
+
+Regression cases to add before the implementation:
+- TTL zero is returned to the current caller but not cached; the next lookup performs a fresh resolution.
+- A positive TTL below 60 seconds is respected rather than raised to one minute.
+- An HTTP Age of 80 seconds reduces a 120-second DNS lifetime to 40 seconds; Age equal to or greater than TTL makes the result non-cacheable.
+- A CNAME with a shorter TTL than its terminal A/AAAA record determines the answer-set minimum.
+- More unique hostnames than the cache capacity cannot grow retained entries past the configured bound; least-recently-used entries are evicted and expired entries are removed.
+- Provider changes clear retained entries, and each provider remains isolated by its storage ID.
+
+Rejected approaches:
+- Keeping the 60-second floor because it may improve cache hit rate was rejected: it can delay DNS changes and violates the zero-TTL no-cache rule. Any caching-performance trade-off must stay within the record lifetime.
+- Clearing the cache on every provider change is already implemented and does not solve accumulation during normal use.
+- Adding a periodic cleanup coroutine or timer is unnecessary; expiry cleanup can occur during ordinary lookup/insertion in the bounded cache.
+- Adding parallel A/AAAA requests or single-flight coordination is out of scope until latency or duplicate-query measurements justify the added concurrency.
+
+Verification limits: the complete Android DNS resolver and its consumers were statically inspected, along with the pinned OkHttp/Ktor versions and official RFC/API sources. No DNS test file currently exists in the Android host-test source set. No code or test files were changed because the required regression suite could not be run under the current no-test/build authorisation constraint; production changes are deferred until the test-first batch can be executed and reviewed. No Gradle test, compile, Android build, Xcode build or CI workflow was started.
+
+
+### Network status probe coordinator — concurrency hypothesis not promoted (8 November 2026)
+
+The NetworkStatusRepository was inspected as a separate candidate because probeInFlight and its pending flags are ordinary mutable fields, and probeInFlight is set only after a launched coroutine begins. Concurrent callers could theoretically launch overlapping probes, while an exception escaping runProbe could leave the in-flight flag set.
+
+The source path currently confirmed in AppGate is the one-time runtime startup call to ensureStarted(). The repository tree and available code-search results did not establish another production call site for requestForegroundRefresh() or requestRefresh(). A concrete concurrent caller/reproducer was therefore not established. No code change or defect claim was promoted from this hypothesis; do not revisit it without new evidence of additional callers or an observed duplicate/stuck probe.
