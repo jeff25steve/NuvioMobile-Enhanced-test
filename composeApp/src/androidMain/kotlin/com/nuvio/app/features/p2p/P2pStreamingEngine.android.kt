@@ -86,25 +86,6 @@ internal fun unexpectedStreamStopError(
     )
 }
 
-internal fun unexpectedTorrentError(
-    requestId: Long,
-    eventTorrentId: String?,
-    currentTorrentId: String?,
-    message: String?,
-    fallbackMessage: String,
-): P2pStreamingState.Error? {
-    if (requestId != 0L ||
-        eventTorrentId == null ||
-        currentTorrentId == null ||
-        eventTorrentId != currentTorrentId
-    ) {
-        return null
-    }
-    return P2pStreamingState.Error(
-        message?.trim()?.takeIf(String::isNotEmpty) ?: fallbackMessage,
-    )
-}
-
 actual object P2pStreamingEngine {
     private data class EngineConfigurationKey(
         val uploadEnabled: Boolean,
@@ -229,6 +210,9 @@ actual object P2pStreamingEngine {
                 resolvedEngine.addMagnet(magnetUri).also { knownTorrentIds += it }
             }
             ensureCurrentGeneration(generation)
+            if (!associateTorrentWithGeneration(generation, torrentId)) {
+                throw CancellationException("P2P stream start was cancelled")
+            }
             Log.i(
                 DIAGNOSTIC_TAG,
                 "start request=$requestSequence phase=${phase.get()} complete elapsedMs=${elapsedSince(startedAtMs)} " +
@@ -552,10 +536,14 @@ actual object P2pStreamingEngine {
                         val fallbackMessage = localizedP2pUnknownTorrentError()
                         synchronized(lifecycleLock) {
                             if (engine !== activeEngine) return@synchronized
-                            val terminalError = unexpectedTorrentError(
-                                requestId = event.requestId,
+                            if (_state.value !is P2pStreamingState.Connecting &&
+                                _state.value !is P2pStreamingState.Streaming
+                            ) {
+                                return@synchronized
+                            }
+                            val terminalError = p2pTorrentErrorForActiveTorrent(
                                 eventTorrentId = event.torrentId,
-                                currentTorrentId = currentTorrentId,
+                                activeTorrentId = currentTorrentId,
                                 message = event.message,
                                 fallbackMessage = fallbackMessage,
                             ) ?: return@synchronized
@@ -766,6 +754,15 @@ actual object P2pStreamingEngine {
     private fun nextDiagnosticRequestSequence(): Long = synchronized(lifecycleLock) {
         diagnosticRequestSequence += 1
         diagnosticRequestSequence
+    }
+
+    private fun associateTorrentWithGeneration(
+        generation: Long,
+        torrentId: String,
+    ): Boolean = synchronized(lifecycleLock) {
+        if (streamGeneration != generation) return@synchronized false
+        currentTorrentId = torrentId
+        true
     }
 
     private fun attachStreamIfCurrent(
