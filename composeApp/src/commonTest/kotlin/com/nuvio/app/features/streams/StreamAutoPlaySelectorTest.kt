@@ -9,6 +9,73 @@ import kotlin.test.assertTrue
 class StreamAutoPlaySelectorTest {
 
     @Test
+    fun `binge-only evaluation keeps pending matching debrid candidates open`() {
+        val unrelatedPending = stream(
+            addonName = "Torrentio",
+            name = "Other episode",
+            bingeGroup = "other-group",
+            infoHash = "hash-other",
+            cacheState = StreamDebridCacheState.CHECKING,
+        )
+        val matchingPending = stream(
+            addonName = "Torrentio",
+            name = "Next episode",
+            bingeGroup = "same-group",
+            infoHash = "hash-next",
+            cacheState = StreamDebridCacheState.CHECKING,
+        )
+
+        val evaluation = StreamAutoPlaySelector.evaluateAutoPlayStream(
+            streams = listOf(unrelatedPending, matchingPending),
+            mode = StreamAutoPlayMode.MANUAL,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("Torrentio"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            preferredBingeGroup = "same-group",
+            preferBingeGroupInSelection = true,
+            bingeGroupOnly = true,
+            debridEnabled = true,
+            activeResolverProviderId = "premiumize",
+        )
+
+        assertNull(evaluation.stream)
+        assertTrue(evaluation.hasPendingDebridCandidate)
+    }
+
+    @Test
+    fun `manual mode can select only a ready preferred binge group when explicitly requested`() {
+        val unrelated = stream(
+            addonName = "AddonA",
+            url = "https://example.com/unrelated.m3u8",
+            bingeGroup = "other-group",
+        )
+        val preferred = stream(
+            addonName = "AddonB",
+            url = "https://example.com/preferred.m3u8",
+            bingeGroup = "same-group",
+        )
+
+        val evaluation = StreamAutoPlaySelector.evaluateAutoPlayStream(
+            streams = listOf(unrelated, preferred),
+            mode = StreamAutoPlayMode.MANUAL,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("AddonA", "AddonB"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            preferredBingeGroup = "same-group",
+            preferBingeGroupInSelection = true,
+            bingeGroupOnly = true,
+        )
+
+        assertEquals(preferred, evaluation.stream)
+        assertEquals(listOf(preferred), evaluation.readyStreams)
+        assertFalse(evaluation.hasPendingDebridCandidate)
+    }
+
+    @Test
     fun `orders preferred groups before direct addon and plugin groups while preserving ties`() {
         val groups = listOf(
             group("plugin-first", "PluginFirst"),
