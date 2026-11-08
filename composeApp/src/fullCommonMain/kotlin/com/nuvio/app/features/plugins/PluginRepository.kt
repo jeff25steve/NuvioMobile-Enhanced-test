@@ -311,7 +311,7 @@ actual object PluginRepository {
         var refreshJob: Job? = null
         val scheduled = runIfCurrent(activeOperation) {
             synchronized(activeRefreshJobsLock) {
-                if (activeRefreshJobs[manifestUrl]?.isActive == true) return@synchronized
+                if (activeRefreshJobs[manifestUrl]?.let { !it.isCompleted } == true) return@synchronized
                 markRefreshing(manifestUrl)
                 refreshJob = scope.launch(start = CoroutineStart.LAZY) {
                     try {
