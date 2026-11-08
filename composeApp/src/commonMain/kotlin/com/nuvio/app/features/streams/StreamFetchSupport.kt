@@ -5,7 +5,7 @@ import com.nuvio.app.features.addons.ManagedAddon
 import com.nuvio.app.features.plugins.PluginRepositoryItem
 import com.nuvio.app.features.plugins.PluginRuntimeResult
 import com.nuvio.app.features.plugins.PluginScraper
-import kotlinx.coroutines.CancellationException
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled as runCatchingUnlessCancelledCore
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.streams_plugin_repository_fallback
@@ -74,13 +74,7 @@ internal fun List<AddonStreamGroup>.toEmptyStateReason(anyLoading: Boolean): Str
 }
 
 internal suspend fun <T> runCatchingUnlessCancelled(block: suspend () -> T): Result<T> =
-    try {
-        Result.success(block())
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Throwable) {
-        Result.failure(error)
-    }
+    runCatchingUnlessCancelledCore(block)
 
 internal fun PluginRuntimeResult.toStreamItem(
     scraper: PluginScraper,

@@ -2,6 +2,7 @@ package com.nuvio.app.features.details
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.logging.InAppLogger
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.addons.buildAddonResourceUrl
@@ -664,7 +665,7 @@ object MetaDetailsRepository {
         if (shouldUseSimklMoreLikeThis(trackingSettings.moreLikeThisSource) &&
             supportsMoreLikeThis(meta, fallbackItemType)
         ) {
-            val items = runCatching {
+            val items = runCatchingUnlessCancelled {
                 com.nuvio.app.features.simkl.SimklRelatedRepository.getRelated(
                     meta = meta,
                     fallbackItemId = fallbackItemId,
@@ -687,7 +688,7 @@ object MetaDetailsRepository {
         ) && supportsMoreLikeThis(meta, fallbackItemType)
 
         if (shouldUseTrakt) {
-            val page = runCatching {
+            val page = runCatchingUnlessCancelled {
                 TraktRelatedRepository.getRelated(
                     itemId = meta.id,
                     itemType = meta.type,

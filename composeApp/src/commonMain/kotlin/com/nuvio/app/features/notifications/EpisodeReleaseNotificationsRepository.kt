@@ -1,6 +1,7 @@
 package com.nuvio.app.features.notifications
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.deeplink.buildMetaDeepLinkUrl
 import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.details.MetaDetailsRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +63,7 @@ object EpisodeReleaseNotificationsRepository {
     init {
         scope.launch {
             for (ignored in refreshRequests) {
-                runCatching { refreshScheduledNotifications() }
+                runCatchingUnlessCancelled { refreshScheduledNotifications() }
                     .onFailure { error ->
                         log.e(error) { "Failed to refresh episode release notifications" }
                     }
@@ -107,7 +109,7 @@ object EpisodeReleaseNotificationsRepository {
         cachedRequestsByShowKey = emptyMap()
         _uiState.value = EpisodeReleaseNotificationsUiState()
         scope.launch {
-            runCatching { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+            runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
                 .onFailure { error ->
                     log.w { "Failed to clear scheduled episode release notifications: ${error.message}" }
                 }
@@ -134,7 +136,7 @@ object EpisodeReleaseNotificationsRepository {
         ensureLoaded()
         scope.launch {
             if (!enabled) {
-                runCatching { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
                     .onFailure { error ->
                         log.w { "Failed to clear episode release notifications: ${error.message}" }
                     }
@@ -154,7 +156,7 @@ object EpisodeReleaseNotificationsRepository {
                 errorMessage = null,
             )
 
-            val granted = runCatching { EpisodeReleaseNotificationPlatform.requestAuthorization() }
+            val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.requestAuthorization() }
                 .onFailure { error ->
                     log.e(error) { "Failed to request episode release notification permission" }
                 }
@@ -204,7 +206,7 @@ object EpisodeReleaseNotificationsRepository {
                 errorMessage = null,
             )
 
-            val granted = runCatching { EpisodeReleaseNotificationPlatform.requestAuthorization() }
+            val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.requestAuthorization() }
                 .onFailure { error ->
                     log.e(error) { "Failed to request permission for test notification" }
                 }
@@ -229,7 +231,7 @@ object EpisodeReleaseNotificationsRepository {
                 backdropUrl = target.banner ?: target.poster,
             )
 
-            runCatching {
+            runCatchingUnlessCancelled {
                 EpisodeReleaseNotificationPlatform.showTestNotification(request)
             }.onFailure { error ->
                 log.e(error) { "Failed to send test notification" }
@@ -300,7 +302,7 @@ object EpisodeReleaseNotificationsRepository {
     }
 
     private suspend fun syncAuthorizationState(refreshIfEnabled: Boolean) {
-        val granted = runCatching { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
+        val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
             .onFailure { error ->
                 log.w { "Failed to read episode release notification permission: ${error.message}" }
             }
@@ -361,14 +363,14 @@ object EpisodeReleaseNotificationsRepository {
                 persist()
             }
 
-            val permissionGranted = runCatching { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
+            val permissionGranted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
                 .onFailure { error ->
                     log.w { "Failed to refresh episode release notification permission: ${error.message}" }
                 }
                 .getOrDefault(false)
 
             if (!_uiState.value.isEnabled || !permissionGranted) {
-                runCatching { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
                     .onFailure { error ->
                         log.w { "Failed to clear scheduled episode release notifications: ${error.message}" }
                     }
@@ -393,7 +395,7 @@ object EpisodeReleaseNotificationsRepository {
             )
 
             if (trackedShowsByKey.isEmpty()) {
-                runCatching { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     scheduledCount = 0,
@@ -410,16 +412,20 @@ object EpisodeReleaseNotificationsRepository {
 
             val todayIso = CurrentDateProvider.todayIsoDate()
             val semaphore = Semaphore(metadataFetchConcurrency)
-            val requestsByShowKey = trackedShowsByKey.map { (showKey, trackedShow) ->
-                scope.async {
-                    val built = semaphore.withPermit {
-                        buildRequestsForShow(trackedShow)
+            val trackedShowsSnapshot = trackedShowsByKey
+            val cachedRequestsSnapshot = cachedRequestsByShowKey
+            val requestsByShowKey = coroutineScope {
+                trackedShowsSnapshot.map { (showKey, trackedShow) ->
+                    async {
+                        val built = semaphore.withPermit {
+                            buildRequestsForShow(trackedShow)
+                        }
+                        val showRequests = (built ?: cachedRequestsSnapshot[showKey].orEmpty())
+                            .filter { request -> request.releaseDateIso >= todayIso }
+                        showKey to showRequests
                     }
-                    val showRequests = (built ?: cachedRequestsByShowKey[showKey].orEmpty())
-                        .filter { request -> request.releaseDateIso >= todayIso }
-                    showKey to showRequests
-                }
-            }.awaitAll().toMap()
+                }.awaitAll().toMap()
+            }
 
             cachedRequestsByShowKey = requestsByShowKey
             persist()
@@ -429,7 +435,7 @@ object EpisodeReleaseNotificationsRepository {
                 .distinctBy(EpisodeReleaseNotificationRequest::requestId)
                 .sortedBy(EpisodeReleaseNotificationRequest::releaseDateIso)
 
-            runCatching {
+            runCatchingUnlessCancelled {
                 EpisodeReleaseNotificationPlatform.scheduleEpisodeReleaseNotifications(requests)
             }.onFailure { error ->
                 log.e(error) { "Failed to schedule episode release notifications" }
@@ -459,7 +465,7 @@ object EpisodeReleaseNotificationsRepository {
     }
 
     private suspend fun buildRequestsForShow(trackedShow: TrackedFollowedShow): List<EpisodeReleaseNotificationRequest>? {
-        val meta = runCatching {
+        val meta = runCatchingUnlessCancelled {
             MetaDetailsRepository.fetch(
                 type = trackedShow.contentType,
                 id = trackedShow.contentId,
