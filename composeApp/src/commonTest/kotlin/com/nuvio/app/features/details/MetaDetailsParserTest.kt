@@ -367,6 +367,7 @@ class MetaDetailsParserTest {
         }
         return MetaDetailsParser.parse(payload.toString()).videos.single()
     }
+
     @Test
     fun `embedded stream lookup preserves exact episode and prefix precedence`() {
         val prefix = testStream("prefix")
@@ -384,8 +385,14 @@ class MetaDetailsParserTest {
         )
 
         assertEquals(listOf(direct), findEmbeddedStreamsForMeta(meta, "show:1:2"))
-        assertEquals(listOf(episode), findEmbeddedStreamsForMeta(meta.copy(videos = meta.videos.take(2)), "show:1:2"))
-        assertEquals(listOf(prefix), findEmbeddedStreamsForMeta(meta.copy(videos = listOf(meta.videos.first())), "show"))
+        assertEquals(
+            listOf(episode),
+            findEmbeddedStreamsForMeta(meta.copy(videos = meta.videos.take(2)), "show:1:2"),
+        )
+        assertEquals(
+            listOf(prefix),
+            findEmbeddedStreamsForMeta(meta.copy(videos = listOf(meta.videos.first())), "show"),
+        )
     }
 
     @Test
