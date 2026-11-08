@@ -144,6 +144,7 @@ actual object PluginRepository {
     actual suspend fun pullFromServer(profileId: Int) {
         val operation = activateProfile(profileId) ?: return
         ensureStateLoadedForProfile(operation.profileId, operation)
+        if (!isCurrentOperation(operation)) return
         val client = SupabaseProvider.client
 
         runCatchingUnlessCancelled {
@@ -216,7 +217,6 @@ actual object PluginRepository {
         initialize()
         val operation = currentProfileOperation()
             ?: throw CancellationException("Plugin profile changed before repository installation started")
-        val client = SupabaseProvider.client
         val manifestUrl = try {
             normalizeManifestUrl(rawUrl)
         } catch (error: IllegalArgumentException) {
@@ -229,6 +229,7 @@ actual object PluginRepository {
         if (duplicate) {
             return AddPluginRepositoryResult.Error(getString(Res.string.plugins_repository_already_installed))
         }
+        val client = SupabaseProvider.client
 
         return try {
             val previousById = readIfCurrent(operation) {
