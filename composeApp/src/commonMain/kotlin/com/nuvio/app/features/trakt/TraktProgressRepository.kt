@@ -1219,13 +1219,25 @@ object TraktProgressRepository {
         entries: List<WatchProgressEntry>,
         meta: MetaDetails,
     ): List<WatchProgressEntry> {
-        val episodeVideosByCoordinates = indexMetaVideosByEpisode(meta.videos)
+        val episodeVideosByCoordinates = if (
+            entries.size > 1 && entries.any { it.seasonNumber != null && it.episodeNumber != null }
+        ) {
+            indexMetaVideosByEpisode(meta.videos)
+        } else {
+            null
+        }
         return entries.map { entry ->
             var resolvedSeason = entry.seasonNumber
             var resolvedEpisode = entry.episodeNumber
 
             val episode = if (resolvedSeason != null && resolvedEpisode != null) {
-                val directMatch = episodeVideosByCoordinates[resolvedSeason to resolvedEpisode]
+                val directMatch = if (episodeVideosByCoordinates != null) {
+                    episodeVideosByCoordinates[resolvedSeason to resolvedEpisode]
+                } else {
+                    meta.videos.firstOrNull { video ->
+                        video.season == resolvedSeason && video.episode == resolvedEpisode
+                    }
+                }
                 if (directMatch != null) {
                     directMatch
                 } else {
@@ -1243,7 +1255,13 @@ object TraktProgressRepository {
                     if (remapped != null) {
                         resolvedSeason = remapped.season
                         resolvedEpisode = remapped.episode
-                        episodeVideosByCoordinates[remapped.season to remapped.episode]
+                        if (episodeVideosByCoordinates != null) {
+                            episodeVideosByCoordinates[remapped.season to remapped.episode]
+                        } else {
+                            meta.videos.firstOrNull { video ->
+                                video.season == remapped.season && video.episode == remapped.episode
+                            }
+                        }
                     } else {
                         null
                     }
