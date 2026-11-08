@@ -150,14 +150,16 @@ object AuthRepository {
 
     @OptIn(ExperimentalUuidApi::class)
     fun signInAnonymously() {
-        _error.value = null
         val userId = Uuid.random().toString()
-        AuthStorage.saveAnonymousUserId(userId)
-        _state.value = AuthState.Authenticated(
-            userId = userId,
-            email = null,
-            isAnonymous = true,
-        )
+        sessionOperationGate.runIfOpen {
+            _error.value = null
+            AuthStorage.saveAnonymousUserId(userId)
+            _state.value = AuthState.Authenticated(
+                userId = userId,
+                email = null,
+                isAnonymous = true,
+            )
+        }
     }
 
     suspend fun signUpWithEmail(email: String, password: String): Result<Unit> = withSessionOperation {
