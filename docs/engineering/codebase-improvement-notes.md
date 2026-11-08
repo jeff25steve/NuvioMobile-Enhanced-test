@@ -1079,3 +1079,14 @@ A focused cancellation audit of the full in-app YouTube trailer extraction path 
 - Inspected the complete common extractor, both Android/iOS trailer transport implementations, the existing shared cancellation helper and its tests, the Ktor 3.4.1 timeout source and current pinned dependency declarations.
 - Added tests confirming the helper preserves its own `withTimeoutOrNull` timeout as a successful null result and rethrows caller cancellation through that timeout wrapper. Existing helper tests also cover cancellation identity, ordinary failure and success.
 - Tests were authored but not executed. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started. These changes are statically reviewed but not compiler- or runtime-verified.
+
+
+### Trailer extraction response buffering — full-body reads shared, cap deferred (8 November 2026)
+
+The same final iOS networking sweep found that the full YouTube trailer extractor still buffers watch-page HTML, player API JSON and HLS manifest responses into strings on both platforms: Android uses OkHttp `ResponseBody.string()`; iOS uses Ktor `bodyAsText()`. This is separate from the arbitrary add-on/plugin `httpRequestRaw()` path, where an existing 1 MiB contract made eager iOS allocation clearly incorrect and streaming was implemented.
+
+No cap or streaming refactor was applied to trailer extraction. The common `TrailerRequestResponse.body` contract and current parsers consume complete HTML/JSON/playlist text; the code currently has no payload-size telemetry or fixture corpus establishing safe content-specific bounds for YouTube watch pages and player responses. An arbitrary small cap risks truncating the embedded API key, `streamingData`, or HLS variant list and silently regressing fallback selection. The Android and iOS implementations currently share the same full-body behavior, so this is not a new iOS-only parity regression.
+
+A future change should first measure representative production/test fixtures, then set separate conservative bounds by response role (watch HTML, player JSON, HLS manifest), preserve explicit truncation/failure semantics, and test valid large responses plus over-limit handling on Android and iOS. Until those thresholds are evidence-based, keep the existing behavior. The cancellation hardening above does not claim to bound these trailer response allocations.
+
+Sources inspected: `composeApp/src/androidFull/kotlin/com/nuvio/app/features/trailer/TrailerExtractionPlatform.android.kt`, `composeApp/src/iosFull/kotlin/com/nuvio/app/features/trailer/TrailerExtractionPlatform.ios.kt`, and `composeApp/src/fullCommonMain/kotlin/com/nuvio/app/features/trailer/InAppYouTubeExtractor.kt`. No code or test changes were made for this deferred candidate.
