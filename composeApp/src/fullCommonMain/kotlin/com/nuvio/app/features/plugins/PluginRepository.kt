@@ -724,18 +724,78 @@ actual object PluginRepository {
         jobs.forEach(Job::cancel)
     }
 
-    private fun ensureStateLoadedForProfile(profileId: Int) {
-        if (initialized && currentProfileId == profileId) return
+    private fun ensureStateLoadedForProfile(
+        profileId: Int,
+        operation: PluginProfileOperation,
+    ) {
+        if (profileId != operation.profileId || !isCurrentOperation(operation)) return
+        if (readIfCurrent(operation) { initialized && currentProfileId == profileId } == true) return
 
-        if (currentProfileId != profileId) {
-            cancelActiveRefreshes()
-        }
-
-        currentProfileId = profileId
         val loadedState = loadStateAsUiState(profileId)
-        _uiState.value = loadedState.state
-        initialized = true
-        if (loadedState.requiresMigration) persist()
+        val applied = runIfCurrent(operation) {
+            currentProfileId = profileId
+            _uiState.value = loadedState.state
+            initialized = true
+        }
+        if (applied && loadedState.requiresMigration) {
+            persist(operation)
+        }
+    }
+
+    private fun activateProfile(requestedProfileId: Int): PluginProfileOperation? {
+        if (requestedProfileId != ProfileRepository.activeProfileId) return null
+        val effectiveProfileId = resolveEffectiveProfileId(requestedProfileId)
+        profileOperationGate.current(effectiveProfileId)?.let { return it }
+        return profileOperationGate.invalidate(effectiveProfileId) {
+            cancelActiveRefreshes()
+            cancelPushJobs()
+            currentProfileId = effectiveProfileId
+            initialized = false
+            _uiState.value = PluginsUiState()
+        }
+    }
+
+    private fun currentProfileOperation(): PluginProfileOperation? {
+        val effectiveProfileId = resolveEffectiveProfileId(ProfileRepository.activeProfileId)
+        return profileOperationGate.current(effectiveProfileId)
+    }
+
+    private fun isCurrentOperation(operation: PluginProfileOperation): Boolean =
+        resolveEffectiveProfileId(ProfileRepository.activeProfileId) == operation.profileId &&
+            profileOperationGate.isCurrent(operation)
+
+    private fun ensureOperationCurrent(operation: PluginProfileOperation) {
+        if (!isCurrentOperation(operation)) {
+            throw CancellationException("Plugin profile operation was superseded")
+        }
+    }
+
+    private fun <T> readIfCurrent(
+        operation: PluginProfileOperation,
+        block: () -> T,
+    ): T? {
+        var result: T? = null
+        if (!runIfCurrent(operation) {
+                result = block()
+            }
+        ) {
+            return null
+        }
+        return result
+    }
+
+    private fun runIfCurrent(
+        operation: PluginProfileOperation,
+        block: () -> Unit,
+    ): Boolean {
+        var ran = false
+        val current = profileOperationGate.runIfCurrent(operation) {
+            if (resolveEffectiveProfileId(ProfileRepository.activeProfileId) == operation.profileId) {
+                block()
+                ran = true
+            }
+        }
+        return current && ran
     }
 
     private fun loadStateAsUiState(profileId: Int): LoadedPluginState {
