@@ -59,6 +59,7 @@ class WatchedModelsTest {
         assertEquals(TrackingProviderId.SIMKL, WatchProgressSource.SIMKL.providerId)
         assertEquals(null, WatchProgressSource.NUVIO_SYNC.providerId)
     }
+
     private fun progressEntry(
         videoId: String,
         isCompleted: Boolean = false,
@@ -75,6 +76,4 @@ class WatchedModelsTest {
         isCompleted = isCompleted,
         progressPercent = progressPercent,
     )
-
-
 }
