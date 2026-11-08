@@ -25,6 +25,12 @@ internal class AuthSessionOperationGate {
         !switching && operation in operations
     }
 
+    fun runIfOpen(block: () -> Unit): Boolean = synchronized(lock) {
+        if (switching) return@synchronized false
+        block()
+        true
+    }
+
     fun finishOperation(operation: Long) {
         synchronized(lock) {
             operations.remove(operation)
