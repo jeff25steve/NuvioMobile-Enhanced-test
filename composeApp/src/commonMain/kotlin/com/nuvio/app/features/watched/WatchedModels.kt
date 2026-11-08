@@ -51,6 +51,13 @@ internal fun WatchedItem.normalizedMarkedAt(): WatchedItem {
     return if (normalized == markedAtEpochMs) this else copy(markedAtEpochMs = normalized)
 }
 
+internal fun Collection<WatchedItem>.normalizedAndSortedByNewestMarkedAt(): List<WatchedItem> {
+    val normalizedItems = ArrayList<WatchedItem>(size)
+    for (item in this) normalizedItems += item.normalizedMarkedAt()
+    normalizedItems.sortByDescending { it.markedAtEpochMs }
+    return normalizedItems
+}
+
 internal fun normalizeWatchedMarkedAtEpochMs(value: Long): Long {
     if (value !in CompactWatchedTimestampMin..CompactWatchedTimestampMax) return value
 
