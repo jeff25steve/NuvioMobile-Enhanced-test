@@ -413,6 +413,7 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                 if (
                     range == null ||
                     range.completeLength == null ||
+                    range.lastByteInclusive + 1L != range.completeLength ||
                     range.firstByte != requestedRange ||
                     existingPartialSize != requestedRange ||
                     segmentSize != range.byteCount
@@ -473,29 +474,13 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
             if (partialRange != null) {
                 val completeLength = checkNotNull(partialRange.completeLength)
                 val assembledSize = fileSizeOrNull(tempPath)
-                val expectedEndExclusive = partialRange.lastByteInclusive + 1L
-                if (
-                    assembledSize == null ||
-                    assembledSize != expectedEndExclusive ||
-                    assembledSize > completeLength
-                ) {
+                if (assembledSize != completeLength) {
                     if (!truncatePathToLength(tempPath, existingPartialSize)) {
                         removePathIfExists(tempPath)
                     }
                     finishWithFailure(
                         downloadId,
                         runBlocking { getString(Res.string.downloads_error_finalize_file_failed) },
-                    )
-                    return
-                }
-                if (assembledSize < completeLength) {
-                    activeDownloads.remove(downloadId)
-                    tasksByDownloadId.remove(downloadId)
-                    startOrResume(
-                        downloadId = downloadId,
-                        request = request,
-                        rangeStart = assembledSize,
-                        callbacks = active?.callbacks,
                     )
                     return
                 }
