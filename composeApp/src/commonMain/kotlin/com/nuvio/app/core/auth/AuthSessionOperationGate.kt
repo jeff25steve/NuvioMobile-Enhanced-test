@@ -12,18 +12,17 @@ import kotlinx.coroutines.Job
  */
 internal class AuthSessionOperationGate {
     private val lock = SynchronizedObject()
-    private var generation = 0L
+    private var nextOperationId = 0L
     private var switching = false
     private val operations = mutableMapOf<Long, Job>()
 
     fun beginOperation(job: Job): Long? = synchronized(lock) {
         if (switching) return@synchronized null
-        generation += 1L
-        generation.also { operations[it] = job }
+        (++nextOperationId).also { operations[it] = job }
     }
 
     fun isCurrent(operation: Long): Boolean = synchronized(lock) {
-        !switching && operation == generation && operation in operations
+        !switching && operation in operations
     }
 
     fun finishOperation(operation: Long) {
@@ -34,8 +33,7 @@ internal class AuthSessionOperationGate {
 
     fun beginServerSwitch(): List<Job> = synchronized(lock) {
         switching = true
-        generation += 1L
-        operations.values.toList()
+        operations.values.distinct()
     }
 
     fun endServerSwitch() {
