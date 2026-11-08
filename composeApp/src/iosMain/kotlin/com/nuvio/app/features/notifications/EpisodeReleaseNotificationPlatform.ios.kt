@@ -169,8 +169,10 @@ internal actual object EpisodeReleaseNotificationPlatform {
         scopedKeys.forEach(defaults::removeObjectForKey)
 
         val attachmentPath = NSTemporaryDirectory().trimEnd('/') + "/" + attachmentDirectoryName
-        if (NSFileManager.defaultManager.fileExistsAtPath(attachmentPath)) {
-            NSFileManager.defaultManager.removeItemAtPath(attachmentPath, null)
+        if (NSFileManager.defaultManager.fileExistsAtPath(attachmentPath) &&
+            !NSFileManager.defaultManager.removeItemAtPath(attachmentPath, null)
+        ) {
+            throw IllegalStateException("Could not clear episode release notification attachments")
         }
     }
 

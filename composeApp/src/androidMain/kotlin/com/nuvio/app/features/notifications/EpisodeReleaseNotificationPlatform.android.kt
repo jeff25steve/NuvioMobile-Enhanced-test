@@ -283,7 +283,9 @@ internal actual object EpisodeReleaseNotificationPlatform {
                 editor
                     .remove(deliveredIdsKey)
                     .remove(legacyScheduledIdsKey)
-                    .commit()
+                check(editor.commit()) {
+                    "Could not clear episode release notification state"
+                }
             }
         }
     }
