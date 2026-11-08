@@ -18,9 +18,10 @@ internal class AddonProfileOperationGate(initialProfileId: Int = 1) {
     private val lock = SynchronizedObject()
     private var profileId = initialProfileId
     private var generation = 0L
+    private var accountCleanupInProgress = false
 
     fun current(expectedProfileId: Int): AddonProfileOperation? = synchronized(lock) {
-        if (profileId != expectedProfileId) {
+        if (accountCleanupInProgress || profileId != expectedProfileId) {
             return@synchronized null
         }
         AddonProfileOperation(profileId, generation)
@@ -36,6 +37,20 @@ internal class AddonProfileOperationGate(initialProfileId: Int = 1) {
         AddonProfileOperation(profileId, generation)
     }
 
+    fun beginAccountCleanup(block: () -> Unit = {}) {
+        synchronized(lock) {
+            accountCleanupInProgress = true
+            generation += 1L
+            block()
+        }
+    }
+
+    fun endAccountCleanup() {
+        synchronized(lock) {
+            accountCleanupInProgress = false
+        }
+    }
+
     fun isCurrent(operation: AddonProfileOperation): Boolean = synchronized(lock) {
         profileId == operation.profileId && generation == operation.generation
     }
@@ -44,7 +59,7 @@ internal class AddonProfileOperationGate(initialProfileId: Int = 1) {
         operation: AddonProfileOperation,
         block: () -> Unit,
     ): Boolean = synchronized(lock) {
-        if (profileId != operation.profileId || generation != operation.generation) {
+        if (accountCleanupInProgress || profileId != operation.profileId || generation != operation.generation) {
             return@synchronized false
         }
         block()
