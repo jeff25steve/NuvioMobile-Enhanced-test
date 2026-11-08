@@ -839,3 +839,24 @@ Still open from the previous audit:
 - In-app log-buffer StateFlow side-effect/allocation observations remain candidates pending consumer confirmation and measurement.
 
 Verification limits: the full changed auth/device-link/controller files, helper classes, tests and dependency pins were re-fetched and statically reviewed. No Gradle test task, compilation, Android build, iOS/Xcode build, CI workflow or build-triggering process was started. The code has not been compiler- or runtime-verified. The complete remote diff and final branch head are checked separately after this note is committed.
+
+
+### Follow-up verification limits — authentication and add-on lifecycle (8 November 2026)
+
+A final review of the auth/device-link batch confirmed the intended remote diff (eight files including this documentation file) and checked all current Supabase client references in `DeviceLinkAuthRepository`: the repository provider is resolved once per attempt, and the captured client is passed through start, poll, exchange, user retrieval and session import. The server switch calls `beginServerSwitch` before session clearing/configuration changes and releases the gate from `finally`.
+
+Important test limitation:
+- `AuthSessionGenerationTest` verifies generation invalidation.
+- `DeviceLinkFlowGateTest` verifies one-attempt ownership, cancellation invalidation, switch blocking and stale completion.
+- These tests do **not** yet drive a fake Supabase client A through a suspended poll while switching to client B, nor assert that the A device code is never sent to B and that A's returned session is never imported into B.
+- The current repository directly resolves `SupabaseProvider.client` when starting a flow and has no injectable client/network test seam. A deterministic integration test likely needs a narrowly scoped internal workflow collaborator or injected client provider; that design should be completed before claiming the full A-to-B race is runtime-verified. Do not add an abstraction solely for tests without keeping production ownership explicit.
+- None of the tests were executed and no compiler/build task was run, per the user's instruction.
+
+The add-on repository finding was revalidated against the current branch after the auth change:
+- `pullFromServer(profileId)` still assigns `currentProfileId` before its suspending query and uses standard `runCatching`; after a profile change, later reads, migration writes and UI publication can observe the mutable repository-wide profile ID.
+- `addAddon` still catches `Throwable` around its suspending manifest fetch/parse, so cancellation can still be returned as `AddAddonResult.Error`.
+- `refreshAddon` still captures its network result with standard `runCatching` and applies the result by manifest URL without a captured profile/generation ownership check. Its active-job identity guard only protects map cleanup, not the UI-state commit.
+- The only common add-on test file is `AddonModelsTest.kt`; it tests parsing/models, not repository jobs, storage, Supabase sync or profile-switch ordering. No repository test seam exists today.
+- This remains a worthwhile follow-up, but a cancellation-helper substitution alone would leave the stale profile publication and storage ownership race. No partial add-on code change was made. The implementation should capture a profile/generation token and apply it consistently before each post-suspension state/storage/push boundary, with a deterministic repository test that suspends an A request, switches to B, then resumes A.
+
+These are explicit verification and scope limits, not evidence that the auth or add-on races have been reproduced at runtime. Account sign-out/deletion cleanup cancellation also remains open as documented in the preceding section.
