@@ -1,5 +1,7 @@
 package com.nuvio.app.features.details
 
+import com.nuvio.app.features.streams.StreamItem
+
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -13,6 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class MetaDetailsParserTest {
@@ -364,4 +367,53 @@ class MetaDetailsParserTest {
         }
         return MetaDetailsParser.parse(payload.toString()).videos.single()
     }
+    @Test
+    fun `embedded stream lookup preserves exact episode and prefix precedence`() {
+        val prefix = testStream("prefix")
+        val episode = testStream("episode")
+        val direct = testStream("direct")
+        val meta = MetaDetails(
+            id = "show",
+            type = "series",
+            name = "Show",
+            videos = listOf(
+                MetaVideo(id = "show:1:2:alternate", title = "Alternate", streams = listOf(prefix)),
+                MetaVideo(id = "provider-id", title = "Episode", season = 1, episode = 2, streams = listOf(episode)),
+                MetaVideo(id = "show:1:2", title = "Direct", season = 1, episode = 2, streams = listOf(direct)),
+            ),
+        )
+
+        assertEquals(listOf(direct), findEmbeddedStreamsForMeta(meta, "show:1:2"))
+        assertEquals(listOf(episode), findEmbeddedStreamsForMeta(meta.copy(videos = meta.videos.take(2)), "show:1:2"))
+        assertEquals(listOf(prefix), findEmbeddedStreamsForMeta(meta.copy(videos = listOf(meta.videos.first())), "show"))
+    }
+
+    @Test
+    fun `embedded stream parent fallback keeps video order and single list identity`() {
+        val first = testStream("first")
+        val second = testStream("second")
+        val multiple = MetaDetails(
+            id = "show",
+            type = "series",
+            name = "Show",
+            videos = listOf(
+                MetaVideo(id = "first-video", title = "First", streams = listOf(first)),
+                MetaVideo(id = "empty-video", title = "Empty"),
+                MetaVideo(id = "second-video", title = "Second", streams = listOf(second)),
+            ),
+        )
+        val singleStreams = listOf(testStream("single"))
+        val single = multiple.copy(
+            videos = listOf(MetaVideo(id = "only-video", title = "Only", streams = singleStreams)),
+        )
+
+        assertEquals(listOf(first, second), findEmbeddedStreamsForMeta(multiple, "show"))
+        assertSame(singleStreams, findEmbeddedStreamsForMeta(single, "show"))
+        assertTrue(findEmbeddedStreamsForMeta(single.copy(videos = emptyList()), "show").isEmpty())
+        assertTrue(findEmbeddedStreamsForMeta(single, "unmatched").isEmpty())
+    }
+
+    private fun testStream(name: String): StreamItem =
+        StreamItem(name = name, addonName = "Test addon", addonId = "test-addon")
+
 }
