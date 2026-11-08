@@ -67,7 +67,6 @@ object DeviceLinkAuthRepository {
     val state: StateFlow<DeviceLinkAuthState> = _state.asStateFlow()
     private var activeJob: Job? = null
 
-    @OptIn(ExperimentalUuidApi::class)
     fun start() {
         val job = synchronized(lifecycleLock) {
             if (_state.value is DeviceLinkAuthState.Starting || _state.value is DeviceLinkAuthState.Waiting) {
@@ -112,6 +111,7 @@ object DeviceLinkAuthRepository {
         flowGate.endServerSwitch()
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     private suspend fun runAttempt(attempt: Long) {
         try {
             val configuration = ServerConfigurationRepository.active.value
