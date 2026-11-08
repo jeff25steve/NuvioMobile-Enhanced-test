@@ -614,3 +614,41 @@ Context:
 No change is recommended until all `lines` consumers and cross-platform log writers are established and a meaningful workload is measured. A future test should stress concurrent append/clear and assert the retained entries and compatibility lines remain aligned, with no duplicate externally visible side effects. If addressed, retain the 3,000-entry bound, order and log text; use a synchronization/state ownership design rather than moving `syncLines` after the atomic update without considering races.
 
 Verification limits: common logger, settings log viewer, Android/iOS timestamp actuals and iOS MPV bridge were inspected. No logger tests or event-rate benchmarks were run. This remains a candidate only; no code or test files were modified.
+
+
+### Add-on synchronization — propagate cancellation and isolate refresh results by profile (8 November 2026)
+
+A new audit of the add-on repository found three cancellation-swallowing network paths and one concrete profile-switch state race.
+
+Source-confirmed behavior:
+- `AddonRepository.pullFromServer(profileId)` wraps its complete suspending sync body in standard `runCatching`. The caller in `SyncManager` is `runOrderedProfileSync`, whose `runStep` correctly rethrows `CancellationException`. Because the add-on repository turns cancellation into a normal result and only logs it, the sync coordinator can treat an interrupted Addons step as a normal return and continue into later steps until another suspension observes cancellation.
+- `AddonRepository.addAddon` catches `Throwable` around the manifest HTTP fetch and parser. This includes cancellation and can convert a cancelled deep-link/manual add-on install into a normal `AddAddonResult.Error`.
+- `AddonRepository.refreshAddon` wraps the suspend fetch/parse in standard `runCatching`, then always applies its result to the current `_uiState` by comparing only `manifestUrl`.
+- `AddonRepository.onProfileChanged` cancels and clears its independent refresh-job map, changes `currentProfileId`, resets loading flags and replaces the in-memory list. Those refresh jobs are launched in a repository-owned `SupervisorJob + Dispatchers.Default` scope, not as children of the profile-sync request.
+- If a cancelled old-profile refresh catches its cancellation and reaches the subsequent state update after the new profile has loaded an add-on with the same manifest URL, it can clear that new profile entry's `isRefreshing` flag and publish the old job's cancellation as a manifest error. The active-job map's identity check protects removal of a newer job entry, but it does not guard the shared UI-state update by profile or generation.
+
+The relevant profile sequence is real: `ProfileRepository.selectProfile` updates the active profile and calls `AddonRepository.onProfileChanged`; the app then requests a new profile pull through `SyncManager`. The sync request gate cancels the previous full-profile request, while the add-on refresh jobs are separately cancelled by the repository. Shared add-ons across profiles make the same manifest URL a realistic collision key.
+
+A further reason not to blanket-change this file: `pushToServer` already catches `CancellationException` first and rethrows it, and its push-job registry is keyed by profile ID. Keep that behavior.
+
+Recommended test-first follow-up:
+- Test cancellation of `pullFromServer` while its remote request is suspended and assert the cancellation reaches `runOrderedProfileSync` rather than being recorded as a successful Addons step.
+- Start profile A's manifest refresh for URL U, switch to profile B, load the same URL U and start B's refresh, then release A's cancelled request. Assert A cannot change B's `isRefreshing`, manifest or error state and cannot remove B's job registry entry.
+- Test `addAddon` cancellation to ensure it propagates without becoming a user-visible normal installation error.
+- Preserve `finally` cleanup of `activeRefreshJobs`; rethrow cancellation before any state mutation. Consider capturing a profile-generation token alongside the profile ID and require it to still match before applying any result, because cancellation alone is not a substitute for ownership checks around non-suspending parsing/state updates.
+- Review `pullFromServer` state writes and use a captured profile ID/generation for every request, local storage read/write and state commit. Do not rely on the mutable repository-wide `currentProfileId` after a suspension.
+
+Cross-checks:
+- Kotlin's official cancellation guide requires caught cancellation to be rethrown so structured cancellation is preserved: https://kotlinlang.org/docs/cancellation-and-timeouts.html
+- kotlinx.coroutines issue #1814 documents the standard-library `runCatching` cancellation hazard and maintainer guidance: https://github.com/Kotlin/kotlinx.coroutines/issues/1814
+- The repository already has `runCatchingUnlessCancelled` and its tests, and `SyncManager.runOrderedProfileSync` explicitly handles cancellation as a separate control path.
+- This is not a reason to replace every parser/URL-normalization `runCatching` in add-on code: synchronous decoding/URL parsing is not a cancellable network operation.
+
+Rejected approaches:
+- Adding a second refresh timer or retry loop was not justified; the issue is ownership/cancellation of existing jobs.
+- Keying only the active refresh map by URL is insufficient to prevent stale results from changing a later profile's UI state. The map's object-identity removal check should remain, but state publication also needs a profile/generation guard.
+- Broadly rewriting the sync coordinator was not justified; its cancellation handling is already explicit and correctly distinguishes cancellation from ordinary step errors.
+
+Source revisions inspected: `AddonRepository.kt` (`8b3ccf3e0e9259e225183a0ab5e6356049d0d1a7`), `ProfileRepository.kt` (`be26d1861594d0671535f7e15c7172ef70849b18`), `SyncManager.kt` (`a8a49eb6f1b6d9eeacdff2e45b4b6f113328981f`), and the existing cancellation-aware helper `RunCatchingUnlessCancelled.kt` (`7bd938118bad9240b0fb4cf551d1939eac439e2d`).
+
+Verification limits: the full add-on state lifecycle, profile-switch call ordering, sync request cancellation path and current sync tests were statically inspected. No dedicated AddonRepository cancellation/profile-race test exists in the current common-test tree. No tests or builds were started, and no production/test code was changed because the test-first cycle remains unauthorised.
