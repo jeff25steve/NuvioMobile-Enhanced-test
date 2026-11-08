@@ -70,14 +70,19 @@ object DeviceLinkAuthRepository {
     fun start() {
         val job = synchronized(lifecycleLock) {
             if (_state.value is DeviceLinkAuthState.Starting || _state.value is DeviceLinkAuthState.Waiting) {
-                return
+                null
+            } else {
+                val attempt = flowGate.beginAttempt()
+                if (attempt == null) {
+                    null
+                } else {
+                    _state.value = DeviceLinkAuthState.Starting
+                    scope.launch(start = CoroutineStart.LAZY) {
+                        runAttempt(attempt)
+                    }.also { activeJob = it }
+                }
             }
-            val attempt = flowGate.beginAttempt() ?: return
-            _state.value = DeviceLinkAuthState.Starting
-            scope.launch(start = CoroutineStart.LAZY) {
-                runAttempt(attempt)
-            }.also { activeJob = it }
-        }
+        } ?: return
         job.start()
     }
 
