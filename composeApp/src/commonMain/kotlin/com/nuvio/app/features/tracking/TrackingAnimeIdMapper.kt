@@ -96,9 +96,8 @@ internal object TrackingAnimeIdMapper {
         val fallbackSeason: Int?,
     ) {
         fun imdbEpisodeFor(number: Int): Pair<Int, Int>? {
-            episodes.firstOrNull { it.animeEpisode == number }?.let { return it.tvdbSeason to it.tvdbEpisode }
-            episodes.filter { it.animeEpisode < number }.maxByOrNull { it.animeEpisode }?.let { previous ->
-                return previous.tvdbSeason to previous.tvdbEpisode + (number - previous.animeEpisode)
+            resolveAnimeEpisodeMapping(episodes, number)?.let { mapping ->
+                return mapping.tvdbSeason to mapping.tvdbEpisode + (number - mapping.animeEpisode)
             }
             if (episodes.isNotEmpty()) return null
             val season = fallbackSeason ?: return null
@@ -174,15 +173,12 @@ internal object TrackingAnimeIdMapper {
         } catch (_: Exception) {
             emptyList()
         }
-        episodes.firstOrNull { it.animeEpisode == number }?.let {
-            return Mapped(imdb = imdb, isMovie = false, season = it.tvdbSeason, episode = it.tvdbEpisode)
-        }
-        episodes.filter { it.animeEpisode < number }.maxByOrNull { it.animeEpisode }?.let { previous ->
+        resolveAnimeEpisodeMapping(episodes, number)?.let { mapping ->
             return Mapped(
                 imdb = imdb,
                 isMovie = false,
-                season = previous.tvdbSeason,
-                episode = previous.tvdbEpisode + (number - previous.animeEpisode),
+                season = mapping.tvdbSeason,
+                episode = mapping.tvdbEpisode + (number - mapping.animeEpisode),
             )
         }
         if (episodes.isNotEmpty()) return null
@@ -248,3 +244,27 @@ internal object TrackingAnimeIdMapper {
         return AnimeVideo(source, id, episode)
     }
 }
+/**
+ * Returns the first exact anime-episode mapping, or the first mapping for the
+ * greatest earlier episode. A single pass preserves the previous exact-match
+ * and maxByOrNull tie semantics without allocating a filtered list.
+ */
+internal fun resolveAnimeEpisodeMapping(
+    episodes: Collection<SimklIdResolver.EpisodeMapping>,
+    number: Int,
+): SimklIdResolver.EpisodeMapping? {
+    var greatestEarlier: SimklIdResolver.EpisodeMapping? = null
+    for (mapping in episodes) {
+        if (mapping.animeEpisode == number) return mapping
+
+        val currentGreatest = greatestEarlier
+        if (
+            mapping.animeEpisode < number &&
+            (currentGreatest == null || mapping.animeEpisode > currentGreatest.animeEpisode)
+        ) {
+            greatestEarlier = mapping
+        }
+    }
+    return greatestEarlier
+}
+
