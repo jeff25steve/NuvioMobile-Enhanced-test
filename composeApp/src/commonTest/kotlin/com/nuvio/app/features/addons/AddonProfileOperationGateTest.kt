@@ -7,6 +7,20 @@ import kotlin.test.assertTrue
 
 class AddonProfileOperationGateTest {
     @Test
+    fun overlappingAccountCleanupHoldsRemainClosedUntilAllFinish() {
+        val gate = AddonProfileOperationGate(initialProfileId = 1)
+        gate.beginAccountCleanup()
+        gate.beginAccountCleanup()
+
+        gate.endAccountCleanup()
+        assertTrue(gate.current(1) == null)
+
+        gate.endAccountCleanup()
+        assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
+    }
+
+
+    @Test
     fun accountCleanupBlocksNewWorkUntilCleanupFinishes() {
         val gate = AddonProfileOperationGate(initialProfileId = 1)
         val old = assertNotNull(gate.current(1))
