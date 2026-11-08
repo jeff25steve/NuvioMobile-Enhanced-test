@@ -124,23 +124,23 @@ object AddonRepository {
             "profile changed requested=$profileId effective=$effectiveProfileId previous=$currentProfileId",
         )
         profileOperationGate.invalidate(effectiveProfileId) {
+            cancelActiveRefreshes()
             currentProfileId = effectiveProfileId
             initialized = false
             pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
-        cancelActiveRefreshes()
     }
 
     fun clearLocalState() {
         InAppLogger.info("Addons/Repository", "clear local in-memory state")
         profileOperationGate.invalidate(1) {
+            cancelActiveRefreshes()
             currentProfileId = 1
             initialized = false
             pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
-        cancelActiveRefreshes()
         val pushJobs = synchronized(pushJobsLock) {
             pushJobsByProfile.values.toList().also { pushJobsByProfile.clear() }
         }
@@ -670,8 +670,8 @@ object AddonRepository {
         if (requestedProfileId != ProfileRepository.activeProfileId) return null
         val effectiveProfileId = resolveEffectiveProfileId(requestedProfileId)
         profileOperationGate.current(effectiveProfileId)?.let { return it }
-        cancelActiveRefreshes()
         return profileOperationGate.invalidate(effectiveProfileId) {
+            cancelActiveRefreshes()
             currentProfileId = effectiveProfileId
             initialized = false
             pulledFromServer = false
