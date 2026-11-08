@@ -860,3 +860,45 @@ The add-on repository finding was revalidated against the current branch after t
 - This remains a worthwhile follow-up, but a cancellation-helper substitution alone would leave the stale profile publication and storage ownership race. No partial add-on code change was made. The implementation should capture a profile/generation token and apply it consistently before each post-suspension state/storage/push boundary, with a deterministic repository test that suspends an A request, switches to B, then resumes A.
 
 These are explicit verification and scope limits, not evidence that the auth or add-on races have been reproduced at runtime. Account sign-out/deletion cleanup cancellation also remains open as documented in the preceding section.
+
+
+### Server-switch session-import drain — await credential persistence before clearing the old client (8 November 2026)
+
+Further source inspection of the earlier auth/device-link changes found a missing synchronization boundary: checking the flow generation after a Supabase call returns is not enough when Supabase itself imports and persists a session inside that suspend call.
+
+#### Pinned SDK evidence and root cause
+- The app pins `supabase = 3.4.1`, `kotlinx-coroutines = 1.10.2`, Kotlin `2.4.10`, and `atomicfu = 0.32.1` in `gradle/libs.versions.toml`.
+- The version-pinned Supabase Kotlin 3.4.1 `Auth.kt` defines `signInWith`, `signUpWith` and `importSession` as suspend APIs. In the matching 3.4.1 `AuthImpl.kt`, provider sign-in/sign-up invoke a callback that calls `importSession` before the operation returns.
+- The version-pinned 3.4.1 `SessionManager.kt` defines `saveSession` as a suspend function. The SDK's session-import path can therefore suspend while writing the new session to storage before the outer `signInWith`/`signUpWith` coroutine completes.
+- Device-link completion also calls the same suspending `client.auth.importSession`. A generation/attempt check immediately before the call does not serialize that in-progress storage write with `clearSession()` on the server-switch path.
+- The prior implementation cancelled device-link and credential jobs but did not await them before clearing/replacing the old client. A cancelled operation can still be unwinding a suspendable session save; a clear performed concurrently can happen before that save finishes.
+
+#### Implemented synchronization boundary
+- Added `AuthSessionOperationGate`, which atomically registers email sign-in/sign-up jobs, blocks new registrations during a server switch, and returns all currently registered jobs to the switch coordinator. It uses unique operation IDs so concurrent sign-in/sign-up jobs do not invalidate one another.
+- Wrapped `AuthRepository.signInWithEmail` and `signUpWithEmail` in the operation gate. Their existing cancellation-aware result handling and generation checks remain in place. The tracked job stays registered until the entire SDK call (including its internal session import) has unwound.
+- Guarded the synchronous anonymous sign-in storage/state update with `runIfOpen`, preventing a local anonymous session write from racing into the middle of a backend switch.
+- `DeviceLinkAuthRepository.beginServerSwitch()` still closes the device-link gate synchronously before the switch coroutine starts, cancels the active attempt, and now retains its Job. `awaitServerSwitchStopped()` joins that cancelled job before the old client's session is cleared.
+- Added `cancelAndJoinNonCancellable`, which first cancels operations, then waits for their completion in a narrowly scoped `NonCancellable` region. After the drain it calls `ensureActive()` on the original caller context: cleanup is awaited, but a cancelled server-switch request still aborts before proceeding to session clearing/configuration replacement.
+- `ServerConnectionController` ordering is now: synchronously acquire the switch lock and close the device-link gate; await the device-link job; close/cancel/drain registered email credential jobs; clear the old client's local session; save the next configuration; reset the client; reinitialize Auth; release both gates in `finally`.
+
+#### Regression coverage added
+- `AuthSessionOperationGateTest` covers pre-switch job enumeration, independent concurrent operation ownership, blocking new credential operations while switching, reopening after switch completion, protection against an old operation finishing a newer registration, and rejecting synchronous anonymous-session writes while switching.
+- `CancelAndJoinNonCancellableTest` verifies that a cancelled operation's `finally` cleanup completes before the drain returns, and that cancellation of the waiter is propagated only after the target cleanup finishes.
+- Tests were added before their corresponding production gate/helper implementation, but were not run. The test-first failure (RED) and passing (GREEN) states have therefore not been observed and are not claimed.
+
+#### Cross-checks
+- Version-pinned Supabase Kotlin 3.4.1 source: [Auth.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/Auth.kt), [AuthImpl.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/AuthImpl.kt), [SessionManager.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Auth/src/commonMain/kotlin/io/github/jan/supabase/auth/SessionManager.kt), and [SupabaseClient.kt](https://raw.githubusercontent.com/supabase-community/supabase-kt/3.4.1/Supabase/src/commonMain/kotlin/io/github/jan/supabase/SupabaseClient.kt). These exact tag sources were preferred over Context7's Supabase 3.9.0 snippets, which do not match the app's pinned SDK.
+- Kotlin's official [Job.cancelAndJoin API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/cancel-and-join.html) states that the operation cancels a Job and suspends until it is complete; the call itself is cancellable. The helper shields only the wait with `NonCancellable`, then explicitly re-checks the caller's cancellation state.
+- Kotlin's official [cancellation and timeout guide](https://kotlinlang.org/docs/cancellation-and-timeouts.html) describes cooperative cancellation and the need to preserve caller cancellation. Context7's kotlinx.coroutines API material independently agrees with the `cancelAndJoin` contract; Context7's Supabase catalogue only offered 2.6.0 and 3.9.0, so it was not used for the pinned SDK semantics.
+- Searches of GitHub issues/discussions and developer discussions surfaced general Supabase session persistence and coroutine cancellation reports, but no stronger application-specific reference than the pinned SDK source. Community findings were treated as supporting context, not proof. No directly relevant Reddit thread with verifiable implementation evidence was found.
+
+#### Rejected approaches and remaining limitations
+- A post-call generation check alone is insufficient because Supabase's sign-in/sign-up call performs `importSession` internally before it returns; the session storage write may suspend before the caller can check its generation.
+- Cancelling a device-link job without joining it is insufficient because the same job may be suspended in `importSession`/`SessionManager.saveSession` while the switch tries to clear the old client's session.
+- Wrapping the whole sign-in, device-link or remote account-deletion HTTP request in `NonCancellable` was rejected. The network request must remain cancellable; only the bounded drain needed before a destructive local session replacement is shielded.
+- The full backend-A/backend-B device-link integration test is still absent. The new tests cover the operation gate and drain helper, not a fake Supabase client whose in-flight `saveSession` resumes during a switch. The current object repositories do not expose a test-injection seam. Add that integration test only with a narrow seam that preserves production client ownership.
+- Mandatory local account cleanup after sign-out/account deletion remains a separate unresolved problem. This batch does not change `deleteAccount`, `signOut` or `LocalAccountDataCleaner`; deletion's remote request ambiguity and local cleanup contract need separate tests. Add-on and full plugin profile-generation races also remain open.
+
+Files changed in this batch: `AuthRepository.kt`, new `AuthSessionOperationGate.kt`, `DeviceLinkAuthRepository.kt`, new `CancelAndJoinNonCancellable.kt`, `ServerConnectionController.kt`, new `AuthSessionOperationGateTest.kt`, and new `CancelAndJoinNonCancellableTest.kt`.
+
+Verification limits: remote source and all changed call sites were re-fetched; the complete diff against the previous reviewed head contains only these seven implementation/test files plus this note. Tests were authored but not executed. No Gradle test or compile task, Android build, iOS/Xcode build, CI workflow or build-triggering process was started. The current code is not compiler- or runtime-verified.
