@@ -441,6 +441,7 @@ internal fun PlayerControlsShell(
                             releaseInfo = releaseInfo,
                             metrics = metrics,
                             badges = badges,
+                            animeEnhancement = playbackSnapshot.animeEnhancement,
                         )
                     }
                     Row(
