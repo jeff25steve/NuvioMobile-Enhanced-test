@@ -9,6 +9,10 @@ expect object PluginRepository {
 
     fun onProfileChanged(profileId: Int)
 
+    fun beginAccountCleanup()
+
+    fun endAccountCleanup()
+
     fun clearLocalState()
 
     suspend fun pullFromServer(profileId: Int)
