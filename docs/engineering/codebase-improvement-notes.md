@@ -782,3 +782,60 @@ Rejected alternatives:
 Source files reviewed: `PartyRepository.kt`, `PartyChat.kt`, `PartyChannel.kt`, `PartyApi.kt`, `PartyModels.kt`, and the existing Party sync/chat/stream tests. New regression test: `PartySessionOwnershipTest.kt`.
 
 Verification limits: complete remote diffs and all snapshot/chat receive call sites were re-fetched after the change. The branch diff was limited to the party model helper, party repository, party chat repository and the new common test, plus this cumulative note. Tests were authored but not executed. No Gradle task, Kotlin compilation, Android/iOS build, Xcode task, CI workflow or build-triggering process was started. Runtime reproduction and compiler verification remain outstanding.
+
+
+### Authentication session ownership and device-link backend binding (8 November 2026)
+
+The previous static auth findings were implemented in a focused shared-code batch after adding common-test coverage for the new ownership gates.
+
+#### Ordinary suspend auth cancellation
+
+- `AuthRepository.validateRemoteSession` now uses the existing `runCatchingUnlessCancelled` helper instead of standard `runCatching`. A cancelled session validation can no longer be converted into the existing "keep cached authentication" fallback.
+- `signUpWithEmail` and `signInWithEmail` also use the cancellation-aware helper. Caller cancellation is propagated rather than being reported as an ordinary authentication error.
+- Both email operations capture the current `SupabaseClient` before the request. After the SDK operation returns, the coroutine checks cancellation and confirms the captured auth-session generation is still current before setting `trustNextSessionWithoutValidation`. A late operation from a backend being replaced cannot mark the next backend's session as trusted.
+- `AuthSessionGeneration` serializes generation changes with the state-publication action. The session-status collector captures both its generation and Supabase client at initialization, and all status publication goes through the generation guard. A late validation from an invalidated collector cannot republish an authenticated user after a server switch.
+- `prepareForServerSwitch` invalidates the old generation before clearing the session and also resets the one-shot trusted-session flag. `reinitialize` invalidates the previous generation before installing a new collector.
+- Invalid-session cleanup receives the captured client's clear-session operation, rather than resolving the global provider again after a suspend point. It checks generation ownership between its remote clear and local cleanup stages, so an old collector does not clear the newly selected backend's session or start a stale local wipe after invalidation.
+
+#### Device-link backend ownership
+
+- `DeviceLinkAuthRepository` now captures the active `SupabaseClient` once and passes that same instance through device-code creation, every poll, token exchange, user retrieval and `importSession`. It no longer resolves the global provider dynamically at each stage.
+- The attempt checks both coroutine cancellation and its generation after every suspendable backend boundary and immediately before session import. A late response from an old attempt cannot proceed into another request or publish a stale UI state after cancellation.
+- `DeviceLinkFlowGate` allows only one active attempt, invalidates pending work on cancel, and blocks new attempts for the full duration of a server switch. Device-link state publication and job registration are serialized with the lifecycle lock.
+- `ServerConnectionController` begins the device-link block synchronously before clearing auth or saving the new configuration, and releases it in `finally` on success, ordinary failure or cancellation. The controller now has a synchronous switch-entry lock as well, so two rapid switch actions cannot both pass the previous asynchronous `isSwitching` check.
+- On a session-clear/save failure, the auth collector is reinitialized against the unchanged server. Cancellation/restart failures also restore a collector for whichever server configuration is current before the switch gate is released.
+
+The server-switch behavior is intentional: starting a server switch cancels any active device-link attempt even when the later session-clear or configuration-save step fails. The flow returns to Idle and the user may start it again after the switch operation ends. This avoids carrying a device code across a backend lifecycle boundary.
+
+#### Regression coverage
+
+Added:
+- `AuthSessionGenerationTest`: a newer collector generation invalidates the previous one, and explicit invalidation prevents stale publication.
+- `DeviceLinkFlowGateTest`: only one attempt can be active; cancellation invalidates pending work; server switching blocks new attempts; and finishing an old attempt cannot release a newer attempt.
+
+These tests are in `commonTest`, matching the shared implementation scope. They were authored before the production changes. They were not executed because the user has not authorised Gradle test/compile tasks. No runtime reproduction is claimed.
+
+#### Cross-checks and compatibility
+
+- The existing project helper `RunCatchingUnlessCancelled.kt` and `RunCatchingUnlessCancelledTest.kt` were reused rather than introducing another result wrapper.
+- Kotlin's official [cancellation and timeouts guide](https://kotlinlang.org/docs/cancellation-and-timeouts.html) says cancellation is cooperative and caught `CancellationException` should be rethrown.
+- The official [ensureActive API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/ensure-active.html) supports the explicit post-SDK cancellation checks where a suspending implementation may have returned after the attempt was invalidated.
+- kotlinx.coroutines [issue #1814](https://github.com/Kotlin/kotlinx.coroutines/issues/1814) documents why the standard library's `runCatching` can swallow cancellation in coroutine code.
+- The repository pins kotlinx.coroutines 1.10.2, Kotlin 2.4.10 and Supabase Kotlin 3.4.1. The new client type `io.github.jan.supabase.SupabaseClient` is already used in `SupabaseProvider.kt`; no SDK API, dependency version, Ktor engine, platform source set or build configuration was changed. Supabase Kotlin's [3.4.1 release record](https://github.com/supabase-community/supabase-kt/releases/tag/3.4.1) was checked for version context.
+- Exa and community searches did not produce a more authoritative device-code client-switch implementation than the codebase's own client lifecycle plus Kotlin cancellation guidance. Reddit did not provide directly relevant, source-verifiable evidence and is not claimed as validation.
+
+#### Rejected approaches and retained boundaries
+
+- Do not blanket-convert `signOut`, `deleteAccount`, `prepareForServerSwitch` or every auth `runCatching` to the cancellation-aware helper. Those paths intentionally attempt local state cleanup before reporting remote cancellation/failure, and account deletion needs its own explicit post-commit cleanup semantics.
+- Do not resolve `SupabaseProvider.client` again during polling or exchange. It can return a different backend client after reset; the original client is the owner of the device code and returned session.
+- Do not rely only on the Auth screen's server-URL-keyed `LaunchedEffect`; it observes the server switch after that controller has already changed the backend.
+- No new retry loop, delay, dependency or UI state was introduced.
+
+Source files changed: `AuthRepository.kt`, `AuthSessionGeneration.kt`, `DeviceLinkAuthRepository.kt`, `DeviceLinkFlowGate.kt`, and `ServerConnectionController.kt`. Added tests: `AuthSessionGenerationTest.kt` and `DeviceLinkFlowGateTest.kt`.
+
+Still open from the previous audit:
+- Account sign-out/deletion can still be interrupted by composition cancellation during mandatory local cleanup. In particular, `deleteAccount` still needs an explicit post-success cleanup sequence that preserves caller cancellation without skipping local invalidation. It was deliberately not folded into this batch.
+- Add-on and full-plugin cancellation/profile-generation races remain documented and unchanged.
+- In-app log-buffer StateFlow side-effect/allocation observations remain candidates pending consumer confirmation and measurement.
+
+Verification limits: the full changed auth/device-link/controller files, helper classes, tests and dependency pins were re-fetched and statically reviewed. No Gradle test task, compilation, Android build, iOS/Xcode build, CI workflow or build-triggering process was started. The code has not been compiler- or runtime-verified. The complete remote diff and final branch head are checked separately after this note is committed.
