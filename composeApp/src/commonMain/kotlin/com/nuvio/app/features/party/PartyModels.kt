@@ -247,3 +247,19 @@ data class PartyNotice(
     val positionMs: Long,
     val rate: Float,
 )
+
+/**
+ * Confirms that an asynchronous watch-party result still belongs to the active session.
+ * A missing response party ID is allowed for server error snapshots, but the captured
+ * request owner must still match the current local session.
+ */
+internal fun isPartySessionCurrent(expectedPartyId: String, currentPartyId: String?): Boolean =
+    currentPartyId == expectedPartyId
+
+internal fun isPartySnapshotCurrent(
+    expectedPartyId: String,
+    currentPartyId: String?,
+    responsePartyId: String?,
+): Boolean =
+    isPartySessionCurrent(expectedPartyId, currentPartyId) &&
+        (responsePartyId == null || responsePartyId == expectedPartyId)
