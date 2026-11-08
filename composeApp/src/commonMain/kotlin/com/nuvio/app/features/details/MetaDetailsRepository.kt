@@ -842,7 +842,11 @@ internal fun findEmbeddedStreamsForMeta(
     for (video in meta.videos) {
         if (video.streams.isEmpty()) continue
 
-        if (firstVideoWithStreams == null) firstVideoWithStreams = video else hasMultipleVideosWithStreams = true
+        if (firstVideoWithStreams == null) {
+            firstVideoWithStreams = video
+        } else {
+            hasMultipleVideosWithStreams = true
+        }
 
         // Keep the existing lookup priority: exact ID, episode coordinates, then prefix.
         if (video.id == videoId) return video.streams
