@@ -1,18 +1,22 @@
 package com.nuvio.app.features.plugins
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.features.addons.httpGetText
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.tmdb.TmdbService
 import com.nuvio.app.features.plugins.runtime.PluginRuntime
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.rpc
 import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -79,58 +83,82 @@ actual object PluginRepository {
     private var currentProfileId = 1
     private val activeRefreshJobs = mutableMapOf<String, Job>()
     private val activeRefreshJobsLock = SynchronizedObject()
+    private val profileOperationGate = PluginProfileOperationGate()
+    private val pushJobsLock = SynchronizedObject()
+    private val pushJobsByProfile = mutableMapOf<Int, Job>()
     private val persistenceGeneration = atomic(0L)
     private val persistenceRevision = atomic(0L)
     private val persistenceLock = SynchronizedObject()
     private val persistedRevisionByProfile = mutableMapOf<Int, Long>()
 
     actual fun initialize() {
-        val effectiveProfileId = resolveEffectiveProfileId(ProfileRepository.activeProfileId)
-        val shouldRefreshStoredRepos = !initialized || currentProfileId != effectiveProfileId
-        ensureStateLoadedForProfile(effectiveProfileId)
-        if (!shouldRefreshStoredRepos) return
+        val operation = activateProfile(ProfileRepository.activeProfileId) ?: return
+        val shouldRefreshStoredRepos = readIfCurrent(operation) {
+            !initialized || currentProfileId != operation.profileId
+        } ?: return
+        ensureStateLoadedForProfile(operation.profileId, operation)
+        if (!shouldRefreshStoredRepos || !isCurrentOperation(operation)) return
 
-        val state = _uiState.value
+        val currentState = readIfCurrent(operation) { _uiState.value } ?: return
         val nowEpochMs = currentEpochMillis()
-        state.repositories.filter { repo ->
-            shouldRefreshRepository(repo, state.scrapers, nowEpochMs)
-        }.forEach { repo ->
-            refreshRepositoryInternal(repo.manifestUrl, pushAfterRefresh = false, ensureInitialized = false)
+        currentState.repositories.filter { repository ->
+            shouldRefreshRepository(repository, currentState.scrapers, nowEpochMs)
+        }.forEach { repository ->
+            if (!isCurrentOperation(operation)) return@forEach
+            refreshRepositoryInternal(
+                repository.manifestUrl,
+                pushAfterRefresh = false,
+                ensureInitialized = false,
+                operation = operation,
+            )
         }
     }
 
     actual fun onProfileChanged(profileId: Int) {
         val effectiveProfileId = resolveEffectiveProfileId(profileId)
-        if (effectiveProfileId == currentProfileId && initialized) return
+        if (profileOperationGate.current(effectiveProfileId) != null && initialized) return
 
-        cancelActiveRefreshes()
-        currentProfileId = effectiveProfileId
-        initialized = false
-        _uiState.value = PluginsUiState()
+        profileOperationGate.invalidate(effectiveProfileId) {
+            cancelActiveRefreshes()
+            cancelPushJobs()
+            currentProfileId = effectiveProfileId
+            initialized = false
+            _uiState.value = PluginsUiState()
+        }
     }
 
     actual fun clearLocalState() {
-        cancelActiveRefreshes()
-        persistenceGeneration.incrementAndGet()
-        currentProfileId = 1
-        initialized = false
-        _uiState.value = PluginsUiState()
+        profileOperationGate.invalidate(1) {
+            cancelActiveRefreshes()
+            cancelPushJobs()
+            persistenceGeneration.incrementAndGet()
+            synchronized(persistenceLock) {
+                persistedRevisionByProfile.clear()
+            }
+            currentProfileId = 1
+            initialized = false
+            _uiState.value = PluginsUiState()
+        }
     }
 
     actual suspend fun pullFromServer(profileId: Int) {
-        val effectiveProfileId = resolveEffectiveProfileId(profileId)
-        ensureStateLoadedForProfile(effectiveProfileId)
-        runCatching {
-            val rows = SupabaseProvider.client.postgrest
+        val operation = activateProfile(profileId) ?: return
+        ensureStateLoadedForProfile(operation.profileId, operation)
+        val client = SupabaseProvider.client
+
+        runCatchingUnlessCancelled {
+            val rows = client.postgrest
                 .from("plugins")
                 .select {
-                    filter { eq("profile_id", currentProfileId) }
+                    filter { eq("profile_id", operation.profileId) }
                     order("sort_order", Order.ASCENDING)
                 }
                 .decodeList<PluginRow>()
+            if (!isCurrentOperation(operation)) return@runCatchingUnlessCancelled
 
             val urls = dedupeManifestUrls(rows.map { it.url })
-            val existingState = _uiState.value
+            val existingState = readIfCurrent(operation) { _uiState.value }
+                ?: return@runCatchingUnlessCancelled
             val existingReposByUrl = existingState.repositories.associateBy { it.manifestUrl }
             val nowEpochMs = currentEpochMillis()
             val nextRepos = urls.map { url ->
@@ -157,19 +185,28 @@ actual object PluginRepository {
                 urls.contains(scraper.repositoryUrl)
             }
 
-            _uiState.value = PluginsUiState(
-                pluginsEnabled = _uiState.value.pluginsEnabled,
-                groupStreamsByRepository = _uiState.value.groupStreamsByRepository,
-                repositories = nextRepos,
-                scrapers = nextScrapers,
-            )
-            persist()
+            val applied = runIfCurrent(operation) {
+                _uiState.value = PluginsUiState(
+                    pluginsEnabled = existingState.pluginsEnabled,
+                    groupStreamsByRepository = existingState.groupStreamsByRepository,
+                    repositories = nextRepos,
+                    scrapers = nextScrapers,
+                )
+                initialized = true
+                persist(operation)
+            }
+            if (!applied) return@runCatchingUnlessCancelled
 
             nextRepos.filter(PluginRepositoryItem::isRefreshing).forEach { repository ->
-                refreshRepository(repository.manifestUrl, pushAfterRefresh = false)
+                if (!isCurrentOperation(operation)) return@forEach
+                refreshRepositoryInternal(
+                    repository.manifestUrl,
+                    pushAfterRefresh = false,
+                    ensureInitialized = false,
+                    operation = operation,
+                    client = client,
+                )
             }
-
-            initialized = true
         }.onFailure { error ->
             log.e(error) { "pullFromServer failed" }
         }
@@ -177,31 +214,45 @@ actual object PluginRepository {
 
     actual suspend fun addRepository(rawUrl: String): AddPluginRepositoryResult {
         initialize()
+        val operation = currentProfileOperation()
+            ?: throw CancellationException("Plugin profile changed before repository installation started")
+        val client = SupabaseProvider.client
         val manifestUrl = try {
             normalizeManifestUrl(rawUrl)
         } catch (error: IllegalArgumentException) {
             return AddPluginRepositoryResult.Error(error.message ?: getString(Res.string.plugins_error_enter_valid_url))
         }
 
-        if (_uiState.value.repositories.any { it.manifestUrl == manifestUrl }) {
+        val duplicate = readIfCurrent(operation) {
+            _uiState.value.repositories.any { it.manifestUrl == manifestUrl }
+        } ?: throw CancellationException("Plugin profile changed before repository installation started")
+        if (duplicate) {
             return AddPluginRepositoryResult.Error(getString(Res.string.plugins_repository_already_installed))
         }
 
         return try {
-            val previousById = _uiState.value.scrapers.associateBy { it.id }
-            val (repo, scrapers) = fetchRepositoryData(
+            val previousById = readIfCurrent(operation) {
+                _uiState.value.scrapers.associateBy { it.id }
+            } ?: throw CancellationException("Plugin profile changed before repository fetch started")
+            val (repository, scrapers) = fetchRepositoryData(
                 manifestUrl = manifestUrl,
                 previousScrapers = previousById,
+                operation = operation,
             )
-            _uiState.update { state ->
-                state.copy(
-                    repositories = state.repositories + repo,
-                    scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl } + scrapers,
-                )
+            val applied = runIfCurrent(operation) {
+                _uiState.update { state ->
+                    state.copy(
+                        repositories = state.repositories + repository,
+                        scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl } + scrapers,
+                    )
+                }
+                persist(operation)
             }
-            persist()
-            pushToServer()
-            AddPluginRepositoryResult.Success(repo)
+            if (!applied) throw CancellationException("Plugin profile changed while installing repository")
+            pushToServer(operation, client)
+            AddPluginRepositoryResult.Success(repository)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             AddPluginRepositoryResult.Error(error.message ?: getString(Res.string.plugins_repository_install_failed))
         }
@@ -209,20 +260,34 @@ actual object PluginRepository {
 
     actual fun removeRepository(manifestUrl: String) {
         initialize()
-        _uiState.update { state ->
-            state.copy(
-                repositories = state.repositories.filterNot { it.manifestUrl == manifestUrl },
-                scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl },
-            )
+        val operation = currentProfileOperation() ?: return
+        val client = SupabaseProvider.client
+        val applied = runIfCurrent(operation) {
+            _uiState.update { state ->
+                state.copy(
+                    repositories = state.repositories.filterNot { it.manifestUrl == manifestUrl },
+                    scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl },
+                )
+            }
+            persist(operation)
         }
-        persist()
-        pushToServer()
+        if (applied) pushToServer(operation, client)
     }
 
     actual fun refreshAll() {
         initialize()
-        _uiState.value.repositories.forEach { repo ->
-            refreshRepositoryInternal(repo.manifestUrl, pushAfterRefresh = false, ensureInitialized = false)
+        val operation = currentProfileOperation() ?: return
+        val repositories = readIfCurrent(operation) { _uiState.value.repositories } ?: return
+        val client = SupabaseProvider.client
+        repositories.forEach { repository ->
+            if (!isCurrentOperation(operation)) return@forEach
+            refreshRepositoryInternal(
+                repository.manifestUrl,
+                pushAfterRefresh = false,
+                ensureInitialized = false,
+                operation = operation,
+                client = client,
+            )
         }
     }
 
@@ -234,91 +299,114 @@ actual object PluginRepository {
         manifestUrl: String,
         pushAfterRefresh: Boolean,
         ensureInitialized: Boolean,
+        operation: PluginProfileOperation? = null,
+        client: SupabaseClient? = null,
     ) {
-        if (ensureInitialized) {
-            initialize()
-        }
-        val existingJob = synchronized(activeRefreshJobsLock) { activeRefreshJobs[manifestUrl] }
-        if (existingJob?.isActive == true) return
-
-        markRefreshing(manifestUrl)
+        if (ensureInitialized) initialize()
+        val activeOperation = operation ?: currentProfileOperation() ?: return
+        if (!isCurrentOperation(activeOperation)) return
+        val activeClient = client ?: SupabaseProvider.client
         var refreshJob: Job? = null
-        refreshJob = scope.launch {
-            try {
-                val result = runCatching {
-                    val previous = _uiState.value.scrapers.associateBy { it.id }
-                    fetchRepositoryData(manifestUrl, previous)
-                }
-
-                _uiState.update { state ->
-                    if (state.repositories.none { it.manifestUrl == manifestUrl }) return@update state
-                    result.fold(
-                        onSuccess = { (repo, scrapers) ->
-                            val updatedRepos = state.repositories.map { existing ->
-                                if (existing.manifestUrl == manifestUrl) repo else existing
-                            }
-                            state.copy(
-                                repositories = updatedRepos,
-                                scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl } + scrapers,
-                            )
-                        },
-                        onFailure = { error ->
-                            state.copy(
-                                repositories = state.repositories.map { existing ->
-                                    if (existing.manifestUrl == manifestUrl) {
-                                        existing.copy(
-                                            isRefreshing = false,
-                                            errorMessage = error.message ?: runBlocking { getString(Res.string.plugins_repository_refresh_failed) },
+        val scheduled = runIfCurrent(activeOperation) {
+            synchronized(activeRefreshJobsLock) {
+                if (activeRefreshJobs[manifestUrl]?.isActive == true) return@synchronized
+                markRefreshing(manifestUrl)
+                refreshJob = scope.launch(start = CoroutineStart.LAZY) {
+                    try {
+                        val previous = readIfCurrent(activeOperation) {
+                            _uiState.value.scrapers.associateBy { it.id }
+                        } ?: return@launch
+                        val result = runCatchingUnlessCancelled {
+                            fetchRepositoryData(manifestUrl, previous, activeOperation)
+                        }
+                        val applied = runIfCurrent(activeOperation) {
+                            result.fold(
+                                onSuccess = { (repository, scrapers) ->
+                                    _uiState.update { state ->
+                                        if (state.repositories.none { it.manifestUrl == manifestUrl }) {
+                                            state
+                                        } else {
+                                            state.copy(
+                                                repositories = state.repositories.map { existing ->
+                                                    if (existing.manifestUrl == manifestUrl) repository else existing
+                                                },
+                                                scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl } + scrapers,
+                                            )
+                                        }
+                                    }
+                                },
+                                onFailure = { error ->
+                                    _uiState.update { state ->
+                                        state.copy(
+                                            repositories = state.repositories.map { existing ->
+                                                if (existing.manifestUrl == manifestUrl) {
+                                                    existing.copy(
+                                                        isRefreshing = false,
+                                                        errorMessage = error.message
+                                                            ?: runBlocking { getString(Res.string.plugins_repository_refresh_failed) },
+                                                    )
+                                                } else {
+                                                    existing
+                                                }
+                                            },
                                         )
-                                    } else {
-                                        existing
                                     }
                                 },
                             )
-                        },
-                    )
-                }
-                persist()
-                if (pushAfterRefresh) {
-                    pushToServer()
-                }
-            } finally {
-                synchronized(activeRefreshJobsLock) {
-                    if (activeRefreshJobs[manifestUrl] === refreshJob) {
-                        activeRefreshJobs.remove(manifestUrl)
+                            persist(activeOperation)
+                        }
+                        if (applied && pushAfterRefresh && isCurrentOperation(activeOperation)) {
+                            pushToServer(activeOperation, activeClient)
+                        }
+                    } finally {
+                        synchronized(activeRefreshJobsLock) {
+                            if (activeRefreshJobs[manifestUrl] === refreshJob) {
+                                activeRefreshJobs.remove(manifestUrl)
+                            }
+                        }
                     }
                 }
+                activeRefreshJobs[manifestUrl] = refreshJob!!
             }
         }
-        synchronized(activeRefreshJobsLock) { activeRefreshJobs[manifestUrl] = refreshJob }
+        if (scheduled) refreshJob?.start()
     }
 
     actual fun toggleScraper(scraperId: String, enabled: Boolean) {
         initialize()
-        _uiState.update { state ->
-            state.copy(
-                scrapers = state.scrapers.map { scraper ->
-                    if (scraper.id == scraperId) {
-                        scraper.copy(enabled = if (scraper.manifestEnabled) enabled else false)
-                    } else {
-                        scraper
-                    }
-                },
-            )
+        val operation = currentProfileOperation() ?: return
+        runIfCurrent(operation) {
+            _uiState.update { state ->
+                state.copy(
+                    scrapers = state.scrapers.map { scraper ->
+                        if (scraper.id == scraperId) {
+                            scraper.copy(enabled = if (scraper.manifestEnabled) enabled else false)
+                        } else {
+                            scraper
+                        }
+                    },
+                )
+            }
+            persist(operation)
         }
-        persist()
     }
 
     actual fun setPluginsEnabled(enabled: Boolean) {
         initialize()
-        _uiState.update { it.copy(pluginsEnabled = enabled) }
-        persist()
+        val operation = currentProfileOperation() ?: return
+        runIfCurrent(operation) {
+            _uiState.update { it.copy(pluginsEnabled = enabled) }
+            persist(operation)
+        }
     }
 
     actual fun setGroupStreamsByRepository(enabled: Boolean) {
         initialize()
-        _uiState.update { it.copy(groupStreamsByRepository = enabled) }
-        persist()
+        val operation = currentProfileOperation() ?: return
+        runIfCurrent(operation) {
+            _uiState.update { it.copy(groupStreamsByRepository = enabled) }
+            persist(operation)
+        }
     }
 
     actual fun setLocalPluginSearchPaused(paused: Boolean) {
@@ -379,7 +467,7 @@ actual object PluginRepository {
             mediaType = mediaType,
         )
 
-        return runCatching {
+        return runCatchingUnlessCancelled {
             PluginRuntime.executePlugin(
                 code = scraper.code,
                 tmdbId = resolvedTmdbId,
