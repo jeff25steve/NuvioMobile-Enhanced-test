@@ -115,7 +115,6 @@ internal suspend fun transferAndroidDownload(
                             output.fd.sync()
                         }
                     }
-                    ensureActive()
                     if (expectedRangeBytes != null && responseBytesRead != expectedRangeBytes) {
                         try {
                             sink.truncate(startingBytes)
@@ -126,10 +125,12 @@ internal suspend fun transferAndroidDownload(
                             )
                         }
                         onProgress(startingBytes, totalBytes)
+                        ensureActive()
                         throw InvalidDownloadRangeException(
                             "Server response length does not match Content-Range",
                         )
                     }
+                    ensureActive()
                     if (totalBytes != null && downloaded != totalBytes) {
                         throw IOException("Download ended before all bytes were received")
                     }
