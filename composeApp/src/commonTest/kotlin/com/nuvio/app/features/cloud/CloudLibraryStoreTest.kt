@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CloudLibraryStoreTest {
@@ -108,7 +109,12 @@ class CloudLibraryStoreTest {
     @Test
     fun `playback target lookup falls back to single playable file`() {
         val provider = cloudProvider(id = "torbox", name = "TorBox")
-        val item = cloudItem(provider, "29773238")
+        val item = cloudItem(provider, "29773238").copy(
+            files = listOf(
+                CloudLibraryFile(id = "ignored", name = "ignored.txt", playable = false),
+                CloudLibraryFile(id = "only-playable", name = "only-playable.mkv"),
+            ),
+        )
         val state = CloudLibraryUiState(
             isLoaded = true,
             providers = listOf(
@@ -128,6 +134,84 @@ class CloudLibraryStoreTest {
 
         assertEquals(item, target.item)
         assertEquals(item.playableFiles.single(), target.file)
+    }
+
+    @Test
+    fun `playback target lookup checks later duplicate content items before ambiguous fallback`() {
+        val provider = cloudProvider(id = "torbox", name = "TorBox")
+        val firstItem = cloudItem(provider, "duplicate")
+        val laterItem = firstItem.copy(
+            files = listOf(CloudLibraryFile(id = "8", name = "later.mkv")),
+        )
+        val state = CloudLibraryUiState(
+            isLoaded = true,
+            providers = listOf(
+                CloudLibraryProviderState(
+                    provider = provider,
+                    items = listOf(firstItem, laterItem),
+                ),
+            ),
+        )
+
+        val target = assertNotNull(
+            state.findPlaybackTargetForProgress(
+                contentId = firstItem.stableKey,
+                videoId = laterItem.playbackVideoId(laterItem.files.single()),
+            ),
+        )
+
+        assertEquals(laterItem, target.item)
+        assertEquals("8", target.file.id)
+    }
+
+    @Test
+    fun `playback target lookup does not use single file fallback for duplicate items`() {
+        val provider = cloudProvider(id = "torbox", name = "TorBox")
+        val firstItem = cloudItem(provider, "duplicate")
+        val secondItem = firstItem.copy(name = "different display name")
+        val state = CloudLibraryUiState(
+            isLoaded = true,
+            providers = listOf(
+                CloudLibraryProviderState(
+                    provider = provider,
+                    items = listOf(firstItem, secondItem),
+                ),
+            ),
+        )
+
+        assertNull(
+            state.findPlaybackTargetForProgress(
+                contentId = firstItem.stableKey,
+                videoId = "unmatched-video-id",
+            ),
+        )
+    }
+
+    @Test
+    fun `playback target lookup does not use fallback when the unique item has multiple playable files`() {
+        val provider = cloudProvider(id = "torbox", name = "TorBox")
+        val item = cloudItem(provider, "multiple").copy(
+            files = listOf(
+                CloudLibraryFile(id = "1", name = "one.mkv"),
+                CloudLibraryFile(id = "2", name = "two.mkv"),
+            ),
+        )
+        val state = CloudLibraryUiState(
+            isLoaded = true,
+            providers = listOf(
+                CloudLibraryProviderState(
+                    provider = provider,
+                    items = listOf(item),
+                ),
+            ),
+        )
+
+        assertNull(
+            state.findPlaybackTargetForProgress(
+                contentId = item.stableKey,
+                videoId = "unmatched-video-id",
+            ),
+        )
     }
 
     @Test

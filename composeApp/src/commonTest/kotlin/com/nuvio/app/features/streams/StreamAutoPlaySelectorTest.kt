@@ -8,6 +8,120 @@ import kotlin.test.assertTrue
 
 class StreamAutoPlaySelectorTest {
 
+    @Test
+    fun `orders preferred groups before direct addon and plugin groups while preserving ties`() {
+        val groups = listOf(
+            group("plugin-first", "PluginFirst"),
+            group("addon-a-first", "AddonA"),
+            group("preferred-addon", "AddonA"),
+            group("debrid-id", "Debrid", addonId = "debrid:provider"),
+            group("addon-b", "AddonB"),
+            group(
+                "direct-addon",
+                "DirectAddon",
+                addonId = "addon:DirectAddon",
+                streams = listOf(stream(addonName = "DirectAddon", directDebrid = true)),
+            ),
+            group("preferred-plugin", "PluginPreferred"),
+            group("plugin-second", "PluginSecond"),
+            group("addon-a-second", "AddonA"),
+        )
+
+        val ordered = StreamAutoPlaySelector.orderAddonStreams(
+            groups = groups,
+            installedOrder = listOf("AddonB", "AddonA", "AddonB", "DirectAddon"),
+            preferredGroupIds = setOf("preferred-addon", "preferred-plugin"),
+        )
+
+        assertEquals(
+            listOf(
+                groups[2],
+                groups[6],
+                groups[3],
+                groups[5],
+                groups[4],
+                groups[1],
+                groups[8],
+                groups[0],
+                groups[7],
+            ),
+            ordered,
+        )
+    }
+
+    @Test
+    fun `without installed order keeps non-debrid group order`() {
+        val groups = listOf(
+            group("plugin-first", "PluginFirst"),
+            group("debrid-first", "Debrid", addonId = "debrid:first"),
+            group("addon", "AddonA"),
+            group(
+                "direct-addon",
+                "DirectAddon",
+                addonId = "addon:DirectAddon",
+                streams = listOf(stream(addonName = "DirectAddon", directDebrid = true)),
+            ),
+            group("plugin-second", "PluginSecond"),
+        )
+
+        val ordered = StreamAutoPlaySelector.orderAddonStreams(
+            groups = groups,
+            installedOrder = emptyList(),
+        )
+
+        assertEquals(
+            listOf("debrid:first", "addon:DirectAddon", "plugin-first", "AddonA", "plugin-second"),
+            ordered.map { it.addonId },
+        )
+    }
+
+    @Test
+    fun `installed addon source respects selected addon filters`() {
+        val excluded = stream(addonName = "AddonA", url = "https://example.com/excluded.m3u8")
+        val selected = stream(addonName = "AddonB", url = "https://example.com/selected.m3u8")
+        val plugin = stream(addonName = "Plugin", url = "https://example.com/plugin.m3u8")
+
+        val result = StreamAutoPlaySelector.selectAutoPlayStream(
+            streams = listOf(excluded, plugin, selected),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.INSTALLED_ADDONS_ONLY,
+            installedAddonNames = setOf("AddonA", "AddonB"),
+            selectedAddons = setOf("AddonB"),
+            selectedPlugins = emptySet(),
+        )
+
+        assertEquals(selected, result)
+    }
+
+    @Test
+    fun `binge group preference stays first and excludes structurally equal duplicates`() {
+        val preferred = stream(
+            addonName = "AddonA",
+            url = "https://example.com/preferred.m3u8",
+            bingeGroup = "same-group",
+        )
+        val duplicate = preferred.copy()
+        val later = stream(
+            addonName = "AddonB",
+            url = "https://example.com/later.m3u8",
+        )
+
+        val evaluation = StreamAutoPlaySelector.evaluateAutoPlayStream(
+            streams = listOf(preferred, duplicate, later),
+            mode = StreamAutoPlayMode.FIRST_STREAM,
+            regexPattern = "",
+            source = StreamAutoPlaySource.ALL_SOURCES,
+            installedAddonNames = setOf("AddonA", "AddonB"),
+            selectedAddons = emptySet(),
+            selectedPlugins = emptySet(),
+            preferredBingeGroup = "same-group",
+            preferBingeGroupInSelection = true,
+        )
+
+        assertEquals(preferred, evaluation.stream)
+        assertEquals(listOf(preferred, later), evaluation.readyStreams)
+    }
 
     @Test
     fun `bingeGroup-first selects matching stream before first stream mode`() {
@@ -291,6 +405,17 @@ class StreamAutoPlaySelectorTest {
 
         assertEquals(stream, selected)
     }
+
+    private fun group(
+        id: String,
+        addonName: String,
+        addonId: String = id,
+        streams: List<StreamItem> = emptyList(),
+    ): AddonStreamGroup = AddonStreamGroup(
+        addonName = addonName,
+        addonId = addonId,
+        streams = streams,
+    )
 
     private fun stream(
         addonName: String,

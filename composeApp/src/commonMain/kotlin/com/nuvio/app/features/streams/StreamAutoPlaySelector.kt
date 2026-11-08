@@ -10,31 +10,51 @@ object StreamAutoPlaySelector {
         preferredGroupIds: Set<String> = emptySet(),
     ): List<AddonStreamGroup> {
         if (groups.isEmpty()) return groups
-        if (preferredGroupIds.isNotEmpty()) {
-            val (preferred, rest) = groups.partition { it.addonId in preferredGroupIds }
-            return preferred + orderAddonStreams(rest, installedOrder)
-        }
 
-        val addonRankByName = HashMap<String, Int>(installedOrder.size)
-        installedOrder.forEachIndexed { index, addonName ->
-            if (addonName !in addonRankByName) {
-                addonRankByName[addonName] = index
+        val addonRankByName: Map<String, Int> = if (installedOrder.isEmpty()) {
+            emptyMap()
+        } else {
+            HashMap<String, Int>(installedOrder.size).apply {
+                installedOrder.forEachIndexed { index, addonName ->
+                    if (addonName !in this) this[addonName] = index
+                }
+            }
+        }
+        val preferredEntries = if (preferredGroupIds.isEmpty()) null else ArrayList<AddonStreamGroup>()
+        val directDebridEntries = ArrayList<AddonStreamGroup>()
+        val unorderedEntries = if (installedOrder.isEmpty()) ArrayList<AddonStreamGroup>() else null
+        val addonEntries = if (installedOrder.isEmpty()) null else ArrayList<AddonStreamGroup>()
+        val pluginEntries = if (installedOrder.isEmpty()) null else ArrayList<AddonStreamGroup>()
+
+        for (group in groups) {
+            if (preferredGroupIds.isNotEmpty() && group.addonId in preferredGroupIds) {
+                preferredEntries?.add(group)
+                continue
+            }
+
+            val isDirectDebrid = group.addonId.startsWith("debrid:") ||
+                group.streams.any { stream -> stream.isAddonDebridCandidate && stream.isDirectDebridStream }
+            when {
+                isDirectDebrid -> directDebridEntries.add(group)
+                unorderedEntries != null -> unorderedEntries.add(group)
+                addonRankByName.containsKey(group.addonName) -> addonEntries?.add(group)
+                else -> pluginEntries?.add(group)
             }
         }
 
-        val (directDebridEntries, remainingEntries) = groups.partition { group ->
-            group.addonId.startsWith("debrid:") ||
-                group.streams.any { stream -> stream.isAddonDebridCandidate && stream.isDirectDebridStream }
+        val result = ArrayList<AddonStreamGroup>(groups.size)
+        if (preferredEntries != null) result.addAll(preferredEntries)
+        result.addAll(directDebridEntries)
+        if (unorderedEntries != null) {
+            result.addAll(unorderedEntries)
+        } else {
+            val orderedAddons = addonEntries.orEmpty().sortedBy { group ->
+                addonRankByName.getValue(group.addonName)
+            }
+            result.addAll(orderedAddons)
+            result.addAll(pluginEntries.orEmpty())
         }
-        if (installedOrder.isEmpty()) return directDebridEntries + remainingEntries
-
-        val (addonEntries, pluginEntries) = remainingEntries.partition { group ->
-            group.addonName in addonRankByName
-        }
-        val orderedAddons = addonEntries.sortedBy { group ->
-            addonRankByName.getValue(group.addonName)
-        }
-        return directDebridEntries + orderedAddons + pluginEntries
+        return result
     }
 
     fun selectAutoPlayStream(
@@ -82,16 +102,19 @@ object StreamAutoPlaySelector {
     ): StreamAutoPlayEvaluation {
         if (streams.isEmpty()) return StreamAutoPlayEvaluation()
 
-        val sourceScopedStreams = when (source) {
-            StreamAutoPlaySource.ALL_SOURCES -> streams
-            StreamAutoPlaySource.INSTALLED_ADDONS_ONLY -> streams.filter { it.serverTarget != null || it.addonName in installedAddonNames }
-            StreamAutoPlaySource.ENABLED_PLUGINS_ONLY -> streams.filter { it.addonName !in installedAddonNames }
-        }
-        val candidateStreams = sourceScopedStreams.filter { stream ->
-            val isAddonStream = stream.addonName in installedAddonNames
-            if (stream.serverTarget != null) {
+        val candidateStreams = streams.filter { stream ->
+            val isInSource = when (source) {
+                StreamAutoPlaySource.ALL_SOURCES -> true
+                StreamAutoPlaySource.INSTALLED_ADDONS_ONLY ->
+                    stream.serverTarget != null || stream.addonName in installedAddonNames
+                StreamAutoPlaySource.ENABLED_PLUGINS_ONLY ->
+                    stream.addonName !in installedAddonNames
+            }
+            if (!isInSource) {
+                false
+            } else if (stream.serverTarget != null) {
                 true
-            } else if (isAddonStream) {
+            } else if (stream.addonName in installedAddonNames) {
                 selectedAddons.isEmpty() || stream.addonName in selectedAddons
             } else {
                 selectedPlugins.isEmpty() || stream.addonName in selectedPlugins
@@ -103,28 +126,6 @@ object StreamAutoPlaySelector {
         }
 
         val targetBingeGroup = preferredBingeGroup?.trim().orEmpty()
-        val bingeGroupCandidates = if (preferBingeGroupInSelection && targetBingeGroup.isNotEmpty()) {
-            candidateStreams.filter { stream -> stream.behaviorHints.bingeGroup == targetBingeGroup }
-        } else {
-            emptyList()
-        }
-        val preferredReadyStream = bingeGroupCandidates.firstOrNull { stream ->
-            stream.isAutoPlayable(debridEnabled, activeResolverProviderId)
-        }
-        if (bingeGroupOnly) {
-            val readyStreams = preferredReadyStream?.let(::listOf).orEmpty()
-            return StreamAutoPlayEvaluation(
-                stream = preferredReadyStream,
-                readyStreams = readyStreams,
-                hasPendingDebridCandidate = preferredReadyStream == null &&
-                    bingeGroupCandidates.any {
-                        it.isPendingDebridAutoPlay(debridEnabled, activeResolverProviderId)
-                    },
-            )
-        }
-        if (mode == StreamAutoPlayMode.MANUAL) {
-            return StreamAutoPlayEvaluation()
-        }
         val preferredStream = if (preferBingeGroupInSelection && targetBingeGroup.isNotEmpty()) {
             candidateStreams.firstOrNull { stream ->
                 stream.behaviorHints.bingeGroup == targetBingeGroup &&
@@ -132,6 +133,19 @@ object StreamAutoPlaySelector {
             }
         } else {
             null
+        }
+        if (bingeGroupOnly) {
+            return StreamAutoPlayEvaluation(
+                stream = preferredStream,
+                readyStreams = preferredStream?.let(::listOf).orEmpty(),
+                hasPendingDebridCandidate = preferredStream == null &&
+                    preferBingeGroupInSelection &&
+                    targetBingeGroup.isNotEmpty() &&
+                    candidateStreams.any { stream ->
+                        stream.behaviorHints.bingeGroup == targetBingeGroup &&
+                            stream.isPendingDebridAutoPlay(debridEnabled, activeResolverProviderId)
+                    },
+            )
         }
         val matchingStreams = when (mode) {
             StreamAutoPlayMode.MANUAL -> emptyList()
@@ -180,12 +194,15 @@ object StreamAutoPlaySelector {
         }
         if (matchingStreams.isEmpty() && preferredStream == null) return StreamAutoPlayEvaluation()
 
-        val readyStreams = buildList {
-            preferredStream?.let(::add)
-            matchingStreams
-                .filter { it.isAutoPlayable(debridEnabled, activeResolverProviderId) }
-                .filterNot { it == preferredStream }
-                .forEach(::add)
+        val readyStreams = ArrayList<StreamItem>()
+        preferredStream?.let(readyStreams::add)
+        for (stream in matchingStreams) {
+            if (
+                stream.isAutoPlayable(debridEnabled, activeResolverProviderId) &&
+                stream != preferredStream
+            ) {
+                readyStreams.add(stream)
+            }
         }
         val selected = readyStreams.firstOrNull()
         if (selected != null) {

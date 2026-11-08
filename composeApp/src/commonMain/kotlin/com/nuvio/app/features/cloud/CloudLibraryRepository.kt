@@ -320,20 +320,35 @@ internal fun CloudLibraryUiState.findPlaybackTargetForProgress(
     val normalizedVideoId = videoId.trim()
     if (normalizedContentId.isBlank()) return null
 
-    val matchingItems = items.filter { item -> item.stableKey == normalizedContentId }
-    if (matchingItems.isEmpty()) return null
+    var singleMatchingItem: CloudLibraryItem? = null
+    var hasMultipleMatchingItems = false
+    for (providerState in providers) {
+        for (item in providerState.items) {
+            if (item.stableKey != normalizedContentId) continue
 
-    for (item in matchingItems) {
-        val exactFile = item.playableFiles.firstOrNull { file ->
-            item.playbackVideoId(file) == normalizedVideoId
-        }
-        if (exactFile != null) {
-            return CloudLibraryPlaybackTarget(item = item, file = exactFile)
+            if (singleMatchingItem == null) {
+                singleMatchingItem = item
+            } else {
+                hasMultipleMatchingItems = true
+            }
+
+            for (file in item.files) {
+                if (file.playable && item.playbackVideoId(file) == normalizedVideoId) {
+                    return CloudLibraryPlaybackTarget(item = item, file = file)
+                }
+            }
         }
     }
 
-    val singleItem = matchingItems.singleOrNull() ?: return null
-    val singleFile = singleItem.playableFiles.singleOrNull() ?: return null
+    if (hasMultipleMatchingItems) return null
+    val singleItem = singleMatchingItem ?: return null
+    var singlePlayableFile: CloudLibraryFile? = null
+    for (file in singleItem.files) {
+        if (!file.playable) continue
+        if (singlePlayableFile != null) return null
+        singlePlayableFile = file
+    }
+    val singleFile = singlePlayableFile ?: return null
     return CloudLibraryPlaybackTarget(item = singleItem, file = singleFile)
 }
 
