@@ -250,11 +250,11 @@ object HomeRepository {
         requestKey: String?,
         keepVisibleHeroWhilePending: Boolean = true,
     ) {
-        if (currentDefinitions.isEmpty() && cachedSections.isNotEmpty()) return
-        val snapshot = HomeCatalogSettingsRepository.snapshot()
-        val preferences = snapshot.preferences
         val definitions = currentDefinitions
         val sectionsByCacheKey = cachedSections
+        if (definitions.isEmpty() && sectionsByCacheKey.isNotEmpty()) return
+        val snapshot = HomeCatalogSettingsRepository.snapshot()
+        val preferences = snapshot.preferences
         val todayIsoDate = if (snapshot.hideUnreleasedContent) CurrentDateProvider.todayIsoDate() else null
         CustomPosterUrlRepository.ensureLoaded()
         val posterPattern = CustomPosterUrlRepository.patternForScreen(com.nuvio.app.core.poster.CustomPosterScreen.HOME)
@@ -287,7 +287,7 @@ object HomeRepository {
                     title = customTitle.ifBlank { definition.titleFor(snapshot.showCatalogType) },
                 )
             }
-        if (entries.isNotEmpty() || currentDefinitions.isNotEmpty()) {
+        if (entries.isNotEmpty() || definitions.isNotEmpty()) {
             lastPublishedEntries = entries
         }
         val sections = entries.map { (_, section) -> section }
@@ -592,7 +592,6 @@ private fun prioritizeDefinitions(
     }
     return priority + remainder
 }
-
 
 /**
  * Collects the first occurrence of each media item in definition order without
