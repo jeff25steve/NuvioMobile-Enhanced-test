@@ -269,7 +269,7 @@ object WatchProgressRepository {
     private val metadataEnrichmentAttempts = mutableMapOf<String, Int>()
     private val persistLock = SynchronizedObject()
     private var persistSequence = 0L
-    private var persistedSequence = 0L
+    private val persistedSequences = WatchProgressPersistSequence()
     private val pendingPersists = mutableMapOf<Int, PendingWatchProgressPayload>()
     private val providerMetadataOverlay = ProviderProgressMetadataOverlay()
     private val nuvioPullMutex = Mutex()
@@ -334,7 +334,7 @@ object WatchProgressRepository {
         // Fork: drop persists still queued so nothing is written back after the local state is cleared.
         synchronized(persistLock) {
             pendingPersists.clear()
-            persistedSequence = persistSequence
+            persistedSequences.invalidateThrough(persistSequence)
         }
         val previousAccountJob = synchronized(accountScopeLock) {
             accountScopeJob.also {
@@ -1542,9 +1542,9 @@ object WatchProgressRepository {
                 dirtyProgressKeys = pending.dirtyProgressKeys,
             )
             synchronized(persistLock) {
-                if (pending.sequence <= persistedSequence) return@synchronized
-                persistedSequence = pending.sequence
+                if (persistedSequences.isStale(profileId, pending.sequence)) return@synchronized
                 WatchProgressStorage.savePayload(profileId, payload)
+                persistedSequences.markPersisted(profileId, pending.sequence)
                 if (pendingPersists[profileId]?.sequence == pending.sequence) {
                     pendingPersists.remove(profileId)
                 }
@@ -1559,8 +1559,7 @@ object WatchProgressRepository {
     fun flushPendingWrites() {
         synchronized(persistLock) {
             pendingPersists.entries.sortedBy { it.value.sequence }.forEach { (profileId, pending) ->
-                if (pending.sequence <= persistedSequence) return@forEach
-                persistedSequence = pending.sequence
+                if (persistedSequences.isStale(profileId, pending.sequence)) return@forEach
                 WatchProgressStorage.savePayload(
                     profileId,
                     WatchProgressCodec.encodePayload(
@@ -1571,6 +1570,7 @@ object WatchProgressRepository {
                         dirtyProgressKeys = pending.dirtyProgressKeys,
                     ),
                 )
+                persistedSequences.markPersisted(profileId, pending.sequence)
             }
             pendingPersists.clear()
         }
