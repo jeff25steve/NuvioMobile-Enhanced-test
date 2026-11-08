@@ -405,3 +405,29 @@ Research and rejected approaches:
 
 Verification limits: re-fetched and statically reviewed the complete changed common P2P model file, Android P2P engine and host test, full iOS P2P engine, and cumulative notes. Checked that only a torrent ID equal to the active torrent can promote the event, Android association is generation-guarded and precedes prepareStream, and iOS event draining runs only within the already-owned active playback polling loop (which is cancelled/joined before stop/start operations acquire the native lifecycle mutex). No Gradle test, Kotlin compile, Android build, Xcode build, CI workflow or other build-triggering process was started. The implementation remains statically reviewed, not compiler- or runtime-verified.
 
+
+
+### Watch progress persistence — keep write ordering profile-scoped (8 November 2026)
+
+A targeted lifecycle review found that WatchProgressRepository kept pending snapshots in a map keyed by profile ID, but used one global `persistedSequence` watermark to decide whether a snapshot was stale. Each persist launches independently on `syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)`; JSON encoding happens before the short synchronized write section. The shared Default dispatcher can run those jobs on a pool of threads, so their order of reaching the lock is not guaranteed to match the monotonically assigned sequence order.
+
+This creates a concrete cross-profile loss case: profile A queues sequence 1, the user switches profiles, profile B queues sequence 2, and B's worker reaches the lock first. The old global watermark becomes 2; A's still-needed sequence 1 is then rejected even though no newer snapshot for profile A was stored. Its pending snapshot remains in the map, but `flushPendingWrites()` also compares against the same global watermark and can skip it before clearing the pending map.
+
+The fix is deliberately limited to sequence bookkeeping:
+- New `WatchProgressPersistSequence` tracks the latest accepted write separately per profile.
+- A successful storage write advances only that profile's watermark. A later sequence for one profile no longer suppresses a pending write for another profile.
+- The existing global `persistSequence` remains the source of monotonic ordering and account-clear invalidation. `clearLocalState()` records a global invalidation boundary and clears per-profile watermarks, so previously queued writes from a signed-out account remain stale.
+- Both the asynchronous `persist()` worker and `flushPendingWrites()` use the same profile-scoped decision. The watermark advances only after the storage adapter call returns, leaving the pending snapshot eligible for retry if that call throws synchronously.
+- No storage format, platform adapter, dispatcher, write cadence, UI, settings or account/profile ownership model changed.
+
+Evidence:
+- The actual repository launches persistence workers on `Dispatchers.Default`, and the actual pending queue is keyed by profile ID while the previous completion watermark was scalar.
+- `loadFromDisk(profileId)` restores pending state for the requested profile without flushing other profiles; `onProfileChanged(profileId)` calls it directly. Thus multiple profiles can have outstanding snapshots concurrently.
+- JetBrains' [Coroutine context and dispatchers](https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html) documentation states that `Dispatchers.Default` uses a shared background thread pool. The [shared mutable state and concurrency](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html) guide explains that multi-threaded dispatchers can execute work concurrently and that synchronization protects state but does not turn independent launches into a FIFO work queue.
+- The current upstream Nuvio Mobile implementation was also inspected and contains the same scalar watermark/map-key mismatch; this is a Mobile Enhanced correction rather than a port of an upstream fix.
+
+Regression coverage: four common tests cover cross-profile independence, same-profile stale suppression, monotonic watermark behaviour and global account-clear invalidation. They are authored but not executed.
+
+Rejected alternatives: serializing the entire persistence scope onto a single-thread dispatcher or adding a channel/actor would introduce broader scheduling and lifecycle changes. The existing synchronized critical section already serializes writes; the bug is the wrong key for the ordering watermark, so a per-profile watermark is the smaller correction.
+
+Verification limits: the complete repository persistence section, profile-switch call path, Android SharedPreferences adapter, iOS NSUserDefaults adapter, current coroutine dependency and common-test source set were inspected. Static review confirms every remaining persisted watermark decision now includes profile identity, and the account-clear invalidation fence remains global. No Gradle test, Kotlin compilation, Android/iOS build, Xcode task or CI workflow was started. Compiler/runtime verification remains outstanding.
