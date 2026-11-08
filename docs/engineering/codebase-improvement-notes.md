@@ -393,6 +393,7 @@ Changes:
 - Android records the current torrent ID as soon as the add command has completed and before prepareStream begins. Association is guarded by the current stream generation, so a stop/replacement that races startup cannot attach a stale torrent. The event collector surfaces matching non-zero and zero request-ID errors only while the matching stream is Connecting or Streaming; subsequent duplicate errors do not repeatedly mutate terminal state.
 - The full iOS native implementation now associates the torrent before preparing the stream, checks active torrent identity while awaiting commands, and drains the native event queue from the existing 250 ms playback-stats loop. This means a late torrent failure is surfaced while playback is active instead of remaining queued until some later native command happens to poll it. No additional background job, dispatcher, dependency or timer was introduced.
 - The iOS App Store P2P-unavailable stub is unchanged.
+- The active iOS event-drain call is inside the stats poller's existing try/catch. A native event-queue polling failure is therefore converted to the same terminal playback error as a stream-stats read failure, rather than escaping the supervised polling job.
 
 Regression coverage: added common tests for a matching active torrent error, late command-scoped error identity, mismatched/unknown torrent IDs, and blank-message fallback. Removed Android-only tests that encoded the incorrect rule that every non-zero request ID must be ignored. The common tests are authored but not executed.
 
