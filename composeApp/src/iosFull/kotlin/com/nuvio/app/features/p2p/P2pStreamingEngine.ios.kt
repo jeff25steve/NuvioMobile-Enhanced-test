@@ -306,10 +306,10 @@ actual object P2pStreamingEngine {
         statsJob?.cancel()
         statsJob = scope.launch {
             while (isActive && generation == streamGeneration) {
-                if (consumeActiveTorrentErrors(activeEngine, stream, streamGeneration)) {
-                    return@launch
-                }
                 try {
+                    if (consumeActiveTorrentErrors(activeEngine, stream, streamGeneration)) {
+                        return@launch
+                    }
                     val aggregate = readAggregateStats(activeEngine)
                     val route = readStreamStats(activeEngine, stream.id)
                     publishStreaming(streamGeneration, stream, aggregate, payloadBaseline, route)
