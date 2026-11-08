@@ -233,9 +233,11 @@ internal fun removeStoredLocalWatchProgressEntries(
 ): List<WatchProgressEntry> {
     if (entries.isEmpty()) return emptyList()
 
-    val targetKeys = entries.mapTo(mutableSetOf()) { it.resolvedProgressKey() }
-    val targetIdentities = entries.mapTo(mutableSetOf()) { target ->
-        Triple(target.parentMetaId, target.seasonNumber, target.episodeNumber)
+    val targetKeys = mutableSetOf<String>()
+    val targetIdentities = mutableSetOf<Triple<String, Int?, Int?>>()
+    for (target in entries) {
+        targetKeys += target.resolvedProgressKey()
+        targetIdentities += Triple(target.parentMetaId, target.seasonNumber, target.episodeNumber)
     }
     val removed = ArrayList<WatchProgressEntry>()
     val iterator = entriesByProgressKey.entries.iterator()
