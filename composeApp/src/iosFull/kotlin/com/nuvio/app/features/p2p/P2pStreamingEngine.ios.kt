@@ -160,6 +160,7 @@ actual object P2pStreamingEngine {
                 addMagnet(activeEngine, magnet).also(knownTorrentIds::add)
             }
             currentCoroutineContext().ensureActive()
+            currentTorrentId = torrentId
 
             phase = "prepare_stream"
             val stream = prepareStream(
@@ -267,6 +268,35 @@ actual object P2pStreamingEngine {
         }
     }
 
+    private fun consumeActiveTorrentErrors(
+        activeEngine: CPointer<nuvio_engine>,
+        stream: NativeStream,
+        streamGeneration: Long,
+    ): Boolean {
+        while (true) {
+            val event = pollEvent(activeEngine) ?: return false
+            if (event.type != NUVIO_ENGINE_EVENT_TORRENT_ERROR) continue
+
+            val activeTorrentError = p2pTorrentErrorForActiveTorrent(
+                eventTorrentId = event.torrentId,
+                activeTorrentId = currentTorrentId,
+                message = event.message,
+                fallbackMessage = "Torrent stream stopped unexpectedly",
+            ) ?: continue
+
+            if (generation == streamGeneration &&
+                currentStream?.id == stream.id &&
+                currentTorrentId == stream.torrentId &&
+                (_state.value is P2pStreamingState.Connecting ||
+                    _state.value is P2pStreamingState.Streaming)
+            ) {
+                generation += 1
+                _state.value = activeTorrentError
+                return true
+            }
+        }
+    }
+
     private fun startStatsPolling(
         activeEngine: CPointer<nuvio_engine>,
         stream: NativeStream,
@@ -276,6 +306,9 @@ actual object P2pStreamingEngine {
         statsJob?.cancel()
         statsJob = scope.launch {
             while (isActive && generation == streamGeneration) {
+                if (consumeActiveTorrentErrors(activeEngine, stream, streamGeneration)) {
+                    return@launch
+                }
                 try {
                     val aggregate = readAggregateStats(activeEngine)
                     val route = readStreamStats(activeEngine, stream.id)
@@ -462,8 +495,19 @@ actual object P2pStreamingEngine {
             when (val event = pollEvent(activeEngine)) {
                 null -> delay(20L)
                 else -> {
-                    if (event.requestId == requestId && event.type == NUVIO_ENGINE_EVENT_TORRENT_ERROR) {
-                        throw P2pStreamingException(event.message ?: "Torrent engine command failed")
+                    if (event.type == NUVIO_ENGINE_EVENT_TORRENT_ERROR) {
+                        val activeTorrentError = p2pTorrentErrorForActiveTorrent(
+                            eventTorrentId = event.torrentId,
+                            activeTorrentId = currentTorrentId,
+                            message = event.message,
+                            fallbackMessage = "Torrent stream stopped unexpectedly",
+                        )
+                        if (activeTorrentError != null) {
+                            throw P2pStreamingException(activeTorrentError.message)
+                        }
+                        if (event.requestId == requestId) {
+                            throw P2pStreamingException(event.message ?: "Torrent engine command failed")
+                        }
                     }
                     if (event.requestId == requestId && event.type == expectedType) return event
                 }
