@@ -816,34 +816,57 @@ object MetaDetailsRepository {
    
     fun findEmbeddedStreams(videoId: String): List<com.nuvio.app.features.streams.StreamItem> {
         val meta = _uiState.value.meta ?: return emptyList()
-        val videosWithStreams = meta.videos.filter { it.streams.isNotEmpty() }
-        if (videosWithStreams.isEmpty()) return emptyList()
+        return findEmbeddedStreamsForMeta(meta, videoId)
+    }
+}
 
-        val directMatch = videosWithStreams.firstOrNull { it.id == videoId }
-        if (directMatch != null) return directMatch.streams
+internal fun findEmbeddedStreamsForMeta(
+    meta: MetaDetails,
+    videoId: String,
+): List<com.nuvio.app.features.streams.StreamItem> {
+    val lastSeparator = videoId.lastIndexOf(':')
+    val previousSeparator = if (lastSeparator > 0) videoId.lastIndexOf(':', lastSeparator - 1) else -1
+    val season = if (previousSeparator >= 0 && lastSeparator > previousSeparator) {
+        videoId.substring(previousSeparator + 1, lastSeparator).toIntOrNull()
+    } else {
+        null
+    }
+    val episode = if (previousSeparator >= 0) videoId.substring(lastSeparator + 1).toIntOrNull() else null
+    val prefix = "$videoId:"
 
-        val parts = videoId.split(":")
-        if (parts.size >= 3) {
-            val season = parts[parts.size - 2].toIntOrNull()
-            val episode = parts[parts.size - 1].toIntOrNull()
-            if (season != null && episode != null) {
-                val episodeMatch = videosWithStreams.firstOrNull { it.season == season && it.episode == episode }
-                if (episodeMatch != null) return episodeMatch.streams
-            }
+    var firstVideoWithStreams: MetaVideo? = null
+    var hasMultipleVideosWithStreams = false
+    var episodeMatch: MetaVideo? = null
+    var prefixMatch: MetaVideo? = null
+
+    for (video in meta.videos) {
+        if (video.streams.isEmpty()) continue
+
+        if (firstVideoWithStreams == null) firstVideoWithStreams = video else hasMultipleVideosWithStreams = true
+
+        // Keep the existing lookup priority: exact ID, episode coordinates, then prefix.
+        if (video.id == videoId) return video.streams
+        if (
+            episodeMatch == null &&
+            season != null &&
+            episode != null &&
+            video.season == season &&
+            video.episode == episode
+        ) {
+            episodeMatch = video
         }
+        if (prefixMatch == null && video.id.startsWith(prefix)) prefixMatch = video
+    }
 
-        val prefixMatch = videosWithStreams.firstOrNull { it.id.startsWith("$videoId:") }
-        if (prefixMatch != null) return prefixMatch.streams
+    episodeMatch?.let { return it.streams }
+    prefixMatch?.let { return it.streams }
+    if (videoId != meta.id) return emptyList()
 
-        if (videoId == meta.id && videosWithStreams.size == 1) {
-            return videosWithStreams.first().streams
-        }
-
-        if (videoId == meta.id && videosWithStreams.isNotEmpty()) {
-            return videosWithStreams.flatMap { it.streams }
-        }
-
-        return emptyList()
+    val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
+    return if (hasMultipleVideosWithStreams) {
+        meta.videos.flatMap { it.streams }
+    } else {
+        onlyVideoWithStreams.streams
     }
 }
 
