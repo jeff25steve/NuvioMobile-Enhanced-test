@@ -155,6 +155,49 @@ class CustomPosterOverlayTest {
         assertEquals("https://addon.com/landscape.jpg", result.landscapePoster)
     }
 
+    @Test
+    fun reapplyCustomPosterUrl_restores_original_landscape_when_original_portrait_is_missing() {
+        val originalLandscape = "https://addon.com/original-landscape.jpg"
+        val item = MetaPreview(
+            id = "tt0137523",
+            type = "movie",
+            name = "Landscape only",
+            poster = null,
+            landscapePoster = originalLandscape,
+        )
+
+        val overlaid = item.withCustomPosterUrl(shapePattern)
+        assertEquals("https://example.com/imdb/poster/tt0137523.jpg", overlaid.poster)
+        assertEquals("https://example.com/imdb/landscape/tt0137523.jpg", overlaid.landscapePoster)
+        assertNull(overlaid.rawPosterUrl)
+        assertEquals(originalLandscape, overlaid.rawLandscapePosterUrl)
+
+        val restored = overlaid.reapplyCustomPosterUrl("")
+        assertNull(restored.poster)
+        assertEquals(originalLandscape, restored.landscapePoster)
+    }
+
+    @Test
+    fun reapplyCustomPosterUrl_restores_null_original_artwork_after_clearing_pattern() {
+        val item = MetaPreview(
+            id = "tt0137523",
+            type = "movie",
+            name = "No original artwork",
+            poster = null,
+            landscapePoster = null,
+        )
+
+        val overlaid = item.withCustomPosterUrl(shapePattern)
+        assertEquals("https://example.com/imdb/poster/tt0137523.jpg", overlaid.poster)
+        assertEquals("https://example.com/imdb/landscape/tt0137523.jpg", overlaid.landscapePoster)
+        assertNull(overlaid.rawPosterUrl)
+        assertNull(overlaid.rawLandscapePosterUrl)
+
+        val restored = overlaid.reapplyCustomPosterUrl("")
+        assertNull(restored.poster)
+        assertNull(restored.landscapePoster)
+    }
+
     // -- List overlay --
 
     @Test

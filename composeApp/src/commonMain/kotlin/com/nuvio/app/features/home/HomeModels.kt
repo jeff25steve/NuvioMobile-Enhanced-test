@@ -27,6 +27,11 @@ data class MetaPreview(
     val ageRating: String? = null,
     val language: String? = null,
     val externalRatings: List<MetaExternalRating> = emptyList(),
+    /**
+     * True when poster artwork is currently overlaid by a custom URL pattern.
+     * Keeps original null URLs distinguishable from an item that was never overlaid.
+     */
+    val customPosterOverlayApplied: Boolean = false,
 )
 
 fun MetaPreview.stableKey(): String = "$type:$id"

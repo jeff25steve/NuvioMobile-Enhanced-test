@@ -31,6 +31,7 @@ private data class SnapshotMeta(
     val rawPosterUrl: String? = null,
     val landscapePoster: String? = null,
     val rawLandscapePosterUrl: String? = null,
+    val customPosterOverlayApplied: Boolean = false,
 )
 
 @Serializable
@@ -154,6 +155,7 @@ private fun MetaPreview.toSnapshotMeta(): SnapshotMeta = SnapshotMeta(
     rawPosterUrl = rawPosterUrl,
     landscapePoster = landscapePoster,
     rawLandscapePosterUrl = rawLandscapePosterUrl,
+    customPosterOverlayApplied = customPosterOverlayApplied,
 )
 
 private fun SnapshotMeta.toMetaPreview(): MetaPreview = MetaPreview(
@@ -174,6 +176,7 @@ private fun SnapshotMeta.toMetaPreview(): MetaPreview = MetaPreview(
     rawPosterUrl = rawPosterUrl,
     landscapePoster = landscapePoster,
     rawLandscapePosterUrl = rawLandscapePosterUrl,
+    customPosterOverlayApplied = customPosterOverlayApplied,
 )
 
 private fun CatalogTarget.toSnapshotTarget(): SnapshotTarget? = when (this) {

@@ -326,6 +326,29 @@ class MetaDetailsParserTest {
         assertEquals("https://img/landscape.jpg", result.background)
     }
 
+    @Test
+    fun `parse trims artwork URLs and skips whitespace-only background before landscape fallback`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "tt-art",
+                "type": "movie",
+                "name": "Artwork",
+                "poster": "  https://img/poster.jpg  ",
+                "background": "   ",
+                "landscapePoster": "  https://img/landscape.jpg  ",
+                "logo": "  https://img/logo.png  "
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("https://img/poster.jpg", result.poster)
+        assertEquals("https://img/landscape.jpg", result.background)
+        assertEquals("https://img/logo.png", result.logo)
+    }
+
     private fun parseEpisode(runtime: JsonElement?): MetaVideo {
         val payload = buildJsonObject {
             put("id", "show")

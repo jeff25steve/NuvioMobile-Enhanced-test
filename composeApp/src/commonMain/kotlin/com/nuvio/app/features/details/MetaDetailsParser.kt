@@ -38,10 +38,9 @@ internal object MetaDetailsParser {
             tvdbId = listOf("_tvdbId", "tvdb_id").firstNotNullOfOrNull { key ->
                 (meta[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
             },
-            poster = meta.string("poster"),
-            background = meta.string("background")?.takeIf { it.isNotBlank() }
-                ?: meta.string("landscapePoster")?.takeIf { it.isNotBlank() },
-            logo = meta.string("logo"),
+            poster = meta.artworkUrl("poster"),
+            background = meta.artworkUrl("background") ?: meta.artworkUrl("landscapePoster"),
+            logo = meta.artworkUrl("logo"),
             description = meta.string("description"),
             releaseInfo = meta.string("releaseInfo"),
             lastAirDate = meta.string("lastAirDate"),
@@ -71,6 +70,9 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.string(name: String): String? =
         this[name]?.jsonPrimitive?.contentOrNull
+
+    private fun JsonObject.artworkUrl(name: String): String? =
+        string(name)?.trim()?.takeIf(String::isNotBlank)
 
     private fun JsonObject.array(name: String): JsonArray =
         this[name] as? JsonArray ?: JsonArray(emptyList())

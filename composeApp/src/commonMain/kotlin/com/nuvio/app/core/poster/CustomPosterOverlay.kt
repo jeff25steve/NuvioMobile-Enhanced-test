@@ -37,22 +37,32 @@ fun MetaPreview.withCustomPosterUrl(pattern: String): MetaPreview {
 
     if (resolvedPoster == null && resolvedLandscape == null) return this
 
+    val hasOriginalArtworkSnapshot =
+        customPosterOverlayApplied || rawPosterUrl != null || rawLandscapePosterUrl != null
+
     return copy(
         poster = resolvedPoster ?: poster,
-        rawPosterUrl = rawPosterUrl ?: poster,
+        rawPosterUrl = if (hasOriginalArtworkSnapshot) rawPosterUrl else poster,
         landscapePoster = resolvedLandscape ?: landscapePoster,
-        rawLandscapePosterUrl = rawLandscapePosterUrl?.takeIf { it.isNotBlank() } ?: landscapePoster,
+        rawLandscapePosterUrl = if (hasOriginalArtworkSnapshot) rawLandscapePosterUrl else landscapePoster,
+        customPosterOverlayApplied = true,
     )
 }
 
 /**
  * Re-applies (or clears) a custom poster URL overlay.
- * First restores the original poster from [rawPosterUrl], then applies the new pattern.
- * Use this when the pattern changes and cached items already carry a previous overlay.
+ * Restores both original artwork fields independently, including when either original URL was null.
+ * The explicit overlay flag also allows snapshots with no original artwork URLs to be restored.
  */
 fun MetaPreview.reapplyCustomPosterUrl(pattern: String): MetaPreview {
-    val restored = if (rawPosterUrl != null) {
-        copy(poster = rawPosterUrl, landscapePoster = rawLandscapePosterUrl)
+    val hasOriginalArtworkSnapshot =
+        customPosterOverlayApplied || rawPosterUrl != null || rawLandscapePosterUrl != null
+    val restored = if (hasOriginalArtworkSnapshot) {
+        copy(
+            poster = rawPosterUrl,
+            landscapePoster = rawLandscapePosterUrl,
+            customPosterOverlayApplied = false,
+        )
     } else {
         this
     }

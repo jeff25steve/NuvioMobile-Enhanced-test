@@ -172,4 +172,31 @@ class HomeCatalogParserTest {
         )
     }
 
+    @Test
+    fun `parse catalog response trims artwork URLs and skips whitespace-only primary artwork`() {
+        val result = HomeCatalogParser.parseCatalogResponse(
+            payload = """
+                {
+                  "metas": [
+                    {
+                      "id": "tt-art",
+                      "type": "movie",
+                      "name": "Artwork",
+                      "poster": "  https://img/poster.jpg  ",
+                      "banner": "   ",
+                      "background": "  https://img/background.jpg  ",
+                      "landscapePoster": "  https://img/landscape.jpg  ",
+                      "logo": "  https://img/logo.png  "
+                    }
+                  ]
+                }
+            """.trimIndent(),
+        )
+
+        val item = result.items.single()
+        assertEquals("https://img/poster.jpg", item.poster)
+        assertEquals("https://img/background.jpg", item.banner)
+        assertEquals("https://img/landscape.jpg", item.landscapePoster)
+        assertEquals("https://img/logo.png", item.logo)
+    }
 }
