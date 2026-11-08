@@ -406,6 +406,40 @@ class WatchedRepositoryTest {
         )
     }
 
+    @Test
+    fun snapshot_duplicateKeysKeepTheLastServerAndLocalRows() {
+        val firstServer = watchedItem(id = "server-duplicate", markedAtEpochMs = 1_000L)
+            .copy(name = "first server row")
+        val lastServer = firstServer.copy(name = "last server row")
+        val firstLocal = watchedItem(id = "local-duplicate", markedAtEpochMs = 500L)
+            .copy(name = "first local row")
+        val lastLocal = firstLocal.copy(markedAtEpochMs = 1_000L, name = "last local row")
+        val localKey = watchedItemKey(lastLocal.type, lastLocal.id)
+
+        val merged = mergeWatchedSnapshot(
+            serverItems = listOf(firstServer, lastServer),
+            localItems = listOf(firstLocal, lastLocal),
+            dirtyKeys = setOf(localKey),
+        )
+
+        assertEquals("last server row", merged.items[watchedItemKey(lastServer.type, lastServer.id)]?.name)
+        assertEquals(lastLocal, merged.items[localKey])
+        assertEquals(setOf(localKey), merged.dirtyKeys)
+    }
+
+    @Test
+    fun normalizedAndSortedWatchedItemsKeepsStableOrderForEqualTimestamps() {
+        val first = watchedItem(id = "first", markedAtEpochMs = 2_000L)
+        val older = watchedItem(id = "older", markedAtEpochMs = 1_000L)
+        val second = watchedItem(id = "second", markedAtEpochMs = 2_000L)
+        val source = listOf(first, older, second)
+
+        val result = source.normalizedAndSortedByNewestMarkedAt()
+
+        assertEquals(listOf(first, second, older), result)
+        assertEquals(listOf(first, older, second), source)
+    }
+
     private fun watchedItem(
         id: String,
         markedAtEpochMs: Long,
