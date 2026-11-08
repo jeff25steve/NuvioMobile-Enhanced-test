@@ -1042,9 +1042,8 @@ object WatchProgressRepository {
         val targetGeneration = profileGeneration
         val targetSource = activeSource
         val missingMetadataEntries = currentEntries()
-            .filter { entry ->
-                entry.needsRemoteMetadataEnrichment() && !isMetadataEnrichmentBackedOff(entry)
-            }
+            .filter(WatchProgressEntry::needsRemoteMetadataEnrichment)
+            .filterNot { entry -> isMetadataEnrichmentBackedOff(entry) }
         val entriesToResolve = missingMetadataEntries.continueWatchingEntries(
             limit = WATCH_PROGRESS_METADATA_RESOLUTION_LIMIT,
         )

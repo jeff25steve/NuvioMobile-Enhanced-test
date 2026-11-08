@@ -281,6 +281,26 @@ class WatchProgressIdentityTest {
     }
 
     @Test
+    fun `progress lookups keep the first row when freshness comparator ties`() {
+        val first = entry(
+            parentMetaId = "show",
+            videoId = "shared-video",
+            progressKey = "opaque",
+        ).copy(trackingSourceUrl = "first-source")
+        val second = first.copy(trackingSourceUrl = "second-source")
+        val state = WatchProgressUiState(entries = listOf(first, second))
+
+        assertEquals("first-source", state.byVideoId.getValue("shared-video").trackingSourceUrl)
+        assertEquals(
+            "first-source",
+            state.progressForVideo(
+                videoId = "shared-video",
+                parentMetaId = "show",
+            )?.trackingSourceUrl,
+        )
+    }
+
+    @Test
     fun `contextual lookup keeps freshest row for an unambiguous logical identity`() {
         val older = entry(
             parentMetaId = "show",
