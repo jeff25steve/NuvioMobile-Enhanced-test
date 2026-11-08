@@ -117,6 +117,8 @@ object ServerConnectionController {
 
         scope.launch {
             try {
+                DeviceLinkAuthRepository.awaitServerSwitchStopped()
+                AuthRepository.beginServerSwitch()
                 if (AuthRepository.prepareForServerSwitch().isFailure) {
                     AuthRepository.reinitialize()
                     _state.update {
@@ -143,6 +145,7 @@ object ServerConnectionController {
                 AuthRepository.reinitialize()
                 _state.update { it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.Restart) }
             } finally {
+                AuthRepository.endServerSwitch()
                 DeviceLinkAuthRepository.endServerSwitch()
                 synchronized(switchLock) {
                     switchInProgress = false
