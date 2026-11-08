@@ -584,6 +584,61 @@ class WatchProgressIdentityTest {
         assertEquals(20L, merged.getValue("server/opaque").lastUpdatedEpochMs)
     }
 
+    @Test
+    fun `stored local removal matches exact keys and logical aliases`() {
+        val target = entry(parentMetaId = "show", progressKey = "target-key")
+        val matchingExactKey = entry(parentMetaId = "other-show", progressKey = "target-key")
+        val matchingLogicalAlias = entry(parentMetaId = "show", progressKey = "alias-key")
+        val unrelated = entry(parentMetaId = "unrelated", progressKey = "unrelated-key")
+        val stored = linkedMapOf(
+            matchingExactKey.resolvedProgressKey() to matchingExactKey,
+            matchingLogicalAlias.resolvedProgressKey() to matchingLogicalAlias,
+            unrelated.resolvedProgressKey() to unrelated,
+        )
+        val dirtyKeys = mutableSetOf("target-key", "alias-key", "unrelated-key", "stale-key")
+
+        val removed = removeStoredLocalWatchProgressEntries(
+            entriesByProgressKey = stored,
+            dirtyProgressKeys = dirtyKeys,
+            entries = listOf(target),
+        )
+
+        assertEquals(listOf(matchingExactKey, matchingLogicalAlias), removed)
+        assertEquals(mapOf("unrelated-key" to unrelated), stored)
+        assertEquals(setOf("unrelated-key", "stale-key"), dirtyKeys)
+    }
+
+    @Test
+    fun `video id removal respects parent scope and clears only removed dirty keys`() {
+        val first = entry(parentMetaId = "show", videoId = "video-a", progressKey = "first")
+        val second = entry(parentMetaId = "show", videoId = "video-b", progressKey = "second")
+        val otherParent = entry(parentMetaId = "other-show", videoId = "video-a", progressKey = "other")
+        val stored = linkedMapOf("first" to first, "second" to second, "other" to otherParent)
+        val dirtyKeys = mutableSetOf("first", "second", "other", "stale")
+
+        val removed = removeLocalWatchProgressEntriesForVideoIds(
+            entriesByProgressKey = stored,
+            dirtyProgressKeys = dirtyKeys,
+            videoIds = listOf("video-a", "video-b"),
+            parentMetaId = "show",
+        )
+
+        assertEquals(listOf(first, second), removed)
+        assertEquals(mapOf("other" to otherParent), stored)
+        assertEquals(setOf("other", "stale"), dirtyKeys)
+
+        val unscopedRemoved = removeLocalWatchProgressEntriesForVideoIds(
+            entriesByProgressKey = stored,
+            dirtyProgressKeys = dirtyKeys,
+            videoIds = listOf("video-a"),
+            parentMetaId = null,
+        )
+
+        assertEquals(listOf(otherParent), unscopedRemoved)
+        assertTrue(stored.isEmpty())
+        assertEquals(setOf("stale"), dirtyKeys)
+    }
+
     private fun mergeSnapshot(records: List<ProgressSyncRecord>): Map<String, WatchProgressEntry> =
         WatchProgressRepository.mergeWatchProgressEntriesPreservingUnsynced(
             serverEntries = records,
