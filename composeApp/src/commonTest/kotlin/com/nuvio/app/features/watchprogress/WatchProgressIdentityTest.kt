@@ -281,6 +281,30 @@ class WatchProgressIdentityTest {
     }
 
     @Test
+    fun `contextual lookup keeps freshest row for an unambiguous logical identity`() {
+        val older = entry(
+            parentMetaId = "show",
+            videoId = "shared-video",
+            progressKey = "opaque-old",
+            lastUpdatedEpochMs = 10L,
+            lastPositionMs = 100L,
+        )
+        val newer = older.copy(
+            progressKey = "opaque-new",
+            lastUpdatedEpochMs = 20L,
+            lastPositionMs = 200L,
+        )
+
+        val result = WatchProgressUiState(entries = listOf(older, newer)).progressForVideo(
+            videoId = "shared-video",
+            parentMetaId = "show",
+        )
+
+        assertEquals("opaque-new", result?.resolvedProgressKey())
+        assertEquals(200L, result?.lastPositionMs)
+    }
+
+    @Test
     fun `optimistic update reuses exact opaque key before a fresher playback alias`() {
         val exactPlayback = entry(
             videoId = "provider-video-a",
@@ -301,7 +325,6 @@ class WatchProgressIdentityTest {
 
         assertEquals("remote-exact-key", resolved.progressKey)
     }
-
 
     @Test
     fun `video id compatibility projection keeps the freshest row for one logical identity`() {
