@@ -193,9 +193,9 @@ actual object PluginRepository {
                     scrapers = nextScrapers,
                 )
                 initialized = true
-                persist(operation)
             }
             if (!applied) return@runCatchingUnlessCancelled
+            persist(operation)
 
             nextRepos.filter(PluginRepositoryItem::isRefreshing).forEach { repository ->
                 if (!isCurrentOperation(operation)) return@forEach
@@ -246,9 +246,9 @@ actual object PluginRepository {
                         scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl } + scrapers,
                     )
                 }
-                persist(operation)
             }
             if (!applied) throw CancellationException("Plugin profile changed while installing repository")
+            persist(operation)
             pushToServer(operation, client)
             AddPluginRepositoryResult.Success(repository)
         } catch (error: CancellationException) {
@@ -269,9 +269,11 @@ actual object PluginRepository {
                     scrapers = state.scrapers.filterNot { it.repositoryUrl == manifestUrl },
                 )
             }
-            persist(operation)
         }
-        if (applied) pushToServer(operation, client)
+        if (applied) {
+            persist(operation)
+            pushToServer(operation, client)
+        }
     }
 
     actual fun refreshAll() {
@@ -353,8 +355,8 @@ actual object PluginRepository {
                                     }
                                 },
                             )
-                            persist(activeOperation)
                         }
+                        if (applied) persist(activeOperation)
                         if (applied && pushAfterRefresh && isCurrentOperation(activeOperation)) {
                             pushToServer(activeOperation, activeClient)
                         }
@@ -387,8 +389,8 @@ actual object PluginRepository {
                     },
                 )
             }
-            persist(operation)
         }
+        if (isCurrentOperation(operation)) persist(operation)
     }
 
     actual fun setPluginsEnabled(enabled: Boolean) {
@@ -396,8 +398,8 @@ actual object PluginRepository {
         val operation = currentProfileOperation() ?: return
         runIfCurrent(operation) {
             _uiState.update { it.copy(pluginsEnabled = enabled) }
-            persist(operation)
         }
+        if (isCurrentOperation(operation)) persist(operation)
     }
 
     actual fun setGroupStreamsByRepository(enabled: Boolean) {
@@ -405,8 +407,8 @@ actual object PluginRepository {
         val operation = currentProfileOperation() ?: return
         runIfCurrent(operation) {
             _uiState.update { it.copy(groupStreamsByRepository = enabled) }
-            persist(operation)
         }
+        if (isCurrentOperation(operation)) persist(operation)
     }
 
     actual fun setLocalPluginSearchPaused(paused: Boolean) {
@@ -496,73 +498,78 @@ actual object PluginRepository {
     private suspend fun fetchRepositoryData(
         manifestUrl: String,
         previousScrapers: Map<String, PluginScraper>,
-    ): Pair<PluginRepositoryItem, List<PluginScraper>> {
-        val storageProfileId = currentProfileId
-        return withContext(Dispatchers.Default) {
-            val payload = httpGetText(manifestUrl)
-            val manifest = PluginManifestParser.parse(payload)
-            val baseUrl = manifestUrl.substringBefore("?").removeSuffix("/manifest.json")
+        operation: PluginProfileOperation,
+    ): Pair<PluginRepositoryItem, List<PluginScraper>> = withContext(Dispatchers.Default) {
+        ensureOperationCurrent(operation)
+        val payload = httpGetText(manifestUrl)
+        ensureOperationCurrent(operation)
+        val manifest = PluginManifestParser.parse(payload)
+        val baseUrl = manifestUrl.substringBefore("?").removeSuffix("/manifest.json")
+        val scrapers = mutableListOf<PluginScraper>()
 
-            val scrapers = manifest.scrapers
-                .filter { scraper -> scraper.isSupportedOnCurrentPlatform() }
-                .mapNotNull { info ->
-                    val codeUrl = if (info.filename.startsWith("http://") || info.filename.startsWith("https://")) {
-                        info.filename
-                    } else {
-                        "$baseUrl/${info.filename.trimStart('/')}"
-                    }
-                    runCatching {
-                        val code = httpGetText(codeUrl)
-                        val scraperId = "${manifestUrl.lowercase()}:${info.id}"
-                        val cached = PluginStorage.saveScraperCode(
-                            profileId = storageProfileId,
-                            scraperId = scraperId,
-                            code = code,
-                            overwrite = true,
-                        )
-                        if (!cached) {
-                            log.w { "Failed to cache plugin scraper $scraperId" }
-                        }
-                        val previous = previousScrapers[scraperId]
-                        val enabled = when {
-                            !info.enabled -> false
-                            previous != null -> previous.enabled
-                            else -> info.enabled
-                        }
-
-                        PluginScraper(
-                            id = scraperId,
-                            repositoryUrl = manifestUrl,
-                            name = info.name,
-                            description = info.description.orEmpty(),
-                            version = info.version,
-                            filename = info.filename,
-                            supportedTypes = info.supportedTypes,
-                            enabled = enabled,
-                            manifestEnabled = info.enabled,
-                            hasSettings = info.hasSettings,
-                            logo = info.logo,
-                            contentLanguage = info.contentLanguage ?: emptyList(),
-                            formats = info.formats ?: info.supportedFormats,
-                            code = code,
-                        )
-                    }.getOrNull()
-                }
-
-            val repo = PluginRepositoryItem(
-                manifestUrl = manifestUrl,
-                name = manifest.name,
-                description = manifest.description,
-                version = manifest.version,
-                scraperCount = scrapers.size,
-                lastUpdated = currentEpochMillis(),
-                isRefreshing = false,
-                errorMessage = null,
+        for (info in manifest.scrapers) {
+            if (!info.isSupportedOnCurrentPlatform()) continue
+            ensureOperationCurrent(operation)
+            val codeUrl = if (info.filename.startsWith("http://") || info.filename.startsWith("https://")) {
+                info.filename
+            } else {
+                "$baseUrl/${info.filename.trimStart('/')}"
+            }
+            val codeResult = runCatchingUnlessCancelled { httpGetText(codeUrl) }
+            val code = codeResult.getOrNull() ?: continue
+            val scraperId = "${manifestUrl.lowercase()}:${info.id}"
+            var cached = false
+            val cacheAccepted = runIfCurrent(operation) {
+                cached = PluginStorage.saveScraperCode(
+                    profileId = operation.profileId,
+                    scraperId = scraperId,
+                    code = code,
+                    overwrite = true,
+                )
+            }
+            if (!cacheAccepted) {
+                throw CancellationException("Plugin profile changed while caching scraper code")
+            }
+            if (!cached) {
+                log.w { "Failed to cache plugin scraper $scraperId" }
+            }
+            val previous = previousScrapers[scraperId]
+            val enabled = when {
+                !info.enabled -> false
+                previous != null -> previous.enabled
+                else -> info.enabled
+            }
+            scrapers += PluginScraper(
+                id = scraperId,
+                repositoryUrl = manifestUrl,
+                name = info.name,
+                description = info.description.orEmpty(),
+                version = info.version,
+                filename = info.filename,
+                supportedTypes = info.supportedTypes,
+                enabled = enabled,
+                manifestEnabled = info.enabled,
+                hasSettings = info.hasSettings,
+                logo = info.logo,
+                contentLanguage = info.contentLanguage ?: emptyList(),
+                formats = info.formats ?: info.supportedFormats,
+                code = code,
             )
-            repo to scrapers
         }
-    }
 
+        ensureOperationCurrent(operation)
+        val repository = PluginRepositoryItem(
+            manifestUrl = manifestUrl,
+            name = manifest.name,
+            description = manifest.description,
+            version = manifest.version,
+            scraperCount = scrapers.size,
+            lastUpdated = currentEpochMillis(),
+            isRefreshing = false,
+            errorMessage = null,
+        )
+        repository to scrapers
+    }
     private fun PluginManifestScraper.isSupportedOnCurrentPlatform(): Boolean {
         val platform = currentPluginPlatform().lowercase()
         val supported = supportedPlatforms?.map { it.lowercase() }?.toSet().orEmpty()
@@ -593,46 +600,86 @@ actual object PluginRepository {
         }
     }
 
-    private fun pushToServer() {
-        scope.launch {
-            runCatching {
-                val repos = _uiState.value.repositories.mapIndexed { index, repo ->
-                    PluginPushItem(
-                        url = repo.manifestUrl,
-                        name = repo.name,
-                        enabled = true,
-                        sortOrder = index,
-                    )
-                }
+    private fun pushToServer(
+        operation: PluginProfileOperation,
+        client: SupabaseClient = SupabaseProvider.client,
+    ) {
+        val repositories = readIfCurrent(operation) {
+            _uiState.value.repositories.mapIndexed { index, repository ->
+                PluginPushItem(
+                    url = repository.manifestUrl,
+                    name = repository.name,
+                    enabled = true,
+                    sortOrder = index,
+                )
+            }
+        } ?: return
 
+        var pushJob: Job? = null
+        pushJob = scope.launch(start = CoroutineStart.LAZY) {
+            try {
                 val params = buildJsonObject {
-                    put("p_profile_id", currentProfileId)
-                    put("p_plugins", json.encodeToJsonElement(repos))
+                    put("p_profile_id", operation.profileId)
+                    put("p_plugins", json.encodeToJsonElement(repositories))
                 }
-                SupabaseProvider.client.postgrest.rpc("sync_push_plugins", params)
-            }.onFailure { error ->
+                client.postgrest.rpc("sync_push_plugins", params)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
                 log.e(error) { "pushToServer failed" }
+            } finally {
+                synchronized(pushJobsLock) {
+                    if (pushJobsByProfile[operation.profileId] === pushJob) {
+                        pushJobsByProfile.remove(operation.profileId)
+                    }
+                }
             }
         }
+
+        var previous: Job? = null
+        val queued = runIfCurrent(operation) {
+            previous = synchronized(pushJobsLock) {
+                pushJobsByProfile.put(operation.profileId, pushJob!!)
+            }
+        }
+        if (!queued) {
+            pushJob?.cancel()
+            return
+        }
+        previous?.cancel()
+        pushJob!!.start()
     }
 
-    private fun persist() {
-        val snapshot = PluginPersistenceSnapshot(
-            profileId = currentProfileId,
-            generation = persistenceGeneration.value,
-            revision = persistenceRevision.incrementAndGet(),
-            state = _uiState.value,
-        )
+    private fun cancelPushJobs() {
+        val jobs = synchronized(pushJobsLock) {
+            pushJobsByProfile.values.toList().also { pushJobsByProfile.clear() }
+        }
+        jobs.forEach(Job::cancel)
+    }
+    private fun persist(operation: PluginProfileOperation) {
+        val snapshot = readIfCurrent(operation) {
+            PluginPersistenceSnapshot(
+                profileId = operation.profileId,
+                generation = persistenceGeneration.value,
+                revision = persistenceRevision.incrementAndGet(),
+                state = _uiState.value,
+            )
+        } ?: return
         val requiresCodeWrite = snapshot.state.scrapers.any { scraper ->
             !PluginStorage.hasScraperCode(snapshot.profileId, scraper.id)
         }
         if (requiresCodeWrite) {
-            scope.launch { persist(snapshot) }
+            scope.launch {
+                runIfCurrent(operation) {
+                    persist(snapshot)
+                }
+            }
         } else {
-            persist(snapshot)
+            runIfCurrent(operation) {
+                persist(snapshot)
+            }
         }
     }
-
     private fun persist(snapshot: PluginPersistenceSnapshot) {
         if (snapshot.generation != persistenceGeneration.value) return
         var cached = true
