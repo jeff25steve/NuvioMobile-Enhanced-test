@@ -534,3 +534,83 @@ Verification limits: the complete Android DNS resolver and its consumers were st
 The NetworkStatusRepository was inspected as a separate candidate because probeInFlight and its pending flags are ordinary mutable fields, and probeInFlight is set only after a launched coroutine begins. Concurrent callers could theoretically launch overlapping probes, while an exception escaping runProbe could leave the in-flight flag set.
 
 The source path currently confirmed in AppGate is the one-time runtime startup call to ensureStarted(). The repository tree and available code-search results did not establish another production call site for requestForegroundRefresh() or requestRefresh(). A concrete concurrent caller/reproducer was therefore not established. No code change or defect claim was promoted from this hypothesis; do not revisit it without new evidence of additional callers or an observed duplicate/stuck probe.
+
+
+### Central auth repository — propagate cancellation from suspend operations (8 November 2026)
+
+A targeted cross-provider auth audit found an inconsistency in the shared Supabase auth repository. Several suspend operations use Kotlin's standard `runCatching`, which captures `CancellationException` as a normal `Result.failure` instead of allowing the caller's cancellation to unwind.
+
+Source-confirmed call sites in `AuthRepository.kt`:
+- `validateRemoteSession` wraps `retrieveUserForCurrentSession(false)`. If its collector is cancelled during remote validation, the catch-all fallback treats cancellation as a validation/network failure and returns `true`. The caller can then publish the old `SessionStatus.Authenticated` user after `reinitialize()` has already reset state to `Loading`. In a server switch, this can briefly republish the previous backend's account identity after the old Supabase client has been reset.
+- `signUpWithEmail` and `signInWithEmail` wrap suspend Auth SDK calls in standard `runCatching`; cancellation is exposed as an ordinary sign-in/sign-up failure and updates the visible auth error state rather than immediately propagating.
+- `deleteAccount` similarly wraps the remote delete and sign-out operations in standard `runCatching`. A cancelled request is converted to a failure result and the caller's cancellation is delayed or swallowed. The exact desired cleanup semantics when the server may have completed deletion but the response was cancelled need dedicated tests; do not make a blind helper substitution.
+
+The branch already contains a suitable local precedent:
+- `core/concurrency/RunCatchingUnlessCancelled.kt` rethrows `CancellationException` and captures other failures.
+- `RunCatchingUnlessCancelledTest.kt` covers cancellation identity, ordinary failure and success.
+- Trakt and Simkl auth repositories explicitly rethrow cancellation around network operations; MDBList's disconnect path does the same. `ServerDiscoveryService.discover` explicitly rethrows cancellation from its suspending request.
+- Do not blanket-replace other `runCatching` blocks in `AuthRepository`: `signOut` deliberately attempts local cleanup and resets the auth state before rethrowing a captured remote cancellation, and `prepareForServerSwitch` deliberately clears local state before rethrowing. Those are materially different cleanup contracts.
+
+Dependency/source context:
+- The branch pins Kotlin 2.4.10, kotlinx.coroutines 1.10.2 and supabase-kt 3.4.1 in `gradle/libs.versions.toml`.
+- Kotlin's official cancellation guide says cancellation exceptions must be rethrown when caught so cancellation propagates: https://kotlinlang.org/docs/cancellation-and-timeouts.html
+- kotlinx.coroutines issue #1814 documents the standard-library `runCatching` problem and maintainer guidance for suspendable operations: https://github.com/Kotlin/kotlinx.coroutines/issues/1814
+- Supabase Kotlin's `sessionStatus` is the session lifecycle Flow: https://supabase.com/docs/reference/kotlin/auth-onauthstatechange
+- Supabase-kt also merged PR #895, titled "Don't swallow CancellationException", to correct cancellation handling in its own modules: https://github.com/supabase-community/supabase-kt/pull/895. This is supporting upstream precedent; the exact contents of the pinned 3.4.1 binary were not asserted from a newer SDK docs snapshot.
+- Context7 resolved official kotlinx.coroutines API documentation. Supabase Context7 content was for 3.9.0, not this repo's pinned 3.4.1, so it was not used to establish version-specific SDK internals.
+- Searches did not surface a directly relevant, verifiable Reddit thread; no Reddit validation is claimed.
+
+Recommended test-first follow-up:
+- Add focused tests around an injectable/fakeable remote-session validation operation. Cancel while validation is suspended, call `reinitialize()`, then complete/cancel the old operation and assert the old collector cannot republish its authenticated user.
+- Verify cancellation from email sign-in/sign-up propagates without writing an auth error or marking the request as a normal failed result.
+- Verify account deletion's cancellation behaviour, including the ambiguous case where the remote action may have committed before cancellation. Preserve any mandatory local invalidation/cleanup, while not converting caller cancellation into a recoverable auth error.
+- Keep tests for `signOut` and `prepareForServerSwitch` asserting their intentional "attempt local cleanup, then propagate cancellation" behaviour.
+- Prefer the existing cancellation-aware helper for operations whose only correct cancellation behaviour is propagation; use a more explicit `try/finally` design where cleanup must run.
+
+Rejected approaches:
+- Replacing every `runCatching` in `AuthRepository` with the helper was rejected because sign-out and server-switch cleanup deliberately defer propagation until after local state cleanup.
+- Rewriting all provider auth repositories was rejected: Trakt, Simkl and MDBList paths already explicitly preserve cancellation where needed.
+- Changing Supabase SDK or Ktor versions was not justified.
+
+Verification limits: the four central auth wrappers, auth state collector, server switch controller, device-link repository and adjacent provider implementations were statically inspected. The exact repository dependency versions and current tests were reviewed. There is no dedicated `AuthRepository` or `DeviceLinkAuthRepository` test in the current source tree. No test, compile, build, Xcode, CI or build-triggering command was started; no production or test code was changed because the red-green test cycle is not authorised.
+
+### Device-link authentication — cancel before replacing the backend client (8 November 2026)
+
+A separate server-switch lifecycle race was confirmed by tracing the common Auth screen and server controller.
+
+Current sequence:
+1. `ServerConnectionController.switchServer` clears the existing auth session.
+2. It saves the new `ServerConfiguration`, which immediately changes `ServerConfigurationRepository.active`.
+3. It calls `SupabaseProvider.reset()`, closing and discarding the old cached Supabase client.
+4. It reinitializes auth and refreshes network status.
+5. Only then does it publish the new `activeServer` in `ServerConnectionController.state`.
+6. `AuthScreen` cancels `DeviceLinkAuthRepository` from a `LaunchedEffect` keyed to that published backend URL. That effect therefore runs after the client replacement, not before it.
+
+Meanwhile, `DeviceLinkAuthRepository` snapshots the starting `ServerConfiguration` to construct the device-link redirect URL, but resolves `SupabaseProvider.client` dynamically for the start RPC, every poll and the final exchange. Its polling job can therefore remain active across the interval where the old client is closed and the provider begins returning a client for the new backend. A poll or exchange resumed during that interval can send a device code issued by backend A to backend B; completion also imports the returned session into whichever client the global provider currently exposes.
+
+This is a statically confirmed lifecycle window, not a runtime reproduction. It affects the shared Auth screen on Android and iOS; it does not justify a platform-specific workaround.
+
+Recommended test-first follow-up:
+- Move flow cancellation into the server-switch orchestration before the active server configuration or cached Supabase client changes. Decide explicitly whether beginning a switch cancels an in-progress device-link flow even if the subsequent session-clear/save step fails; cancelling at switch start is safest against cross-server operations but changes that failure UX slightly.
+- Alternatively, introduce an explicit server-generation/client identity check at every asynchronous boundary and prohibit exchange/session import if the originating server is no longer active. Capturing only a client reference is insufficient unless completion is prevented from importing into a stale or replaced client.
+- Test server A device-code creation, suspend the poll, switch to B, then resume the poll and exchange. Assert no A code is ever sent to B and no session from A is imported into B. Also test a switch that fails before the backend change and the intended device-link UI state.
+- Keep the screen-disposal cancellation as a lifecycle safeguard; it should not be the only server-switch boundary.
+
+Evidence is the exact source path and revisions: `ServerConnectionController.kt` (`7febe0370d7aac99320e8629fb5dac8d887c66a0`), `AuthScreen.kt` (`1ca8849eaf50dd73a96c86fdd86ee3007461d341`), `DeviceLinkAuthRepository.kt` (`7868acbe4331938460890bfe6ed3034ce977480e`), `ServerConfiguration.kt` (`59690c9874fb43b2f072691026b0f707137aa070`) and `SupabaseProvider.kt` (`06544ce8f93fe40f982fcd1e5dc934e75b82d6ce`).
+
+Verification limits: all relevant common source files and the UI cancellation effect were inspected. This timing window was not exercised at runtime because tests are not authorised. No production/test code changed and no build or CI was started.
+
+### In-app log buffer — retryable StateFlow update has a side effect (candidate not promoted) (8 November 2026)
+
+`InAppLogger.appendEntry` calls `syncLines(updated)` from inside the transformation passed to `_entries.update { current -> ... }`. The pinned kotlinx.coroutines API documents that the update function may be evaluated more than once when concurrent updates contend. Publishing the mirrored `_lines` StateFlow inside that retryable transformation is therefore a side effect that can run for failed compare-and-set attempts and can expose an intermediate `lines` snapshot that does not correspond to the committed `entries` value.
+
+The same hot path also copies the retained list at the 3,000-entry cap (`drop(1) + entry`) and rebuilds a second 3,000-element string list on each append. That is O(capacity) work and allocation per log event while the buffer is full. This is a plausible efficiency issue, but no representative event-rate/allocation measurement was made.
+
+Context:
+- The debugging settings page currently collects `InAppLogger.entries`, and renders filters plus the last 500 rows. It does not establish that the compatibility `lines` StateFlow is actively consumed elsewhere.
+- iOS MPV diagnostics are already coalesced in the player bridge before forwarding log events, so do not assume unbounded per-frame log spam from that path.
+- Kotlin's official `MutableStateFlow.update` API states the transform can be evaluated multiple times: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/update.html
+
+No change is recommended until all `lines` consumers and cross-platform log writers are established and a meaningful workload is measured. A future test should stress concurrent append/clear and assert the retained entries and compatibility lines remain aligned, with no duplicate externally visible side effects. If addressed, retain the 3,000-entry bound, order and log text; use a synchronization/state ownership design rather than moving `syncLines` after the atomic update without considering races.
+
+Verification limits: common logger, settings log viewer, Android/iOS timestamp actuals and iOS MPV bridge were inspected. No logger tests or event-rate benchmarks were run. This remains a candidate only; no code or test files were modified.
