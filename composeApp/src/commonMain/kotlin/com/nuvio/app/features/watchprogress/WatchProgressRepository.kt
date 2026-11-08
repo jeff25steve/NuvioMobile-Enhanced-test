@@ -1660,19 +1660,11 @@ object WatchProgressRepository {
 
     private fun removeStoredLocalEntries(entries: Collection<WatchProgressEntry>): List<WatchProgressEntry> =
         synchronized(entriesLock) {
-            val targetKeys = entries.mapTo(mutableSetOf()) { entry -> entry.resolvedProgressKey() }
-            val keysToRemove = entriesByProgressKey
-                .filterValues { localEntry ->
-                    localEntry.resolvedProgressKey() in targetKeys || entries.any { target ->
-                        localEntry.parentMetaId == target.parentMetaId &&
-                            localEntry.seasonNumber == target.seasonNumber &&
-                            localEntry.episodeNumber == target.episodeNumber
-                    }
-                }
-                .keys
-                .toList()
-            dirtyProgressKeys.removeAll(keysToRemove.toSet())
-            keysToRemove.mapNotNull(entriesByProgressKey::remove)
+            removeStoredLocalWatchProgressEntries(
+                entriesByProgressKey = entriesByProgressKey,
+                dirtyProgressKeys = dirtyProgressKeys,
+                entries = entries,
+            )
         }
 
     private fun currentEntries(): List<WatchProgressEntry> {
@@ -1813,17 +1805,12 @@ object WatchProgressRepository {
         parentMetaId: String?,
     ): List<WatchProgressEntry> =
         synchronized(entriesLock) {
-            if (videoIds.isEmpty()) return@synchronized emptyList()
-            val ids = videoIds.toSet()
-            val keysToRemove = entriesByProgressKey
-                .filterValues { entry ->
-                    entry.videoId in ids &&
-                        (parentMetaId == null || entry.parentMetaId == parentMetaId)
-                }
-                .keys
-                .toList()
-            dirtyProgressKeys.removeAll(keysToRemove.toSet())
-            keysToRemove.mapNotNull(entriesByProgressKey::remove)
+            removeLocalWatchProgressEntriesForVideoIds(
+                entriesByProgressKey = entriesByProgressKey,
+                dirtyProgressKeys = dirtyProgressKeys,
+                videoIds = videoIds,
+                parentMetaId = parentMetaId,
+            )
         }
 
     fun isDroppedShow(contentId: String): Boolean {
