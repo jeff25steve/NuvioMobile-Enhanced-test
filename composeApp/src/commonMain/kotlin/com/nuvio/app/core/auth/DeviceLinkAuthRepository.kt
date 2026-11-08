@@ -1,6 +1,7 @@
 package com.nuvio.app.core.auth
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.cancelAndJoinNonCancellable
 import com.nuvio.app.core.network.ServerConfiguration
 import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.network.SupabaseProvider
@@ -66,6 +67,7 @@ object DeviceLinkAuthRepository {
     private val _state = MutableStateFlow<DeviceLinkAuthState>(DeviceLinkAuthState.Idle)
     val state: StateFlow<DeviceLinkAuthState> = _state.asStateFlow()
     private var activeJob: Job? = null
+    private var switchingJob: Job? = null
 
     fun start() {
         val job = synchronized(lifecycleLock) {
@@ -106,14 +108,26 @@ object DeviceLinkAuthRepository {
             flowGate.beginServerSwitch()
             activeJob.also {
                 activeJob = null
+                switchingJob = it
                 _state.value = DeviceLinkAuthState.Idle
             }
         }
         job?.cancel()
     }
 
+    suspend fun awaitServerSwitchStopped() {
+        val job = synchronized(lifecycleLock) { switchingJob }
+        cancelAndJoinNonCancellable(job)
+        synchronized(lifecycleLock) {
+            if (switchingJob === job) switchingJob = null
+        }
+    }
+
     fun endServerSwitch() {
         flowGate.endServerSwitch()
+        synchronized(lifecycleLock) {
+            switchingJob = null
+        }
     }
 
     @OptIn(ExperimentalUuidApi::class)
