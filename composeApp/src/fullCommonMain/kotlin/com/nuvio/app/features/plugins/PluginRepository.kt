@@ -131,8 +131,8 @@ actual object PluginRepository {
         profileOperationGate.invalidate(1) {
             cancelActiveRefreshes()
             cancelPushJobs()
-            persistenceGeneration.incrementAndGet()
             synchronized(persistenceLock) {
+                persistenceGeneration.incrementAndGet()
                 persistedRevisionByProfile.clear()
             }
             currentProfileId = 1
@@ -670,38 +670,31 @@ actual object PluginRepository {
             !PluginStorage.hasScraperCode(snapshot.profileId, scraper.id)
         }
         if (requiresCodeWrite) {
-            scope.launch {
-                runIfCurrent(operation) {
-                    persist(snapshot)
-                }
-            }
+            scope.launch { persist(snapshot) }
         } else {
-            runIfCurrent(operation) {
-                persist(snapshot)
-            }
+            persist(snapshot)
         }
     }
     private fun persist(snapshot: PluginPersistenceSnapshot) {
-        if (snapshot.generation != persistenceGeneration.value) return
-        var cached = true
-        snapshot.state.scrapers.forEach { scraper ->
-            val scraperCached = PluginStorage.saveScraperCode(
-                profileId = snapshot.profileId,
-                scraperId = scraper.id,
-                code = scraper.code,
-                overwrite = false,
-            )
-            cached = scraperCached && cached
-        }
-        if (!cached || snapshot.generation != persistenceGeneration.value) {
-            if (!cached) {
-                log.w { "Failed to persist plugin scraper cache for profile ${snapshot.profileId}" }
-            }
-            return
-        }
-
         synchronized(persistenceLock) {
             if (snapshot.generation != persistenceGeneration.value) return@synchronized
+            var cached = true
+            snapshot.state.scrapers.forEach { scraper ->
+                val scraperCached = PluginStorage.saveScraperCode(
+                    profileId = snapshot.profileId,
+                    scraperId = scraper.id,
+                    code = scraper.code,
+                    overwrite = false,
+                )
+                cached = scraperCached && cached
+            }
+            if (!cached || snapshot.generation != persistenceGeneration.value) {
+                if (!cached) {
+                    log.w { "Failed to persist plugin scraper cache for profile ${snapshot.profileId}" }
+                }
+                return@synchronized
+            }
+
             val persistedRevision = persistedRevisionByProfile[snapshot.profileId] ?: Long.MIN_VALUE
             if (snapshot.revision < persistedRevision) return@synchronized
             val payload = snapshot.state.toStoredPluginsState()
