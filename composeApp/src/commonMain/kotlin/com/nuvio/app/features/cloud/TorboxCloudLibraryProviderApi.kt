@@ -11,7 +11,7 @@ internal class TorboxCloudLibraryProviderApi : CloudLibraryProviderApi {
     override val provider = DebridProviders.Torbox
 
     override suspend fun listItems(apiKey: String): Result<List<CloudLibraryItem>> =
-        runCatching {
+        cloudLibraryListResult {
             val torrents = TorboxApiClient.listCloudTorrents(apiKey).itemsOrThrow(CloudLibraryItemType.Torrent)
             val usenet = TorboxApiClient.listCloudUsenet(apiKey).itemsOrThrow(CloudLibraryItemType.Usenet)
             val web = TorboxApiClient.listCloudWebDownloads(apiKey).itemsOrThrow(CloudLibraryItemType.WebDownload)

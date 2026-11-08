@@ -9,7 +9,7 @@ internal class PremiumizeCloudLibraryProviderApi : CloudLibraryProviderApi {
     override val provider = DebridProviders.Premiumize
 
     override suspend fun listItems(apiKey: String): Result<List<CloudLibraryItem>> =
-        runCatching {
+        cloudLibraryListResult {
             val response = PremiumizeApiClient.listAllItems(apiKey)
             if (!response.isSuccessful || response.body?.status.equals("error", ignoreCase = true)) {
                 throw IllegalStateException(response.body?.message ?: response.body?.code ?: response.rawBody.takeIf { it.isNotBlank() })

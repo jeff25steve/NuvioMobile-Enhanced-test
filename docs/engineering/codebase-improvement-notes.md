@@ -138,6 +138,15 @@ This uses Kotlin's documented insertion-order guarantee for `mutableMapOf`/defau
 
 The improvement removes repeated O(local watched items) fallback scans after the index is built; index construction is a single O(local watched items) pass performed only for a page containing a fallback DELETE. No persisted schema, UI, sync payload, dependencies or build configuration changed. Tests/builds/CI remain unrun as required.
 
+
+### Debrid profile switching and Cloud Library cancellation
+
+Android and iOS already persist Debrid preferences and provider API keys through `ProfileScopedKey`, and `DebridSettingsRepository` already exposes `onProfileChanged()`. The normal `ProfileRepository.selectProfile()` path omitted that hook, unlike the neighboring TMDB/MDBList/player settings repositories. The selected profile could therefore keep the previous profile's Debrid configuration in memory until a later reset/restart. The profile selector now invokes the existing Debrid reload hook; storage format, sync ownership and settings UI are unchanged.
+
+Both Cloud Library provider adapters wrapped suspend `listItems()` network calls in Kotlin `runCatching`. Since `runCatching` catches `Throwable`, coroutine `CancellationException` was converted into `Result.failure`, allowing a cancelled provider request to be treated as an ordinary provider error and potentially reported/published. A shared `cloudLibraryListResult` wrapper now rethrows cancellation and converts other thrown failures to `Result.failure`, preserving the existing provider-result contract. Kotlin's official [coroutine cancellation guidance](https://kotlinlang.org/docs/coroutines-cancellation.html) explicitly says to rethrow cancellation exceptions; its [runCatching API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/run-catching.html) documents that all thrown `Throwable` values are captured.
+
+No dependency, UI, persistence, resource, build or CI change is involved. Common tests cover cancellation propagation, ordinary failure conversion and successful-value preservation. The tests have not been executed because builds/tests remain unauthorised.
+
 ## Verification record and limits
 
 - Source reviewed through GitHub at the recorded branch/commit; upstream `enhanced` was checked for the relevant Trakt and Home source paths.
