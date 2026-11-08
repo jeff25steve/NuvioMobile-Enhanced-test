@@ -597,6 +597,9 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         nativeRequest.setHTTPMethod("GET")
         request.sourceHeaders.forEach { (key, value) -> nativeRequest.setValue(value, forHTTPHeaderField = key) }
         if (rangeStart != null && rangeStart > 0L) {
+            // Range offsets describe representation bytes; avoid URLSession transparently
+            // decompressing a response before the bytes are appended to the partial file.
+            nativeRequest.setValue("identity", forHTTPHeaderField = "Accept-Encoding")
             nativeRequest.setValue("bytes=$rangeStart-", forHTTPHeaderField = "Range")
         }
         return nativeRequest
