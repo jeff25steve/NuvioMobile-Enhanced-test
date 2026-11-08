@@ -233,14 +233,17 @@ internal object LocalAccountDataCleaner {
             { StreamContextStore.clear() },
         )
 
-        val failures = runAccountCleanupSteps(steps)
-        val finalizationFailures = runAccountCleanupSteps(
-            listOf(
-                { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
-                { MemberAccessRepository.onAccountCleanupFinished() },
-            ),
-        )
-        val allFailures = failures + finalizationFailures
+        val allFailures = mutableListOf<Exception>()
+        try {
+            allFailures += runAccountCleanupSteps(steps)
+        } finally {
+            allFailures += runAccountCleanupSteps(
+                listOf(
+                    { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
+                    { MemberAccessRepository.onAccountCleanupFinished() },
+                ),
+            )
+        }
 
         if (allFailures.isNotEmpty()) {
             val primaryFailure = allFailures.first()
