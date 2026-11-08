@@ -474,7 +474,11 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                 val completeLength = checkNotNull(partialRange.completeLength)
                 val assembledSize = fileSizeOrNull(tempPath)
                 val expectedEndExclusive = partialRange.lastByteInclusive + 1L
-                if (assembledSize != expectedEndExclusive || assembledSize > completeLength) {
+                if (
+                    assembledSize == null ||
+                    assembledSize != expectedEndExclusive ||
+                    assembledSize > completeLength
+                ) {
                     if (!truncatePathToLength(tempPath, existingPartialSize)) {
                         removePathIfExists(tempPath)
                     }
