@@ -375,3 +375,33 @@ A final standards check found that the shared Content-Range parser still matched
 Research basis: [RFC 9110 §14.1](https://www.rfc-editor.org/rfc/rfc9110.html) states that all range unit names are case-insensitive. An aiohttp issue was found documenting the same case-sensitive-regex failure mode in a separate implementation; it was used only as corroborating implementation evidence, not as the normative basis.
 
 Verification limits: the updated shared parser and regression case were re-fetched from GitHub and inspected. Tests were not executed because Gradle test execution is prohibited until explicit authorisation.
+
+
+
+### P2P — surface late command-scoped torrent errors on Android and full iOS (8 November 2026)
+
+A source-level event-contract review found a real playback-failure reporting gap. The app previously treated only TorrentError events with requestId == 0 as unsolicited failures. That assumption is not valid for the native Nuvio Engine: backend-originated torrent events retain the originating command request ID, and the engine runtime forwards both request_id and torrent_id into the public event unchanged. Android's 0.1.6 Kotlin wrapper emits every event to its public events Flow before looking up a pending command; once addMagnet has completed and removed its pending entry, a later error with the original non-zero request ID is still delivered to app collectors. The app's requestId == 0 filter discarded that later failure even when its torrent ID identified the active playback.
+
+The native C++ source confirms the propagation path:
+- `src/torrent/libtorrent_backend.cpp` queues torrent errors with their originating request ID.
+- `src/core/engine_runtime.cpp` forwards backend request ID, torrent ID and message into `nuvio_engine_event`.
+- The Android wrapper `platform/android/engine/src/main/kotlin/com/nuvio/engine/NuvioEngine.kt` emits events to `mutableEvents` before it checks whether a request is still pending.
+- NuvioTV issue #4222 includes real playback logs with TorrentError requestId=1 and the active torrent hash after playback began. This is corroborating real-world evidence; the mobile branch itself was independently confirmed to have the same invalid requestId==0-only classifier.
+
+Changes:
+- Moved active-torrent error classification into commonMain. An error is now considered playback-fatal only when the event carries a non-empty torrent ID equal to the currently active torrent ID. This deliberately does not treat global cache-pressure events with no torrent ID as a fatal error for an arbitrary active torrent, and still rejects events for a previous/different torrent.
+- Android records the current torrent ID as soon as the add command has completed and before prepareStream begins. Association is guarded by the current stream generation, so a stop/replacement that races startup cannot attach a stale torrent. The event collector surfaces matching non-zero and zero request-ID errors only while the matching stream is Connecting or Streaming; subsequent duplicate errors do not repeatedly mutate terminal state.
+- The full iOS native implementation now associates the torrent before preparing the stream, checks active torrent identity while awaiting commands, and drains the native event queue from the existing 250 ms playback-stats loop. This means a late torrent failure is surfaced while playback is active instead of remaining queued until some later native command happens to poll it. No additional background job, dispatcher, dependency or timer was introduced.
+- The iOS App Store P2P-unavailable stub is unchanged.
+
+Regression coverage: added common tests for a matching active torrent error, late command-scoped error identity, mismatched/unknown torrent IDs, and blank-message fallback. Removed Android-only tests that encoded the incorrect rule that every non-zero request ID must be ignored. The common tests are authored but not executed.
+
+Research and rejected approaches:
+- The exact app dependency is `lib-nuvio-engine-android-0.1.6.aar`; the corresponding public engine source reports version 0.1.6. Inspection used the actual engine C/Kotlin source, not generic coroutine assumptions.
+- Ignoring all non-zero request IDs was rejected because request IDs identify the originating command, not whether an error is still relevant to the current playback.
+- Matching by request ID alone was also rejected because the completed add request has already left the Android wrapper's pending map. Matching by torrent ID preserves correlation with the active stream and rejects stale errors for other torrents.
+- The separate low-storage issue in NuvioTV #4222 where the native engine retains active torrent payload bytes under the app cache directory is an engine storage-layer problem. Moving the directory or recycling a live torrent in the mobile app would not bound the active payload safely; no such workaround was added.
+- The same NuvioTV report describes DataStore ENOSPC crashes, but no equivalent mobile watch-progress persistence path was proven in this branch during this pass. No storage/persistence behavior was changed on that basis.
+
+Verification limits: re-fetched and statically reviewed the complete changed common P2P model file, Android P2P engine and host test, full iOS P2P engine, and cumulative notes. Checked that only a torrent ID equal to the active torrent can promote the event, Android association is generation-guarded and precedes prepareStream, and iOS event draining runs only within the already-owned active playback polling loop (which is cancelled/joined before stop/start operations acquire the native lifecycle mutex). No Gradle test, Kotlin compile, Android build, Xcode build, CI workflow or other build-triggering process was started. The implementation remains statically reviewed, not compiler- or runtime-verified.
+
