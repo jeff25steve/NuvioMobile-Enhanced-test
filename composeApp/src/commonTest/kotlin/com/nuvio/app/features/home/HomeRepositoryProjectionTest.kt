@@ -1,10 +1,96 @@
 package com.nuvio.app.features.home
 
 import com.nuvio.app.features.catalog.CatalogTarget
+import com.nuvio.app.features.collection.Collection
+import com.nuvio.app.features.collection.CollectionCatalogSource
+import com.nuvio.app.features.collection.CollectionFolder
+import com.nuvio.app.features.collection.CollectionSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class HomeRepositoryProjectionTest {
+
+    @Test
+    fun `collection hero sources preserve order and stop at the requested limit`() {
+        val first = CollectionSource(addonId = "addon-one", type = "movie", catalogId = "first")
+        val second = CollectionSource(addonId = "addon-one", type = "movie", catalogId = "second")
+        val ignoredLegacySource = CollectionCatalogSource(
+            addonId = "addon-one",
+            type = "movie",
+            catalogId = "legacy-ignored",
+        )
+        val catalogFallback = CollectionCatalogSource(
+            addonId = "addon-two",
+            type = "series",
+            catalogId = "third",
+            genre = "none",
+        )
+        val laterSource = CollectionSource(provider = "tmdb", tmdbId = 42, title = "Later source")
+        val collections = listOf(
+            Collection(
+                id = "collection-one",
+                title = "First collection",
+                folders = listOf(
+                    CollectionFolder(
+                        id = "folder-one",
+                        title = "First folder",
+                        sources = listOf(first, second),
+                        catalogSources = listOf(ignoredLegacySource),
+                    ),
+                    CollectionFolder(
+                        id = "folder-two",
+                        title = "Legacy folder",
+                        catalogSources = listOf(catalogFallback),
+                    ),
+                ),
+            ),
+            Collection(
+                id = "collection-two",
+                title = "Second collection",
+                folders = listOf(
+                    CollectionFolder(
+                        id = "folder-three",
+                        title = "Later folder",
+                        sources = listOf(laterSource),
+                    ),
+                ),
+            ),
+        )
+
+        val result = firstCollectionHeroSources(collections, limit = 3)
+
+        assertEquals(
+            listOf(
+                first,
+                second,
+                CollectionSource(
+                    provider = "addon",
+                    addonId = "addon-two",
+                    type = "series",
+                    catalogId = "third",
+                    genre = null,
+                ),
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun `collection hero source selection returns empty for a zero limit`() {
+        val collection = Collection(
+            id = "collection",
+            title = "Collection",
+            folders = listOf(
+                CollectionFolder(
+                    id = "folder",
+                    title = "Folder",
+                    sources = listOf(CollectionSource(addonId = "addon", type = "movie", catalogId = "catalog")),
+                ),
+            ),
+        )
+
+        assertEquals(emptyList(), firstCollectionHeroSources(listOf(collection), limit = 0))
+    }
 
     @Test
     fun `hero candidate collection preserves order and first duplicate`() {

@@ -474,10 +474,7 @@ object HomeRepository {
     }
 
     private fun collectionHeroSources(collections: List<Collection>): List<CollectionSource> =
-        collections
-            .flatMap { collection -> collection.folders }
-            .flatMap { folder -> folder.resolvedSources }
-            .take(HOME_COLLECTION_HERO_SOURCE_LIMIT)
+        firstCollectionHeroSources(collections, HOME_COLLECTION_HERO_SOURCE_LIMIT)
 
     private suspend fun CollectionSource.resolveCollectionHeroItems(
         addons: List<ManagedAddon>,
@@ -564,6 +561,29 @@ object HomeRepository {
 
     private fun collectionSourceKey(source: CollectionSource): String =
         source.catalogRouteKey()
+}
+
+/**
+ * Collects only the requested prefix of collection sources, preserving collection,
+ * folder, and per-folder source order without flattening every folder first.
+ */
+internal fun firstCollectionHeroSources(
+    collections: List<Collection>,
+    limit: Int,
+): List<CollectionSource> {
+    require(limit >= 0)
+    if (limit == 0) return emptyList()
+
+    return buildList(limit) {
+        for (collection in collections) {
+            for (folder in collection.folders) {
+                for (source in folder.resolvedSources) {
+                    add(source)
+                    if (size == limit) return@buildList
+                }
+            }
+        }
+    }
 }
 
 private const val HOME_HERO_ITEM_LIMIT = 8

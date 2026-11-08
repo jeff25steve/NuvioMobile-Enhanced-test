@@ -6,6 +6,7 @@ import com.nuvio.app.features.addons.httpGetTextWithHeaders
 import com.nuvio.app.features.addons.httpRequestRaw
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaDetailsRepository
+import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.tmdb.TmdbService
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository
 import com.nuvio.app.features.watchprogress.WatchProgressEntry
@@ -1217,15 +1218,14 @@ object TraktProgressRepository {
     private suspend fun hydrateEntriesWithAddonMeta(
         entries: List<WatchProgressEntry>,
         meta: MetaDetails,
-    ): List<WatchProgressEntry> =
-        entries.map { entry ->
+    ): List<WatchProgressEntry> {
+        val episodeVideosByCoordinates = indexMetaVideosByEpisode(meta.videos)
+        return entries.map { entry ->
             var resolvedSeason = entry.seasonNumber
             var resolvedEpisode = entry.episodeNumber
 
             val episode = if (resolvedSeason != null && resolvedEpisode != null) {
-                val directMatch = meta.videos.firstOrNull { video ->
-                    video.season == resolvedSeason && video.episode == resolvedEpisode
-                }
+                val directMatch = episodeVideosByCoordinates[resolvedSeason to resolvedEpisode]
                 if (directMatch != null) {
                     directMatch
                 } else {
@@ -1243,9 +1243,7 @@ object TraktProgressRepository {
                     if (remapped != null) {
                         resolvedSeason = remapped.season
                         resolvedEpisode = remapped.episode
-                        meta.videos.firstOrNull { video ->
-                            video.season == remapped.season && video.episode == remapped.episode
-                        }
+                        episodeVideosByCoordinates[remapped.season to remapped.episode]
                     } else {
                         null
                     }
@@ -1268,6 +1266,7 @@ object TraktProgressRepository {
                     ?: meta.description?.takeIf(String::isNotBlank),
             )
         }
+    }
 
     private fun mapPlaybackMovie(item: TraktPlaybackItem, fallbackIndex: Int): WatchProgressEntry? {
         val movie = item.movie ?: return null
@@ -1513,6 +1512,25 @@ object TraktProgressRepository {
             ?.let { return it }
         return TraktPlatformClock.nowEpochMs() - (fallbackIndex * 1_000L)
     }
+}
+
+/**
+ * Indexes episode metadata by season/episode coordinates. The first video for
+ * duplicate coordinates wins, matching the former List.firstOrNull lookup.
+ */
+internal fun indexMetaVideosByEpisode(
+    videos: List<MetaVideo>,
+): Map<Pair<Int, Int>, MetaVideo> {
+    val result = HashMap<Pair<Int, Int>, MetaVideo>()
+    for (video in videos) {
+        val season = video.season ?: continue
+        val episode = video.episode ?: continue
+        val coordinates = season to episode
+        if (!result.containsKey(coordinates)) {
+            result[coordinates] = video
+        }
+    }
+    return result
 }
 
 /**
