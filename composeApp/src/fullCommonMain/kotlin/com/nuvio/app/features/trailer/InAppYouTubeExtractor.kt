@@ -1,9 +1,10 @@
 package com.nuvio.app.features.trailer
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -180,13 +181,19 @@ class InAppYouTubeExtractor {
     ): TrailerPlaybackSource? = withContext(Dispatchers.Default) {
         if (youtubeUrl.isBlank()) return@withContext null
 
-        runCatching {
-            withTimeout(EXTRACTOR_TIMEOUT_MS) {
+        val result = withTimeoutOrNull(EXTRACTOR_TIMEOUT_MS) {
+            runCatchingUnlessCancelled {
                 extractPlaybackSourceInternal(youtubeUrl, singleUrl)
             }
-        }.onFailure {
-            log.w { "Trailer extractor failed for $youtubeUrl: ${it.message}" }
-        }.getOrNull()
+        }
+        if (result == null) {
+            log.w { "Trailer extractor timed out for $youtubeUrl" }
+            null
+        } else {
+            result.onFailure {
+                log.w { "Trailer extractor failed for $youtubeUrl: ${it.message}" }
+            }.getOrNull()
+        }
     }
 
     private suspend fun extractPlaybackSourceInternal(
@@ -217,7 +224,7 @@ class InAppYouTubeExtractor {
         val manifestUrls = mutableListOf<Triple<String, Int, String>>()
 
         for (client in CLIENTS) {
-            runCatching {
+            runCatchingUnlessCancelled {
                 val playerResponse = fetchPlayerResponse(
                     apiKey = apiKey,
                     videoId = videoId,
@@ -236,7 +243,7 @@ class InAppYouTubeExtractor {
                 val streamingData = playerResponse.objectValue("streamingData")
                 if (streamingData == null) {
                     log.w { "client=" + client.key + " returned no streamingData" }
-                    return@runCatching
+                    return@runCatchingUnlessCancelled
                 }
                 val hlsManifestUrl = streamingData.stringValue("hlsManifestUrl")
                 if (!hlsManifestUrl.isNullOrBlank()) {
@@ -440,7 +447,7 @@ class InAppYouTubeExtractor {
             .filterNot { it.first in rejectedClients }
             .sortedBy { clientRank(it.first) }
         for ((clientKey, _, manifestUrl) in ordered) {
-            val variant = runCatching { parseHlsManifest(manifestUrl) }
+            val variant = runCatchingUnlessCancelled { parseHlsManifest(manifestUrl) }
                 .onFailure { error ->
                     log.i { "HLS manifest unreadable client=" + clientKey + ": " + (error.message ?: "unknown") }
                 }

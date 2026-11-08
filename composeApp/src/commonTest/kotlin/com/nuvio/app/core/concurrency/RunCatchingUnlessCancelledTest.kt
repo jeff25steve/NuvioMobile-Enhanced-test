@@ -1,11 +1,15 @@
 package com.nuvio.app.core.concurrency
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RunCatchingUnlessCancelledTest {
 
@@ -40,5 +44,32 @@ class RunCatchingUnlessCancelledTest {
         }
 
         assertEquals("metadata", result.getOrNull())
+    }
+
+    @Test
+    fun `its own timeout remains a recoverable null result`() = runTest {
+        val result = runCatchingUnlessCancelled {
+            withTimeoutOrNull(1L) {
+                awaitCancellation()
+            }
+        }
+
+        assertTrue(result.isSuccess)
+        assertEquals(null, result.getOrNull())
+    }
+
+    @Test
+    fun `caller cancellation is not converted to the timeout fallback`() = runBlocking {
+        val cancellation = CancellationException("caller no longer needs the result")
+
+        val thrown = assertFailsWith<CancellationException> {
+            withTimeoutOrNull(1_000L) {
+                runCatchingUnlessCancelled<String> {
+                    throw cancellation
+                }
+            }
+        }
+
+        assertSame(cancellation, thrown)
     }
 }

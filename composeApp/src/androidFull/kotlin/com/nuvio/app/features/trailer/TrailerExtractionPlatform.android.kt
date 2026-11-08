@@ -1,6 +1,7 @@
 package com.nuvio.app.features.trailer
 
 import android.net.Uri
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.core.network.IPv4FirstDns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -118,7 +119,7 @@ internal object TrailerExtractionPlatform {
     }
 
     private suspend fun isUrlReachable(url: String): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingUnlessCancelled {
             val request = Request.Builder()
                 .url(url)
                 .get()
