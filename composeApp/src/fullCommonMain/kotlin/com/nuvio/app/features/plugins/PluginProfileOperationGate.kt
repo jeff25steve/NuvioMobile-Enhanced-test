@@ -52,7 +52,7 @@ internal class PluginProfileOperationGate(initialProfileId: Int = 1) {
     }
 
     fun isCurrent(operation: PluginProfileOperation): Boolean = synchronized(lock) {
-        profileId == operation.profileId && generation == operation.generation
+        accountCleanupDepth == 0 && profileId == operation.profileId && generation == operation.generation
     }
 
     fun runIfCurrent(
