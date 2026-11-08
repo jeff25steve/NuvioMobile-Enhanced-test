@@ -302,6 +302,7 @@ object AddonRepository {
         initialize()
         val operation = currentProfileOperation()
             ?: throw CancellationException("Add-on profile changed before installation started")
+        val syncClient = SupabaseProvider.client
         if (isUsingPrimaryAddonsFromSecondaryProfile()) {
             InAppLogger.warn("Addons/Repository", "addAddon blocked because active profile uses primary addons")
             return AddAddonResult.Error(getString(Res.string.profile_primary_addons_required))
@@ -361,7 +362,7 @@ object AddonRepository {
             persistSnapshot(operation.profileId)
         }
         if (!applied) throw CancellationException("Add-on profile changed while installing")
-        pushToServer(operation)
+        pushToServer(operation, syncClient)
         InAppLogger.info("Addons/Repository", "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifestUrl)}")
         return AddAddonResult.Success(manifest)
     }
@@ -570,7 +571,10 @@ object AddonRepository {
         if (scheduled) refreshJob?.start()
     }
 
-    private fun pushToServer(operation: AddonProfileOperation) {
+    private fun pushToServer(
+        operation: AddonProfileOperation,
+        client: io.github.jan.supabase.SupabaseClient = SupabaseProvider.client,
+    ) {
         if (isUsingPrimaryAddonsFromSecondaryProfile()) return
         var addons: List<AddonPushItem>? = null
         val captured = runIfCurrent(operation) {
@@ -588,9 +592,8 @@ object AddonRepository {
         val snapshot = addons ?: return
         if (!captured) return
 
-        // Capture the client before the debounce: a backend switch must never redirect
-        // an old profile snapshot to the newly selected server.
-        val client = SupabaseProvider.client
+        // Use the client captured with the user action, before the debounce: a backend
+        // switch must never redirect an old profile snapshot to the newly selected server.
         val profileId = operation.profileId
         var pushJob: Job? = null
         pushJob = scope.launch(start = CoroutineStart.LAZY) {
