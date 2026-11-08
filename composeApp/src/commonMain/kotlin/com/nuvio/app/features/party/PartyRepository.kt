@@ -428,6 +428,7 @@ object PartyRepository {
     private suspend fun refreshMembers(announceMemberId: String?) {
         val party = _state.value.party ?: return
         val snapshot = runRemote { PartyApi.heartbeat(party.id, deviceId()) } ?: return
+        if (!isPartySessionCurrent(party.id, _state.value.party?.id)) return
         applySnapshot(snapshot, expectedPartyId = party.id)
         val name = _state.value.party?.member(announceMemberId)?.displayName
         if (announceMemberId != null && announceMemberId != party.memberId && name != null) {
