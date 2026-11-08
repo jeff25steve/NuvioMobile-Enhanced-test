@@ -302,7 +302,6 @@ object AddonRepository {
         initialize()
         val operation = currentProfileOperation()
             ?: throw CancellationException("Add-on profile changed before installation started")
-        val syncClient = SupabaseProvider.client
         if (isUsingPrimaryAddonsFromSecondaryProfile()) {
             InAppLogger.warn("Addons/Repository", "addAddon blocked because active profile uses primary addons")
             return AddAddonResult.Error(getString(Res.string.profile_primary_addons_required))
@@ -328,6 +327,7 @@ object AddonRepository {
             return AddAddonResult.Error(getString(Res.string.addon_already_installed))
         }
 
+        val syncClient = SupabaseProvider.client
         val manifest = try {
             withContext(Dispatchers.Default) {
                 InAppLogger.info("Addons/Manifest", "GET ${InAppLogger.redactUrl(manifestUrl)} reason=add")
