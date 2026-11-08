@@ -1,6 +1,6 @@
 package com.nuvio.app.features.notifications
 
 internal expect object EpisodeReleaseNotificationsStorage {
-    fun loadPayload(): String?
-    fun savePayload(payload: String)
+    fun loadPayload(profileId: Int): String?
+    fun savePayload(profileId: Int, payload: String)
 }

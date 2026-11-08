@@ -24,6 +24,7 @@ import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIApplication
 import platform.UIKit.UIBackgroundTaskIdentifier
 import platform.UIKit.UIBackgroundTaskInvalid
+import platform.UserNotifications.UNNotification
 import platform.UserNotifications.UNNotificationAttachment
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
@@ -70,7 +71,10 @@ internal actual object EpisodeReleaseNotificationPlatform {
         }
     }
 
-    actual suspend fun scheduleEpisodeReleaseNotifications(requests: List<EpisodeReleaseNotificationRequest>) {
+    actual suspend fun scheduleEpisodeReleaseNotifications(
+        profileId: Int,
+        requests: List<EpisodeReleaseNotificationRequest>,
+    ) {
         val backgroundTask = beginBackgroundTask()
         try {
             val center = UNUserNotificationCenter.currentNotificationCenter()
@@ -91,7 +95,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
             val upcomingIds = upcoming.mapTo(hashSetOf()) { (request, _, _) -> request.requestId }
             val pendingById = pendingRequestsById()
 
-            val staleIds = trackedScheduledIds().filter { identifier -> identifier !in upcomingIds }
+            val staleIds = trackedScheduledIds(profileId).filter { identifier -> identifier !in upcomingIds }
             if (staleIds.isNotEmpty()) {
                 center.removePendingNotificationRequestsWithIdentifiers(staleIds)
             }
@@ -124,32 +128,70 @@ internal actual object EpisodeReleaseNotificationPlatform {
 
             NSUserDefaults.standardUserDefaults.setObject(
                 scheduledIds.joinToString(separator = "|"),
-                forKey = ProfileScopedKey.of(scheduledIdsKey),
+                forKey = ProfileScopedKey.of(scheduledIdsKey, profileId),
             )
         } finally {
             endBackgroundTask(backgroundTask)
         }
     }
 
-    actual suspend fun clearScheduledEpisodeReleaseNotifications() {
-        val identifiers = trackedScheduledIds()
+    actual suspend fun clearScheduledEpisodeReleaseNotifications(profileId: Int) {
+        val identifiers = trackedScheduledIds(profileId)
         if (identifiers.isNotEmpty()) {
             UNUserNotificationCenter.currentNotificationCenter()
                 .removePendingNotificationRequestsWithIdentifiers(identifiers)
         }
-        NSUserDefaults.standardUserDefaults.removeObjectForKey(ProfileScopedKey.of(scheduledIdsKey))
+        NSUserDefaults.standardUserDefaults.removeObjectForKey(
+            ProfileScopedKey.of(scheduledIdsKey, profileId),
+        )
     }
 
-    private suspend fun pendingRequestsById(): Map<String, UNNotificationRequest> =
+    actual suspend fun clearAllEpisodeReleaseNotifications() {
+        val center = UNUserNotificationCenter.currentNotificationCenter()
+        val pendingIds = pendingNotificationRequests()
+            .map { request -> request.identifier }
+            .filter(::isEpisodeReleaseNotificationIdentifier)
+        if (pendingIds.isNotEmpty()) {
+            center.removePendingNotificationRequestsWithIdentifiers(pendingIds)
+        }
+
+        val deliveredIds = deliveredNotifications()
+            .map { notification -> notification.request.identifier }
+            .filter(::isEpisodeReleaseNotificationIdentifier)
+        if (deliveredIds.isNotEmpty()) {
+            center.removeDeliveredNotificationsWithIdentifiers(deliveredIds)
+        }
+
+        val defaults = NSUserDefaults.standardUserDefaults
+        val scopedKeys = defaults.dictionaryRepresentation().keys
+            .mapNotNull { it as? String }
+            .filter { key -> key == scheduledIdsKey || key.startsWith("${scheduledIdsKey}_") }
+        scopedKeys.forEach(defaults::removeObjectForKey)
+
+        val attachmentPath = NSTemporaryDirectory().trimEnd('/') + "/" + attachmentDirectoryName
+        if (NSFileManager.defaultManager.fileExistsAtPath(attachmentPath)) {
+            NSFileManager.defaultManager.removeItemAtPath(attachmentPath, null)
+        }
+    }
+
+    private suspend fun pendingNotificationRequests(): List<UNNotificationRequest> =
         suspendCancellableCoroutine { continuation ->
             UNUserNotificationCenter.currentNotificationCenter()
                 .getPendingNotificationRequestsWithCompletionHandler { pending ->
-                    val byId = pending.orEmpty()
-                        .filterIsInstance<UNNotificationRequest>()
-                        .associateBy { request -> request.identifier }
-                    continuation.resume(byId)
+                    continuation.resume(pending.orEmpty().filterIsInstance<UNNotificationRequest>())
                 }
         }
+
+    private suspend fun deliveredNotifications(): List<UNNotification> =
+        suspendCancellableCoroutine { continuation ->
+            UNUserNotificationCenter.currentNotificationCenter()
+                .getDeliveredNotificationsWithCompletionHandler { delivered ->
+                    continuation.resume(delivered.orEmpty().filterIsInstance<UNNotification>())
+                }
+        }
+
+    private suspend fun pendingRequestsById(): Map<String, UNNotificationRequest> =
+        pendingNotificationRequests().associateBy { request -> request.identifier }
 
     private suspend fun addRequest(request: UNNotificationRequest): Boolean =
         suspendCancellableCoroutine { continuation ->
@@ -190,9 +232,9 @@ internal actual object EpisodeReleaseNotificationPlatform {
         UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(notificationRequest) { _ -> }
     }
 
-    private fun trackedScheduledIds(): List<String> =
+    private fun trackedScheduledIds(profileId: Int): List<String> =
         NSUserDefaults.standardUserDefaults
-            .stringForKey(ProfileScopedKey.of(scheduledIdsKey))
+            .stringForKey(ProfileScopedKey.of(scheduledIdsKey, profileId))
             ?.split('|')
             ?.filter { value -> value.isNotBlank() }
             .orEmpty()

@@ -62,6 +62,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
     private const val exactAlarmPromptedKey = "exact_alarm_access_prompted"
     internal const val alarmAction = "com.nuvio.app.action.EPISODE_RELEASE_NOTIFICATION_ALARM"
     internal const val channelId = "episode_release_notifications"
+    private const val notificationTag = "episode_release_notifications"
 
     @Volatile
     private var appContext: Context? = null
@@ -185,7 +186,10 @@ internal actual object EpisodeReleaseNotificationPlatform {
         }
     }
 
-    actual suspend fun scheduleEpisodeReleaseNotifications(requests: List<EpisodeReleaseNotificationRequest>) {
+    actual suspend fun scheduleEpisodeReleaseNotifications(
+        profileId: Int,
+        requests: List<EpisodeReleaseNotificationRequest>,
+    ) {
         val context = appContext ?: return
         ensureNotificationChannel()
 
@@ -194,7 +198,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
                 cancelLegacyWork(context)
 
                 val prefs = preferences(context)
-                val key = scopedScheduledRequestsKey()
+                val key = scopedScheduledRequestsKey(profileId)
                 val previousIds = loadStoredRequests(context, key)
                     .mapTo(hashSetOf(), EpisodeReleaseNotificationRequest::requestId)
                 val deliveredIds = loadDeliveredIds(context)
@@ -212,7 +216,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
 
                 prefs.edit()
                     .putString(key, json.encodeToString(requestListSerializer, retained))
-                    .remove(ProfileScopedKey.of(legacyScheduledIdsKey))
+                    .remove(ProfileScopedKey.of(legacyScheduledIdsKey, profileId))
                     .commit()
             }
         }
@@ -220,19 +224,68 @@ internal actual object EpisodeReleaseNotificationPlatform {
         deliverDueAndScheduleNext(context)
     }
 
-    actual suspend fun clearScheduledEpisodeReleaseNotifications() {
+    actual suspend fun clearScheduledEpisodeReleaseNotifications(profileId: Int) {
         val context = appContext ?: return
         stateMutex.withLock {
             withContext(Dispatchers.IO) {
                 cancelLegacyWork(context)
                 preferences(context)
                     .edit()
-                    .remove(scopedScheduledRequestsKey())
-                    .remove(ProfileScopedKey.of(legacyScheduledIdsKey))
+                    .remove(scopedScheduledRequestsKey(profileId))
+                    .remove(ProfileScopedKey.of(legacyScheduledIdsKey, profileId))
                     .commit()
             }
         }
         deliverDueAndScheduleNext(context)
+    }
+
+    actual suspend fun clearAllEpisodeReleaseNotifications() {
+        val context = appContext ?: return
+
+        stateMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val prefs = preferences(context)
+                val scheduledKeys = prefs.all.keys.filter { key ->
+                    key == scheduledRequestsKey || key.startsWith("${scheduledRequestsKey}_")
+                }
+                val scheduledRequestIds = scheduledKeys
+                    .flatMap { key -> loadStoredRequests(context, key) }
+                    .map(EpisodeReleaseNotificationRequest::requestId)
+                val deliveredIds = loadDeliveredIds(context)
+                val knownNotificationIds = (scheduledRequestIds + deliveredIds)
+                    .mapTo(hashSetOf()) { requestId -> kotlin.math.abs(requestId.hashCode()) }
+
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                if (notificationManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    notificationManager.activeNotifications
+                        .filter { active ->
+                            active.tag == notificationTag ||
+                                (active.tag == null && active.id in knownNotificationIds) ||
+                                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                    active.notification.channelId == channelId)
+                        }
+                        .forEach { active ->
+                            notificationManager.cancel(active.tag, active.id)
+                        }
+                }
+
+                scheduleNextAlarm(context, triggerAtEpochMs = null)
+                updateBackstopWork(context, hasPending = false)
+                cancelLegacyWork(context)
+
+                val editor = prefs.edit()
+                scheduledKeys.forEach(editor::remove)
+                prefs.all.keys
+                    .filter { key ->
+                        key == legacyScheduledIdsKey || key.startsWith("${legacyScheduledIdsKey}_")
+                    }
+                    .forEach(editor::remove)
+                editor
+                    .remove(deliveredIdsKey)
+                    .remove(legacyScheduledIdsKey)
+                    .commit()
+            }
+        }
     }
 
     internal suspend fun deliverDueAndScheduleNext(context: Context) {
@@ -292,7 +345,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
                         notifications[index]?.let { notification ->
                             runCatching {
                                 NotificationManagerCompat.from(applicationContext)
-                                    .notify(kotlin.math.abs(request.requestId.hashCode()), notification)
+                                    .notify(notificationTag, kotlin.math.abs(request.requestId.hashCode()), notification)
                             }
                         }
                         deliveredIds += request.requestId
@@ -324,7 +377,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
         val notification = buildNotification(context, request)
 
         NotificationManagerCompat.from(context)
-            .notify(kotlin.math.abs(request.requestId.hashCode()), notification)
+            .notify(notificationTag, kotlin.math.abs(request.requestId.hashCode()), notification)
     }
 
     internal suspend fun buildNotification(
@@ -463,7 +516,8 @@ internal actual object EpisodeReleaseNotificationPlatform {
     private fun preferences(context: Context) =
         context.getSharedPreferences(platformPreferencesName, Context.MODE_PRIVATE)
 
-    private fun scopedScheduledRequestsKey(): String = ProfileScopedKey.of(scheduledRequestsKey)
+    private fun scopedScheduledRequestsKey(profileId: Int): String =
+        ProfileScopedKey.of(scheduledRequestsKey, profileId)
 
     private fun triggerAtEpochMs(releaseDateIso: String): Long? = runCatching {
         LocalDate.parse(releaseDateIso)

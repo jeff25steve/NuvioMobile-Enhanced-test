@@ -1,0 +1,25 @@
+package com.nuvio.app.features.notifications
+
+import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class EpisodeReleaseNotificationIsolationTest {
+
+    @Test
+    fun `profile operation requires matching profile and generation`() {
+        val token = EpisodeReleaseNotificationProfileToken(profileId = 2, generation = 7)
+
+        assertTrue(isEpisodeReleaseNotificationOperationCurrent(token, activeProfileId = 2, currentGeneration = 7))
+        assertFalse(isEpisodeReleaseNotificationOperationCurrent(token, activeProfileId = 1, currentGeneration = 7))
+        assertFalse(isEpisodeReleaseNotificationOperationCurrent(token, activeProfileId = 2, currentGeneration = 8))
+    }
+
+    @Test
+    fun `account cleanup recognises only episode release notification identifiers`() {
+        assertTrue(isEpisodeReleaseNotificationIdentifier("episode-release-2-123-456-2026-11-08"))
+        assertTrue(isEpisodeReleaseNotificationIdentifier("episode-release-test-2-123"))
+        assertFalse(isEpisodeReleaseNotificationIdentifier("chat-message-123"))
+        assertFalse(isEpisodeReleaseNotificationIdentifier("episode-release"))
+    }
+}

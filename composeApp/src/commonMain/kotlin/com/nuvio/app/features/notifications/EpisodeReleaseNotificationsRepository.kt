@@ -11,6 +11,8 @@ import com.nuvio.app.features.library.LibraryUiState
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.core.time.EpisodeReleaseDatePlatform
 import com.nuvio.app.features.watchprogress.CurrentDateProvider
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,7 +26,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
@@ -47,15 +48,16 @@ object EpisodeReleaseNotificationsRepository {
         encodeDefaults = true
     }
     private val refreshMutex = Mutex()
+    private val platformOperationsMutex = Mutex()
+    private val stateLock = SynchronizedObject()
+    private var profileGeneration = 0
+    private var accountCleanupInProgress = false
+    private var loadedToken: EpisodeReleaseNotificationProfileToken? = null
 
     private val _uiState = MutableStateFlow(EpisodeReleaseNotificationsUiState())
     val uiState: StateFlow<EpisodeReleaseNotificationsUiState> = _uiState.asStateFlow()
 
-    @Volatile
-    private var hasLoaded = false
-    @Volatile
     private var trackedShowsByKey: Map<String, TrackedFollowedShow> = emptyMap()
-    @Volatile
     private var cachedRequestsByShowKey: Map<String, List<EpisodeReleaseNotificationRequest>> = emptyMap()
 
     private val refreshRequests = Channel<Unit>(Channel.CONFLATED)
@@ -71,12 +73,14 @@ object EpisodeReleaseNotificationsRepository {
         }
         scope.launch {
             LibraryRepository.uiState.collectLatest { state ->
-                if (!hasLoaded) return@collectLatest
+                val token = synchronized(stateLock) {
+                    loadedToken?.takeIf(::isCurrentOperationLocked)
+                } ?: return@collectLatest
 
-                val changed = reconcileTrackedShows(state)
+                val changed = reconcileTrackedShows(state, token)
                 if (changed) {
-                    persist()
-                    if (_uiState.value.isEnabled) {
+                    persist(token)
+                    if (isCurrentOperation(token) && _uiState.value.isEnabled) {
                         requestRefresh()
                     }
                 }
@@ -89,141 +93,223 @@ object EpisodeReleaseNotificationsRepository {
     }
 
     fun ensureLoaded() {
-        if (hasLoaded) return
-        loadFromDisk()
-        scope.launch {
-            syncAuthorizationState(refreshIfEnabled = true)
-        }
+        ensureLoadedToken()
     }
 
-    fun onProfileChanged() {
-        loadFromDisk()
+    private fun ensureLoadedToken(): EpisodeReleaseNotificationProfileToken? {
+        if (synchronized(stateLock) { accountCleanupInProgress }) return null
+        val profileId = ProfileRepository.activeProfileId
+        synchronized(stateLock) {
+            loadedToken?.takeIf { it.profileId == profileId && isCurrentOperationLocked(it) }
+        }?.let { return it }
+
+        val token = beginProfileOperation(profileId)
+        if (!loadFromDisk(token)) return null
         scope.launch {
-            syncAuthorizationState(refreshIfEnabled = true)
+            syncAuthorizationState(token, refreshIfEnabled = true)
+        }
+        return token.takeIf(::isCurrentOperation)
+    }
+
+    fun onProfileChanged(profileId: Int) {
+        if (ProfileRepository.activeProfileId != profileId) return
+        val token = beginProfileOperation(profileId)
+        if (!loadFromDisk(token)) return
+        scope.launch {
+            syncAuthorizationState(token, refreshIfEnabled = true)
         }
     }
 
     fun clearLocalState() {
-        hasLoaded = false
-        trackedShowsByKey = emptyMap()
-        cachedRequestsByShowKey = emptyMap()
-        _uiState.value = EpisodeReleaseNotificationsUiState()
-        scope.launch {
-            runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
-                .onFailure { error ->
-                    log.w { "Failed to clear scheduled episode release notifications: ${error.message}" }
-                }
+        synchronized(stateLock) {
+            accountCleanupInProgress = true
+            profileGeneration += 1
+            loadedToken = null
+            trackedShowsByKey = emptyMap()
+            cachedRequestsByShowKey = emptyMap()
+            _uiState.value = EpisodeReleaseNotificationsUiState()
+        }
+    }
+
+    fun onAccountCleanupFinished() {
+        synchronized(stateLock) {
+            accountCleanupInProgress = false
+        }
+    }
+
+    suspend fun clearPlatformNotificationsForAccountWipe() {
+        platformOperationsMutex.withLock {
+            runCatchingUnlessCancelled {
+                EpisodeReleaseNotificationPlatform.clearAllEpisodeReleaseNotifications()
+            }.onFailure { error ->
+                log.e(error) { "Failed to clear episode release notifications during account cleanup" }
+            }
+        }
+    }
+
+    private fun beginProfileOperation(profileId: Int): EpisodeReleaseNotificationProfileToken =
+        synchronized(stateLock) {
+            profileGeneration += 1
+            loadedToken = null
+            trackedShowsByKey = emptyMap()
+            cachedRequestsByShowKey = emptyMap()
+            EpisodeReleaseNotificationProfileToken(profileId, profileGeneration)
+        }
+
+    private fun isCurrentOperation(token: EpisodeReleaseNotificationProfileToken): Boolean =
+        synchronized(stateLock) { isCurrentOperationLocked(token) }
+
+    private fun isCurrentOperationLocked(token: EpisodeReleaseNotificationProfileToken): Boolean =
+        !accountCleanupInProgress &&
+            isEpisodeReleaseNotificationOperationCurrent(
+                token = token,
+                activeProfileId = ProfileRepository.activeProfileId,
+                currentGeneration = profileGeneration,
+            )
+
+    private fun updateUiState(
+        token: EpisodeReleaseNotificationProfileToken,
+        transform: (EpisodeReleaseNotificationsUiState) -> EpisodeReleaseNotificationsUiState,
+    ): Boolean = synchronized(stateLock) {
+        if (!isCurrentOperationLocked(token)) return@synchronized false
+        _uiState.value = transform(_uiState.value)
+        true
+    }
+
+    private suspend fun clearProfileNotifications(token: EpisodeReleaseNotificationProfileToken) {
+        platformOperationsMutex.withLock {
+            if (!isCurrentOperation(token)) return@withLock
+            EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications(token.profileId)
         }
     }
 
     internal fun applyFromSyncEnabled(enabled: Boolean) {
-        ensureLoaded()
-        if (_uiState.value.isEnabled == enabled) return
+        val token = ensureLoadedToken() ?: return
+        var changed = false
+        if (!updateUiState(token) { state ->
+                if (state.isEnabled == enabled) {
+                    state
+                } else {
+                    changed = true
+                    state.copy(
+                        isEnabled = enabled,
+                        isLoading = false,
+                        isSendingTest = false,
+                        statusMessage = null,
+                        errorMessage = null,
+                    )
+                }
+            }) return
+        if (!changed) return
 
-        _uiState.value = _uiState.value.copy(
-            isEnabled = enabled,
-            isLoading = false,
-            isSendingTest = false,
-            statusMessage = null,
-            errorMessage = null,
-        )
-        persist()
-
+        persist(token)
         requestRefresh()
     }
 
     fun setEnabled(enabled: Boolean) {
-        ensureLoaded()
+        val token = ensureLoadedToken() ?: return
         scope.launch {
+            if (!isCurrentOperation(token)) return@launch
             if (!enabled) {
-                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+                runCatchingUnlessCancelled { clearProfileNotifications(token) }
                     .onFailure { error ->
                         log.w { "Failed to clear episode release notifications: ${error.message}" }
                     }
-                _uiState.value = _uiState.value.copy(
-                    isEnabled = false,
-                    isLoading = false,
-                    scheduledCount = 0,
-                    statusMessage = null,
-                    errorMessage = null,
-                )
-                persist()
+                if (!updateUiState(token) {
+                        it.copy(
+                            isEnabled = false,
+                            isLoading = false,
+                            scheduledCount = 0,
+                            statusMessage = null,
+                            errorMessage = null,
+                        )
+                    }) return@launch
+                persist(token)
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                errorMessage = null,
-            )
+            if (!updateUiState(token) { it.copy(isLoading = true, errorMessage = null) }) return@launch
 
             val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.requestAuthorization() }
                 .onFailure { error ->
                     log.e(error) { "Failed to request episode release notification permission" }
                 }
                 .getOrDefault(false)
+            if (!isCurrentOperation(token)) return@launch
 
             if (!granted) {
-                _uiState.value = _uiState.value.copy(
-                    isEnabled = false,
-                    isLoading = false,
-                    permissionGranted = false,
-                    scheduledCount = 0,
-                    statusMessage = null,
-                    errorMessage = getString(Res.string.settings_notifications_permission_disabled),
-                )
-                persist()
+                val permissionError = getString(Res.string.settings_notifications_permission_disabled)
+                updateUiState(token) {
+                    it.copy(
+                        isEnabled = false,
+                        isLoading = false,
+                        permissionGranted = false,
+                        scheduledCount = 0,
+                        statusMessage = null,
+                        errorMessage = permissionError,
+                    )
+                }
+                persist(token)
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(
-                isEnabled = true,
-                isLoading = false,
-                permissionGranted = true,
-                statusMessage = null,
-                errorMessage = null,
-            )
-            persist()
-            refreshScheduledNotifications()
+            if (!updateUiState(token) {
+                    it.copy(
+                        isEnabled = true,
+                        isLoading = false,
+                        permissionGranted = true,
+                        statusMessage = null,
+                        errorMessage = null,
+                    )
+                }) return@launch
+            persist(token)
+            refreshScheduledNotifications(token)
         }
     }
 
     fun sendTestNotification() {
-        ensureLoaded()
+        val token = ensureLoadedToken() ?: return
         scope.launch {
             val target = currentTestTarget()
+            if (!isCurrentOperation(token)) return@launch
             if (target == null) {
-                _uiState.value = _uiState.value.copy(
-                    isSendingTest = false,
-                    statusMessage = null,
-                    errorMessage = getString(Res.string.settings_notifications_test_requires_saved_show),
-                )
+                val targetError = getString(Res.string.settings_notifications_test_requires_saved_show)
+                updateUiState(token) {
+                    it.copy(
+                        isSendingTest = false,
+                        statusMessage = null,
+                        errorMessage = targetError,
+                    )
+                }
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(
-                isSendingTest = true,
-                statusMessage = null,
-                errorMessage = null,
-            )
+            if (!updateUiState(token) {
+                    it.copy(isSendingTest = true, statusMessage = null, errorMessage = null)
+                }) return@launch
 
             val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.requestAuthorization() }
                 .onFailure { error ->
                     log.e(error) { "Failed to request permission for test notification" }
                 }
                 .getOrDefault(false)
+            if (!isCurrentOperation(token)) return@launch
 
             if (!granted) {
-                _uiState.value = _uiState.value.copy(
-                    isSendingTest = false,
-                    permissionGranted = false,
-                    statusMessage = null,
-                    errorMessage = getString(Res.string.settings_notifications_permission_disabled),
-                )
+                val permissionError = getString(Res.string.settings_notifications_permission_disabled)
+                updateUiState(token) {
+                    it.copy(
+                        isSendingTest = false,
+                        permissionGranted = false,
+                        statusMessage = null,
+                        errorMessage = permissionError,
+                    )
+                }
                 return@launch
             }
 
             val request = EpisodeReleaseNotificationRequest(
-                requestId = "episode-release-test-${ProfileRepository.activeProfileId}-${EpisodeReleaseDatePlatform.nowEpochMs()}",
+                requestId = "${EpisodeReleaseNotificationIdentifierPrefix}test-${token.profileId}-${EpisodeReleaseDatePlatform.nowEpochMs()}",
                 notificationTitle = target.name,
                 notificationBody = getString(Res.string.notifications_test_preview_body),
                 releaseDateIso = CurrentDateProvider.todayIsoDate(),
@@ -231,37 +317,49 @@ object EpisodeReleaseNotificationsRepository {
                 backdropUrl = target.banner ?: target.poster,
             )
 
-            runCatchingUnlessCancelled {
-                EpisodeReleaseNotificationPlatform.showTestNotification(request)
-            }.onFailure { error ->
+            val sendResult = runCatchingUnlessCancelled {
+                platformOperationsMutex.withLock {
+                    if (isCurrentOperation(token)) {
+                        EpisodeReleaseNotificationPlatform.showTestNotification(request)
+                    }
+                }
+            }
+            sendResult.exceptionOrNull()?.let { error ->
                 log.e(error) { "Failed to send test notification" }
-            }.onSuccess {
-                _uiState.value = _uiState.value.copy(
-                    isSendingTest = false,
-                    permissionGranted = true,
-                    statusMessage = getString(Res.string.notifications_test_sent_for, target.name),
-                    errorMessage = null,
-                )
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(
-                    isSendingTest = false,
-                    permissionGranted = true,
-                    statusMessage = null,
-                    errorMessage = getString(Res.string.notifications_test_send_failed),
-                )
+            }
+            if (!isCurrentOperation(token)) return@launch
+
+            if (sendResult.isSuccess) {
+                val statusMessage = getString(Res.string.notifications_test_sent_for, target.name)
+                updateUiState(token) {
+                    it.copy(
+                        isSendingTest = false,
+                        permissionGranted = true,
+                        statusMessage = statusMessage,
+                        errorMessage = null,
+                    )
+                }
+            } else {
+                val errorMessage = getString(Res.string.notifications_test_send_failed)
+                updateUiState(token) {
+                    it.copy(
+                        isSendingTest = false,
+                        permissionGranted = true,
+                        statusMessage = null,
+                        errorMessage = errorMessage,
+                    )
+                }
             }
         }
     }
 
     fun refreshAsync() {
-        ensureLoaded()
-        requestRefresh()
+        if (ensureLoadedToken() != null) requestRefresh()
     }
 
-    private fun loadFromDisk() {
-        hasLoaded = true
-
-        val payload = EpisodeReleaseNotificationsStorage.loadPayload().orEmpty().trim()
+    private fun loadFromDisk(token: EpisodeReleaseNotificationProfileToken): Boolean {
+        if (!isCurrentOperation(token)) return false
+        val payload = EpisodeReleaseNotificationsStorage.loadPayload(token.profileId).orEmpty().trim()
         val stored = payload.takeIf { it.isNotEmpty() }
             ?.let { rawPayload ->
                 runCatching {
@@ -271,25 +369,32 @@ object EpisodeReleaseNotificationsRepository {
                 }.getOrNull()
             }
 
-        trackedShowsByKey = buildMap {
-            stored?.followedShows.orEmpty().forEach { trackedShow ->
-                put(buildTrackedShowKey(trackedShow.contentType, trackedShow.contentId), trackedShow)
+        val loaded = synchronized(stateLock) {
+            if (!isCurrentOperationLocked(token)) return@synchronized false
+            trackedShowsByKey = buildMap {
+                stored?.followedShows.orEmpty().forEach { trackedShow ->
+                    put(buildTrackedShowKey(trackedShow.contentType, trackedShow.contentId), trackedShow)
+                }
             }
+            cachedRequestsByShowKey = stored?.cachedRequests.orEmpty()
+            loadedToken = token
+            _uiState.value = EpisodeReleaseNotificationsUiState(
+                isEnabled = stored?.enabled ?: false,
+                permissionGranted = false,
+                scheduledCount = 0,
+                testTargetTitle = null,
+                errorMessage = null,
+            )
+            true
         }
-        cachedRequestsByShowKey = stored?.cachedRequests.orEmpty()
-
-        _uiState.value = EpisodeReleaseNotificationsUiState(
-            isEnabled = stored?.enabled ?: false,
-            permissionGranted = false,
-            scheduledCount = 0,
-            testTargetTitle = null,
-            errorMessage = null,
-        )
-        updateTestTargetState()
+        if (!loaded) return false
+        updateTestTargetState(token)
+        return isCurrentOperation(token)
     }
 
-    private fun persist() {
-        EpisodeReleaseNotificationsStorage.savePayload(
+    private fun persist(token: EpisodeReleaseNotificationProfileToken) {
+        val payload: String? = synchronized(stateLock) {
+            if (!isCurrentOperationLocked(token)) return@synchronized null
             json.encodeToString(
                 StoredEpisodeReleaseNotificationsPayload(
                     enabled = _uiState.value.isEnabled,
@@ -297,52 +402,72 @@ object EpisodeReleaseNotificationsRepository {
                         .sortedWith(compareBy(TrackedFollowedShow::contentType, TrackedFollowedShow::contentId)),
                     cachedRequests = cachedRequestsByShowKey,
                 ),
-            ),
-        )
+            )
+        } ?: return
+
+        synchronized(stateLock) {
+            if (isCurrentOperationLocked(token)) {
+                EpisodeReleaseNotificationsStorage.savePayload(token.profileId, payload)
+            }
+        }
     }
 
-    private suspend fun syncAuthorizationState(refreshIfEnabled: Boolean) {
+    private suspend fun syncAuthorizationState(
+        token: EpisodeReleaseNotificationProfileToken,
+        refreshIfEnabled: Boolean,
+    ) {
         val granted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
             .onFailure { error ->
                 log.w { "Failed to read episode release notification permission: ${error.message}" }
             }
             .getOrDefault(false)
+        if (!isCurrentOperation(token)) return
 
-        _uiState.value = _uiState.value.copy(
-            permissionGranted = granted,
-            testTargetTitle = currentTestTarget()?.name,
-            errorMessage = when {
-                _uiState.value.isEnabled && !granted -> runBlocking { getString(Res.string.settings_notifications_permission_disabled) }
-                else -> _uiState.value.errorMessage
-            },
-        )
+        val testTargetTitle = currentTestTarget()?.name
+        val permissionError = if (_uiState.value.isEnabled && !granted) {
+            getString(Res.string.settings_notifications_permission_disabled)
+        } else {
+            null
+        }
+        updateUiState(token) { state ->
+            state.copy(
+                permissionGranted = granted,
+                testTargetTitle = testTargetTitle,
+                errorMessage = permissionError ?: state.errorMessage,
+            )
+        }
 
-        if (refreshIfEnabled && _uiState.value.isEnabled) {
-            refreshScheduledNotifications()
+        if (refreshIfEnabled && isCurrentOperation(token) && _uiState.value.isEnabled) {
+            refreshScheduledNotifications(token)
         }
     }
 
-    private fun reconcileTrackedShows(state: LibraryUiState): Boolean {
+    private fun reconcileTrackedShows(
+        state: LibraryUiState,
+        token: EpisodeReleaseNotificationProfileToken,
+    ): Boolean {
         if (!state.isLoaded) return false
 
         val seriesItems = state.items.filter { item -> isSeriesLibraryType(item.type) }
-        val nextTrackedShows = linkedMapOf<String, TrackedFollowedShow>()
+        val changed = synchronized(stateLock) {
+            if (!isCurrentOperationLocked(token)) return@synchronized false
+            val nextTrackedShows = linkedMapOf<String, TrackedFollowedShow>()
 
-        seriesItems.forEach { item ->
-            val key = buildTrackedShowKey(item.type, item.id)
-            nextTrackedShows[key] = trackedShowsByKey[key]
-                ?: TrackedFollowedShow(
-                    contentId = item.id,
-                    contentType = item.type,
-                    followedOnIsoDate = inferFollowedOnIsoDate(item),
-                )
-        }
+            seriesItems.forEach { item ->
+                val key = buildTrackedShowKey(item.type, item.id)
+                nextTrackedShows[key] = trackedShowsByKey[key]
+                    ?: TrackedFollowedShow(
+                        contentId = item.id,
+                        contentType = item.type,
+                        followedOnIsoDate = inferFollowedOnIsoDate(item),
+                    )
+            }
 
-        val changed = nextTrackedShows != trackedShowsByKey
-        if (changed) {
-            trackedShowsByKey = nextTrackedShows.toMap()
+            val didChange = nextTrackedShows != trackedShowsByKey
+            if (didChange) trackedShowsByKey = nextTrackedShows.toMap()
+            didChange
         }
-        updateTestTargetState()
+        if (isCurrentOperation(token)) updateTestTargetState(token)
         return changed
     }
 
@@ -353,82 +478,106 @@ object EpisodeReleaseNotificationsRepository {
         return CurrentDateProvider.todayIsoDate()
     }
 
-    private suspend fun refreshScheduledNotifications() {
+    private suspend fun refreshScheduledNotifications(
+        requestedToken: EpisodeReleaseNotificationProfileToken? = null,
+    ) {
         refreshMutex.withLock {
+            val token = requestedToken ?: synchronized(stateLock) {
+                loadedToken?.takeIf(::isCurrentOperationLocked)
+            } ?: return@withLock
+            if (!isCurrentOperation(token)) return@withLock
+
             LibraryRepository.ensureLoaded()
+            if (!isCurrentOperation(token)) return@withLock
 
-            val currentLibraryState = LibraryRepository.uiState.value
-            val trackedShowsChanged = reconcileTrackedShows(currentLibraryState)
-            if (trackedShowsChanged) {
-                persist()
-            }
+            val trackedShowsChanged = reconcileTrackedShows(LibraryRepository.uiState.value, token)
+            if (trackedShowsChanged) persist(token)
+            if (!isCurrentOperation(token)) return@withLock
 
-            val permissionGranted = runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.notificationsAuthorized() }
-                .onFailure { error ->
-                    log.w { "Failed to refresh episode release notification permission: ${error.message}" }
-                }
-                .getOrDefault(false)
+            val permissionGranted = runCatchingUnlessCancelled {
+                EpisodeReleaseNotificationPlatform.notificationsAuthorized()
+            }.onFailure { error ->
+                log.w { "Failed to refresh episode release notification permission: ${error.message}" }
+            }.getOrDefault(false)
+            if (!isCurrentOperation(token)) return@withLock
 
             if (!_uiState.value.isEnabled || !permissionGranted) {
-                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
+                runCatchingUnlessCancelled { clearProfileNotifications(token) }
                     .onFailure { error ->
                         log.w { "Failed to clear scheduled episode release notifications: ${error.message}" }
                     }
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    permissionGranted = permissionGranted,
-                    scheduledCount = 0,
-                    testTargetTitle = currentTestTarget()?.name,
-                    errorMessage = if (_uiState.value.isEnabled && !permissionGranted) {
-                        runBlocking { getString(Res.string.settings_notifications_permission_disabled) }
-                    } else {
-                        null
-                    },
-                )
-                return
+                if (!isCurrentOperation(token)) return@withLock
+                val testTargetTitle = currentTestTarget()?.name
+                val permissionError = if (_uiState.value.isEnabled && !permissionGranted) {
+                    getString(Res.string.settings_notifications_permission_disabled)
+                } else {
+                    null
+                }
+                updateUiState(token) {
+                    it.copy(
+                        isLoading = false,
+                        permissionGranted = permissionGranted,
+                        scheduledCount = 0,
+                        testTargetTitle = testTargetTitle,
+                        errorMessage = permissionError,
+                    )
+                }
+                return@withLock
             }
 
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                permissionGranted = true,
-                errorMessage = null,
-            )
+            if (!updateUiState(token) {
+                    it.copy(isLoading = true, permissionGranted = true, errorMessage = null)
+                }) return@withLock
 
-            if (trackedShowsByKey.isEmpty()) {
-                runCatchingUnlessCancelled { EpisodeReleaseNotificationPlatform.clearScheduledEpisodeReleaseNotifications() }
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    scheduledCount = 0,
-                    testTargetTitle = currentTestTarget()?.name,
-                    errorMessage = null,
-                )
-                return
+            val snapshots = synchronized(stateLock) {
+                if (!isCurrentOperationLocked(token)) return@synchronized null
+                trackedShowsByKey to cachedRequestsByShowKey
+            } ?: return@withLock
+
+            if (snapshots.first.isEmpty()) {
+                runCatchingUnlessCancelled { clearProfileNotifications(token) }
+                if (!isCurrentOperation(token)) return@withLock
+                val testTargetTitle = currentTestTarget()?.name
+                updateUiState(token) {
+                    it.copy(
+                        isLoading = false,
+                        scheduledCount = 0,
+                        testTargetTitle = testTargetTitle,
+                        errorMessage = null,
+                    )
+                }
+                return@withLock
             }
 
             AddonRepository.initialize()
             withTimeoutOrNull(10_000L) {
                 AddonRepository.awaitManifestsLoaded()
             }
+            if (!isCurrentOperation(token)) return@withLock
 
             val todayIso = CurrentDateProvider.todayIsoDate()
             val semaphore = Semaphore(metadataFetchConcurrency)
-            val trackedShowsSnapshot = trackedShowsByKey
-            val cachedRequestsSnapshot = cachedRequestsByShowKey
             val requestsByShowKey = coroutineScope {
-                trackedShowsSnapshot.map { (showKey, trackedShow) ->
+                snapshots.first.map { (showKey, trackedShow) ->
                     async {
                         val built = semaphore.withPermit {
-                            buildRequestsForShow(trackedShow)
+                            buildRequestsForShow(trackedShow, token.profileId)
                         }
-                        val showRequests = (built ?: cachedRequestsSnapshot[showKey].orEmpty())
+                        val showRequests = (built ?: snapshots.second[showKey].orEmpty())
                             .filter { request -> request.releaseDateIso >= todayIso }
                         showKey to showRequests
                     }
                 }.awaitAll().toMap()
             }
+            if (!isCurrentOperation(token)) return@withLock
 
-            cachedRequestsByShowKey = requestsByShowKey
-            persist()
+            val cachedUpdated = synchronized(stateLock) {
+                if (!isCurrentOperationLocked(token)) return@synchronized false
+                cachedRequestsByShowKey = requestsByShowKey
+                true
+            }
+            if (!cachedUpdated) return@withLock
+            persist(token)
 
             val requests = requestsByShowKey.values
                 .flatten()
@@ -436,25 +585,36 @@ object EpisodeReleaseNotificationsRepository {
                 .sortedBy(EpisodeReleaseNotificationRequest::releaseDateIso)
 
             runCatchingUnlessCancelled {
-                EpisodeReleaseNotificationPlatform.scheduleEpisodeReleaseNotifications(requests)
+                platformOperationsMutex.withLock {
+                    if (isCurrentOperation(token)) {
+                        EpisodeReleaseNotificationPlatform.scheduleEpisodeReleaseNotifications(
+                            profileId = token.profileId,
+                            requests = requests,
+                        )
+                    }
+                }
             }.onFailure { error ->
                 log.e(error) { "Failed to schedule episode release notifications" }
             }
+            if (!isCurrentOperation(token)) return@withLock
 
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                permissionGranted = true,
-                scheduledCount = requests.size,
-                testTargetTitle = currentTestTarget()?.name,
-                errorMessage = null,
-            )
+            val testTargetTitle = currentTestTarget()?.name
+            updateUiState(token) {
+                it.copy(
+                    isLoading = false,
+                    permissionGranted = true,
+                    scheduledCount = requests.size,
+                    testTargetTitle = testTargetTitle,
+                    errorMessage = null,
+                )
+            }
         }
     }
 
-    private fun updateTestTargetState() {
-        _uiState.value = _uiState.value.copy(
-            testTargetTitle = currentTestTarget()?.name,
-        )
+    private fun updateTestTargetState(token: EpisodeReleaseNotificationProfileToken) {
+        if (!isCurrentOperation(token)) return
+        val title = currentTestTarget()?.name
+        updateUiState(token) { it.copy(testTargetTitle = title) }
     }
 
     private fun currentTestTarget(): LibraryItem? {
@@ -464,7 +624,10 @@ object EpisodeReleaseNotificationsRepository {
             ?: libraryItems.firstOrNull()
     }
 
-    private suspend fun buildRequestsForShow(trackedShow: TrackedFollowedShow): List<EpisodeReleaseNotificationRequest>? {
+    private suspend fun buildRequestsForShow(
+        trackedShow: TrackedFollowedShow,
+        profileId: Int,
+    ): List<EpisodeReleaseNotificationRequest>? {
         val meta = runCatchingUnlessCancelled {
             MetaDetailsRepository.fetch(
                 type = trackedShow.contentType,
@@ -483,7 +646,7 @@ object EpisodeReleaseNotificationsRepository {
 
             EpisodeReleaseNotificationRequest(
                 requestId = buildEpisodeReleaseNotificationId(
-                    profileId = ProfileRepository.activeProfileId,
+                    profileId = profileId,
                     contentType = trackedShow.contentType,
                     contentId = trackedShow.contentId,
                     episodeId = episode.id,

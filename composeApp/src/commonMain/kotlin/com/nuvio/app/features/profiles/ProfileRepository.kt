@@ -63,6 +63,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
+import kotlin.concurrent.Volatile
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
@@ -85,6 +86,7 @@ object ProfileRepository {
     private val _state = MutableStateFlow(ProfileState())
     val state: StateFlow<ProfileState> = _state.asStateFlow()
 
+    @Volatile
     private var activeProfileIndex: Int = 1
     private var loadedCacheForUserId: String? = null
 
@@ -208,7 +210,7 @@ object ProfileRepository {
         com.nuvio.app.features.shuffle.EpisodeShuffleRepository.onProfileChanged()
         ContinueWatchingPreferencesRepository.onProfileChanged()
         com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentCache.onProfileChanged()
-        EpisodeReleaseNotificationsRepository.onProfileChanged()
+        EpisodeReleaseNotificationsRepository.onProfileChanged(profileIndex)
         TmdbSettingsRepository.onProfileChanged()
         MdbListSettingsRepository.onProfileChanged()
         SearchHistoryRepository.onProfileChanged()

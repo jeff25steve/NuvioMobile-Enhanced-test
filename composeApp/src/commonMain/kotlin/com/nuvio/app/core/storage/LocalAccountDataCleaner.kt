@@ -97,6 +97,8 @@ internal object LocalAccountDataCleaner {
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
         try {
             MemberAccessRepository.clearLocalState()
+            EpisodeReleaseNotificationsRepository.clearLocalState()
+            EpisodeReleaseNotificationsRepository.clearPlatformNotificationsForAccountWipe()
             val profileBackgroundImagesRemoved = withContext(Dispatchers.IO) {
                 clearProfileBackgroundImages(
                     profileIndices = 1..MAX_PROFILES,
@@ -166,7 +168,6 @@ internal object LocalAccountDataCleaner {
             LibraryRepository.clearLocalState()
             LibraryDisplaySettingsRepository.clearLocalState()
             ContinueWatchingPreferencesRepository.clearLocalState()
-            EpisodeReleaseNotificationsRepository.clearLocalState()
             CollectionMobileSettingsRepository.clearLocalState()
             CollectionRepository.clearLocalState()
             ThemeSettingsRepository.clearLocalState()
@@ -193,6 +194,7 @@ internal object LocalAccountDataCleaner {
                 throw IllegalStateException("Local profile data cleanup could not be confirmed")
             }
         } finally {
+            EpisodeReleaseNotificationsRepository.onAccountCleanupFinished()
             MemberAccessRepository.onAccountCleanupFinished()
         }
     }

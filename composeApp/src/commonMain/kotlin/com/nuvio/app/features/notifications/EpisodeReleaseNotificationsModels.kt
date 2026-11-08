@@ -48,6 +48,23 @@ internal data class EpisodeReleaseNotificationRequest(
     val backdropUrl: String? = null,
 )
 
+internal const val EpisodeReleaseNotificationIdentifierPrefix = "episode-release-"
+
+internal data class EpisodeReleaseNotificationProfileToken(
+    val profileId: Int,
+    val generation: Int,
+)
+
+internal fun isEpisodeReleaseNotificationOperationCurrent(
+    token: EpisodeReleaseNotificationProfileToken,
+    activeProfileId: Int,
+    currentGeneration: Int,
+): Boolean =
+    token.profileId == activeProfileId && token.generation == currentGeneration
+
+internal fun isEpisodeReleaseNotificationIdentifier(identifier: String): Boolean =
+    identifier.startsWith(EpisodeReleaseNotificationIdentifierPrefix)
+
 internal const val EpisodeReleaseNotificationHour = 9
 internal const val EpisodeReleaseNotificationMinute = 0
 internal const val MinReasonableSavedAtEpochMs = 946684800000L
@@ -77,7 +94,7 @@ internal fun buildEpisodeReleaseNotificationId(
 ): String {
     val contentHash = abs(buildTrackedShowKey(contentType, contentId).hashCode())
     val episodeHash = abs(episodeId.trim().ifBlank { releaseDateIso }.hashCode())
-    return "episode-release-$profileId-$contentHash-$episodeHash-$releaseDateIso"
+    return "$EpisodeReleaseNotificationIdentifierPrefix$profileId-$contentHash-$episodeHash-$releaseDateIso"
 }
 
 internal fun buildEpisodeReleaseNotificationBody(
