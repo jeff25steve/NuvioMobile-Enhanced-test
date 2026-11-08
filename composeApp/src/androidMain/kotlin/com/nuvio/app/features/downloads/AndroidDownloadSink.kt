@@ -7,11 +7,14 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 
 internal interface DownloadSink {
     fun length(): Long
 
     fun open(append: Boolean): FileOutputStream
+
+    fun truncate(length: Long)
 }
 
 internal class FileDownloadSink(private val file: File) : DownloadSink {
@@ -21,6 +24,17 @@ internal class FileDownloadSink(private val file: File) : DownloadSink {
         val parent = file.parentFile
         check(parent == null || parent.isDirectory || parent.mkdirs()) { "Cannot create downloads directory" }
         return FileOutputStream(file, append)
+    }
+
+    override fun truncate(length: Long) {
+        require(length >= 0L)
+        RandomAccessFile(file, "rw").use { output ->
+            if (output.length() < length) {
+                throw IOException("Cannot restore the previous partial download length")
+            }
+            output.setLength(length)
+            output.fd.sync()
+        }
     }
 }
 
@@ -45,6 +59,20 @@ internal class DocumentDownloadSink(
             throw error
         }
         return output
+    }
+
+    override fun truncate(length: Long) {
+        require(length >= 0L)
+        open(append = true).use { output ->
+            if (output.channel.size() < length) {
+                throw IOException("Cannot restore the previous partial download length")
+            }
+            output.channel.truncate(length)
+            if (output.channel.size() != length) {
+                throw IOException("Could not restore the previous partial download length")
+            }
+            output.fd.sync()
+        }
     }
 
     private fun openDescriptor(mode: String): ParcelFileDescriptor = try {
