@@ -5,6 +5,9 @@ import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 
@@ -73,15 +76,11 @@ internal fun clearProfileBackgroundImages(
     for (profileIndex in profileIndices) {
         val settingsRemoved = try {
             removeSettingsImage(profileIndex)
-        } catch (error: CancellationException) {
-            throw error
         } catch (_: Exception) {
             false
         }
         val cloudRemoved = try {
             removeCloudImage(profileIndex)
-        } catch (error: CancellationException) {
-            throw error
         } catch (_: Exception) {
             false
         }
@@ -90,112 +89,166 @@ internal fun clearProfileBackgroundImages(
     return allRemoved
 }
 
+internal suspend fun runAccountCleanupSteps(
+    steps: List<suspend () -> Unit>,
+): List<Exception> {
+    val failures = mutableListOf<Exception>()
+    steps.forEach { step ->
+        try {
+            step()
+        } catch (error: Exception) {
+            failures += error
+        }
+    }
+    return failures
+}
+
+/**
+ * Runs required local cleanup to completion, then restores normal cancellation semantics.
+ *
+ * The cleanup block must contain local operations only. Network requests must remain
+ * cancellable and run before entering this boundary.
+ */
+internal suspend fun runNonCancellableCleanup(block: suspend () -> Unit) {
+    var cleanupFailure: Throwable? = null
+    withContext(NonCancellable) {
+        try {
+            block()
+        } catch (error: Throwable) {
+            cleanupFailure = error
+        }
+    }
+
+    try {
+        currentCoroutineContext().ensureActive()
+    } catch (cancellation: CancellationException) {
+        cleanupFailure?.let(cancellation::addSuppressed)
+        throw cancellation
+    }
+    cleanupFailure?.let { throw it }
+}
+
 internal object LocalAccountDataCleaner {
-    suspend fun wipe(accountUserId: String? = null) {
+    suspend fun wipe(accountUserId: String? = null) = runNonCancellableCleanup {
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
-        try {
-            MemberAccessRepository.clearLocalState()
-            EpisodeReleaseNotificationsRepository.clearLocalState()
-            EpisodeReleaseNotificationsRepository.clearPlatformNotificationsForAccountWipe()
-            val profileBackgroundImagesRemoved = withContext(Dispatchers.IO) {
-                clearProfileBackgroundImages(
-                    profileIndices = 1..MAX_PROFILES,
-                    removeSettingsImage = { profileIndex ->
-                        ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
-                    },
-                    removeCloudImage = { profileIndex ->
-                        ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
-                    },
-                )
-            }
 
-            var profileAuthenticationCleanupFailed = false
-            (1..MAX_PROFILES).forEach { profileIndex ->
-                val removed = try {
-                    ProfilePinCacheStorage.removePayload(profileIndex)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    false
+        val steps = listOf<suspend () -> Unit>(
+            { MemberAccessRepository.clearLocalState() },
+            { EpisodeReleaseNotificationsRepository.clearLocalState() },
+            { EpisodeReleaseNotificationsRepository.clearPlatformNotificationsForAccountWipe() },
+            {
+                val allRemoved = withContext(Dispatchers.IO) {
+                    clearProfileBackgroundImages(
+                        profileIndices = 1..MAX_PROFILES,
+                        removeSettingsImage = { profileIndex ->
+                            ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
+                        },
+                        removeCloudImage = { profileIndex ->
+                            ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                        },
+                    )
                 }
-                if (!removed) profileAuthenticationCleanupFailed = true
-            }
-
-            if (!cleanupUserId.isNullOrBlank()) {
-                val biometricRemoved = try {
-                    withContext(Dispatchers.IO) {
+                check(allRemoved) { "Profile background images could not all be removed" }
+            },
+            {
+                var allRemoved = true
+                (1..MAX_PROFILES).forEach { profileIndex ->
+                    val removed = try {
+                        ProfilePinCacheStorage.removePayload(profileIndex)
+                    } catch (_: Exception) {
+                        false
+                    }
+                    if (!removed) allRemoved = false
+                }
+                check(allRemoved) { "Profile PIN cache data could not all be removed" }
+            },
+            {
+                if (!cleanupUserId.isNullOrBlank()) {
+                    val removed = withContext(Dispatchers.IO) {
                         ProfileBiometricAuth.disable(1, cleanupUserId)
                     }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    false
+                    check(removed) { "Primary profile biometric credentials could not be removed" }
                 }
-                if (!biometricRemoved) profileAuthenticationCleanupFailed = true
-            }
+            },
+            { ensureTrackingProvidersRegistered() },
+            { TrackingProviderRegistry.removeStoredProfiles(1..MAX_PROFILES) },
+            { SyncManager.cancelAccountSync() },
+            { WatchProgressSourceCoordinator.clearLocalState() },
+            { ProfileSettingsSync.clearAccountState() },
+            { ContinueWatchingEnrichmentCache.clearLocalState() },
+            { WatchProgressRepository.clearLocalState() },
+            { WatchedRepository.clearLocalState() },
+            { LiveTvRepository.clearLocalState() },
+            {
+                val cleared = withContext(Dispatchers.IO) { LiveTvCacheStore.clear() }
+                check(cleared) { "Live TV cache data could not be cleared" }
+            },
+            {
+                LibraryRepository.runAccountStorageWipe {
+                    wipePlatformStorage()
+                }
+            },
+            { ProfileRepository.clearInMemory() },
+            { CustomPosterUrlRepository.clearLocalState() },
+            { SearchHistoryRepository.clearLocalState() },
+            { TmdbSettingsRepository.onProfileChanged() },
+            { MdbListSettingsRepository.onProfileChanged() },
+            { DebridSettingsRepository.onProfileChanged() },
+            { AddonRepository.clearLocalState() },
+            { ServerRepository.clearLocalState() },
+            {
+                if (AppFeaturePolicy.pluginsEnabled) {
+                    PluginRepository.clearLocalState()
+                }
+            },
+            { HomeRepository.clear() },
+            { HomeCatalogSettingsRepository.clearLocalState() },
+            { MetaScreenSettingsRepository.clearLocalState() },
+            { com.nuvio.app.features.shuffle.EpisodeShuffleRepository.clearLocalState() },
+            { LibraryRepository.clearLocalState() },
+            { LibraryDisplaySettingsRepository.clearLocalState() },
+            { ContinueWatchingPreferencesRepository.clearLocalState() },
+            { CollectionMobileSettingsRepository.clearLocalState() },
+            { CollectionRepository.clearLocalState() },
+            { ThemeSettingsRepository.clearLocalState() },
+            { PosterCardStyleRepository.clearLocalState() },
+            { CardDepthStyleRepository.clearLocalState() },
+            { TrackingProviderRegistry.clearLocalState() },
+            { TraktLibraryRepository.clearLocalState() },
+            { TrackingSettingsRepository.clearLocalState() },
+            { PlayerSettingsRepository.clearLocalState() },
+            { StreamBadgeSettingsRepository.clearLocalState() },
+            { PinnedStreamSourcesRepository.clearLocalState() },
+            { TraktCommentsSettings.clearLocalState() },
+            { P2pSettingsRepository.clearLocalState() },
+            { CatalogRepository.clear() },
+            { StreamsRepository.clear() },
+            { MetaDetailsRepository.clear() },
+            { SearchRepository.reset() },
+            { SubtitleRepository.clear() },
+            { PlayerLaunchStore.clear() },
+            { StreamLaunchStore.clear() },
+            { StreamContextStore.clear() },
+        )
 
-            ensureTrackingProvidersRegistered()
-            TrackingProviderRegistry.removeStoredProfiles(1..MAX_PROFILES)
-            SyncManager.cancelAccountSync()
-            WatchProgressSourceCoordinator.clearLocalState()
-            ProfileSettingsSync.clearAccountState()
-            ContinueWatchingEnrichmentCache.clearLocalState()
-            WatchProgressRepository.clearLocalState()
-            WatchedRepository.clearLocalState()
-            LiveTvRepository.clearLocalState()
-            val liveTvCacheCleared = withContext(Dispatchers.IO) { LiveTvCacheStore.clear() }
-            LibraryRepository.runAccountStorageWipe {
-                wipePlatformStorage()
-            }
+        val failures = runAccountCleanupSteps(steps)
+        val finalizationFailures = runAccountCleanupSteps(
+            listOf(
+                { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
+                { MemberAccessRepository.onAccountCleanupFinished() },
+            ),
+        )
+        val allFailures = failures + finalizationFailures
 
-            ProfileRepository.clearInMemory()
-            CustomPosterUrlRepository.clearLocalState()
-            SearchHistoryRepository.clearLocalState()
-            TmdbSettingsRepository.onProfileChanged()
-            MdbListSettingsRepository.onProfileChanged()
-            DebridSettingsRepository.onProfileChanged()
-            AddonRepository.clearLocalState()
-            ServerRepository.clearLocalState()
-            if (AppFeaturePolicy.pluginsEnabled) {
-                PluginRepository.clearLocalState()
-            }
-            HomeRepository.clear()
-            HomeCatalogSettingsRepository.clearLocalState()
-            MetaScreenSettingsRepository.clearLocalState()
-            com.nuvio.app.features.shuffle.EpisodeShuffleRepository.clearLocalState()
-            LibraryRepository.clearLocalState()
-            LibraryDisplaySettingsRepository.clearLocalState()
-            ContinueWatchingPreferencesRepository.clearLocalState()
-            CollectionMobileSettingsRepository.clearLocalState()
-            CollectionRepository.clearLocalState()
-            ThemeSettingsRepository.clearLocalState()
-            PosterCardStyleRepository.clearLocalState()
-            CardDepthStyleRepository.clearLocalState()
-            TrackingProviderRegistry.clearLocalState()
-            TraktLibraryRepository.clearLocalState()
-            TrackingSettingsRepository.clearLocalState()
-            PlayerSettingsRepository.clearLocalState()
-            StreamBadgeSettingsRepository.clearLocalState()
-            PinnedStreamSourcesRepository.clearLocalState()
-            TraktCommentsSettings.clearLocalState()
-            P2pSettingsRepository.clearLocalState()
-            CatalogRepository.clear()
-            StreamsRepository.clear()
-            MetaDetailsRepository.clear()
-            SearchRepository.reset()
-            SubtitleRepository.clear()
-            PlayerLaunchStore.clear()
-            StreamLaunchStore.clear()
-            StreamContextStore.clear()
-
-            if (!profileBackgroundImagesRemoved || profileAuthenticationCleanupFailed || !liveTvCacheCleared) {
-                throw IllegalStateException("Local profile data cleanup could not be confirmed")
-            }
-        } finally {
-            EpisodeReleaseNotificationsRepository.onAccountCleanupFinished()
-            MemberAccessRepository.onAccountCleanupFinished()
+        if (allFailures.isNotEmpty()) {
+            val primaryFailure = allFailures.first()
+            allFailures.drop(1).forEach(primaryFailure::addSuppressed)
+            throw IllegalStateException(
+                "Local account cleanup was incomplete (${allFailures.size} steps failed)",
+                primaryFailure,
+            )
         }
     }
 
