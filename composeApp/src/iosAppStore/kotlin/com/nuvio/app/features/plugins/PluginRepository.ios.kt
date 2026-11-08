@@ -16,6 +16,10 @@ actual object PluginRepository {
 
     actual fun onProfileChanged(profileId: Int) = Unit
 
+    actual fun beginAccountCleanup() = Unit
+
+    actual fun endAccountCleanup() = Unit
+
     actual fun clearLocalState() = Unit
 
     actual suspend fun pullFromServer(profileId: Int) = Unit
