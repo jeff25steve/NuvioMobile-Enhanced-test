@@ -34,6 +34,18 @@ class AuthSessionOperationGateTest {
     }
 
     @Test
+    fun synchronousAnonymousSessionWriteIsRejectedDuringSwitch() {
+        val gate = AuthSessionOperationGate()
+        var writes = 0
+
+        assertTrue(gate.runIfOpen { writes += 1 })
+        gate.beginServerSwitch()
+
+        assertFalse(gate.runIfOpen { writes += 1 })
+        assertEquals(1, writes)
+    }
+
+    @Test
     fun operationsCanStartAgainAfterSwitchEnds() {
         val gate = AuthSessionOperationGate()
         gate.beginServerSwitch()
