@@ -574,6 +574,41 @@ Rejected approaches:
 
 Verification limits: the four central auth wrappers, auth state collector, server switch controller, device-link repository and adjacent provider implementations were statically inspected. The exact repository dependency versions and current tests were reviewed. There is no dedicated `AuthRepository` or `DeviceLinkAuthRepository` test in the current source tree. No test, compile, build, Xcode, CI or build-triggering command was started; no production or test code was changed because the red-green test cycle is not authorised.
 
+### Account cleanup — composition cancellation can interrupt the local wipe (8 November 2026)
+
+A deeper review of the central-auth finding exposed a separate failure mode: sign-out and account deletion are started from a composition-bound UI scope, but the local account wipe contains suspending operations and is not protected from caller cancellation.
+
+Source-confirmed call path and behavior:
+- `AccountSettingsPage.kt` creates a `rememberCoroutineScope()` and launches both `AuthRepository.signOut()` and `AuthRepository.deleteAccount()` from that scope.
+- The official Compose Runtime contract says this scope is cancelled when the `rememberCoroutineScope` call leaves the composition. Navigating away from Settings while either operation is running can therefore cancel the operation.
+- `LocalAccountDataCleaner.wipe()` is suspending. It switches to `Dispatchers.IO` for profile-background cleanup and Live TV cache cleanup, and its profile-removal helpers deliberately rethrow `CancellationException`. It has a `finally` for notification/member-cache cleanup, but cancellation still exits the main sequence before the remaining local stores and files are cleared.
+- `AuthRepository.signOut()` captures the cleaner result with standard `runCatching`, sets auth state to unauthenticated, and only rethrows cancellation found in the remote sign-out or fallback session-clear results. A cancellation thrown by the local wipe is therefore returned as an ordinary `Result.failure`, after a potentially partial wipe.
+- `AuthRepository.deleteAccount()` wraps the entire operation in standard `runCatching`. After the delete endpoint returns, it awaits Supabase sign-out before starting the local wipe. Cancellation during that sign-out skips the local wipe even though the server-side delete call already returned; cancellation during the wipe aborts it, while the `finally` still publishes unauthenticated state.
+- `clearLocalSessionAfterRemoteInvalidation()` also catches local-wipe cancellation, logs it as a cleanup failure, and returns with an unauthenticated state.
+
+This is a statically confirmed lifecycle/data-cleanup risk, not a reproduced runtime failure. It is distinct from the earlier finding that ordinary suspend operations should propagate cancellation: local account invalidation has a cleanup obligation that must be completed before caller cancellation is rethrown.
+
+Recommended test-first follow-up:
+- Give sign-out and account deletion cleanup a lifetime independent of the Settings composition once the user has confirmed the action. A repository/process-owned operation or a narrowly scoped `NonCancellable` section may be appropriate; do not move unrelated remote network work into a non-cancellable block.
+- After a successful server-side account deletion response, make local session clearing and local account-data cleanup run even if the subsequent best-effort remote sign-out is cancelled or fails. Capture cancellation and propagate it only after the mandatory local cleanup has completed.
+- Preserve normal failure semantics when the server delete request itself fails. Test the ambiguous case where the server may have committed deletion but the response is cancelled before the client can observe success; do not assume the outcome.
+- Add deterministic tests that cancel the Settings composition during sign-out and during the post-delete sign-out step, then assert all required local cleanup phases finish, auth state is cleared, and cancellation is not converted to a normal UI error. Also test ordinary cleanup failures and remote-delete failure separately.
+- Verify the same cleanup contract for Android and iOS storage adapters; do not change profile ownership, website-managed settings, or the ordering of existing cleanup operations without evidence.
+
+Cross-checks:
+- Android Developers' Compose Runtime API reference states that `rememberCoroutineScope()` returns a scope bound to the composition and that the scope is cancelled when the call leaves the composition: https://developer.android.com/reference/kotlin/androidx/compose/runtime/rememberCoroutineScope.composable
+- Kotlin's cancellation guidance explains that cancellation must be rethrown when caught: https://kotlinlang.org/docs/cancellation-and-timeouts.html
+- The branch's existing `LocalAccountDataCleanerTest.kt` tests profile-image deletion and storage-wipe invalidation, but does not exercise cancellation during the full account wipe or caller-composition disposal.
+
+Rejected quick fixes:
+- Merely adding `localCleanup` to `signOut()`'s list of cancellation results would propagate cancellation but would not finish a partially cancelled wipe.
+- Replacing every `runCatching` in `AuthRepository` with `runCatchingUnlessCancelled` would cause cancellation to escape before mandatory cleanup has run.
+- Wrapping the entire account-deletion transaction, including remote HTTP calls, in `NonCancellable` would keep unnecessary network work alive after the UI caller leaves and could delay cancellation for the full request timeout.
+
+Source files inspected: `AccountSettingsPage.kt`, `AuthRepository.kt`, `LocalAccountDataCleaner.kt`, `LocalAccountDataCleanerTest.kt`, Android `PlatformLocalAccountDataCleaner.android.kt` and iOS `PlatformLocalAccountDataCleaner.ios.kt`.
+
+Verification limits: the caller-scope lifecycle and cleanup control flow were verified by static source inspection and official Compose/Kotlin documentation. No regression test was run or added, no production/test code changed, and no Gradle, Xcode, CI or build-triggering process was started.
+
 ### Device-link authentication — cancel before replacing the backend client (8 November 2026)
 
 A separate server-switch lifecycle race was confirmed by tracing the common Auth screen and server controller.
