@@ -130,6 +130,8 @@ internal suspend fun runNonCancellableCleanup(block: suspend () -> Unit) {
 
 internal object LocalAccountDataCleaner {
     suspend fun wipe(accountUserId: String? = null) = runNonCancellableCleanup {
+        AddonRepository.beginAccountCleanup()
+        PluginRepository.beginAccountCleanup()
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
@@ -239,6 +241,8 @@ internal object LocalAccountDataCleaner {
         } finally {
             allFailures += runAccountCleanupSteps(
                 listOf(
+                    { AddonRepository.endAccountCleanup() },
+                    { PluginRepository.endAccountCleanup() },
                     { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
                     { MemberAccessRepository.onAccountCleanupFinished() },
                 ),
