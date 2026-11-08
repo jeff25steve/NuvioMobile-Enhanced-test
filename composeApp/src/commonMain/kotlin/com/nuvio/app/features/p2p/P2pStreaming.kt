@@ -157,6 +157,23 @@ data class P2pStreamRequest(
     val trackers: List<String> = emptyList(),
 )
 
+internal fun p2pTorrentErrorForActiveTorrent(
+    eventTorrentId: String?,
+    activeTorrentId: String?,
+    message: String?,
+    fallbackMessage: String,
+): P2pStreamingState.Error? {
+    if (eventTorrentId.isNullOrBlank() ||
+        activeTorrentId.isNullOrBlank() ||
+        eventTorrentId != activeTorrentId
+    ) {
+        return null
+    }
+    return P2pStreamingState.Error(
+        message?.trim()?.takeIf(String::isNotEmpty) ?: fallbackMessage,
+    )
+}
+
 internal fun canonicalP2pInfoHash(infoHash: String): String {
     val canonical = infoHash.trim().lowercase()
     require((canonical.length == 40 || canonical.length == 64) &&
