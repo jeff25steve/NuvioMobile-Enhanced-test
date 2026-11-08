@@ -110,6 +110,9 @@ internal suspend fun transferAndroidDownload(
                                 output.write(buffer, 0, size)
                                 responseBytesRead += size
                                 downloaded += size
+                                if (expectedRangeBytes != null && responseBytesRead > expectedRangeBytes) {
+                                    break
+                                }
                                 onProgress(downloaded, totalBytes)
                             }
                             output.fd.sync()
