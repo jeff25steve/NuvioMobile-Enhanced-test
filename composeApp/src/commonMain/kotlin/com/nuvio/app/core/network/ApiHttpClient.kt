@@ -3,7 +3,8 @@ package com.nuvio.app.core.network
 import io.ktor.client.HttpClient
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.io.IOException
-import io.ktor.utils.io.readAvailable
+import io.ktor.utils.io.readBuffer
+import kotlinx.io.readByteArray
 
 internal expect fun createApiHttpClient(): HttpClient
 
@@ -15,22 +16,12 @@ internal suspend fun readBoundedResponseBody(
     maxBytes: Int = API_RESPONSE_MAX_BYTES,
 ): String {
     if (contentLength != null && contentLength > maxBytes) throw IOException("Response exceeds size limit")
-    val chunks = mutableListOf<ByteArray>()
-    var total = 0
-    while (true) {
-        val buffer = ByteArray(minOf(8_192, maxBytes - total + 1))
-        val count = channel.readAvailable(buffer, 0, buffer.size)
-        if (count == -1) break
-        if (count == 0) continue
-        total += count
-        if (total > maxBytes) throw IOException("Response exceeds size limit")
-        chunks += buffer.copyOf(count)
+    // One extra byte detects overflow when Content-Length is absent or inaccurate.
+    val response = channel.readBuffer(maxBytes.toLong() + 1L)
+    try {
+        if (response.size > maxBytes.toLong()) throw IOException("Response exceeds size limit")
+        return response.readByteArray().decodeToString()
+    } finally {
+        response.close()
     }
-    val bytes = ByteArray(total)
-    var offset = 0
-    chunks.forEach { chunk ->
-        chunk.copyInto(bytes, offset)
-        offset += chunk.size
-    }
-    return bytes.decodeToString()
 }
