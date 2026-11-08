@@ -240,6 +240,19 @@ Research basis: Kotlin's official [cancellation and timeouts guide](https://kotl
 
 Static source checks only. The common regression tests were added but not executed because test/build execution remains prohibited until explicit authorisation.
 
+
+### Cancellation and structured concurrency — shared result helper, metadata and release notifications (8 November 2026)
+
+A source audit found the same cancellation hazard in additional suspend paths. `MetaDetailsRepository.applyMoreLikeThisSource()` wrapped Simkl and Trakt related-title requests in `runCatching`, converting `CancellationException` into an empty provider result. The episode-release notification flow did the same for permission, scheduling, test-notification and per-show metadata calls. Its per-show fan-out also used `scope.async` on the repository's long-lived `SupervisorJob` scope rather than a lexical child scope, so cancelling a refresh did not cancel its outstanding metadata fetches.
+
+A single internal `core.concurrency.runCatchingUnlessCancelled` helper now captures ordinary failures as `Result.failure` while always rethrowing `CancellationException`. The existing Streams helper delegates to this shared implementation to preserve its current package-level call shape. Meta Details and Episode Release Notifications use the shared implementation directly. The notification refresh fan-out now uses `coroutineScope { async { ... } }`, with stable snapshots of the tracked-show and cached-request maps for that refresh, so child work is cancelled with its owner and cannot mix map generations during iteration.
+
+Ordinary provider and platform failures retain their previous fallback values, log messages and UI result handling. No schedule times, request IDs, metadata precedence, permissions, platform APIs, settings, persistence keys, UI, resources, dependencies or build configuration were changed.
+
+Research basis: Kotlin's official [cancellation and timeouts guide](https://kotlinlang.org/docs/cancellation-and-timeouts.html) explicitly warns that `runCatching` catches `CancellationException` and requires rethrowing cancellation. The Kotlinx Coroutines 1.10.1 documentation (closest indexed Context7 version to this branch's 1.10.2) describes parent-child cancellation for `coroutineScope` and `async`; the project's installed kotlinx.coroutines version is 1.10.2 and these APIs are already used in its common source. A relevant developer discussion in [kotlin-result issue #64](https://github.com/michaelbull/kotlin-result/issues/64) documents the same `runCatching` cancellation trap. No Reddit thread with a more authoritative or directly applicable example was found, so the implementation is based on the official coroutine contract rather than social-media advice.
+
+A common test file covers cancellation identity/propagation, ordinary failure capture and successful values for the shared helper. Tests were authored but not executed, and no builds or CI were started, per instruction. Static source checks only.
+
 ### Release notifications — profile-transition follow-up deliberately left open (8 November 2026)
 
 The notification lifecycle review found a separate race beyond cancellation propagation. `EpisodeReleaseNotificationsRepository.onProfileChanged()` reloads profile-scoped data but does not invalidate a refresh already executing under `refreshMutex`. `clearLocalState()` resets in-memory state and asks the platform to clear notifications, but it does not fence an already-running metadata refresh from finishing afterward. In addition, `EpisodeReleaseNotificationsStorage.savePayload()` relies on `ProfileScopedKey.of(payloadKey)` at save time rather than accepting the profile ID captured when the refresh began.
