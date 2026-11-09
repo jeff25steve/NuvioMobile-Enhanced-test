@@ -53,6 +53,8 @@ import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 
+import com.nuvio.app.core.ui.background.isGlassUiActive
+
 private val SheetShape = RoundedCornerShape(NuvioTokens.Space.s28)
 
 @Composable

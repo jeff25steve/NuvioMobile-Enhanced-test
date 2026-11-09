@@ -1149,6 +1149,8 @@ fun LibraryScreen(
     }
 }
 
+}
+
 private fun LazyListScope.cloudLibraryContent(
     uiState: CloudLibraryUiState,
     cloudFiltersGlassEnabled: Boolean,
