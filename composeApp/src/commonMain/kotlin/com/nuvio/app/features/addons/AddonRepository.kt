@@ -61,7 +61,6 @@ object AddonRepository {
     val uiState: StateFlow<AddonsUiState> = _uiState.asStateFlow()
 
     private var initialized = false
-    private var pulledFromServer = false
     private var currentProfileId: Int = 1
     private val activeRefreshJobs = mutableMapOf<String, Job>()
     private val activeRefreshJobsLock = SynchronizedObject()
@@ -125,7 +124,6 @@ object AddonRepository {
             cancelActiveRefreshes()
             currentProfileId = effectiveProfileId
             initialized = false
-            pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
     }
@@ -139,7 +137,6 @@ object AddonRepository {
             pushJobs.forEach(Job::cancel)
             currentProfileId = 1
             initialized = false
-            pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
     }
@@ -154,7 +151,6 @@ object AddonRepository {
             cancelActiveRefreshes()
             currentProfileId = 1
             initialized = false
-            pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
         val pushJobs = synchronized(pushJobsLock) {
@@ -167,10 +163,8 @@ object AddonRepository {
         if (profileId != ProfileRepository.activeProfileId) return
         val operation = activateProfile(profileId) ?: return
         val client = SupabaseProvider.client
-        val wasAlreadyPulled = readIfCurrent(operation) { pulledFromServer } ?: return
         log.i {
-            "pullFromServer() — profileId=${operation.profileId}, initialized=${initialized}, " +
-                "pulledFromServer=$wasAlreadyPulled"
+            "pullFromServer() — profileId=${operation.profileId}, initialized=${initialized}"
         }
         InAppLogger.info(
             "Addons/Repository",
@@ -200,49 +194,7 @@ object AddonRepository {
             InAppLogger.info("Addons/Repository", "pullFromServer serverRows=${rows.size} uniqueUrls=${urls.size}")
             urls.forEachIndexed { i, url -> log.d { "  server[$i]: $url" } }
 
-            if (urls.isEmpty() && !wasAlreadyPulled) {
-                val localUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(operation.profileId))
-                if (!isCurrentOperation(operation)) return@runCatchingUnlessCancelled
-                log.i { "pullFromServer() — server empty, local has ${localUrls.size} addons" }
-                if (localUrls.isNotEmpty()) {
-                    initialize()
-                    if (!isCurrentOperation(operation)) return@runCatchingUnlessCancelled
-
-                    val enabledByUrl = loadLocalEnabledStates(operation.profileId)
-                    val localState = _uiState.value
-                    val addons = localUrls.mapIndexed { index, addonUrl ->
-                        val manifestUrl = ensureManifestSuffix(addonUrl)
-                        AddonPushItem(
-                            url = manifestUrl,
-                            name = localState.addons.find { it.manifestUrl == manifestUrl }?.manifest?.name.orEmpty(),
-                            enabled = enabledByUrl[manifestUrl]
-                                ?: localState.addons.find { it.manifestUrl == manifestUrl }?.enabled
-                                ?: true,
-                            sortOrder = index,
-                        )
-                    }
-                    val params = buildJsonObject {
-                        put("p_profile_id", operation.profileId)
-                        put("p_addons", json.encodeToJsonElement(addons))
-                        putSyncOriginClientId()
-                    }
-                    client.postgrest.rpc("sync_push_addons", params)
-                    runIfCurrent(operation) { pulledFromServer = true }
-                    log.i { "pullFromServer() — migration push done (${addons.size} addons)" }
-                    InAppLogger.info("Addons/Repository", "migrated local addons to server count=${addons.size}")
-                    return@runCatchingUnlessCancelled
-                }
-            }
-
-            if (urls.isEmpty()) {
-                val localUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(operation.profileId))
-                if (!isCurrentOperation(operation)) return@runCatchingUnlessCancelled
-                if (localUrls.isNotEmpty()) {
-                    log.w {
-                        "pullFromServer() — remote empty while local has ${localUrls.size} addons; preserving local addons"
-                    }
-                    val enabledByUrl = loadLocalEnabledStates(operation.profileId)
-                    val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
+            val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
                     val nextState = AddonsUiState(
                         addons = localUrls.map { url ->
                             existingByUrl[url].toPendingAddon(
@@ -254,7 +206,6 @@ object AddonRepository {
                     val applied = runIfCurrent(operation) {
                         _uiState.value = nextState
                         persistSnapshot(operation.profileId)
-                        pulledFromServer = true
                         initialized = true
                     }
                     if (!applied) return@runCatchingUnlessCancelled
@@ -284,7 +235,6 @@ object AddonRepository {
             val applied = runIfCurrent(operation) {
                 _uiState.value = nextState
                 persistSnapshot(operation.profileId)
-                pulledFromServer = true
                 initialized = true
             }
             if (!applied) return@runCatchingUnlessCancelled
@@ -700,7 +650,6 @@ object AddonRepository {
             cancelActiveRefreshes()
             currentProfileId = effectiveProfileId
             initialized = false
-            pulledFromServer = false
             _uiState.value = AddonsUiState()
         }
     }
