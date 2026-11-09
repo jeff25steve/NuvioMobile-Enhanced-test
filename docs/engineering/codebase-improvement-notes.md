@@ -1264,3 +1264,13 @@ The latest Linux validation run against source snapshot `d8a5faf5fd13f62226fe17e
 - The production and regression-test diff is committed separately from the preceding host-test API repair.
 - Source-level review confirms no new dependencies, storage, background jobs, parallel DNS queries, changes to provider names/defaults, system fallback, shared/iOS DNS implementation or website-managed settings.
 - Full Android host tests and Android/iOS builds remain pending the dedicated validation workflow; no success is claimed until those workflows complete and their logs are inspected.
+
+### Follow-up: repair JUnit4 discovery for the Android trailer probe test (9 November 2026)
+
+The first full Android host-test execution after the source-compatibility repairs ran 2,330 tests and reported 29 failures. One was not an assertion failure in the reachability behavior: `TrailerReachabilityProbeTest` failed during JUnit class initialization with `InvalidTestClassError`.
+
+The exact test class was inspected. Its first expression-bodied `runBlocking` test ended with `server.takeRequest(...)`, whose return value is a `RecordedRequest`; Kotlin therefore inferred a non-Unit return type for the annotated test method. JUnit 4's `FrameworkMethod.validatePublicVoidNoArg` explicitly rejects methods that return anything other than Java `void`: https://junit.org/junit4/javadoc/latest/org/junit/runners/model/FrameworkMethod.html
+
+Added an explicit trailing `Unit` after the request wait. This preserves the request-arrival synchronization and all existing assertions while ensuring the generated test method returns void. No production trailer code, request behavior, timeout, dispatcher, dependencies or other test files were changed.
+
+CI evidence: Linux run https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42548131765 completed `:composeApp:testAndroidHostTest` with 2,330 tests / 29 failures. The JUnit initialization error was one of those failures. The 28 other failures are recorded separately; they do not point to this test's return signature. The focused test-source correction is committed, but still requires a fresh host-test run before it can be considered verified.

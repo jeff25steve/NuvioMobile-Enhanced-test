@@ -40,6 +40,7 @@ class TrailerReachabilityProbeTest {
             assertTrue(reachable)
             assertTrue(call.isExecuted())
             server.takeRequest(5, TimeUnit.SECONDS)
+            Unit
         }
     }
 
