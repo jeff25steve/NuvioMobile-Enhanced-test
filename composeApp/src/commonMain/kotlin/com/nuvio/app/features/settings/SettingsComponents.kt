@@ -121,7 +121,10 @@ internal fun TextStyle.withSettingsGlassTextShadow(enabled: Boolean): TextStyle 
  * scrolling controls underneath it.
  */
 @Composable
-internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
+internal fun SettingsGlassPageBackground(
+    additionalSurfaces: Set<LiquidGlassSurface> = emptySet(),
+    content: @Composable () -> Unit,
+) {
     val backdrop = rememberNuvioBackdrop()
     val customImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
@@ -145,6 +148,7 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
     val settingsGlassBackdropEnabled = shouldCaptureLiquidGlassSettingsBackdrop(
         masterEnabled = isLiquidGlassSupported(),
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+        additionalSurfaces = additionalSurfaces,
     )
     val settingsGlassTextContrastEnabled =
         isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)

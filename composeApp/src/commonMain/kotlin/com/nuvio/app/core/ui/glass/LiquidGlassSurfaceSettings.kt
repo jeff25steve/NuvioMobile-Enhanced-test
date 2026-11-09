@@ -783,8 +783,8 @@ internal fun isLiquidGlassSurfacePreferenceEnabled(surface: LiquidGlassSurface):
 internal fun shouldCaptureLiquidGlassSettingsBackdrop(
     masterEnabled: Boolean,
     isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
+    additionalSurfaces: Set<LiquidGlassSurface> = emptySet(),
 ): Boolean = masterEnabled && (
     isSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS) ||
-        isSurfacePreferenceEnabled(LiquidGlassSurface.PROFILE_WATCH_TIME) ||
-        isSurfacePreferenceEnabled(LiquidGlassSurface.SUPPORTER_MEMBERSHIP)
+        additionalSurfaces.any(isSurfacePreferenceEnabled)
     )

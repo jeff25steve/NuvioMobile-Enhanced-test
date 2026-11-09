@@ -17,7 +17,7 @@ Local checkout state and uncommitted local work are not exposed by the connected
 
 - Restored `PROFILE_WATCH_TIME` and `SUPPORTER_MEMBERSHIP` as appended enum values, with the historical enabled defaults, non-icon capability, independent serializable overrides and original component recipes. Appending preserves the current enum member order.
 - Routed the Profile Watch Time row and Supporter Membership card back to their dedicated settings. Their preview entry points invoke the real production components using preview-local overrides, not static lookalike content.
-- Added a Settings-family backdrop-capture predicate so the shared background is captured when any of the three Settings-family surfaces is enabled, while typography contrast remains scoped to the original generic Settings surface.
+- Added an opt-in additional-surface backdrop predicate. The main Settings screen opts into Profile Watch Time and Supporter Membership; the standalone Supporters & Contributors page opts into only Supporter Membership. Unrelated standalone Settings pages do not capture a backdrop just because those independent surfaces are enabled.
 - Attached the glass renderer to `SettingsCard`, removed its opaque fill while glass is active, and applied the resolved glass shape. The non-glass color/shape fallback remains on the pre-existing path.
 - Added host-test cases for independent persistence, default recipes and backdrop-capture gating.
 - No dependencies, website/backend settings, navigation, player code, Android native code or iOS native UI were changed.

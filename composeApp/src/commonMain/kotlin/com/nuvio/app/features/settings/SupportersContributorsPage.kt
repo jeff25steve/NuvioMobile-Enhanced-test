@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.build.AppFeaturePolicy
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.features.addons.httpRequestRaw
@@ -276,7 +277,9 @@ private object SupportersContributorsRepository {
 fun SupportersContributorsSettingsScreen(
     onBack: () -> Unit,
 ) {
-    SettingsGlassPageBackground {
+    SettingsGlassPageBackground(
+        additionalSurfaces = setOf(LiquidGlassSurface.SUPPORTER_MEMBERSHIP),
+    ) {
         NuvioScreen(
             modifier = Modifier.fillMaxSize(),
         ) {

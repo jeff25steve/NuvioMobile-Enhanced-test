@@ -218,6 +218,10 @@ fun SettingsScreen(
     val settingsGlassBackdropEnabled = shouldCaptureLiquidGlassSettingsBackdrop(
         masterEnabled = isLiquidGlassSupported(),
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+        additionalSurfaces = setOf(
+            LiquidGlassSurface.PROFILE_WATCH_TIME,
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP,
+        ),
     )
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)

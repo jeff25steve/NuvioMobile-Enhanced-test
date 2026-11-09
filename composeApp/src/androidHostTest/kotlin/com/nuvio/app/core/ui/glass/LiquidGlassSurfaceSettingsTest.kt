@@ -256,11 +256,45 @@ class LiquidGlassSurfaceSettingsTest {
 
     @Test
     fun settingsBackdropCaptureIncludesEnabledSettingsFamilySurfacesOnly() {
-        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.PROFILE_WATCH_TIME })
-        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.SUPPORTER_MEMBERSHIP })
-        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.SETTINGS })
-        assertFalse(shouldCaptureLiquidGlassSettingsBackdrop(true) { false })
-        assertFalse(shouldCaptureLiquidGlassSettingsBackdrop(false) { true })
+        assertTrue(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = true,
+                isSurfacePreferenceEnabled = { it == LiquidGlassSurface.PROFILE_WATCH_TIME },
+                additionalSurfaces = setOf(LiquidGlassSurface.PROFILE_WATCH_TIME),
+            ),
+        )
+        assertTrue(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = true,
+                isSurfacePreferenceEnabled = { it == LiquidGlassSurface.SUPPORTER_MEMBERSHIP },
+                additionalSurfaces = setOf(LiquidGlassSurface.SUPPORTER_MEMBERSHIP),
+            ),
+        )
+        assertTrue(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = true,
+                isSurfacePreferenceEnabled = { it == LiquidGlassSurface.SETTINGS },
+            ),
+        )
+        assertFalse(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = true,
+                isSurfacePreferenceEnabled = { it == LiquidGlassSurface.PROFILE_WATCH_TIME },
+            ),
+        )
+        assertFalse(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = true,
+                isSurfacePreferenceEnabled = { false },
+            ),
+        )
+        assertFalse(
+            shouldCaptureLiquidGlassSettingsBackdrop(
+                masterEnabled = false,
+                isSurfacePreferenceEnabled = { true },
+                additionalSurfaces = setOf(LiquidGlassSurface.SUPPORTER_MEMBERSHIP),
+            ),
+        )
     }
 
     @Test
