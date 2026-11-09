@@ -95,7 +95,7 @@ enum class DownloadEnqueueResult {
     RequiresWifi;
 
     suspend fun toastMessage(): String {
-        when (this@DownloadEnqueueResult) {
+        return when (this@DownloadEnqueueResult) {
             Started -> getString(Res.string.downloads_enqueue_started)
             Replaced -> getString(Res.string.downloads_enqueue_replaced)
             MissingUrl -> getString(Res.string.downloads_enqueue_missing_url)

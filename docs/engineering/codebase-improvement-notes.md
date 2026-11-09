@@ -1602,3 +1602,28 @@ The security benefit is substantial: a network attacker can no longer impersonat
 #### Verification state
 
 Reviewed all production references to `PlayerPlaybackNetworking` across the Android player factories, subtitle route and OpenSubtitles hasher; checked the full networking helper, both distribution factories, merged app manifest and network-security XML; compared the introducing commit and previous Media3 implementation; and inspected the OkHttp/Android API contracts. The change removes only the TLS bypass. No Gradle task, test, build or CI has run at the time of this note. Runtime HTTPS compatibility and both Android distribution builds remain to be verified.
+
+
+### 9 November 2026 — correct two suspend resource builders exposed by Android fullDebug compile
+
+#### Build evidence and root cause
+
+The first Android fullDebug run against candidate `9329a34a1c33164ba8058532f0708cc4e75a5483` (workflow run [42602503090](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42602503090), run 109) passed checkout, Java, Gradle setup, live runtime configuration and Rust toolchain setup, then reached Gradle/Kotlin compilation. It failed specifically at `:composeApp:compileAndroidMain` with two compiler diagnostics:
+
+- `DownloadsModels.kt:105:5 Missing return statement`.
+- `EpisodeReleaseNotificationsModels.kt:134:1 Missing return statement`.
+
+The errors were present in the candidate's parent commit too; neither file was modified by the Android TLS change. The compiler output identifies them as source compilation failures, not the previous Gradle distribution HTTP 504.
+
+Both errors came from removing `runBlocking` while converting a synchronous localized message builder into a suspending resource lookup, then leaving the `when` expression as a statement inside a block-bodied function. The notification helper had the same issue after its conversion to `suspend`. A final expression inside a block body does not implicitly return the function result.
+
+#### Correction applied
+
+- `DownloadEnqueueResult.toastMessage()` now explicitly returns its localized `when` expression.
+- `buildEpisodeReleaseNotificationBody()` now explicitly returns its localized `when` expression.
+- Existing message branches, resource IDs, formatting arguments, trimming and generic fallback remain unchanged.
+- Existing common tests already cover all five download result messages and all four episode notification body branches; no duplicate tests were added.
+
+#### Verification and next build
+
+Confirmed both offending source blobs were identical at `9329a34` and its parent, read the two previous implementation diffs that introduced the suspend conversions, checked their production callers and existing common test coverage, and extracted both exact compiler diagnostics from workflow job 129110154795. The source correction is limited to the two missing `return` keywords. The failed run produced no APK; a fresh Android fullDebug build is required to confirm compilation and packaging after this fix. The first failure was not retried unchanged.

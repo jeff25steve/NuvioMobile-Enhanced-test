@@ -121,7 +121,7 @@ internal suspend fun buildEpisodeReleaseNotificationBody(
     }
     val title = episodeTitle?.trim().takeUnless { it.isNullOrBlank() }
 
-    when {
+    return when {
         code.isNotBlank() && title != null ->
             getString(Res.string.notifications_episode_release_body_code_title, code, title)
         code.isNotBlank() ->
