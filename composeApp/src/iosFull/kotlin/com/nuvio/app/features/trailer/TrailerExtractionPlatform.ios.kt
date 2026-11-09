@@ -6,8 +6,10 @@ import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.request
 import io.ktor.http.HttpMethod
@@ -111,22 +113,22 @@ internal object TrailerExtractionPlatform {
         return candidates
     }
 
-    private suspend fun isUrlReachable(url: String): Boolean {
-        val response = runCatchingUnlessCancelled {
-            performRequest(
-                url = url,
-                method = "GET",
-                headers = mapOf(
-                    "range" to "bytes=0-0",
-                    "user-agent" to defaultHeaders.getValue("user-agent"),
-                ),
-                body = null,
-                timeoutMillis = PROBE_TIMEOUT_MS,
-            )
-        }.getOrNull() ?: return false
-
-        return response.status in 200..299
-    }
+    private suspend fun isUrlReachable(url: String): Boolean =
+        runCatchingUnlessCancelled {
+            httpClient.prepareRequest {
+                this.url(url)
+                method = HttpMethod.Get
+                header("range", "bytes=0-0")
+                header("user-agent", defaultHeaders.getValue("user-agent"))
+                timeout {
+                    requestTimeoutMillis = PROBE_TIMEOUT_MS
+                    connectTimeoutMillis = PROBE_TIMEOUT_MS
+                    socketTimeoutMillis = PROBE_TIMEOUT_MS
+                }
+            }.execute { response ->
+                response.status.isSuccess()
+            }
+        }.getOrDefault(false)
 
     private fun getHost(url: String): String? {
         val components = NSURLComponents(string = url)

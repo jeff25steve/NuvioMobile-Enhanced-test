@@ -7,16 +7,60 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 private const val PROBE_TIMEOUT_MS = 2_000L
 private const val PROBE_TIER_TIMEOUT_MS = 3_000L
+
+/**
+ * Await only the response status and close the body immediately.
+ *
+ * Cancelling the calling coroutine cancels the OkHttp call instead of leaving a blocking
+ * execute() running until its configured timeout.
+ */
+internal suspend fun awaitTrailerReachabilityResponse(call: Call): Boolean =
+    suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation {
+            call.cancel()
+        }
+        if (!continuation.isActive) return@suspendCancellableCoroutine
+
+        call.enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, error: IOException) {
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.success(false))
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (!continuation.isActive) {
+                        response.close()
+                        return
+                    }
+
+                    val reachable = runCatching {
+                        response.use { current -> current.code in 200..299 }
+                    }.getOrDefault(false)
+
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.success(reachable))
+                    }
+                }
+            },
+        )
+    }
 
 internal object TrailerExtractionPlatform {
     val defaultHeaders: Map<String, String> = mapOf(
@@ -118,7 +162,7 @@ internal object TrailerExtractionPlatform {
         return candidates
     }
 
-    private suspend fun isUrlReachable(url: String): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun isUrlReachable(url: String): Boolean =
         runCatchingUnlessCancelled {
             val request = Request.Builder()
                 .url(url)
@@ -126,11 +170,8 @@ internal object TrailerExtractionPlatform {
                 .headers(buildHeaders(defaultHeaders + mapOf("Range" to "bytes=0-0")))
                 .build()
 
-            probeClient.newCall(request).execute().use { response ->
-                response.code in 200..299
-            }
+            awaitTrailerReachabilityResponse(probeClient.newCall(request))
         }.getOrDefault(false)
-    }
 
     private fun buildHeaders(source: Map<String, String>): Headers {
         val headers = Headers.Builder()

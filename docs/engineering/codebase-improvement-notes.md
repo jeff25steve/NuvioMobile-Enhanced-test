@@ -1090,3 +1090,39 @@ No cap or streaming refactor was applied to trailer extraction. The common `Trai
 A future change should first measure representative production/test fixtures, then set separate conservative bounds by response role (watch HTML, player JSON, HLS manifest), preserve explicit truncation/failure semantics, and test valid large responses plus over-limit handling on Android and iOS. Until those thresholds are evidence-based, keep the existing behavior. The cancellation hardening above does not claim to bound these trailer response allocations.
 
 Sources inspected: `composeApp/src/androidFull/kotlin/com/nuvio/app/features/trailer/TrailerExtractionPlatform.android.kt`, `composeApp/src/iosFull/kotlin/com/nuvio/app/features/trailer/TrailerExtractionPlatform.ios.kt`, and `composeApp/src/fullCommonMain/kotlin/com/nuvio/app/features/trailer/InAppYouTubeExtractor.kt`. No code or test changes were made for this deferred candidate.
+
+
+### YouTube trailer reachability probes — cancel native requests and discard unused response bodies (8 November 2026)
+
+A focused Android/iOS comparison found that the media-host reachability probe only needs the HTTP response status, but its platform implementations had different resource costs and cancellation behaviour.
+
+#### Root cause confirmed at the platform boundary
+
+- Android's isUrlReachable() built an OkHttp GET with Range: bytes=0-0, then called synchronous Call.execute() from a coroutine on Dispatchers.IO. The dispatcher avoided blocking the UI thread, but each parallel host candidate occupied an IO worker while waiting for response headers. Coroutine cancellation was not connected to the active OkHttp call, so an abandoned probe could continue until its existing two-second call timeout.
+- iOS's isUrlReachable() reused the general performRequest() helper. That helper called HttpClient.request() and then bodyAsText(), materialising the response body as a String even though the probe only checks response.status. If a server ignores the one-byte Range request or returns an unexpectedly large body, this does unnecessary network transfer and allocation.
+- Both platforms already run a maximum three-second probe tier, keep a two-second per-probe timeout, issue the same range GET and preserve candidate ordering. The change does not alter those policies.
+
+#### Implementation
+
+- Android now uses the same cancellable OkHttp callback pattern already used by the app's add-on transport: enqueue(), invokeOnCancellation { call.cancel() }, status-only inspection, and Response.use to close the unread body immediately. Ordinary network failures still mean unreachable; caller cancellation remains cancellation. The synchronous probe call no longer holds an IO worker while the network request is pending.
+- iOS now builds the same GET through Ktor 3.4.1 prepareRequest { ... }.execute { response -> ... } and reads only response.status. It no longer calls the full-body performRequest() path for reachability. Ktor's scoped streaming execution releases the response in a finally cleanup path, including when the block returns without reading the body or the caller cancels.
+- Kept the exact two-second request/connect/socket timeout values, three-second overall tier timeout, Range and User-Agent headers, success status range, parallel candidate set/order, fallback order, and returned URL behaviour. No player, extraction, playback, request or UI contract was changed.
+
+#### Pinned implementation and documentation evidence
+
+- The app pins OkHttp 4.12.0. Its tagged Call.kt defines asynchronous enqueue(Callback) and cancel(); tagged Response.kt documents Response as Closeable and confirms close() closes the underlying response body:
+  - https://raw.githubusercontent.com/square/okhttp/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/Call.kt
+  - https://raw.githubusercontent.com/square/okhttp/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/Response.kt
+- The exact Ktor 3.4.1 HttpStatement.kt was inspected. execute(block) obtains a streaming response via fetchStreamingResponse(); that path marks the request to skip saving the full body, and execute(block) invokes response cleanup in finally. Cleanup cancels the unread raw response channel and joins its request job:
+  - https://raw.githubusercontent.com/ktorio/ktor/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/statement/HttpStatement.kt
+- Context7's Ktor response/timeout documentation corroborates scoped streaming and per-request timeout configuration. The project already uses prepareRequest().execute { ... } with ByteReadChannel for bounded iOS add-on responses; no new Ktor pattern or dependency is introduced.
+- The exact MockWebServer 5.3.2 deprecated API source was inspected to confirm the test's setBodyDelay and setHeadersDelay methods, matching the repository's existing okhttp3.mockwebserver imports:
+  - https://raw.githubusercontent.com/square/okhttp/parent-5.3.2/mockwebserver-deprecated/src/main/kotlin/okhttp3/mockwebserver/MockResponse.kt
+
+#### Regression coverage and verification limits
+
+- Added Android full-host tests proving a probe returns from response status without waiting for a delayed response body, cancellation cancels a pending OkHttp call, and non-2xx status is classified as unreachable.
+- The Android host-test target already has MockWebServer 5.3.2, and androidFullHostTest includes its source directory only for the full Android distribution. No dependency or Gradle configuration change was made.
+- The regression tests were authored first, but neither the RED nor GREEN run was performed: running Gradle tests would trigger a build, which remains unauthorised. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started.
+- Static review compared the full Android/iOS platform files, their common caller, the existing Android add-on callback implementation, exact pinned OkHttp/Ktor sources, the MockWebServer test API and the source-set/dependency configuration. This is source-reviewed only; compiler, test and runtime results remain unverified.
+- The existing awaitAll().firstOrNull candidate-selection behaviour was deliberately retained. Selecting the first network response to arrive would change the existing deterministic candidate-order preference, which is outside this resource/cancellation fix.
