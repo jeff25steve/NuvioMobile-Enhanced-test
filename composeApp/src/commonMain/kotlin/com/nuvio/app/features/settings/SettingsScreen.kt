@@ -80,6 +80,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.shouldCaptureLiquidGlassSettingsBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
@@ -214,17 +215,21 @@ fun SettingsScreen(
         customSettingsBackgroundImageUri,
         customSettingsBackgroundImageRevision,
     ) { mutableStateOf(false) }
+    val settingsGlassBackdropEnabled = shouldCaptureLiquidGlassSettingsBackdrop(
+        masterEnabled = isLiquidGlassSupported(),
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     val settingsGlassTextContrastEnabled = settingsGlassEnabled && isLiquidGlassSupported()
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
-        if (settingsGlassEnabled || customSettingsBackgroundImageUri != null) {
+        if (settingsGlassBackdropEnabled || customSettingsBackgroundImageUri != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(settingsBackdrop) else Modifier),
+                    .then(if (settingsGlassBackdropEnabled) Modifier.nuvioBackdropSource(settingsBackdrop) else Modifier),
             ) {
                 Box(
                     modifier = Modifier
@@ -251,7 +256,7 @@ fun SettingsScreen(
             }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (settingsGlassEnabled) settingsBackdrop else null,
+            LocalLiquidGlassBackdrop provides if (settingsGlassBackdropEnabled) settingsBackdrop else null,
             LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
                 enabled = settingsGlassTextContrastEnabled,
             ),

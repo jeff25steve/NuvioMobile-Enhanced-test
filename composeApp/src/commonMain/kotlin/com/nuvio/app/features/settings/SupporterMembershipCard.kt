@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -71,13 +72,15 @@ internal fun SupporterMembershipCard(
     actionEnabled: Boolean,
     onAction: () -> Unit,
     onRefresh: () -> Unit,
+    previewGlass: Boolean = false,
 ) {
-    val surface = LiquidGlassSurface.SETTINGS
+    val surface = LiquidGlassSurface.SUPPORTER_MEMBERSHIP
     val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = surface,
-        platformSupported = isLiquidGlassSupported(),
+        preview = previewGlass,
+        platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
-    val shape = liquidGlassShape(surface, RoundedCornerShape(16.dp))
+    val shape = liquidGlassShape(surface, RoundedCornerShape(16.dp), preview = previewGlass)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -91,6 +94,7 @@ internal fun SupporterMembershipCard(
                         blurRadius = 14.dp,
                         refractionHeight = 8.dp,
                         refractionAmount = 12.dp,
+                        preview = previewGlass,
                     )
                 } else {
                     Modifier.clip(shape).background(CardColor)
@@ -143,6 +147,24 @@ internal fun SupporterMembershipCard(
                 onRefresh = onRefresh,
             )
         }
+    }
+}
+
+@Composable
+internal fun SupporterMembershipGlassPreview(
+    isTablet: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        SupporterMembershipCard(
+            state = MembershipOverviewState(overview = MembershipOverview(), isLoading = false),
+            isTablet = isTablet,
+            showAction = true,
+            actionEnabled = true,
+            onAction = {},
+            onRefresh = {},
+            previewGlass = true,
+        )
     }
 }
 

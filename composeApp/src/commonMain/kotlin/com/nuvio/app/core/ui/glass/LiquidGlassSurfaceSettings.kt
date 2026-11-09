@@ -52,7 +52,9 @@ enum class LiquidGlassSurface {
     DETAIL_EPISODE_GO_TO,
     DETAIL_EPISODE_SORT,
     CATEGORY_HEADER_TITLE,
-    CATEGORY_HEADER_BACK_BUTTON;
+    CATEGORY_HEADER_BACK_BUTTON,
+    PROFILE_WATCH_TIME,
+    SUPPORTER_MEMBERSHIP;
 
     val defaultWithHighlight: Boolean
         get() = this != DETAIL_HEADER
@@ -88,7 +90,8 @@ enum class LiquidGlassSurface {
             LIBRARY_CLOUD_SEARCH -> true
             STREAM_FILTERS, STREAM_SELECTION, STREAM_RESULTS, DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS, LIBRARY_CLOUD_CARDS, DETAIL_TRAILER_MENU, DETAIL_EPISODE_GO_TO,
-            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, LIBRARY_CALENDAR, SETTINGS, BOTTOM_SHEETS -> false
+            DETAIL_EPISODE_SORT, CATEGORY_HEADER_TITLE, LIBRARY_CALENDAR, SETTINGS, BOTTOM_SHEETS,
+            PROFILE_WATCH_TIME, SUPPORTER_MEMBERSHIP -> false
         }
 
     val defaultEnabled: Boolean
@@ -114,7 +117,9 @@ enum class LiquidGlassSurface {
             DETAIL_EPISODE_GO_TO,
             DETAIL_EPISODE_SORT,
             CATEGORY_HEADER_TITLE,
-            CATEGORY_HEADER_BACK_BUTTON -> true
+            CATEGORY_HEADER_BACK_BUTTON,
+            PROFILE_WATCH_TIME,
+            SUPPORTER_MEMBERSHIP -> true
             DETAIL_CHIPS,
             DETAIL_CONTENT_CARDS,
             LIBRARY_CLOUD_CARDS,
@@ -244,6 +249,8 @@ internal fun liquidGlassSurfaceRecipe(
         LiquidGlassSurface.LIBRARY_CALENDAR -> LiquidGlassSurfaceRecipe(44f, 20f, 3f, 5f, 0.28f)
         LiquidGlassSurface.SETTINGS -> LiquidGlassSurfaceRecipe(36f, 12f, 6f, 9f, 0.42f)
         LiquidGlassSurface.BOTTOM_SHEETS -> LiquidGlassSurfaceRecipe(28f, 18f, 8f, 12f, 0.50f)
+        LiquidGlassSurface.PROFILE_WATCH_TIME -> LiquidGlassSurfaceRecipe(18f, 14f, 8f, 12f, 0.18f)
+        LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> LiquidGlassSurfaceRecipe(18f, 14f, 8f, 12f, 0.14f)
     }
     return defaults.copy(
         cornerRadiusPercent = safeOverrides.cornerRadiusPercent ?: defaults.cornerRadiusPercent,
@@ -341,6 +348,9 @@ internal data class LiquidGlassSurfacesSettings(
     val libraryCalendar: LiquidGlassSurfaceOverrides = library,
     val settings: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
     val bottomSheets: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    // Keep these fields appended so existing positional construction remains source-compatible.
+    val profileWatchTime: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
+    val supporterMembership: LiquidGlassSurfaceOverrides = LiquidGlassSurfaceOverrides(),
 ) {
     fun forSurface(surface: LiquidGlassSurface): LiquidGlassSurfaceOverrides = when (surface) {
         LiquidGlassSurface.PLAYER -> player
@@ -369,6 +379,8 @@ internal data class LiquidGlassSurfacesSettings(
         LiquidGlassSurface.LIBRARY_CALENDAR -> libraryCalendar
         LiquidGlassSurface.SETTINGS -> settings
         LiquidGlassSurface.BOTTOM_SHEETS -> bottomSheets
+        LiquidGlassSurface.PROFILE_WATCH_TIME -> profileWatchTime
+        LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> supporterMembership
     }
 
     fun withSurface(
@@ -403,6 +415,8 @@ internal data class LiquidGlassSurfacesSettings(
             LiquidGlassSurface.LIBRARY_CALENDAR -> copy(libraryCalendar = safe)
             LiquidGlassSurface.SETTINGS -> copy(settings = safe)
             LiquidGlassSurface.BOTTOM_SHEETS -> copy(bottomSheets = safe)
+            LiquidGlassSurface.PROFILE_WATCH_TIME -> copy(profileWatchTime = safe)
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> copy(supporterMembership = safe)
         }
     }
 
@@ -433,6 +447,8 @@ internal data class LiquidGlassSurfacesSettings(
         libraryCalendar = libraryCalendar.sanitized(),
         settings = settings.sanitized(),
         bottomSheets = bottomSheets.sanitized(),
+        profileWatchTime = profileWatchTime.sanitized(),
+        supporterMembership = supporterMembership.sanitized(),
     )
 }
 
@@ -762,3 +778,13 @@ internal fun isLiquidGlassSurfacePreferenceEnabled(surface: LiquidGlassSurface):
     val overrides = LiquidGlassSettings.surfaceOverrides.forSurface(surface)
     return overrides.enabled ?: surface.defaultEnabled
 }
+
+/** Capture the shared Settings background only when an enabled Settings-family surface needs it. */
+internal fun shouldCaptureLiquidGlassSettingsBackdrop(
+    masterEnabled: Boolean,
+    isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
+): Boolean = masterEnabled && (
+    isSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS) ||
+        isSurfacePreferenceEnabled(LiquidGlassSurface.PROFILE_WATCH_TIME) ||
+        isSurfacePreferenceEnabled(LiquidGlassSurface.SUPPORTER_MEMBERSHIP)
+    )

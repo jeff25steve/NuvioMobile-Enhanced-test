@@ -76,6 +76,7 @@ import com.nuvio.app.core.ui.glass.withLiquidGlassTextContrast
 import com.nuvio.app.core.ui.glass.withLiquidGlassTextShadow
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
+import com.nuvio.app.core.ui.glass.shouldCaptureLiquidGlassSettingsBackdrop
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.glass.liquidGlassBackdropUnderlay
@@ -141,16 +142,19 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
         }
     }
     var imageLoaded by remember(customImageUri, imageRevision) { mutableStateOf(false) }
-    val settingsGlassEnabled = LiquidGlassSettings.enabled &&
-        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS) &&
-        isLiquidGlassSupported()
+    val settingsGlassBackdropEnabled = shouldCaptureLiquidGlassSettingsBackdrop(
+        masterEnabled = isLiquidGlassSupported(),
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
+    val settingsGlassTextContrastEnabled =
+        isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (settingsGlassEnabled || customImageUri != null) {
+        if (settingsGlassBackdropEnabled || customImageUri != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .then(if (settingsGlassEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
+                    .then(if (settingsGlassBackdropEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
             ) {
                 Box(
                     modifier = Modifier
@@ -177,12 +181,12 @@ internal fun SettingsGlassPageBackground(content: @Composable () -> Unit) {
             }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (settingsGlassEnabled) backdrop else null,
+            LocalLiquidGlassBackdrop provides if (settingsGlassBackdropEnabled) backdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || customImageUri != null
             ),
         ) {
-            LiquidGlassTextContrastScope(enabled = settingsGlassEnabled) {
+            LiquidGlassTextContrastScope(enabled = settingsGlassTextContrastEnabled) {
                 content()
             }
         }
@@ -211,9 +215,24 @@ private fun SettingsCard(
         defaultCardShape
     }
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = tokens.colors.surface,
-        shape = tokens.shapes.card,
+        modifier = modifier.fillMaxWidth().then(
+            if (glassEnabled) {
+                Modifier.liquidGlassForSurface(
+                    surface = LiquidGlassSurface.SETTINGS,
+                    shape = cardShape,
+                    tint = tokens.colors.surface.copy(alpha = 0.18f),
+                    fallback = tokens.colors.surface,
+                    blurRadius = 12.dp,
+                    refractionHeight = 6.dp,
+                    refractionAmount = 9.dp,
+                    preview = previewGlass,
+                )
+            } else {
+                Modifier
+            },
+        ),
+        color = if (glassEnabled) Color.Transparent else tokens.colors.surface,
+        shape = if (glassEnabled) cardShape else tokens.shapes.card,
         border = BorderStroke(
             tokens.borders.hairline,
             tokens.colors.borderSubtle,

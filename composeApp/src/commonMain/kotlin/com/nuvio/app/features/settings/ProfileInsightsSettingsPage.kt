@@ -111,6 +111,7 @@ import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
@@ -959,14 +960,18 @@ private fun ProfileMetricPill(
 }
 
 @Composable
-private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
+private fun ProfileWatchTimeRow(
+    stats: ProfileInsightsStats,
+    previewGlass: Boolean = false,
+) {
     val tokens = MaterialTheme.nuvio
-    val surface = LiquidGlassSurface.SETTINGS
+    val surface = LiquidGlassSurface.PROFILE_WATCH_TIME
     val glassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = surface,
-        platformSupported = isLiquidGlassSupported(),
+        preview = previewGlass,
+        platformSupported = if (previewGlass) isLiquidGlassAvailable() else isLiquidGlassSupported(),
     )
-    val shape = liquidGlassShape(surface, tokens.shapes.card)
+    val shape = liquidGlassShape(surface, tokens.shapes.card, preview = previewGlass)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -980,6 +985,7 @@ private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
                         blurRadius = 14.dp,
                         refractionHeight = 8.dp,
                         refractionAmount = 12.dp,
+                        preview = previewGlass,
                     )
                 } else {
                     Modifier
@@ -1018,6 +1024,13 @@ private fun ProfileWatchTimeRow(stats: ProfileInsightsStats) {
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+@Composable
+internal fun ProfileWatchTimeGlassPreview(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        ProfileWatchTimeRow(stats = emptyProfileInsightsStats(), previewGlass = true)
     }
 }
 

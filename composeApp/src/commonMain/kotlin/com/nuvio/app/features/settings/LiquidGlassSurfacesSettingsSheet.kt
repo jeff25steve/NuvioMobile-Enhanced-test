@@ -181,6 +181,8 @@ import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
 import nuvio.composeapp.generated.resources.library_title
+import nuvio.composeapp.generated.resources.profile_insights_stat_time
+import nuvio.composeapp.generated.resources.community_membership_title
 import nuvio.composeapp.generated.resources.settings_liquid_glass_surface_material_header
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_clear
 import nuvio.composeapp.generated.resources.settings_nav_bar_glass_material_frosted
@@ -2123,6 +2125,8 @@ private fun liquidGlassSurfaceTitle(surface: LiquidGlassSurface): String =
             LiquidGlassSurface.LIBRARY_CALENDAR -> Res.string.settings_liquid_glass_surface_library_calendar
             LiquidGlassSurface.SETTINGS -> Res.string.settings_liquid_glass_surface_settings
             LiquidGlassSurface.BOTTOM_SHEETS -> Res.string.settings_liquid_glass_surface_bottom_sheets
+            LiquidGlassSurface.PROFILE_WATCH_TIME -> Res.string.profile_insights_stat_time
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> Res.string.community_membership_title
         },
     )
 
@@ -2175,6 +2179,8 @@ private fun LiquidGlassSurfacePreview(
             LiquidGlassSurface.LIBRARY_CALENDAR -> 332.dp
             LiquidGlassSurface.SETTINGS -> 148.dp
             LiquidGlassSurface.BOTTOM_SHEETS -> 148.dp
+            LiquidGlassSurface.PROFILE_WATCH_TIME -> 188.dp
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> 248.dp
             else -> 88.dp
         }
 
@@ -2325,6 +2331,13 @@ private fun LiquidGlassSurfacePreview(
                                 modifier = Modifier.fillMaxSize(),
                             )
 
+                            LiquidGlassSurface.PROFILE_WATCH_TIME,
+                            LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> LiquidGlassCompactSurfacePreview(
+                                surface = surface,
+                                isTablet = isTablet,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
                             LiquidGlassSurface.PLAYER,
                             LiquidGlassSurface.SEARCH,
                             -> Unit
@@ -2338,6 +2351,53 @@ private fun LiquidGlassSurfacePreview(
     }
 }
 
+
+@Composable
+private fun LiquidGlassCompactSurfacePreview(
+    surface: LiquidGlassSurface,
+    isTablet: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val backdrop = rememberNuvioBackdrop()
+    val posterColors = listOf(Color(0xFF3C5969), Color(0xFF8D6448), Color(0xFF4C465F))
+    Box(modifier = modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))) {
+        Box(modifier = Modifier.fillMaxSize().nuvioBackdropSource(backdrop)) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.linearGradient(listOf(Color(0xFF17232D), Color(0xFF64503A), Color(0xFF222634))),
+                ),
+            )
+            Row(
+                modifier = Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                posterColors.forEach { color ->
+                    Box(
+                        modifier = Modifier.weight(1f).height(182.dp).clip(RoundedCornerShape(9.dp)).background(
+                            Brush.verticalGradient(
+                                listOf(color.copy(alpha = 0.96f), color.copy(alpha = 0.72f), Color.Black.copy(alpha = 0.65f)),
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+        CompositionLocalProvider(LocalLiquidGlassBackdrop provides backdrop) {
+            Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
+                when (surface) {
+                    LiquidGlassSurface.PROFILE_WATCH_TIME -> ProfileWatchTimeGlassPreview(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    )
+                    LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> SupporterMembershipGlassPreview(
+                        isTablet = isTablet,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    )
+                    else -> Unit
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun LiquidGlassCatalogHeaderPreview(

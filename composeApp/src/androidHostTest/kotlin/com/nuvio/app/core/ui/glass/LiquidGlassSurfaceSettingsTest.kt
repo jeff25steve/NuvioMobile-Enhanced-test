@@ -194,6 +194,8 @@ class LiquidGlassSurfaceSettingsTest {
             LiquidGlassSurface.DETAIL_EPISODE_SORT,
             LiquidGlassSurface.CATEGORY_HEADER_TITLE,
             LiquidGlassSurface.CATEGORY_HEADER_BACK_BUTTON,
+            LiquidGlassSurface.PROFILE_WATCH_TIME,
+            LiquidGlassSurface.SUPPORTER_MEMBERSHIP,
         )
 
         LiquidGlassSurface.entries.forEach { surface ->
@@ -231,6 +233,50 @@ class LiquidGlassSurfaceSettingsTest {
                 masterEnabled = true,
             ),
         )
+    }
+
+    @Test
+    fun profileAndSupporterGlassOverridesRoundTripIndependently() {
+        assertTrue(LiquidGlassSurface.PROFILE_WATCH_TIME.defaultEnabled)
+        assertTrue(LiquidGlassSurface.SUPPORTER_MEMBERSHIP.defaultEnabled)
+        assertFalse(LiquidGlassSurface.PROFILE_WATCH_TIME.supportsIconTint)
+        assertFalse(LiquidGlassSurface.SUPPORTER_MEMBERSHIP.supportsIconTint)
+
+        val watchTime = LiquidGlassSurfaceOverrides(enabled = false, blurRadiusDp = 8f)
+        val supporter = LiquidGlassSurfaceOverrides(enabled = true, tintOpacity = 0.24f)
+        val configured = LiquidGlassSurfacesSettings()
+            .withSurface(LiquidGlassSurface.PROFILE_WATCH_TIME, watchTime)
+            .withSurface(LiquidGlassSurface.SUPPORTER_MEMBERSHIP, supporter)
+        val restored = decodeLiquidGlassSurfaceSettings(encodeLiquidGlassSurfaceSettings(configured))
+
+        assertEquals(watchTime, restored.forSurface(LiquidGlassSurface.PROFILE_WATCH_TIME))
+        assertEquals(supporter, restored.forSurface(LiquidGlassSurface.SUPPORTER_MEMBERSHIP))
+        assertEquals(LiquidGlassSurfaceOverrides(), restored.forSurface(LiquidGlassSurface.SETTINGS))
+    }
+
+    @Test
+    fun settingsBackdropCaptureIncludesEnabledSettingsFamilySurfacesOnly() {
+        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.PROFILE_WATCH_TIME })
+        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.SUPPORTER_MEMBERSHIP })
+        assertTrue(shouldCaptureLiquidGlassSettingsBackdrop(true) { it == LiquidGlassSurface.SETTINGS })
+        assertFalse(shouldCaptureLiquidGlassSettingsBackdrop(true) { false })
+        assertFalse(shouldCaptureLiquidGlassSettingsBackdrop(false) { true })
+    }
+
+    @Test
+    fun restoredProfileAndSupporterRecipesMatchTheirOriginalCardMaterials() {
+        val watchTime = liquidGlassSurfaceRecipe(LiquidGlassSurface.PROFILE_WATCH_TIME)
+        assertEquals(18f, watchTime.cornerRadiusPercent)
+        assertEquals(14f, watchTime.blurRadiusDp)
+        assertEquals(8f, watchTime.refractionHeightDp)
+        assertEquals(12f, watchTime.refractionAmountDp)
+        assertEquals(0.18f, watchTime.tintOpacity)
+        val supporter = liquidGlassSurfaceRecipe(LiquidGlassSurface.SUPPORTER_MEMBERSHIP)
+        assertEquals(18f, supporter.cornerRadiusPercent)
+        assertEquals(14f, supporter.blurRadiusDp)
+        assertEquals(8f, supporter.refractionHeightDp)
+        assertEquals(12f, supporter.refractionAmountDp)
+        assertEquals(0.14f, supporter.tintOpacity)
     }
 
     @Test
