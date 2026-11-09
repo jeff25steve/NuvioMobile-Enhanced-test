@@ -1263,13 +1263,53 @@ private fun LazyListScope.cloudLibraryContent(
                             exit = shrinkVertically() + fadeOut(),
                         ) {
                             val focusRequester = remember { FocusRequester() }
-                            LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+                            val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
+                                cloudSearchGlassEnabled
+                            var nativeFocusRequestCount by remember { mutableStateOf(0) }
+                            LaunchedEffect(nativeSearchEnabled) {
+                                if (nativeSearchEnabled) {
+                                    nativeFocusRequestCount += 1
+                                } else {
+                                    runCatching { focusRequester.requestFocus() }
+                                }
+                            }
+                            val cloudSearchShape = liquidGlassShape(
+                                LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                RoundedCornerShape(12.dp),
+                            )
                             CloudLibrarySearchField(
                                 query = searchQuery,
                                 onQueryChange = onSearchQueryChange,
+                                nativeGlassEnabled = nativeSearchEnabled,
+                                focusRequestCount = nativeFocusRequestCount,
+                                transparentContainer = cloudSearchGlassEnabled,
+                                shape = cloudSearchShape,
+                                showOutline = shouldDrawNuvioInputFieldOutline(
+                                    glassSurfaceEnabled = cloudSearchGlassEnabled,
+                                    glassRimCanRender = cloudSearchGlassEnabled &&
+                                        isLiquidGlassBackdropReady(LocalLiquidGlassBackdrop.current),
+                                ),
                                 modifier = Modifier
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                                    .focusRequester(focusRequester),
+                                    .then(
+                                        if (cloudSearchGlassEnabled && !nativeSearchEnabled) {
+                                            Modifier.liquidGlassForSurface(
+                                                surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                                shape = cloudSearchShape,
+                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                                blurRadius = 12.dp,
+                                                refractionHeight = 6.dp,
+                                                refractionAmount = 9.dp,
+                                            )
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
+                                    .then(
+                                        if (nativeSearchEnabled) Modifier
+                                        else Modifier.focusRequester(focusRequester),
+                                    ),
                             )
                         }
                     }
@@ -1342,6 +1382,7 @@ internal fun CloudLibrarySearchField(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     nativeGlassEnabled: Boolean = false,
+    focusRequestCount: Int = 0,
     transparentContainer: Boolean = false,
     shape: Shape = RoundedCornerShape(12.dp),
     showOutline: Boolean = true,
@@ -1354,6 +1395,7 @@ internal fun CloudLibrarySearchField(
                 value = query,
                 placeholder = placeholder,
                 accessibilityLabel = placeholder,
+                focusRequestCount = focusRequestCount,
                 onValueChange = onQueryChange,
                 onFocusChanged = { focused ->
                     if (focused) onGlassSurfaceInteracted?.invoke()

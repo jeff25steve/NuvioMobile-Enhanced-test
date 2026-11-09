@@ -15,6 +15,14 @@ import androidx.compose.ui.unit.dp
 
 class LiquidGlassSurfaceSettingsTest {
     @Test
+    fun staticFallbackOnlyAppearsWhenGlassWasRequestedButRendererIsUnsupported() {
+        assertTrue(shouldUseLiquidGlassStaticFallback(false, true, false))
+        assertTrue(shouldUseLiquidGlassStaticFallback(true, false, false))
+        assertFalse(shouldUseLiquidGlassStaticFallback(false, false, false))
+        assertFalse(shouldUseLiquidGlassStaticFallback(false, true, true))
+    }
+
+    @Test
     fun cornerRadiusUsesTheSamePercentRangeAsNavigationGlass() {
         assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(0f))
         assertEquals(15, effectiveLiquidGlassCornerRadiusPercent(15f))

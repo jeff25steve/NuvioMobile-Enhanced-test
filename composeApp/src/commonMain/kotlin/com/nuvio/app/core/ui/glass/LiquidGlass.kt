@@ -328,6 +328,48 @@ internal fun liquidGlassAdaptiveFilm(background: Color): LiquidGlassAdaptiveFilm
     )
 }
 
+/**
+ * Use a renderer-independent film only when the user requested glass but Kyant RenderEffect
+ * is unavailable. This must not override the global glass switch.
+ */
+internal fun shouldUseLiquidGlassStaticFallback(
+    preview: Boolean,
+    masterEnabled: Boolean,
+    platformSupported: Boolean,
+): Boolean = !platformSupported && (preview || masterEnabled)
+
+private fun liquidGlassStaticFallbackSurface(
+    shape: Shape,
+    tint: Color,
+    fallback: Color,
+    fallbackBrush: Brush?,
+): Modifier {
+    val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
+    val base = if (fallbackBrush != null) {
+        clip(shape).background(fallbackBrush)
+    } else {
+        clip(shape).background(fallback, shape)
+    }
+    return base.drawWithContent {
+        drawContent()
+        if (tint.alpha > 0f) drawRect(tint)
+        if (adaptiveFilm.bodyTintAlpha > 0f) {
+            drawRect(Color.White.copy(alpha = adaptiveFilm.bodyTintAlpha))
+        }
+        if (adaptiveFilm.topSheenAlpha > 0f || adaptiveFilm.bottomShadeAlpha > 0f) {
+            drawRect(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = adaptiveFilm.topSheenAlpha),
+                        Color.Transparent,
+                        Color.Black.copy(alpha = adaptiveFilm.bottomShadeAlpha),
+                    ),
+                ),
+            )
+        }
+    }
+}
+
 internal fun Modifier.liquidGlassSurface(
     backdrop: Backdrop?,
     shape: Shape,
@@ -344,26 +386,62 @@ internal fun Modifier.liquidGlassSurface(
     chromaticAberration: Boolean = false,
     depthEffect: Boolean = false,
     preview: Boolean = false,
-): Modifier =
-    if (
-        !shouldUseLiquidGlassRenderer(
-            preview = preview,
-            masterEnabled = LiquidGlassSettings.enabled,
-            platformSupported = isLiquidGlassAvailable(),
-        )
-    ) {
-        if (fallbackBrush != null) clip(shape).background(fallbackBrush) else clip(shape).background(fallback, shape)
-    } else if (backdrop == null) {
-        // No source means there is nothing to blur or refract. Keep the app's fallback fill, but
-        // retain a restrained adaptive film so regular glass remains distinguishable on black.
-        val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
-        val base = if (fallbackBrush != null) {
+): Modifier {
+    val platformSupported = isLiquidGlassAvailable()
+    val rendererEnabled = shouldUseLiquidGlassRenderer(
+        preview = preview,
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = platformSupported,
+    )
+    if (!rendererEnabled) {
+        return if (
+            shouldUseLiquidGlassStaticFallback(
+                preview = preview,
+                masterEnabled = LiquidGlassSettings.enabled,
+                platformSupported = platformSupported,
+            )
+        ) {
+            liquidGlassStaticFallbackSurface(shape, tint, fallback, fallbackBrush)
+        } else if (fallbackBrush != null) {
             clip(shape).background(fallbackBrush)
         } else {
             clip(shape).background(fallback, shape)
         }
-        base.drawWithContent {
-            drawContent()
+    }
+    if (backdrop == null) {
+        // No source means there is nothing to blur or refract; retain the same static film.
+        return liquidGlassStaticFallbackSurface(shape, tint, fallback, fallbackBrush)
+    }
+
+    val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
+    return drawBackdrop(
+        backdrop = backdrop,
+        shape = { shape },
+        effects = {
+            if (withVibrancy) vibrancy()
+            if (blurRadius > 0.dp) blur(blurRadius.toPx())
+            val lensShape = shape as? CornerBasedShape
+            if (lensShape != null && isLiquidRefractionSupported()) {
+                val parameters = constrainLiquidGlassLensParameters(
+                    refractionHeightPx = refractionHeight.toPx(),
+                    refractionAmountPx = refractionAmount.toPx(),
+                    minimumCornerRadiusPx = minimumCornerRadiusPx(lensShape),
+                    minimumDimensionPx = size.minDimension,
+                )
+                if (parameters.refractionHeightPx > 0f && parameters.refractionAmountPx > 0f) {
+                    lens(
+                        refractionHeight = parameters.refractionHeightPx,
+                        refractionAmount = parameters.refractionAmountPx,
+                        chromaticAberration = chromaticAberration,
+                        depthEffect = depthEffect,
+                    )
+                }
+            }
+            if (backdropOpacity < 1f) opacity(backdropOpacity.coerceIn(0f, 1f))
+        },
+        highlight = if (withHighlight) DefaultGlassHighlight else null,
+        shadow = if (withShadow) DefaultGlassShadow else null,
+        onDrawSurface = {
             if (tint.alpha > 0f) drawRect(tint)
             if (adaptiveFilm.bodyTintAlpha > 0f) {
                 drawRect(Color.White.copy(alpha = adaptiveFilm.bodyTintAlpha))
@@ -379,58 +457,9 @@ internal fun Modifier.liquidGlassSurface(
                     ),
                 )
             }
-        }
-    } else {
-        val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
-        drawBackdrop(
-            backdrop = backdrop,
-            shape = { shape },
-            effects = {
-                if (withVibrancy) vibrancy()
-                if (blurRadius > 0.dp) blur(blurRadius.toPx())
-                val lensShape = shape as? CornerBasedShape
-                if (lensShape != null && isLiquidRefractionSupported()) {
-                    val parameters = constrainLiquidGlassLensParameters(
-                        refractionHeightPx = refractionHeight.toPx(),
-                        refractionAmountPx = refractionAmount.toPx(),
-                        minimumCornerRadiusPx = minimumCornerRadiusPx(lensShape),
-                        minimumDimensionPx = size.minDimension,
-                    )
-                    if (parameters.refractionHeightPx > 0f && parameters.refractionAmountPx > 0f) {
-                        lens(
-                            refractionHeight = parameters.refractionHeightPx,
-                            refractionAmount = parameters.refractionAmountPx,
-                            chromaticAberration = chromaticAberration,
-                            depthEffect = depthEffect,
-                        )
-                    }
-                }
-                if (backdropOpacity < 1f) opacity(backdropOpacity.coerceIn(0f, 1f))
-            },
-            highlight = if (withHighlight) DefaultGlassHighlight else null,
-            shadow = if (withShadow) DefaultGlassShadow else null,
-            onDrawSurface = {
-                if (tint.alpha > 0f) drawRect(tint)
-                // A restrained base film prevents glass from disappearing against AMOLED black;
-                // a directional sheen/shade then adapts the surface to dark and bright contexts.
-                if (adaptiveFilm.bodyTintAlpha > 0f) {
-                    drawRect(Color.White.copy(alpha = adaptiveFilm.bodyTintAlpha))
-                }
-                if (adaptiveFilm.topSheenAlpha > 0f || adaptiveFilm.bottomShadeAlpha > 0f) {
-                    drawRect(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = adaptiveFilm.topSheenAlpha),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = adaptiveFilm.bottomShadeAlpha),
-                            ),
-                        ),
-                    )
-                }
-            },
-        )
-    }
-
+        },
+    )
+}
 private fun BackdropEffectScope.minimumCornerRadiusPx(shape: CornerBasedShape): Float {
     val shapeSize = size
     val maximumRadius = (shapeSize.minDimension / 2f).coerceAtLeast(0f)

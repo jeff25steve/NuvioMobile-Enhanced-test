@@ -125,9 +125,11 @@ struct NuvioGlassTabBar: View {
         segmentedBar
             .padding(.horizontal, 16)
             .padding(.bottom, bottomInset)
+            // Keep this hierarchy opaque: its UIKit UIVisualEffectView(UIGlassEffect) can
+            // stop rendering when an ancestor's alpha drops below 1. The slide hides it offscreen.
             .offset(y: isHidden ? NuvioSegmentedTabBar.height(compact: true) + bottomInset + 24 : 0)
-            .opacity(isHidden ? 0 : 1)
             .allowsHitTesting(!isHidden)
+            .accessibilityHidden(isHidden)
             .animation(.easeInOut(duration: 0.22), value: isHidden)
             .ignoresSafeArea(.container, edges: .bottom)
     }

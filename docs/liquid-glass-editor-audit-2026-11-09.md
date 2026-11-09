@@ -89,3 +89,44 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 - Settings background capture still opts in Profile Watch Time and Supporter Membership regardless of the visible Settings page. Reducing that capture requires a migration-safe way to expose the current saveable page state before the backdrop source is created; moving `rememberSaveable` call sites without validating restoration is not justified here.
 - Device rendering, contrast validation on bright custom backgrounds, and Android/iOS behavior remain unverified until a test/build and manual-device pass are authorized.
 
+
+
+## Cross-platform Editor and fallback review — 9 November 2026, 23:17 UTC
+
+### Platform capability facts, checked against pinned source
+
+- The app pins Kyant Backdrop 2.0.1, Compose Multiplatform 1.13.0-beta01, Kotlin 2.4.10, Android min SDK 24, and iOS deployment target 16.1.
+- Kyant's Android isRenderEffectSupported() is API 31+; isRuntimeShaderSupported() is API 33+. Thus API 24–30 cannot run Backdrop blur or lens, API 31–32 can blur but cannot refract with RuntimeShader, and API 33+ can use both subject to shape and size constraints. This was checked in Kyant's Android Platform.kt and RuntimeShader.kt, plus the Backdrop effects guide.
+- Kyant's Skiko implementation reports RenderEffect and RuntimeShader capability as available and uses Skia RuntimeEffect/RuntimeShaderBuilder. This is the shared Compose renderer used on iOS; it is not Apple's native Liquid Glass.
+- iOS 26 native availability is checked at runtime. iOS 16.1–25 retains the Compose/Skiko fallback. iOS 26+ uses native UIKit/SwiftUI only at specific bounded controls and system presentation surfaces.
+
+### Actual iOS-native surface coverage rechecked
+
+- Native system navigation/tab presentation is in ContentView.swift; the custom iPad tab bar in NuvioGlassTabBar.swift / NuvioSegmentedTabBar.swift uses UIVisualEffectView(UIGlassEffect()).
+- Native bottom sheets use UIKit UIModalPresentationPageSheet on iOS; older iOS and disabled-surface paths retain the configured Compose content background.
+- Native control adapters are runtime-gated to iOS 26+: SearchScreen search, Stream filter buttons, Stream selection dropdown/menu, Library source segmented control, Editor enable switches, and Player speed option menu. Android's actual reports native controls unavailable; iOS before 26 does likewise. These paths retain Compose controls on Android and older iOS.
+- Player speed's native iOS option-menu path already existed; no duplicate migration was needed.
+- The player-video glass migration remains blocked on proof that UIVisualEffectView samples Nuvio's real CAMetalLayer video. No blanket UIKit overlay, private backdrop API, or CPU frame copy was introduced.
+
+### New omissions and corrections
+
+1. Cloud Library Search runtime wiring: cloudSearchGlassEnabled was computed and passed to cloudLibraryContent, but the production CloudLibrarySearchField call ignored it. Studio did apply the per-surface recipe, creating a preview/runtime mismatch. The production field now uses the LIBRARY_CLOUD_SEARCH shape/recipe, transparent text-field container, outline rule, and backdrop-readiness check. On iOS 26 it selects UISearchBar only while this surface is enabled; otherwise Android and older iOS keep the Compose field. The existing animated auto-focus is preserved: Compose uses its FocusRequester, while UIKit receives the existing focus-request counter and calls becomeFirstResponder.
+2. The Studio preview now avoids applying the Kyant glass modifier below the native iOS UISearchBar, preventing a stacked/double material. It keeps the Kyant path for Android and older iOS.
+3. Android API 24–30 static fallback: when glass is enabled but RenderEffect is unsupported, surfaces now reuse the existing subtle adaptive body tint/sheen/shade over their ordinary fallback fill. This is explicitly a static treatment, not blur or refraction. The global glass switch and per-surface opt-out still bypass this film and keep the previous plain fallback. API 31+ rendering is unchanged.
+4. iOS tab-bar hide animation: the iPad auto-hide wrapper previously animated opacity on an ancestor of UIVisualEffectView(UIGlassEffect()). Apple's UIKit documentation warns that alpha below 1 on the effect view or any ancestor can make the effect render incorrectly or disappear. The fade is removed; the existing slide animation is kept, and the hidden bar is also removed from accessibility and hit testing.
+
+### Sources and cross-checks
+
+- Kyant Backdrop Android capability source: https://github.com/Kyant0/AndroidLiquidGlass/blob/kmp/backdrop/src/androidMain/kotlin/com/kyant/backdrop/Platform.kt
+- Kyant Backdrop Android RuntimeShader source: https://github.com/Kyant0/AndroidLiquidGlass/blob/kmp/backdrop/src/androidMain/kotlin/com/kyant/backdrop/RuntimeShader.kt
+- Kyant Backdrop Skiko capability source: https://github.com/Kyant0/AndroidLiquidGlass/blob/kmp/backdrop/src/skikoMain/kotlin/com/kyant/backdrop/Platform.kt
+- Kyant Backdrop effects guide: https://kyant.gitbook.io/backdrop/api/backdrop-effects
+- Apple UIKit UIVisualEffectView guidance: https://developer.apple.com/documentation/uikit/uivisualeffectview
+- Apple Liquid Glass adoption guidance: https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass
+
+### Verification boundary and next starting point
+
+- Added a pure regression test for the unsupported-renderer static fallback policy; it has not been executed. No build, test, CI, compilation, simulator or device run was started.
+- Changes were made against the verified remote branch head through GitHub tree/commit operations. No local checkout is available here; local uncommitted working-tree changes cannot be observed.
+- Remaining manual checks: Android API 24–30 static fallback contrast; API 31–32 blur without lens; API 33+ blur/lens; iOS 16.1–25 Compose fallback; iOS 26+ native tab bar/search controls; iPad auto-hide with VoiceOver; Library Cloud search keyboard focus and clear/search behavior.
+- The earlier page-aware Settings backdrop-capture optimization remains deferred until rememberSaveable navigation state can be moved safely with restoration regression coverage.

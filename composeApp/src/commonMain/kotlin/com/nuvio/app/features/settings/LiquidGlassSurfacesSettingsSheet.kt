@@ -2923,20 +2923,21 @@ private fun LiquidGlassLibraryPreview(
                                 preview = true,
                                 platformSupported = rendererAvailable,
                             )
+                            val nativeCloudSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
+                                selectedSurface == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH &&
+                                isLiquidGlassSurfaceEffectivelyEnabled(
+                                    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
+                                    preview = true,
+                                    platformSupported = true,
+                                )
                             CloudLibrarySearchField(
                                 query = cloudQuery,
                                 onQueryChange = { cloudQuery = it },
-                                nativeGlassEnabled = isNativeLiquidGlassControlsAvailable() &&
-                                    (selectedSurface == LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) &&
-                                    isLiquidGlassSurfaceEffectivelyEnabled(
-                                        LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-                                        preview = true,
-                                        platformSupported = true,
-                                    ),
+                                nativeGlassEnabled = nativeCloudSearchEnabled,
                                 modifier = Modifier
                                     .padding(horizontal = 8.dp, vertical = 8.dp)
                                     .then(
-                                        if (cloudSearchGlassEnabled) {
+                                        if (cloudSearchGlassEnabled && !nativeCloudSearchEnabled) {
                                             Modifier.liquidGlassForSurface(
                                                 surface = LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
                                                 shape = cloudSearchShape,
