@@ -139,7 +139,7 @@ object PartyCompanion {
     private fun onMessage(event: String, payload: JsonObject) {
         val link = _state.value.link ?: return
         when (event) {
-            "chat" -> PartyChat.receive(payload)
+            "chat" -> PartyChat.receive(link.partyId, payload)
             "media" -> payload["media"]
                 ?.let { runCatching { PartyApi.json.decodeFromJsonElement(PartyMedia.serializer(), it) }.getOrNull() }
                 ?.let { media -> updateLink { it.copy(media = media) } }

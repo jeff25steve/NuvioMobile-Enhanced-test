@@ -15,9 +15,10 @@ internal suspend fun readBoundedResponseBody(
     contentLength: Long?,
     maxBytes: Int = API_RESPONSE_MAX_BYTES,
 ): String {
-    if (contentLength != null && contentLength > maxBytes) throw IOException("Response exceeds size limit")
+    if (maxBytes < 0 || maxBytes == Int.MAX_VALUE) throw IOException("Invalid response size limit")
+    if (contentLength != null && contentLength > maxBytes.toLong()) throw IOException("Response exceeds size limit")
     // One extra byte detects overflow when Content-Length is absent or inaccurate.
-    val response = channel.readBuffer(maxBytes.toLong() + 1L)
+    val response = channel.readBuffer(maxBytes + 1)
     try {
         if (response.size > maxBytes.toLong()) throw IOException("Response exceeds size limit")
         return response.readByteArray().decodeToString()

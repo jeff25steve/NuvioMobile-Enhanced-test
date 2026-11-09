@@ -13,6 +13,8 @@ import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
+import com.nuvio.app.core.ui.background.AppBackgroundHost
+import com.nuvio.app.core.ui.background.AppBackgroundRepository
 import com.nuvio.app.core.ui.NuvioTheme
 import com.nuvio.app.core.ui.NuvioSheetBackdrop
 import com.nuvio.app.core.ui.NuvioSheetBackdropHost
@@ -25,6 +27,10 @@ import com.nuvio.app.navigation.TabsRoute
 
 fun disposeRoute(route: AppRoute) {
     disposeRouteResources(route)
+}
+
+fun setPlayerParkedInPictureInPicture(parked: Boolean) {
+    AppBackgroundRepository.setPlayerParked(parked)
 }
 
 @OptIn(ExperimentalCoilApi::class)
@@ -73,6 +79,7 @@ fun App(
 
 @Composable
 internal fun AppEnvironment(
+    drawAppBackground: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     if (!platformProvidesImageLoader) {
@@ -108,6 +115,15 @@ internal fun AppEnvironment(
     val sheetBackdrop = remember(sheetBackdropLayer) { NuvioSheetBackdrop(sheetBackdropLayer) }
 
     NuvioTheme(appTheme = selectedTheme, amoled = amoledEnabled, customThemeColors = customThemeColors) {
-        content()
+        val renderContent: @Composable () -> Unit = {
+            NuvioSheetBackdropHost(sheetBackdrop) {
+                content()
+            }
+        }
+        if (drawAppBackground) {
+            AppBackgroundHost(content = renderContent)
+        } else {
+            renderContent()
+        }
     }
 }
