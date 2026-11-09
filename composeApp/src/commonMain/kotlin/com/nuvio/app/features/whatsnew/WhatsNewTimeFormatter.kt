@@ -1,7 +1,9 @@
 package com.nuvio.app.features.whatsnew
 
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.periodUntil
+import kotlinx.datetime.until
 import kotlin.time.Instant
 
 internal enum class LastCheckedUnit {
@@ -44,15 +46,20 @@ internal fun calculateLastCheckedAge(
 
     val start = Instant.fromEpochMilliseconds(fetchedAtMillis)
     val end = Instant.fromEpochMilliseconds(effectiveNowMillis)
+    // Whole calendar months use the timezone-aware month unit so end-of-month
+    // pairs such as Jan 31 -> Feb 28 count as one month, not 28 elapsed days.
+    val wholeCalendarMonths = start.until(end, DateTimeUnit.MONTH, timeZone)
     val calendarPeriod = start.periodUntil(end, timeZone)
+    val wholeCalendarYears = wholeCalendarMonths / 12L
+    val remainingCalendarMonths = wholeCalendarMonths % 12L
 
     return when {
-        calendarPeriod.years >= 1 -> LastCheckedAge(
-            amount = calendarPeriod.years.toLong(),
+        wholeCalendarYears >= 1L -> LastCheckedAge(
+            amount = wholeCalendarYears,
             unit = LastCheckedUnit.YEAR,
         )
-        calendarPeriod.months >= 1 -> LastCheckedAge(
-            amount = calendarPeriod.months.toLong(),
+        remainingCalendarMonths >= 1L -> LastCheckedAge(
+            amount = remainingCalendarMonths,
             unit = LastCheckedUnit.MONTH,
         )
         calendarPeriod.days >= 7 -> LastCheckedAge(

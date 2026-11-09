@@ -1340,3 +1340,10 @@ Two more existing failures were caused by fixtures that contradicted the product
 - `WatchProgressIdentityTest` used a 1,000 ms duration with a 940 ms position while asserting completed playback. The current shared policy intentionally treats all media shorter than 121 seconds as placeholder/error clips, so this fixture cannot represent a completed episode. It now uses a 1,000,000 ms duration and 940,000 ms position, preserving the same 94% completion ratio and verifying the original position remains intact. Production completion thresholds and placeholder handling are unchanged.
 
 Also aligned two release-note test expectations with the established product spelling `IMDb` used by `formatReleaseNoteForDisplay` (which already normalizes IMDB casing). No production release-note code changed.
+
+### Follow-up: correct end-of-month “last checked” age buckets (9 November 2026)
+
+The regression `lastCheckedTreatsEndOfMonthAsARealCalendarMonth` exposed that `Instant.periodUntil` can represent January 31 to February 28 as zero whole months plus 28 days. For a user-facing age label this is misleading: KotlinX Datetime 0.8.0's month arithmetic clamps an invalid target day to the last valid day of that month, so one calendar month has elapsed.
+
+The formatter now calculates whole calendar months with `Instant.until(end, DateTimeUnit.MONTH, timeZone)`, derives whole years and remaining months from that count, and retains `periodUntil` for timezone-aware day/week/hour buckets. This preserves local DST semantics for day labels while treating end-of-month pairs consistently. The existing EOM, DST-boundary and leap-year tests cover these boundaries; no dependency or locale/string changes were introduced. Fresh CI verification is pending.
+Source: KotlinX Datetime 0.8.0 source/docs for `Instant.until`, `DateTimeUnit.MONTH`, and month-end clamping: https://github.com/Kotlin/kotlinx-datetime.
