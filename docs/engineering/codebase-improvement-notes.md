@@ -1241,3 +1241,26 @@ The latest Linux validation run against source snapshot `d8a5faf5fd13f62226fe17e
 
 - This commit only repairs Android host-test source compatibility; it does not change production code, test intent, app UI, player behavior, DNS settings, dependencies, Gradle configuration, iOS sources or build workflows.
 - No test, Gradle task, Android/iOS build or CI workflow has been started in this step. The CNAME test remains expected to fail at runtime after the host-test sources compile; that RED result will be checked before changing the resolver.
+
+### Continuation: complete Android DoH cache correctness (9 November 2026)
+
+#### Implementation
+
+- Updated the Android DoH parser to retain the minimum TTL across every resource record in the DNS Answer section while extracting only the requested A or AAAA addresses. A shorter CNAME therefore limits the combined address lifetime; zero TTL is preserved for the current lookup and no longer converted into a synthetic 60-second lifetime.
+- Added HTTP `Age` handling. Absent Age is treated as zero; a valid non-negative Age is subtracted from the DNS TTL; malformed, negative, zero-lifetime and already-expired results are not cached. The expiry deadline is anchored to the monotonic request-start timestamp, so network/response transit time cannot extend the remaining lifetime. The existing 3,600-second upper bound is preserved and the unsafe 60-second lower bound is removed.
+- Combined A/AAAA expiry uses the earliest deadline across successful responses with Answer-section records, including CNAME-only responses. The existing sequential A-then-AAAA request order and optional AAAA failure behavior remain unchanged; a successful response with Answer records but no valid remaining lifetime prevents caching the combined address list.
+- Replaced the unbounded concurrent map with a synchronized access-ordered LRU cache capped at 256 entries. Expired entries are removed on read and pruned on insertion; network requests run outside the cache/provider lock.
+- Added a provider-generation barrier. Provider changes clear the cache and advance its generation; an older in-flight request may still satisfy the lookup that started under its snapshot, but cannot repopulate the cache after the provider changes.
+- Added deterministic tests for CNAME minimum TTL, zero/no-answer TTL, HTTP Age parsing and request-start expiry, expiry boundary, insertion pruning, LRU eviction/capacity and provider-generation invalidation.
+
+#### Technical basis
+
+- RFC 8484 §5.1 requires DoH clients to account for the HTTP Age field when calculating DNS TTL and specifies the smallest Answer-section TTL as the safe HTTP freshness ceiling: https://www.rfc-editor.org/rfc/rfc8484.html
+- RFC 9111 §4.2.3 calculates corrected age as the Age value plus response delay and interprets that age relative to request initiation; §5.1 defines Age as a non-negative integer and says the first member should be used for a list-valued field: https://www.rfc-editor.org/rfc/rfc9111.html
+- Existing Kotlin, Compose and OkHttp dependency versions are unchanged. The resolver remains Android-only; the common DNS repository and Android platform adapter are unchanged.
+
+#### Verification state
+
+- The production and regression-test diff is committed separately from the preceding host-test API repair.
+- Source-level review confirms no new dependencies, storage, background jobs, parallel DNS queries, changes to provider names/defaults, system fallback, shared/iOS DNS implementation or website-managed settings.
+- Full Android host tests and Android/iOS builds remain pending the dedicated validation workflow; no success is claimed until those workflows complete and their logs are inspected.
