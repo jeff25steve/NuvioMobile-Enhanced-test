@@ -50,7 +50,7 @@ internal object NuvioDns : Dns {
                 return Dns.SYSTEM.lookup(hostname)
             }
 
-            val key = "\${current.storageId}|\${hostname.lowercase()}"
+            val key = "${current.storageId}|${hostname.lowercase()}"
             val cached = synchronized(providerLock) {
                 if (provider == current && cache.generation() == snapshot.cacheGeneration) {
                     cache.get(key, SystemClock.elapsedRealtime())
@@ -72,13 +72,13 @@ internal object NuvioDns : Dns {
                 DohClient.resolve(endpoint, hostname)
             } catch (error: IOException) {
                 log.w {
-                    "DoH lookup via \${current.displayName} failed for $hostname, using system DNS: \${error.message}"
+                    "DoH lookup via ${current.displayName} failed for $hostname, using system DNS: ${error.message}"
                 }
                 return Dns.SYSTEM.lookup(hostname)
             }
             if (answer.addresses.isEmpty()) {
                 throw UnknownHostException(
-                    "$hostname has no address (DNS over HTTPS via \${current.displayName})",
+                    "$hostname has no address (DNS over HTTPS via ${current.displayName})",
                 )
             }
 
@@ -272,13 +272,13 @@ internal object DohClient {
             Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
         )
         val request = Request.Builder()
-            .url("\${endpoint.url}?dns=$message")
+            .url("${endpoint.url}?dns=$message")
             .header("Accept", "application/dns-message")
             .build()
         val requestStartedAtMs = SystemClock.elapsedRealtime()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("HTTP \${response.code} from \${endpoint.host}")
-            val body = response.body?.bytes() ?: throw IOException("Empty response from \${endpoint.host}")
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code} from ${endpoint.host}")
+            val body = response.body?.bytes() ?: throw IOException("Empty response from ${endpoint.host}")
             val parsed = DnsMessage.parseAnswer(hostname, body, type)
             return parsed.copy(
                 cacheExpiresAtMs = if (parsed.hasAnswerRecords) {
