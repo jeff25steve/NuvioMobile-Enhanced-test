@@ -1437,3 +1437,31 @@ Sources:
 - Earlier successful workflow source: `ci/liquid-glass-builds-restored-20261031`
 - Earlier Android build run: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/41265247568
 - Earlier iOS IPA run: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/41265247590
+
+
+### 9 November 2026 — bound iOS animated-avatar source loading
+
+The shared AvatarPicker enables the iOS NuvioAsyncImage animated path. Before this change, SkiaAnimatedImage.ios.kt requested remote GIF/WebP data using body<ByteArray>(), which Ktor documents as loading the entire response into memory. The renderer had bounded decoded-frame memory (20 MiB per animation / 120 MiB shared) and a 24 MiB compressed-source cache, but those limits applied only after the full source had been allocated. Six source loads could be active concurrently, and the dedicated Darwin HttpClient had no explicit request or idle-read timeout. The same path read file:// assets and prior disk-cache entries completely before applying any source-size policy.
+
+#### Change applied
+
+- Added an 8 MiB per-source ceiling for animated image data.
+- Replaced the unbounded HTTP ByteArray body conversion with a ByteReadChannel read capped at the configured limit plus one sentinel byte. This catches missing or inaccurate Content-Length headers.
+- Reject a declared oversized response before reading its body and cancel its HttpResponse; an unknown-length/over-limit response is also cancelled immediately after the sentinel proves it is too large.
+- Configure Ktor HttpTimeout on the Darwin client with a 20-second whole-request timeout and a 10-second socket-idle timeout. No connect timeout is set because Ktor documents that Darwin does not support that timeout.
+- Check local file attributes before loading an animated source and validate disk-cache file sizes before reading them. Oversized old cache entries are removed. Source-cache insertion also refuses data above the limit.
+- Distinguish an oversized source from ordinary fetch/decode failure. Oversized sources do not fall through to Coil's normal image request, which would otherwise issue a second unbounded download; other failures keep the existing Coil fallback.
+- Added common tests for exact-limit acceptance, one-byte-over rejection and empty responses.
+
+No visual styling, avatar entitlement, cache key, animation frame budget, lifecycle policy, image decoder, Android image-loading path, website-managed setting, dependency, or player behavior was changed.
+
+#### Evidence and source checks
+
+- Pinned project versions: Ktor 3.4.1, Coil 3.6.3, kotlinx-coroutines 1.10.2.
+- Ktor's [response documentation](https://ktor.io/docs/client-responses.html) explicitly warns that body() loads the entire response into memory and recommends ByteReadChannel streaming for large responses.
+- Ktor's [timeout documentation](https://ktor.io/docs/client-timeout.html) documents request/socket timeout behavior and states that Darwin supports request and socket timeouts but not connect timeout.
+- Ktor 3.4.1 [DarwinTaskHandler](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-darwin/darwin/src/io/ktor/client/engine/darwin/internal/DarwinTaskHandler.kt) exposes the response body as a channel, and [DarwinSession](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-darwin/darwin/src/io/ktor/client/engine/darwin/internal/DarwinSession.kt) cancels the underlying NSURLSessionTask when its call context is cancelled. This supports cancelling the response after the size limit is reached.
+
+#### Verification state and remaining limitation
+
+The code/test diff and exact Ktor 3.4.1 source contracts were reviewed. The new common tests have not yet been executed, and the iOS IPA has not yet been built. Ktor 3.4.1's Darwin delegate uses an internal Channel.UNLIMITED queue for callbacks already received from NSURLSession; cancelling after the byte sentinel prevents continued application-level reading and cancels the network task, but cannot prove that no already-queued native chunks are transiently resident. This is an upstream engine buffering limitation, not a claim that the network stack has a strict byte-perfect peak-memory ceiling.

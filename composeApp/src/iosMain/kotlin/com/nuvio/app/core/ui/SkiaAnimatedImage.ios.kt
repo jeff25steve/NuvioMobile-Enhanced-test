@@ -12,10 +12,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.engine.darwin.Darwin
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,6 +64,9 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 
 private const val MinFrameDurationMillis = 20
+private const val MaxAnimatedSourceBytes = 8 * 1024 * 1024
+private const val AnimatedSourceRequestTimeoutMillis = 20_000L
+private const val AnimatedSourceSocketTimeoutMillis = 10_000L
 private const val MaxCachedSourceBytes = 24L * 1024 * 1024
 private const val MaxConcurrentLoads = 6
 private const val IdleRetentionMillis = 2_000L
@@ -80,7 +87,17 @@ private const val DiskCacheDirectoryName = "nuvio-animated-sources"
 
 internal const val AnimatedImageProbeLogging = false
 
-private val animatedSourceHttpClient by lazy { HttpClient(Darwin) }
+private class AnimatedSourceTooLargeException :
+    Exception("Animated image source exceeds the $MaxAnimatedSourceBytes-byte limit")
+
+private val animatedSourceHttpClient by lazy {
+    HttpClient(Darwin) {
+        install(HttpTimeout) {
+            requestTimeoutMillis = AnimatedSourceRequestTimeoutMillis
+            socketTimeoutMillis = AnimatedSourceSocketTimeoutMillis
+        }
+    }
+}
 private val loadSemaphore = Semaphore(MaxConcurrentLoads)
 
 // ---------------------------------------------------------------------------
@@ -98,6 +115,7 @@ private suspend fun cachedSourceBytes(url: String): ByteArray? = sourceCacheLock
 }
 
 private suspend fun storeSourceBytes(url: String, bytes: ByteArray) = sourceCacheLock.withLock {
+    if (bytes.size > MaxAnimatedSourceBytes) return@withLock
     sourceCache.remove(url)?.let { sourceCacheBytes -= it.size }
     sourceCache[url] = bytes
     sourceCacheBytes += bytes.size
@@ -168,8 +186,19 @@ private fun ByteArray.toNSData(): NSData? {
 private fun diskCacheRead(url: String): ByteArray? = runCatching {
     val directory = diskCacheDirectory ?: return@runCatching null
     val path = "$directory/${diskCacheFileName(url)}"
-    val data = NSFileManager.defaultManager.contentsAtPath(path) ?: return@runCatching null
-    NSFileManager.defaultManager.setAttributes(
+    val manager = NSFileManager.defaultManager
+    val attributes = manager.attributesOfItemAtPath(path, null) ?: return@runCatching null
+    val cachedSize = (attributes[NSFileSize] as? NSNumber)?.longLongValue
+    if (cachedSize != null && cachedSize > MaxAnimatedSourceBytes.toLong()) {
+        manager.removeItemAtPath(path, null)
+        return@runCatching null
+    }
+    val data = manager.contentsAtPath(path) ?: return@runCatching null
+    if (data.length > MaxAnimatedSourceBytes.toLong()) {
+        manager.removeItemAtPath(path, null)
+        return@runCatching null
+    }
+    manager.setAttributes(
         attributes = mapOf<Any?, Any>(NSFileModificationDate to NSDate()),
         ofItemAtPath = path,
         error = null,
@@ -222,8 +251,15 @@ private suspend fun fetchSourceBytes(url: String): ByteArray? = loadSemaphore.wi
 
     if (url.startsWith("file://")) {
         val local = withContext(Dispatchers.Default) {
-            NSFileManager.defaultManager.contentsAtPath(url.removePrefix("file://"))?.toByteArray()
+            val path = url.removePrefix("file://")
+            val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null)
+            val fileSize = (attributes?.get(NSFileSize) as? NSNumber)?.longLongValue
+            if (fileSize != null && fileSize > MaxAnimatedSourceBytes.toLong()) {
+                throw AnimatedSourceTooLargeException()
+            }
+            NSFileManager.defaultManager.contentsAtPath(path)?.toByteArray()
         } ?: return@withPermit null
+        if (local.size > MaxAnimatedSourceBytes) throw AnimatedSourceTooLargeException()
         storeSourceBytes(url, local)
         return@withPermit local
     }
@@ -234,9 +270,34 @@ private suspend fun fetchSourceBytes(url: String): ByteArray? = loadSemaphore.wi
     }
 
     val downloaded = withContext(Dispatchers.Default) {
-        runCatching {
-            animatedSourceHttpClient.get(url).body<ByteArray>().takeIf { it.isNotEmpty() }
-        }.getOrNull()
+        try {
+            val response = animatedSourceHttpClient.get(url)
+            val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+            if (contentLength != null && contentLength > MaxAnimatedSourceBytes.toLong()) {
+                response.cancel("Animated image source exceeded the size limit")
+                throw AnimatedSourceTooLargeException()
+            }
+
+            when (
+                val source = readBoundedAnimatedSource(
+                    channel = response.bodyAsChannel(),
+                    maxBytes = MaxAnimatedSourceBytes,
+                )
+            ) {
+                is BoundedAnimatedSourceRead.Bytes -> source.value
+                BoundedAnimatedSourceRead.Empty -> null
+                BoundedAnimatedSourceRead.TooLarge -> {
+                    response.cancel("Animated image source exceeded the size limit")
+                    throw AnimatedSourceTooLargeException()
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: AnimatedSourceTooLargeException) {
+            throw error
+        } catch (error: Exception) {
+            null
+        }
     } ?: return@withPermit null
 
     storeSourceBytes(url, downloaded)
@@ -535,6 +596,7 @@ private fun evictIfIdle(key: String) {
 internal class AnimatedFrame(
     val bitmap: ImageBitmap?,
     val unavailable: Boolean,
+    val allowAsyncImageFallback: Boolean,
 )
 
 @Composable
@@ -547,13 +609,22 @@ internal fun rememberAnimatedFrame(
     val height = bucket(targetHeightPx)
     var shared by remember(url, width, height) { mutableStateOf<SharedAnimation?>(null) }
     var unavailable by remember(url, width, height) { mutableStateOf(false) }
+    var allowAsyncImageFallback by remember(url, width, height) { mutableStateOf(true) }
 
     DisposableEffect(url, width, height) {
         var released = false
         var acquired: SharedAnimation? = null
 
         val subscription = registryScope.launch {
-            val result = acquireShared(url, width, height)
+            val result = try {
+                acquireShared(url, width, height)
+            } catch (_: AnimatedSourceTooLargeException) {
+                if (!released) {
+                    unavailable = true
+                    allowAsyncImageFallback = false
+                }
+                return@launch
+            }
             if (result == null) {
                 unavailable = true
                 return@launch
@@ -573,5 +644,9 @@ internal fun rememberAnimatedFrame(
         }
     }
 
-    return AnimatedFrame(bitmap = shared?.frame?.value, unavailable = unavailable)
+    return AnimatedFrame(
+        bitmap = shared?.frame?.value,
+        unavailable = unavailable,
+        allowAsyncImageFallback = allowAsyncImageFallback,
+    )
 }

@@ -36,7 +36,7 @@ internal actual fun NuvioAsyncImage(
         val state = rememberAnimatedFrame(imageUrl, targetWidth, targetHeight)
 
         when {
-            state.unavailable -> AsyncImage(
+            state.unavailable && state.allowAsyncImageFallback -> AsyncImage(
                 model = imageUrl,
                 contentDescription = contentDescription,
                 modifier = Modifier.matchParentSize(),
