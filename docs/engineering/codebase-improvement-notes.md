@@ -1512,3 +1512,35 @@ Verification: source and return-path review only. No worker test, Gradle task, b
 ### 9 November 2026 — conservative odd-dimension notification bitmap sizing
 
 A final boundary review tightened the notification bitmap sample-size calculation to use ceiling division rather than floor division. This keeps odd image dimensions within the configured edge/pixel budget even when a decoder rounds a sampled dimension upward. Added an odd-dimension regression case (2,561 × 1,081). Static review only; the test remains unexecuted until builds/tests are authorised.
+
+### 9 November 2026 — restore central Wi-Fi admission for downloads
+
+#### Regression traced to original feature history
+
+The repository had retained the device-level `allowMobileDataDownloads` preference, platform `DownloadNetworkGuard` actuals, `RequiresWifi` result and localized message, but its two enforcement checks had disappeared. The original 29 August 2026 commit `d01b37dadf6ced565f0f772ed436dd544ef80332` explicitly gated both `enqueueFromStream()` and `resumeDownload()`. Current callers bypassed the guard at enqueue, so the settings copy promised Wi-Fi-only starts while transfers could still start on cellular. Resume and retry also had no feedback when a network gate applied.
+
+#### Changes
+
+- Restored the Wi-Fi/mobile-data policy at the common `DownloadsRepository` boundary. It loads the device-scoped preference and checks the platform transport before replacing an existing item, cancelling its prior task or persisting a new download.
+- Restored the same policy for paused/failed resume and retry. These methods now return `RequiresWifi` (or `Started` on success), and the downloads screen shows the existing localized explanation instead of silently doing nothing.
+- Kept both direct streams and debrid-resolved streams on their existing shared enqueue path, so they cannot diverge in policy.
+- Converted `DownloadEnqueueResult.toastMessage()` to a suspend resource lookup. The stream-selection download handler now runs both direct and debrid flows in one existing screen-owned coroutine scope, avoiding the former nested launch and removing `runBlocking` from this user-triggered message path.
+- Added common tests for the network admission truth table and the localized enqueue-result messages.
+
+#### Deliberate boundaries and residual behavior
+
+The network check is an admission-time snapshot. Android's current `ConnectivityManager.getNetworkCapabilities(activeNetwork)` can become stale immediately, and Apple documents `SCNetworkReachabilityFlagsIsWWAN` as advisory rather than a strict promise about the eventual interface. The iOS background `NSURLSessionConfiguration` still allows cellular access, and Android background schedulers still use their existing connected-network policy. This change restores the documented "only start on Wi-Fi unless opted in" admission behavior; it does not claim that an already-started background task can never migrate onto cellular after the transport changes. Strict per-request or background transport enforcement needs a separate design that coordinates session configuration, pause/resume data, user preference changes, and platform scheduler semantics. No speculative scheduler/session migration was introduced.
+
+The existing device-owned setting and platform storage were retained; no profile sync, website setting, migration, UI relocation, dependency, or schedule change was made. The pre-existing iOS unknown-total `Content-Range: */*` handling remains deferred because accepting an unknown total safely requires validating subsequent range segments and finalization, not merely removing the existing check.
+
+#### Evidence
+
+- Original implementation: `d01b37dadf6ced565f0f772ed436dd544ef80332` (`feat(downloads): require Wi-Fi for downloads unless mobile data is allowed`), whose diff added the exact common enqueue/resume gate.
+- Apple [Networking Overview](https://developer.apple.com/library/archive/documentation/NetworkingInternetWeb/Conceptual/NetworkingOverview/Platform-SpecificNetworkingTechnologies/Platform-SpecificNetworkingTechnologies.html) warns that `SCNetworkReachabilityFlagsIsWWAN` is advisory and recommends request-level cellular restrictions when that restriction must be strict.
+- Apple [Tech Talk 111378](https://developer.apple.com/videos/play/tech-talks/111378/) discourages preflight reachability checks as a guarantee because network paths change during requests.
+- Android [Read network state](https://developer.android.com/develop/connectivity/network-ops/reading-network-state) and [NetworkCapabilities](https://developer.android.com/reference/android/net/NetworkCapabilities) documentation describe dynamic transport capabilities and warn that instantaneous snapshots can go stale.
+- Android and iOS actuals and storage contracts remain unchanged.
+
+#### Verification state
+
+Source, caller wiring, original feature diff and test additions were statically reviewed. New tests have not yet been run. No build or CI has been started yet.

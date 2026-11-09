@@ -258,38 +258,36 @@ fun StreamsScreen(
     }
 
     val startStreamDownload: (StreamItem) -> Unit = { stream ->
-
+        downloadScope.launch {
             if (DirectDebridPlaybackResolver.shouldResolveToPlayableStream(stream)) {
-                downloadScope.launch {
-                    val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
-                        stream = stream,
-                        season = seasonNumber,
-                        episode = episodeNumber,
-                    )
-                    when (resolved) {
-                        is DirectDebridPlayableResult.Success -> {
-                            val result = DownloadsRepository.enqueueFromStream(
-                                contentType = type,
-                                videoId = videoId,
-                                parentMetaId = parentMetaId,
-                                parentMetaType = parentMetaType,
-                                title = title,
-                                logo = logo,
-                                poster = poster,
-                                background = background,
-                                seasonNumber = seasonNumber,
-                                episodeNumber = episodeNumber,
-                                episodeTitle = episodeTitle,
-                                episodeThumbnail = episodeThumbnail,
-                                stream = resolved.stream,
-                            )
-                            NuvioToastController.show(result.toastMessage())
-                        }
-                        else -> {
-                            val message = resolved.toastMessage()
-                            if (message != null) {
-                                NuvioToastController.show(message)
-                            }
+                val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
+                    stream = stream,
+                    season = seasonNumber,
+                    episode = episodeNumber,
+                )
+                when (resolved) {
+                    is DirectDebridPlayableResult.Success -> {
+                        val result = DownloadsRepository.enqueueFromStream(
+                            contentType = type,
+                            videoId = videoId,
+                            parentMetaId = parentMetaId,
+                            parentMetaType = parentMetaType,
+                            title = title,
+                            logo = logo,
+                            poster = poster,
+                            background = background,
+                            seasonNumber = seasonNumber,
+                            episodeNumber = episodeNumber,
+                            episodeTitle = episodeTitle,
+                            episodeThumbnail = episodeThumbnail,
+                            stream = resolved.stream,
+                        )
+                        NuvioToastController.show(result.toastMessage())
+                    }
+                    else -> {
+                        val message = resolved.toastMessage()
+                        if (message != null) {
+                            NuvioToastController.show(message)
                         }
                     }
                 }
@@ -311,6 +309,7 @@ fun StreamsScreen(
                 )
                 NuvioToastController.show(result.toastMessage())
             }
+        }
     }
 
     if (showLoadingScreen) return

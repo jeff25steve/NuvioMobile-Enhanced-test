@@ -136,6 +136,10 @@ object DownloadsRepository {
             return DownloadEnqueueResult.UnsupportedFormat
         }
 
+        if (!isDownloadNetworkAllowedForCurrentSettings()) {
+            return DownloadEnqueueResult.RequiresWifi
+        }
+
         val now = DownloadsClock.nowEpochMs()
         val logicalKey = buildLogicalKey(
             parentMetaId = parentMetaId,
@@ -237,10 +241,11 @@ object DownloadsRepository {
             .forEach(::pauseDownload)
     }
 
-    fun resumeDownload(downloadId: String) {
+    fun resumeDownload(downloadId: String): DownloadEnqueueResult? {
         ensureLoaded()
-        val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
-        if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return
+        val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return null
+        if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return null
+        if (!isDownloadNetworkAllowedForCurrentSettings()) return DownloadEnqueueResult.RequiresWifi
 
         val reset = item.copy(
             status = DownloadStatus.Downloading,
@@ -252,10 +257,17 @@ object DownloadsRepository {
         replaceItem(reset)
         persist()
         startDownload(reset)
+        return DownloadEnqueueResult.Started
     }
 
-    fun retryDownload(downloadId: String) {
-        resumeDownload(downloadId)
+    fun retryDownload(downloadId: String): DownloadEnqueueResult? = resumeDownload(downloadId)
+
+    private fun isDownloadNetworkAllowedForCurrentSettings(): Boolean {
+        DownloadsSettingsRepository.ensureLoaded()
+        return isDownloadNetworkAllowed(
+            allowMobileDataDownloads = DownloadsSettingsRepository.allowMobileDataDownloads.value,
+            isOnWifi = DownloadNetworkGuard.isOnWifi(),
+        )
     }
 
     internal fun reattachBackgroundDownload(downloadId: String) {

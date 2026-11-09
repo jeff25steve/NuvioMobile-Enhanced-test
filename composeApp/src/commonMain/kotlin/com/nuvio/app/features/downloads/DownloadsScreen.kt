@@ -68,7 +68,14 @@ fun DownloadsScreen(
     var selectedShowId by rememberSaveable(initialShowId) { mutableStateOf(initialShowId) }
     var downloadPendingDeletionId by rememberSaveable { mutableStateOf<String?>(null) }
     val openDownloadsDirectoryFailedText = stringResource(Res.string.downloads_open_directory_failed)
+    val requiresWifiMessage = stringResource(Res.string.downloads_enqueue_requires_wifi)
     var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    fun resumeOrRetryDownload(downloadId: String) {
+        if (DownloadsRepository.resumeDownload(downloadId) == DownloadEnqueueResult.RequiresWifi) {
+            NuvioToastController.show(requiresWifiMessage)
+        }
+    }
 
     val completedEpisodes = remember(uiState.items) {
         uiState.completedItems
@@ -140,6 +147,7 @@ fun DownloadsScreen(
                 onOpenShow = { showId, title ->
                     onNavigateToShow?.invoke(showId, title) ?: run { selectedShowId = showId }
                 },
+                onResumeOrRetry = ::resumeOrRetryDownload,
                 onDeleteDownload = { downloadPendingDeletionId = it },
             )
         } else {
@@ -147,6 +155,7 @@ fun DownloadsScreen(
                 showId = selectedShowId.orEmpty(),
                 episodes = completedEpisodes,
                 onOpenDownload = onOpenDownload,
+                onResumeOrRetry = ::resumeOrRetryDownload,
                 onDeleteDownload = { downloadPendingDeletionId = it },
             )
         }
@@ -174,6 +183,7 @@ private fun LazyListScope.downloadsRootContent(
     uiState: DownloadsUiState,
     onOpenDownload: (DownloadItem) -> Unit,
     onOpenShow: (showId: String, title: String) -> Unit,
+    onResumeOrRetry: (String) -> Unit,
     onDeleteDownload: (String) -> Unit,
 ) {
     val activeItems = uiState.activeItems
@@ -200,8 +210,8 @@ private fun LazyListScope.downloadsRootContent(
                 item = item,
                 onOpen = { onOpenDownload(item) },
                 onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { DownloadsRepository.resumeDownload(item.id) },
-                onRetry = { DownloadsRepository.retryDownload(item.id) },
+                onResume = { onResumeOrRetry(item.id) },
+                onRetry = { onResumeOrRetry(item.id) },
                 onDelete = { onDeleteDownload(item.id) },
             )
         }
@@ -219,8 +229,8 @@ private fun LazyListScope.downloadsRootContent(
                 item = item,
                 onOpen = { onOpenDownload(item) },
                 onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { DownloadsRepository.resumeDownload(item.id) },
-                onRetry = { DownloadsRepository.retryDownload(item.id) },
+                onResume = { onResumeOrRetry(item.id) },
+                onRetry = { onResumeOrRetry(item.id) },
                 onDelete = { onDeleteDownload(item.id) },
             )
         }
@@ -298,6 +308,7 @@ private fun LazyListScope.downloadsShowContent(
     showId: String,
     episodes: List<DownloadItem>,
     onOpenDownload: (DownloadItem) -> Unit,
+    onResumeOrRetry: (String) -> Unit,
     onDeleteDownload: (String) -> Unit,
 ) {
     val showEpisodes = episodes
@@ -352,8 +363,8 @@ private fun LazyListScope.downloadsShowContent(
                 item = item,
                 onOpen = { onOpenDownload(item) },
                 onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { DownloadsRepository.resumeDownload(item.id) },
-                onRetry = { DownloadsRepository.retryDownload(item.id) },
+                onResume = { onResumeOrRetry(item.id) },
+                onRetry = { onResumeOrRetry(item.id) },
                 onDelete = { onDeleteDownload(item.id) },
             )
         }

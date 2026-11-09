@@ -3,7 +3,6 @@ package com.nuvio.app.features.downloads
 import com.nuvio.app.features.player.SubtitleAddonRequest
 import com.nuvio.app.features.streams.StreamSubtitle
 import kotlinx.serialization.Serializable
-import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.downloads_enqueue_missing_url
 import nuvio.composeapp.generated.resources.downloads_enqueue_replaced
@@ -95,7 +94,7 @@ enum class DownloadEnqueueResult {
     UnsupportedFormat,
     RequiresWifi;
 
-    fun toastMessage(): String = runBlocking {
+    suspend fun toastMessage(): String {
         when (this@DownloadEnqueueResult) {
             Started -> getString(Res.string.downloads_enqueue_started)
             Replaced -> getString(Res.string.downloads_enqueue_replaced)
