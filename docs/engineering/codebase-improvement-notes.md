@@ -1507,3 +1507,8 @@ Evidence:
 - The repository pins WorkManager 2.10.3 in `gradle/libs.versions.toml`.
 
 Verification: source and return-path review only. No worker test, Gradle task, build or CI was run/started. Runtime scheduling and retry timing remain unverified.
+
+
+### 9 November 2026 — conservative odd-dimension notification bitmap sizing
+
+A final boundary review tightened the notification bitmap sample-size calculation to use ceiling division rather than floor division. This keeps odd image dimensions within the configured edge/pixel budget even when a decoder rounds a sampled dimension upward. Added an odd-dimension regression case (2,561 × 1,081). Static review only; the test remains unexecuted until builds/tests are authorised.

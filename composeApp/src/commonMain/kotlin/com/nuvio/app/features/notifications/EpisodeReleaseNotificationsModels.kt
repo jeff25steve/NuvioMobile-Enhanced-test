@@ -140,8 +140,11 @@ internal fun notificationBackdropSampleSize(sourceWidth: Int, sourceHeight: Int)
     if (sourceWidth <= 0 || sourceHeight <= 0) return 1
     var sampleSize = 1
     while (true) {
-        val width = sourceWidth.toLong() / sampleSize.toLong()
-        val height = sourceHeight.toLong() / sampleSize.toLong()
+        val divisor = sampleSize.toLong()
+        // Use ceiling division to remain within bounds if the decoder rounds
+        // an odd source dimension up after subsampling.
+        val width = (sourceWidth.toLong() + divisor - 1L) / divisor
+        val height = (sourceHeight.toLong() + divisor - 1L) / divisor
         if (width <= MaxNotificationBackdropDimensionPx &&
             height <= MaxNotificationBackdropDimensionPx &&
             width * height <= MaxNotificationBackdropPixels
