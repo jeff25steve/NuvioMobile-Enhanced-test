@@ -1627,3 +1627,16 @@ Both errors came from removing `runBlocking` while converting a synchronous loca
 #### Verification and next build
 
 Confirmed both offending source blobs were identical at `9329a34` and its parent, read the two previous implementation diffs that introduced the suspend conversions, checked their production callers and existing common test coverage, and extracted both exact compiler diagnostics from workflow job 129110154795. The source correction is limited to the two missing `return` keywords. The failed run produced no APK; a fresh Android fullDebug build is required to confirm compilation and packaging after this fix. The first failure was not retried unchanged.
+
+
+### 9 November 2026 — second Android fullDebug validation after suspend return fixes
+
+The corrected source candidate is `13e802b384d06e5abe04193a73bd7f3c58c84a43` (`fix: return localized suspend resource messages`). A fresh CI branch was created from that exact source SHA: `ci/nuvio-main-build-testing-suspend-return-fix-apk-20261109`. Its sole additional commit is `00f2cf79e347042fd15f7812a9401fc0f6c8d186`, which adds only a push trigger scoped to that CI branch in `.github/workflows/pr-full-debug-build.yml`. Comparing the CI branch with `main-build-testing` confirms one commit ahead, zero behind, and only that two-line workflow change.
+
+- Workflow run: [42604148116](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42604148116), run 110, event `push`, candidate source commit `13e802b384d06e5abe04193a73bd7f3c58c84a43`.
+- Job: `129115658681` (`Build fullDebug APK`).
+- Checkout, Java setup, Gradle setup, live runtime properties and Rust setup completed successfully.
+- At the latest check for this note, `:androidApp:assembleFullDebug` remained in progress. The job log endpoint returned `BlobNotFound` while the job was active, and no artifact was listed. Therefore this candidate is not yet build-verified and no APK is confirmed.
+- Do not retry while this run remains active. Once it completes, inspect its conclusion, archived Gradle diagnostics and artifact list before deciding the next action.
+
+The application branch remains at `13e802b384d06e5abe04193a73bd7f3c58c84a43`. The CI trigger is isolated on the dedicated CI branch and has not been merged into application source. A local checkout was not available through the connected GitHub interface, so local Git status remains unverified.
