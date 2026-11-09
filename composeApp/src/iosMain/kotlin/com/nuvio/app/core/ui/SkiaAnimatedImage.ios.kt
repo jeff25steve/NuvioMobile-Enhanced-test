@@ -194,7 +194,7 @@ private fun diskCacheRead(url: String): ByteArray? = runCatching {
         return@runCatching null
     }
     val data = manager.contentsAtPath(path) ?: return@runCatching null
-    if (data.length > MaxAnimatedSourceBytes.toLong()) {
+    if (data.length.toLong() > MaxAnimatedSourceBytes.toLong()) {
         manager.removeItemAtPath(path, null)
         return@runCatching null
     }
