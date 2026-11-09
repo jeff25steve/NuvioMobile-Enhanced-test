@@ -163,12 +163,10 @@ object AddonRepository {
         if (profileId != ProfileRepository.activeProfileId) return
         val operation = activateProfile(profileId) ?: return
         val client = SupabaseProvider.client
-        log.i {
-            "pullFromServer() — profileId=${operation.profileId}, initialized=${initialized}"
-        }
+        log.i { "pullFromServer() — profileId=${operation.profileId}, initialized=$initialized" }
         InAppLogger.info(
             "Addons/Repository",
-            "pullFromServer profile=${operation.profileId} initialized=$initialized pulled=$wasAlreadyPulled",
+            "pullFromServer profile=${operation.profileId} initialized=$initialized",
         )
 
         runCatchingUnlessCancelled {
@@ -193,33 +191,6 @@ object AddonRepository {
             log.i { "pullFromServer() — server returned ${rows.size} addons" }
             InAppLogger.info("Addons/Repository", "pullFromServer serverRows=${rows.size} uniqueUrls=${urls.size}")
             urls.forEachIndexed { i, url -> log.d { "  server[$i]: $url" } }
-
-            val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
-                    val nextState = AddonsUiState(
-                        addons = localUrls.map { url ->
-                            existingByUrl[url].toPendingAddon(
-                                manifestUrl = url,
-                                enabled = enabledByUrl[url],
-                            )
-                        },
-                    )
-                    val applied = runIfCurrent(operation) {
-                        _uiState.value = nextState
-                        persistSnapshot(operation.profileId)
-                        initialized = true
-                    }
-                    if (!applied) return@runCatchingUnlessCancelled
-                    localUrls.forEach { url ->
-                        if (!isCurrentOperation(operation)) return@forEach
-                        val existing = existingByUrl[url]
-                        val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
-                        if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
-                            refreshAddon(url, operation)
-                        }
-                    }
-                    return@runCatchingUnlessCancelled
-                }
-            }
 
             val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
             val nextState = AddonsUiState(
