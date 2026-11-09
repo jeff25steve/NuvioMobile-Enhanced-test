@@ -130,20 +130,20 @@ fun DetailFloatingHeader(
                 .clipToBounds()
                 .then(
                     if (background == null) {
-                        Modifier.liquidGlassSurface(
-                            backdrop = glassBackdrop,
+                        Modifier.liquidGlassForSurface(
+                            surface = LiquidGlassSurface.DETAIL_HEADER,
                             shape = RectangleShape,
                             tint = surfaceColor.copy(alpha = surfaceColor.alpha * 0.7f),
                             fallback = surfaceColor,
                             blurRadius = 24.dp,
                             withHighlight = false,
+                            explicitBackdrop = glassBackdrop,
+                            useExplicitBackdrop = true,
+                            preview = previewGlass,
                         )
                     } else {
                         Modifier
                     },
-                    explicitBackdrop = glassBackdrop,
-                    useExplicitBackdrop = true,
-                    preview = previewGlass,
                 ),
         ) {
             if (background != null) {

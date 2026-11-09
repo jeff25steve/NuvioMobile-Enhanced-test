@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.nuvio.app.core.ui.background.AppBackgroundHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -14,9 +15,6 @@ import coil3.svg.SvgDecoder
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
 import com.nuvio.app.core.ui.NuvioTheme
-import com.nuvio.app.core.ui.NuvioSheetBackdrop
-import com.nuvio.app.core.ui.NuvioSheetBackdropHost
-import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.configurePlatformImageLoader
 import com.nuvio.app.core.ui.platformProvidesImageLoader
 import com.nuvio.app.features.settings.ThemeSettingsRepository
@@ -25,6 +23,10 @@ import com.nuvio.app.navigation.TabsRoute
 
 fun disposeRoute(route: AppRoute) {
     disposeRouteResources(route)
+}
+
+fun setPlayerParkedInPictureInPicture(parked: Boolean) {
+    com.nuvio.app.core.ui.background.AppBackgroundRepository.setPlayerParked(parked)
 }
 
 @OptIn(ExperimentalCoilApi::class)
@@ -73,6 +75,7 @@ fun App(
 
 @Composable
 internal fun AppEnvironment(
+    drawAppBackground: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     if (!platformProvidesImageLoader) {
@@ -104,10 +107,13 @@ internal fun AppEnvironment(
 
     val customThemeColors by ThemeSettingsRepository.customThemeColors.collectAsStateWithLifecycle()
 
-    val sheetBackdropLayer = rememberNuvioBackdrop()
-    val sheetBackdrop = remember(sheetBackdropLayer) { NuvioSheetBackdrop(sheetBackdropLayer) }
-
     NuvioTheme(appTheme = selectedTheme, amoled = amoledEnabled, customThemeColors = customThemeColors) {
-        content()
+        if (drawAppBackground) {
+            AppBackgroundHost {
+                content()
+            }
+        } else {
+            content()
+        }
     }
 }

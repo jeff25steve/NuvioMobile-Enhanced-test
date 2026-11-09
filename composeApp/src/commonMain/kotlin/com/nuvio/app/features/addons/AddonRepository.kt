@@ -536,6 +536,12 @@ object AddonRepository {
                                 )
                             }
 
+                            val refreshFailureFallback = if (result.isFailure) {
+                                getString(Res.string.addon_load_manifest_failed)
+                            } else {
+                                null
+                            }
+
                             runIfCurrent(operation) {
                                 _uiState.update { current ->
                                     current.copy(
@@ -562,8 +568,9 @@ object AddonRepository {
                                                         )
                                                         addon.copy(
                                                             isRefreshing = false,
-                                                            errorMessage = error.message
-                                                                ?: getString(Res.string.addon_load_manifest_failed),
+                                                            errorMessage = error.message?.takeIf { it.isNotBlank() }
+                                                                ?: refreshFailureFallback
+                                                                ?: "Manifest refresh failed",
                                                         )
                                                     },
                                                 )

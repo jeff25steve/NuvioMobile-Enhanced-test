@@ -101,6 +101,8 @@ fun DetailTrailersSection(
         mutableStateOf(previewMenuInitiallyExpanded)
     }
 
+    val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
+    val selectorGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
     val selectedTrailers = grouped[selectedCategory].orEmpty()
     val useNativeTrailerCategoryMenu = !previewMenuInitiallyExpanded &&
         onPreviewSurfaceSelected == null &&

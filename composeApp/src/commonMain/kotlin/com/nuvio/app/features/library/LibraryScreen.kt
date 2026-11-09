@@ -552,8 +552,132 @@ fun LibraryScreen(
         emptyList()
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+    val cloudBackgroundImageUri by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
+    }.collectAsStateWithLifecycle()
+    val cloudBackgroundImageRevision by remember {
+        ThemeSettingsRepository.customLibraryCloudBackgroundImageRevision
+    }.collectAsStateWithLifecycle()
+    val cloudImageContext = LocalPlatformContext.current
+    val cloudBackgroundImageRequest = remember(
+        cloudBackgroundImageUri,
+        cloudBackgroundImageRevision,
+        cloudImageContext,
+    ) {
+        cloudBackgroundImageUri?.takeIf { isLocalBackgroundImageUri(it) }?.let { imageUri ->
+            ImageRequest.Builder(cloudImageContext)
+                .data(imageUri)
+                .memoryCacheKey("$imageUri#library-cloud-background-$cloudBackgroundImageRevision")
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.DISABLED)
+                .build()
+        }
+    }
+    val libraryBackdrop = rememberNuvioBackdrop()
+    val libraryContentBackdrop = rememberNuvioBackdrop()
+    val libraryGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
+    val savedTypeGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER)
+    val savedSortGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
+    val cloudFiltersGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS)
+    val cloudSearchGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH)
+    val cloudCardsGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
+    val calendarGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
+    val anyLibraryGlassEnabled = libraryBackdropCaptureRequired(
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = isLiquidGlassAvailable(),
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
+    val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
+    val cloudHeaderBackdropActive = libraryHeaderUsesArtworkBackdrop(
+        sourceMode = sourceMode,
+        artworkBackgroundActive = cloudBackgroundActive || LocalDynamicArtworkBackgroundActive.current,
+    )
+    val cloudHeaderBackgroundBrush = remember(cloudHeaderBackdropActive) {
+        if (cloudHeaderBackdropActive) {
+            Brush.verticalGradient(
+                colorStops = arrayOf(
+                    0f to Color.Black.copy(alpha = 0.38f),
+                    0.58f to Color.Black.copy(alpha = 0.18f),
+                    1f to Color.Transparent,
+                ),
+            )
+        } else {
+            null
+        }
+    }
+    val savedHeaderScrimEnabled = librarySavedHeaderUsesGlassScrim(
+        sourceMode = sourceMode,
+        librarySurfaceGlassEnabled = libraryGlassEnabled,
+        savedTypeGlassEnabled = savedTypeGlassEnabled,
+        savedSortGlassEnabled = savedSortGlassEnabled,
+    )
+    val headerDensity = LocalDensity.current
+    var libraryToolbarHeight by remember(sourceMode, headerDensity) { mutableStateOf(0.dp) }
+    val savedHeaderBackground = MaterialTheme.colorScheme.background
+    val savedHeaderScrimBrush = remember(
+        savedHeaderScrimEnabled,
+        savedHeaderBackground,
+    ) {
+        Brush.verticalGradient(
+            colors = if (savedHeaderScrimEnabled) {
+                listOf(
+                    savedHeaderBackground.copy(alpha = 0.28f),
+                    savedHeaderBackground.copy(alpha = 0.12f),
+                    Color.Transparent,
+                )
+            } else {
+                listOf(Color.Transparent, Color.Transparent)
+            },
+        )
+    }
+    val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
+        uiState.isLoaded && uiState.sections.isNotEmpty()
+    val savedControlsInset = 72.dp
+    Box(modifier = modifier.fillMaxSize()) {
+        // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
+        // is drawn above it when present. Draw it even with Liquid Glass disabled.
+        if (anyLibraryGlassEnabled || sourceMode == LibraryViewMode.Cloud) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        if (sourceMode == LibraryViewMode.Cloud) Color.Black
+                        else MaterialTheme.colorScheme.background,
+                    )
+                    .then(if (anyLibraryGlassEnabled) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
+            ) {
+                if (cloudBackgroundActive) {
+                    cloudBackgroundImageRequest?.let { request ->
+                        AsyncImage(
+                            model = request,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+            }
+        }
+        CompositionLocalProvider(
+            // Saved pinned glass controls sample the scrolling content beneath them; other modes
+            // retain the static screen backdrop. The release calendar uses its own scoped capture.
+            LocalLiquidGlassBackdrop provides if (
+                libraryPinnedChromeUsesContentBackdrop(sourceMode, anyLibraryGlassEnabled)
+            ) libraryContentBackdrop else if (anyLibraryGlassEnabled) libraryBackdrop else null,
+            LocalDynamicArtworkBackgroundActive provides (
+                LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
+            ),
+        ) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth().onSizeChanged { size -> libraryToolbarHeight = with(headerDensity) { size.height.toDp() } }) {
             androidx.compose.foundation.layout.Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -931,6 +1055,7 @@ fun LibraryScreen(
             }
         }
     }
+        }
             if (hasSavedControls) {
                 val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
                 CompositionLocalProvider(
@@ -977,10 +1102,7 @@ fun LibraryScreen(
                 }
             }
         }
-        }
     }
-    }
-
     if (showReleaseCalendar) {
         // Dialog is outside the main Library provider. Supply captured content explicitly so
         // runtime glass samples the Library beneath it instead of falling back to a solid tint.
@@ -2310,13 +2432,9 @@ private fun LibraryReleaseCalendarPanel(
                     .align(Alignment.TopEnd)
                     .widthIn(max = 760.dp)
                     .fillMaxWidth()
-                    .height(panelHeight)
-                    )
-                    .clickable(onClick = {}),
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(28.dp),
-                shadowElevation = 18.dp,
-            ) {
+                    .height(panelHeight),
+                onClick = {},
+            ) { glassEnabled ->
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

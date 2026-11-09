@@ -294,15 +294,9 @@ internal fun DetailActionButtons(
                     val moreSurfaceShape = if (moreGlassActive) {
                         liquidGlassShape(LiquidGlassSurface.DETAILS, CircleShape, preview = previewDetailsGlass)
                     } else {
-                        backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.82f))
-                    },
-                    contentColor = if (actionsExpanded) {
-                        MaterialTheme.colorScheme.background
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                ) {
-                    Box(
+                        CircleShape
+                    }
+                    Surface(
                         modifier = Modifier
                             .size(iconButtonSize)
                             .then(

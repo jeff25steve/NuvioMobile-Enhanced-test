@@ -407,7 +407,7 @@ object EpisodeReleaseNotificationsRepository {
     }
 
     private fun persist(token: EpisodeReleaseNotificationProfileToken) {
-        val payload: String? = synchronized(stateLock) {
+        val payload = synchronized(stateLock) {
             if (!isCurrentOperationLocked(token)) return@synchronized null
             json.encodeToString(
                 StoredEpisodeReleaseNotificationsPayload(
