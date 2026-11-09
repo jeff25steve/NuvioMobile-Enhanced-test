@@ -1299,3 +1299,14 @@ Two unrelated failures were traced to concrete implementation/test mismatches:
 No retries, mutation of unsafe POSTs, profile/storage behavior, poster resolver patterns, artwork ordering, UI, platform storage or dependencies were changed. Both fixes are common code, so they apply consistently to Android and iOS. The exact source/test diffs are committed for fresh host-test and platform compile validation; no result is claimed until those jobs finish.
 
 Research: RFC 9110 §10.2.3 — https://www.rfc-editor.org/rfc/rfc9110.html (Retry-After semantics).
+
+### Follow-up: align Liquid Glass regression assertions with the latest intended defaults (9 November 2026)
+
+The Android host-test run against source `a31dc16` reported four Liquid Glass assertion failures. The latest implementation history was inspected before changing either code or tests:
+
+- Commit `6a69dd59cc2f` (`fix(glass): align surface defaults with current guidance`) deliberately removed `CATEGORY_HEADER_TITLE` from the default LIQUID/refraction set so passive content remains FROSTED. The back-button control remains LIQUID. The title and back button still share the exact same geometry/recipe (radius, blur, refraction and tint); only their material differs by role. Updated the stale common test to assert that distinction while preserving shared recipe and lens-capability assertions.
+- Commit `1b7d551dc8dc` deliberately changed the Library capsule to a full pill with `0.22f` tint and updated the runtime and recipe together. Updated the old `0.30f` test expectation to the current `0.22f`.
+- The current `LiquidGlassSurfaceGroup.LIBRARY` explicitly includes `LIBRARY_CALENDAR` as an independently editable surface; the existing host test still expected the pre-calendar six-surface group. Updated it to include the calendar.
+- The settings sheet exposes the icon-tint control whenever `surface.supportsIconTint` is true, and `CATEGORY_HEADER_BACK_BUTTON` has an actual arrow icon plus an enabled per-surface tint capability. Added it to the expected tintable set; no production setting or visual behavior changed.
+
+These are test expectation corrections only. No Liquid Glass runtime code, saved settings, defaults, previews, geometry, native iOS materials, or UI behavior was modified. Source-of-truth history: commits `6a69dd59cc2f`, `1b7d551dc8dc`, and `440fa3e37b98`. The revised tests remain subject to a fresh full host-test run.
