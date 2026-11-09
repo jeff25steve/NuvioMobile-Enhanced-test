@@ -1219,3 +1219,25 @@ The first merge-compatibility repair (\`07f384473e89d38ae0d564e6cf5087802bbc4ee2
 - The separate validation branch remains at \`aaebb02d04353c2473f516f33e92e11afc0747d0\`; it was not updated or re-triggered. \`enhanced\` was not changed.
 
 The previously recorded iOS compressed-source memory-cache candidate remains deferred: it needs an in-flight-load-safe purge design and a focused test before implementation.
+
+### Continuation: unblock Android host-test compilation and revalidate DNS regression (9 November 2026)
+
+The latest Linux validation run against source snapshot `d8a5faf5fd13f62226fe17ef769233c1e07efeb3` failed before executing tests. The failing test sources were fetched from both that CI snapshot and the live `main-build-testing` head `ce981b1e378dfd76f4549a58814a4309ffecb788`; their blob IDs match exactly, so these are still real current-head blockers rather than stale CI-only errors.
+
+#### Root causes and minimal test-harness corrections
+
+- `FloatingNavigationBarGestureTest.kt` supplied a one-argument custom content lambda, but `FloatingNavigationItem.content` now accepts both the click callback and nullable default icon colour override. The test ignores the second argument, so the lambda now explicitly accepts it without changing the gesture scenario.
+- `PlayerSurfaceGesturesTest.kt` called `playerSurfaceDragGestures` without the newly required nullable `playerController` and `swipeToSeekEnabledState` arguments. The fixture has no software player controller, so it passes `null`; swipe-to-seek remains enabled to preserve the scenario's previous intended default.
+- `NavigationBarGlassSettingsTest.kt` used the removed `size.width`/`size.height` touch-scope API. The pinned Compose UI test receiver exposes `width` and `height` directly. Updated the test coordinates to those current properties, retaining the same 20%-to-80% swipe.
+
+#### CI evidence
+
+- Latest Linux run: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42544820358
+- Job `128927408637` reached `:composeApp:compileAndroidHostTest` and reported these exact blockers in the three files above. The host-test task stopped at compilation; no tests ran. The fullDebug APK step was skipped.
+- The DNS production source was identical between that run's commit and the current branch. The corrected CNAME fixture was subsequently committed to the live branch, but the resolver still only used the queried A/AAAA record TTL and therefore does not yet satisfy the existing 30-second CNAME regression.
+- The repository clone could not be established in this execution environment because DNS resolution for `github.com` failed. Source inspection and remote Git operations are therefore performed against exact GitHub refs/blob IDs; a local dirty/clean working-tree claim is not available.
+
+#### Status
+
+- This commit only repairs Android host-test source compatibility; it does not change production code, test intent, app UI, player behavior, DNS settings, dependencies, Gradle configuration, iOS sources or build workflows.
+- No test, Gradle task, Android/iOS build or CI workflow has been started in this step. The CNAME test remains expected to fail at runtime after the host-test sources compile; that RED result will be checked before changing the resolver.
