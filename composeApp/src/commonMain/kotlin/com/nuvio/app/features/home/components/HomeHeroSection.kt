@@ -978,14 +978,13 @@ private fun mobileHeroHeight(
     mobileBelowSectionHeightHintDp: Float?,
 ): Dp {
     val isPortraitViewport = viewportHeightDp?.let { it >= maxWidthDp } != false
-
-    if (isPortraitViewport) {
-        return (maxWidthDp * MOBILE_PORTRAIT_HERO_WIDTH_RATIO).dp
-    }
-
     val viewportDrivenHeight = viewportHeightDp?.let { (it * MOBILE_HERO_VIEWPORT_RATIO).dp }
     val widthFallbackHeight = (maxWidthDp * 1.16f).dp
-    val baseHeight = viewportDrivenHeight ?: widthFallbackHeight
+    val baseHeight = if (isPortraitViewport) {
+        (maxWidthDp * MOBILE_PORTRAIT_HERO_WIDTH_RATIO).dp
+    } else {
+        viewportDrivenHeight ?: widthFallbackHeight
+    }
 
     val maxAllowedFromViewportDp = if (viewportHeightDp != null && mobileBelowSectionHeightHintDp != null) {
         viewportHeightDp - mobileBelowSectionHeightHintDp

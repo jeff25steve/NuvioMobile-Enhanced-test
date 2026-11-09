@@ -1371,3 +1371,31 @@ The button is intentionally hidden when a custom server's discovery document set
 - Build from the exact current `main-build-testing` head, full distribution, using the live official `https://api.nuvio.tv/.well-known/nuvio` backend URL and publishable key as runtime build inputs, rather than hard-coding or copying a stale key.
 - Produce Android fullDebug APK and unsigned iOS full Debug IPA. The normal PR/release workflow and signing configuration remain unchanged; validation triggers live only on a separate CI branch.
 - A successful build proves compilation/package creation, not that the live backend's device-login RPCs or website approval page are available at the time of sign-in. Runtime approval still depends on the official website/backend.
+
+
+### 9 November 2026 — targeted host-test and hero sizing follow-up
+
+The historical Linux validation run for this branch family reached `:composeApp:testAndroidHostTest` and reported 15 failed tests; the APK task was gated after that test failure. A separate Android full-Debug APK run and an unsigned iOS Debug IPA run succeeded on their respective validation refs. These historical results are not a fresh validation of the current branch head.
+
+Four narrowly scoped corrections were made after tracing the current source contracts:
+
+- **Robolectric/JDK compatibility:** `AndroidDownloadLifecycleTest` now runs on API 34 only. The Linux host-test workflow uses Temurin JDK 17. Robolectric 4.16's compatibility table requires JDK 21 for API 36, while API 34 runs on JDK 17; API 34 is also the level that introduced `JobInfo.Builder.setUserInitiated`, which this test exercises. This changes only the test SDK matrix, not production JobScheduler behaviour.
+- **Root-tab coverage:** the app's `AppScreenTab` enum includes Home, Search, Library, LiveTv and Settings. Four root-host test loops previously omitted LiveTv while the assertions expected every enum entry to have been visited. They now derive a stable traversal from the enum entries and visit Home last. No RootTabHost production code changed.
+- **Portrait hero viewport reserve:** the current portrait hero ratio (1.5 times available width) is retained when no lower-section reservation is supplied. When HomeScreen supplies its existing Continue Watching/native-navigation reserve hint, the portrait height now goes through the same available-viewport cap used by landscape layouts instead of returning early. The no-reserve baseline test now expects 585 dp at 390 dp width; existing reserve and short-viewport assertions remain the intended constraints.
+- **Download subtitle concurrency:** the Android scheduler starts subtitle preparation as a child coroutine, starts the video transfer without awaiting it, then joins subtitle preparation before finalising the completed download. The test no longer requires the video request to be the last HTTP request; it verifies that the video and both subtitle requests each occur and that the completed download contains both local subtitle tracks. This aligns the test with the existing non-blocking scheduler change; production download behaviour is unchanged.
+
+#### Approaches deliberately not promoted
+
+- Do not clear the compressed-source `LinkedHashMap` in the iOS animated-image renderer merely because a memory warning arrives. Apple’s WWDC18 memory guidance explains that traversing/mutating dictionary-backed caches can fault compressed pages back into memory and temporarily worsen pressure. The proposed one-line purge therefore lacks a safe memory-benefit guarantee. Revisit only with measured memory-pressure evidence and a cache policy that avoids this decompression hazard.
+- No production changes were made for the remaining historical failures in ratings visibility, avatar-grid bounds, hero-pager wrap timing or settings navigation. Their exact failure causes were not sufficiently established from the available historical job summary/source alone; do not weaken assertions or change UI behaviour speculatively.
+- The earlier device-link sign-in conclusion is unchanged: the feature remains server-capability-gated and the investigation did not establish a reason to modify auth code or build configuration.
+
+#### Verification limits
+
+The changes were checked against the current branch source, its test fixtures, the historical commit that introduced concurrent subtitle preparation, the current Linux workflow's JDK version, and the pinned Robolectric version. The complete generated commit diff was reviewed before the guarded branch update; the updated remote head will be fetched again after publication. No Gradle build, host test, test-triggering command or CI workflow was started because build/CI execution remains explicitly unauthorised. Fresh test/build results are therefore pending.
+
+#### Source references
+
+- Robolectric 4.16 Android API/JDK matrix: https://robolectric.org/compatibility_table/
+- Android API 34 additions to `JobInfo.Builder` (`setUserInitiated`): https://developer.android.com/sdk/api_diff/34/changes/android.app.job.JobInfo.Builder
+- Apple WWDC18, *iOS Memory Deep Dive*: https://developer.apple.com/videos/play/wwdc2018/416/
