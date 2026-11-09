@@ -1331,3 +1331,12 @@ Source: kotlinx.coroutines 1.10.2 `Timeout.kt` (the pinned version in `gradle/li
 #### Correction to the first empty-server patch attempt
 
 The first remote edit used an overly broad end-marker search and removed part of `AddonRepository` beyond the two intended conditionals. The dedicated Linux compile run `42550747308` caught it at `:composeApp:compileAndroidMain` with unresolved repository state/method references; that run is explicitly invalid for behavior verification. The file has now been reconstructed from its exact pre-edit `e89f0e3` version, and only the two `urls.isEmpty()` branches are removed using matching conditional-block boundaries. Before commit, the complete source was checked to retain `profileOperationGate`, `persistSnapshot`, `activateProfile`, `awaitManifestsLoaded`, `addAddon`, `moveAddon`, `setAddonEnabled`, `refreshAll`, and the normal URL reconciliation path. This corrected patch is pending a fresh compile and host-test run.
+
+### Follow-up: correct ambiguous watched-key and placeholder-duration test fixtures (9 November 2026)
+
+Two more existing failures were caused by fixtures that contradicted the production parser/policy:
+
+- `WatchedModelsTest` used `series:tmdb:123:1` as a supposedly malformed key with a missing episode. The current parser intentionally treats the final two numeric path segments as season and episode so provider IDs may contain colons. That string is therefore a valid key with content ID `tmdb`, season 123 and episode 1; it cannot also be interpreted as content ID `tmdb:123` with a missing episode. The test now uses a non-numeric final segment (`episode`) for the malformed case. Valid colon-delimited provider ID coverage remains unchanged.
+- `WatchProgressIdentityTest` used a 1,000 ms duration with a 940 ms position while asserting completed playback. The current shared policy intentionally treats all media shorter than 121 seconds as placeholder/error clips, so this fixture cannot represent a completed episode. It now uses a 1,000,000 ms duration and 940,000 ms position, preserving the same 94% completion ratio and verifying the original position remains intact. Production completion thresholds and placeholder handling are unchanged.
+
+Also aligned two release-note test expectations with the established product spelling `IMDb` used by `formatReleaseNoteForDisplay` (which already normalizes IMDB casing). No production release-note code changed.

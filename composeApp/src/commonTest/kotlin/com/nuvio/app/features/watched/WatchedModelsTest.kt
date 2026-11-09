@@ -48,7 +48,7 @@ class WatchedModelsTest {
             watchedItemKey(type = "series", id = "sibling:456"),
             rebuildWatchedKeyWithSiblingId("series:tmdb:123:1:2", "sibling:456"),
         )
-        assertEquals(null, extractContentIdFromWatchedKey("series:tmdb:123:1"))
+        assertEquals(null, extractContentIdFromWatchedKey("series:tmdb:123:episode"))
         assertEquals(null, extractContentIdFromWatchedKey("series::1:2"))
         assertEquals(null, rebuildWatchedKeyWithSiblingId("series:tmdb:123", "sibling"))
     }
