@@ -13,12 +13,13 @@ class NuvioDnsTest {
                 answerRecord(
                     type = 5,
                     ttlSeconds = 30L,
-                    data = byteArrayOf(5) + "alias".encodeToByteArray() + byteArrayOf(0),
+                    data = dnsName("alias", "example", "com"),
                 ),
                 answerRecord(
                     type = 1,
                     ttlSeconds = 120L,
                     data = byteArrayOf(203.toByte(), 0, 113, 7),
+                    owner = dnsName("alias", "example", "com"),
                 ),
             ),
             type = 1,
@@ -50,11 +51,20 @@ private fun dnsResponse(vararg answerRecords: ByteArray): ByteArray {
     return header + question + answers
 }
 
-private fun answerRecord(type: Int, ttlSeconds: Long, data: ByteArray): ByteArray {
+private fun dnsName(vararg labels: String): ByteArray =
+    labels.fold(ByteArray(0)) { result, label ->
+        val bytes = label.encodeToByteArray()
+        result + byteArrayOf(bytes.size.toByte()) + bytes
+    } + byteArrayOf(0)
+
+private fun answerRecord(
+    type: Int,
+    ttlSeconds: Long,
+    data: ByteArray,
+    owner: ByteArray = byteArrayOf(0xC0.toByte(), 0x0C),
+): ByteArray {
     val length = data.size
-    return byteArrayOf(
-        0xC0.toByte(),
-        0x0C,
+    return owner + byteArrayOf(
         (type shr 8).toByte(),
         type.toByte(),
         0,
