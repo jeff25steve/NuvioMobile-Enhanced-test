@@ -1,6 +1,8 @@
 package com.nuvio.app.core.concurrency
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -59,17 +61,24 @@ class RunCatchingUnlessCancelledTest {
     }
 
     @Test
-    fun `caller cancellation is not converted to the timeout fallback`() = runBlocking {
+    fun `caller cancellation is not converted to the timeout fallback`() = runTest {
+        val started = CompletableDeferred<Unit>()
         val cancellation = CancellationException("caller no longer needs the result")
-
-        val thrown = assertFailsWith<CancellationException> {
+        val request = async {
             withTimeoutOrNull(1_000L) {
                 runCatchingUnlessCancelled<String> {
-                    throw cancellation
+                    started.complete(Unit)
+                    awaitCancellation()
                 }
             }
         }
 
-        assertSame(cancellation, thrown)
+        started.await()
+        request.cancel(cancellation)
+
+        val thrown = assertFailsWith<CancellationException> {
+            request.await()
+        }
+        assertEquals(cancellation.message, thrown.message)
     }
 }
