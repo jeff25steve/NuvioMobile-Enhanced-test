@@ -401,15 +401,6 @@ fun SearchScreen(
                                     addons = addonsUiState.addons,
                                     forceRefresh = true,
                                 )
-                                DiscoverFilterRow(
-                                    state = discoverUiState,
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp)
-                                        .padding(top = 8.dp, bottom = 14.dp),
-                                    onTypeSelected = SearchRepository::selectDiscoverType,
-                                    onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                                    onGenreSelected = SearchRepository::selectDiscoverGenre,
-                                )
                             }
                         }
                     }
