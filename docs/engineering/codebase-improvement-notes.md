@@ -1387,7 +1387,7 @@ Four narrowly scoped corrections were made after tracing the current source cont
 #### Approaches deliberately not promoted
 
 - Do not clear the compressed-source `LinkedHashMap` in the iOS animated-image renderer merely because a memory warning arrives. Apple’s WWDC18 memory guidance explains that traversing/mutating dictionary-backed caches can fault compressed pages back into memory and temporarily worsen pressure. The proposed one-line purge therefore lacks a safe memory-benefit guarantee. Revisit only with measured memory-pressure evidence and a cache policy that avoids this decompression hazard.
-- No production changes were made for the remaining historical failures in ratings visibility, avatar-grid bounds, hero-pager wrap timing or settings navigation. Their exact failure causes were not sufficiently established from the available historical job summary/source alone; do not weaken assertions or change UI behaviour speculatively.
+- No production changes were made for the remaining historical failures in ratings visibility, avatar-grid bounds, hero-pager wrap timing, settings navigation or stream add-on prioritisation. Their exact failure causes were not sufficiently established from the available historical job summary/source alone; do not weaken assertions or change UI behaviour speculatively.
 - The earlier device-link sign-in conclusion is unchanged: the feature remains server-capability-gated and the investigation did not establish a reason to modify auth code or build configuration.
 
 #### Verification limits
