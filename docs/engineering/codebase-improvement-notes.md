@@ -1399,3 +1399,41 @@ The changes were checked against the current branch source, its test fixtures, t
 - Robolectric 4.16 Android API/JDK matrix: https://robolectric.org/compatibility_table/
 - Android API 34 additions to `JobInfo.Builder` (`setUserInitiated`): https://developer.android.com/sdk/api_diff/34/changes/android.app.job.JobInfo.Builder
 - Apple WWDC18, *iOS Memory Deep Dive*: https://developer.apple.com/videos/play/wwdc2018/416/
+
+
+### 9 November 2026 — restore live official backend configuration in Android/iOS build workflows
+
+The screenshot's `Link sign-in failed.` state maps to `DeviceLinkAuthFailure.Start` or `Complete`. The app still renders Device Link sign-in when the active server advertises `tvLogin`; the official configuration hard-codes that capability on. The failure is raised after the device-link flow calls `start_device_login_session`, polls `poll_tv_login_session`, and invokes `tv-logins-exchange`.
+
+The workflow/build data flow identifies a concrete configuration regression:
+
+- `composeApp/build.gradle.kts` reads `NUVIO_SUPABASE_URL`, `NUVIO_SUPABASE_ANON_KEY`, and `NUVIO_SUPABASE_FALLBACK_URL` from `local.properties` (with environment-variable fallback), then generates `SupabaseConfig.kt`.
+- `ServerConfiguration.officialConfiguration()` uses those generated constants as the official server's backend URL and publishable key.
+- `SupabaseProvider.createClient()` creates the runtime Supabase client from that active server configuration. Device Link therefore uses the build-time URL/key when the user is on the official server.
+- The current iOS IPA and Android PR full-debug workflows only decoded `NUVIO_LOCAL_PROPERTIES_BASE64`; they did not remove or refresh the Supabase properties. A stale value in that repository secret could consequently be packaged even though compilation succeeded.
+- The Linux validation workflow already removed these three properties and fetched `https://api.nuvio.tv/.well-known/nuvio` to inject its current `backend_url` and `publishable_key`.
+
+The older CI branch `ci/liquid-glass-builds-restored-20261031` contained this same live-discovery preparation in both IPA and Android full-debug workflows. Its 1 November 2026 Android fullDebug run (41265247568) and unsigned full Debug IPA run (41265247590) both completed successfully, including their `Prepare/Configure runtime properties` steps. This is evidence for the workflow pattern, not a runtime sign-in test.
+
+#### Change applied
+
+Restored the live official discovery step in the current `.github/workflows/ios-test-build.yml` and `.github/workflows/pr-full-debug-build.yml`:
+
+- Decode the properties secret when present, otherwise create an empty `local.properties`.
+- Remove stale SDK/signing and Supabase URL/key/fallback entries before writing official values.
+- Fetch the official discovery document with bounded retries/timeouts.
+- Require non-empty backend URL and publishable key before proceeding.
+- Write the current URL/key and explicitly clear the stale fallback URL.
+- Preserve unrelated service credentials; the iOS workflow also preserves its current `CONTRIBUTIONS_URL` override.
+
+No authentication repository, UI, Supabase SDK, server discovery semantics, saved custom-server preference, signing, or release code was changed. Stored custom-server configuration still takes precedence at runtime; these values define only the built-in official-server default.
+
+#### Verification limits
+
+The complete workflow diff and configuration data flow were reviewed. No Gradle build, host test, APK/IPA build, or GitHub Actions run was started. The corrected workflows therefore remain unverified by a fresh package build or a real device-link approval. The next authorised runtime check should install the newly produced Android APK and IPA, select the official server, start Device Link sign-in, and confirm that the six-character code is issued and the browser approval completes.
+
+Sources:
+- Current official server discovery: https://api.nuvio.tv/.well-known/nuvio
+- Earlier successful workflow source: `ci/liquid-glass-builds-restored-20261031`
+- Earlier Android build run: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/41265247568
+- Earlier iOS IPA run: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/41265247590
