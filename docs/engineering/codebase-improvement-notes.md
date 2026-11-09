@@ -1126,3 +1126,56 @@ A focused Android/iOS comparison found that the media-host reachability probe on
 - The regression tests were authored first, but neither the RED nor GREEN run was performed: running Gradle tests would trigger a build, which remains unauthorised. No Gradle test/compile task, Android build, iOS/Xcode build, CI workflow or build-triggering command was started.
 - Static review compared the full Android/iOS platform files, their common caller, the existing Android add-on callback implementation, exact pinned OkHttp/Ktor sources, the MockWebServer test API and the source-set/dependency configuration. This is source-reviewed only; compiler, test and runtime results remain unverified.
 - The existing awaitAll().firstOrNull candidate-selection behaviour was deliberately retained. Selecting the first network response to arrive would change the existing deterministic candidate-order preference, which is outside this resource/cancellation fix.
+
+
+### Cross-platform source repair — restore pre-merge mobile behaviour and resolve compile blockers (9 November 2026)
+
+A Linux full-distribution Android host-test run and a full iOS Debug IPA build were started against the post-trailer-networking source snapshot `203496f6c34740de551fbfe8f4dab2d9ec2b323d`. Both reached Kotlin compilation and exposed related source regressions that originated in the 8 November original Liquid Glass merge (`b096d4c3330617ecc3bff60573f834cf6b1de5a9`). The failures were therefore investigated against both merge parents, rather than attributed to the latest network-probe change.
+
+#### Failed baseline and root causes established
+
+- Linux run `42538701145` failed at `:composeApp:compileAndroidMain`; the Android full-host test task and APK task did not run.
+- iOS run `42538701105` passed Xcode/toolchain and dependency preparation, then failed at `:composeApp:compileKotlinIosArm64` during Kotlin compilation.
+- The common error groups mapped to the same merge regressions on both platforms:
+  - The merge removed the existing `core/ui/background` common implementation and its Android/iOS actuals while leaving `AppEnvironment`, the app shell, dialogs and player callers dependent on those APIs. This removed the app background/Glass UI host, its settings storage API, the background-active composition local, the backdrop API and the software-bitmap support used by the consumers.
+  - The merged Live TV screen no longer contained the pre-merge on-demand, sports and guide sections and removed the `onVodClick` parameter, while the app shell still supplied it. This was a functional regression as well as a compile failure.
+  - Several files retained code from one Liquid Glass implementation while using types/signatures from the other merge parent: a malformed Details action-button Surface block, a stale detail-header glass modifier call, missing trailer selector state, and a missing player glass import.
+  - The search screen contained a composable `DiscoverFilterRow` call inside the retry callback, causing parser/composable-context errors; an additional `NuvioTokens` reference lacked its import.
+  - The common Ktor bounded-body reader passed a `Long` to the Ktor 3.4.1 `readBuffer(Int)` API.
+  - Add-on refresh fallback code called suspending `getString()` from a non-suspending `Result.fold` callback.
+  - Episode notification persistence retained an unnecessary nullable type after its early-return null guard.
+  - Party companion dispatch called `PartyChat.receive(payload)` without the expected party ID, bypassing the method's room-identity argument.
+
+#### Implemented repair
+
+- Restored the known-good enhanced-parent `AppBackground.kt`, `AppBackgroundSettings.kt`, and Android/iOS platform actuals. The source is taken from the first merge parent (`a159060c48eba3c9aa2c7cd5dc0302582de19135`), not recreated from assumptions.
+- Restored `AppEnvironment(drawAppBackground = true)` and the original single AppBackgroundHost integration. The existing platform entrypoints already host the sheet backdrop, so the common app environment does not wrap a second sheet host.
+- Restored Android `AppBackgroundStorage.initialize(applicationContext)` in `MainActivity`, at the same lifecycle point used by the pre-merge enhanced implementation. Without this, the restored storage actual would not have an initialised Android context.
+- Restored the pre-merge Live TV screen implementation containing channel/guide, VOD and sports behaviour, including the `onVodClick` API required by the app shell. Carried forward a profile/auth-keyed `LaunchedEffect` for channel loading so the old one-shot initialization does not regress profile switching.
+- Repaired the Details action menu using the second parent's valid `Surface`/Liquid Glass shape block; changed the detail header to the current `liquidGlassForSurface` helper, with the explicit backdrop and preview arguments now passed to the correct extension.
+- Restored the trailer selector's surface/enabled state variables required by its existing selector UI, without replacing its user-facing layout.
+- Removed only the incorrectly nested search retry callback filter row; retained the correctly placed discovery filter row in the search header and added the missing `NuvioTokens` import.
+- Passed `link.partyId` to the PartyChat receiver so the existing party identity check is used.
+- Added the missing `ambientLiquidGlass` import to PlayerSidePanel.
+- Changed the bounded Ktor read to pass an `Int` byte count and reject negative/`Int.MAX_VALUE` caps before adding the one-byte truncation probe, avoiding overflow.
+- Moved the add-on localized refresh fallback lookup into the suspending coroutine before the non-suspending state update.
+- Let the episode notification payload type be inferred after the null early return, so the storage call receives the non-null string it requires.
+
+#### Verification workflow and source-review record
+
+- The repair is committed on `main-build-testing` as `07f384473e89d38ae0d564e6cf5087802bbc4ee2`, a normal fast-forward from `3e06627287a56bfafdbe7d61ee16a840bce49962`. No branch switch, merge, force push, PR or update to `enhanced` was made.
+- The full Git comparison from the previous head contains 17 source paths, covering the restored four-file background layer, Android background initialization, AppEnvironment, Live TV and the specific compile blockers above. No dependencies, version catalog entries, Gradle build configuration, signing/provisioning files, backend configuration, settings ownership, or UI resources were changed.
+- A separate validation branch `ci/nuvio-main-build-testing-validation-20261109` carries the Linux/iOS workflows and is based on the exact source commit. The Linux step runs `./gradlew :composeApp:testAndroidHostTest -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace`, followed by `:androidApp:assembleFullDebug`. The iOS workflow uses Xcode 27.1 and the repository's `scripts/prepare-ios-dependencies.sh` and `scripts/build-ios-ipa.sh` for an unsigned full Debug IPA.
+- Current-head validation commit: `aaebb02d04353c2473f516f33e92e11afc0747d0` (parent is the repaired app commit).
+  - Linux workflow run: `42541044666`
+  - iOS workflow run: `42541044652`
+- At the time of this note, both workflows were still in progress: Linux was executing the Android full-host test task and iOS was executing the unsigned full Debug IPA build. No current-head test, APK or IPA result is claimed. The earlier baseline failures remain recorded separately; their logs do not describe the repaired source.
+- Review was performed by comparing the full source files with both merge parents, rechecking all diagnosed call sites, and verifying the Liquid Glass helper signature, Ktor 3.4.1 API and Android/iOS background initialisation paths. Compilation/runtime correctness remains pending the current GitHub Actions results.
+
+#### Additional iOS memory-pressure candidate deliberately deferred
+
+The iOS `SkiaAnimatedImage.ios.kt` renderer already observes `UIApplicationDidReceiveMemoryWarningNotification` and evicts idle decoded animations, but its separate in-memory compressed-source LRU (`MaxCachedSourceBytes = 24 MiB`) is not cleared. Its entries are reconstructable from the disk cache or, for `file://` sources, from the original file. Apple's guidance says caches contain transient/non-critical data that can be discarded and specifically recommends releasing cached media data that already has an on-disk representation in response to memory warnings:
+- https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/CachingandPurgeableMemory.html
+- https://apple-docs.everest.mt/docs/uikit/responding-to-memory-warnings/
+
+No code change was made: the cache is protected by a coroutine Mutex and a correct purge needs to coordinate with in-flight loads and the notification's main-queue lifecycle. This remains a focused iOS follow-up with a required regression test, not an assumed one-line cache clear.
