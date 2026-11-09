@@ -1056,7 +1056,9 @@ fun LibraryScreen(
         }
     }
         }
-            if (hasSavedControls) {
+    }
+        }
+        if (hasSavedControls) {
                 val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
                 CompositionLocalProvider(
                     LocalLiquidGlassBackdrop provides if (
@@ -1101,8 +1103,6 @@ fun LibraryScreen(
                     }
                 }
             }
-        }
-    }
     if (showReleaseCalendar) {
         // Dialog is outside the main Library provider. Supply captured content explicitly so
         // runtime glass samples the Library beneath it instead of falling back to a solid tint.
