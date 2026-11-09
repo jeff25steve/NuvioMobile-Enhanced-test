@@ -28,15 +28,6 @@ internal class InvalidDownloadRangeException(
     cause: Throwable? = null,
 ) : IOException(message, cause)
 
-internal data class DownloadContentRange(
-    val firstByte: Long,
-    val lastByteInclusive: Long,
-    val completeLength: Long?,
-) {
-    val byteCount: Long
-        get() = lastByteInclusive - firstByte + 1L
-}
-
 internal suspend fun transferAndroidDownload(
     item: DownloadItem,
     sink: DownloadSink,

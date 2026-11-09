@@ -64,6 +64,8 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
+
+import com.nuvio.app.core.ui.background.appGlassBackdrop
 import com.nuvio.app.core.ui.LocalScreenActive
 import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.ScreenActivityEffect

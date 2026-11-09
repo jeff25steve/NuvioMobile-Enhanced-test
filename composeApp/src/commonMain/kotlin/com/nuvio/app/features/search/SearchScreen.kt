@@ -46,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
@@ -374,36 +373,6 @@ fun SearchScreen(
                 autoHidesNativeTabBar = true,
                 modifier = Modifier.weight(1f),
             ) {
-                if (query.isBlank()) {
-                    if (isSearchFocused && recentSearches.isNotEmpty()) {
-                        item(key = "recent_searches") {
-                            SearchRecentSection(
-                                recentSearches = recentSearches,
-                                onSearchPress = { recentQuery -> query = recentQuery },
-                                onRemoveSearch = SearchHistoryRepository::removeSearch,
-                            )
-                        }
-                    }
-                    discoverContent(
-                        state = discoverUiState,
-                        isSourceLoading = addonManifestsLoading,
-                        columns = discoverColumns,
-                        networkCondition = networkStatusUiState.condition,
-                        onTypeSelected = SearchRepository::selectDiscoverType,
-                        onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                        onGenreSelected = SearchRepository::selectDiscoverGenre,
-                        onRetry = {
-                            NetworkStatusRepository.requestRefresh(force = true)
-                            if (addonsUiState.addons.firstEnabledManifestError() != null) {
-                                AddonRepository.refreshAll()
-                            } else {
-                                SearchRepository.refreshDiscover(
-                                    addons = addonsUiState.addons,
-                                    forceRefresh = true,
-                                )
-                            }
-                        }
-                    }
                     if (query.isBlank()) {
                         if (isSearchFocused && recentSearches.isNotEmpty()) {
                             item(key = "recent_searches") {
@@ -643,7 +612,6 @@ fun SearchScreen(
             }
         }
     }
-}
 
 @Composable
 private fun SearchEmptyStateCard(
