@@ -1544,3 +1544,7 @@ The existing device-owned setting and platform storage were retained; no profile
 #### Verification state
 
 Source, caller wiring, original feature diff and test additions were statically reviewed. New tests have not yet been run. No build or CI has been started yet.
+
+#### Build execution limitation — 9 November 2026
+
+A single Android/full mobile build was authorised after source review. The connected GitHub integration can inspect workflow definitions/runs/logs and rerun an existing failed job, but exposes no workflow-dispatch action; no Codemagic build runner is connected. An isolated temporary checkout was attempted, but the container could not resolve `github.com` (DNS failure), so there was no source tree available for a local Gradle invocation. No build or CI run was started. Do not interpret the absent run as a passing build. The next available execution path is a GitHub Actions workflow-dispatch-capable connector or a runner with a checkout of this exact branch head.
