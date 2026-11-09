@@ -1347,3 +1347,27 @@ The regression `lastCheckedTreatsEndOfMonthAsARealCalendarMonth` exposed that `I
 
 The formatter now calculates whole calendar months with `Instant.until(end, DateTimeUnit.MONTH, timeZone)`, derives whole years and remaining months from that count, and retains `periodUntil` for timezone-aware day/week/hour buckets. This preserves local DST semantics for day labels while treating end-of-month pairs consistently. The existing EOM, DST-boundary and leap-year tests cover these boundaries; no dependency or locale/string changes were introduced. Fresh CI verification is pending.
 Source: KotlinX Datetime 0.8.0 source/docs for `Instant.until`, `DateTimeUnit.MONTH`, and month-end clamping: https://github.com/Kotlin/kotlinx-datetime.
+
+### Sign-in by Nuvio profile/device link — build verification (9 November 2026)
+
+The request to restore the older “Sign In with Link” experience was compared against the current source and its original implementation commit. The feature is still present; no production auth code was changed in this investigation.
+
+#### Confirmed mobile flow
+
+- Original implementation: `388e613c0bf2` (`feat(auth): add six-character login codes`, 28 August 2026). It adds the “Sign In with Link” button and the device-code view to both compact/mobile and large-screen AuthScreen layouts.
+- The current `AuthScreen` only renders that button for sign-in mode and when `serverConnectionState.activeServer.capabilities.tvLogin` is true.
+- The built-in official configuration explicitly sets `tvLogin = true`. A self-hosted configuration takes `tv_login` from its website-owned `/.well-known/nuvio` discovery document. Do not bypass that capability for custom backends: the backend must implement the matching device-login RPCs.
+- `DeviceLinkAuthRepository` creates a nonce and calls `start_device_login_session`, displays the returned six-character user code, opens the server-provided `verification_uri_complete`, polls `poll_tv_login_session`, then invokes `tv-logins-exchange` and imports the returned access/refresh token pair using the Supabase Auth plugin.
+- The official verification route is `https://nuvio.tv/link`; self-hosted setups use their configured backend's `/link` route. Approval occurs in the browser; this mobile flow does not depend on an app deep-link callback.
+- The SDK version is pinned to Supabase Kotlin `3.4.1`. Its tagged `AuthImpl.importSession` saves a refreshable session when `autoSaveToStorage` is enabled; the SDK defaults `autoSaveToStorage`, `autoLoadFromStorage`, and `alwaysAutoRefresh` to true. `SupabaseProvider` installs `Auth` without overriding those defaults or supplying an in-memory-only session manager.
+- Later auth hardening must remain in place: `c710d6568cc4` binds the device attempt to its originating Supabase client/backend; `6b3fd9160981` closes the start-gate race; `6c9ba4822a64` retains and awaits a cancelled device-link job during backend switching; and `14d392453054` drains pending auth-session imports before resetting the backend.
+
+#### Why the link can be absent
+
+The button is intentionally hidden when a custom server's discovery document sets `capabilities.tv_login=false`. This is server capability ownership, not an app-wide feature flag. The official server path enables it. A previously saved custom server configuration can therefore make the button disappear until the user switches back to the official Nuvio server or the custom server enables and implements device login. The app must not silently discard that saved configuration.
+
+#### Build plan and limits
+
+- Build from the exact current `main-build-testing` head, full distribution, using the live official `https://api.nuvio.tv/.well-known/nuvio` backend URL and publishable key as runtime build inputs, rather than hard-coding or copying a stale key.
+- Produce Android fullDebug APK and unsigned iOS full Debug IPA. The normal PR/release workflow and signing configuration remain unchanged; validation triggers live only on a separate CI branch.
+- A successful build proves compilation/package creation, not that the live backend's device-login RPCs or website approval page are available at the time of sign-in. Runtime approval still depends on the official website/backend.
