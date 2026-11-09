@@ -1494,3 +1494,16 @@ The separate synchronous `runBlocking` calls in Android notification-channel ini
 #### Verification limits
 
 Source and test changes were statically reviewed against the pinned APIs and prior iOS bounded-reader implementation. No tests, Gradle tasks, builds or CI were run or started, as instructed. The image tests cover the bounded byte reader and sample-size policy but do not replace an Android runtime bitmap/network test. An authorised host-test and Android/iOS build pass remains outstanding.
+
+### 9 November 2026 — preserve cancellation and retry notification backstop failures
+
+The Android periodic episode-notification worker previously wrapped its suspending delivery operation in `runCatching` and then always returned `Result.success()`. This captured coroutine cancellation and also classified every ordinary delivery/persistence/platform exception as completed work. The periodic unique work is the three-hour backstop, so a transient exception could otherwise postpone its next normal attempt rather than asking WorkManager for a retry.
+
+The worker now rethrows `CancellationException`, preserving `CoroutineWorker` stop/cancel behavior, returns `Result.retry()` for ordinary exceptions so WorkManager applies its configured backoff, and returns success only after delivery completes normally. The unique work name, KEEP policy, three-hour interval, notification scheduler and primary alarm path are unchanged.
+
+Evidence:
+- Android's [CoroutineWorker threading documentation](https://developer.android.com/develop/background-work/background-tasks/persistent/threading/coroutineworker) states that WorkManager stops CoroutineWorker by cancelling its coroutine.
+- Android's [work request and retry documentation](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work) documents `Result.retry()` and retry backoff.
+- The repository pins WorkManager 2.10.3 in `gradle/libs.versions.toml`.
+
+Verification: source and return-path review only. No worker test, Gradle task, build or CI was run/started. Runtime scheduling and retry timing remain unverified.
