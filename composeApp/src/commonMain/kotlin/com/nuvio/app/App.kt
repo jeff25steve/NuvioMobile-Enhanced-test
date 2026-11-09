@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.nuvio.app.core.ui.background.AppBackgroundHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -13,12 +14,7 @@ import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
-import com.nuvio.app.core.ui.background.AppBackgroundHost
-import com.nuvio.app.core.ui.background.AppBackgroundRepository
 import com.nuvio.app.core.ui.NuvioTheme
-import com.nuvio.app.core.ui.NuvioSheetBackdrop
-import com.nuvio.app.core.ui.NuvioSheetBackdropHost
-import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.configurePlatformImageLoader
 import com.nuvio.app.core.ui.platformProvidesImageLoader
 import com.nuvio.app.features.settings.ThemeSettingsRepository
@@ -30,7 +26,7 @@ fun disposeRoute(route: AppRoute) {
 }
 
 fun setPlayerParkedInPictureInPicture(parked: Boolean) {
-    AppBackgroundRepository.setPlayerParked(parked)
+    com.nuvio.app.core.ui.background.AppBackgroundRepository.setPlayerParked(parked)
 }
 
 @OptIn(ExperimentalCoilApi::class)
@@ -111,19 +107,13 @@ internal fun AppEnvironment(
 
     val customThemeColors by ThemeSettingsRepository.customThemeColors.collectAsStateWithLifecycle()
 
-    val sheetBackdropLayer = rememberNuvioBackdrop()
-    val sheetBackdrop = remember(sheetBackdropLayer) { NuvioSheetBackdrop(sheetBackdropLayer) }
-
     NuvioTheme(appTheme = selectedTheme, amoled = amoledEnabled, customThemeColors = customThemeColors) {
-        val renderContent: @Composable () -> Unit = {
-            NuvioSheetBackdropHost(sheetBackdrop) {
+        if (drawAppBackground) {
+            AppBackgroundHost {
                 content()
             }
-        }
-        if (drawAppBackground) {
-            AppBackgroundHost(content = renderContent)
         } else {
-            renderContent()
+            content()
         }
     }
 }
