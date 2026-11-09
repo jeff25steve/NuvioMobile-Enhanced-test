@@ -1388,6 +1388,7 @@ internal fun CloudLibrarySearchField(
     showOutline: Boolean = true,
     onGlassSurfaceInteracted: (() -> Unit)? = null,
 ) {
+    var nativeSearchFocused by remember { mutableStateOf(false) }
     LiquidGlassTextContrastScope(enabled = transparentContainer) {
         if (nativeGlassEnabled) {
             val placeholder = stringResource(Res.string.cloud_library_search_label)
@@ -1396,8 +1397,10 @@ internal fun CloudLibrarySearchField(
                 placeholder = placeholder,
                 accessibilityLabel = placeholder,
                 focusRequestCount = focusRequestCount,
+                shouldBeFocused = nativeSearchFocused,
                 onValueChange = onQueryChange,
                 onFocusChanged = { focused ->
+                    nativeSearchFocused = focused
                     if (focused) onGlassSurfaceInteracted?.invoke()
                 },
                 modifier = modifier.fillMaxWidth(),

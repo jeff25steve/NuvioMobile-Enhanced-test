@@ -130,3 +130,8 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 - Changes were made against the verified remote branch head through GitHub tree/commit operations. No local checkout is available here; local uncommitted working-tree changes cannot be observed.
 - Remaining manual checks: Android API 24–30 static fallback contrast; API 31–32 blur without lens; API 33+ blur/lens; iOS 16.1–25 Compose fallback; iOS 26+ native tab bar/search controls; iPad auto-hide with VoiceOver; Library Cloud search keyboard focus and clear/search behavior.
 - The earlier page-aware Settings backdrop-capture optimization remains deferred until rememberSaveable navigation state can be moved safely with restoration regression coverage.
+
+
+### Cloud search focus lifecycle follow-up — 9 November 2026
+
+- The common UIKit adapter uses both a one-shot focus request count and the current Compose focus state. The Library wrapper now feeds the UISearchBar focus callback back into shouldBeFocused, matching the main Search screen. This prevents a later Compose update from treating the programmatic first-responder request as stale and resigning it.
