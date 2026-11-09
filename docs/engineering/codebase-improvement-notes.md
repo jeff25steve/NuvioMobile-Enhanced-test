@@ -1561,3 +1561,15 @@ The earlier note about no available CI dispatch route was corrected after review
 - A targeted retry of that same failed job (attempt 2, job `129000294758`) returned the same HTTP 504 from the same distribution URL. Java, Gradle setup action, runtime properties and Rust toolchain steps completed; the Gradle wrapper could not download its distribution.
 - No Kotlin compilation, Android compilation, tests or APK upload ran. No APK artifact exists. This is an external distribution-download failure, not evidence of an application compilation defect.
 - No further identical retries should be made until the Gradle distribution endpoint/network path is known to have recovered or an independently verified alternative source is available. The CI branch is retained for a later retry and does not alter the application branch.
+
+
+### 9 November 2026 — fail-closed Android package-install permission check
+
+The full-build updater's `canRequestPackageInstalls()` wrapper previously returned `true` when the platform call threw `SecurityException`. That converted an inability to verify install-source trust into apparent user approval. It now returns `false` on that exception, preserving the existing unknown-sources explanation/settings path and ensuring the installer is not launched on an unverified permission state.
+
+Evidence:
+- Android's [PackageManager API reference](https://developer.android.com/reference/android/content/pm/PackageManager#canRequestPackageInstalls()) defines this method as checking whether the calling package is allowed to request installs; its result is true only when the user trusts the app as an install source.
+- The full-build manifest declares `REQUEST_INSTALL_PACKAGES`; the Play Store target has `AppUpdaterPlatform.isSupported = false` and is not changed by this fix.
+- The previous catch branch was a fail-open fallback, not a documented permission-grant path. Denial is the safe result when the platform cannot confirm permission.
+
+Verification: reviewed the common controller's existing false-result flow (`showUnknownSourcesDialog` and `openUnknownSourcesSettings`), Android full/Play Store actuals, manifest declaration and complete changed-line diff. Static source review only; no tests, Gradle tasks, builds or CI were run.

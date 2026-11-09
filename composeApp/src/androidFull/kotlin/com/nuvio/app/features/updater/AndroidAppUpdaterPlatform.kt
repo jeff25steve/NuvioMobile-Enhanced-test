@@ -131,8 +131,8 @@ object AndroidAppUpdaterPlatform {
             try {
                 context.packageManager.canRequestPackageInstalls()
             } catch (_: SecurityException) {
-            
-                true
+                // A failed permission check must never be treated as user approval.
+                false
             }
         } else {
             true
