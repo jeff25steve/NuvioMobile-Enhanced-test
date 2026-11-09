@@ -1573,3 +1573,32 @@ Evidence:
 - The previous catch branch was a fail-open fallback, not a documented permission-grant path. Denial is the safe result when the platform cannot confirm permission.
 
 Verification: reviewed the common controller's existing false-result flow (`showUnknownSourcesDialog` and `openUnknownSourcesSettings`), Android full/Play Store actuals, manifest declaration and complete changed-line diff. Static source review only; no tests, Gradle tasks, builds or CI were run.
+
+
+### 9 November 2026 — restore platform TLS validation for Android playback
+
+#### Root cause and affected paths
+
+The Android playback networking helper installed a permissive `X509TrustManager` whose server-certificate check always succeeded, plus a `HostnameVerifier` that always returned true. That disabled both certificate-chain trust and hostname matching for every HTTPS request made through the shared playback OkHttp client. The same trust-all `SSLContext` was also installed on `HttpsURLConnection` for OpenSubtitles hash HEAD/range requests.
+
+The bypass was introduced in commit `2f74c3cab04b724f0a080fac794343c314411fb8` as part of moving the player from Media3's `DefaultHttpDataSource.Factory` to the shared OkHttp-based helper for Nuvio TV parity. The previous data-source implementation did not override TLS verification. The current helper is used by the Android full and Play Store ExoPlayer data-source factories, the add-on subtitle routing path, and OpenSubtitles file hashing.
+
+#### Change applied
+
+- Removed the trust-all `X509TrustManager`, permissive hostname verifier and custom trust-all `SSLContext`.
+- Removed both TLS overrides from the shared OkHttp client and the `HttpsURLConnection` path. OkHttp and Android now apply the normal platform certificate-chain and hostname verification.
+- Preserved IPv4-first DNS, connection/read/write timeouts, local loopback read-timeout extension, redirects, connection retry policy, diagnostic interceptor, default User-Agent, sanitized request headers and HTTP cleartext compatibility. No player engine selection, source routing, UI, settings, or dependency was changed.
+- The Android app manifest already references `@xml/network_security_config`; that configuration retains system CA trust and its existing additional ISRG roots. Those trust anchors remain available under the platform verifier.
+
+#### Independent evidence and compatibility assessment
+
+- The exact implementation history confirms this was a broad networking refactor rather than a documented per-provider trust exception: the earlier `DefaultHttpDataSource.Factory` did not install custom TLS trust or hostname validation.
+- OkHttp's [Builder TLS API documentation](https://square.github.io/okhttp/4.x/okhttp/okhttp3/-ok-http-client/-builder/ssl-socket-factory.html) says system defaults are used when no custom socket factory is set and recommends most applications use those defaults. OkHttp's [Builder hostname-verifier API](https://square.github.io/okhttp/4.x/okhttp/okhttp3/-ok-http-client/-builder/hostname-verifier.html) likewise uses its default verifier when no override is provided.
+- Android's [Network Security Configuration documentation](https://developer.android.com/privacy-and-security/security-config) explains that secure connections normally trust pre-installed system CAs and that app-specific additional trust anchors are configured declaratively.
+- Android's [Media3 network-stack documentation](https://developer.android.com/media/media3/exoplayer/network-stacks) confirms the player receives the selected HTTP stack through its injected `DataSource.Factory`; no Media3 requirement calls for disabling TLS verification.
+
+The security benefit is substantial: a network attacker can no longer impersonate an arbitrary HTTPS stream host with any certificate and intercept or alter HTTPS playback/subtitle traffic. The deliberate compatibility trade-off is that HTTPS sources with expired, self-signed, untrusted or hostname-mismatched certificates will now fail instead of silently accepting an unauthenticated endpoint. HTTP-only sources remain supported as before. No automatic insecure fallback or new setting was added; such a fallback would preserve the vulnerability.
+
+#### Verification state
+
+Reviewed all production references to `PlayerPlaybackNetworking` across the Android player factories, subtitle route and OpenSubtitles hasher; checked the full networking helper, both distribution factories, merged app manifest and network-security XML; compared the introducing commit and previous Media3 implementation; and inspected the OkHttp/Android API contracts. The change removes only the TLS bypass. No Gradle task, test, build or CI has run at the time of this note. Runtime HTTPS compatibility and both Android distribution builds remain to be verified.
