@@ -37,14 +37,16 @@ fun MetaPreview.withCustomPosterUrl(pattern: String): MetaPreview {
 
     if (resolvedPoster == null && resolvedLandscape == null) return this
 
-    val hasOriginalArtworkSnapshot =
-        customPosterOverlayApplied || rawPosterUrl != null || rawLandscapePosterUrl != null
+    // Capture each original artwork slot independently. Older snapshots may already
+    // contain rawPosterUrl while their landscape original has not yet been captured.
+    // Once an overlay is active, a missing raw value means the original was null.
+    val captureCurrentArtwork = !customPosterOverlayApplied
 
     return copy(
         poster = resolvedPoster ?: poster,
-        rawPosterUrl = if (hasOriginalArtworkSnapshot) rawPosterUrl else poster,
+        rawPosterUrl = rawPosterUrl ?: if (captureCurrentArtwork) poster else null,
         landscapePoster = resolvedLandscape ?: landscapePoster,
-        rawLandscapePosterUrl = if (hasOriginalArtworkSnapshot) rawLandscapePosterUrl else landscapePoster,
+        rawLandscapePosterUrl = rawLandscapePosterUrl ?: if (captureCurrentArtwork) landscapePoster else null,
         customPosterOverlayApplied = true,
     )
 }
