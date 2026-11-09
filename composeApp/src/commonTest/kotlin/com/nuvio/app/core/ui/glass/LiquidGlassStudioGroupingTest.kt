@@ -76,7 +76,7 @@ class LiquidGlassStudioGroupingTest {
     }
 
     @Test
-    fun collapsedRootListContainsOnlySurfacesOutsideTheFourGroups() {
+    fun collapsedRootListContainsEveryUngroupedSurface() {
         val allSurfaces = LiquidGlassSurface.entries
         val groupedSurfaces = LiquidGlassSurfaceGroup.entries.flatMap { it.surfaces }
         val standalone = liquidGlassStandaloneSurfaces(allSurfaces)
@@ -87,6 +87,8 @@ class LiquidGlassStudioGroupingTest {
                 LiquidGlassSurface.SEARCH,
                 LiquidGlassSurface.SETTINGS,
                 LiquidGlassSurface.BOTTOM_SHEETS,
+                LiquidGlassSurface.PROFILE_WATCH_TIME,
+                LiquidGlassSurface.SUPPORTER_MEMBERSHIP,
             ),
             standalone,
         )

@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui.glass
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
@@ -45,6 +46,50 @@ internal fun NuvioThemeTokens.withLiquidGlassTextContrast(enabled: Boolean): Nuv
 internal fun TextStyle.withLiquidGlassTextShadow(enabled: Boolean): TextStyle =
     if (enabled) copy(shadow = shadow ?: LiquidGlassReadableTextShadow) else this
 
+
+/**
+ * Explicit `Text(style = MaterialTheme.typography.*)` calls do not use LocalTextStyle.current.
+ * Transform the whole Material3 type scale so those texts receive the same readable edge as
+ * components that rely on the inherited LocalTextStyle.
+ */
+internal fun Typography.withLiquidGlassTextShadow(enabled: Boolean): Typography =
+    if (!enabled) {
+        this
+    } else {
+        copy(
+            displayLarge = displayLarge.withLiquidGlassTextShadow(true),
+            displayMedium = displayMedium.withLiquidGlassTextShadow(true),
+            displaySmall = displaySmall.withLiquidGlassTextShadow(true),
+            headlineLarge = headlineLarge.withLiquidGlassTextShadow(true),
+            headlineMedium = headlineMedium.withLiquidGlassTextShadow(true),
+            headlineSmall = headlineSmall.withLiquidGlassTextShadow(true),
+            titleLarge = titleLarge.withLiquidGlassTextShadow(true),
+            titleMedium = titleMedium.withLiquidGlassTextShadow(true),
+            titleSmall = titleSmall.withLiquidGlassTextShadow(true),
+            bodyLarge = bodyLarge.withLiquidGlassTextShadow(true),
+            bodyMedium = bodyMedium.withLiquidGlassTextShadow(true),
+            bodySmall = bodySmall.withLiquidGlassTextShadow(true),
+            labelLarge = labelLarge.withLiquidGlassTextShadow(true),
+            labelMedium = labelMedium.withLiquidGlassTextShadow(true),
+            labelSmall = labelSmall.withLiquidGlassTextShadow(true),
+            displayLargeEmphasized = displayLargeEmphasized.withLiquidGlassTextShadow(true),
+            displayMediumEmphasized = displayMediumEmphasized.withLiquidGlassTextShadow(true),
+            displaySmallEmphasized = displaySmallEmphasized.withLiquidGlassTextShadow(true),
+            headlineLargeEmphasized = headlineLargeEmphasized.withLiquidGlassTextShadow(true),
+            headlineMediumEmphasized = headlineMediumEmphasized.withLiquidGlassTextShadow(true),
+            headlineSmallEmphasized = headlineSmallEmphasized.withLiquidGlassTextShadow(true),
+            titleLargeEmphasized = titleLargeEmphasized.withLiquidGlassTextShadow(true),
+            titleMediumEmphasized = titleMediumEmphasized.withLiquidGlassTextShadow(true),
+            titleSmallEmphasized = titleSmallEmphasized.withLiquidGlassTextShadow(true),
+            bodyLargeEmphasized = bodyLargeEmphasized.withLiquidGlassTextShadow(true),
+            bodyMediumEmphasized = bodyMediumEmphasized.withLiquidGlassTextShadow(true),
+            bodySmallEmphasized = bodySmallEmphasized.withLiquidGlassTextShadow(true),
+            labelLargeEmphasized = labelLargeEmphasized.withLiquidGlassTextShadow(true),
+            labelMediumEmphasized = labelMediumEmphasized.withLiquidGlassTextShadow(true),
+            labelSmallEmphasized = labelSmallEmphasized.withLiquidGlassTextShadow(true),
+        )
+    }
+
 /**
  * Material3 text colors are used directly by many controls, so update their semantic foreground
  * colors alongside Nuvio's own text tokens. Backgrounds, accent colors and state colors are kept
@@ -77,9 +122,10 @@ internal fun LiquidGlassTextContrastScope(
     }
 
     // Capture before nesting MaterialTheme: MaterialTheme resets LocalTextStyle to bodyLarge.
-    // Keeping the caller's style preserves typography supplied by buttons, labels and custom controls.
+    // Explicit MaterialTheme.typography styles are transformed separately so both explicit and
+    // inherited Text calls keep their original type hierarchy and gain the same readable edge.
     val sourceTextStyle = LocalTextStyle.current
-    val sourceTypography = MaterialTheme.typography
+    val sourceTypography = MaterialTheme.typography.withLiquidGlassTextShadow(enabled = true)
     val sourceShapes = MaterialTheme.shapes
     val readableTokens = MaterialTheme.nuvio.withLiquidGlassTextContrast(enabled = true)
     val readableScheme = MaterialTheme.colorScheme.withLiquidGlassTextContrast(enabled = true)

@@ -110,6 +110,7 @@ import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -995,34 +996,37 @@ private fun ProfileWatchTimeRow(
         shape = shape,
         border = BorderStroke(1.dp, tokens.colors.borderSubtle),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = stringResource(Res.string.profile_insights_stat_time),
-                style = MaterialTheme.typography.titleMedium,
-                color = tokens.colors.textPrimary,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = profileInsightDurationLabel(stats.trackedDurationMs),
-                style = MaterialTheme.typography.displayMedium,
-                color = tokens.colors.textPrimary,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
-            Text(
-                text = stringResource(Res.string.profile_insights_stat_time_caption),
-                style = MaterialTheme.typography.bodySmall,
-                color = tokens.colors.textMuted,
-                textAlign = TextAlign.Center,
-            )
+        LiquidGlassTextContrastScope(enabled = glassEnabled) {
+            val readableTokens = MaterialTheme.nuvio
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = stringResource(Res.string.profile_insights_stat_time),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = readableTokens.colors.textPrimary,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = profileInsightDurationLabel(stats.trackedDurationMs),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = readableTokens.colors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+                Text(
+                    text = stringResource(Res.string.profile_insights_stat_time_caption),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = readableTokens.colors.textMuted,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

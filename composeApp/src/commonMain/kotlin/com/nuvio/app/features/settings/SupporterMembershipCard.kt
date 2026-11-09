@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
+import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
@@ -101,51 +102,53 @@ internal fun SupporterMembershipCard(
                 },
             ),
     ) {
-        when {
-            state.isLoading -> LoadingMembershipContent(isTablet = isTablet)
-            state.overview == null -> MembershipLoadErrorContent(
-                isTablet = isTablet,
-                isRefreshing = state.isRefreshing,
-                onRefresh = onRefresh,
-            )
-            state.overview.subscriptionActive -> ActiveSubscriptionContent(
-                overview = state.overview,
-                isTablet = isTablet,
-                isRefreshing = state.isRefreshing,
-                hasError = state.errorMessage != null,
-                showAction = showAction,
-                actionEnabled = actionEnabled,
-                onAction = onAction,
-                onRefresh = onRefresh,
-            )
-            state.overview.providerConnected && !state.overview.hasActiveGrant -> ConnectedMembershipContent(
-                isTablet = isTablet,
-                isRefreshing = state.isRefreshing,
-                hasError = state.errorMessage != null,
-                showAction = showAction,
-                actionEnabled = actionEnabled,
-                onAction = onAction,
-                onRefresh = onRefresh,
-            )
-            state.overview.hasActiveGrant || state.overview.active -> GrantMembershipContent(
-                overview = state.overview,
-                isTablet = isTablet,
-                isRefreshing = state.isRefreshing,
-                hasError = state.errorMessage != null,
-                showAction = showAction,
-                actionEnabled = actionEnabled,
-                onAction = onAction,
-                onRefresh = onRefresh,
-            )
-            else -> NonMemberContent(
-                isTablet = isTablet,
-                isRefreshing = state.isRefreshing,
-                hasError = state.errorMessage != null,
-                showAction = showAction,
-                actionEnabled = actionEnabled,
-                onAction = onAction,
-                onRefresh = onRefresh,
-            )
+        LiquidGlassTextContrastScope(enabled = glassEnabled) {
+            when {
+                state.isLoading -> LoadingMembershipContent(isTablet = isTablet)
+                state.overview == null -> MembershipLoadErrorContent(
+                    isTablet = isTablet,
+                    isRefreshing = state.isRefreshing,
+                    onRefresh = onRefresh,
+                )
+                state.overview.subscriptionActive -> ActiveSubscriptionContent(
+                    overview = state.overview,
+                    isTablet = isTablet,
+                    isRefreshing = state.isRefreshing,
+                    hasError = state.errorMessage != null,
+                    showAction = showAction,
+                    actionEnabled = actionEnabled,
+                    onAction = onAction,
+                    onRefresh = onRefresh,
+                )
+                state.overview.providerConnected && !state.overview.hasActiveGrant -> ConnectedMembershipContent(
+                    isTablet = isTablet,
+                    isRefreshing = state.isRefreshing,
+                    hasError = state.errorMessage != null,
+                    showAction = showAction,
+                    actionEnabled = actionEnabled,
+                    onAction = onAction,
+                    onRefresh = onRefresh,
+                )
+                state.overview.hasActiveGrant || state.overview.active -> GrantMembershipContent(
+                    overview = state.overview,
+                    isTablet = isTablet,
+                    isRefreshing = state.isRefreshing,
+                    hasError = state.errorMessage != null,
+                    showAction = showAction,
+                    actionEnabled = actionEnabled,
+                    onAction = onAction,
+                    onRefresh = onRefresh,
+                )
+                else -> NonMemberContent(
+                    isTablet = isTablet,
+                    isRefreshing = state.isRefreshing,
+                    hasError = state.errorMessage != null,
+                    showAction = showAction,
+                    actionEnabled = actionEnabled,
+                    onAction = onAction,
+                    onRefresh = onRefresh,
+                )
+            }
         }
     }
 }

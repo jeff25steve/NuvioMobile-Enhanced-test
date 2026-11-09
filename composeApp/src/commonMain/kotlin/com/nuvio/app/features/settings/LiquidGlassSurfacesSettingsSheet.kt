@@ -40,9 +40,11 @@ import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -657,6 +659,8 @@ private fun LiquidGlassSurfaceListItem(
         LiquidGlassSurface.SEARCH -> Icons.Rounded.Search
         LiquidGlassSurface.SETTINGS -> Icons.Rounded.Settings
         LiquidGlassSurface.BOTTOM_SHEETS -> Icons.Rounded.Layers
+        LiquidGlassSurface.PROFILE_WATCH_TIME -> Icons.Rounded.Schedule
+        LiquidGlassSurface.SUPPORTER_MEMBERSHIP -> Icons.Rounded.Groups
         else -> null
     }
     val iconSize = if (isTablet) 42.dp else 36.dp

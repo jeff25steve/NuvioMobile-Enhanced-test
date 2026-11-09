@@ -60,3 +60,32 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 3. Add/verify the Profile Watch Time local text treatment and make Settings backdrop capture page-aware, preserving independent toggles and root/profile/supporter navigation.
 4. Visually inspect Profile Watch Time, Supporter Membership, and generic Settings cards with their surface toggles independently enabled/disabled. Check iOS separately; the shared Backdrop renderer is not Apple's native SwiftUI/UIKit Liquid Glass.
 
+## Follow-up implementation — 9 November 2026, 23:02 UTC
+
+### Additional omissions confirmed
+
+- The 28-surface model contains 22 surfaces in the four composite preview groups and six standalone entries. The editor's `liquidGlassStandaloneSurfaces` correctly returns Player, Search, Settings, Bottom Sheets, Profile Watch Time and Supporter Membership. The existing common test still expected only the old four entries.
+- The two restored standalone entries had no leading icon in `LiquidGlassSurfaceListItem`; all other four top-level entries had a matching icon.
+- `LiquidGlassTextContrastScope` changed `LocalTextStyle`, but reused the original Material3 `Typography`. Material3's `Text(style = ...)` uses `LocalTextStyle.current` only as its default; when Nuvio explicitly passes `MaterialTheme.typography.*`, the inherited shadow is not applied.
+- `ProfileWatchTimeRow` and `SupporterMembershipCard` used their own surface effects but did not scope their actual text content with `LiquidGlassTextContrastScope`.
+
+### Changes in this cycle
+
+- Added `Schedule` and `Groups` leading icons to Profile Watch Time and Supporter Membership in the standalone editor list.
+- Updated the standalone-surface grouping test to include all six ungrouped entries.
+- Added a `Typography.withLiquidGlassTextShadow` transformation for all 15 standard and 15 emphasized Material3 styles, preserving pre-existing shadows and typography metrics.
+- Applied the contrast scope to Profile Watch Time and Supporter Membership content so their independent surface toggles also control readability.
+- Added host-test assertions that every explicit Material3 typography style receives a shadow in the glass scope.
+
+### Verification
+
+- Confirmed the project pins Compose Multiplatform `1.13.0-beta01`, Material3 `1.13.0-beta01` (based on AndroidX Material3 `1.5.0-beta01`), and material-icons-extended `1.7.3`.
+- Confirmed the Material3 `Typography.copy` API for standard and emphasized styles, and the documented `Text` / `LocalTextStyle` default behavior.
+- No tests, builds, or CI workflows were started, per the current authorization boundary. The test and source changes remain unexecuted and uncompiled.
+- No local checkout exists in this runtime, so a local `git status` or local working-tree diff cannot be inspected. All repository edits use a branch-head compare-and-swap against the verified remote head.
+
+### Deferred
+
+- Settings background capture still opts in Profile Watch Time and Supporter Membership regardless of the visible Settings page. Reducing that capture requires a migration-safe way to expose the current saveable page state before the backdrop source is created; moving `rememberSaveable` call sites without validating restoration is not justified here.
+- Device rendering, contrast validation on bright custom backgrounds, and Android/iOS behavior remain unverified until a test/build and manual-device pass are authorized.
+
