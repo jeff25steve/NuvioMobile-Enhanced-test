@@ -57,7 +57,7 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 
 1. Run `./gradlew :androidApp:testDebugUnitTest :composeApp:allTests` only if those tasks exist for the configured targets; first inspect the Gradle task graph in a real checkout.
 2. Run the repository full-debug workflow command above on a runner with JDK 17, Android SDK and Rust/NDK dependencies.
-3. Add/verify the Profile Watch Time local text treatment and make Settings backdrop capture page-aware, preserving independent toggles and root/profile/supporter navigation.
+3. Verify the Profile Watch Time text treatment with its surface independently enabled/disabled; evaluate page-aware Settings backdrop capture only with navigation and saveable-state restoration regression coverage.
 4. Visually inspect Profile Watch Time, Supporter Membership, and generic Settings cards with their surface toggles independently enabled/disabled. Check iOS separately; the shared Backdrop renderer is not Apple's native SwiftUI/UIKit Liquid Glass.
 
 ## Follow-up implementation — 9 November 2026, 23:02 UTC
