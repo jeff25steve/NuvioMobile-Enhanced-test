@@ -1179,3 +1179,43 @@ The iOS `SkiaAnimatedImage.ios.kt` renderer already observes `UIApplicationDidRe
 - https://apple-docs.everest.mt/docs/uikit/responding-to-memory-warnings/
 
 No code change was made: the cache is protected by a coroutine Mutex and a correct purge needs to coordinate with in-flight loads and the notification's main-queue lifecycle. This remains a focused iOS follow-up with a required regression test, not an assumed one-line cache clear.
+
+
+### Follow-up: diagnose failed repaired-source CI and correct remaining compile blockers (9 November 2026)
+
+The first merge-compatibility repair (\`07f384473e89d38ae0d564e6cf5087802bbc4ee2\`) was not sufficient. The two current-head workflows subsequently completed and failed against validation commit \`aaebb02d04353c2473f516f33e92e11afc0747d0\` (whose source parent was \`07f3844\`). Their job logs were inspected; no new workflow, test task or build was started during this follow-up.
+
+#### Failed validation evidence
+
+- Linux run \`42541044666\` failed inside the Android full-host-test workflow step. Environment setup and Rust target setup had completed; the APK step was skipped after the test step failed during source compilation.
+- iOS run \`42541044652\` passed Xcode 27.1 verification and the repository's iOS dependency-preparation script, then failed in the unsigned full Debug IPA build during Kotlin/Native compilation.
+- The shared errors were dominated by a structural problem in \`LibraryScreen.kt\`: one missing closing brace kept subsequent library models, cache APIs, screen helpers and composables inside the \`LibraryScreen\` body. The compiler then reported hundreds of downstream unresolved/local-declaration diagnostics. This is a cascading parser/scope failure, not hundreds of independent missing APIs.
+- The remaining independent causes were confirmed directly against the source:
+  - \`SearchScreen.kt\` contained a duplicate query-blank results block. The first duplicate held a malformed \`discoverContent\` call; its cleanup had also left an extra closing brace and a duplicate \`Color\` import.
+  - \`DownloadContentRange\` was declared in both common code and \`AndroidDownloadTransfer.kt\` in the same package, causing Android source-set redeclaration. The Android transfer already calls the common parser, so the Android duplicate was redundant.
+  - The restored background implementation declares \`isGlassUiActive\` and \`Modifier.appGlassBackdrop\`, but \`BottomSheet.kt\` and \`SettingsScreen.kt\` had not imported those APIs.
+  - \`SettingsBackgroundImagePicker.android.kt\` intentionally uses \`androidx.exifinterface.media.ExifInterface\` to preserve EXIF orientation. The dependency was absent from the current version catalog and \`androidMain\` configuration. The older October commits \`c2070236\`, \`c3815270\` and \`e739849d\` establish that EXIF orientation and picker-cancellation behaviour are intentional and must remain.
+
+#### Implemented corrections
+
+- Added the missing Library scope close immediately before the top-level \`cloudLibraryContent\` declaration. The library's saved controls, cloud search, calendar and release-schedule APIs remain intact; this makes those existing declarations visible at file scope again.
+- Removed the duplicate SearchScreen results block and its malformed retry call, leaving one query-blank discovery results branch and the single discovery-filter row in the header. Removed the extra closing brace left after the earlier cleanup and deduplicated the \`Color\` import.
+- Removed only the duplicate \`DownloadContentRange\` data-class declaration from Android. Android transfer now uses the existing common type/parser; transfer, range validation and resume logic are unchanged.
+- Imported the existing \`isGlassUiActive\` and \`appGlassBackdrop\` helpers in their two consumers; no duplicate helpers or new background behavior were added.
+- Added the stable AndroidX ExifInterface dependency \`androidx.exifinterface:exifinterface:1.4.2\` through the version catalog and the Android main source set. The existing picker continues to use AndroidX EXIF metadata to rotate/flip selected images. Stable 1.4.2 was preferred over the newer 1.5.0 beta listed in the official AndroidX release notes: https://developer.android.com/jetpack/androidx/releases/exifinterface .
+
+#### Source review and verification status
+
+- Code commit: \`fc8fbe1c0d2b9cb13b4d3c6b9fea13cb0760f505\` (\`fix: resolve Android and shared Kotlin CI compile blockers\`), a normal fast-forward from notes head \`e94a12ad2e34f012eddf04cab9272218f0e4d5f6\`.
+- The complete comparison contains seven files: LibraryScreen, SearchScreen, AndroidDownloadTransfer, BottomSheet, SettingsScreen, \`gradle/libs.versions.toml\`, and \`composeApp/build.gradle.kts\`. No unrelated modules, UI resources, website-managed settings, signing configuration, Gradle/AGP/Kotlin versions or build workflows were changed.
+- Static source checks performed on the candidate commit:
+  - LibraryScreen and SearchScreen Kotlin brace/scope scans both finish at depth zero with no negative nesting.
+  - Library helper/model declarations, including \`cloudLibraryContent\`, \`LibraryViewMode\`, calendar helpers and \`CloudLibrarySearchField\`, are top-level declarations again.
+  - SearchScreen contains exactly one \`DiscoverFilterRow\` and one \`discoverContent\` call in its intended result branch, with one \`Color\` import.
+  - \`DownloadContentRange\` is declared once in commonMain and no longer redeclared in AndroidMain.
+  - The ExifInterface version alias, library coordinate and Android source-set dependency are present and consistent.
+  - The two restored background helper imports match their actual declarations.
+- No Gradle command, unit test, Android build, Xcode build or CI workflow was run after the failure. The failed runs above still describe commit \`07f3844\`, not \`fc8fbe1\`. Compilation, test execution, APK/IPA output and runtime behavior for the corrected source are therefore **unverified** pending explicit build authorization.
+- The separate validation branch remains at \`aaebb02d04353c2473f516f33e92e11afc0747d0\`; it was not updated or re-triggered. \`enhanced\` was not changed.
+
+The previously recorded iOS compressed-source memory-cache candidate remains deferred: it needs an in-flight-load-safe purge design and a focused test before implementation.
