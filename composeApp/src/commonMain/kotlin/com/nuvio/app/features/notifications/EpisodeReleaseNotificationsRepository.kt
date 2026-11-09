@@ -657,12 +657,12 @@ object EpisodeReleaseNotificationsRepository {
         }.getOrNull() ?: return null
 
         val showTitle = meta.name.ifBlank { trackedShow.contentId }
-        return meta.videos.mapNotNull { episode ->
-            val releaseDate = releaseDateIso(episode.released) ?: return@mapNotNull null
-            if (releaseDate < trackedShow.followedOnIsoDate) return@mapNotNull null
-            if (episode.season == null && episode.episode == null) return@mapNotNull null
-
-            EpisodeReleaseNotificationRequest(
+        val requests = mutableListOf<EpisodeReleaseNotificationRequest>()
+        for (episode in meta.videos) {
+            val releaseDate = releaseDateIso(episode.released) ?: continue
+            if (releaseDate < trackedShow.followedOnIsoDate) continue
+            if (episode.season == null && episode.episode == null) continue
+            requests += EpisodeReleaseNotificationRequest(
                 requestId = buildEpisodeReleaseNotificationId(
                     profileId = profileId,
                     contentType = trackedShow.contentType,
@@ -684,5 +684,6 @@ object EpisodeReleaseNotificationsRepository {
                 backdropUrl = meta.background ?: episode.thumbnail ?: episode.seasonPoster ?: meta.poster,
             )
         }
+        return requests
     }
 }

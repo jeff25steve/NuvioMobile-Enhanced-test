@@ -2,6 +2,9 @@
 
 package com.nuvio.app.core.ui
 
+import com.nuvio.app.core.network.BoundedImageSourceRead
+import com.nuvio.app.core.network.readBoundedImageSource
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
@@ -279,14 +282,14 @@ private suspend fun fetchSourceBytes(url: String): ByteArray? = loadSemaphore.wi
             }
 
             when (
-                val source = readBoundedAnimatedSource(
+                val source = readBoundedImageSource(
                     channel = response.bodyAsChannel(),
                     maxBytes = MaxAnimatedSourceBytes,
                 )
             ) {
-                is BoundedAnimatedSourceRead.Bytes -> source.value
-                BoundedAnimatedSourceRead.Empty -> null
-                BoundedAnimatedSourceRead.TooLarge -> {
+                is BoundedImageSourceRead.Bytes -> source.value
+                BoundedImageSourceRead.Empty -> null
+                BoundedImageSourceRead.TooLarge -> {
                     response.cancel("Animated image source exceeded the size limit")
                     throw AnimatedSourceTooLargeException()
                 }

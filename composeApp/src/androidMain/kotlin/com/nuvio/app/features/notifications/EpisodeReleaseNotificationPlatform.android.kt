@@ -21,11 +21,16 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.nuvio.app.core.network.BoundedImageSourceRead
+import com.nuvio.app.core.network.readBoundedImageSource
 import com.nuvio.app.core.storage.ProfileScopedKey
 import com.nuvio.app.features.settings.AppIconPlatform
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
 import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -41,7 +46,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
@@ -59,6 +66,8 @@ internal actual object EpisodeReleaseNotificationPlatform {
     private const val alarmRequestCode = 4608
     private const val deliveredRetentionDays = 14L
     private const val backdropLoadTimeoutMs = 8_000L
+    private const val maxBackdropSourceBytes = 8 * 1024 * 1024
+    private const val maxBackdropConcurrentLoads = 4
     private const val exactAlarmPromptedKey = "exact_alarm_access_prompted"
     internal const val alarmAction = "com.nuvio.app.action.EPISODE_RELEASE_NOTIFICATION_ALARM"
     internal const val channelId = "episode_release_notifications"
@@ -67,6 +76,7 @@ internal actual object EpisodeReleaseNotificationPlatform {
     @Volatile
     private var appContext: Context? = null
     private val stateMutex = Mutex()
+    private val backdropLoadSemaphore = Semaphore(maxBackdropConcurrentLoads)
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -338,7 +348,13 @@ internal actual object EpisodeReleaseNotificationPlatform {
                         coroutineScope {
                             dueRequests.map { request ->
                                 async {
-                                    runCatching { buildNotification(applicationContext, request) }.getOrNull()
+                                    try {
+                                        buildNotification(applicationContext, request)
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (_: Exception) {
+                                        null
+                                    }
                                 }
                             }.awaitAll()
                         }
@@ -416,12 +432,46 @@ internal actual object EpisodeReleaseNotificationPlatform {
 
     internal suspend fun loadBackdropBitmap(backdropUrl: String?): Bitmap? {
         val imageUrl = backdropUrl?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
-        return runCatching {
+        return try {
             withTimeoutOrNull(backdropLoadTimeoutMs) {
-                val bytes: ByteArray = httpClient.get(imageUrl).body()
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                backdropLoadSemaphore.withPermit {
+                    val response = httpClient.get(imageUrl)
+                    if (response.status.value !in 200..299) {
+                        response.cancel("Notification backdrop request failed")
+                        return@withPermit null
+                    }
+                    val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+                    if (contentLength != null && contentLength > maxBackdropSourceBytes.toLong()) {
+                        response.cancel("Notification backdrop exceeded the size limit")
+                        return@withPermit null
+                    }
+                    when (val source = readBoundedImageSource(response.bodyAsChannel(), maxBackdropSourceBytes)) {
+                        is BoundedImageSourceRead.Bytes ->
+                            withContext(Dispatchers.IO) { decodeNotificationBackdrop(source.value) }
+                        BoundedImageSourceRead.Empty -> null
+                        BoundedImageSourceRead.TooLarge -> {
+                            response.cancel("Notification backdrop exceeded the size limit")
+                            null
+                        }
+                    }
+                }
             }
-        }.getOrNull()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun decodeNotificationBackdrop(bytes: ByteArray): Bitmap? {
+        if (bytes.isEmpty()) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = notificationBackdropSampleSize(bounds.outWidth, bounds.outHeight)
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }
 
     private fun buildPendingIntent(

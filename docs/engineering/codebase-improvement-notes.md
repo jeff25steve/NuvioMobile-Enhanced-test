@@ -1465,3 +1465,32 @@ No visual styling, avatar entitlement, cache key, animation frame budget, lifecy
 #### Verification state and remaining limitation
 
 The code/test diff and exact Ktor 3.4.1 source contracts were reviewed. The new common tests have not yet been executed, and the iOS IPA has not yet been built. Ktor 3.4.1's Darwin delegate uses an internal Channel.UNLIMITED queue for callbacks already received from NSURLSession; cancelling after the byte sentinel prevents continued application-level reading and cancels the network task, but cannot prove that no already-queued native chunks are transiently resident. This is an upstream engine buffering limitation, not a claim that the network stack has a strict byte-perfect peak-memory ceiling.
+
+### 9 November 2026 — non-blocking release-notification formatting and bounded Android artwork
+
+#### Findings and scope
+
+The shared episode-release notification body builder resolved Compose Multiplatform string resources through `runBlocking`, even though its only production caller, `buildRequestsForShow`, already runs inside the suspend refresh pipeline and its structured `coroutineScope`. This blocked the calling dispatcher for resource I/O. The Android notification path also fetched backdrop images with Ktor `body<ByteArray>()`, which materializes the complete response, and passed the encoded bytes to a full-resolution bitmap decode. Concurrent notification construction could therefore amplify memory use for large or malformed artwork.
+
+#### Changes
+
+- Made `buildEpisodeReleaseNotificationBody` suspend and removed its `runBlocking` wrapper. Resource IDs, locale lookup, argument order, whitespace handling and fallback text remain unchanged; the production caller now uses an explicit suspend loop over episode metadata.
+- Generalised the existing iOS animated-image ByteReadChannel limiter into a shared image-source reader, preserving its one-byte sentinel and exact-limit behavior. The iOS caller uses the new shared primitive with the same 8 MiB policy.
+- Bounded Android notification backdrop responses to 8 MiB, rejected declared oversized responses before reading, and cancelled unknown-length responses immediately after the sentinel confirms overflow.
+- Limited simultaneous Android backdrop loads to four. Bitmap decoding first probes dimensions, then applies power-of-two sampling to cap the decoded image at 1,280 pixels per edge and 1,048,576 pixels total. Invalid/non-success/oversized images retain the existing text-style fallback.
+- Preserved cancellation through image loading and per-notification construction rather than treating cancellation as an ordinary artwork failure.
+- Added common tests for localized body branches, image sizing boundaries and the shared byte-channel reader.
+
+The separate synchronous `runBlocking` calls in Android notification-channel initialization were intentionally left unchanged: that non-suspending platform initialization API needs a separate lifecycle design. No schedule times, profile keys, account cleanup, deep links, channel settings, UI appearance, website-managed settings, dependencies or build workflows changed.
+
+#### Evidence
+
+- Kotlin's [runBlocking API documentation](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html) warns that calling it from a suspend function blocks the caller thread and ignores its current coroutine context.
+- Compose Multiplatform's [StringResources implementation](https://github.com/JetBrains/compose-multiplatform/blob/master/components/resources/library/src/commonMain/kotlin/org/jetbrains/compose/resources/StringResources.kt) defines `getString` as a suspend API for non-composable resource access.
+- Ktor's [response documentation](https://ktor.io/docs/client-responses.html) states that `body()` loads the full body into memory and recommends streaming via `ByteReadChannel`.
+- Android's [BitmapFactory.Options reference](https://developer.android.com/reference/android/graphics/BitmapFactory.Options) documents `inJustDecodeBounds` dimension probing and `inSampleSize` subsampling to save memory.
+- Pinned dependencies remain Kotlin 2.4.10, kotlinx.coroutines 1.10.2, Compose Multiplatform 1.13.0-beta01 and Ktor 3.4.1.
+
+#### Verification limits
+
+Source and test changes were statically reviewed against the pinned APIs and prior iOS bounded-reader implementation. No tests, Gradle tasks, builds or CI were run or started, as instructed. The image tests cover the bounded byte reader and sample-size policy but do not replace an Android runtime bitmap/network test. An authorised host-test and Android/iOS build pass remains outstanding.

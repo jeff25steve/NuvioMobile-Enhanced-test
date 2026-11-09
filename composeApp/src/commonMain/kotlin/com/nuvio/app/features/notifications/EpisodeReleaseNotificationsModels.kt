@@ -1,7 +1,6 @@
 package com.nuvio.app.features.notifications
 
 import com.nuvio.app.core.time.parseEpisodeReleaseLocalDate
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_player_episode_code_episode_only
@@ -108,11 +107,11 @@ internal fun buildEpisodeReleaseNotificationId(
     return "$EpisodeReleaseNotificationIdentifierPrefix$profileId-$contentHash-$episodeHash-$releaseDateIso"
 }
 
-internal fun buildEpisodeReleaseNotificationBody(
+internal suspend fun buildEpisodeReleaseNotificationBody(
     seasonNumber: Int?,
     episodeNumber: Int?,
     episodeTitle: String?,
-): String = runBlocking {
+): String {
     val code = when {
         seasonNumber != null && episodeNumber != null ->
             getString(Res.string.compose_player_episode_code_full, seasonNumber, episodeNumber)
@@ -131,5 +130,23 @@ internal fun buildEpisodeReleaseNotificationBody(
             getString(Res.string.notifications_episode_release_body_title, title)
         else ->
             getString(Res.string.notifications_episode_release_body_generic)
+    }
+}
+
+private const val MaxNotificationBackdropDimensionPx = 1280L
+private const val MaxNotificationBackdropPixels = 1_048_576L
+
+internal fun notificationBackdropSampleSize(sourceWidth: Int, sourceHeight: Int): Int {
+    if (sourceWidth <= 0 || sourceHeight <= 0) return 1
+    var sampleSize = 1
+    while (true) {
+        val width = sourceWidth.toLong() / sampleSize.toLong()
+        val height = sourceHeight.toLong() / sampleSize.toLong()
+        if (width <= MaxNotificationBackdropDimensionPx &&
+            height <= MaxNotificationBackdropDimensionPx &&
+            width * height <= MaxNotificationBackdropPixels
+        ) return sampleSize
+        if (sampleSize > Int.MAX_VALUE / 2) return sampleSize
+        sampleSize *= 2
     }
 }
