@@ -1548,3 +1548,16 @@ Source, caller wiring, original feature diff and test additions were statically 
 #### Build execution limitation — 9 November 2026
 
 A single Android/full mobile build was authorised after source review. The connected GitHub integration can inspect workflow definitions/runs/logs and rerun an existing failed job, but exposes no workflow-dispatch action; no Codemagic build runner is connected. An isolated temporary checkout was attempted, but the container could not resolve `github.com` (DNS failure), so there was no source tree available for a local Gradle invocation. No build or CI run was started. Do not interpret the absent run as a passing build. The next available execution path is a GitHub Actions workflow-dispatch-capable connector or a runner with a checkout of this exact branch head.
+
+### 9 November 2026 — Android CI build attempt on the Wi-Fi download fix
+
+The earlier note about no available CI dispatch route was corrected after reviewing previous `ci/nuvio-main-build-testing-*` branches. The established procedure is to create a dedicated `ci/...` branch from the exact candidate head and add a branch-scoped `push` trigger to `.github/workflows/pr-full-debug-build.yml`. This keeps the CI-only trigger outside `main-build-testing` while the workflow checks out the exact candidate source tree.
+
+- Candidate application/docs head: `729f98b9c19aae28010007e6b6dafe5cb89eca1b`.
+- Trigger-only CI branch: `ci/nuvio-main-build-testing-wifi-download-apk-20261109`.
+- CI commit: `c920f815521185fc294fd55a8ee909e61bf4fbc3`. Its only changed file is `.github/workflows/pr-full-debug-build.yml`, adding a `push` filter for that exact CI branch.
+- Workflow run: [42568408099](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42568408099), workflow `PR Full Debug Build`, run number 108.
+- Attempt 1 failed at `./gradlew :androidApp:assembleFullDebug` before Gradle started: the wrapper received HTTP 504 fetching `https://github.com/gradle/gradle-distributions/releases/download/v9.8.2/gradle-9.8.2-bin.zip`.
+- A targeted retry of that same failed job (attempt 2, job `129000294758`) returned the same HTTP 504 from the same distribution URL. Java, Gradle setup action, runtime properties and Rust toolchain steps completed; the Gradle wrapper could not download its distribution.
+- No Kotlin compilation, Android compilation, tests or APK upload ran. No APK artifact exists. This is an external distribution-download failure, not evidence of an application compilation defect.
+- No further identical retries should be made until the Gradle distribution endpoint/network path is known to have recovered or an independently verified alternative source is available. The CI branch is retained for a later retry and does not alter the application branch.
