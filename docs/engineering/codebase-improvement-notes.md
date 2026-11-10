@@ -2227,3 +2227,42 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - Authorise targeted Android host and iOS persistence tests, then exercise migrations on devices, including locked-after-reboot Keychain behaviour and Android Keystore invalidation/reinstall cases.
 - Continue the deferred SAF completed-document finalization recovery after designing a provider-backed identity model; do not use filename-only matching.
+
+
+## 10 November 2026 — reject stale tracking-provider authorization responses
+
+### Confirmed race and implementation
+
+- Trakt device-code startup and browser-code exchange run asynchronously. Cancelling only the polling job cannot stop an already-running HTTP request or callback exchange from completing and mutating/persisting auth state after profile switching or deletion. Trakt's previous `profileGeneration` field was unused by these paths.
+- Simkl had the same issue in its PIN-start request and browser token exchange. Its separate sync repository already uses generation ownership, but the auth repository did not. Its shared API client also invoked an unscoped `onUnauthorized()`; a late 401 from a request sent using an old profile token could invalidate the newly selected profile.
+- Added common `AuthOperationGeneration`, backed by the project's existing atomicfu synchronization primitives. It serializes synchronous state/storage commits with operation invalidation. HTTP operations stay outside the gate; success and failure callbacks may commit only while their captured generation is current. An explicit atomic read captures a Simkl token and its generation together, and `invalidateIfCurrent` advances the generation while clearing state.
+- Trakt now generation-guards device-code startup and polling, OAuth callback/code exchange, token refresh, user-settings persistence and disconnect. A rejected refresh token invalidates the generation so older callbacks cannot repopulate state. Active-profile deletion clears in-memory state and removes its saved payload in the same gate; deleting another profile leaves the current sign-in alone.
+- Simkl now generation-guards PIN startup/polling, OAuth callback exchange, token installation, user-settings persistence, cancel/disconnect and active-profile deletion. The API client's token supplier returns `SimklApiAccessToken(value, generation)`; its 401 callback receives that captured generation, and invalidation succeeds only for the matching session.
+- Kept Simkl's existing pending-PIN restart policy unchanged. The patch does not auto-resume PIN polling on load. Polling ownership uses generation checks rather than unsynchronized reads of mutable pending-code state.
+- Corrected iOS Trakt Keychain output interop to the repository-established `CFTypeRefVar` pattern. `removeProfile` now checks the Keychain delete result before removing a legacy plaintext entry, preserving that entry if Keychain denies access while protected.
+
+### Regression coverage added/updated
+
+- Common `AuthOperationGenerationTest` covers rejection of a late write after invalidation, current-generation commit and atomic generation snapshot/invalidation.
+- `SimklApiClientTest` now asserts the captured token generation is passed to the 401 callback.
+- Existing Android/iOS Trakt persistence migration tests remain in place.
+- These tests were added/updated but **not executed** under the no-build/no-test instruction. Repository-level suspended-HTTP tests for every Trakt/Simkl path and device-level Keychain/Keystore migration checks remain outstanding.
+
+### Evidence and design decisions
+
+- The repository already uses profile generations to reject stale Simkl sync writes; the auth gate reuses the same ownership model but protects synchronous state+credential commits.
+- Kotlin cancellation guidance: https://kotlinlang.org/docs/cancellation-and-timeouts.html. Cancellation is cooperative and cannot be relied on as the only defence against a result already delivered to an independent scope; the generation check is at the mutation/persistence boundary.
+- Apple Security source/API contract: `SecItemCopyMatching` writes a `CFTypeRef` result and distinguishes `errSecItemNotFound` from other errors: https://github.com/apple-oss-distributions/security/blob/main/keychain/headers/SecItem.h and https://github.com/apple-oss-distributions/security/blob/main/keychain/securityd/SecItemDb.c.
+- iOS Keychain item storage remains device-only (`AfterFirstUnlockThisDeviceOnly`); Android continues using Keystore-backed AES-GCM and the same profile-scoped preference key. No website-managed configuration, UI or API payload was changed.
+
+### Verification boundary
+
+- Target branch parent was checked at `8f1d33147bd9b1bf304b89ffecdb872070d69b2f`; no local checkout is mounted, so local `git status` cannot be inspected.
+- Static source/call-site review only. No Gradle tasks, tests, builds, CI, simulator/device runs, Keychain/Keystore operations or performance traces were started. Compilation/API compatibility and runtime cancellation/migration semantics remain unverified.
+- The iOS Keychain out-pointer change follows an established sibling implementation in this repository; no iOS compile has been run.
+
+### Next starting point
+
+- Add deterministic repository-level tests with suspended fake HTTP engines for profile switch/delete during Trakt device-code start, browser exchange, refresh, and Simkl PIN start/browser exchange/401.
+- Authorise targeted Android host and iOS tests and run Keychain/Keystore migration on devices, including locked-after-reboot Keychain reads and Android Keystore invalidation/reinstall.
+- Return to the deferred SAF completed-document finalization gap only after a durable provider identity/recovery model is designed; do not use filename-only recovery.

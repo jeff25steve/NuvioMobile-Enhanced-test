@@ -13,7 +13,7 @@ import platform.CoreFoundation.CFDataCreate
 import platform.CoreFoundation.CFDataGetBytePtr
 import platform.CoreFoundation.CFDataGetLength
 import platform.CoreFoundation.CFDataRef
-import platform.CoreFoundation.CFDataRefVar
+import platform.CoreFoundation.CFTypeRefVar
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionarySetValue
 import platform.CoreFoundation.CFMutableDictionaryRef
@@ -69,10 +69,12 @@ internal actual object TraktAuthStorage {
 
     actual fun removeProfile(profileId: Int) {
         val status = deleteExisting(profileId)
-        removeLegacyPayload(profileId)
         check(status == errSecSuccess || status == errSecItemNotFound) {
             "Unable to remove protected Trakt credentials (OSStatus $status)"
         }
+        // Keep the legacy copy if Keychain refused deletion (for example, before
+        // the first unlock) so a later unlocked launch can retry cleanup.
+        removeLegacyPayload(profileId)
     }
 
     private fun migrateLegacyPayload(profileId: Int): String? {
@@ -99,9 +101,9 @@ internal actual object TraktAuthStorage {
             CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
             CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
             memScoped {
-                val result = alloc<CFDataRefVar>()
+                val result = alloc<CFTypeRefVar>()
                 result.value = null
-                val status = SecItemCopyMatching(query, result.ptr.reinterpret())
+                val status = SecItemCopyMatching(query, result.ptr)
                 val data: CFDataRef? = if (status == errSecSuccess) {
                     result.value?.reinterpret()
                 } else {

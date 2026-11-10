@@ -39,6 +39,8 @@ internal data class SimklApiRequest(
     val scrobbleStopConflictIsSuccess: Boolean = false,
 )
 
+internal data class SimklApiAccessToken(val value: String, val generation: Long)
+
 internal data class SimklApiResponse(
     val status: Int,
     val body: String,
@@ -64,8 +66,8 @@ internal fun interface SimklHttpEngine {
 
 internal class SimklApiClient(
     private val engine: SimklHttpEngine,
-    private val accessToken: () -> String?,
-    private val onUnauthorized: () -> Unit,
+    private val accessToken: () -> SimklApiAccessToken?,
+    private val onUnauthorized: (Long) -> Unit,
     private val nowEpochMs: () -> Long = SimklPlatformClock::nowEpochMs,
     private val sleep: suspend (Long) -> Unit = { delayMs -> delay(delayMs) },
     private val retryJitterMs: () -> Long = { Random.nextLong(RETRY_JITTER_BOUND_MS + 1L) },
@@ -77,7 +79,7 @@ internal class SimklApiClient(
 
     suspend fun execute(request: SimklApiRequest): SimklApiResponse = requestMutex.withLock {
         val token = if (request.requiresAuthentication) {
-            accessToken()?.takeIf(String::isNotBlank)
+            accessToken()?.takeIf { it.value.isNotBlank() }
                 ?: throw SimklApiException(
                     status = 401,
                     errorCode = "authentication_required",
@@ -101,7 +103,7 @@ internal class SimklApiClient(
                         method = request.method.name,
                         url = buildSimklApiUrl(request.path, request.query),
                         headers = simklRequestHeaders(
-                            accessToken = token,
+                            accessToken = token?.value,
                             contentTypeJson = request.method == SimklHttpMethod.POST,
                         ),
                         body = request.body,
@@ -146,7 +148,7 @@ internal class SimklApiClient(
                     return@withLock response.toApiResponse(isSoftSuccess = true)
                 }
                 SimklResponseAction.REAUTHENTICATE -> {
-                    if (request.requiresAuthentication) onUnauthorized()
+                    if (request.requiresAuthentication) token?.let { onUnauthorized(it.generation) }
                     throw response.toApiException(json)
                 }
                 SimklResponseAction.FAIL -> throw response.toApiException(json)
@@ -242,7 +244,7 @@ internal object SimklApi {
                     maxResponseBodyBytes = SIMKL_MAX_RESPONSE_BODY_BYTES,
                 )
             },
-            accessToken = SimklAuthRepository::authorizedAccessToken,
+            accessToken = SimklAuthRepository::authorizedAccessTokenSnapshot,
             onUnauthorized = SimklAuthRepository::onUnauthorizedResponse,
         )
     }

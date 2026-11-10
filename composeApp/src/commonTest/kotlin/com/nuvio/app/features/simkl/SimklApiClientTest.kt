@@ -288,6 +288,7 @@ class SimklApiClientTest {
             unauthorizedHarness.client.execute(SimklApiRequest(SimklHttpMethod.GET, "/private"))
         }
         assertTrue(unauthorizedHarness.wasUnauthorized)
+        assertEquals(7L, unauthorizedHarness.unauthorizedGeneration)
         assertEquals(1, unauthorizedEngine.requests.size)
     }
 
@@ -317,13 +318,17 @@ class SimklApiClientTest {
         var now = 0L
         val sleeps = mutableListOf<Long>()
         var wasUnauthorized = false
+        var unauthorizedGeneration: Long? = null
         val client = SimklApiClient(
             engine = engine.also { recording ->
                 recording.now = { now }
                 recording.onResponse = { now += responseDurationMs }
             },
-            accessToken = { "token" },
-            onUnauthorized = { wasUnauthorized = true },
+            accessToken = { SimklApiAccessToken("token", 7L) },
+            onUnauthorized = { generation ->
+                wasUnauthorized = true
+                unauthorizedGeneration = generation
+            },
             nowEpochMs = { now },
             sleep = { delayMs ->
                 sleeps += delayMs
