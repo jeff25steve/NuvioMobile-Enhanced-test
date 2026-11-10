@@ -85,11 +85,21 @@ interface LiquidGlassBackdropHost {
     fun release() {}
 }
 
+/** Shared gate for a live backdrop; host-backed sources must finish positioning first. */
+internal fun shouldUseLiquidGlassBackdrop(
+    backdropPresent: Boolean,
+    platformSupported: Boolean,
+    hostReady: Boolean,
+): Boolean = backdropPresent && platformSupported && hostReady
+
 /** True only when a glass surface has a usable backdrop source on this platform. */
 internal fun isLiquidGlassBackdropReady(backdrop: Backdrop?): Boolean {
-    if (backdrop == null || !isLiquidGlassAvailable()) return false
     val host = backdrop as? LiquidGlassBackdropHost
-    return host?.isReady ?: true
+    return shouldUseLiquidGlassBackdrop(
+        backdropPresent = backdrop != null,
+        platformSupported = isLiquidGlassAvailable(),
+        hostReady = host?.isReady ?: true,
+    )
 }
 
 val LocalLiquidGlassBackdrop = staticCompositionLocalOf<Backdrop?> { null }
@@ -408,8 +418,9 @@ internal fun Modifier.liquidGlassSurface(
             clip(shape).background(fallback, shape)
         }
     }
-    if (backdrop == null) {
-        // No source means there is nothing to blur or refract; retain the same static film.
+    if (!isLiquidGlassBackdropReady(backdrop)) {
+        // A source object may exist before its layout coordinates are ready. Until it can
+        // provide pixels, keep the visible fallback instead of drawing an empty backdrop effect.
         return liquidGlassStaticFallbackSurface(shape, tint, fallback, fallbackBrush)
     }
 

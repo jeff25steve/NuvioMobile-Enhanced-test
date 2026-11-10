@@ -72,6 +72,7 @@ import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
@@ -133,6 +134,8 @@ fun SearchScreen(
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SEARCH)
     val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.SEARCH, platformSupported = true)
+    // Native iOS controls own their material; only the Compose renderer needs a captured backdrop.
+    val searchBackdropCaptureEnabled = searchGlassEnabled && !nativeSearchEnabled && isLiquidGlassAvailable()
     var searchHeaderHeight by remember { mutableStateOf(152.dp) }
     val density = LocalDensity.current
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -301,330 +304,258 @@ fun SearchScreen(
             stringResource(Res.string.compose_search_discover_title)
         }
 
-        androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
+        NuvioScreen(
+            horizontalPadding = 0.dp,
+            topPadding = searchHeaderHeight,
+            listState = listState,
+            autoHidesNativeTabBar = true,
+            transparentBackground = searchGlassEnabled,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (searchBackdropCaptureEnabled) {
+                        Modifier.nuvioBackdropSource(searchBackdrop)
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
+            if (query.isBlank()) {
+                if (isSearchFocused && recentSearches.isNotEmpty()) {
+                    item(key = "recent_searches") {
+                        SearchRecentSection(
+                            recentSearches = recentSearches,
+                            onSearchPress = { recentQuery -> query = recentQuery },
+                            onRemoveSearch = SearchHistoryRepository::removeSearch,
+                        )
+                    }
+                }
+                discoverContent(
+                    state = discoverUiState,
+                    isSourceLoading = addonManifestsLoading,
+                    columns = discoverColumns,
+                    networkCondition = networkStatusUiState.condition,
+                    onTypeSelected = SearchRepository::selectDiscoverType,
+                    onCatalogSelected = SearchRepository::selectDiscoverCatalog,
+                    onGenreSelected = SearchRepository::selectDiscoverGenre,
+                    onRetry = {
+                        NetworkStatusRepository.requestRefresh(force = true)
+                        if (addonsUiState.addons.firstEnabledManifestError() != null) {
+                            AddonRepository.refreshAll()
+                        } else {
+                            SearchRepository.refreshDiscover(
+                                addons = addonsUiState.addons,
+                                forceRefresh = true,
+                            )
+                        }
+                    },
+                    watchedKeys = watchedUiState.watchedKeys,
+                    fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
+                    onPosterClick = onPosterClick,
+                    onPosterLongClick = onPosterLongClick,
+                )
+            } else {
+                val normalizedQuery = query.trim()
+                val isWaitingForSearch = normalizedQuery.isNotBlank() && lastRequestedQuery != normalizedQuery
+                when {
+                    isWaitingForSearch -> {
+                        items(2) {
+                            HomeSkeletonRow(
+                                modifier = Modifier.padding(horizontal = homeSectionPadding),
+                            )
+                        }
+                    }
+
+                    (uiState.isLoading || addonManifestsLoading) && uiState.sections.isEmpty() -> {
+                        items(2) {
+                            HomeSkeletonRow(
+                                modifier = Modifier.padding(horizontal = homeSectionPadding),
+                            )
+                        }
+                    }
+
+                    uiState.sections.isEmpty() -> {
+                        item {
+                            SearchEmptyStateCard(
+                                reason = uiState.emptyStateReason,
+                                errorMessage = uiState.errorMessage,
+                                networkCondition = networkStatusUiState.condition,
+                                onRetry = {
+                                    if (normalizedQuery.isNotBlank()) {
+                                        NetworkStatusRepository.requestRefresh(force = true)
+                                        if (addonsUiState.addons.firstEnabledManifestError() != null) {
+                                            AddonRepository.refreshAll()
+                                        } else {
+                                            SearchRepository.search(
+                                                query = normalizedQuery,
+                                                addons = addonsUiState.addons,
+                                                forceRefresh = true,
+                                            )
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.padding(horizontal = homeSectionPadding),
+                            )
+                        }
+                    }
+
+                    else -> {
+                        items(
+                            items = uiState.sections.withDuplicateSafeLazyKeys { section -> section.key },
+                            key = { section -> section.lazyKey },
+                        ) { keyedSection ->
+                            val section = keyedSection.value
+                            HomeCatalogRowSection(
+                                section = section,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                                watchedKeys = watchedUiState.watchedKeys,
+                                fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
+                                onPosterClick = onPosterClick,
+                                onPosterLongClick = onPosterLongClick,
+                            )
+                        }
+                        if (uiState.isLoading) {
+                            item(key = "search_loading_more") {
+                                HomeSkeletonRow(
+                                    modifier = Modifier.padding(horizontal = homeSectionPadding),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (searchGlassEnabled) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background),
-            ) {
-                androidx.compose.foundation.layout.Column(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    NuvioScreenHeader(
-                        title = headerTitle,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        actions = {
-                            NuvioIconActionButton(
-                                icon = if (searchShown) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = stringResource(Res.string.compose_nav_search),
-                                onClick = {
-                                    if (searchShown) {
-                                        query = ""
-                                        isSearchFocused = false
-                                        isSearchVisible = false
-                                    } else {
-                                        isSearchVisible = true
-                                        searchFocusRequest++
-                                    }
-                                },
-                            )
-                        },
-                    )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                    AnimatedVisibility(
-                        visible = searchShown,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut(),
-                    ) {
-                    androidx.compose.foundation.layout.Column {
-                    LaunchedEffect(searchFocusRequest) {
-                        if (searchFocusRequest > 0) runCatching { focusRequester.requestFocus() }
+                    .height(searchHeaderHeight)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.62f),
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.34f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+            )
+        }
+
+        CompositionLocalProvider(
+            LocalLiquidGlassBackdrop provides if (searchBackdropCaptureEnabled) searchBackdrop else null,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size ->
+                        val measuredHeight = with(density) { size.height.toDp() }
+                        if (measuredHeight != searchHeaderHeight) {
+                            searchHeaderHeight = measuredHeight
+                        }
                     }
-                    androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        NuvioInputField(
-                            value = query,
-                            onValueChange = { query = it },
-                            placeholder = stringResource(Res.string.compose_search_placeholder),
-                            shape = RoundedCornerShape(NuvioTokens.Radius.xl),
-                            modifier = Modifier
-                                .focusRequester(focusRequester)
-                                .onFocusChanged { isSearchFocused = it.isFocused },
-                            trailingContent = if (query.isNotBlank()) {
+                    .zIndex(1f)
+                    .then(
+                        if (searchGlassEnabled) Modifier
+                        else Modifier.background(MaterialTheme.colorScheme.background),
+                    ),
+            ) {
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        NuvioScreenHeader(
+                            title = headerTitle,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            val defaultSearchFieldShape = RoundedCornerShape(18.dp)
+                            val searchFieldShape = if (searchGlassEnabled) {
+                                liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
+                            } else {
+                                defaultSearchFieldShape
+                            }
+                            val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
                                 {
                                     IconButton(onClick = { query = "" }) {
                                         Icon(
                                             imageVector = Icons.Rounded.Close,
                                             contentDescription = stringResource(Res.string.compose_search_clear),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = liquidGlassIconTint(
+                                                LiquidGlassSurface.SEARCH,
+                                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                            ),
                                         )
                                     }
                                 }
                             } else {
                                 null
-                            },
-                        )
-                    }
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
-                    }
-                    }
-                    if (query.isBlank()) {
-                        DiscoverFilterRow(
-                            state = discoverUiState,
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 8.dp, bottom = 14.dp),
-                            onTypeSelected = SearchRepository::selectDiscoverType,
-                            onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                            onGenreSelected = SearchRepository::selectDiscoverGenre,
-                        )
-                    }
-                }
-            }
-
-            NuvioScreen(
-                horizontalPadding = 0.dp,
-                topPadding = 0.dp,
-                listState = listState,
-                autoHidesNativeTabBar = true,
-                modifier = Modifier.weight(1f),
-            ) {
-                    if (query.isBlank()) {
-                        if (isSearchFocused && recentSearches.isNotEmpty()) {
-                            item(key = "recent_searches") {
-                                SearchRecentSection(
-                                    recentSearches = recentSearches,
-                                    onSearchPress = { recentQuery -> query = recentQuery },
-                                    onRemoveSearch = SearchHistoryRepository::removeSearch,
+                            }
+                            if (nativeSearchEnabled) {
+                                NuvioNativeLiquidGlassSearchField(
+                                    value = query,
+                                    placeholder = stringResource(Res.string.compose_search_placeholder),
+                                    accessibilityLabel = stringResource(Res.string.compose_nav_search),
+                                    focusRequestCount = searchFocusRequest,
+                                    shouldBeFocused = isSearchFocused,
+                                    onValueChange = { query = it },
+                                    onSearch = {},
+                                    onFocusChanged = { isSearchFocused = it },
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
-                            }
-                        }
-                        discoverContent(
-                            state = discoverUiState,
-                            isSourceLoading = addonManifestsLoading,
-                            columns = discoverColumns,
-                            networkCondition = networkStatusUiState.condition,
-                            onTypeSelected = SearchRepository::selectDiscoverType,
-                            onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                            onGenreSelected = SearchRepository::selectDiscoverGenre,
-                            onRetry = {
-                                NetworkStatusRepository.requestRefresh(force = true)
-                                if (addonsUiState.addons.firstEnabledManifestError() != null) {
-                                    AddonRepository.refreshAll()
-                                } else {
-                                    SearchRepository.refreshDiscover(
-                                        addons = addonsUiState.addons,
-                                        forceRefresh = true,
-                                    )
-                                }
-                            },
-                            watchedKeys = watchedUiState.watchedKeys,
-                            fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
-                            onPosterClick = onPosterClick,
-                            onPosterLongClick = onPosterLongClick,
-                        )
-                    } else {
-                        val normalizedQuery = query.trim()
-                        val isWaitingForSearch = normalizedQuery.isNotBlank() && lastRequestedQuery != normalizedQuery
-                        when {
-                            isWaitingForSearch -> {
-                                items(2) {
-                                    HomeSkeletonRow(
-                                        modifier = Modifier.padding(horizontal = homeSectionPadding),
-                                    )
-                                }
-                            }
-    
-                            (uiState.isLoading || addonManifestsLoading) && uiState.sections.isEmpty() -> {
-                                items(2) {
-                                    HomeSkeletonRow(
-                                        modifier = Modifier.padding(horizontal = homeSectionPadding),
-                                    )
-                                }
-                            }
-    
-                            uiState.sections.isEmpty() -> {
-                                item {
-                                    SearchEmptyStateCard(
-                                        reason = uiState.emptyStateReason,
-                                        errorMessage = uiState.errorMessage,
-                                        networkCondition = networkStatusUiState.condition,
-                                        onRetry = {
-                                            if (normalizedQuery.isNotBlank()) {
-                                                NetworkStatusRepository.requestRefresh(force = true)
-                                                if (addonsUiState.addons.firstEnabledManifestError() != null) {
-                                                    AddonRepository.refreshAll()
-                                                } else {
-                                                    SearchRepository.search(
-                                                        query = normalizedQuery,
-                                                        addons = addonsUiState.addons,
-                                                        forceRefresh = true,
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.padding(horizontal = homeSectionPadding),
-                                    )
-                                }
-                            }
-    
-                            else -> {
-                                items(
-                                    items = uiState.sections.withDuplicateSafeLazyKeys { section -> section.key },
-                                    key = { section -> section.lazyKey },
-                                ) { keyedSection ->
-                                    val section = keyedSection.value
-                                    HomeCatalogRowSection(
-                                        section = section,
-                                        modifier = Modifier.padding(bottom = 12.dp),
-                                        watchedKeys = watchedUiState.watchedKeys,
-                                        fullyWatchedSeriesKeys = fullyWatchedSeriesKeys,
-                                        onPosterClick = onPosterClick,
-                                        onPosterLongClick = onPosterLongClick,
-                                    )
-                                }
-                                if (uiState.isLoading) {
-                                    item(key = "search_loading_more") {
-                                        HomeSkeletonRow(
-                                            modifier = Modifier.padding(horizontal = homeSectionPadding),
+                            } else if (searchGlassEnabled) {
+                                LiquidGlassTextContrastScope(enabled = true) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .liquidGlassForSurface(
+                                                surface = LiquidGlassSurface.SEARCH,
+                                                shape = searchFieldShape,
+                                                tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                                                fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                                blurRadius = 12.dp,
+                                                refractionHeight = 6.dp,
+                                                refractionAmount = 9.dp,
+                                            ),
+                                    ) {
+                                        NuvioInputField(
+                                            value = query,
+                                            onValueChange = { query = it },
+                                            placeholder = stringResource(Res.string.compose_search_placeholder),
+                                            modifier = Modifier
+                                                .focusRequester(focusRequester)
+                                                .onFocusChanged { isSearchFocused = it.isFocused },
+                                            trailingContent = trailingContent,
+                                            containerColor = Color.Transparent,
+                                            shape = searchFieldShape,
+                                            showOutline = shouldDrawNuvioInputFieldOutline(
+                                                glassSurfaceEnabled = searchGlassEnabled,
+                                                glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
+                                            ),
                                         )
                                     }
                                 }
+                            } else {
+                                NuvioInputField(
+                                    value = query,
+                                    onValueChange = { query = it },
+                                    placeholder = stringResource(Res.string.compose_search_placeholder),
+                                    modifier = Modifier
+                                        .focusRequester(focusRequester)
+                                        .onFocusChanged { isSearchFocused = it.isFocused },
+                                    trailingContent = trailingContent,
+                                )
                             }
                         }
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
                     }
                 }
             }
-
-            if (searchGlassEnabled) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(searchHeaderHeight)
-                        .align(Alignment.TopCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.62f),
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.34f),
-                                    Color.Transparent,
-                                ),
-                            ),
-                        ),
-                )
-            }
-
-            CompositionLocalProvider(
-                LocalLiquidGlassBackdrop provides if (searchGlassEnabled) searchBackdrop else null,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { size ->
-                            val measuredHeight = with(density) { size.height.toDp() }
-                            if (measuredHeight != searchHeaderHeight) {
-                                searchHeaderHeight = measuredHeight
-                            }
-                        }
-                        .zIndex(1f)
-                        .then(
-                            if (searchGlassEnabled) Modifier
-                            else Modifier.background(MaterialTheme.colorScheme.background),
-                        ),
-                ) {
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        androidx.compose.foundation.layout.Column(
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            NuvioScreenHeader(
-                                title = headerTitle,
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                            )
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                val defaultSearchFieldShape = RoundedCornerShape(18.dp)
-                                val searchFieldShape = if (searchGlassEnabled) {
-                                    liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
-                                } else {
-                                    defaultSearchFieldShape
-                                }
-                                val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
-                                    {
-                                        IconButton(onClick = { query = "" }) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Close,
-                                                contentDescription = stringResource(Res.string.compose_search_clear),
-                                                tint = liquidGlassIconTint(
-                                                    LiquidGlassSurface.SEARCH,
-                                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                                ),
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    null
-                                }
-                                if (nativeSearchEnabled) {
-                                    NuvioNativeLiquidGlassSearchField(
-                                        value = query,
-                                        placeholder = stringResource(Res.string.compose_search_placeholder),
-                                        accessibilityLabel = stringResource(Res.string.compose_nav_search),
-                                        focusRequestCount = searchFocusRequest,
-                                        shouldBeFocused = isSearchFocused,
-                                        onValueChange = { query = it },
-                                        onSearch = {},
-                                        onFocusChanged = { isSearchFocused = it },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                } else if (searchGlassEnabled) {
-                                    LiquidGlassTextContrastScope(enabled = true) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .liquidGlassForSurface(
-                                                    surface = LiquidGlassSurface.SEARCH,
-                                                    shape = searchFieldShape,
-                                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
-                                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                                    blurRadius = 12.dp,
-                                                    refractionHeight = 6.dp,
-                                                    refractionAmount = 9.dp,
-                                                ),
-                                        ) {
-                                            NuvioInputField(
-                                                value = query,
-                                                onValueChange = { query = it },
-                                                placeholder = stringResource(Res.string.compose_search_placeholder),
-                                                modifier = Modifier
-                                                    .focusRequester(focusRequester)
-                                                    .onFocusChanged { isSearchFocused = it.isFocused },
-                                                trailingContent = trailingContent,
-                                                containerColor = Color.Transparent,
-                                                shape = searchFieldShape,
-                                                showOutline = shouldDrawNuvioInputFieldOutline(
-                                                    glassSurfaceEnabled = searchGlassEnabled,
-                                                    glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
-                                                ),
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    NuvioInputField(
-                                        value = query,
-                                        onValueChange = { query = it },
-                                        placeholder = stringResource(Res.string.compose_search_placeholder),
-                                        modifier = Modifier
-                                            .focusRequester(focusRequester)
-                                            .onFocusChanged { isSearchFocused = it.isFocused },
-                                        trailingContent = trailingContent,
-                                    )
-                                }
-                            }
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
-                        }
-                    }
-                }
-            }
+        }
         }
     }
 
