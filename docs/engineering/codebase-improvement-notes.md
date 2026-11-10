@@ -1723,3 +1723,35 @@ Added `HomeScreenTest` coverage for multiple timestamps per series, a valid `Lon
 ### Next starting point
 
 Continue with Home/first-content paths, but profile before changing concurrency or repository initialisation. Revisit the collection cache only with an explicit profile-generation/loading contract shared by async initialisation and all synchronous callers.
+
+### 10 November 2026 — avoid reparsing release dates while sorting Home Upcoming
+
+#### Confirmed hotspot and implementation
+
+`splitUpcomingItems()` runs from the Home continuation projection when the user selects `SPLIT_UPCOMING`. It previously parsed each eligible Next Up release once while partitioning, then parsed both comparator operands again during the stable sort. The shared parser in `EpisodeReleaseDateParser.kt` performs regex matching, component validation and timestamp conversion; local timestamps also cross into the platform timezone conversion.
+
+The split-mode path now makes one pass over the input, preserving the original order of the main row and storing each future Next Up item with its already-resolved epoch millisecond value. It then sorts those candidates in place by the cached `Long` using `MutableList.sortBy` and projects the item list. This keeps sort work at O(u log u) comparisons but reduces release-parser invocations from comparator-driven O(u log u) additional parses to at most one parse per Next Up item (u = input Next Up candidates). It also removes the old comparator's null branches, which were unreachable for the `upcoming` list because its partition predicate already required a non-null future timestamp.
+
+#### Semantics and trade-offs
+
+- Non-split modes still return the original input list and an empty Upcoming list without parsing dates.
+- Non-Next-Up items are not parsed and remain in the main list.
+- Aired, missing or invalid releases remain in the main list; only strictly future, parseable Next Up entries enter Upcoming.
+- Sorting remains ascending by absolute release instant, so equivalent timestamp strings with different offsets compare equal.
+- The official Kotlin `MutableList.sortBy` contract states that sorting is in place and stable; equal timestamps therefore retain their source order, matching the previous stable `sortedWith` behavior.
+- The temporary candidate list stores one `(epochMillis, item)` pair per Upcoming entry, then projects the output list. No dependency, dispatcher, persistence, player, navigation, UI or platform implementation changed.
+
+#### Independent evidence
+
+- Repository parser: [EpisodeReleaseDateParser.kt](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/commonMain/kotlin/com/nuvio/app/core/time/EpisodeReleaseDateParser.kt).
+- Kotlin [MutableList.sortBy](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/sort-by.html) API documents both in-place sorting and stable ordering.
+- Kotlin [sortedWith](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/sorted-with.html) documents the previous stable ordering contract.
+- Context7's Kotlin documentation confirms the in-place mutable-list operation; Exa independently returned the official standard-library API text for the stable guarantee.
+
+#### Regression and verification boundary
+
+Added a regression test with two different offset strings representing the same instant, asserting that their relative input order survives the sort. The existing partition test continues to cover aired, unknown, in-progress and future entries at source level. Tests were not executed because build-triggering tests are explicitly prohibited until authorised. No build, CI, emulator, simulator or device profiler was started. The source establishes fewer parser calls; runtime CPU, frame-time and memory impact remain unmeasured.
+
+#### Next starting point
+
+Continue to audit other independent Home/first-content paths. Do not infer startup or scrolling gains from this projection change; measure those on release-like Android and iOS builds once profiling/build execution is authorised.

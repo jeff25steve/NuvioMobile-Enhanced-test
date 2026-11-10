@@ -265,6 +265,35 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `split upcoming keeps source order for matching release instants`() {
+        val nowEpochMs = requireNotNull(parseReleaseDateToEpochMs("2026-07-19T12:00:00Z"))
+        val later = continueWatchingItem(
+            videoId = "later:1:2",
+            subtitle = "S1E2 • Later",
+        ).copy(released = "2026-07-21T00:00:00Z")
+        val firstAtSameInstant = continueWatchingItem(
+            videoId = "first:1:2",
+            subtitle = "S1E2 • First",
+        ).copy(released = "2026-07-20T00:00:00Z")
+        val equivalentOffset = continueWatchingItem(
+            videoId = "offset:1:2",
+            subtitle = "S1E2 • Offset",
+        ).copy(released = "2026-07-20T02:00:00+02:00")
+
+        val (main, upcoming) = splitUpcomingItems(
+            items = listOf(later, firstAtSameInstant, equivalentOffset),
+            mode = ContinueWatchingSortMode.SPLIT_UPCOMING,
+            nowEpochMs = nowEpochMs,
+        )
+
+        assertTrue(main.isEmpty())
+        assertEquals(
+            listOf("first:1:2", "offset:1:2", "later:1:2"),
+            upcoming.map(ContinueWatchingItem::videoId),
+        )
+    }
+
+    @Test
     fun `non split sort modes keep upcoming episodes in continue watching`() {
         val futureItem = continueWatchingItem(
             videoId = "future:1:2",

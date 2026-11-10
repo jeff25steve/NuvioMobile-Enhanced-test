@@ -1737,21 +1737,24 @@ internal fun splitUpcomingItems(
         return items to emptyList()
     }
 
-    val (upcoming, main) = items.partition { item ->
-        item.isNextUp && parseReleaseDateToEpochMs(item.released)
-            ?.let { releaseEpochMs -> releaseEpochMs > nowEpochMs } == true
-    }
-    val sortedUpcoming = upcoming.sortedWith { first, second ->
-        val firstRelease = parseReleaseDateToEpochMs(first.released)
-        val secondRelease = parseReleaseDateToEpochMs(second.released)
-        when {
-            firstRelease == null && secondRelease == null -> 0
-            firstRelease == null -> 1
-            secondRelease == null -> -1
-            else -> firstRelease.compareTo(secondRelease)
+    val main = mutableListOf<ContinueWatchingItem>()
+    val upcoming = mutableListOf<Pair<Long, ContinueWatchingItem>>()
+    for (item in items) {
+        val releaseEpochMs = if (item.isNextUp) {
+            parseReleaseDateToEpochMs(item.released)
+        } else {
+            null
+        }
+        if (releaseEpochMs != null && releaseEpochMs > nowEpochMs) {
+            upcoming += releaseEpochMs to item
+        } else {
+            main += item
         }
     }
-    return main to sortedUpcoming
+
+    // sortBy is stable, so episodes with the same release instant retain their source order.
+    upcoming.sortBy { it.first }
+    return main to upcoming.map { it.second }
 }
 
 private fun applyStreamingStyleSort(
