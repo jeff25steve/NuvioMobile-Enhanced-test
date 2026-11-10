@@ -60,6 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -219,7 +221,12 @@ fun NuvioScreenHeader(
         defaultShape = tokens.shapes.compactCard,
     )
     val headerBackgroundModifier = backgroundBrushOverride?.let { brush ->
-        Modifier.background(brush)
+        Modifier.drawBehind {
+            val drawableHeight = (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
+            if (drawableHeight > 0f) {
+                drawRect(brush = brush, size = Size(size.width, drawableHeight))
+            }
+        }
     } ?: Modifier.background(
         if (glassSurface != null && settingsGlassEnabled) {
             Color.Transparent
@@ -260,7 +267,7 @@ fun NuvioScreenHeader(
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .background(tokens.colors.background)
+                .then(headerBackgroundModifier)
                 .nuvioConsumePointerEvents(),
         ) {}
         if (settingsGlassEnabled) {

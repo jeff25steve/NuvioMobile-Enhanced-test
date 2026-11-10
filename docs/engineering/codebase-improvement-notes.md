@@ -2266,3 +2266,36 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Add deterministic repository-level tests with suspended fake HTTP engines for profile switch/delete during Trakt device-code start, browser exchange, refresh, and Simkl PIN start/browser exchange/401.
 - Authorise targeted Android host and iOS tests and run Keychain/Keystore migration on devices, including locked-after-reboot Keychain reads and Android Keystore invalidation/reinstall.
 - Return to the deferred SAF completed-document finalization gap only after a durable provider identity/recovery model is designed; do not use filename-only recovery.
+
+
+## 10 November 2026 — restore Search's single glass header and connect its backdrop source
+
+### Confirmed regression
+
+- The main-build-testing branch's Search screen had two separate headers after the Liquid Glass merge: the original Discover/Search action header and a second overlay header with a permanently visible search field. The overlay obscured the original action, so the Discover-to-Search reveal interaction could not work as designed and the non-glass/header tree duplicated controls.
+- The same merge left nuvioBackdropSource imported but never applied in SearchScreen.kt. The allocated NuvioBackdrop therefore never received source coordinates; it could not record the Discover poster list for the glass field to sample. NuvioScreen also remained in a lower weighted column with a zero top inset rather than filling the screen behind the pinned overlay.
+- The original Liquid Glass merge parent (c523478227818278c2b382e405ffd23f673667bd) and the Search surface preview in LiquidGlassSurfacesSettingsSheet.kt both use the intended pattern: a full-screen source Box containing only the scrolling list, dynamic list top padding equal to the measured pinned header height, then sibling gradient and glass/header overlays. This separation also prevents the glass surface from being recorded as part of its own backdrop.
+
+### Changes
+
+- Restored Search to one pinned NuvioScreenHeader with the Search/Close action. The search field now reveals through the existing vertical/fade animation and receives the same Compose focus request; iOS native Liquid Glass search still receives the request counter and focused state.
+- Moved the existing Discover filter row into the same pinned overlay, preserving its placement and callbacks. Search/Discover repository calls, server-configuration revision keys, pagination, list state, network recovery, result rendering and query debounce are unchanged.
+- The scrolling NuvioScreen now fills a dedicated full-screen source Box behind the header and uses the measured searchHeaderHeight as top padding. The gradient and interactive glass/header controls are siblings outside the captured source.
+- Allocate the Search NuvioBackdrop only when the Compose glass search path is active and the platform RenderEffect renderer is available. The native iOS search control and non-glass/unsupported paths no longer create an unused graphics layer.
+- Corrected NuvioScreenHeader to actually apply its existing backgroundBrushOverride and backgroundBrushBottomInset parameters. The header underlay now draws a custom brush behind content and limits its drawn height before the configured bottom inset. This restores the Library Cloud artwork fade and Saved glass scrim behaviour which previously passed these values into a computed-but-unused modifier.
+
+### Decisions and rejected approach
+
+- Kept the shared Backdrop readiness contract unchanged. NuvioBackdrop implements LiquidGlassBackdropHost and reports isReady only after nuvioBackdropSource supplies attached source coordinates. The generic host?.isReady ?: true fallback is necessary for valid Kyant Backdrop implementations such as LayerBackdrop/CanvasBackdrop, which do not implement Nuvio's optional host interface. The Search source wiring was the defect; changing generic readiness semantics would risk breaking other Backdrop types.
+- No new dependencies, settings, persistence, backend calls, platform-specific code or build configuration were introduced.
+
+### Evidence and verification boundary
+
+- Inspected the current branch head and original merge parents, current Search/Library/Settings screens, Search surface preview, NuvioScreen and NuvioScreenHeader internals, all known backdrop source usages, and the pinned Kyant Backdrop 2.0.1 Backdrop/LayerBackdrop/DrawBackdropModifier source. Context7 Compose documentation and Exa were used as secondary discovery/cross-checks; the exact same-feature branch implementation and the repository's pinned dependency source were stronger evidence.
+- Source-level review only. No Gradle tasks, tests, builds, CI workflows, simulator or device runs were started, as required. Android/iOS compilation and live rendering/focus behaviour remain unverified.
+- The GitHub integration exposes remote branch/file history, not this session's local checkout. Local git status and any unpushed working-tree changes could not be inspected; the remote branch head was checked before the update and will be checked again for the compare-and-swap update.
+
+### Next starting point
+
+- After explicit authorisation, run focused common Search/UI tests and Android/iOS compile targets; visually verify backdrop sampling during scroll, dynamic header-height changes, Compose keyboard focus, iOS native field focus, and Library Saved/Cloud scrim height on devices.
+- Continue the existing deferred SAF finalization/provider-identity and Android download progress persistence investigations only after their previously recorded evidence requirements are met.

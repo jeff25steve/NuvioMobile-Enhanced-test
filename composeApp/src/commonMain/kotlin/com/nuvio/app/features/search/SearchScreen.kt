@@ -66,13 +66,13 @@ import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.NuvioScreenHeader
 import com.nuvio.app.core.ui.NuvioTokens
-import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.withDuplicateSafeLazyKeys
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.glass.LiquidGlassSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfacePreferenceEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
@@ -128,11 +128,15 @@ fun SearchScreen(
     scrollToTopRequests: Flow<Unit> = emptyFlow(),
 ) {
     val focusRequester = remember { FocusRequester() }
-    val searchBackdrop = rememberNuvioBackdrop()
     val searchGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SEARCH)
     val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.SEARCH, platformSupported = true)
+    val searchBackdrop = if (searchGlassEnabled && !nativeSearchEnabled && isLiquidGlassAvailable()) {
+        rememberNuvioBackdrop()
+    } else {
+        null
+    }
     var searchHeaderHeight by remember { mutableStateOf(152.dp) }
     val density = LocalDensity.current
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -301,93 +305,20 @@ fun SearchScreen(
             stringResource(Res.string.compose_search_discover_title)
         }
 
-        androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Capture only the scrolling layer; the glass overlay must not sample itself.
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background),
+                    .fillMaxSize()
+                    .then(searchBackdrop?.let { Modifier.nuvioBackdropSource(it) } ?: Modifier),
             ) {
-                androidx.compose.foundation.layout.Column(
-                    modifier = Modifier.fillMaxWidth(),
+                NuvioScreen(
+                    horizontalPadding = 0.dp,
+                    topPadding = searchHeaderHeight,
+                    listState = listState,
+                    autoHidesNativeTabBar = true,
+                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    NuvioScreenHeader(
-                        title = headerTitle,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        actions = {
-                            NuvioIconActionButton(
-                                icon = if (searchShown) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = stringResource(Res.string.compose_nav_search),
-                                onClick = {
-                                    if (searchShown) {
-                                        query = ""
-                                        isSearchFocused = false
-                                        isSearchVisible = false
-                                    } else {
-                                        isSearchVisible = true
-                                        searchFocusRequest++
-                                    }
-                                },
-                            )
-                        },
-                    )
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                    AnimatedVisibility(
-                        visible = searchShown,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut(),
-                    ) {
-                    androidx.compose.foundation.layout.Column {
-                    LaunchedEffect(searchFocusRequest) {
-                        if (searchFocusRequest > 0) runCatching { focusRequester.requestFocus() }
-                    }
-                    androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        NuvioInputField(
-                            value = query,
-                            onValueChange = { query = it },
-                            placeholder = stringResource(Res.string.compose_search_placeholder),
-                            shape = RoundedCornerShape(NuvioTokens.Radius.xl),
-                            modifier = Modifier
-                                .focusRequester(focusRequester)
-                                .onFocusChanged { isSearchFocused = it.isFocused },
-                            trailingContent = if (query.isNotBlank()) {
-                                {
-                                    IconButton(onClick = { query = "" }) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = stringResource(Res.string.compose_search_clear),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                    }
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
-                    }
-                    }
-                    if (query.isBlank()) {
-                        DiscoverFilterRow(
-                            state = discoverUiState,
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 8.dp, bottom = 14.dp),
-                            onTypeSelected = SearchRepository::selectDiscoverType,
-                            onCatalogSelected = SearchRepository::selectDiscoverCatalog,
-                            onGenreSelected = SearchRepository::selectDiscoverGenre,
-                        )
-                    }
-                }
-            }
-
-            NuvioScreen(
-                horizontalPadding = 0.dp,
-                topPadding = 0.dp,
-                listState = listState,
-                autoHidesNativeTabBar = true,
-                modifier = Modifier.weight(1f),
-            ) {
                     if (query.isBlank()) {
                         if (isSearchFocused && recentSearches.isNotEmpty()) {
                             item(key = "recent_searches") {
@@ -513,9 +444,7 @@ fun SearchScreen(
                 )
             }
 
-            CompositionLocalProvider(
-                LocalLiquidGlassBackdrop provides if (searchGlassEnabled) searchBackdrop else null,
-            ) {
+            CompositionLocalProvider(LocalLiquidGlassBackdrop provides searchBackdrop) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -531,17 +460,39 @@ fun SearchScreen(
                             else Modifier.background(MaterialTheme.colorScheme.background),
                         ),
                 ) {
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        androidx.compose.foundation.layout.Column(
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            NuvioScreenHeader(
-                                title = headerTitle,
-                                modifier = Modifier.padding(horizontal = 16.dp),
+                    NuvioScreenHeader(
+                        title = headerTitle,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        actions = {
+                            NuvioIconActionButton(
+                                icon = if (searchShown) Icons.Rounded.Close else Icons.Rounded.Search,
+                                contentDescription = stringResource(Res.string.compose_nav_search),
+                                onClick = {
+                                    if (searchShown) {
+                                        query = ""
+                                        isSearchFocused = false
+                                        isSearchVisible = false
+                                    } else {
+                                        isSearchVisible = true
+                                        searchFocusRequest++
+                                    }
+                                },
                             )
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(6.dp))
-                            androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AnimatedVisibility(
+                        visible = searchShown,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut(),
+                    ) {
+                        Column {
+                            LaunchedEffect(searchFocusRequest) {
+                                if (searchFocusRequest > 0 && !nativeSearchEnabled) {
+                                    runCatching { focusRequester.requestFocus() }
+                                }
+                            }
+                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 val defaultSearchFieldShape = RoundedCornerShape(18.dp)
                                 val searchFieldShape = if (searchGlassEnabled) {
                                     liquidGlassShape(LiquidGlassSurface.SEARCH, defaultSearchFieldShape)
@@ -554,16 +505,21 @@ fun SearchScreen(
                                             Icon(
                                                 imageVector = Icons.Rounded.Close,
                                                 contentDescription = stringResource(Res.string.compose_search_clear),
-                                                tint = liquidGlassIconTint(
-                                                    LiquidGlassSurface.SEARCH,
-                                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                                ),
+                                                tint = if (searchGlassEnabled) {
+                                                    liquidGlassIconTint(
+                                                        LiquidGlassSurface.SEARCH,
+                                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
                                             )
                                         }
                                     }
                                 } else {
                                     null
                                 }
+
                                 if (nativeSearchEnabled) {
                                     NuvioNativeLiquidGlassSearchField(
                                         value = query,
@@ -603,7 +559,7 @@ fun SearchScreen(
                                                 shape = searchFieldShape,
                                                 showOutline = shouldDrawNuvioInputFieldOutline(
                                                     glassSurfaceEnabled = searchGlassEnabled,
-                                                    glassRimCanRender = searchGlassEnabled && isLiquidGlassBackdropReady(searchBackdrop),
+                                                    glassRimCanRender = isLiquidGlassBackdropReady(searchBackdrop),
                                                 ),
                                             )
                                         }
@@ -613,6 +569,7 @@ fun SearchScreen(
                                         value = query,
                                         onValueChange = { query = it },
                                         placeholder = stringResource(Res.string.compose_search_placeholder),
+                                        shape = RoundedCornerShape(NuvioTokens.Radius.xl),
                                         modifier = Modifier
                                             .focusRequester(focusRequester)
                                             .onFocusChanged { isSearchFocused = it.isFocused },
@@ -620,13 +577,26 @@ fun SearchScreen(
                                     )
                                 }
                             }
-                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
                         }
+                    }
+                    if (query.isBlank()) {
+                        DiscoverFilterRow(
+                            state = discoverUiState,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 8.dp, bottom = 14.dp),
+                            onTypeSelected = SearchRepository::selectDiscoverType,
+                            onCatalogSelected = SearchRepository::selectDiscoverCatalog,
+                            onGenreSelected = SearchRepository::selectDiscoverGenre,
+                        )
                     }
                 }
             }
         }
     }
+
+}
 
 @Composable
 private fun SearchEmptyStateCard(
