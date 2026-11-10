@@ -1,5 +1,6 @@
 package com.nuvio.app.core.startup
 
+import com.nuvio.app.features.profiles.isProfileCacheLoadGenerationCurrent
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

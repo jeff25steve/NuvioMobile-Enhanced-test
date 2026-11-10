@@ -53,7 +53,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -104,49 +103,59 @@ object ProfileRepository {
         persist()
     }
 
-    suspend fun loadCachedProfiles(): Boolean = profileCacheLoadMutex.withLock {
-        if (loadedCacheForUserId != null) return@withLock _state.value.profiles.isNotEmpty()
+    suspend fun loadCachedProfiles(): Boolean {
+        profileCacheLoadMutex.lock()
+        try {
+            if (loadedCacheForUserId != null) return _state.value.profiles.isNotEmpty()
 
-        val generation = profileCacheGeneration
-        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() } ?: return@withLock false
-        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock false
+            val generation = profileCacheGeneration
+            val stored = withContext(Dispatchers.IO) { decodeStoredPayload() } ?: return false
+            if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return false
 
-        loadedCacheForUserId = stored.userId
-        applyStoredPayload(stored)
-        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock false
+            loadedCacheForUserId = stored.userId
+            applyStoredPayload(stored)
+            if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return false
 
-        ThemeSettingsRepository.onProfileChanged()
-        _state.value.profiles.isNotEmpty()
+            ThemeSettingsRepository.onProfileChanged()
+            return _state.value.profiles.isNotEmpty()
+        } finally {
+            profileCacheLoadMutex.unlock()
+        }
     }
 
-    suspend fun ensureLoaded(userId: String) = profileCacheLoadMutex.withLock {
-        if (loadedCacheForUserId == userId && _state.value.isLoaded) return@withLock
+    suspend fun ensureLoaded(userId: String) {
+        profileCacheLoadMutex.lock()
+        try {
+            if (loadedCacheForUserId == userId && _state.value.isLoaded) return
 
-        val generation = profileCacheGeneration
-        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() }
-        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock
+            val generation = profileCacheGeneration
+            val stored = withContext(Dispatchers.IO) { decodeStoredPayload() }
+            if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return
 
-        loadedCacheForUserId = userId
-        if (stored == null) {
-            _state.value = ProfileState()
-            activeProfileIndex = 1
-            return@withLock
-        }
-
-        if (stored.userId != userId) {
-            // A persisted profile snapshot can belong to a previous account. Clear its
-            // in-memory state and local PIN payloads before suspending so cleanup cannot
-            // overwrite new-account state or remove newly populated cache entries.
-            _state.value = ProfileState()
-            activeProfileIndex = 1
-            withContext(Dispatchers.IO) {
-                (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
-                ProfileBiometricAuth.disable(1, stored.userId)
+            loadedCacheForUserId = userId
+            if (stored == null) {
+                _state.value = ProfileState()
+                activeProfileIndex = 1
+                return
             }
-            return@withLock
-        }
 
-        applyStoredPayload(stored)
+            if (stored.userId != userId) {
+                // A persisted profile snapshot can belong to a previous account. Clear its
+                // in-memory state and local PIN payloads before suspending so cleanup cannot
+                // overwrite new-account state or remove newly populated cache entries.
+                _state.value = ProfileState()
+                activeProfileIndex = 1
+                withContext(Dispatchers.IO) {
+                    (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
+                    ProfileBiometricAuth.disable(1, stored.userId)
+                }
+                return
+            }
+
+            applyStoredPayload(stored)
+        } finally {
+            profileCacheLoadMutex.unlock()
+        }
     }
 
     fun clearInMemory() {
