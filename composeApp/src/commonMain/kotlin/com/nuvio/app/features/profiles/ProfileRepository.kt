@@ -100,7 +100,7 @@ object ProfileRepository {
     }
 
     suspend fun loadCachedProfiles(): Boolean {
-        val stored = decodeStoredPayload() ?: return false
+        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() } ?: return false
         loadedCacheForUserId = stored.userId
         applyStoredPayload(stored)
         ThemeSettingsRepository.onProfileChanged()
@@ -110,7 +110,7 @@ object ProfileRepository {
     suspend fun ensureLoaded(userId: String) {
         if (loadedCacheForUserId == userId && _state.value.isLoaded) return
 
-        val stored = decodeStoredPayload()
+        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() }
         loadedCacheForUserId = userId
         if (stored == null) {
             _state.value = ProfileState()
@@ -124,8 +124,8 @@ object ProfileRepository {
             // overwrite new-account state or remove newly populated cache entries.
             _state.value = ProfileState()
             activeProfileIndex = 1
-            (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
             withContext(Dispatchers.IO) {
+                (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
                 ProfileBiometricAuth.disable(1, stored.userId)
             }
             return

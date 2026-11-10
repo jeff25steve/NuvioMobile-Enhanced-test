@@ -32,6 +32,8 @@ import com.nuvio.app.core.logging.InAppLogger
 import com.nuvio.app.core.network.NetworkCondition
 import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.sync.SyncManager
+import com.nuvio.app.core.startup.StartupPreloader
+import com.nuvio.app.core.startup.shouldLoadProfileCacheFromAppGate
 import com.nuvio.app.core.ui.LocalVerticalBarPadding
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
 import com.nuvio.app.core.ui.NativeTabBridge
@@ -127,7 +129,9 @@ internal fun AppGate(
         InAppLogger.info("App/Runtime", "Starting network/profile/avatar services")
         NetworkStatusRepository.ensureStarted()
         MemberAccessRepository.ensureStarted()
-        ProfileRepository.loadCachedProfiles()
+        if (shouldLoadProfileCacheFromAppGate(StartupPreloader.hasPreloadedProfileCache)) {
+            ProfileRepository.loadCachedProfiles()
+        }
         AvatarRepository.fetchAvatars()
     }
 

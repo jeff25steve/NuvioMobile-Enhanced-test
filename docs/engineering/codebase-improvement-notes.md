@@ -1640,3 +1640,39 @@ The corrected source candidate is `13e802b384d06e5abe04193a73bd7f3c58c84a43` (`f
 - Do not retry while this run remains active. Once it completes, inspect its conclusion, archived Gradle diagnostics and artifact list before deciding the next action.
 
 The application branch remains at `13e802b384d06e5abe04193a73bd7f3c58c84a43`. The CI trigger is isolated on the dedicated CI branch and has not been merged into application source. A local checkout was not available through the connected GitHub interface, so local Git status remains unverified.
+
+## Startup and first-screen latency — duplicate profile hydration and main-thread cache reads (10 November 2026)
+
+### Root cause confirmed in the current branch
+
+Android `MainActivity` awaits `StartupPreloader.awaitReady()` before installing Compose content. The preloader calls `ProfileRepository.loadCachedProfiles()` before the app is displayed. The owning `AppGate` then independently called the same method again in its own startup effect, even on Android. That second hydration reread and deserialized the same profile snapshot, reapplied it, walked the per-profile PIN cache in `applyStoredPayload`, and reloaded ThemeSettingsRepository from platform storage. The app's preloader completion is already a hard barrier, so this duplicate had no readiness benefit.
+
+The profile cache loader also called `ProfileStorage.loadPayload()` and decoded the stored JSON synchronously before its first suspension. `loadCachedProfiles()` is invoked by the Android startup preloader on the main dispatcher; `ensureLoaded(userId)` is invoked by AppGate's auth/profile effects. Their storage/decode work therefore ran on the caller context even though both methods are suspend functions and the repository already uses `Dispatchers.IO` for PIN-cache synchronization and local biometric cleanup.
+
+### Minimal implementation
+
+- `StartupPreloader` now records whether its profile-cache step completed without an exception. The step wrapper returns success/failure while preserving cancellation propagation and the existing per-step error isolation.
+- AppGate consults that process-startup result before calling `loadCachedProfiles()`. Android skips the second profile hydration because its preloader has already completed it. iOS does not call the Android Activity preloader, so the flag remains false and AppGate retains its original one-time cache-load behavior. A failed preload leaves the flag false so AppGate can retry.
+- `ProfileRepository.loadCachedProfiles()` and `ensureLoaded(userId)` now perform the synchronous storage read and JSON decode inside `withContext(Dispatchers.IO)`. StateFlow publication, selection state and ThemeSettingsRepository updates remain on the caller context.
+- The account-mismatch cleanup of profile PIN cache entries now runs on the same IO context as biometric credential removal. The account-owner comparison, local lock cleanup, active-profile selection and biometric disable behavior are unchanged.
+- Added common tests for both AppGate decisions: retain the cache load when no platform preload ran, and skip it when the startup preload completed.
+
+### Why broader preload changes were rejected
+
+The preloader's other steps were not bulk-removed. The October startup optimization previously allowed UI exposure while the repository preload still ran on IO; its follow-up explicitly reverted that after the same non-thread-safe `ensureLoaded()` methods could run concurrently from Main and IO. Also, profile selection invokes many repositories' `onProfileChanged()` hooks, so moving their local reads later can move synchronous storage work onto the UI path. Removing those steps without redesigning and verifying all profile-switch callers would trade a predictable preload for late work and possible races.
+
+Likewise, the existing Android Baseline Profile generator already covers startup and Home scrolling, and the release app already merges generated Baseline Profiles. No duplicate profile generator, dependency, App Startup library, or new startup service was added. The current Liquid Glass rendering and image-loader architecture were left intact; Coil's guidance already recommends one shared ImageLoader, which Android provides through `NuvioApplication`.
+
+### Evidence and trade-offs
+
+- Android's official [app startup best practices](https://developer.android.com/topic/performance/appstartup/best-practices) recommend delaying work that is not required for the first frame and emphasize keeping initial composition lightweight.
+- JetBrains' [Compose Multiplatform benchmark README](https://github.com/JetBrains/compose-multiplatform/blob/master/benchmarks/multiplatform/README.md) defines a STARTUP mode that reports time to first frame, first-frame duration and subsequent startup frames. That is the right measurement path once device/build profiling is authorised; source inspection alone does not quantify the gain.
+- Coil's [ImageLoader documentation](https://github.com/coil-kt/coil/blob/main/docs/image_loaders.md) says one shared ImageLoader avoids per-loader memory caches, disk caches and HTTP clients. The app already follows this pattern, so no loader rebuild was warranted.
+- Kotlin Multiplatform already uses `Dispatchers.IO` for profile PIN-cache and biometric storage operations in this repository; the change reuses the project's existing coroutine and dispatcher APIs. No compiler, dependency or platform API changes were introduced.
+
+### Verification boundary and next step
+
+Source-level review confirmed the Android call order (preloader awaited before `setContent`), the duplicate AppGate call, the profile storage/decode call sites, existing IO usage, and account-cleaner invalidation via `ProfileRepository.clearInMemory()`. The new common tests were added but not executed. No Gradle build, test task, CI workflow, simulator, emulator or device profile was started, as required. This is a justified reduction in duplicate work and main-thread I/O by code-path analysis; the exact cold-start improvement remains unmeasured.
+
+Next, when authorised, capture repeated cold-start traces on a physical Android device and a representative iPhone. On Android use a release-like profileable build and the existing Baseline Profile journey; report process start-to-first-frame, first useful Home content, main-thread I/O slices, and P50/P90 over multiple cold launches. Do not claim a percentage gain from static source inspection.
+

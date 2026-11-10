@@ -30,6 +30,10 @@ private const val SlowPreloadWarningMs = 6_000L
 object StartupPreloader {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Deferred<Unit>? = null
+    private var profileCachePreloaded = false
+
+    val hasPreloadedProfileCache: Boolean
+        get() = profileCachePreloaded
 
     val isComplete: Boolean
         get() = job?.isCompleted == true
@@ -44,7 +48,7 @@ object StartupPreloader {
 
     private fun start(): Deferred<Unit> = scope.async {
         val started = TimeSource.Monotonic.markNow()
-        step("profiles") { ProfileRepository.loadCachedProfiles() }
+        profileCachePreloaded = step("profiles") { ProfileRepository.loadCachedProfiles() }
         withContext(Dispatchers.IO) {
             step("library") { LibraryRepository.ensureLoaded() }
             step("watched") { WatchedRepository.ensureLoaded() }
@@ -61,13 +65,19 @@ object StartupPreloader {
         InAppLogger.info(LogTag, "preloaded in ${started.elapsedNow().inWholeMilliseconds}ms")
     }.also { job = it }
 
-    private inline fun step(name: String, block: () -> Unit) {
-        try {
+    private inline fun <T> step(name: String, block: () -> T): Boolean {
+        return try {
             block()
+            true
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Throwable) {
             InAppLogger.warn(LogTag, "$name failed: ${error::class.simpleName}: ${error.message}")
+            false
         }
     }
 }
+
+internal fun shouldLoadProfileCacheFromAppGate(startupPreloadCompleted: Boolean): Boolean =
+    !startupPreloadCompleted
+
