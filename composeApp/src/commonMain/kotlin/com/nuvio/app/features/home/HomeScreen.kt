@@ -1342,7 +1342,7 @@ internal fun filterHomeNextUpCandidatesForContinueWatchingWindow(
 internal fun buildLatestCompletedAtBySeries(
     candidates: List<CompletedSeriesCandidate>,
 ): Map<String, Long> {
-    val latestBySeries = LinkedHashMap<String, Long>(candidates.size)
+    val latestBySeries = LinkedHashMap<String, Long>()
     for (candidate in candidates) {
         val seriesId = candidate.content.id
         val currentTimestamp = latestBySeries[seriesId]
