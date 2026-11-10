@@ -16,6 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -98,6 +99,80 @@ class AndroidDownloadLifecycleTest {
 
         assertNotEquals(first.generation, resumed.generation)
         assertEquals(resumed, store.get(first.item.fileName))
+    }
+
+    @Test
+    fun pauseIfDownloadingOnlyTransitionsTheMatchingActiveGeneration() {
+        val store = AndroidDownloadStore(temporary.newFolder())
+        val transfer = store.begin(downloadItem())
+
+        val paused = assertNotNull(store.pauseIfDownloading(transfer.item.fileName, transfer.generation))
+
+        assertEquals(DownloadStatus.Paused, paused.item.status)
+        assertNull(store.pauseIfDownloading(transfer.item.fileName, transfer.generation))
+        assertEquals(paused, store.get(transfer.item.fileName))
+    }
+
+    @Test
+    fun pauseIfDownloadingCannotRewindACompletedTransfer() {
+        val store = AndroidDownloadStore(temporary.newFolder())
+        val transfer = store.begin(downloadItem())
+        val completed = assertNotNull(
+            store.update(transfer.item.fileName, transfer.generation) {
+                it.copy(
+                    item = it.item.copy(
+                        status = DownloadStatus.Completed,
+                        localFileUri = "content://downloads/document/final",
+                        downloadedBytes = 100L,
+                        totalBytes = 100L,
+                    ),
+                )
+            },
+        )
+
+        assertNull(store.pauseIfDownloading(transfer.item.fileName, transfer.generation))
+
+        assertEquals(completed, store.get(transfer.item.fileName))
+        assertEquals(DownloadStatus.Completed, store.get(transfer.item.fileName)?.item?.status)
+    }
+
+    @Test
+    fun stalePauseCannotChangeAResumedGeneration() {
+        val store = AndroidDownloadStore(temporary.newFolder())
+        val original = store.begin(downloadItem())
+        store.update(original.item.fileName, original.generation) {
+            it.copy(item = it.item.copy(status = DownloadStatus.Paused))
+        }
+        val resumed = store.begin(original.item)
+
+        assertNull(store.pauseIfDownloading(original.item.fileName, original.generation))
+
+        assertNotEquals(original.generation, resumed.generation)
+        assertEquals(resumed, store.get(original.item.fileName))
+    }
+
+    @Test
+    fun schedulerPauseReturnsTheCompletedStateInsteadOfRewindingIt() {
+        val scheduler = AndroidDownloadScheduler(RuntimeEnvironment.getApplication())
+        val transfer = scheduler.store.begin(downloadItem())
+        val completed = assertNotNull(
+            scheduler.store.update(transfer.item.fileName, transfer.generation) {
+                it.copy(
+                    item = it.item.copy(
+                        status = DownloadStatus.Completed,
+                        localFileUri = "content://downloads/document/final",
+                        downloadedBytes = 100L,
+                        totalBytes = 100L,
+                    ),
+                )
+            },
+        )
+
+        val result = scheduler.pause(transfer.item.fileName, transfer.generation)
+
+        assertEquals(completed, result)
+        assertEquals(DownloadStatus.Completed, result?.item?.status)
+        assertEquals(completed, scheduler.store.get(transfer.item.fileName))
     }
 
     @Test
