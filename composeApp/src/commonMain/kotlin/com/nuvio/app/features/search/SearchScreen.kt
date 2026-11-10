@@ -132,7 +132,6 @@ fun SearchScreen(
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SEARCH)
     val nativeSearchEnabled = isNativeLiquidGlassControlsAvailable() &&
         isLiquidGlassSurfaceEffectivelyEnabled(LiquidGlassSurface.SEARCH, platformSupported = true)
-    var nativeFocusRequestCount by remember { mutableStateOf(0) }
     var searchHeaderHeight by remember { mutableStateOf(152.dp) }
     val density = LocalDensity.current
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -554,7 +553,7 @@ fun SearchScreen(
                                         value = query,
                                         placeholder = stringResource(Res.string.compose_search_placeholder),
                                         accessibilityLabel = stringResource(Res.string.compose_nav_search),
-                                        focusRequestCount = nativeFocusRequestCount,
+                                        focusRequestCount = searchFocusRequest,
                                         shouldBeFocused = isSearchFocused,
                                         onValueChange = { query = it },
                                         onSearch = {},

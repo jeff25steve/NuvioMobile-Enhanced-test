@@ -135,3 +135,30 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 ### Cloud search focus lifecycle follow-up — 9 November 2026
 
 - The common UIKit adapter uses both a one-shot focus request count and the current Compose focus state. The Library wrapper now feeds the UISearchBar focus callback back into shouldBeFocused, matching the main Search screen. This prevents a later Compose update from treating the programmatic first-responder request as stale and resigning it.
+
+## Native search focus delivery correction — 9 November 2026
+
+### Findings from the caller and lifecycle trace
+
+- `SearchScreen` increments `searchFocusRequest` for both the toolbar search action and external tab-level focus requests, but the iOS-native field was passed a separate `nativeFocusRequestCount` that was initialized to zero and never incremented. The native search therefore received no programmatic focus request from either entry point; the Compose path continued to use the real request counter.
+- The native adapter also called its complete update routine from `UIKitView.factory`. In the app's pinned Compose Multiplatform `1.13.0-beta01` source, the interop view is constructed during `factory`, while its `update` callback is deferred until the holder is inserted into the interop hierarchy. A focus attempt in the factory can therefore happen before the native field belongs to a window, and can be consumed before the attached update gets a chance to handle it.
+- The shared adapter serves both Search and Library Cloud Search. The Library path already increments its own one-shot counter after it becomes visible; that caller's counter behavior was retained.
+
+### Changes in this cycle
+
+- Search now passes its existing `searchFocusRequest` directly to the native field instead of maintaining a second, unsynchronized counter.
+- The native search factory now only constructs the `UISearchBar`. Initial value, accessibility and focus synchronization are handled by the `UIKitView` update callback after insertion.
+- The native adapter consumes a one-shot focus request only when the text field is already first responder or `becomeFirstResponder()` reports success. A rejected request remains pending for a later update.
+- No shared API, dependency, backend setting, Android code, older-iOS Compose fallback, or navigation behavior was changed.
+
+### Evidence
+
+- Pinned JetBrains implementation: `UIKitView.ios.kt`, `InteropView.skiko.kt`, and `InteropViewHolder.skiko.kt` at https://github.com/JetBrains/compose-multiplatform-core/tree/v1.13.0-beta01
+- Apple responder contract: https://developer.apple.com/documentation/uikit/uiresponder
+- Apple keyboard/focus troubleshooting: https://developer.apple.com/library/archive/qa/qa1813/_index.html
+
+### Verification boundary and next check
+
+- Reviewed the relevant call sites and the pinned framework lifecycle source; this is source-level verification only.
+- No tests, compilation, Android/iOS builds, simulator, device, or CI workflow were run.
+- Manually verify on iOS 26+ that Search opens the native keyboard from both the in-screen search action and an external/tab focus request, and that Library Cloud Search opens the keyboard when revealed. Also verify typing, clear, dismiss/reopen and tab changes; separately confirm iOS 16.1–25 and Android retain their Compose focus path.

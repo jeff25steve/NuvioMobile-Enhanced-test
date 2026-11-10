@@ -143,9 +143,9 @@ internal actual fun NuvioNativeLiquidGlassSearchField(
 ) {
     UIKitView(
         factory = {
-            LiquidGlassNativeSearchBar().apply {
-                update(value, placeholder, accessibilityLabel, focusRequestCount, shouldBeFocused, onValueChange, onSearch, onFocusChanged)
-            }
+            // UIKitView applies its update block after inserting the view into the hierarchy.
+            // Keep focus requests there so the text field can become first responder in its window.
+            LiquidGlassNativeSearchBar()
         },
         modifier = modifier.height(48.dp),
         update = { searchBar ->
@@ -289,9 +289,11 @@ private class LiquidGlassNativeSearchBar : UISearchBar(frame = CGRectMake(0.0, 0
         searchTextField.accessibilityLabel = accessibilityLabel
         if (searchTextField.text != value) searchTextField.text = value
         if (focusRequestCount > lastFocusRequestCount) {
-            lastFocusRequestCount = focusRequestCount
-            wasComposeFocused = true
-            searchTextField.becomeFirstResponder()
+            // Do not consume a one-shot request unless UIKit accepted the focus change.
+            if (searchTextField.isFirstResponder || searchTextField.becomeFirstResponder()) {
+                lastFocusRequestCount = focusRequestCount
+                wasComposeFocused = true
+            }
         } else if (shouldBeFocused) {
             // Do not resign during the brief interval between UIKit beginning editing and the
             // Compose focus callback reaching the next recomposition.
