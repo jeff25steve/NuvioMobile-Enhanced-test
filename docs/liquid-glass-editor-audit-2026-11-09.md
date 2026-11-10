@@ -169,3 +169,61 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 - The preview now obtains that existing resource with `stringResource` and keys its remembered provider options by the resolved label, so a language change refreshes the option text. The repository already contains the resource in its default and French translations; no new strings or translation files were needed.
 - Other literals found in the preview are provider names, preview IDs, or sample media titles rather than UI labels. They were intentionally left unchanged.
 - Static source/diff review only. No tests, compilation, builds, simulator/device checks, or CI workflows were run.
+
+
+## Android compatibility and iOS rendering-cost review — 10 November 2026
+
+### Screenshot concern: platform capability is not one Android version gate
+
+The concern that Liquid Glass only works on Android 13+ conflates blur and refraction:
+
+- The app's `isLiquidGlassAvailable()` maps to Kyant Backdrop's RenderEffect capability. In the exact dependency source pinned by this branch (`io.github.kyant0:backdrop:2.0.1`), Android RenderEffect support is gated at API 31 (Android 12).
+- `isLiquidRefractionSupported()` maps separately to RuntimeShader, which the same pinned source gates at API 33 (Android 13).
+- The app therefore has three capability bands: API 24–30 uses the adaptive static film fallback; API 31–32 can blur but not use the runtime-shader lens; API 33+ can use blur and lens/refraction. This is consistent with Android's API references for [RenderEffect](https://developer.android.com/reference/android/graphics/RenderEffect) and [RuntimeShader](https://developer.android.com/reference/android/graphics/RuntimeShader).
+- The older-Android path is deliberately a visual fallback, not a claim that full blur/refraction is available there.
+
+### Screenshot concern: iOS source capture versus per-surface rendering
+
+The code does not capture a new full-screen source image independently for every glass surface, but it does allocate rendering work per visible surface:
+
+- In our `LiquidGlass.kt`, each `NuvioBackdrop` owns one remembered Compose `GraphicsLayer`; `NuvioBackdropSourceNode` records the source content into that shared layer. The glass surfaces in that composition read the same host backdrop.
+- The exact pinned Backdrop 2.0.1 `DrawBackdropModifier.kt` then creates a separate `GraphicsLayer` for each `DrawBackdropNode`, uses an offscreen compositing layer, and records that surface's backdrop/effect output during drawing. Thus there is one shared source per host, plus per-target effect/compositing layers. The source is shared; target rendering is not free or fully shared.
+- On iOS the shared Compose implementation is the Skiko renderer (`isRenderEffectSupported() == true`, `isRuntimeShaderSupported() == true` in the pinned Skiko source). It is not equivalent to wrapping every Compose surface in a separate UIKit `UIVisualEffectView`. Apple's [UIVisualEffectView guidance](https://developer.apple.com/documentation/uikit/uivisualeffectview/) about alpha and offscreen composition applies to actual UIKit effect views; it should not be used as a direct memory estimate for the Skiko path.
+- This resolves the wording of the claim, not the performance question: many simultaneously visible glass surfaces can still multiply target-layer, render-effect and GPU work. No source inspection can establish the resulting peak iOS memory or prove that it is harmless on an older iPhone. The reported "hundreds of megabytes" has not been substantiated by an app-specific Instruments trace.
+
+### Player video capture: the iPhone and Android paths are different
+
+- Android's `PlayerLiquidGlass.android.kt` only enables PixelCopy capture when supported by the current API level and while at least one glass consumer is acquired. It uses three reusable `ARGB_8888` bitmap buffers, 480 pixels wide, with height capped at 1,920 pixels; normal 16:9 video produces 480×270 buffers. At the absolute configured height cap, the three raw pixel buffers total 11,059,200 bytes (10.55 MiB); at 16:9 they total 1,555,200 bytes (about 1.48 MiB). These are bitmap pixel-storage calculations, not measured process/GPU memory, and exclude renderer allocations.
+- Capture is requested at 33 ms intervals while consumers exist; after 15 consecutive unavailable frames it backs off to a one-second retry. The lifecycle tests cover backoff, reset, and consumer-count boundaries, but were not executed in this cycle.
+- `PlayerLiquidGlass.ios.kt` returns `null`. iOS does not run this PixelCopy loop or allocate these video-frame bitmaps; its player controls use the translucent fallback until a safe native video-sampling route is proven. Therefore this particular capture path cannot explain the reported iPhone 4K HDR/Dolby Vision memory use.
+- The outstanding player-video question remains visual correctness and resource cost if a native effect is introduced. No overlay or CPU frame-copy workaround was added.
+
+### Liquid Glass Editor coverage rechecked against the branch
+
+- The current surface model contains 28 surfaces: 22 assigned to four grouped layouts and six standalone surfaces. The root list derives standalone surfaces from the enum/group model, and the grouping test checks that grouped plus standalone entries account for the complete enum.
+- The preview dispatcher has explicit cases for the current surface enum. The four group routes lead to Detail, Stream Picker, Category Header and Library previews. The six standalone routes cover Player, Search, Settings, Bottom Sheets, Profile Watch Time and Supporter Membership.
+- Profile Watch Time preview calls the production `ProfileWatchTimeRow(previewGlass = true)`; Supporter Membership preview calls the production `SupporterMembershipCard(previewGlass = true)`. The Library route uses the production library toolbar/search/source/saved controls and calendar preview components. The Player route uses `PlayerControlsShell`, with a 4K-sized sample playback state. This is source-level coverage, not proof of pixel-perfect rendering on each device.
+- Category title and back button remain independent surfaces. The Library preview includes saved filters, cloud filters/search/cards and calendar; its default cloud backdrop remains black and custom imagery is supported. Profile Watch Time and Supporter Membership retain separate settings and text-contrast scopes.
+- The known Settings backdrop issue remains deferred: the root capture decision includes Profile Watch Time and Supporter Membership even when another Settings page is active. The page state is currently created later inside the saved-state/provider structure; moving it to gate capture needs a navigation-state restoration change and regression coverage. It was not moved speculatively.
+
+### Upstream performance evidence and compatibility decision
+
+The dependency is still pinned to Backdrop 2.0.1, whose latest published release is dated 26 August 2026. The useful upstream findings are promising but not yet a safe drop-in upgrade:
+
+- [Upstream issue #126](https://github.com/Kyant0/AndroidLiquidGlass/issues/126), opened 17 October 2026, reports Macrobenchmark measurements on a Galaxy S23 Ultra running Android 13. It proposes caching shadow/highlight layer recordings, avoiding redundant backdrop re-recording on position callbacks, sharing compiled runtime shaders, and folding vibrancy saturation into the lens shader. The reported gains vary by interaction; the strongest single change reduces the open-glass-screen P90 frame overrun from about 40.9 ms to 19.1 ms in that author's Android catalog app. The issue explicitly says iOS/macOS were not measured, and it contains no 4K video or iOS memory/jetsam measurement.
+- A 6 November commit in the separate Kototoro app ([commit 227a9a8](https://github.com/Kototoro-app/Kototoro/commit/227a9a86338cf1a50164385de1cb943fc29b432a)) ports the layer-record caching and lens-saturation ideas into a vendored copy of Backdrop. Its message reports lower Android GPU p99 during tab switching, but it is a different app, a different integration and not an iOS validation. It is useful corroboration that the ideas are implementable, not evidence that the same patch is safe in this app.
+- [Upstream issue #104](https://github.com/Kyant0/AndroidLiquidGlass/issues/104) discusses batching multiple glass elements into a shared container. The library owner notes that the current separate highlight/shadow layers and shape-distance-field requirements make this non-trivial; there is no released container API to adopt here.
+- [Upstream issue #116](https://github.com/Kyant0/AndroidLiquidGlass/issues/116) documents a physical-iPhone flicker report in the Skiko backdrop implementation. One reporter says `parallelRendering = false` removed flicker on Compose Multiplatform 1.12.0 but reduced overall performance significantly. That workaround is not applied: our pinned Compose Multiplatform is 1.13.0-beta01, the report is not a controlled reproduction on this app, and the proposed workaround trades away performance.
+- A search for Reddit/developer-forum discussion did not produce reproducible measurements for this app or its pinned renderer. Anecdotes and generic iOS Liquid Glass memory estimates are not being treated as evidence.
+
+### Decision, verification boundary and next starting point
+
+No production code or dependency change is justified by the evidence available in this cycle. The current Android compatibility fallback is intentional; the iOS video path does not copy 4K frames; the shared-source/per-target-layer distinction is now documented; and the promising Backdrop optimizations are not in a published compatible release. Vendoring a rendering library or changing Compose parallel rendering would add substantial maintenance and regression risk without iOS proof.
+
+Next verification, when device/build work is authorised:
+
+1. On physical iPhones covering the supported OS range, profile the same release-like app and stream with Liquid Glass off/on, then with Library/Settings/player surfaces enabled in controlled combinations. Use Xcode Instruments Allocations, VM Tracker and Metal System Trace; record peak/resident/GPU memory, layer count, frame hitches and thermal state during 4K HDR/Dolby Vision playback, player controls, navigation and scrolling. Compare devices rather than assuming a universal 2.3 GB jetsam threshold.
+2. On Android API 24–30, 31–32 and 33+, verify the static, blur-only and blur-plus-lens capability bands. Profile the PixelCopy path with and without visible consumers and confirm the 480-pixel buffer bounds.
+3. Revisit upstream issue #126 only when a tagged release or reviewable upstream PR is available. Compare its exact source changes against our 2.0.1 pin, then benchmark our own screens on Android and iOS before adopting them.
+
+This cycle was source/documentation review only. No build, build-triggering test, CI workflow, simulator, device run or Instruments profile was started. A local checkout is not present in this environment, so local `git status` and uncommitted changes remain unverified; the remote `main-build-testing` branch head was checked before this documentation-only update.
