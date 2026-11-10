@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: [ci/nuvio-main-build-testing-tmdb-season-gate-20261110]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
