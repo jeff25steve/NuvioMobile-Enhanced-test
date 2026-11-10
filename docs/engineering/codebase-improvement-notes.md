@@ -1898,3 +1898,26 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - The reported compile errors were traced to source and resource/import definitions. Static source checks confirm both `Modifier.clip` receivers, both suspend Home call chains, the shared serialization/generation guard and the generated-resource import.
 - No separate Gradle tests were run. The next exact-head Linux `:androidApp:assembleFullDebug` run is the verification for compiler compatibility. The earlier failed job is preserved as historical evidence and is not described as a successful build.
+
+
+## 10 November 2026 — Search request-key freshness audit (candidate; not implemented)
+
+### Confirmed stale-state path
+
+- `SearchRepository.search()` compares `lastRequestKey` before reusing the current section state. The current string key includes the lowercased query, hidden-unreleased flag, pending-manifest state, add-on manifest URL/type/catalog ID, plus server connection ID/kind/selected-library IDs.
+- The add-on section projection consumes additional descriptor values after this equality check: `manifest.id`, `manifest.transportUrl`, `addon.displayTitle`, catalog display name and `supportsPagination`. A refreshed manifest or renamed add-on/catalog with stable URL/type/ID can therefore leave an existing Search section displaying old metadata or retaining old pagination capability when the key is considered unchanged.
+- Server search sections consume connection name and provider display/source label. The actual query also uses selected `ServerLibrary` objects, including their name and kind. The key currently includes only connection ID, media kind and library IDs. A connection rename/provider change or a library rename/kind change with stable IDs may therefore reuse a section whose title/source metadata no longer matches the live connection.
+- The Discover path uses a richer typed `DiscoverRequestKey(sources, hideUnreleasedContent, hasPendingAddonManifests)`; current Discover selection precedence and pending-manifest state are separately tested. Do not accidentally alter those semantics while refining the Search-only key.
+
+### Evidence and decision
+
+- Traced `SearchRepository.search()`, `SearchCatalogRequest.toSection()`, `ServerCatalog.searchTargets()`, `ServerCatalog.searchSection()`, `ServerCatalog.search()`, `ServerRepository.sourceLabel()`, `ServerConnection` and `ServerLibrary` models.
+- The provider-facing search query remains the trimmed original-case query, while the reuse key uses `normalizedQuery.lowercase()`. This may be intentional provider-insensitive matching and is not changed without evidence of a case-sensitive provider contract.
+- No Search production code or tests were changed in this pass. The issue is a stale-state invalidation gap, not proof that current result contents or query execution are incorrect for every provider.
+
+### Next test-first scope
+
+- Extract a typed/testable Search request signature and include all user-visible/request-affecting add-on descriptor values (manifest ID and transport URL, add-on display title, catalog title/type/ID and pagination capability).
+- Include server identity/display descriptors (connection provider/name/address and relevant stable IDs, kind, ordered selected library ID/name/kind). Avoid raw credentials or tokens in a key or logs; if authentication identity must invalidate state, use the existing account/generation identity rather than credential material.
+- Add common tests proving key changes on catalog title, add-on display name, manifest transport URL, pagination capability, server display name/provider and selected-library descriptor changes, while preserving equal-key reuse and the current query normalization contract.
+- Preserve request ordering, selected Discover catalog, pending-manifest/loading states, cancellation and partial section failure behavior. Do not rebuild network fan-out or mutate provider cache keys as part of this focused fix.
