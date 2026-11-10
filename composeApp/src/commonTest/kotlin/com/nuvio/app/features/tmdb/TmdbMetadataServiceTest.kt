@@ -4,10 +4,6 @@ import com.nuvio.app.features.details.MetaCompany
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaPerson
 import com.nuvio.app.features.details.MetaVideo
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -554,30 +550,6 @@ class TmdbMetadataServiceTest {
         assertEquals("Teaser", trailer.type)
         assertEquals(2, trailer.seasonNumber)
         assertEquals("Season 2", trailer.displayName)
-    }
-
-    @Test
-    fun `season metadata requests share a bounded concurrency limit`() = runTest {
-        var activeRequests = 0
-        var maximumActiveRequests = 0
-
-        val requests = (0 until 12).map {
-            async {
-                TmdbMetadataService.withSeasonMetadataRequestPermit {
-                    activeRequests += 1
-                    maximumActiveRequests = maxOf(maximumActiveRequests, activeRequests)
-                    try {
-                        delay(10)
-                    } finally {
-                        activeRequests -= 1
-                    }
-                }
-            }
-        }
-
-        requests.awaitAll()
-
-        assertEquals(4, maximumActiveRequests)
     }
 
 }

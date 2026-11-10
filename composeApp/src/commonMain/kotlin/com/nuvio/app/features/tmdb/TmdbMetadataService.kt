@@ -59,10 +59,10 @@ object TmdbMetadataService {
     private val backdropCache = linkedMapOf<String, String?>()
     private val backdropCacheMutex = Mutex()
     private val backdropRequests = Semaphore(4)
-    private val seasonVideoRequests = Semaphore(4)
+    private val seasonMetadataRequests = Semaphore(4)
 
     internal suspend fun <T> withSeasonMetadataRequestPermit(block: suspend () -> T): T =
-        seasonVideoRequests.withPermit { block() }
+        seasonMetadataRequests.withPermit { block() }
 
     suspend fun fetchLocalizedBackdrop(id: String, type: String, language: String): String? =
         withContext(Dispatchers.Default) {
@@ -1248,25 +1248,30 @@ object TmdbMetadataService {
         val pairs = coroutineScope {
             normalizedSeasons.map { season ->
                 async {
-                    val details = fetch<TmdbSeasonDetailsResponse>(
-                        endpoint = "tv/$numericId/season/$season",
-                        query = mapOf("language" to normalizedLanguage),
-                    ) ?: return@async emptyMap()
-
-                    details.episodes
-                        .mapNotNull { episode ->
-                            val episodeNumber = episode.episodeNumber ?: return@mapNotNull null
-                            (season to episodeNumber) to TmdbEpisodeEnrichment(
-                                title = episode.name?.trim()?.takeIf(String::isNotBlank),
-                                overview = episode.overview?.trim()?.takeIf(String::isNotBlank),
-                                thumbnail = buildImageUrl(episode.stillPath, "w500"),
-                                seasonPoster = buildImageUrl(details.posterPath, "w500"),
-                                airDate = episode.airDate?.trim()?.takeIf(String::isNotBlank),
-                                runtimeMinutes = episode.runtime,
-                                voteAverage = episode.voteAverage?.takeIf { it > 0.0 },
-                            )
-                        }
-                        .toMap()
+                    val details = withSeasonMetadataRequestPermit {
+                        fetch<TmdbSeasonDetailsResponse>(
+                            endpoint = "tv/$numericId/season/$season",
+                            query = mapOf("language" to normalizedLanguage),
+                        )
+                    }
+                    if (details == null) {
+                        emptyMap()
+                    } else {
+                        details.episodes
+                            .mapNotNull { episode ->
+                                val episodeNumber = episode.episodeNumber ?: return@mapNotNull null
+                                (season to episodeNumber) to TmdbEpisodeEnrichment(
+                                    title = episode.name?.trim()?.takeIf(String::isNotBlank),
+                                    overview = episode.overview?.trim()?.takeIf(String::isNotBlank),
+                                    thumbnail = buildImageUrl(episode.stillPath, "w500"),
+                                    seasonPoster = buildImageUrl(details.posterPath, "w500"),
+                                    airDate = episode.airDate?.trim()?.takeIf(String::isNotBlank),
+                                    runtimeMinutes = episode.runtime,
+                                    voteAverage = episode.voteAverage?.takeIf { it > 0.0 },
+                                )
+                            }
+                            .toMap()
+                    }
                 }
             }.awaitAll()
         }
