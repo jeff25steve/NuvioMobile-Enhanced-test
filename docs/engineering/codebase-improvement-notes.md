@@ -1696,3 +1696,28 @@ Both `SettingsScreen` and the standalone `SettingsGlassPageBackground` now call 
 Evidence: Android's official [Compose graphics modifiers guide](https://developer.android.com/develop/ui/compose/graphics/draw/modifiers) and [`rememberGraphicsLayer` API reference](https://developer.android.com/reference/kotlin/androidx/compose/ui/graphics/rememberGraphicsLayer.composable); source inspection of `LiquidGlass.kt`, `SettingsScreen.kt`, `SettingsComponents.kt`, `SettingsRootDestination`, and `LiquidGlassSurfaceSettings.kt`; upstream maintainer [issue #237 comment](https://github.com/luqmanfadlli/NuvioMobile-Enhanced/issues/237#issuecomment-6754856947). Searches for Reddit-specific evidence returned no relevant results; no transferable app memory estimate was accepted.
 
 Added common regression tests for Profile/Supporters routing, unrelated routes, the internal-navigation fallback and the global Settings toggle. Tests were not run. No build, simulator/device run, Instruments profile or CI workflow was started. Runtime allocation/frame-time gains remain unmeasured; internal/tablet page-aware capture remains deferred pending a saved-state-safe design.
+
+
+## 10 November 2026 — reduce allocations in the Home next-up projection
+
+### Confirmed hotspot and change
+
+HomeScreen derived `latestCompletedAtBySeries` inside a `remember(allNextUpSeedCandidates)` block. The previous `groupBy` built one intermediate list for every distinct series and then scanned each list again with `maxOfOrNull`. The result is only used for keyed timestamp lookups when suppressing Next Up rows.
+
+The projection now performs one pass into a `LinkedHashMap<String, Long>`, retaining each series' maximum `markedAtEpochMs` without allocating per-series lists. It preserves first-seen key order and correctly treats `Long.MIN_VALUE` as a legitimate timestamp (the missing-key check is `null`, not a numeric sentinel). The empty input still produces an empty map.
+
+The adjacent `associate { ... }.toMap()` was also simplified to `associate { ... }`: `associate` already returns a map, so the extra conversion only copied the already-built projection. Its duplicate-key behaviour remains last-value-wins.
+
+### Scope and trade-offs
+
+This is a bounded allocation reduction in Home recomposition/projection work, not a change to catalog fetching, sorting, Next Up rules, progress timestamps, caching, or visible UI. The projection remains O(n) time and O(s) map storage for n candidates and s distinct series; it removes the intermediate O(n) grouped lists and the redundant map copy. No concurrency, dispatcher, dependency, persistence, or platform-specific behaviour changed.
+
+A broader change to `CollectionRepository.initialize()` was investigated and rejected for this cycle. Its synchronous initializer is also reached through non-suspending mutation helpers and profile-scoped state paths. Moving it to IO without coordinating those callers and profile changes would risk concurrent initialisation or stale-profile publication. That path remains a candidate for a deliberate repository API/lifecycle redesign, not a local dispatcher wrapper.
+
+### Regression coverage and verification
+
+Added `HomeScreenTest` coverage for multiple timestamps per series, a valid `Long.MIN_VALUE`, first-seen series ordering, and the empty input case. Tests were added but not executed, per the instruction not to start build-triggering test tasks. Source was reviewed against the previous `groupBy`/`maxOfOrNull` semantics. No build, CI workflow, simulator, emulator, device benchmark, or profiler was started. Runtime allocation and frame-time improvements remain unmeasured.
+
+### Next starting point
+
+Continue with Home/first-content paths, but profile before changing concurrency or repository initialisation. Revisit the collection cache only with an explicit profile-generation/loading contract shared by async initialisation and all synchronous callers.

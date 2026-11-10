@@ -279,7 +279,7 @@ fun HomeScreen(
     val currentNextUpSeedByContentId = remember(allNextUpSeedCandidates) {
         allNextUpSeedCandidates.associate { candidate ->
             candidate.content.id to (candidate.seasonNumber to candidate.episodeNumber)
-        }.toMap()
+        }
     }
 
     val visibleContinueWatchingEntries = remember(effectiveWatchProgressEntries) {
@@ -300,9 +300,7 @@ fun HomeScreen(
     }
 
     val latestCompletedAtBySeries = remember(allNextUpSeedCandidates) {
-        allNextUpSeedCandidates
-            .groupBy { candidate -> candidate.content.id }
-            .mapValues { (_, candidates) -> candidates.maxOfOrNull { candidate -> candidate.markedAtEpochMs } ?: Long.MIN_VALUE }
+        latestCompletedAtBySeries(allNextUpSeedCandidates)
     }
 
     val nextUpSuppressedSeriesIds = remember(visibleContinueWatchingEntries, latestCompletedAtBySeries) {
@@ -1336,6 +1334,24 @@ internal fun filterHomeNextUpCandidatesForContinueWatchingWindow(
 ): List<CompletedSeriesCandidate> = cutoffEpochMs
     ?.let { cutoff -> candidates.filter { candidate -> candidate.markedAtEpochMs >= cutoff } }
     ?: candidates
+
+/**
+ * Builds the most recent completion timestamp for each series without allocating
+ * an intermediate list for every key as [groupBy] would.
+ */
+internal fun latestCompletedAtBySeries(
+    candidates: List<CompletedSeriesCandidate>,
+): Map<String, Long> {
+    val latestBySeries = LinkedHashMap<String, Long>(candidates.size)
+    for (candidate in candidates) {
+        val seriesId = candidate.content.id
+        val currentTimestamp = latestBySeries[seriesId]
+        if (currentTimestamp == null || candidate.markedAtEpochMs > currentTimestamp) {
+            latestBySeries[seriesId] = candidate.markedAtEpochMs
+        }
+    }
+    return latestBySeries
+}
 
 internal fun buildHomeNextUpSeedCandidates(
     progressEntries: List<WatchProgressEntry>,

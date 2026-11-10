@@ -29,6 +29,28 @@ import kotlin.test.assertTrue
 class HomeScreenTest {
 
     @Test
+    fun `latest completed timestamp is accumulated once per series`() {
+        val firstSeries = WatchingContentRef(type = "series", id = "series-a")
+        val secondSeries = WatchingContentRef(type = "series", id = "series-b")
+        val candidates = listOf(
+            completedSeriesCandidate(1).copy(content = firstSeries, markedAtEpochMs = 50L),
+            completedSeriesCandidate(2).copy(content = secondSeries, markedAtEpochMs = Long.MIN_VALUE),
+            completedSeriesCandidate(3).copy(content = firstSeries, markedAtEpochMs = 100L),
+            completedSeriesCandidate(4).copy(content = firstSeries, markedAtEpochMs = 75L),
+        )
+
+        val result = latestCompletedAtBySeries(candidates)
+
+        assertEquals(mapOf("series-a" to 100L, "series-b" to Long.MIN_VALUE), result)
+        assertEquals(listOf("series-a", "series-b"), result.keys.toList())
+    }
+
+    @Test
+    fun `latest completed timestamp returns empty map without candidates`() {
+        assertEquals(emptyMap(), latestCompletedAtBySeries(emptyList()))
+    }
+
+    @Test
     fun `home remains loading while initial addon manifests are pending`() {
         assertTrue(
             shouldShowInitialHomeLoading(
