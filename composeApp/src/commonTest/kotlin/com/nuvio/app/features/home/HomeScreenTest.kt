@@ -39,7 +39,7 @@ class HomeScreenTest {
             completedSeriesCandidate(4).copy(content = firstSeries, markedAtEpochMs = 75L),
         )
 
-        val result = latestCompletedAtBySeries(candidates)
+        val result = buildLatestCompletedAtBySeries(candidates)
 
         assertEquals(mapOf("series-a" to 100L, "series-b" to Long.MIN_VALUE), result)
         assertEquals(listOf("series-a", "series-b"), result.keys.toList())
@@ -47,7 +47,7 @@ class HomeScreenTest {
 
     @Test
     fun `latest completed timestamp returns empty map without candidates`() {
-        assertEquals(emptyMap(), latestCompletedAtBySeries(emptyList()))
+        assertEquals(emptyMap(), buildLatestCompletedAtBySeries(emptyList()))
     }
 
     @Test

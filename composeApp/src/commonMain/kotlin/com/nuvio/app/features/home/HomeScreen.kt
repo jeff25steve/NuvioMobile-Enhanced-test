@@ -300,7 +300,7 @@ fun HomeScreen(
     }
 
     val latestCompletedAtBySeries = remember(allNextUpSeedCandidates) {
-        latestCompletedAtBySeries(allNextUpSeedCandidates)
+        buildLatestCompletedAtBySeries(allNextUpSeedCandidates)
     }
 
     val nextUpSuppressedSeriesIds = remember(visibleContinueWatchingEntries, latestCompletedAtBySeries) {
@@ -1339,7 +1339,7 @@ internal fun filterHomeNextUpCandidatesForContinueWatchingWindow(
  * Builds the most recent completion timestamp for each series without allocating
  * an intermediate list for every key as [groupBy] would.
  */
-internal fun latestCompletedAtBySeries(
+internal fun buildLatestCompletedAtBySeries(
     candidates: List<CompletedSeriesCandidate>,
 ): Map<String, Long> {
     val latestBySeries = LinkedHashMap<String, Long>(candidates.size)
