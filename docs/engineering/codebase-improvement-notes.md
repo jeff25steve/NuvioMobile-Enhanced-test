@@ -1834,39 +1834,43 @@ Continue to audit other independent Home/first-content paths. Do not infer start
 - Revisit TMDB request fan-out and its cache miss behaviour only with measured traces or request-count evidence. Do not add cache single-flight, change concurrency limits, alter metadata precedence or rework the prior bounded caches without distinct evidence.
 
 
-## 10 November 2026 — bound concurrent TMDB season-video metadata requests
+## 10 November 2026 — bound concurrent TMDB season metadata requests
 
-### Confirmed source path
+### Confirmed fan-out
 
-- `fetchTrailers()` obtains the TV season count, then creates one `async` child for every season and immediately starts `tv/{id}/season/{season}/videos` requests. A show with many seasons can therefore fan out a correspondingly large set of requests; multiple detail requests can multiply that burst.
-- The branch already used `Semaphore(4)` plus `withPermit` for localized-backdrop requests, and the test-first commit `3716d69cbda1239a8a81059087a8e7375b421e9c` adds a deterministic common test requiring the season-video request gate to cap twelve concurrent callers at four.
+- `fetchEpisodeEnrichment()` creates one child request for every distinct season represented in the source episode metadata, calling `tv/{id}/season/{season}`.
+- `fetchTrailers()` creates one child request for every season in the TV response, calling `tv/{id}/season/{season}/videos`.
+- These fan-outs can overlap: `enrichMeta()` runs episode enrichment alongside `fetchEnrichment()`, and the latter can load trailers. Separate per-feature limits would therefore multiply the number of active season requests across an app-wide detail-loading burst.
+- TMDB's official [rate-limiting guidance](https://developer.themoviedb.org/docs/rate-limiting) says its protective upper limit is around 40 requests per second, may change, and clients should respect HTTP 429. Its official [season details](https://developer.themoviedb.org/reference/tv-season-details) and [season videos](https://developer.themoviedb.org/reference/tv-season-videos) references confirm these are distinct per-season endpoints. A TMDB staff response in the [developer forum](https://www.themoviedb.org/talk/66997ca6d3a5dbcf3c3a7994) also describes IP-level request/connection protection; that discussion is supplementary, not a substitute for current official guidance.
 
 ### Change
 
-- Added an object-scoped `Semaphore(4)` for season-video metadata requests and an internal `withSeasonMetadataRequestPermit` boundary.
-- Every per-season videos endpoint call now acquires that shared permit. The existing per-season `async` tasks and `awaitAll()` result ordering remain unchanged, while no more than four season-video requests can be active across overlapping trailer loads in the process.
-- Uses the already-pinned kotlinx.coroutines `1.10.2` semaphore primitive; no dependency, dispatcher, request timeout, retry, cache, UI, settings or persistence changes.
+- Added one object-scoped `Semaphore(4)` shared by both episode-enrichment season-detail requests and trailer season-video requests.
+- Both endpoint calls acquire the same permit. The existing per-season `async` children, `awaitAll()`, sorted input season order, map reduction and trailer result ordering remain unchanged.
+- The gate is separate from the existing four-permit localized-backdrop gate so season metadata bursts do not delay those backdrop lookups.
+- Added the gate test first in commit `3716d69cbda1239a8a81059087a8e7375b421e9c`; twelve concurrent operations through the shared production helper must never observe more than four active permits.
 
 ### Semantics and trade-offs
 
-- The cap is process-wide, not recreated per show. This prevents several concurrently opened details pages from each independently launching four or more season requests.
-- Waiting children remain cancellable under the existing lexical `coroutineScope`; semaphore acquisition is cancellable and fair FIFO. `withPermit` releases the acquired permit in its `finally` path when the request completes, fails or is cancelled.
-- The number of season child coroutines remains proportional to the season count; only active network requests are bounded. A fixed worker pool would reduce waiting coroutine count too, but would change scheduling and collection structure unnecessarily for this targeted request-concurrency issue. No such rewrite was justified by evidence.
-- The existing common test exercises twelve concurrent permit users and asserts a maximum of four active operations. It was already committed test-first on the branch before the production implementation.
+- The cap is process-wide and shared across simultaneous detail loads, not reset for each title or feature.
+- Permit waiting remains cancellable under the existing lexical `coroutineScope`; the pinned `withPermit` implementation releases the permit in `finally` when the protected fetch completes, fails or is cancelled.
+- The gate is held around each season HTTP fetch and response decoding, not the subsequent local projection/mapping work.
+- This is a **concurrency cap**, not a strict requests-per-second rate limiter. It does not guarantee avoidance of HTTP 429 if requests are fast or unrelated TMDB calls are simultaneously active. No artificial delay, retry policy, response cache, dependency or broader HTTP coordinator was introduced.
+- One child coroutine is still created per season and waits for a permit. A bounded worker pool would also cap queued coroutine count but would change scheduling/collection structure and was not justified by current evidence.
+- TMDB's documented `append_to_response` capability for TV season endpoints could potentially combine the season-details and videos reads. That is deferred until response parsing, cache ownership and fallback behaviour can be changed together without introducing duplicate fetches or stale data.
 
 ### Independent evidence
 
-- The [kotlinx.coroutines Semaphore API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-semaphore/) defines a counting semaphore for limiting coroutine access to a resource and documents FIFO acquisition.
-- The [Semaphore.acquire API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-semaphore/acquire.html) documents cancellable acquisition, prompt cancellation and release when cancellation races with an already-acquired permit.
-- The pinned library's official [Semaphore.kt implementation](https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/common/src/sync/Semaphore.kt) implements `withPermit` as acquire followed by action inside `try/finally { release() }`. The existing repository backdrop loader uses the same `Semaphore(4)` / `withPermit` API pattern.
+- The pinned dependency is kotlinx.coroutines `1.10.2`; its exact tagged [`Semaphore.kt`](https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.2/kotlinx-coroutines-core/common/src/sync/Semaphore.kt) implements FIFO acquisition and `withPermit` as acquire/action/`finally { release() }`. The same API was already used for localized backdrop requests in this repository.
+- Context7's official API reference and Exa's independent search both confirmed cancellable/FIFO permit acquisition and automatic permit release; no third-party library or new dispatcher was needed.
+- The previous unbounded fan-outs are present in the upstream `enhanced` branch too; this change was verified against the active `main-build-testing` callers instead of copying or changing upstream.
 
 ### Verification boundary
 
-- Source review confirms all season endpoint calls in `fetchTrailers()` pass through the shared permit boundary and that no other trailer ordering, season label formatting or category sort changed.
-- The concurrency regression test is present but has not been executed. No Gradle test task or separate build was started for this change.
-- The dedicated Linux fullDebug APK workflow started earlier in this conversation is still tied to source snapshot `39484dc62aa178903b079ac1b89bedbd0e99fa71`; it does not include this later test-first commit or this permit implementation. A separate exact-head CI run is needed to validate this new source.
-- Runtime request overlap and detail-page latency remain unmeasured; the source and regression test establish the active-request ceiling, not a user-visible timing improvement.
+- Source review confirms both season endpoint paths now use the same permit helper; the primary series-level videos request remains unchanged. Season enumeration, endpoint URLs, language arguments, cache keys, empty-result fallback, mapping and output order are unchanged.
+- The concurrency regression test is present but has not been executed. The authorised Linux fullDebug build will compile production Android code and package the APK; it does not execute the common test.
+- No runtime request trace, HTTP 429 observation or detail-page latency measurement is available. The source establishes the four-active-season-request ceiling, not a measured user-visible speedup.
 
 ### Next starting point
 
-- Revisit the SearchRepository request-state key: current key lowercases the query while forwarding the original case to providers, and omits catalog descriptor fields used by the rendered sections. Confirm the intended case-sensitivity and descriptor freshness contract before changing the key. Preserve discover selection and pending-manifest behavior.
+- After the exact-head Linux build, consider a measured request-count/profile pass before attempting TMDB `append_to_response` consolidation or adding a global rate limiter. Preserve the current API fallback semantics until response and cache ownership can be tested together.

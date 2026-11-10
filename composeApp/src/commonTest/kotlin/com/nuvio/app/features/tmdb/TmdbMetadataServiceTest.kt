@@ -557,7 +557,7 @@ class TmdbMetadataServiceTest {
     }
 
     @Test
-    fun `season metadata requests share a bounded concurrency limit`() = runTest {
+    fun `shared season metadata requests never exceed four concurrent operations`() = runTest {
         var activeRequests = 0
         var maximumActiveRequests = 0
 
