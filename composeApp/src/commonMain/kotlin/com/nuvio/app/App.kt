@@ -11,6 +11,7 @@ import coil3.annotation.ExperimentalCoilApi
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.request.CachePolicy
 import coil3.request.crossfade
+import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
@@ -73,6 +74,7 @@ fun App(
     }
 }
 
+@OptIn(ExperimentalCoilApi::class)
 @Composable
 internal fun AppEnvironment(
     drawAppBackground: Boolean = true,
@@ -90,6 +92,7 @@ internal fun AppEnvironment(
                     add(
                         coil3.network.ktor3.KtorNetworkFetcherFactory(
                             cacheStrategy = { coil3.network.cachecontrol.CacheControlCacheStrategy() },
+                            concurrentRequestStrategy = { DeDupeConcurrentRequestStrategy() },
                         ),
                     )
                 }

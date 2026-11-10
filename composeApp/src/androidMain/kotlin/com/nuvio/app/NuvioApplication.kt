@@ -3,6 +3,8 @@ package com.nuvio.app
 import android.app.Application
 import android.os.Build
 import coil3.ImageLoader
+import coil3.annotation.ExperimentalCoilApi
+import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.SingletonImageLoader
 import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
@@ -30,6 +32,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         DnsPlatform.initialize(this)
     }
 
+    @OptIn(ExperimentalCoilApi::class)
     override fun newImageLoader(context: android.content.Context): ImageLoader {
         return ImageLoader.Builder(context)
             .crossfade(true)
@@ -44,6 +47,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                             HttpClient(OkHttp) { engine { preconfigured = SharedOkHttpClient.base } }
                         },
                         cacheStrategy = { CacheControlCacheStrategy() },
+                        concurrentRequestStrategy = { DeDupeConcurrentRequestStrategy() },
                     ),
                 )
                 if (Build.VERSION.SDK_INT >= 28) {
