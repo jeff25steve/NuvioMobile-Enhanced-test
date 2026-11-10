@@ -1724,9 +1724,9 @@ internal fun buildHomeContinueWatchingItems(
 }
 
 /**
- * Splits unaired next-up episodes into a dedicated row when [ContinueWatchingSortMode.SPLIT_UPCOMING]
- * is active. The main row keeps its recency ordering, while Upcoming is ordered by the nearest
- * release instant with unknown dates last.
+ * Moves parseable future Next Up episodes into a dedicated row when
+ * [ContinueWatchingSortMode.SPLIT_UPCOMING] is active. The main row retains input order, while
+ * Upcoming is sorted by ascending release instant. Missing or unparseable dates remain in main.
  */
 internal fun splitUpcomingItems(
     items: List<ContinueWatchingItem>,

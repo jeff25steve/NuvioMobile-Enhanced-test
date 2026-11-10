@@ -1741,6 +1741,8 @@ The split-mode path now makes one pass over the input, preserving the original o
 - The official Kotlin `MutableList.sortBy` contract states that sorting is in place and stable; equal timestamps therefore retain their source order, matching the previous stable `sortedWith` behavior.
 - The temporary candidate list stores one `(epochMillis, item)` pair per Upcoming entry, then projects the output list. No dependency, dispatcher, persistence, player, navigation, UI or platform implementation changed.
 
+- The adjacent KDoc now accurately states that main-row items retain input order and missing/unparseable releases remain there; the earlier 'unknown dates last' wording did not match the partition predicate.
+
 #### Independent evidence
 
 - Repository parser: [EpisodeReleaseDateParser.kt](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/composeApp/src/commonMain/kotlin/com/nuvio/app/core/time/EpisodeReleaseDateParser.kt).
