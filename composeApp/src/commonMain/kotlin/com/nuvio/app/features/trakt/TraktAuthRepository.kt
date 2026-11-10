@@ -123,6 +123,16 @@ object TraktAuthRepository : TrackingAuthProvider {
     }
 
     override fun removeStoredProfile(profileId: Int) {
+        if (currentProfileId == profileId) {
+            devicePollingJob?.cancel()
+            devicePollingJob = null
+            profileGeneration += 1L
+            TraktWatchedShowSnapshotRepository.clear()
+            authState = TraktAuthState()
+            authenticationMethod = TraktAuthenticationMethod.BROWSER_REDIRECT
+            hasLoaded = false
+            publish(isLoading = false, statusMessage = null, errorMessage = null)
+        }
         TraktAuthStorage.removeProfile(profileId)
     }
 

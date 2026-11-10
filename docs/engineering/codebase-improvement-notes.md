@@ -2189,3 +2189,40 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - Continue investigating the SAF finalization crash window. A safe fix still requires durable finalization identity plus tests for document providers that change IDs, retain IDs, alter names, and resolve collisions; do not use filename-only recovery without proving document ownership.
 - Measure the remaining duplicate progress persistence before suppressing any Android common-snapshot writes.
+
+
+## 10 November 2026 — protect Trakt OAuth credentials and complete profile-store cleanup
+
+### Confirmed storage gap
+
+- Compared every tracking provider's auth persistence. AniList, MDBList, WeTrakr and PublicMetaDB use AES-GCM backed by Android Keystore on Android and Keychain on iOS. Simkl uses Android Keystore AES-GCM and iOS Keychain for its access token.
+- Trakt alone stored its full OAuth payload, including access and refresh tokens and pending authorization state, in plaintext Android SharedPreferences and iOS NSUserDefaults.
+- Android's merged main manifest already sets `android:allowBackup="false"`; the fix preserves the existing preference filename/key so old Android data can be migrated in place.
+
+### Changes
+
+- Android Trakt storage now uses AES/GCM/NoPadding with an AES key held by AndroidKeyStore, a fresh IV per write, and profile/preference-key-bound AAD. Existing JSON plaintext values are migrated on read and replaced only after a successful synchronous preference commit. Corrupt/unreadable encrypted values fail closed without being reinterpreted as legacy JSON. Profile deletion commits its removal.
+- iOS Trakt storage now uses generic-password Keychain entries under service `com.nuvio.media.trakt`, one account per profile, with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. Existing profile-scoped NSUserDefaults payloads migrate only after a Keychain write and read-back verification; the legacy copy is removed only after verification. Keychain errors other than `errSecItemNotFound` are not treated as missing items, so locked-device `errSecInteractionNotAllowed` never triggers plaintext fallback.
+- ProfileRepository now invokes the existing tracking-provider cleanup registry for both anonymous local profile deletion and successful server-backed profile deletion. Provider removal attempts every registered store even when another provider's storage deletion fails, and reports failed provider IDs without logging secrets.
+- Simkl profile removal now deletes its per-profile sync snapshot as well as auth metadata, token and PKCE verifier.
+- Trakt removal now invalidates active in-memory auth state, cancels device-code polling, advances its existing profile generation and clears the short-lived watched-show snapshot before removing persisted credentials.
+- Added Android host tests for plaintext-to-Keystore migration, profile scoping and deletion; added iOS tests for NSUserDefaults-to-Keychain migration, per-profile isolation and deletion. Tests have not been run.
+
+### Evidence
+
+- Apple Keychain data protection and ThisDeviceOnly backup behavior: https://support.apple.com/guide/security/keychain-data-protection-secb0694df1a/web
+- Apple Keychain Services: https://developer.apple.com/documentation/security/keychain-services
+- Apple Security source confirms `errSecInteractionNotAllowed` is distinct from `errSecItemNotFound`, and documents ThisDeviceOnly semantics: https://github.com/apple-oss-distributions/security/blob/main/keychain/headers/SecItem.h and https://github.com/apple-oss-distributions/security/blob/main/keychain/securityd/SecItemDb.c
+- In-repository comparison: the AniList, MDBList, WeTrakr, Simkl and PublicMetaDB platform auth stores.
+- JobScheduler restore/reschedule investigation was rejected as a code-change candidate; evidence was not sufficient to justify changing behaviour. Existing SAF finalization and duplicate Android progress persistence deferrals remain unchanged.
+
+### Verification boundary
+
+- Reviewed the target branch/parent before committing; no local checkout is mounted, so local `git status` cannot be established.
+- Static source review only. No Gradle tasks, tests, builds, CI, emulator/device runs or Keychain/Keystore runtime validation were performed.
+- Existing Android preference filename/key and profile-scoping were preserved. iOS credentials use a device-only Keychain class; restoring to a different iPhone requires reconnecting Trakt.
+
+### Next starting point
+
+- Authorise targeted Android host and iOS persistence tests, then exercise migrations on devices, including locked-after-reboot Keychain behaviour and Android Keystore invalidation/reinstall cases.
+- Continue the deferred SAF completed-document finalization recovery after designing a provider-backed identity model; do not use filename-only matching.

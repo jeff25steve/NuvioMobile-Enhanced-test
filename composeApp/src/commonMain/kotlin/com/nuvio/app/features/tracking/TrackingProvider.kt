@@ -1,5 +1,6 @@
 package com.nuvio.app.features.tracking
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -239,8 +240,21 @@ object TrackingProviderRegistry {
 
     fun removeStoredProfiles(profileIds: Iterable<Int>) {
         val stores = profileStoreSnapshot()
+        val failedProviders = linkedSetOf<TrackingProviderId>()
         profileIds.forEach { profileId ->
-            stores.forEach { store -> store.removeStoredProfile(profileId) }
+            stores.forEach { store ->
+                try {
+                    store.removeStoredProfile(profileId)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // Keep cleaning the remaining providers when one platform store fails.
+                    failedProviders += store.providerId
+                }
+            }
+        }
+        check(failedProviders.isEmpty()) {
+            "Unable to remove stored tracking data for providers: ${failedProviders.joinToString()}"
         }
     }
 

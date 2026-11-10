@@ -110,6 +110,7 @@ object SimklAuthRepository : TrackingAuthProvider {
 
     override fun removeStoredProfile(profileId: Int) {
         SimklAuthStorage.removeProfile(profileId)
+        SimklSyncStorage.removeProfile(profileId)
     }
 
     fun snapshot(): SimklAuthUiState {

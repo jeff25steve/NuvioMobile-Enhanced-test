@@ -350,6 +350,7 @@ object ProfileRepository {
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
+                cleanupTrackingStores(profileIndex)
                 val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
                 if (!settingsBackgroundRemoved) {
                     log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
@@ -762,6 +763,17 @@ object ProfileRepository {
             ),
         )
     }
+    private fun cleanupTrackingStores(profileIndex: Int) {
+        try {
+            ensureTrackingProvidersRegistered()
+            TrackingProviderRegistry.removeStoredProfiles(listOf(profileIndex))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            log.w { "Profile $profileIndex was deleted, but some tracking credentials or caches could not be removed" }
+        }
+    }
+
 }
 
 @kotlinx.serialization.Serializable
