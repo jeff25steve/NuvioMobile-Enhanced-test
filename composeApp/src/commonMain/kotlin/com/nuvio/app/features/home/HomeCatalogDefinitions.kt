@@ -1,13 +1,13 @@
 package com.nuvio.app.features.home
 
 import com.nuvio.app.core.i18n.localizedMediaTypeLabel
+import com.nuvio.app.core.i18n.localizedMediaTypeLabelSuspending
 import com.nuvio.app.features.addons.AddonCatalog
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.ManagedAddon
 import com.nuvio.app.features.addons.enabledAddons
 import com.nuvio.app.features.catalog.supportsPagination
 import com.nuvio.app.features.servers.ServerCatalog
-import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.home_catalog_default_title
 import org.jetbrains.compose.resources.getString
@@ -42,33 +42,33 @@ fun buildAddonCatalogRefreshSignature(addons: List<ManagedAddon>): List<String> 
         signature.value()
     }.sorted()
 
-fun buildHomeCatalogDefinitions(addons: List<ManagedAddon>): List<HomeCatalogDefinition> =
-    addons.enabledAddons().mapNotNull { addon ->
-        val manifest = addon.manifest ?: return@mapNotNull null
-        addon to manifest
-    }.flatMap { (addon, manifest) ->
-        manifest.catalogs
-            .filter { catalog -> catalog.extra.none { it.isRequired } }
-            .map { catalog ->
-                HomeCatalogDefinition(
-                    key = "${manifest.id}:${catalog.type}:${catalog.id}",
-                    defaultTitle = runBlocking {
-                        getString(
-                            Res.string.home_catalog_default_title,
-                            catalog.name,
-                            localizedMediaTypeLabel(catalog.type),
-                        )
-                    },
-                    catalogName = catalog.name,
-                    addonName = addon.displayTitle,
-                    manifestUrl = addon.manifestUrl,
-                    type = catalog.type,
-                    catalogId = catalog.id,
-                    supportsPagination = catalog.supportsPagination(),
-                    descriptorSignature = buildHomeCatalogDescriptorSignature(addon, manifest, catalog),
-                )
-            }
-    }.distinctBy(HomeCatalogDefinition::key) + ServerCatalog.homeDefinitions()
+suspend fun buildHomeCatalogDefinitions(addons: List<ManagedAddon>): List<HomeCatalogDefinition> {
+    val definitions = mutableListOf<HomeCatalogDefinition>()
+    for (addon in addons.enabledAddons()) {
+        val manifest = addon.manifest ?: continue
+        for (catalog in manifest.catalogs) {
+            if (catalog.extra.any { it.isRequired }) continue
+            val mediaTypeLabel = localizedMediaTypeLabelSuspending(catalog.type)
+            val defaultTitle = getString(
+                Res.string.home_catalog_default_title,
+                catalog.name,
+                mediaTypeLabel,
+            )
+            definitions += HomeCatalogDefinition(
+                key = "${manifest.id}:${catalog.type}:${catalog.id}",
+                defaultTitle = defaultTitle,
+                catalogName = catalog.name,
+                addonName = addon.displayTitle,
+                manifestUrl = addon.manifestUrl,
+                type = catalog.type,
+                catalogId = catalog.id,
+                supportsPagination = catalog.supportsPagination(),
+                descriptorSignature = buildHomeCatalogDescriptorSignature(addon, manifest, catalog),
+            )
+        }
+    }
+    return definitions.distinctBy(HomeCatalogDefinition::key) + ServerCatalog.homeDefinitions()
+}
 
 private fun buildHomeCatalogDescriptorSignature(
     addon: ManagedAddon,

@@ -1757,3 +1757,41 @@ Added a regression test with two different offset strings representing the same 
 #### Next starting point
 
 Continue to audit other independent Home/first-content paths. Do not infer startup or scrolling gains from this projection change; measure those on release-like Android and iOS builds once profiling/build execution is authorised.
+
+
+## 10 November 2026 — keep Home catalog title resource lookup off the UI thread
+
+### Confirmed source path
+
+- `MainAppContent.kt` invokes `HomeRepository.refresh(enabledAddons)` from a Compose `LaunchedEffect`.
+- `HomeScreen.kt` can also force-refresh from `ScreenActivityEffect`, whose block is a suspend coroutine scope.
+- Before this change, `buildHomeCatalogDefinitions()` synchronously resolved each add-on catalog title with `runBlocking { getString(...) }`; the nested `localizedMediaTypeLabel()` helper also used `runBlocking` for each recognized media type.
+- The same refresh path appended `ServerCatalog.homeDefinitions()`, whose resume-row title called `runBlocking { getString(...) }` when server resume rows existed.
+- The startup Home snapshot preloader was inspected and left unchanged: `StartupPreloader` already wraps `HomeRepository.preloadSnapshot()` in `Dispatchers.IO`.
+
+### Implementation
+
+- Added `localizedMediaTypeLabelSuspending()` and factored the resource/fallback mapping so the existing synchronous helper retains its prior output for unrelated callers. The new suspending helper propagates cancellation and falls back to the same English label on resource failure.
+- Made Home catalog definition construction suspend-aware and removed the intermediate `mapNotNull/flatMap/map` collection chain in favour of an ordered loop. The existing required-extra filtering, definition keys, descriptor signatures, first-definition-wins de-duplication and server-definition append order are preserved.
+- Made `ServerCatalog.homeDefinitions()` and its private resume-definition builder suspend, removing the remaining blocking resource lookup from the same path.
+- Made `HomeRepository.refresh()` suspend and resolves its definition list within `withContext(Dispatchers.IO)`. Both verified call sites are already suspend Compose effects; the function resumes on their original dispatcher before updating Home repository state.
+- Added a refresh-generation check so a suspended definition build cannot publish over a newer refresh or repopulate Home after `clear()` invalidates a profile's pending refresh.
+- Added a regression test for localized addon title formatting and omission of catalogs with required configuration.
+
+### Evidence and trade-offs
+
+- The project pins Compose Multiplatform `1.13.0-beta01` and kotlinx.coroutines `1.10.2`; `Dispatchers.IO` is already used in common code in `StartupPreloader.kt`.
+- JetBrains' version-tagged Compose Multiplatform `StringResources.kt` exposes both composable `stringResource` and non-composable suspend `getString` overloads, including formatted arguments. Its resource overview notes that most resource reads are synchronous in the caller thread, which is why the lookup is explicitly dispatched to IO rather than merely changing the function to suspend.
+- Kotlin's coroutine documentation defines `runBlocking` as blocking the calling thread until completion. Android's coroutine performance guidance recommends IO dispatchers for blocking I/O and distinguishes suspending from automatically switching threads.
+- No new dependency, settings, persistence format, UI, platform-specific implementation, network request, or website-owned configuration was added or changed.
+
+### Verification boundary
+
+- Re-fetched the live branch immediately before writing; it was still `main-build-testing` at `61e20d66e71ba0dcbb0c0ef9e2dc4050fa2fd56d`.
+- Source-level review confirms both known `HomeRepository.refresh` call sites are suspend contexts and the title/resource work is now inside `Dispatchers.IO`. The exact Compose API overload exists in the repository's pinned `v1.13.0-beta01` tag.
+- A regression test was added but not executed. No build, build-triggering test, CI workflow, emulator, simulator or device profiler was started, as instructed.
+- The code path no longer blocks the caller thread for Home title resource resolution. Actual first-content latency, dropped frames, CPU time and memory impact remain unmeasured; this is a responsiveness fix, not a quantified load-time claim.
+
+### Next starting point
+
+- Revisit Home first-content work only after measuring the new path on release-like Android and iOS builds. Preserve the existing startup profile hydration, image request de-duplication, backdrop capture and Upcoming timestamp improvements; do not repeat them.

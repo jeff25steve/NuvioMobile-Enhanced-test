@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.absoluteValue
 import kotlin.random.Random
@@ -56,6 +57,7 @@ object HomeRepository {
     private var lastPublishedEntries: List<Pair<String, HomeCatalogSection>> = emptyList()
     private var preloadedSnapshot: HomeSnapshot? = null
     private var snapshotGeneration = 0
+    private var refreshPreparationGeneration = 0L
     private var snapshotSaveJob: Job? = null
     private var lastRefreshAddonSignature: List<String>? = null
     private var collectionHeroResolving: Boolean = false
@@ -65,10 +67,14 @@ object HomeRepository {
         preloadedSnapshot = HomeSnapshotStore.load(profileKey)
     }
 
-    fun refresh(addons: List<ManagedAddon>, force: Boolean = false) {
+    suspend fun refresh(addons: List<ManagedAddon>, force: Boolean = false) {
         val activeAddons = addons.enabledAddons()
         lastRefreshAddonSignature = buildAddonCatalogRefreshSignature(addons)
-        val requests = buildHomeCatalogDefinitions(activeAddons)
+        val generation = ++refreshPreparationGeneration
+        val requests = withContext(Dispatchers.IO) {
+            buildHomeCatalogDefinitions(activeAddons)
+        }
+        if (generation != refreshPreparationGeneration) return
         currentDefinitions = requests
         val requestCacheKeys = requests.mapTo(mutableSetOf(), HomeCatalogDefinition::cacheKey)
         cachedSections = cachedSections.filterKeys(requestCacheKeys::contains)
@@ -181,6 +187,7 @@ object HomeRepository {
     }
 
     fun clear() {
+        refreshPreparationGeneration++
         activeJob?.cancel()
         activeJob = null
         activeRequestKey = null

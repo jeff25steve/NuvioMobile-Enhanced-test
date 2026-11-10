@@ -1,6 +1,7 @@
 package com.nuvio.app.core.i18n
 
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.cancellation.CancellationException
 import nuvio.composeapp.generated.resources.player_picture_in_picture
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
@@ -53,17 +54,37 @@ import nuvio.composeapp.generated.resources.unit_bytes_b
 import nuvio.composeapp.generated.resources.unit_bytes_gb
 import nuvio.composeapp.generated.resources.unit_bytes_kb
 import nuvio.composeapp.generated.resources.unit_bytes_mb
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 
+private fun mediaTypeLabelResource(type: String): Pair<StringResource, String>? =
+    when (type.trim().lowercase()) {
+        "movie" -> Res.string.media_movies to "Movies"
+        "series" -> Res.string.media_series to "Series"
+        "anime" -> Res.string.media_anime to "Anime"
+        "channel" -> Res.string.media_channels to "Channels"
+        "tv" -> Res.string.media_tv to "TV"
+        else -> null
+    }
+
+private fun mediaTypeLabelFallback(type: String): String =
+    type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
 fun localizedMediaTypeLabel(type: String): String {
-    val fallback = type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-    return when (type.trim().lowercase()) {
-        "movie" -> resourceString("Movies") { getString(Res.string.media_movies) }
-        "series" -> resourceString("Series") { getString(Res.string.media_series) }
-        "anime" -> resourceString("Anime") { getString(Res.string.media_anime) }
-        "channel" -> resourceString("Channels") { getString(Res.string.media_channels) }
-        "tv" -> resourceString("TV") { getString(Res.string.media_tv) }
-        else -> fallback
+    val fallback = mediaTypeLabelFallback(type)
+    val (resource, resourceFallback) = mediaTypeLabelResource(type) ?: return fallback
+    return resourceString(resourceFallback) { getString(resource) }
+}
+
+internal suspend fun localizedMediaTypeLabelSuspending(type: String): String {
+    val fallback = mediaTypeLabelFallback(type)
+    val (resource, resourceFallback) = mediaTypeLabelResource(type) ?: return fallback
+    return try {
+        getString(resource)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Throwable) {
+        resourceFallback
     }
 }
 

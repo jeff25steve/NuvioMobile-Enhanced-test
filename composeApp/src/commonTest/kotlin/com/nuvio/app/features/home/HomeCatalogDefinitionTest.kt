@@ -1,10 +1,18 @@
 package com.nuvio.app.features.home
 
+import com.nuvio.app.features.addons.AddonCatalog
+import com.nuvio.app.features.addons.AddonExtraProperty
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.AddonResource
 import com.nuvio.app.features.addons.ManagedAddon
+import kotlinx.coroutines.test.runTest
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.home_catalog_default_title
+import nuvio.composeapp.generated.resources.media_movies
+import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -29,6 +37,44 @@ class HomeCatalogDefinitionTest {
     @Test
     fun `omits the type suffix when disabled`() {
         assertEquals("Popular", definition.titleFor(showCatalogType = false))
+    }
+
+    @Test
+    fun `builds localized titles and omits catalogs with required configuration`() = runTest {
+        val manifestUrl = "https://example.test/manifest.json"
+        val addon = ManagedAddon(
+            manifestUrl = manifestUrl,
+            manifest = AddonManifest(
+                id = "catalog-addon",
+                name = "Catalog Addon",
+                description = "",
+                version = "1.0.0",
+                resources = listOf(AddonResource(name = "meta", types = listOf("movie", "series"))),
+                types = listOf("movie", "series"),
+                catalogs = listOf(
+                    AddonCatalog(type = "movie", id = "popular", name = "Popular"),
+                    AddonCatalog(
+                        type = "series",
+                        id = "by-genre",
+                        name = "By genre",
+                        extra = listOf(AddonExtraProperty(name = "genre", isRequired = true)),
+                    ),
+                ),
+                transportUrl = manifestUrl,
+            ),
+        )
+
+        val expectedTitle = getString(
+            Res.string.home_catalog_default_title,
+            "Popular",
+            getString(Res.string.media_movies),
+        )
+        val definitions = buildHomeCatalogDefinitions(listOf(addon))
+        val popular = definitions.single { it.key == "catalog-addon:movie:popular" }
+
+        assertEquals(expectedTitle, popular.defaultTitle)
+        assertEquals("Popular", popular.titleFor(showCatalogType = false))
+        assertFalse(definitions.any { it.key == "catalog-addon:series:by-genre" })
     }
 
     @Test

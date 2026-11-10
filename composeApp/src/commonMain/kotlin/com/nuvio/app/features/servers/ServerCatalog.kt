@@ -9,7 +9,6 @@ import com.nuvio.app.features.catalog.CatalogTarget
 import com.nuvio.app.features.home.HomeCatalogDefinition
 import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.MetaPreview
-import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.media_movies
 import nuvio.composeapp.generated.resources.media_series
@@ -79,7 +78,7 @@ internal object ServerCatalog {
     fun sourceLabel(target: CatalogTarget.Server): String =
         ServerRepository.connection(target.connectionId)?.let(ServerRepository::sourceLabel).orEmpty()
 
-    fun homeDefinitions(): List<HomeCatalogDefinition> = resumeDefinitions() + libraries().map { ref ->
+    suspend fun homeDefinitions(): List<HomeCatalogDefinition> = resumeDefinitions() + libraries().map { ref ->
         HomeCatalogDefinition(
             key = homeKey(ref.connection.id, ref.library.id),
             defaultTitle = ref.title,
@@ -94,13 +93,13 @@ internal object ServerCatalog {
         )
     }
 
-    private fun resumeDefinitions(): List<HomeCatalogDefinition> {
+    private suspend fun resumeDefinitions(): List<HomeCatalogDefinition> {
         val connections = ServerRepository.enabledConnections().filter { connection ->
             connection.selectedLibraries.isNotEmpty() &&
                 ServerRepository.provider(connection)?.supports(ServerCapability.USER_STATE_READ) == true
         }
         if (connections.isEmpty()) return emptyList()
-        val rowName = runBlocking { getString(Res.string.servers_resume_row) }
+        val rowName = getString(Res.string.servers_resume_row)
         return connections.map { connection ->
             val title = "${connection.name} · $rowName"
             HomeCatalogDefinition(
