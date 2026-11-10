@@ -225,11 +225,19 @@ object DownloadsRepository {
 
         activeHandles.remove(downloadId)?.cancel()
         mutateItem(downloadId) { current ->
-            current.copy(
-                status = DownloadStatus.Paused,
-                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                errorMessage = null,
-            )
+            when (current.status) {
+                DownloadStatus.Downloading,
+                DownloadStatus.Paused,
+                -> current.copy(
+                    status = DownloadStatus.Paused,
+                    updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+                    errorMessage = null,
+                )
+
+                DownloadStatus.Completed,
+                DownloadStatus.Failed,
+                -> current
+            }
         }
     }
 

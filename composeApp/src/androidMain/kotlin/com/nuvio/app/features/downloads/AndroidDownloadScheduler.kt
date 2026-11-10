@@ -133,12 +133,21 @@ internal class AndroidDownloadScheduler(val context: Context) {
 
     fun pause(fileName: String) {
         val transfer = store.get(fileName) ?: return
-        if (transfer.item.status != DownloadStatus.Downloading) return
-        val paused = store.update(fileName, transfer.generation) {
-            it.copy(item = it.item.copy(status = DownloadStatus.Paused, errorMessage = null))
+        pause(fileName, transfer.generation)
+    }
+
+    fun pause(fileName: String, generation: String): AndroidDownloadTransfer? {
+        val transfer = store.get(fileName)?.takeIf { it.generation == generation } ?: return null
+        val paused = store.pauseIfDownloading(fileName, generation)
+        if (paused != null) {
+            cancelScheduled(transfer)
+            DownloadsLiveStatusPlatform.notifyTransfer(paused.item)
+            return paused
         }
-        cancelScheduled(transfer)
-        paused?.let { DownloadsLiveStatusPlatform.notifyTransfer(it.item) }
+
+        // The transfer may have completed or failed while the pause request was waiting
+        // for the store lock. Return that terminal state instead of rewinding it.
+        return store.get(fileName)?.takeIf { it.generation == generation }
     }
 
     fun remove(fileName: String) {

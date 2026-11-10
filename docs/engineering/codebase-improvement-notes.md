@@ -2299,3 +2299,40 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - After explicit authorisation, run focused common Search/UI tests and Android/iOS compile targets; visually verify backdrop sampling during scroll, dynamic header-height changes, Compose keyboard focus, iOS native field focus, and Library Saved/Cloud scrim height on devices.
 - Continue the existing deferred SAF finalization/provider-identity and Android download progress persistence investigations only after their previously recorded evidence requirements are met.
+
+
+## 10 November 2026 — make Android download pause transitions atomic
+
+### Confirmed race
+
+- `AndroidDownloadScheduler.pause()` previously checked `Downloading` using `store.get()` before entering `AndroidDownloadStore.update()`'s synchronized block. `update()` only validated the generation, not the current status. If completion or failure committed between those operations, the stale pause could replace `Completed`/`Failed` with `Paused`.
+- The scheduler also cancelled JobScheduler/WorkManager unconditionally after the attempted update, even when the update returned null. A stale handle could therefore cancel a job whose state transition it did not own. This matters because a resumed download can reuse its persisted `jobId` while receiving a new generation.
+- Android's task handle cancelled its StateFlow observer before reading the transfer store. A completion committed just before cancellation could therefore have its terminal emission missed. The common repository then unconditionally changed its still-Downloading UI snapshot to Paused.
+
+### Changes
+
+- Added `AndroidDownloadStore.pauseIfDownloading(fileName, generation)`. It checks generation ownership and `Downloading` status inside the existing store lock, and persists Paused only when both conditions still hold.
+- `AndroidDownloadScheduler.pause(fileName, generation)` now returns the committed Paused record, or the current same-generation record when another transition won. Scheduled work is cancelled and the Paused notification is updated only after the atomic pause transition succeeds.
+- Android task-handle cancellation now reconciles the persisted result after stopping its observer: Paused invokes `onPaused`, Completed invokes `onSuccess` with the committed URI/size, and Failed invokes `onFailure`. It uses the task's captured generation, so an old handle cannot pause/cancel a resumed generation.
+- The common `DownloadsRepository.pauseDownload()` mutation now preserves Completed/Failed records if a terminal callback has already committed. It still updates the timestamp when the persisted Android state was already Paused before the common mutation runs.
+- Added four Android host regression cases for active pause idempotence, Completed-state preservation, stale-generation rejection after resume, and scheduler return of an already-completed state.
+
+### Evidence and decisions
+
+- The race is established directly by the call order in `AndroidDownloadScheduler.pause()`, the lock boundary in `AndroidDownloadStore.update()`, and the observer cancellation order in `DownloadsPlatformDownloader.android.kt`; no timing assumption or benchmark is needed to show the invalid transition is possible.
+- Android's official `JobScheduler.cancel(int)` contract says cancellation stops a currently executing job immediately. The new ordering therefore cancels only after the state store confirms that this generation successfully transitioned from Downloading to Paused: https://developer.android.com/reference/android/app/job/JobScheduler#cancel(int).
+- Kept the existing per-file mutex, generation format, job ID reuse, WorkManager/JobScheduler configuration, transfer store schema, progress persistence, notifications, UI, and website-managed settings unchanged.
+- Did not change iOS `IosBackgroundDownloadCoordinatorImpl`: its task maps are accessed from URLSession's serial delegate queue and app-initiated calls on other threads, a broader state-machine/serialization problem already recorded above. This Android correction does not claim to resolve that iOS issue.
+- SAF finalization recovery remains unchanged. Android DocumentsContract may replace the document ID and invalidate the previous URI on rename; filename-only recovery remains unsafe without provider identity and durable finalization ownership.
+
+### Verification boundary
+
+- The four focused Android host tests were authored before the production changes. They have **not** been executed because Gradle tests would trigger a build, which remains prohibited until explicit authorisation. The expected failing phase was not run for the same reason.
+- Static review only: the store checks generation/status under one lock; scheduler cancellation is inside the successful transition branch; the Android handle reads the same generation's authoritative record and dispatches the correct terminal callback; the common pause mutation cannot replace a terminal state.
+- No Gradle task, Kotlin compilation, Android/iOS build, emulator/device run, CI workflow, performance trace or build-triggering test was started. Compile/API/runtime behaviour remains unverified.
+- No local checkout is mounted, so local `git status` and any unpushed working-tree changes remain inaccessible. The remote `main-build-testing` head was checked before preparing this commit; the branch will be advanced only with an expected-head non-force update.
+
+### Next starting point
+
+- After explicit authorisation, run the Android host lifecycle tests that cover the new pause transitions, then compile Android and iOS separately because the common repository pause guard affects both targets.
+- Continue the separately deferred iOS background URLSession reattachment/thread-ownership design and SAF provider-identity finalization design. Do not merge those state machines into this pause fix.

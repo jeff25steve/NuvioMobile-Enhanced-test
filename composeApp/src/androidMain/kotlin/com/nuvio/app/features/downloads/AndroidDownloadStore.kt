@@ -46,6 +46,17 @@ internal class AndroidDownloadStore(private val directory: File) {
         transfer
     }
 
+    fun pauseIfDownloading(fileName: String, generation: String): AndroidDownloadTransfer? =
+        synchronized(lock) {
+            val current = get(fileName)?.takeIf { it.generation == generation }
+                ?: return@synchronized null
+            if (current.item.status != DownloadStatus.Downloading) return@synchronized null
+
+            current.copy(
+                item = current.item.copy(status = DownloadStatus.Paused, errorMessage = null),
+            ).also(::save)
+        }
+
     fun update(
         fileName: String,
         generation: String,

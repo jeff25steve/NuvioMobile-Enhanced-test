@@ -78,8 +78,19 @@ internal actual object DownloadsPlatformDownloader {
         return object : DownloadsTaskHandle {
             override fun cancel() {
                 observer.cancel()
-                if (scheduler.store.get(request.destinationFileName)?.generation == transfer.generation) {
-                    scheduler.pause(request.destinationFileName)
+                val current = scheduler.pause(request.destinationFileName, transfer.generation) ?: return
+                when (current.item.status) {
+                    DownloadStatus.Downloading -> Unit
+                    DownloadStatus.Paused -> onPaused()
+                    DownloadStatus.Completed -> {
+                        val localFileUri = current.item.localFileUri?.takeIf { it.isNotBlank() }
+                        if (localFileUri != null) {
+                            onSuccess(localFileUri, current.item.totalBytes)
+                        } else {
+                            onFailure(current.item.errorMessage.orEmpty())
+                        }
+                    }
+                    DownloadStatus.Failed -> onFailure(current.item.errorMessage.orEmpty())
                 }
             }
         }
