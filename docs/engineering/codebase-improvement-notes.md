@@ -1653,9 +1653,9 @@ The profile cache loader also called `ProfileStorage.loadPayload()` and decoded 
 
 - `StartupPreloader` now records whether its profile-cache step completed without an exception. The step wrapper returns success/failure while preserving cancellation propagation and the existing per-step error isolation.
 - AppGate consults that process-startup result before calling `loadCachedProfiles()`. Android skips the second profile hydration because its preloader has already completed it. iOS does not call the Android Activity preloader, so the flag remains false and AppGate retains its original one-time cache-load behavior. A failed preload leaves the flag false so AppGate can retry.
-- `ProfileRepository.loadCachedProfiles()` and `ensureLoaded(userId)` now perform the synchronous storage read and JSON decode inside `withContext(Dispatchers.IO)`. StateFlow publication, selection state and ThemeSettingsRepository updates remain on the caller context.
+- `ProfileRepository.loadCachedProfiles()` and `ensureLoaded(userId)` now perform the synchronous storage read and JSON decode inside `withContext(Dispatchers.IO)`. A shared Mutex serializes those suspendable cache loads; a generation token invalidated by `clearInMemory()` prevents a read that was suspended during account/profile cleanup from publishing stale state. StateFlow publication, selection state and ThemeSettingsRepository updates remain on the caller context.
 - The account-mismatch cleanup of profile PIN cache entries now runs on the same IO context as biometric credential removal. The account-owner comparison, local lock cleanup, active-profile selection and biometric disable behavior are unchanged.
-- Added common tests for both AppGate decisions: retain the cache load when no platform preload ran, and skip it when the startup preload completed.
+- Added common tests for both AppGate decisions and for accepting/rejecting profile-cache load generations, including invalidation after `clearInMemory()`.
 
 ### Why broader preload changes were rejected
 

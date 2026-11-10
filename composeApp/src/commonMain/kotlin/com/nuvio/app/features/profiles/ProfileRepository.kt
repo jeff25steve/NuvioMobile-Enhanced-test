@@ -52,6 +52,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -89,6 +91,9 @@ object ProfileRepository {
     @Volatile
     private var activeProfileIndex: Int = 1
     private var loadedCacheForUserId: String? = null
+    private val profileCacheLoadMutex = Mutex()
+    @Volatile
+    private var profileCacheGeneration: Long = 0L
 
     val activeProfileId: Int get() = activeProfileIndex
 
@@ -99,23 +104,33 @@ object ProfileRepository {
         persist()
     }
 
-    suspend fun loadCachedProfiles(): Boolean {
-        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() } ?: return false
+    suspend fun loadCachedProfiles(): Boolean = profileCacheLoadMutex.withLock {
+        if (loadedCacheForUserId != null) return@withLock _state.value.profiles.isNotEmpty()
+
+        val generation = profileCacheGeneration
+        val stored = withContext(Dispatchers.IO) { decodeStoredPayload() } ?: return@withLock false
+        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock false
+
         loadedCacheForUserId = stored.userId
         applyStoredPayload(stored)
+        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock false
+
         ThemeSettingsRepository.onProfileChanged()
-        return _state.value.profiles.isNotEmpty()
+        _state.value.profiles.isNotEmpty()
     }
 
-    suspend fun ensureLoaded(userId: String) {
-        if (loadedCacheForUserId == userId && _state.value.isLoaded) return
+    suspend fun ensureLoaded(userId: String) = profileCacheLoadMutex.withLock {
+        if (loadedCacheForUserId == userId && _state.value.isLoaded) return@withLock
 
+        val generation = profileCacheGeneration
         val stored = withContext(Dispatchers.IO) { decodeStoredPayload() }
+        if (!isProfileCacheLoadGenerationCurrent(generation, profileCacheGeneration)) return@withLock
+
         loadedCacheForUserId = userId
         if (stored == null) {
             _state.value = ProfileState()
             activeProfileIndex = 1
-            return
+            return@withLock
         }
 
         if (stored.userId != userId) {
@@ -128,13 +143,14 @@ object ProfileRepository {
                 (1..MAX_PROFILES).forEach { ProfilePinCacheStorage.removePayload(it) }
                 ProfileBiometricAuth.disable(1, stored.userId)
             }
-            return
+            return@withLock
         }
 
         applyStoredPayload(stored)
     }
 
     fun clearInMemory() {
+        profileCacheGeneration += 1L
         loadedCacheForUserId = null
         activeProfileIndex = 1
         _state.value = ProfileState()
@@ -745,3 +761,7 @@ data class ProfileLockState(
     @kotlinx.serialization.SerialName("pin_enabled") val pinEnabled: Boolean = false,
     @kotlinx.serialization.SerialName("pin_locked_until") val pinLockedUntil: String? = null,
 )
+
+internal fun isProfileCacheLoadGenerationCurrent(expectedGeneration: Long, currentGeneration: Long): Boolean =
+    expectedGeneration == currentGeneration
+
