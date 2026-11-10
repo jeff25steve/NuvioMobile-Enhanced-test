@@ -69,6 +69,7 @@ object HomeRepository {
     }
 
     fun refresh(addons: List<ManagedAddon>, force: Boolean = false) {
+        lastRefreshAddonSignature = buildAddonCatalogRefreshSignature(addons)
         val generation = ++refreshPreparationGeneration
         refreshPreparationJob?.cancel()
         refreshPreparationJob = scope.launch(Dispatchers.Main) {
@@ -89,7 +90,6 @@ object HomeRepository {
     ) {
         if (generation != refreshPreparationGeneration) return
         val activeAddons = addons.enabledAddons()
-        lastRefreshAddonSignature = buildAddonCatalogRefreshSignature(addons)
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val requests = try {
             withContext(Dispatchers.IO) {

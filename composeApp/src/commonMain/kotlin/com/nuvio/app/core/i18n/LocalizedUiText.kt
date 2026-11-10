@@ -83,7 +83,7 @@ internal suspend fun localizedMediaTypeLabelSuspending(type: String): String {
         getString(resource)
     } catch (cancellation: CancellationException) {
         throw cancellation
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         resourceFallback
     }
 }

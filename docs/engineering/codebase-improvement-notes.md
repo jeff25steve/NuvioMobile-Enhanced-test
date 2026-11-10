@@ -1788,7 +1788,7 @@ Continue to audit other independent Home/first-content paths. Do not infer start
 ### Verification boundary
 
 - Re-fetched the live branch immediately before writing; it was still `main-build-testing` at `61e20d66e71ba0dcbb0c0ef9e2dc4050fa2fd56d`.
-- Source-level review confirms both known `HomeRepository.refresh` call sites are suspend contexts and the title/resource work is now inside `Dispatchers.IO`. The exact Compose API overload exists in the repository's pinned `v1.13.0-beta01` tag.
+- Source-level review found refresh calls from `MainAppContent`'s `LaunchedEffect`, a suspending `ScreenActivityEffect`, and two ordinary retry-card click callbacks. The public `refresh()` API remains non-suspending and compatible with all of them. Its private preparation coroutine runs on Main, sets the loading state before suspending, then performs title/resource resolution within `Dispatchers.IO`; failed preparation clears the loading flag and exposes an error rather than leaving a permanent skeleton. The exact Compose API overload exists in the repository's pinned `v1.13.0-beta01` tag.
 - A regression test was added but not executed. No build, build-triggering test, CI workflow, emulator, simulator or device profiler was started, as instructed.
 - The code path no longer blocks the caller thread for Home title resource resolution. Actual first-content latency, dropped frames, CPU time and memory impact remain unmeasured; this is a responsiveness fix, not a quantified load-time claim.
 
