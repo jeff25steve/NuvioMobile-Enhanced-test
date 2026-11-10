@@ -19,6 +19,7 @@ import com.nuvio.app.features.collection.CollectionStorage
 import com.nuvio.app.features.profiles.ProfileRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -66,7 +67,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun unchangedCatalogsDoNotRewriteSettings() {
+    fun unchangedCatalogsDoNotRewriteSettings() = runTest {
         val addons = listOf(addon())
         HomeCatalogSettingsRepository.syncCatalogs(addons)
         val editCount = preferences.editCount
@@ -78,7 +79,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun unchangedCollectionsDoNotRewriteSettings() {
+    fun unchangedCollectionsDoNotRewriteSettings() = runTest {
         val collections = listOf(collection())
         HomeCatalogSettingsRepository.syncCollections(collections)
         val editCount = preferences.editCount
@@ -90,7 +91,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun collectionSyncReappliesInputsAfterCatalogSyncReplacedCollections() {
+    fun collectionSyncReappliesInputsAfterCatalogSyncReplacedCollections() = runTest {
         val collections = listOf(collection())
         HomeCatalogSettingsRepository.syncCollections(collections)
         HomeCatalogSettingsRepository.syncCatalogs(listOf(addon()))
@@ -105,7 +106,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun catalogSyncReappliesInputsAfterCollectionSyncReplacedCollections() {
+    fun catalogSyncReappliesInputsAfterCollectionSyncReplacedCollections() = runTest {
         val addons = listOf(addon())
         HomeCatalogSettingsRepository.syncCatalogs(addons)
         HomeCatalogSettingsRepository.syncCollections(listOf(collection()))
@@ -181,7 +182,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun collectionSourceChangesAreAppliedWithTheSameTitleAndFolderCount() {
+    fun collectionSourceChangesAreAppliedWithTheSameTitleAndFolderCount() = runTest {
         val collection = collection()
         HomeCatalogSettingsRepository.syncCollections(listOf(collection))
         val editCount = preferences.editCount
@@ -199,7 +200,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun localeChangesRebuildCatalogAndCollectionLabels() {
+    fun localeChangesRebuildCatalogAndCollectionLabels() = runTest {
         val addons = listOf(addon())
         val collections = listOf(collection())
         HomeCatalogSettingsRepository.syncCatalogs(addons)
@@ -214,7 +215,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun profileChangesRebuildTheSameCatalogAndCollectionInputs() {
+    fun profileChangesRebuildTheSameCatalogAndCollectionInputs() = runTest {
         val addons = listOf(addon())
         val collections = listOf(collection())
         HomeCatalogSettingsRepository.syncCatalogs(addons)

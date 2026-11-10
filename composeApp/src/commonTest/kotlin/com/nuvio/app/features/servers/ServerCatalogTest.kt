@@ -169,7 +169,7 @@ class ServerCatalogTest {
     }
 
     @Test
-    fun buildsAttributedHomeRowsForSelectedLibraries() {
+    fun buildsAttributedHomeRowsForSelectedLibraries() = runTest {
         val connection = installFakeServer()
         ServerRepository.setLibrarySelected(connection.id, FakeServerProvider.SERIES_LIBRARY.id, false)
 
