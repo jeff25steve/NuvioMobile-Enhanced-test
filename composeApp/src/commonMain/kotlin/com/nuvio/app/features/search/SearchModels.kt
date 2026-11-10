@@ -3,6 +3,40 @@ package com.nuvio.app.features.search
 import com.nuvio.app.features.catalog.CatalogTarget
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.HomeCatalogSection
+import com.nuvio.app.features.servers.ServerSearchRequestSignature
+
+internal data class AddonSearchRequestSignature(
+    val manifestUrl: String,
+    val manifestId: String,
+    val transportUrl: String,
+    val displayTitle: String,
+    val catalogId: String,
+    val catalogName: String,
+    val type: String,
+    val supportsPagination: Boolean,
+)
+
+internal data class SearchRequestSignature(
+    val normalizedQuery: String,
+    val hideUnreleasedContent: Boolean,
+    val hasPendingAddonManifests: Boolean,
+    val addonRequests: List<AddonSearchRequestSignature>,
+    val serverRequests: List<ServerSearchRequestSignature>,
+)
+
+internal fun buildSearchRequestSignature(
+    query: String,
+    hideUnreleasedContent: Boolean,
+    hasPendingAddonManifests: Boolean,
+    addonRequests: List<AddonSearchRequestSignature>,
+    serverRequests: List<ServerSearchRequestSignature>,
+): SearchRequestSignature = SearchRequestSignature(
+    normalizedQuery = query.trim().lowercase(),
+    hideUnreleasedContent = hideUnreleasedContent,
+    hasPendingAddonManifests = hasPendingAddonManifests,
+    addonRequests = addonRequests,
+    serverRequests = serverRequests,
+)
 
 enum class SearchEmptyStateReason {
     NoActiveAddons,

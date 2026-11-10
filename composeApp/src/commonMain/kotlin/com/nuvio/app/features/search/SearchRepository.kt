@@ -71,7 +71,7 @@ object SearchRepository {
 
     private var activeJob: Job? = null
     private var activeDiscoverJob: Job? = null
-    private var lastRequestKey: String? = null
+    private var lastRequestKey: SearchRequestSignature? = null
     private var discoverSources: List<DiscoverCatalogOption> = emptyList()
     private var lastDiscoverRequestKey: DiscoverRequestKey? = null
 
@@ -120,23 +120,13 @@ object SearchRepository {
             return
         }
 
-        val requestKey = buildString {
-            append(normalizedQuery.lowercase())
-            append('|')
-            append(HomeCatalogSettingsRepository.snapshot().hideUnreleasedContent)
-            append('|')
-            append(hasPendingAddonManifests)
-            append('|')
-            append(
-                requests.joinToString(separator = "|") { request ->
-                    "${request.addon.manifestUrl}:${request.type}:${request.catalogId}"
-                },
-            )
-            serverSearches.forEach { ref ->
-                append("|server:${ref.connection.id}:${ref.kind.contentType}:")
-                append(ref.connection.selectedLibraries(ref.kind).joinToString(",") { it.id })
-            }
-        }
+        val requestKey = buildSearchRequestSignature(
+            query = normalizedQuery,
+            hideUnreleasedContent = HomeCatalogSettingsRepository.snapshot().hideUnreleasedContent,
+            hasPendingAddonManifests = hasPendingAddonManifests,
+            addonRequests = requests.map { it.toRequestSignature() },
+            serverRequests = serverSearches.map { ServerCatalog.searchRequestSignature(it) },
+        )
         val loaders: List<suspend () -> HomeCatalogSection> =
             requests.map { request -> suspend { request.toSection(forceRefresh = forceRefresh) } } +
                 serverSearches.map { ref ->
@@ -647,7 +637,7 @@ private fun CatalogPage.withUnreleasedFilter(): CatalogPage {
     return if (filteredItems.size == items.size) this else copy(items = filteredItems)
 }
 
-private data class SearchCatalogRequest(
+internal data class SearchCatalogRequest(
     val addon: ManagedAddon,
     val catalogId: String,
     val catalogName: String,
@@ -655,6 +645,20 @@ private data class SearchCatalogRequest(
     val query: String,
     val supportsPagination: Boolean,
 )
+
+internal fun SearchCatalogRequest.toRequestSignature(): AddonSearchRequestSignature {
+    val manifest = requireNotNull(addon.manifest)
+    return AddonSearchRequestSignature(
+        manifestUrl = addon.manifestUrl,
+        manifestId = manifest.id,
+        transportUrl = manifest.transportUrl,
+        displayTitle = addon.displayTitle,
+        catalogId = catalogId,
+        catalogName = catalogName,
+        type = type,
+        supportsPagination = supportsPagination,
+    )
+}
 
 private fun AddonCatalog.supportsSearch(): Boolean =
     extra.any { property -> property.name == "search" } &&

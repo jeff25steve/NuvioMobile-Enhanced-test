@@ -1991,3 +1991,43 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - Measure cold startup with downloads absent, with a few persisted downloads, and with a larger transfer-record set. Compare TTID and TTFD before/after with the same account/cache state.
 - Inspect the remaining synchronous DownloadsRepository.loadFromDisk() cost separately. In particular, measure SharedPreferences payload decode and per-item JobScheduler checks before considering any change to repository restoration or callback threading.
+
+
+## 10 November 2026 — make Search request reuse keys cover live descriptors
+
+### Confirmed stale-state path
+
+- `SearchRepository.search()` computes the request-reuse key before it decides whether to keep the current Search sections. The old delimiter-concatenated string covered the lowercased query, unreleased filter, pending-manifest state, add-on manifest URL/type/catalog ID, server connection ID/kind and selected library IDs only.
+- `SearchCatalogRequest.toSection()` also uses the add-on manifest ID and transport URL, add-on display title, catalog display name and pagination capability. An add-on refresh, rename or catalog edit could therefore trigger the existing SearchScreen effect while the old reuse key remained equal; the UI would retain an older section title, source label, target URL or pagination flag.
+- `ServerCatalog.searchSection()` uses the connection name and provider display label for section title/subtitle. The provider search call uses the connection address, remote user ID, search kind and selected library objects. The result presenter can also remap external IDs using the ordered enabled add-on `meta` resource resolvers when `useCatalogMetadata` is enabled.
+- Existing Discover uses a typed `DiscoverRequestKey` over `DiscoverCatalogOption` sources. Its selected catalog/genre precedence and pending-manifest behaviour are separate and remain unchanged.
+
+### Implementation
+
+- Replaced Search's delimiter-concatenated string key with immutable typed `SearchRequestSignature` / `AddonSearchRequestSignature` data classes. Structural equality now avoids delimiter ambiguity and explicitly records the inputs used for section content.
+- The add-on descriptor includes configured manifest URL, manifest ID, transport URL, effective display title, catalog ID/name/type and pagination support.
+- Added a server descriptor from `ServerCatalog`: connection ID/provider/name/source label/address/remote user ID, search media kind, ordered selected-library ID/name/kind projections, metadata-mapping toggle, and the ordered metadata resolver projections.
+- Metadata resolver signatures contain only the `meta` resource types and ID prefixes actually consulted by `ServerTitle.catalogPreview()`. Resource membership is a set because matching uses `any/contains`; outer manifest order remains a list because the first matching manifest wins. No token, credential reference, password or authorization header is included.
+- Query reuse remains case-insensitive after trimming, exactly like the prior key. The actual provider request continues to receive the trimmed original-case query. The unreleased filter and pending-manifest flags remain part of the key.
+- Search request loading, fan-out, ordering, cancellation, partial failure state, provider cache keys, Discover selection/pagination and UI effects were not changed.
+
+### Evidence
+
+- Actual project code: `SearchRepository.kt`, `SearchModels.kt`, `SearchScreen.kt`, `HomeCatalogDefinitions.kt`, `AddonModels.kt`, `ServerModels.kt`, `ServerCatalog.kt`, `ServerRepository.kt`, `ServerProvider.kt`, and the Emby/Jellyfin shared `MediaBrowserProvider.search()` implementation.
+- `SearchScreen` already invokes Search when its query, add-on catalog refresh signature, or unreleased filter changes, and when returning online. This change makes the SearchRepository reuse check honour those refreshed source descriptors; it does not add new refresh triggers.
+- Locale is intentionally not a request-key field: `core/i18n/LocalizedUiText.kt` documents that the app-language switch recreates the process, which also clears the singleton SearchRepository and its in-memory reuse key. No runtime language-change invalidation path is needed for this cache.
+- Server media-browser search passes the selected libraries and the remote user ID to the provider API; the configured address is used as API root. Server result presentation resolves enabled add-on metadata resources in list order.
+- Kotlin's official [data class documentation](https://kotlinlang.org/docs/data-classes.html) confirms constructor properties define generated structural `equals/hashCode`, which is the intended typed-key comparison.
+- Android's official [data layer guidance](https://developer.android.com/topic/architecture/data-layer) recommends immutable repository data; the AOSP [client-side caching guidelines](https://source.android.com/docs/setup/contribute/api-guidelines/caching) describe request-parameter keyed caches and targeted invalidation. Exa retrieved these independent official references; Context7 resolved Kotlin and confirmed data-class equality details.
+
+### Tests and verification boundary
+
+- Added common tests for add-on identity/transport/display/catalog/pagination invalidation, preserved case-insensitive query reuse and flags, server connection/endpoint/user/library/kind invalidation, and ordered metadata resolver invalidation.
+- Tests were not run because the explicit project instruction prohibits build-triggering tests and builds until authorised. No build, Gradle task, CI workflow, emulator, simulator or device profiler was started. The new tests are source additions, not passing test evidence.
+- Remote source/diff inspection is the available verification method. Actual network result freshness and user-visible behaviour remain unverified at runtime.
+- Local `git status` is unavailable because no local checkout is mounted; the remote branch was rechecked at `a99a12b61bd8fdc678569adc410b8b598b467b6a` before preparing this change.
+
+### Next starting point
+
+- After test/build authorisation, run the focused common Search/Server tests first, then the appropriate Android and iOS compile targets.
+- Separately consider whether server connection revision should be an explicit SearchScreen refresh trigger. Do not key that effect to every failure-status revision without tracing `ServerRepository` update semantics, because server searches themselves update failure state.

@@ -6,6 +6,7 @@ import com.nuvio.app.features.addons.ManagedAddon
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class SearchRequestStateTest {
@@ -34,6 +35,85 @@ class SearchRequestStateTest {
                 forceRefresh = true,
                 requestKey = "same-query",
                 cachedRequestKey = "same-query",
+            ),
+        )
+    }
+
+    @Test
+    fun `addon search signature includes every request and displayed descriptor`() {
+        val manifest = AddonManifest(
+            id = "cinemeta",
+            name = "CineMeta",
+            description = "",
+            version = "1.0.0",
+            resources = listOf(AddonResource(name = "meta", types = listOf("movie"))),
+            types = listOf("movie"),
+            transportUrl = "https://addon.example/manifest.json",
+        )
+        val addon = ManagedAddon(
+            manifestUrl = "https://addon.example/configured.json",
+            manifest = manifest,
+        )
+        val request = SearchCatalogRequest(
+            addon = addon,
+            catalogId = "popular",
+            catalogName = "Popular",
+            type = "movie",
+            query = "matrix",
+            supportsPagination = false,
+        )
+        val baseline = request.toRequestSignature()
+        val changedRequests = listOf(
+            request.copy(addon = addon.copy(manifestUrl = "https://new.example/manifest.json")),
+            request.copy(addon = addon.copy(manifest = manifest.copy(id = "other-addon"))),
+            request.copy(addon = addon.copy(manifest = manifest.copy(transportUrl = "https://new.example/transport"))),
+            request.copy(addon = addon.copy(manifest = manifest.copy(name = "Updated CineMeta"))),
+            request.copy(addon = addon.copy(userSetName = "My Addon")),
+            request.copy(catalogId = "trending"),
+            request.copy(catalogName = "Trending"),
+            request.copy(type = "series"),
+            request.copy(supportsPagination = true),
+        )
+
+        assertTrue(changedRequests.all { it.toRequestSignature() != baseline })
+    }
+
+    @Test
+    fun `search request signature preserves query normalization and filter inputs`() {
+        val first = buildSearchRequestSignature(
+            query = "  MATRIX ",
+            hideUnreleasedContent = false,
+            hasPendingAddonManifests = false,
+            addonRequests = emptyList(),
+            serverRequests = emptyList(),
+        )
+        val normalized = buildSearchRequestSignature(
+            query = "matrix",
+            hideUnreleasedContent = false,
+            hasPendingAddonManifests = false,
+            addonRequests = emptyList(),
+            serverRequests = emptyList(),
+        )
+
+        assertEquals(first, normalized)
+        assertNotEquals(
+            first,
+            buildSearchRequestSignature(
+                query = "matrix",
+                hideUnreleasedContent = true,
+                hasPendingAddonManifests = false,
+                addonRequests = emptyList(),
+                serverRequests = emptyList(),
+            ),
+        )
+        assertNotEquals(
+            first,
+            buildSearchRequestSignature(
+                query = "matrix",
+                hideUnreleasedContent = false,
+                hasPendingAddonManifests = true,
+                addonRequests = emptyList(),
+                serverRequests = emptyList(),
             ),
         )
     }

@@ -9,8 +9,10 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class ServerCatalogTest {
@@ -57,6 +59,101 @@ class ServerCatalogTest {
         val items = ServerCatalog.search(targets.last(), "item")
         assertEquals(listOf(ServerItemRef(connection.id, "7").encode()), items.map { it.id })
         assertEquals(listOf(ServerMediaKind.SERIES to listOf(FakeServerProvider.SERIES_LIBRARY.id)), provider.searches)
+    }
+
+    @Test
+    fun searchRequestSignatureTracksServerIdentityAndDisplayInputs() {
+        val connection = installFakeServer()
+        val ref = ServerCatalog.searchTargets().first()
+        val baseline = buildServerSearchRequestSignature(ref, emptyList())
+        val changedConnections = listOf(
+            connection.copy(name = "Renamed"),
+            connection.copy(providerId = "another-provider"),
+            connection.copy(address = "https://new.example"),
+            connection.copy(remoteUserId = "different-user"),
+            connection.copy(
+                libraries = connection.libraries.map { library ->
+                    if (library.id == FakeServerProvider.MOVIE_LIBRARY.id) {
+                        library.copy(name = "Films")
+                    } else {
+                        library
+                    }
+                },
+            ),
+            connection.copy(
+                libraries = connection.libraries.map { library ->
+                    if (library.id == FakeServerProvider.MOVIE_LIBRARY.id) {
+                        library.copy(id = "movies-v2")
+                    } else {
+                        library
+                    }
+                },
+            ),
+            connection.copy(
+                libraries = connection.libraries.map { library ->
+                    if (library.id == FakeServerProvider.MOVIE_LIBRARY.id) {
+                        library.copy(kind = ServerMediaKind.MIXED)
+                    } else {
+                        library
+                    }
+                },
+            ),
+        )
+
+        assertTrue(
+            changedConnections.all { changed ->
+                buildServerSearchRequestSignature(ref.copy(connection = changed), emptyList()) != baseline
+            },
+        )
+
+        val movieLibrary = connection.libraries.first { it.kind == ServerMediaKind.MOVIE }
+        val seriesLibrary = connection.libraries.first { it.kind == ServerMediaKind.SERIES }
+        val secondMovieLibrary = ServerLibrary("11", "Other Movies", ServerMediaKind.MOVIE)
+        val orderedLibraries = connection.copy(
+            libraries = listOf(movieLibrary, secondMovieLibrary, seriesLibrary),
+        )
+        val reversedMovieOrder = orderedLibraries.copy(
+            libraries = listOf(secondMovieLibrary, movieLibrary, seriesLibrary),
+        )
+        assertNotEquals(
+            buildServerSearchRequestSignature(ref.copy(connection = orderedLibraries), emptyList()),
+            buildServerSearchRequestSignature(ref.copy(connection = reversedMovieOrder), emptyList()),
+        )
+        assertNotEquals(
+            baseline,
+            buildServerSearchRequestSignature(ref.copy(kind = ServerMediaKind.SERIES), emptyList()),
+        )
+    }
+
+    @Test
+    fun searchRequestSignatureTracksOrderedMetadataResolversWhenEnabled() {
+        val connection = installFakeServer().copy(useCatalogMetadata = true)
+        val ref = ServerCatalog.searchTargets().first().copy(connection = connection)
+        val first = metaAddon("first", listOf("tt"))
+        val second = metaAddon("second", listOf("tmdb:"))
+        val baseline = buildServerSearchRequestSignature(ref, listOf(first, second))
+
+        assertNotEquals(
+            baseline,
+            buildServerSearchRequestSignature(ref, listOf(second, first)),
+        )
+        assertNotEquals(
+            baseline,
+            buildServerSearchRequestSignature(
+                ref,
+                listOf(
+                    first.copy(resources = listOf(AddonResource("meta", listOf("movie"), listOf("imdb:")))),
+                    second,
+                ),
+            ),
+        )
+        val metadataDisabled = buildServerSearchRequestSignature(
+            ref.copy(connection = connection.copy(useCatalogMetadata = false)),
+            listOf(first, second),
+        )
+        assertFalse(metadataDisabled.useCatalogMetadata)
+        assertTrue(metadataDisabled.metadataResolvers.isEmpty())
+        assertNotEquals(baseline, metadataDisabled)
     }
 
     @Test

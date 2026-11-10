@@ -53,6 +53,77 @@ internal data class ServerSearchRef(
     val kind: ServerMediaKind,
 )
 
+internal data class ServerSearchLibrarySignature(
+    val id: String,
+    val name: String,
+    val kind: ServerMediaKind,
+)
+
+internal data class ServerSearchMetaResourceSignature(
+    val types: Set<String>,
+    val idPrefixes: Set<String>,
+)
+
+internal data class ServerSearchMetaManifestSignature(
+    val resources: Set<ServerSearchMetaResourceSignature>,
+)
+
+internal data class ServerSearchRequestSignature(
+    val connectionId: String,
+    val providerId: String,
+    val connectionName: String,
+    val sourceLabel: String,
+    val address: String,
+    val remoteUserId: String,
+    val kind: ServerMediaKind,
+    val selectedLibraries: List<ServerSearchLibrarySignature>,
+    val useCatalogMetadata: Boolean,
+    val metadataResolvers: List<ServerSearchMetaManifestSignature>,
+)
+
+internal fun buildServerSearchRequestSignature(
+    ref: ServerSearchRef,
+    metaManifests: List<AddonManifest>,
+): ServerSearchRequestSignature {
+    val connection = ref.connection
+    val metadataResolvers = if (connection.useCatalogMetadata) {
+        metaManifests.mapNotNull { manifest ->
+            val resources = manifest.resources.asSequence()
+                .filter { it.name == "meta" }
+                .map { resource ->
+                    ServerSearchMetaResourceSignature(
+                        types = resource.types.toSet(),
+                        idPrefixes = resource.idPrefixes.toSet(),
+                    )
+                }
+                .toSet()
+                .takeIf { it.isNotEmpty() }
+            resources?.let(::ServerSearchMetaManifestSignature)
+        }
+    } else {
+        emptyList()
+    }
+
+    return ServerSearchRequestSignature(
+        connectionId = connection.id,
+        providerId = connection.providerId,
+        connectionName = connection.name,
+        sourceLabel = ServerRepository.sourceLabel(connection),
+        address = connection.address,
+        remoteUserId = connection.remoteUserId,
+        kind = ref.kind,
+        selectedLibraries = connection.selectedLibraries(ref.kind).map { library ->
+            ServerSearchLibrarySignature(
+                id = library.id,
+                name = library.name,
+                kind = library.kind,
+            )
+        },
+        useCatalogMetadata = connection.useCatalogMetadata,
+        metadataResolvers = metadataResolvers,
+    )
+}
+
 internal object ServerCatalog {
     fun libraries(): List<ServerLibraryRef> =
         ServerRepository.enabledConnections().flatMap { connection ->
@@ -68,6 +139,9 @@ internal object ServerCatalog {
             .flatMap { connection ->
                 SEARCH_KINDS.filter { connection.selectedLibraries(it).isNotEmpty() }.map { ServerSearchRef(connection, it) }
             }
+
+    fun searchRequestSignature(ref: ServerSearchRef): ServerSearchRequestSignature =
+        buildServerSearchRequestSignature(ref, metaManifests())
 
     fun collectionTarget(meta: MetaPreview): CatalogTarget.Server? {
         if (meta.type != ServerMediaKind.COLLECTION.contentType) return null
