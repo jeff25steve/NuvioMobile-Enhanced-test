@@ -2068,3 +2068,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Next starting point
 
 - When a local checkout or build runner is available, execute the focused common Search/Server tests and the Android fullDebug plus iOS compile workflows. Confirm that a server address/remote-user change refreshes a server-backed Discover feed, a connection failure does not loop-reload either effect, and add-on-only Discover remains untouched. Capture a device trace only if refresh latency or cancellation warrants further optimisation.
+
+
+## 10 November 2026 — restore Kotlin/Native visibility of the multiplatform IO dispatcher
+
+### Build failure and root cause
+
+- iOS validation run [42757580682](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42757580682) reached `:composeApp:compileKotlinIosArm64` and failed with three Kotlin/Native compiler errors: `Dispatchers.IO` was resolved as the internal native member and was inaccessible. The errors were at `HomeCatalogSettingsRepository.kt:231`, `:260`, and `HomeRepository.kt:95`.
+- This was not an Xcode, CocoaPods, MPVKit or memory failure. The runner had passed Apple toolchain and iOS dependency preparation; Kotlin/Native compilation stopped at the three commonMain usages.
+- The pinned dependency is kotlinx.coroutines **1.10.2**. On Kotlin/Native the `Dispatchers.IO` public API is exposed through the top-level extension `kotlinx.coroutines.IO`; without importing that extension, the compiler resolves the internal `Dispatchers.IO` implementation property. The matching public API is documented at [kotlinx.coroutines IO](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-i-o.html). The exact failure and import workaround are independently documented in kotlinx.coroutines issue [#4568](https://github.com/Kotlin/kotlinx.coroutines/issues/4568).
+- Existing project code already demonstrates the portable import: `StartupPreloader.kt` imports both `kotlinx.coroutines.Dispatchers` and `kotlinx.coroutines.IO` before using `Dispatchers.IO`.
+
+### Minimal correction
+
+- Added `import kotlinx.coroutines.IO` to `HomeCatalogSettingsRepository.kt` and `HomeRepository.kt`, matching the existing commonMain pattern.
+- Kept all `withContext(Dispatchers.IO)` call sites and their surrounding synchronization, profile-generation checks, cancellation behavior and dispatcher selection unchanged. No Android-only dispatcher or expect/actual abstraction was added.
+
+### Verification boundary
+
+- Root cause is confirmed by the actual iOS Kotlin/Native compiler output, the pinned dependency version, the public multiplatform API and the working import pattern already in the repository.
+- The import-only correction is source-reviewed; it still requires a new iOS compile to confirm the blocker is cleared. The earlier failed iOS run predates this correction and must not be counted as a verification of it.
+- The previous Linux test run [42757580323](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42757580323) independently exposed missed suspend migrations in tests after Home catalog sync methods became suspend. Those host-test fixes are in commit `60681fdef473b4ed670f86a94a2da1b8b8a02f84`; a fresh Linux host-test/fullDebug run is in progress on the isolated `ci/nuvio-main-build-testing-home-host-test-fix-20261110` branch.
+- The current import fix will be checked with fresh Linux and iOS runs based on the updated product branch. Local `git status` remains unavailable because no local working tree is mounted.
+
+### Corrected Baseline Profile note
+
+- A later direct Git blob read established that `androidApp/src/main/baseline-prof.txt` is **1,409,345 bytes and contains 11,375 unique non-empty rules**, not an empty/zero-rule file as an earlier point-in-time note stated. It has 1,012 class entries and 10,135 method entries (the remaining 228 are other rule forms). The previous statement described an older snapshot and is not correct for the current branch.
+- The source file's text size does not establish the compiled binary size. Android's official [Baseline Profile configuration guidance](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles) distinguishes generated text from the compiled artifact and says the binary profile should be below 1.5 MB. The profile remains unchanged until the packaged binary can be inspected and physical-device Macrobenchmark evidence can compare TTID/TTFD with and without the profile.
