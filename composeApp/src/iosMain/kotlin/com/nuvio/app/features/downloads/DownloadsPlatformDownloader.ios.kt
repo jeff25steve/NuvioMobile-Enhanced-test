@@ -537,7 +537,10 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 
     override fun URLSessionDidFinishEventsForBackgroundURLSession(session: NSURLSession) {
         val identifier = session.configuration.identifier ?: return
-        backgroundSessionCompletionHandlers.remove(identifier)?.invoke()
+        val completionHandler = backgroundSessionCompletionHandlers.remove(identifier) ?: return
+        dispatch_async(dispatch_get_main_queue()) {
+            completionHandler()
+        }
     }
 
     private fun finishWithFailure(downloadId: String, message: String) {
