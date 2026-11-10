@@ -44,6 +44,7 @@ object HomeRepository {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var refreshPreparationJob: Job? = null
     private var activeJob: Job? = null
     private var activeRequestKey: String? = null
     private var currentRequestKey: String? = null
@@ -67,12 +68,43 @@ object HomeRepository {
         preloadedSnapshot = HomeSnapshotStore.load(profileKey)
     }
 
-    suspend fun refresh(addons: List<ManagedAddon>, force: Boolean = false) {
+    fun refresh(addons: List<ManagedAddon>, force: Boolean = false) {
+        val generation = ++refreshPreparationGeneration
+        refreshPreparationJob?.cancel()
+        refreshPreparationJob = scope.launch(Dispatchers.Main) {
+            try {
+                refreshInternal(addons, force, generation)
+            } finally {
+                if (generation == refreshPreparationGeneration) {
+                    refreshPreparationJob = null
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshInternal(
+        addons: List<ManagedAddon>,
+        force: Boolean,
+        generation: Long,
+    ) {
+        if (generation != refreshPreparationGeneration) return
         val activeAddons = addons.enabledAddons()
         lastRefreshAddonSignature = buildAddonCatalogRefreshSignature(addons)
-        val generation = ++refreshPreparationGeneration
-        val requests = withContext(Dispatchers.IO) {
-            buildHomeCatalogDefinitions(activeAddons)
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        val requests = try {
+            withContext(Dispatchers.IO) {
+                buildHomeCatalogDefinitions(activeAddons)
+            }
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            if (generation == refreshPreparationGeneration) {
+                val message = error.message?.takeIf(String::isNotBlank)
+                    ?: "Unable to prepare Home catalogs"
+                lastErrorMessage = message
+                _uiState.update { it.copy(isLoading = false, errorMessage = message) }
+            }
+            return
         }
         if (generation != refreshPreparationGeneration) return
         currentDefinitions = requests
@@ -188,6 +220,8 @@ object HomeRepository {
 
     fun clear() {
         refreshPreparationGeneration++
+        refreshPreparationJob?.cancel()
+        refreshPreparationJob = null
         activeJob?.cancel()
         activeJob = null
         activeRequestKey = null
