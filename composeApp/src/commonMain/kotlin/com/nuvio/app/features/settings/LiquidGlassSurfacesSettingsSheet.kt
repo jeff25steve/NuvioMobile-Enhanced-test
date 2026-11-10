@@ -218,6 +218,7 @@ import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_cast_c
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_choose_source
 import nuvio.composeapp.generated.resources.settings_liquid_glass_preview_seasons_header
 import nuvio.composeapp.generated.resources.cloud_library_playable_file_count
+import nuvio.composeapp.generated.resources.cloud_library_provider_all
 import nuvio.composeapp.generated.resources.cloud_library_status_ready
 import nuvio.composeapp.generated.resources.collections_editor_tmdb_genre_comedy
 import nuvio.composeapp.generated.resources.media_series

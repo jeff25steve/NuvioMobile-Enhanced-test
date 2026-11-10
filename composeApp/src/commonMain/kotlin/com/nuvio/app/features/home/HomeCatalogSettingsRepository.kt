@@ -7,7 +7,10 @@ import com.nuvio.app.features.collection.CollectionRepository
 import com.nuvio.app.features.servers.ServerCatalog
 import com.nuvio.app.features.servers.ServerRepository
 import kotlinx.atomicfu.atomic
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -155,6 +158,8 @@ object HomeCatalogSettingsRepository {
     internal val uiState: StateFlow<HomeCatalogSettingsUiState> = _uiState.asStateFlow()
 
     private var hasLoaded = false
+    private val catalogSyncMutex = Mutex()
+    private val catalogSyncGeneration = atomic(0L)
     private var definitions: List<HomeCatalogDefinition> = emptyList()
     private var collectionDefinitions: List<CollectionCatalogDefinition> = emptyList()
     private var lastCatalogSync: CatalogSyncInput? = null
@@ -174,6 +179,7 @@ object HomeCatalogSettingsRepository {
     private var hideUnreleasedContent = false
 
     fun onProfileChanged() {
+        catalogSyncGeneration.incrementAndGet()
         hasLoaded = false
         preferences = emptyMap()
         heroEnabled = true
@@ -191,6 +197,7 @@ object HomeCatalogSettingsRepository {
     }
 
     fun clearLocalState() {
+        catalogSyncGeneration.incrementAndGet()
         hasLoaded = false
         definitions = emptyList()
         collectionDefinitions = emptyList()
@@ -207,31 +214,50 @@ object HomeCatalogSettingsRepository {
         _uiState.value = HomeCatalogSettingsUiState()
     }
 
-    fun syncCatalogs(addons: List<ManagedAddon>) {
+    suspend fun syncCatalogs(addons: List<ManagedAddon>) = catalogSyncMutex.withLock {
         ensureLoaded()
         val collections = CollectionRepository.collections.value
-        val syncInput = CatalogSyncInput(addons, collections, Locale.current.toLanguageTag(), ServerRepository.uiState.value.revision)
-        if (lastCatalogSync == syncInput) return
-        definitions = buildHomeCatalogDefinitions(addons)
-        collectionDefinitions = buildCollectionDefinitions(collections)
+        val syncInput = CatalogSyncInput(
+            addons = addons,
+            collections = collections,
+            locale = Locale.current.toLanguageTag(),
+            serverRevision = ServerRepository.uiState.value.revision,
+        )
+        if (lastCatalogSync == syncInput) return@withLock
+
+        val generation = catalogSyncGeneration.value
+        val (updatedDefinitions, updatedCollectionDefinitions) = withContext(Dispatchers.IO) {
+            buildHomeCatalogDefinitions(addons) to buildCollectionDefinitions(collections)
+        }
+        if (generation != catalogSyncGeneration.value) return@withLock
+
+        definitions = updatedDefinitions
+        collectionDefinitions = updatedCollectionDefinitions
         lastCatalogSync = syncInput
         lastCollectionSync = lastCollectionSync?.takeIf {
             it.first == collections && it.second == syncInput.locale
         }
         if (definitions.isEmpty() && collectionDefinitions.isEmpty()) {
             publish()
-            return
+            return@withLock
         }
         normalizePreferences()
         publish()
         persist()
     }
 
-    fun syncCollections(collections: List<Collection>) {
+    suspend fun syncCollections(collections: List<Collection>) = catalogSyncMutex.withLock {
         ensureLoaded()
         val syncInput = collections to Locale.current.toLanguageTag()
-        if (lastCollectionSync == syncInput) return
-        collectionDefinitions = buildCollectionDefinitions(collections)
+        if (lastCollectionSync == syncInput) return@withLock
+
+        val generation = catalogSyncGeneration.value
+        val updatedDefinitions = withContext(Dispatchers.IO) {
+            buildCollectionDefinitions(collections)
+        }
+        if (generation != catalogSyncGeneration.value) return@withLock
+
+        collectionDefinitions = updatedDefinitions
         lastCatalogSync = lastCatalogSync?.takeIf {
             it.collections == collections && it.locale == syncInput.second
         }
@@ -760,16 +786,22 @@ internal fun visibleCollectionsWithUniqueIds(collections: List<Collection>): Lis
         .filter { collection -> collection.folders.isNotEmpty() }
         .distinctBy(Collection::id)
 
-internal fun buildCollectionDefinitions(collections: List<Collection>): List<CollectionCatalogDefinition> =
-    visibleCollectionsWithUniqueIds(collections).map { collection ->
-        CollectionCatalogDefinition(
+internal suspend fun buildCollectionDefinitions(
+    collections: List<Collection>,
+): List<CollectionCatalogDefinition> {
+    val visibleCollections = visibleCollectionsWithUniqueIds(collections)
+    val definitions = ArrayList<CollectionCatalogDefinition>(visibleCollections.size)
+    for (collection in visibleCollections) {
+        definitions += CollectionCatalogDefinition(
             key = "collection_${collection.id}",
             collectionId = collection.id,
             title = collection.title,
-            subtitle = runBlocking { getString(Res.string.collections_folder_count, collection.folders.size) },
+            subtitle = getString(Res.string.collections_folder_count, collection.folders.size),
             isPinnedToTop = collection.pinToTop,
         )
     }
+    return definitions
+}
 
 private data class CatalogSyncInput(
     val addons: List<ManagedAddon>,
