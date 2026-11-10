@@ -2213,6 +2213,7 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Apple Keychain data protection and ThisDeviceOnly backup behavior: https://support.apple.com/guide/security/keychain-data-protection-secb0694df1a/web
 - Apple Keychain Services: https://developer.apple.com/documentation/security/keychain-services
 - Apple Security source confirms `errSecInteractionNotAllowed` is distinct from `errSecItemNotFound`, and documents ThisDeviceOnly semantics: https://github.com/apple-oss-distributions/security/blob/main/keychain/headers/SecItem.h and https://github.com/apple-oss-distributions/security/blob/main/keychain/securityd/SecItemDb.c
+- Apple Security source documents `errSecDuplicateItem` for concurrent inserts; Trakt Keychain save retries the primary-key update in that case: https://github.com/apple-oss-distributions/security/blob/main/keychain/securityd/SecItemDb.c
 - In-repository comparison: the AniList, MDBList, WeTrakr, Simkl and PublicMetaDB platform auth stores.
 - JobScheduler restore/reschedule investigation was rejected as a code-change candidate; evidence was not sufficient to justify changing behaviour. Existing SAF finalization and duplicate Android progress persistence deferrals remain unchanged.
 

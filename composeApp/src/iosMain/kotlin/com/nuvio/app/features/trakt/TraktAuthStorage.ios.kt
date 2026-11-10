@@ -30,6 +30,7 @@ import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
 import platform.Security.SecItemUpdate
 import platform.Security.errSecItemNotFound
+import platform.Security.errSecDuplicateItem
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessible
 import platform.Security.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -137,8 +138,17 @@ internal actual object TraktAuthStorage {
                 CFDictionarySetValue(query, kSecValueData, data)
                 CFDictionarySetValue(query, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
                 val added = SecItemAdd(query, null)
-                check(added == errSecSuccess) {
-                    "Unable to save protected Trakt credentials (OSStatus $added)"
+                if (added == errSecDuplicateItem) {
+                    // Another caller may have inserted the same profile item after our
+                    // update lookup. Retry as an update instead of failing the migration.
+                    val retriedUpdate = SecItemUpdate(query, attributes)
+                    check(retriedUpdate == errSecSuccess) {
+                        "Unable to update protected Trakt credentials (OSStatus $retriedUpdate)"
+                    }
+                } else {
+                    check(added == errSecSuccess) {
+                        "Unable to save protected Trakt credentials (OSStatus $added)"
+                    }
                 }
             } else {
                 check(update == errSecSuccess) {
