@@ -2336,3 +2336,29 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - After explicit authorisation, run the Android host lifecycle tests that cover the new pause transitions, then compile Android and iOS separately because the common repository pause guard affects both targets.
 - Continue the separately deferred iOS background URLSession reattachment/thread-ownership design and SAF provider-identity finalization design. Do not merge those state machines into this pause fix.
+
+
+### 10 November 2026 — reconcile the final Liquid Glass PR's App Background removal
+
+#### Historical verification
+
+- Working branch at start: `main-build-testing`, `4ae560381b68ae4b234d6299977165beff9e8a7a`. No local checkout is mounted, so local `git status` and uncommitted workstation changes remain inaccessible.
+- The final Liquid Glass source branch is `pr/liquid-glass-editor-final-20261101` at `c523478227818278c2b382e405ffd23f673667bd`. Its tree does not contain the separate `core/ui/background/AppBackground*` runtime/storage files, the obsolete Settings sidebar `appGlassBackdrop`, or the Live TV `appBackgroundCover` integration. The merge commit `b096d4c3330617ecc3bff60573f834cf6b1de5a9` has the exact PR head as its second parent.
+- The subsystem was reintroduced after that merge by `02f62f440da3c60375ce7d62ba2a06565793c54a` and `07f384473e89d38ae0d564e6cf5087802bbc4ee2`. The separate `AppBackgroundSettingsSection.kt` settings UI is absent from the current tree, leaving the restored runtime to load profile-scoped legacy config without an exposed settings section. The current appearance page still has the separate `ThemeSettingsRepository` custom Settings background picker.
+
+#### Changes in this cycle
+
+- Removed the four reintroduced app-wide background implementation files: common renderer/repository, common settings/storage model, Android storage/picker actual, and iOS storage/photo-picker actual.
+- Removed the corresponding global host, unused `drawAppBackground` option and PiP bridge from `App.kt`; restored the final PR's shared `NuvioSheetBackdropHost` inside `AppEnvironment`. Kept the later Coil concurrent-request deduplication changes intact.
+- Removed the unused Android app-background storage initialization from `MainActivity`.
+- Replaced the Live TV header's app-background cover extension with the existing screen background color/transparent fallback, preserving the current `LocalDynamicArtworkBackgroundActive` behavior.
+- Removed the old app-wide glass effect from the Settings sidebar, including its now-unused import and `RectangleShape` import. The configured Liquid Glass surfaces elsewhere are unchanged.
+- Did not delete the old profile-scoped SharedPreferences/NSUserDefaults values or local image files. No user data is wiped. Kept the independent Settings background picker, Library Cloud background, profile backgrounds, Liquid Glass Editor, navigation Liquid Glass and platform-specific sheet-backdrop hosts.
+- The current iOS `PlayerPictureInPictureParking.swift` no longer calls the removed app-background PiP bridge, so it required no edit; player PiP parking behavior itself was left intact.
+
+#### Verification boundary and next starting point
+
+- Remote source/history inspection and a complete diff review are the available verification methods in this session. The branch has no accessible local checkout; no local `git status` could be inspected.
+- No Gradle task, build-triggering test, Kotlin compilation, Android/iOS build, simulator/device run, or CI workflow was started, per instruction. The restored sheet-backdrop host and the cross-platform source edits remain uncompiled/unexecuted.
+- Static follow-up must confirm no remaining references to `AppBackgroundHost`, `AppBackgroundStorage`, `AppBackgroundRepository`, `appBackgroundCover`, or `appGlassBackdrop`; confirm the Settings/Library/profile background paths still reference their existing `ThemeSettingsRepository` and profile-owned implementations; and confirm `NuvioSheetBackdropHost` remains wired on Android and common/iOS entry points.
+- Next: inspect the resource bundles for any now-unreferenced `settings_app_background` / `settings_glass_ui` strings before cleaning them; keep that resource cleanup separate from the runtime removal. Then return to the deferred Android pause/resume job-ID cancellation ordering race, and the iOS background URLSession ownership/re-attachment investigation.

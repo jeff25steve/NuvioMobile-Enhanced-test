@@ -4,7 +4,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.graphics.RectangleShape
 import com.nuvio.app.features.whatsnew.WhatsNewSettingsScreen
 import com.nuvio.app.navigation.LocalUseNativeNavigation
 import com.nuvio.app.core.build.AppFeaturePolicy
@@ -65,7 +64,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.nuvio.app.core.ui.LocalDynamicArtworkBackgroundActive
 
-import com.nuvio.app.core.ui.background.appGlassBackdrop
 import com.nuvio.app.core.ui.LocalScreenActive
 import com.nuvio.app.core.ui.LocalNuvioThemeTokens
 import com.nuvio.app.core.ui.ScreenActivityEffect
@@ -1142,8 +1140,7 @@ private fun TabletSettingsScreen(
         Surface(
             modifier = Modifier
                 .width(280.dp)
-                .fillMaxSize()
-                .appGlassBackdrop(RectangleShape),
+                .fillMaxSize(),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(

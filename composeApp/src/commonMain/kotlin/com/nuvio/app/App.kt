@@ -1,6 +1,5 @@
 package com.nuvio.app
 
-import com.nuvio.app.core.ui.background.AppBackgroundHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -16,6 +15,9 @@ import coil3.svg.SvgDecoder
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.core.ui.NativeProfileSwitcherController
 import com.nuvio.app.core.ui.NuvioTheme
+import com.nuvio.app.core.ui.NuvioSheetBackdrop
+import com.nuvio.app.core.ui.NuvioSheetBackdropHost
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.configurePlatformImageLoader
 import com.nuvio.app.core.ui.platformProvidesImageLoader
 import com.nuvio.app.features.settings.ThemeSettingsRepository
@@ -26,9 +28,6 @@ fun disposeRoute(route: AppRoute) {
     disposeRouteResources(route)
 }
 
-fun setPlayerParkedInPictureInPicture(parked: Boolean) {
-    com.nuvio.app.core.ui.background.AppBackgroundRepository.setPlayerParked(parked)
-}
 
 @OptIn(ExperimentalCoilApi::class)
 @Composable
@@ -76,10 +75,7 @@ fun App(
 
 @OptIn(ExperimentalCoilApi::class)
 @Composable
-internal fun AppEnvironment(
-    drawAppBackground: Boolean = true,
-    content: @Composable () -> Unit,
-) {
+internal fun AppEnvironment(content: @Composable () -> Unit) {
     if (!platformProvidesImageLoader) {
         setSingletonImageLoaderFactory { context ->
             ImageLoader.Builder(context)
@@ -110,12 +106,11 @@ internal fun AppEnvironment(
 
     val customThemeColors by ThemeSettingsRepository.customThemeColors.collectAsStateWithLifecycle()
 
+    val sheetBackdropLayer = rememberNuvioBackdrop()
+    val sheetBackdrop = remember(sheetBackdropLayer) { NuvioSheetBackdrop(sheetBackdropLayer) }
+
     NuvioTheme(appTheme = selectedTheme, amoled = amoledEnabled, customThemeColors = customThemeColors) {
-        if (drawAppBackground) {
-            AppBackgroundHost {
-                content()
-            }
-        } else {
+        NuvioSheetBackdropHost(sheetBackdrop) {
             content()
         }
     }

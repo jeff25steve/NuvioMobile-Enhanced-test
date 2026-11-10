@@ -2,7 +2,6 @@ package com.nuvio.app.features.livetv
 
 import com.nuvio.app.core.ui.nuvioScreenSideBleed
 import androidx.compose.ui.input.pointer.pointerInput
-import com.nuvio.app.core.ui.background.appBackgroundCover
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -444,7 +443,7 @@ fun LiveTvScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .nuvioScreenSideBleed()
-                        .appBackgroundCover(screenBackground)
+                        .background(screenBackground)
                         .liveTvBlockPointerPassThrough()
                         .padding(horizontal = LiveTvScreenHorizontalPadding)
                         .padding(top = listTopPadding),
