@@ -42,6 +42,25 @@ class AndroidDownloadLifecycleTest {
     }
 
     @Test
+    fun completedManagedTransfersAreExcludedFromNotificationTracking() {
+        val transfers = DownloadStatus.values().mapIndexed { index, status ->
+            AndroidDownloadTransfer(
+                item = downloadItem(id = status.name).copy(
+                    fileName = "${status.name}.mkv",
+                    status = status,
+                ),
+                jobId = index,
+                generation = status.name,
+            )
+        }
+
+        assertEquals(
+            setOf("Downloading", "Paused", "Failed"),
+            activeManagedNotificationIds(transfers),
+        )
+    }
+
+    @Test
     fun transferStateAndCredentialsSurviveProcessRecreation() {
         val directory = temporary.newFolder()
         val store = AndroidDownloadStore(directory)

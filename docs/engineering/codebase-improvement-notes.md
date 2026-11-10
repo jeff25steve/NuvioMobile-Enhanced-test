@@ -2162,3 +2162,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - Implement SAF finalization as a durable state transition, then exercise it with a test document provider that changes its document ID during rename and one that keeps the original ID. Also cover process death before rename, after rename but before store commit, filename collisions, provider-renamed display names, revoked tree access, and profile switching.
 - Measure the remaining Android progress JSON serialization cost before considering platform-specific persistence changes.
+
+
+## 10 November 2026 — release completed Android transfers from notification tracking
+
+### Confirmed lifecycle issue and change
+
+- AndroidDownloadStore intentionally retains each transfer record after completion so the download remains recoverable/playable until the user deletes it. The store is not a notification registry.
+- DownloadsLiveStatusPlatform.onItemsChanged() previously added every store record to managedIds, including Completed transfers. That put their IDs into the persistent tracked_download_ids preference indefinitely even though notifyTransfer() removes the notification as soon as a transfer completes.
+- Added activeManagedNotificationIds(), which includes only Downloading, Paused and Failed managed transfers. Completed IDs now fall out of trackedNow; the existing stale-ID reconciliation removes them from the tracked-ID preference and clears the standard notification ID. The existing worker/service completion path continues to remove both standard and inactive notification IDs.
+- Kept completed transfer records, local file URIs, subtitles, playback lookup, user-visible download history and per-profile storage unchanged.
+
+### Regression coverage
+
+- Added Android host test completedManagedTransfersAreExcludedFromNotificationTracking(), using real AndroidDownloadTransfer values for all four DownloadStatus states. It expects Downloading, Paused and Failed IDs to remain tracked and Completed IDs to be excluded.
+- Test was added before the production helper, but the red phase could not be executed because the project instruction forbids running tests/build-triggering tasks until separately authorised. The test has not been run; compilation and runtime behavior remain unverified.
+
+### Evidence and scope review
+
+- Traced DownloadsLiveStatusPlatform.onItemsChanged(), notifyTransfer(), removeNotification(), AndroidDownloadScheduler.execute()/notifyCurrent(), AndroidDownloadStore.save()/update()/remove(), and the common DownloadsRepository completed-item lifecycle.
+- The app's own completion path removes notifications; its persistent transfer store deliberately retains completed records. AOSP DownloadProvider's DownloadNotifier also reconciles active notifications against current download state and cancels stale entries: https://android.googlesource.com/platform/packages/providers/DownloadProvider/+/8ec0057/src/com/android/providers/downloads/DownloadNotifier.java
+- Only the Android notification-ID projection changed. No common/iOS state, profile scoping, storage schema, scheduler, permissions, UI, or notification presentation changed.
+- No Gradle tasks, tests, builds, CI, emulator/device runs or traces were started.
+
+### Next starting point
+
+- Continue investigating the SAF finalization crash window. A safe fix still requires durable finalization identity plus tests for document providers that change IDs, retain IDs, alter names, and resolve collisions; do not use filename-only recovery without proving document ownership.
+- Measure the remaining duplicate progress persistence before suppressing any Android common-snapshot writes.

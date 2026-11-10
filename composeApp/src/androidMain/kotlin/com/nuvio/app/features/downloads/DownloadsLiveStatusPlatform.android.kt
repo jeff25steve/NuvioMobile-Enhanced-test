@@ -45,7 +45,7 @@ internal actual object DownloadsLiveStatusPlatform {
                 item.status == DownloadStatus.Paused ||
                 item.status == DownloadStatus.Failed
         }
-        val managedIds = DownloadsPlatformDownloader.managedTransfers().map { it.item.id }.toSet()
+        val managedIds = activeManagedNotificationIds(DownloadsPlatformDownloader.managedTransfers())
 
         val trackedNow = managedIds.toMutableSet()
         activeItems.filterNot { it.id in managedIds }.forEach { item ->
@@ -298,3 +298,9 @@ internal actual object DownloadsLiveStatusPlatform {
         val errorMessage: String?,
     )
 }
+
+internal fun activeManagedNotificationIds(transfers: Collection<AndroidDownloadTransfer>): Set<String> =
+    transfers.asSequence()
+        .filter { it.item.status != DownloadStatus.Completed }
+        .map { it.item.id }
+        .toSet()
