@@ -59,6 +59,10 @@ object TmdbMetadataService {
     private val backdropCache = linkedMapOf<String, String?>()
     private val backdropCacheMutex = Mutex()
     private val backdropRequests = Semaphore(4)
+    private val seasonVideoRequests = Semaphore(4)
+
+    internal suspend fun <T> withSeasonMetadataRequestPermit(block: suspend () -> T): T =
+        seasonVideoRequests.withPermit { block() }
 
     suspend fun fetchLocalizedBackdrop(id: String, type: String, language: String): String? =
         withContext(Dispatchers.Default) {
@@ -1431,10 +1435,12 @@ object TmdbMetadataService {
                 val seasonVideos = coroutineScope {
                     (1..totalSeasons).map { seasonNumber ->
                         async {
-                            seasonNumber to fetchTmdbVideos(
-                                endpoint = "tv/$tmdbId/season/$seasonNumber/videos",
-                                language = language,
-                            )
+                            seasonNumber to withSeasonMetadataRequestPermit {
+                                fetchTmdbVideos(
+                                    endpoint = "tv/$tmdbId/season/$seasonNumber/videos",
+                                    language = language,
+                                )
+                            }
                         }
                     }.awaitAll()
                 }
