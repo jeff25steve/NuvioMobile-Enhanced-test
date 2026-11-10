@@ -346,9 +346,9 @@ private fun liquidGlassStaticFallbackSurface(
 ): Modifier {
     val adaptiveFilm = liquidGlassAdaptiveFilm(fallback)
     val base = if (fallbackBrush != null) {
-        clip(shape).background(fallbackBrush)
+        Modifier.clip(shape).background(fallbackBrush)
     } else {
-        clip(shape).background(fallback, shape)
+        Modifier.clip(shape).background(fallback, shape)
     }
     return base.drawWithContent {
         drawContent()

@@ -1874,3 +1874,27 @@ Continue to audit other independent Home/first-content paths. Do not infer start
 ### Next starting point
 
 - After the exact-head Linux build, consider a measured request-count/profile pass before attempting TMDB `append_to_response` consolidation or adding a global rate limiter. Preserve the current API fallback semantics until response and cache ownership can be tested together.
+
+
+## 10 November 2026 — Linux fullDebug compiler blockers found and corrected
+
+### Build evidence
+
+The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/42744145008), checked out source parent `39484dc62aa178903b079ac1b89bedbd0e99fa71` and failed in `:composeApp:compileAndroidMain`. The completed job log identified four source errors (three root causes): two unresolved `clip` references in `LiquidGlass.kt`, a non-suspending caller of suspend `buildHomeCatalogDefinitions()` in `HomeCatalogSettingsRepository.kt`, and a missing Kotlin accessor for `cloud_library_provider_all` in `LiquidGlassSurfacesSettingsSheet.kt`. The job produced no APK artifact. The later intermediate run was cancelled when its exact-branch CI ref was advanced; it is not a pass or failure of source compilation.
+
+### Root causes and changes
+
+- **Liquid Glass static fallback:** the file imported `Modifier.clip` but called `clip(shape)` without a receiver in both fallback branches. Changed only those two free-function calls to `Modifier.clip(shape)`, preserving the later calls inside the existing `Modifier` extension where the receiver is implicit.
+- **Home catalog synchronization:** `MainAppContent` calls `syncCatalogs()` inside `LaunchedEffect`, and `HomeScreen` calls `syncCollections()` inside the suspend `ScreenActivityEffect` block. Both APIs are now suspend. Their title/resource projection work runs in `Dispatchers.IO`, protected by one `Mutex` so overlapping catalog/collection syncs cannot publish out of order. A generation token is incremented by `onProfileChanged()` and `clearLocalState()`; a projection that resumes after a profile/account reset is discarded before mutating/persisting the new profile's state. `buildCollectionDefinitions()` is now suspend and uses direct `getString()` instead of blocking with `runBlocking`.
+- **Cloud preview resource:** `cloud_library_provider_all` exists in the common `strings.xml` resource file. The settings sheet referenced its generated accessor without importing it. Added the matching generated-resource import; no translation string or resource file was changed.
+
+### Compatibility and scope
+
+- Existing Home sync call sites are suspend Compose effects. Existing server revision, locale, add-on/collection snapshots, sync signatures, profile reset and publication behavior remain intact. The new generation check rejects only work whose captured profile generation was invalidated while resource resolution was suspended.
+- The Home sync mutex serializes only the two derived-definition sync entry points; it does not block ordinary preference updates or remote sync. UI state is still published after the IO projection resumes on the caller context.
+- No Liquid Glass appearance, player behavior, resource translation, navigation, website settings, backend configuration, dependency, Gradle configuration or release workflow was changed.
+
+### Verification boundary
+
+- The reported compile errors were traced to source and resource/import definitions. Static source checks confirm both `Modifier.clip` receivers, both suspend Home call chains, the shared serialization/generation guard and the generated-resource import.
+- No separate Gradle tests were run. The next exact-head Linux `:androidApp:assembleFullDebug` run is the verification for compiler compatibility. The earlier failed job is preserved as historical evidence and is not described as a successful build.
