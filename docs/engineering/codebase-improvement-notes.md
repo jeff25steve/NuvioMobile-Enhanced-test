@@ -2031,3 +2031,40 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - After test/build authorisation, run the focused common Search/Server tests first, then the appropriate Android and iOS compile targets.
 - Separately consider whether server connection revision should be an explicit SearchScreen refresh trigger. Do not key that effect to every failure-status revision without tracing `ServerRepository` update semantics, because server searches themselves update failure state.
+
+
+## 10 November 2026 — refresh Search and server-backed Discover after configuration changes
+
+### Confirmed stale-state paths
+
+- `ServerRepository.uiState` exposes a configuration-change `revision` counter. It increments when the active profile's connection list is loaded or cleared and whenever `saveConnections()` persists a connection change, including enablement, selected libraries, renames, endpoint/account changes and remote sync applies.
+- Server connection availability failures are deliberately separate: `setFailure()` updates only the `failures` map and leaves `revision` unchanged. Keying screen effects to the complete `ServersUiState` would therefore cause unnecessary refreshes on search success/failure and risk refresh feedback.
+- `SearchScreen` previously keyed both its Search request effect and Discover refresh effect to add-on catalog/filter state, but not to server configuration. A server edit while Search remained active would not invoke either repository method.
+- Search's typed request signature already captures the live server endpoint, provider, remote user, display descriptors and selected library descriptors, so invoking `search()` on a configuration revision lets that existing key invalidate only requests whose inputs actually changed.
+- Discover's `DiscoverRequestKey` compared rendered source options, but a server endpoint or remote-user change with stable connection/library IDs and labels could leave those options equal while the underlying `ServerCatalog.page()` provider request had changed. It needed an explicit configuration version when server-backed library sources exist.
+
+### Implementation
+
+- Added a stable `serverConfigurationRevisionFlow()` projection from `ServerRepository.uiState`, mapping only `revision` and applying `distinctUntilChanged()`. Failure-map-only updates cannot emit a new screen key.
+- `SearchScreen` remembers this derived Flow (important because Lifecycle Compose's Flow collector keys its internal effect by Flow identity) and collects it using the existing `collectAsStateWithLifecycle(initialValue)` API.
+- Added the collected revision to both existing `ScreenActivityEffect` keys. The current query debounce, active-screen lifecycle, network recovery path, Search fan-out and UI are unchanged.
+- Added nullable `serverConfigurationRevision` to Discover's request key. It is set only when the rebuilt Discover sources contain at least one server-backed option, so endpoint/account configuration changes invalidate server-backed Discover state while add-on-only Discover requests are not needlessly invalidated.
+- Existing Search request signatures remain descriptor-based; the global revision is not added to the Search request key, avoiding refetches when an unrelated server configuration update does not change that Search request's actual inputs.
+
+### Evidence and alternatives
+
+- Primary source trace: `ServerRepository.kt` (`load`, `clearLocalState`, `saveConnections`, `setFailure`); `ServerCatalog.kt` (`titleLibraries`, `page`, `searchTargets`); `SearchRepository.kt` (`search`, `refreshDiscover`, typed request keys); `SearchScreen.kt`; and `ScreenActivity.kt` (`ScreenActivityEffect` delegates to `LaunchedEffect(active, *keys)`).
+- Existing `ScreenActivityEffectTest` verifies that changing an effect key cancels and restarts its coroutine, while activation changes are handled without requiring parent recomposition.
+- Android's official [Compose side-effects guidance](https://developer.android.com/develop/ui/compose/side-effects) says effect keys cancel/relaunch the prior coroutine and warns that over-keying wastes work while under-keying permits stale work. The official [Lifecycle Compose API reference](https://developer.android.com/reference/kotlin/androidx/lifecycle/compose/collectAsStateWithLifecycle.composable) confirms Flow collection is lifecycle-aware; Context7's AndroidX source shows the Flow identity itself is a `LaunchedEffect` key, which is why the transformed Flow is remembered.
+- Rejected: collecting the entire `ServersUiState` as a screen key, because it includes failure status that is updated by the searches being refreshed. Rejected: adding a second revision counter or custom event stream to `ServerRepository`, because the existing configuration-only revision already has the needed semantics. Rejected: putting the global revision in Search's request signature, because that would invalidate unchanged Search sources unnecessarily.
+
+### Regression coverage and verification boundary
+
+- Added common tests proving failure-only server state updates do not emit a new configuration revision, real revision changes do emit, and Discover request equality changes when its server configuration version changes.
+- The tests were not run: this session has no repository checkout or Gradle wrapper (verified by searching the available workspace), and the available GitHub integration has no workflow-dispatch action. The user authorised builds in this cycle, but no build or CI run could be launched from the available execution environment. No Android/iOS compile or test result is claimed.
+- GitHub remote source and commit-object inspection is available; local `git status` and working-tree changes cannot be inspected. The branch update uses a compare-and-swap ref check so an intervening remote commit cannot be overwritten.
+- Source review confirms no dependency, persistence schema, backend/website setting, server authentication, profile logic, display, animation, navigation or platform-specific code changes. Runtime behaviour and actual network freshness remain unverified.
+
+### Next starting point
+
+- When a local checkout or build runner is available, execute the focused common Search/Server tests and the Android fullDebug plus iOS compile workflows. Confirm that a server address/remote-user change refreshes a server-backed Discover feed, a connection failure does not loop-reload either effect, and add-on-only Discover remains untouched. Capture a device trace only if refresh latency or cancellation warrants further optimisation.

@@ -3,6 +3,14 @@ package com.nuvio.app.features.search
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.AddonResource
 import com.nuvio.app.features.addons.ManagedAddon
+import com.nuvio.app.features.catalog.CatalogTarget
+import com.nuvio.app.features.servers.ServerFailure
+import com.nuvio.app.features.servers.ServersUiState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -116,6 +124,48 @@ class SearchRequestStateTest {
                 serverRequests = emptyList(),
             ),
         )
+    }
+
+    @Test
+    fun `server configuration revision flow ignores failure-only updates`() = runTest {
+        val serverState = MutableStateFlow(ServersUiState())
+        val revisions = mutableListOf<Int>()
+
+        backgroundScope.launch(Dispatchers.Unconfined) {
+            serverConfigurationRevisionFlow(serverState).collect(revisions::add)
+        }
+
+        assertEquals(listOf(0), revisions)
+        serverState.value = serverState.value.copy(
+            failures = mapOf("server" to ServerFailure.UNREACHABLE),
+        )
+        assertEquals(listOf(0), revisions)
+
+        serverState.value = serverState.value.copy(revision = 1)
+        assertEquals(listOf(0, 1), revisions)
+
+        serverState.value = serverState.value.copy(failures = emptyMap())
+        assertEquals(listOf(0, 1), revisions)
+
+        serverState.value = serverState.value.copy(revision = 2)
+        assertEquals(listOf(0, 1, 2), revisions)
+    }
+
+    @Test
+    fun `discover request key includes server configuration revision`() {
+        val source = discoverCatalog(
+            key = "server:connection:library",
+            type = "movie",
+        ).copy(server = CatalogTarget.Server("connection", "library", "movie"))
+        val baseline = DiscoverRequestKey(
+            sources = listOf(source),
+            hideUnreleasedContent = false,
+            hasPendingAddonManifests = false,
+            serverConfigurationRevision = 1,
+        )
+
+        assertNotEquals(baseline, baseline.copy(serverConfigurationRevision = 2))
+        assertEquals(baseline, baseline.copy(serverConfigurationRevision = 1))
     }
 
     @Test

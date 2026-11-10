@@ -12,6 +12,7 @@ import com.nuvio.app.features.servers.ServerCatalog
 import com.nuvio.app.features.servers.ServerMediaKind
 import com.nuvio.app.features.servers.serverMessage
 import com.nuvio.app.features.servers.ServerRepository
+import com.nuvio.app.features.servers.ServersUiState
 import com.nuvio.app.features.catalog.CATALOG_PAGE_SIZE
 import com.nuvio.app.features.catalog.CatalogPage
 import com.nuvio.app.features.catalog.CatalogTarget
@@ -32,9 +33,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
@@ -46,6 +50,12 @@ internal fun <T> canReuseRequestState(
     cachedRequestKey: T?,
 ): Boolean = !forceRefresh && requestKey == cachedRequestKey
 
+internal fun serverConfigurationRevisionFlow(
+    serverUiState: StateFlow<ServersUiState>,
+): Flow<Int> = serverUiState
+    .map { it.revision }
+    .distinctUntilChanged()
+
 internal fun resolveDiscoverCatalog(
     sources: List<DiscoverCatalogOption>,
     preferredCatalogKey: String?,
@@ -55,10 +65,11 @@ internal fun resolveDiscoverCatalog(
         ?: sources.firstOrNull { it.key == currentCatalogKey }
         ?: sources.firstOrNull()
 
-private data class DiscoverRequestKey(
+internal data class DiscoverRequestKey(
     val sources: List<DiscoverCatalogOption>,
     val hideUnreleasedContent: Boolean,
     val hasPendingAddonManifests: Boolean,
+    val serverConfigurationRevision: Int?,
 )
 
 object SearchRepository {
@@ -271,6 +282,9 @@ object SearchRepository {
             sources = sources,
             hideUnreleasedContent = hideUnreleasedContent,
             hasPendingAddonManifests = hasPendingAddonManifests,
+            serverConfigurationRevision = ServerRepository.uiState.value.revision.takeIf {
+                sources.any { source -> source.server != null }
+            },
         )
         if (canReuseRequestState(forceRefresh, requestKey, lastDiscoverRequestKey)) {
             log.d {
