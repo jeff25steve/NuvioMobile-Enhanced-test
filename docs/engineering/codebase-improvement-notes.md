@@ -2382,7 +2382,7 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 #### Regression coverage
 
-- Added common tests for rejecting an in-flight stale insert after clear, accepting a new-generation insert, preserving access-ordered LRU eviction under a byte budget, and accounting correctly when an existing entry is replaced.
+- Added common tests proving that clear drops existing bytes and resets the byte budget, rejects a queued pre-warning insertion, permits a new-generation insertion, preserves access-ordered LRU eviction, and subtracts replaced-entry cost.
 - Regression tests were added alongside the helper. The red/green cycle was not executed because the explicit instruction forbids starting build-triggering tests until separately authorised.
 
 #### Design checks and verification boundary

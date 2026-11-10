@@ -8,31 +8,37 @@ import kotlin.test.assertTrue
 
 class GenerationBoundedByteLruCacheTest {
     @Test
-    fun clearRejectsAWriteFromALoadThatStartedBeforeThePurge() {
+    fun clearDropsCachedBytesAndRejectsWritesFromQueuedLoads() {
         val cache = GenerationBoundedByteLruCache(maxBytes = 8L)
-        // This snapshot represents a request that may wait for a load permit.
-        val inFlightGeneration = cache.generationSnapshot()
+        val queuedLoadGeneration = cache.generationSnapshot()
+        assertTrue(
+            cache.putIfCurrent(
+                key = "existing",
+                bytes = byteArrayOf(9, 8, 7, 6),
+                expectedGeneration = queuedLoadGeneration,
+            ),
+        )
 
         cache.clear()
 
+        assertNull(cache.lookup("existing"))
         assertFalse(
             cache.putIfCurrent(
                 key = "remote-image",
                 bytes = byteArrayOf(1, 2, 3),
-                expectedGeneration = inFlightGeneration,
+                expectedGeneration = queuedLoadGeneration,
             ),
         )
-        assertNull(cache.lookup("remote-image"))
 
         val afterPurgeGeneration = cache.generationSnapshot()
         assertTrue(
             cache.putIfCurrent(
                 key = "remote-image",
-                bytes = byteArrayOf(4, 5),
+                bytes = byteArrayOf(4, 5, 6, 7, 8, 9),
                 expectedGeneration = afterPurgeGeneration,
             ),
         )
-        assertContentEquals(byteArrayOf(4, 5), cache.lookup("remote-image"))
+        assertContentEquals(byteArrayOf(4, 5, 6, 7, 8, 9), cache.lookup("remote-image"))
     }
 
     @Test
