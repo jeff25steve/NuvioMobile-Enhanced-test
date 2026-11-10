@@ -1,5 +1,6 @@
 package com.nuvio.app.features.tmdb
 
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import co.touchlab.kermit.Logger
 import com.nuvio.app.features.addons.httpGetText
 import com.nuvio.app.features.details.MetaCompany
@@ -136,7 +137,7 @@ object TmdbMetadataService {
                 coroutineScope {
                     val englishPersonDeferred = async {
                         if (shouldFetchEnglishPerson) {
-                            runCatching {
+                            runCatchingUnlessCancelled {
                                 fetch<TmdbPersonResponse>(
                                     endpoint = "person/$personId",
                                     query = mapOf("language" to "en"),
@@ -148,7 +149,7 @@ object TmdbMetadataService {
                     }
                     val englishCreditsDeferred = async {
                         if (shouldFetchEnglishCredits) {
-                            runCatching {
+                            runCatchingUnlessCancelled {
                                 fetch<TmdbPersonCombinedCreditsResponse>(
                                     endpoint = "person/$personId/combined_credits",
                                     query = mapOf("language" to "en"),
@@ -1191,7 +1192,7 @@ object TmdbMetadataService {
         }
         if (!needsFallback) return emptyMap()
 
-        return runCatching {
+        return runCatchingUnlessCancelled {
             val englishCredits = fetch<TmdbCreditsResponse>(
                 endpoint = "$mediaType/$numericId/credits",
                 query = mapOf("language" to "en-US"),
@@ -1279,7 +1280,7 @@ object TmdbMetadataService {
     ): T? {
         val apiKey = TmdbSettingsRepository.effectiveApiKey().takeIf(String::isNotBlank) ?: return null
         val url = buildTmdbUrl(endpoint = endpoint, apiKey = apiKey, query = query)
-        return runCatching {
+        return runCatchingUnlessCancelled {
             json.decodeFromString<T>(httpGetText(url))
         }.onFailure { error ->
             log.w { "TMDB request failed for $endpoint: ${error.message}" }

@@ -1813,7 +1813,7 @@ Continue to audit other independent Home/first-content paths. Do not infer start
 - Replaced the generic-unknown resource bridges in suspend operations with direct `getString()` calls.
 - Made `buildPeople()` suspend-aware. It retains the creator/director/writer role priorities, source iteration order, first resolved person ordering and lazy-per-role label lookup, while replacing its filter/map temporary lists with ordered loops.
 - Passed the already-resolved generic trailer label into each trailer mapper. Missing names/types keep the same localized fallback; valid provider fields are still trimmed and preserved. The mapper no longer performs resource reads, so the two redundant lookups per missing video field are removed.
-- Added explicit `CancellationException` rethrows before the existing error handlers in person detail, entity rail and entity header fetches. Ordinary failures retain their previous log/fallback behaviour.
+- Reused the existing `core.concurrency.runCatchingUnlessCancelled` helper for the two optional English-person/credits probes, the English credits fallback lookup and the shared TMDB HTTP decoder. The latter was the underlying transport boundary: standard `runCatching` there could swallow cancellation before the outer person/entity handlers saw it. Explicit `CancellationException` rethrows remain before the existing error handlers in person detail, entity rail and entity header fetches. Ordinary request failures retain their previous log/fallback behaviour.
 - Added regression tests for missing trailer title/type fallback and preservation of trimmed provider values.
 
 ### Evidence and compatibility
