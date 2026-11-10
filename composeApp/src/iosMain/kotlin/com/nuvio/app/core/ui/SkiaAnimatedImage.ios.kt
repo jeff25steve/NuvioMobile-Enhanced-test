@@ -30,9 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.cinterop.addressOf
@@ -107,27 +105,7 @@ private val loadSemaphore = Semaphore(MaxConcurrentLoads)
 // Compressed source cache (bytes only)
 // ---------------------------------------------------------------------------
 
-private val sourceCacheLock = Mutex()
-private val sourceCache = LinkedHashMap<String, ByteArray>()
-private var sourceCacheBytes = 0L
-
-private suspend fun cachedSourceBytes(url: String): ByteArray? = sourceCacheLock.withLock {
-    val bytes = sourceCache.remove(url) ?: return@withLock null
-    sourceCache[url] = bytes
-    bytes
-}
-
-private suspend fun storeSourceBytes(url: String, bytes: ByteArray) = sourceCacheLock.withLock {
-    if (bytes.size > MaxAnimatedSourceBytes) return@withLock
-    sourceCache.remove(url)?.let { sourceCacheBytes -= it.size }
-    sourceCache[url] = bytes
-    sourceCacheBytes += bytes.size
-
-    while (sourceCacheBytes > MaxCachedSourceBytes && sourceCache.isNotEmpty()) {
-        val eldest = sourceCache.keys.first()
-        sourceCache.remove(eldest)?.let { sourceCacheBytes -= it.size }
-    }
-}
+private val sourceCache = GenerationBoundedByteLruCache(MaxCachedSourceBytes)
 
 // ---------------------------------------------------------------------------
 // Disk tier
@@ -249,63 +227,68 @@ private fun trimDiskCache(directory: String) {
     }
 }
 
-private suspend fun fetchSourceBytes(url: String): ByteArray? = loadSemaphore.withPermit {
-    cachedSourceBytes(url)?.let { return@withPermit it }
+private suspend fun fetchSourceBytes(url: String): ByteArray? {
+    // Capture before waiting for a permit: queued loads must not repopulate the
+    // in-memory tier after a memory warning has purged it.
+    val cacheGeneration = sourceCache.generationSnapshot()
+    return loadSemaphore.withPermit {
+        sourceCache.lookup(url)?.let { return@withPermit it }
 
-    if (url.startsWith("file://")) {
-        val local = withContext(Dispatchers.Default) {
-            val path = url.removePrefix("file://")
-            val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null)
-            val fileSize = (attributes?.get(NSFileSize) as? NSNumber)?.longLongValue
-            if (fileSize != null && fileSize > MaxAnimatedSourceBytes.toLong()) {
-                throw AnimatedSourceTooLargeException()
-            }
-            NSFileManager.defaultManager.contentsAtPath(path)?.toByteArray()
-        } ?: return@withPermit null
-        if (local.size > MaxAnimatedSourceBytes) throw AnimatedSourceTooLargeException()
-        storeSourceBytes(url, local)
-        return@withPermit local
-    }
+        if (url.startsWith("file://")) {
+            val local = withContext(Dispatchers.Default) {
+                val path = url.removePrefix("file://")
+                val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null)
+                val fileSize = (attributes?.get(NSFileSize) as? NSNumber)?.longLongValue
+                if (fileSize != null && fileSize > MaxAnimatedSourceBytes.toLong()) {
+                    throw AnimatedSourceTooLargeException()
+                }
+                NSFileManager.defaultManager.contentsAtPath(path)?.toByteArray()
+            } ?: return@withPermit null
+            if (local.size > MaxAnimatedSourceBytes) throw AnimatedSourceTooLargeException()
+            sourceCache.putIfCurrent(url, local, cacheGeneration)
+            return@withPermit local
+        }
 
-    withContext(Dispatchers.Default) { diskCacheRead(url) }?.let { fromDisk ->
-        storeSourceBytes(url, fromDisk)
-        return@withPermit fromDisk
-    }
+        withContext(Dispatchers.Default) { diskCacheRead(url) }?.let { fromDisk ->
+            sourceCache.putIfCurrent(url, fromDisk, cacheGeneration)
+            return@withPermit fromDisk
+        }
 
-    val downloaded = withContext(Dispatchers.Default) {
-        try {
-            val response = animatedSourceHttpClient.get(url)
-            val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull()
-            if (contentLength != null && contentLength > MaxAnimatedSourceBytes.toLong()) {
-                response.cancel("Animated image source exceeded the size limit")
-                throw AnimatedSourceTooLargeException()
-            }
-
-            when (
-                val source = readBoundedImageSource(
-                    channel = response.bodyAsChannel(),
-                    maxBytes = MaxAnimatedSourceBytes,
-                )
-            ) {
-                is BoundedImageSourceRead.Bytes -> source.value
-                BoundedImageSourceRead.Empty -> null
-                BoundedImageSourceRead.TooLarge -> {
+        val downloaded = withContext(Dispatchers.Default) {
+            try {
+                val response = animatedSourceHttpClient.get(url)
+                val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+                if (contentLength != null && contentLength > MaxAnimatedSourceBytes.toLong()) {
                     response.cancel("Animated image source exceeded the size limit")
                     throw AnimatedSourceTooLargeException()
                 }
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: AnimatedSourceTooLargeException) {
-            throw error
-        } catch (error: Exception) {
-            null
-        }
-    } ?: return@withPermit null
 
-    storeSourceBytes(url, downloaded)
-    withContext(Dispatchers.Default) { diskCacheWrite(url, downloaded) }
-    downloaded
+                when (
+                    val source = readBoundedImageSource(
+                        channel = response.bodyAsChannel(),
+                        maxBytes = MaxAnimatedSourceBytes,
+                    )
+                ) {
+                    is BoundedImageSourceRead.Bytes -> source.value
+                    BoundedImageSourceRead.Empty -> null
+                    BoundedImageSourceRead.TooLarge -> {
+                        response.cancel("Animated image source exceeded the size limit")
+                        throw AnimatedSourceTooLargeException()
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: AnimatedSourceTooLargeException) {
+                throw error
+            } catch (error: Exception) {
+                null
+            }
+        } ?: return@withPermit null
+
+        sourceCache.putIfCurrent(url, downloaded, cacheGeneration)
+        withContext(Dispatchers.Default) { diskCacheWrite(url, downloaded) }
+        downloaded
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -492,6 +475,9 @@ private fun installLifecycleObservers() {
         `object` = null,
         queue = mainQueue,
     ) { _ ->
+        // Encoded bytes are reconstructable from the disk cache or the original file.
+        // clear() advances the generation so earlier loads cannot refill this cache later.
+        sourceCache.clear()
         registry.keys.toList().forEach { key -> evictIfIdle(key) }
         if (AnimatedImageProbeLogging) {
             println("[SkiaAnimatedImage] memory warning: budget now ${budgetUsedBytes / 1024}KB")

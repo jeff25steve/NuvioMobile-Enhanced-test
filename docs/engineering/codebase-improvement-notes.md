@@ -2364,3 +2364,35 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Confirmed preserved paths: `AppearanceSettingsPage` still has the Settings background picker/persistence and `LiquidGlassSurfacesSettingsSheet`; `LibraryScreen` retains the Cloud background image and per-surface Liquid Glass; `ProfileBackgroundPicker` remains present. Legacy app-wide image preferences/files were not deleted.
 - The default English `values/strings.xml` contains zero `settings_app_background` and `settings_glass_ui` keys, so no default-resource cleanup was needed. Other locale bundles were not separately swept.
 - Next: return to the deferred Android pause/resume job-ID cancellation ordering race, and the iOS background URLSession ownership/re-attachment investigation. After explicit authorisation, compile Android and iOS separately; no build/test/CI verification was run in this cycle.
+
+### 10 November 2026 — purge reconstructable iOS animated-source bytes on memory warning
+
+#### Root cause and scope
+
+- `SkiaAnimatedImage.ios.kt` already handles `UIApplicationDidReceiveMemoryWarningNotification` by evicting idle decoded animations, but its separate compressed-source LRU retained up to 24 MiB.
+- Remote encoded bytes are also written to the existing `NSCachesDirectory/nuvio-animated-sources` disk tier; `file://` inputs can be read again from their original path. The in-memory encoded cache is therefore an expendable acceleration layer, not the only copy.
+- Apple’s memory guidance says apps should release strong references to reconstructable cache data on low-memory warnings: https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/MemoryAlloc.html and https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/CachingandPurgeableMemory.html.
+
+#### Changes
+
+- Added common `GenerationBoundedByteLruCache`, a byte-budgeted access-ordered cache protected by the project’s existing AtomicFU `SynchronizedObject` monitor.
+- Each source request captures the cache generation before waiting for the bounded-load semaphore. A memory-warning purge synchronously clears the entries and increments that generation; queued or active older loads can still finish for their current decoder, but later cache inserts are rejected. Requests admitted after the purge may populate the cache normally.
+- Replaced the iOS file’s local Mutex/map/byte-count implementation with the helper. The memory-warning callback now clears compressed bytes before running the existing idle decoded-animation eviction.
+- Kept the 24 MiB source-cache budget, 8 MiB per-source limit, disk-cache files and size policy, network requests, load semaphore, active animation references, frame timing, rendering and fallback behaviour unchanged. No dependency or platform configuration was added.
+
+#### Regression coverage
+
+- Added common tests for rejecting an in-flight stale insert after clear, accepting a new-generation insert, preserving access-ordered LRU eviction under a byte budget, and accounting correctly when an existing entry is replaced.
+- Regression tests were added alongside the helper. The red/green cycle was not executed because the explicit instruction forbids starting build-triggering tests until separately authorised.
+
+#### Design checks and verification boundary
+
+- Cross-checked Apple’s original memory-warning/cache guidance with the current notification registration and cache ownership in this file. Context7’s AtomicFU API documentation confirms `SynchronizedObject` / `synchronized` provide a multiplatform monitor; the same pattern is already used by `SynchronizedBoundedCache` in this repository. The lock only guards map/counter operations; network reads, disk I/O and decoding remain outside it.
+- A memory warning does not cancel an in-flight image request or clear the reconstructable disk tier. This avoids invalidating a currently decoding byte array or forcing all subsequent requests onto the network.
+- Static source review only. No Gradle tasks, tests, Kotlin compilation, Android/iOS build, simulator/device run, performance trace or CI workflow was started. The new common helper and iOS call-site changes remain uncompiled/unexecuted.
+- No local checkout is mounted, so local Git status and uncommitted workstation changes remain inaccessible. The remote branch head was checked before the expected-head update.
+
+#### Next starting point
+
+- After explicit authorisation, run the focused common cache test and the iOS compilation/test target. On device, trigger a memory warning with idle and active animated images, then verify that idle decoded frames and compressed in-memory source bytes are released while active images keep rendering and subsequent requests recover from disk/original sources.
+
