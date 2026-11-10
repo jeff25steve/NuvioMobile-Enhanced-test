@@ -518,4 +518,38 @@ class TmdbMetadataServiceTest {
         assertEquals("Chibi Maruko-chan", titles[57775])
         assertEquals("One Piece", titles[37854])
     }
+    @Test
+    fun `trailer mapping uses the pre-resolved fallback for missing title and type`() {
+        val trailer = TmdbVideoResult(
+            key = "video-key",
+            name = null,
+            type = "  ",
+        ).toMetaTrailer(
+            seasonNumber = null,
+            displayName = null,
+            genericTrailerLabel = "Trailer",
+        )
+
+        assertEquals("Trailer", trailer.name)
+        assertEquals("Trailer", trailer.type)
+    }
+
+    @Test
+    fun `trailer mapping preserves trimmed provider title and type`() {
+        val trailer = TmdbVideoResult(
+            key = "video-key",
+            name = "  Official trailer  ",
+            type = "  Teaser  ",
+        ).toMetaTrailer(
+            seasonNumber = 2,
+            displayName = "Season 2",
+            genericTrailerLabel = "Trailer",
+        )
+
+        assertEquals("Official trailer", trailer.name)
+        assertEquals("Teaser", trailer.type)
+        assertEquals(2, trailer.seasonNumber)
+        assertEquals("Season 2", trailer.displayName)
+    }
+
 }

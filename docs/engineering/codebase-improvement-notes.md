@@ -1797,3 +1797,38 @@ Continue to audit other independent Home/first-content paths. Do not infer start
 ### Next starting point
 
 - Revisit Home first-content work only after measuring the new path on release-like Android and iOS builds. Preserve the existing startup profile hydration, image request de-duplication, backdrop capture and Upcoming timestamp improvements; do not repeat them.
+
+
+## 10 November 2026 — remove blocking resource bridges from TMDB metadata hydration
+
+### Confirmed source path
+
+- `fetchPersonDetail()`, `fetchEntityBrowse()` and `fetchEntityHeader()` are suspend operations; the first two run inside `withContext(Dispatchers.Default)`, and all three contained `runBlocking { getString(...) }` fallbacks.
+- `fetchEnrichment()` already runs in `Dispatchers.Default` and calls `buildPeople()`, which synchronously bridged three role-label resource reads through `runBlocking`.
+- `fetchTrailers()` already resolved `generic_trailer` once before mapping videos. The mapper independently performed up to two more blocking resource reads per video when its provider title or type was blank.
+- The same service had broad `catch (Exception)` handlers in person detail, entity rail and entity header loading that could convert coroutine cancellation into a nullable/empty result.
+
+### Changes
+
+- Replaced the generic-unknown resource bridges in suspend operations with direct `getString()` calls.
+- Made `buildPeople()` suspend-aware. It retains the creator/director/writer role priorities, source iteration order, first resolved person ordering and lazy-per-role label lookup, while replacing its filter/map temporary lists with ordered loops.
+- Passed the already-resolved generic trailer label into each trailer mapper. Missing names/types keep the same localized fallback; valid provider fields are still trimmed and preserved. The mapper no longer performs resource reads, so the two redundant lookups per missing video field are removed.
+- Added explicit `CancellationException` rethrows before the existing error handlers in person detail, entity rail and entity header fetches. Ordinary failures retain their previous log/fallback behaviour.
+- Added regression tests for missing trailer title/type fallback and preservation of trimmed provider values.
+
+### Evidence and compatibility
+
+- The pinned dependency is Compose Multiplatform `1.13.0-beta01`; the exact tag's [`StringResources.kt`](https://github.com/JetBrains/compose-multiplatform/blob/v1.13.0-beta01/components/resources/library/src/commonMain/kotlin/org/jetbrains/compose/resources/StringResources.kt) defines non-composable suspend `getString(StringResource)` and formatted-vararg overloads.
+- The [Kotlin `runBlocking` API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html) states it blocks the current thread and describes direct suspend calls from suspend functions as the alternative. Kotlin's [cancellation guidance](https://kotlinlang.org/docs/cancellation-and-timeouts.html) says caught `CancellationException` must be rethrown.
+- The upstream `enhanced` branch was checked at the same source path and still contains these resource bridges; no upstream fix was copied.
+- Trailer field fallback, trimming, ordering and category grouping remain unchanged. No cache keys/capacities, network fan-out, HTTP policies, metadata precedence, UI, settings, persistence, dependencies or platform-specific code changed.
+
+### Verification boundary
+
+- The regression tests were added but not executed. No build, build-triggering test, static-analysis task, emulator, simulator, device profiler or CI workflow was started.
+- Independent source review confirms all `runBlocking` occurrences in `TmdbMetadataService.kt` are removed, all trailer mapper callers supply the same pre-resolved localized label, and the direct resource calls occur in suspend functions.
+- Actual detail-page latency, CPU time, thread occupancy, frame time and memory impact remain unmeasured. The strongest source-established reduction is removal of up to two redundant resource lookups for every trailer with a missing title/type, plus removal of blocking bridges from the other suspend metadata paths.
+
+### Next starting point
+
+- Revisit TMDB request fan-out and its cache miss behaviour only with measured traces or request-count evidence. Do not add cache single-flight, change concurrency limits, alter metadata precedence or rework the prior bounded caches without distinct evidence.

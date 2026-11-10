@@ -12,11 +12,11 @@ import com.nuvio.app.features.details.MoreLikeThisSource
 import com.nuvio.app.features.details.PersonDetail
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.PosterShape
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -217,7 +217,7 @@ object TmdbMetadataService {
                     originalName = person.originalName,
                     fallbackEnglishName = englishPerson?.name,
                     preferredLanguage = language,
-                ) ?: runBlocking { getString(Res.string.generic_unknown) },
+                ) ?: getString(Res.string.generic_unknown),
                 biography = biography,
                 birthday = person.birthday?.takeIf { it.isNotBlank() },
                 deathday = person.deathday?.takeIf { it.isNotBlank() },
@@ -237,6 +237,8 @@ object TmdbMetadataService {
             )
             personCache.put(cacheKey, detail)
             detail
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             log.w(e) { "Failed to fetch person detail for $personId" }
             null
@@ -462,7 +464,7 @@ object TmdbMetadataService {
             header = header ?: TmdbEntityHeader(
                 id = entityId,
                 kind = entityKind,
-                name = fallbackName?.takeIf { it.isNotBlank() } ?: runBlocking { getString(Res.string.generic_unknown) },
+                name = fallbackName?.takeIf { it.isNotBlank() } ?: getString(Res.string.generic_unknown),
                 logo = null,
                 originCountry = null,
                 secondaryLabel = null,
@@ -564,6 +566,8 @@ object TmdbMetadataService {
                 items = mappedItems,
                 hasMore = page < totalPages && mappedItems.isNotEmpty(),
             )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             log.w(e) { "Failed to fetch entity rail ${railType.value}/${mediaType.value} for $entityId" }
             TmdbEntityRailPageResult(items = emptyList(), hasMore = false)
@@ -594,7 +598,7 @@ object TmdbMetadataService {
                             kind = entityKind,
                             name = it.name?.takeIf { n -> n.isNotBlank() }
                                 ?: fallbackName?.takeIf { n -> n.isNotBlank() }
-                                ?: runBlocking { getString(Res.string.generic_unknown) },
+                                ?: getString(Res.string.generic_unknown),
                             logo = buildImageUrl(it.logoPath, "w500"),
                             originCountry = it.originCountry?.takeIf { c -> c.isNotBlank() },
                             secondaryLabel = it.headquarters?.takeIf { h -> h.isNotBlank() },
@@ -610,7 +614,7 @@ object TmdbMetadataService {
                             kind = entityKind,
                             name = it.name?.takeIf { n -> n.isNotBlank() }
                                 ?: fallbackName?.takeIf { n -> n.isNotBlank() }
-                                ?: runBlocking { getString(Res.string.generic_unknown) },
+                                ?: getString(Res.string.generic_unknown),
                             logo = buildImageUrl(it.logoPath, "w500"),
                             originCountry = it.originCountry?.takeIf { c -> c.isNotBlank() },
                             secondaryLabel = it.headquarters?.takeIf { h -> h.isNotBlank() },
@@ -619,6 +623,8 @@ object TmdbMetadataService {
                     }
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             log.w(e) { "Failed to fetch ${entityKind.routeValue} header for $entityId" }
             null
@@ -1407,6 +1413,7 @@ object TmdbMetadataService {
             video.toMetaTrailer(
                 seasonNumber = null,
                 displayName = video.name,
+                genericTrailerLabel = genericTrailerLabel,
             )
         }
 
@@ -1440,6 +1447,7 @@ object TmdbMetadataService {
                                 seasonNumber,
                                 video.name.orEmpty(),
                             ),
+                            genericTrailerLabel = genericTrailerLabel,
                         )
                     }
                 }
@@ -1712,91 +1720,94 @@ private fun resolvedPersonDisplayName(
     preferredLanguage = preferredLanguage,
 )?.takeIf { it.isNotBlank() }
 
-private fun buildPeople(
+private suspend fun buildPeople(
     details: TmdbDetailsResponse,
     credits: TmdbCreditsResponse?,
     mediaType: String,
     preferredLanguage: String,
     englishFallbackNames: Map<Int, String>,
 ): List<MetaPerson> {
-    val creators = if (mediaType == "tv" && details.createdBy.isNotEmpty()) {
-        val creatorRole = runBlocking { getString(Res.string.person_role_creator) }
-        details.createdBy.mapNotNull { creator ->
+    val creators = mutableListOf<MetaPerson>()
+    if (mediaType == "tv" && details.createdBy.isNotEmpty()) {
+        val creatorRole = getString(Res.string.person_role_creator)
+        for (creator in details.createdBy) {
             val name = resolvedPersonDisplayName(
                 localizedName = creator.name,
                 originalName = creator.originalName,
                 personId = creator.id,
                 preferredLanguage = preferredLanguage,
                 englishFallbackNames = englishFallbackNames,
-            ) ?: return@mapNotNull null
-            MetaPerson(
+            ) ?: continue
+            creators += MetaPerson(
                 name = name,
                 role = creatorRole,
                 photo = buildImageUrl(creator.profilePath, "w500"),
                 tmdbId = creator.id,
             )
         }
-    } else {
-        emptyList()
     }
 
-    val directorRole by lazy { runBlocking { getString(Res.string.person_role_director) } }
-    val directors = credits?.crew.orEmpty()
-        .filter { it.job.equals("Director", ignoreCase = true) }
-        .mapNotNull { crew ->
-            val name = resolvedPersonDisplayName(
-                localizedName = crew.name,
-                originalName = crew.originalName,
-                personId = crew.id,
-                preferredLanguage = preferredLanguage,
-                englishFallbackNames = englishFallbackNames,
-            ) ?: return@mapNotNull null
-            MetaPerson(
-                name = name,
-                role = directorRole,
-                photo = buildImageUrl(crew.profilePath, "w500"),
-                tmdbId = crew.id,
-            )
+    val directors = mutableListOf<MetaPerson>()
+    var directorRole: String? = null
+    for (crew in credits?.crew.orEmpty()) {
+        if (!crew.job.equals("Director", ignoreCase = true)) continue
+        val name = resolvedPersonDisplayName(
+            localizedName = crew.name,
+            originalName = crew.originalName,
+            personId = crew.id,
+            preferredLanguage = preferredLanguage,
+            englishFallbackNames = englishFallbackNames,
+        ) ?: continue
+        val role = directorRole ?: getString(Res.string.person_role_director).also {
+            directorRole = it
         }
+        directors += MetaPerson(
+            name = name,
+            role = role,
+            photo = buildImageUrl(crew.profilePath, "w500"),
+            tmdbId = crew.id,
+        )
+    }
 
-    val writerRole by lazy { runBlocking { getString(Res.string.person_role_writer) } }
-    val writers = credits?.crew.orEmpty()
-        .filter { crew ->
-            val job = crew.job?.lowercase().orEmpty()
-            job.contains("writer") || job.contains("screenplay")
+    val writers = mutableListOf<MetaPerson>()
+    var writerRole: String? = null
+    for (crew in credits?.crew.orEmpty()) {
+        val job = crew.job?.lowercase().orEmpty()
+        if (!job.contains("writer") && !job.contains("screenplay")) continue
+        val name = resolvedPersonDisplayName(
+            localizedName = crew.name,
+            originalName = crew.originalName,
+            personId = crew.id,
+            preferredLanguage = preferredLanguage,
+            englishFallbackNames = englishFallbackNames,
+        ) ?: continue
+        val role = writerRole ?: getString(Res.string.person_role_writer).also {
+            writerRole = it
         }
-        .mapNotNull { crew ->
-            val name = resolvedPersonDisplayName(
-                localizedName = crew.name,
-                originalName = crew.originalName,
-                personId = crew.id,
-                preferredLanguage = preferredLanguage,
-                englishFallbackNames = englishFallbackNames,
-            ) ?: return@mapNotNull null
-            MetaPerson(
-                name = name,
-                role = writerRole,
-                photo = buildImageUrl(crew.profilePath, "w500"),
-                tmdbId = crew.id,
-            )
-        }
+        writers += MetaPerson(
+            name = name,
+            role = role,
+            photo = buildImageUrl(crew.profilePath, "w500"),
+            tmdbId = crew.id,
+        )
+    }
 
-    val cast = credits?.cast.orEmpty()
-        .mapNotNull { castMember ->
-            val name = resolvedPersonDisplayName(
-                localizedName = castMember.name,
-                originalName = castMember.originalName,
-                personId = castMember.id,
-                preferredLanguage = preferredLanguage,
-                englishFallbackNames = englishFallbackNames,
-            ) ?: return@mapNotNull null
-            MetaPerson(
-                name = name,
-                role = castMember.character?.trim()?.takeIf(String::isNotBlank),
-                photo = buildImageUrl(castMember.profilePath, "w500"),
-                tmdbId = castMember.id,
-            )
-        }
+    val cast = mutableListOf<MetaPerson>()
+    for (castMember in credits?.cast.orEmpty()) {
+        val name = resolvedPersonDisplayName(
+            localizedName = castMember.name,
+            originalName = castMember.originalName,
+            personId = castMember.id,
+            preferredLanguage = preferredLanguage,
+            englishFallbackNames = englishFallbackNames,
+        ) ?: continue
+        cast += MetaPerson(
+            name = name,
+            role = castMember.character?.trim()?.takeIf(String::isNotBlank),
+            photo = buildImageUrl(castMember.profilePath, "w500"),
+            tmdbId = castMember.id,
+        )
+    }
 
     val primaryCrew = when {
         mediaType == "tv" && creators.isNotEmpty() -> creators
@@ -1804,8 +1815,7 @@ private fun buildPeople(
         else -> writers
     }
 
-    return (primaryCrew + cast)
-        .dedupePeople()
+    return (primaryCrew + cast).dedupePeople()
 }
 
 private fun buildDirectors(
@@ -1978,7 +1988,7 @@ private data class TmdbVideosResponse(
 )
 
 @Serializable
-private data class TmdbVideoResult(
+internal data class TmdbVideoResult(
     val id: String? = null,
     val key: String? = null,
     val name: String? = null,
@@ -1990,12 +2000,13 @@ private data class TmdbVideoResult(
     @SerialName("iso_639_1") val iso6391: String? = null,
 )
 
-private fun TmdbVideoResult.toMetaTrailer(
+internal fun TmdbVideoResult.toMetaTrailer(
     seasonNumber: Int?,
     displayName: String?,
+    genericTrailerLabel: String,
 ): MetaTrailer {
     val videoKey = key?.trim().orEmpty()
-    val videoName = name?.trim().takeUnless { it.isNullOrBlank() } ?: runBlocking { getString(Res.string.generic_trailer) }
+    val videoName = name?.trim().takeUnless { it.isNullOrBlank() } ?: genericTrailerLabel
     val trailerId = id?.trim().takeUnless { it.isNullOrBlank() } ?: videoKey
     return MetaTrailer(
         id = trailerId,
@@ -2003,7 +2014,7 @@ private fun TmdbVideoResult.toMetaTrailer(
         name = videoName,
         site = site?.trim().takeUnless { it.isNullOrBlank() } ?: "YouTube",
         size = size,
-        type = type?.trim().takeUnless { it.isNullOrBlank() } ?: runBlocking { getString(Res.string.generic_trailer) },
+        type = type?.trim().takeUnless { it.isNullOrBlank() } ?: genericTrailerLabel,
         official = official == true,
         publishedAt = publishedAt,
         seasonNumber = seasonNumber,
