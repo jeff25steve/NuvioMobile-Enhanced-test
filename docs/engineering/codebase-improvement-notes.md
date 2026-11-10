@@ -1712,6 +1712,8 @@ The adjacent `associate { ... }.toMap()` was also simplified to `associate { ...
 
 This is a bounded allocation reduction in Home recomposition/projection work, not a change to catalog fetching, sorting, Next Up rules, progress timestamps, caching, or visible UI. The projection remains O(n) time and O(s) map storage for n candidates and s distinct series; it removes the intermediate O(n) grouped lists and the redundant map copy. No concurrency, dispatcher, dependency, persistence, or platform-specific behaviour changed.
 
+Independent semantic cross-checks used the official Kotlin standard-library references: [`groupBy`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/group-by.html) returns a map of lists and preserves first-seen key order; [`associate`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/associate.html) already returns a map and retains last-value-wins semantics for duplicate keys; [`LinkedHashMap`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-linked-hash-map/) preserves insertion order when an existing key is updated.
+
 A broader change to `CollectionRepository.initialize()` was investigated and rejected for this cycle. Its synchronous initializer is also reached through non-suspending mutation helpers and profile-scoped state paths. Moving it to IO without coordinating those callers and profile changes would risk concurrent initialisation or stale-profile publication. That path remains a candidate for a deliberate repository API/lifecycle redesign, not a local dispatcher wrapper.
 
 ### Regression coverage and verification
