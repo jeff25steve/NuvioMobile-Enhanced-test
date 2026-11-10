@@ -273,6 +273,11 @@ object SimklSyncRepository : TrackingProfileStore {
     }
 
     override fun removeStoredProfile(profileId: Int) {
+        if (ProfileRepository.activeProfileId == profileId) {
+            profileGeneration += 1L
+            hasLoaded = false
+            _state.value = SimklSyncUiState()
+        }
         SimklSyncStorage.removeProfile(profileId)
     }
 }

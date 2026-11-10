@@ -391,6 +391,7 @@ object ProfileRepository {
             // Remote deletion succeeded; remove device-local authentication artifacts even if
             // the subsequent profile refresh is interrupted or unavailable.
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
+                cleanupTrackingStores(profileIndex)
                 val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
                 if (!settingsBackgroundRemoved) {
                     log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }

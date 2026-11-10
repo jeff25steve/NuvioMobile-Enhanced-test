@@ -1,6 +1,7 @@
 package com.nuvio.app.features.simkl
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.tracking.TrackingAuthProvider
 import com.nuvio.app.features.tracking.TrackingCapability
 import com.nuvio.app.features.tracking.TrackingProviderDescriptor
@@ -109,8 +110,16 @@ object SimklAuthRepository : TrackingAuthProvider {
     }
 
     override fun removeStoredProfile(profileId: Int) {
+        if (ProfileRepository.activeProfileId == profileId) {
+            pinPollingJob?.cancel()
+            pinPollingJob = null
+            accessToken = null
+            storedState = SimklStoredAuthState()
+            authenticationMethod = SimklAuthenticationMethod.BROWSER_REDIRECT
+            hasLoaded = false
+            publish(isLoading = false, error = null)
+        }
         SimklAuthStorage.removeProfile(profileId)
-        SimklSyncStorage.removeProfile(profileId)
     }
 
     fun snapshot(): SimklAuthUiState {
