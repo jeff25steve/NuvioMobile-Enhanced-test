@@ -21,7 +21,7 @@ class BaselineProfileGenerator {
     val rule = BaselineProfileRule()
 
     @Test
-    fun startupAndHomeScroll() {
+    fun startup() {
         rule.collect(
             packageName = targetPackageName(),
             includeInStartupProfile = true,
@@ -29,9 +29,26 @@ class BaselineProfileGenerator {
             pressHome()
             startActivityAndWait()
             device.waitForIdle()
+        }
+    }
+
+    @Test
+    fun homeScroll() {
+        rule.collect(
+            packageName = targetPackageName(),
+            includeInStartupProfile = false,
+        ) {
+            pressHome()
+            startActivityAndWait()
+            if (!isHomeTabVisible()) return@collect
+            device.waitForIdle()
             scrollHome()
         }
     }
+
+    private fun MacrobenchmarkScope.isHomeTabVisible(): Boolean =
+        device.wait(Until.hasObject(By.text("Home")), HOME_TAB_TIMEOUT_MS) ||
+            device.wait(Until.hasObject(By.desc("Home")), HOME_TAB_TIMEOUT_MS)
 
     private fun MacrobenchmarkScope.scrollHome() {
         val list = device.wait(Until.findObject(By.scrollable(true)), UI_TIMEOUT_MS) ?: return
@@ -72,6 +89,7 @@ class BaselineProfileGenerator {
     private companion object {
         const val DEFAULT_PACKAGE_NAME = "com.nuvio.media"
         const val UI_TIMEOUT_MS = 10_000L
+        const val HOME_TAB_TIMEOUT_MS = 2_000L
         const val VERTICAL_FLINGS = 3
         const val MAX_ROWS_PER_SCREEN = 2
     }

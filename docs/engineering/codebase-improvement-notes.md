@@ -1921,3 +1921,37 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Include server identity/display descriptors (connection provider/name/address and relevant stable IDs, kind, ordered selected library ID/name/kind). Avoid raw credentials or tokens in a key or logs; if authentication identity must invalidate state, use the existing account/generation identity rather than credential material.
 - Add common tests proving key changes on catalog title, add-on display name, manifest transport URL, pagination capability, server display name/provider and selected-library descriptor changes, while preserving equal-key reuse and the current query normalization contract.
 - Preserve request ordering, selected Discover catalog, pending-manifest/loading states, cancellation and partial section failure behavior. Do not rebuild network fan-out or mutate provider cache keys as part of this focused fix.
+
+
+## 10 November 2026 — cold-start intro timing and Baseline Profile scope
+
+### Video observation and root-cause evidence
+
+- The side-by-side launch recording is useful symptom evidence, but it is not a controlled cold/warm benchmark: process state, cache state, compilation state and background load were not held constant.
+- A concrete Enhanced-only fixed delay is confirmed in commit [6829886](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/6829886011): the cold-start branded intro was deliberately held for **1,300 ms**, even when auth/profile state had already become ready. `AppGate` gated its first transition on that timer.
+- The intro's actual entrance work consists of a 600 ms glow fade, a 350 ms wordmark fade and a spring scale animation. The fixed 1,300 ms hold therefore added idle time after the visual entrance could already have completed.
+- The profile preload remains a hard prerequisite. Do **not** move it behind UI display: upstream commit [dd31c4d](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/dd31c4dda333416f4ec7038fff9b75821455f338) explicitly records that showing UI while the IO preload continued allowed non-thread-safe `ensureLoaded()` calls to run concurrently from main, and reverted that behaviour. The current profile-scoped repository implementations are not uniformly generation-guarded.
+
+### Changes in this cycle
+
+- Replaced the arbitrary 1,300 ms intro timer with an animation-completion callback. The callback is invoked only after the glow fade, wordmark fade and spring-scale coroutine have all completed. Auth/profile state still cannot advance the gate before the branding entrance finishes; the visuals are not shortened or removed.
+- Split Baseline Profile collection into a startup-only journey (`includeInStartupProfile = true`) and a separate Home-scroll journey (`false`). The Home journey now checks for the Home tab before attempting to scroll, rather than accidentally treating a profile/auth screen's scroll container as Home.
+- No dependency, storage schema, backend setting, profile/auth logic, navigation, transition animation, or Android/iOS platform implementation was changed.
+
+### Baseline Profile deployment status
+
+- `androidApp/build.gradle.kts` wires `:baselineprofile`, enables `mergeIntoMain` and `saveInSrc`, and disables automatic generation during ordinary builds.
+- The tracked `androidApp/src/main/baseline-prof.txt` is currently empty (zero rules). The generator source therefore does not mean a useful profile is currently packaged. A profile must be generated on a suitable physical Android device before it can improve deployed startup/runtime performance.
+- Official Android guidance says to include startup journeys in the Startup Profile and keep non-startup journeys out of it; it also recommends physical-device Macrobenchmark comparisons for cold/warm TTID and TTFD. References: [Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles/overview), [Startup Profiles](https://developer.android.com/topic/performance/startupprofiles/dex-layout-optimizations), [startup analysis](https://developer.android.com/topic/performance/appstartup/analysis-optimization).
+
+### Rejected approaches and verification boundary
+
+- Rejected: release Compose content as soon as the profile cache finishes while the other preloads continue. Git history documents a real concurrency regression in profile-scoped repository initializers.
+- Confirmed by source/diff inspection only: the fixed delay is removed; all three entrance animations are joined before the callback; Home scrolling is excluded from Startup Profile collection.
+- Not run by instruction: common tests, instrumentation tests, Gradle tasks, Android/iOS builds, Baseline Profile generation, CI, device benchmarks or runtime profiling.
+- No local checkout is mounted in this session, so local `git status` cannot be read. The remote application branch was checked at `c8c0641bfbc68b4eee7c60f956718b1ebaf3506a` before this commit; only that remote branch is modified by this change.
+
+### Next starting point
+
+- After build/profile-generation authorization, generate the full-variant Baseline Profile on a physical Android device and measure cold startup with Macrobenchmark `StartupTimingMetric` under `CompilationMode.None` and Baseline Profile partial compilation. Record TTID and TTFD separately, with repeat runs and the same test account/cache state.
+- If the runtime intro change does not materially narrow the measured difference, collect Perfetto startup traces next. In particular, measure Activity/Application initialization and `SentryInitializer.start()`; do not defer SDK or profile storage initialization without trace evidence and lifecycle review.

@@ -29,14 +29,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.settings.AppBrandWordmark
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
-internal const val AppIntroMinDurationMs = 1300L
-
 @Composable
-internal fun AppIntroContent(modifier: Modifier = Modifier) {
+internal fun AppIntroContent(
+    modifier: Modifier = Modifier,
+    onAnimationFinished: () -> Unit = {},
+) {
     val wordmarkAlpha = remember { Animatable(0f) }
     val wordmarkScale = remember { Animatable(0.55f) }
     val glowAlpha = remember { Animatable(0f) }
@@ -54,19 +56,22 @@ internal fun AppIntroContent(modifier: Modifier = Modifier) {
     val driftRadiusPx = with(density) { 36.dp.toPx() }
 
     LaunchedEffect(Unit) {
-        launch {
-            glowAlpha.animateTo(1f, tween(durationMillis = 600, easing = FastOutSlowInEasing))
+        coroutineScope {
+            launch {
+                glowAlpha.animateTo(1f, tween(durationMillis = 600, easing = FastOutSlowInEasing))
+            }
+            launch {
+                wordmarkAlpha.animateTo(1f, tween(durationMillis = 350, easing = FastOutSlowInEasing))
+            }
+            wordmarkScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = 120f,
+                ),
+            )
         }
-        launch {
-            wordmarkAlpha.animateTo(1f, tween(durationMillis = 350, easing = FastOutSlowInEasing))
-        }
-        wordmarkScale.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = 120f,
-            ),
-        )
+        onAnimationFinished()
     }
 
     Box(

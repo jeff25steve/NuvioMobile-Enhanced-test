@@ -170,10 +170,6 @@ internal fun AppGate(
     val gateScope = rememberCoroutineScope()
     var gateScreen by rememberSaveable { mutableStateOf(AppGateScreen.Loading.name) }
     var introHoldElapsed by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(AppIntroMinDurationMs)
-        introHoldElapsed = true
-    }
     var editingProfile by remember { mutableStateOf<NuvioProfile?>(null) }
     var profileEditReturnScreen by rememberSaveable { mutableStateOf(AppGateScreen.ProfileSelection.name) }
     var autoSkipProfileSelection by rememberSaveable { mutableStateOf(false) }
@@ -571,7 +567,10 @@ internal fun AppGate(
         ) { currentGate ->
             when (currentGate) {
                 AppGateScreen.Loading.name -> {
-                    AppIntroContent(modifier = Modifier.fillMaxSize())
+                    AppIntroContent(
+                        modifier = Modifier.fillMaxSize(),
+                        onAnimationFinished = { introHoldElapsed = true },
+                    )
                 }
                 AppGateScreen.Auth.name -> {
                     AuthScreen(
