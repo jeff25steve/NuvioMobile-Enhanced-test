@@ -74,10 +74,12 @@ internal actual object DownloadsLiveStatusPlatform {
             lastRenderStateById.remove(downloadId)
         }
 
-        preferences(context)
-            .edit()
-            .putStringSet(trackedDownloadIdsKey, trackedNow)
-            .apply()
+        if (trackedNow != trackedBefore) {
+            preferences(context)
+                .edit()
+                .putStringSet(trackedDownloadIdsKey, trackedNow)
+                .apply()
+        }
     }
 
     internal fun notifyTransfer(item: DownloadItem) {

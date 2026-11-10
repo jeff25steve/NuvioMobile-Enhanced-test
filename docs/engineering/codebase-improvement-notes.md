@@ -2132,3 +2132,33 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - The existing historical CI runs were rechecked: the isolated earlier validation runs `42757580323` (Linux host tests) and `42757580682` (iOS Debug IPA) failed; `42758600988` and `42759022214` also failed on earlier validation branch snapshots; `42759797963` passed only the independent Linux fullDebug APK task. None validates the current product head `2931c1df7d5287cf265cda086ee7741da100d2e8` or this edit.
 - Local `git status` remains inaccessible because no local checkout is mounted. The remote product branch was checked at `2931c1df7d5287cf265cda086ee7741da100d2e8` before preparing this commit.
 - Next: design and test the iOS background task reattachment + originating-profile reconciliation before touching its in-memory registry. Separately measure Android's duplicate progress-write cost before deciding whether to suppress common snapshot progress persistence.
+
+
+## 10 November 2026 — avoid redundant Android download notification-state writes
+
+### Confirmed path and change
+
+- Android download progress is observed by DownloadsPlatformDownloader on its main-thread observer scope. Each progress update reaches DownloadsRepository.mutateItem() and publish(), which calls DownloadsLiveStatusPlatform.onItemsChanged().
+- Managed Android transfers are rendered directly by the scheduler/worker notification path. The common notification renderer excludes those IDs, but still rebuilt the tracked-ID set and unconditionally called SharedPreferences.Editor.apply() on every progress update even when the set was unchanged.
+- The Android renderer now writes tracked_download_ids only when the new membership set differs from the stored set. Status/progress notification rendering, stale-notification cancellation, transfer ownership and the tracked-ID contents are otherwise unchanged.
+- This removes redundant preference editor/apply operations. It does not remove the current per-progress JSON serialization in DownloadsRepository, nor does it claim that apply() writes synchronously: Android documents that it updates the in-memory preferences immediately and commits to disk asynchronously. The API also notes that outstanding applies can be waited on during component lifecycle transitions.
+
+### Related download findings deliberately left unchanged
+
+- **Duplicate progress snapshot:** Android still saves progress to its per-transfer AtomicFile and the common profile-scoped JSON snapshot. Suppressing the common snapshot on Android remains deferred because it is also the fallback if the transfer record is missing or corrupt; profile-switch, process-death and missing-record behavior must be proven before changing that contract. iOS has no equivalent per-transfer store.
+- **SAF completion crash window:** AndroidDownloadScheduler.execute() calls DocumentsContract.renameDocument() for the external .part document before the returned final URI and Completed state are committed through AndroidDownloadStore.update(). Android's API contract permits a document provider to assign a new document ID during rename and return a new URI; the old URI can then be invalid. A process death in this interval can therefore leave a completed file without its final URI in the transfer record. Existing completedRenameIsRecoveredAfterProcessDeathBeforeStateCommit coverage exercises the app-private file rename, not a SAF provider that changes document IDs. No speculative filename-only recovery was added: providers may alter display names or resolve collisions, and a recovery path must distinguish this transfer's final document from an unrelated user file. Next implementation should introduce an explicit durable finalization state and provider-level tests for both same-URI and new-URI rename behavior.
+- **Profile switching:** ProfileRepository.selectProfile() calls DownloadsRepository.onProfileChanged() without clearing the active handles. Keep this behavior; profile-owned downloads may continue in the background, and callbacks only update an item in the currently loaded profile snapshot.
+
+### Evidence and verification boundary
+
+- Inspected the Android notification renderer, scheduler progress callback, transfer store, common Downloads repository, profile-switch call chain, iOS downloader/storage implementation, and existing Android lifecycle/transfer tests.
+- Official Android SharedPreferences.Editor.apply() documentation: https://developer.android.com/reference/android/content/SharedPreferences.Editor#apply()
+- Official Android DocumentsContract.renameDocument() documentation: https://developer.android.com/reference/android/provider/DocumentsContract#renameDocument(android.content.ContentResolver,android.net.Uri,java.lang.String)
+- AOSP provider contract: https://android.googlesource.com/platform/frameworks/base/+/HEAD/core/java/android/provider/DocumentsProvider.java
+- Static source review only. No Gradle tasks, tests, builds, CI, emulator/device runs, or performance traces were started. Runtime write-count and UI-thread impact remain unmeasured.
+- No local checkout is mounted in this session, so local git status and uncommitted local changes cannot be observed. The remote main-build-testing ref was checked at 009410701a9a98dc441da533be54b9cd350dc7de before this commit; only that remote branch is updated.
+
+### Next starting point
+
+- Implement SAF finalization as a durable state transition, then exercise it with a test document provider that changes its document ID during rename and one that keeps the original ID. Also cover process death before rename, after rename but before store commit, filename collisions, provider-renamed display names, revoked tree access, and profile switching.
+- Measure the remaining Android progress JSON serialization cost before considering platform-specific persistence changes.
