@@ -162,3 +162,10 @@ Use the resulting commit on `main-build-testing` as the baseline. First inspect 
 - Reviewed the relevant call sites and the pinned framework lifecycle source; this is source-level verification only.
 - No tests, compilation, Android/iOS builds, simulator, device, or CI workflow were run.
 - Manually verify on iOS 26+ that Search opens the native keyboard from both the in-screen search action and an external/tab focus request, and that Library Cloud Search opens the keyboard when revealed. Also verify typing, clear, dismiss/reopen and tab changes; separately confirm iOS 16.1–25 and Android retain their Compose focus path.
+
+## Editor localization correction — 9 November 2026
+
+- A final literal-string scan found the Library Cloud preview's `All providers` option was hard-coded in English, unlike the production `CloudLibraryToolbar`, which uses `Res.string.cloud_library_provider_all`.
+- The preview now obtains that existing resource with `stringResource` and keys its remembered provider options by the resolved label, so a language change refreshes the option text. The repository already contains the resource in its default and French translations; no new strings or translation files were needed.
+- Other literals found in the preview are provider names, preview IDs, or sample media titles rather than UI labels. They were intentionally left unchanged.
+- Static source/diff review only. No tests, compilation, builds, simulator/device checks, or CI workflows were run.

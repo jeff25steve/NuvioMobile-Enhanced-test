@@ -2890,9 +2890,10 @@ private fun LiquidGlassLibraryPreview(
                 ) {
                     item(key = "library-cloud-preview-controls") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val providerOptions = remember {
+                            val allProvidersLabel = stringResource(Res.string.cloud_library_provider_all)
+                            val providerOptions = remember(allProvidersLabel) {
                                 listOf(
-                                    NuvioDropdownOption("", "All providers"),
+                                    NuvioDropdownOption("", allProvidersLabel),
                                     NuvioDropdownOption("preview:torrentio", "Torrentio"),
                                     NuvioDropdownOption("preview:comet", "Comet"),
                                 )
