@@ -214,58 +214,64 @@ object HomeCatalogSettingsRepository {
         _uiState.value = HomeCatalogSettingsUiState()
     }
 
-    suspend fun syncCatalogs(addons: List<ManagedAddon>) = catalogSyncMutex.withLock {
-        ensureLoaded()
-        val collections = CollectionRepository.collections.value
-        val syncInput = CatalogSyncInput(
-            addons = addons,
-            collections = collections,
-            locale = Locale.current.toLanguageTag(),
-            serverRevision = ServerRepository.uiState.value.revision,
-        )
-        if (lastCatalogSync == syncInput) return@withLock
-
+    suspend fun syncCatalogs(addons: List<ManagedAddon>) {
         val generation = catalogSyncGeneration.value
-        val (updatedDefinitions, updatedCollectionDefinitions) = withContext(Dispatchers.IO) {
-            buildHomeCatalogDefinitions(addons) to buildCollectionDefinitions(collections)
-        }
-        if (generation != catalogSyncGeneration.value) return@withLock
+        catalogSyncMutex.withLock {
+            if (generation != catalogSyncGeneration.value) return@withLock
+            ensureLoaded()
+            val collections = CollectionRepository.collections.value
+            val syncInput = CatalogSyncInput(
+                addons = addons,
+                collections = collections,
+                locale = Locale.current.toLanguageTag(),
+                serverRevision = ServerRepository.uiState.value.revision,
+            )
+            if (lastCatalogSync == syncInput) return@withLock
 
-        definitions = updatedDefinitions
-        collectionDefinitions = updatedCollectionDefinitions
-        lastCatalogSync = syncInput
-        lastCollectionSync = lastCollectionSync?.takeIf {
-            it.first == collections && it.second == syncInput.locale
-        }
-        if (definitions.isEmpty() && collectionDefinitions.isEmpty()) {
+            val (updatedDefinitions, updatedCollectionDefinitions) = withContext(Dispatchers.IO) {
+                buildHomeCatalogDefinitions(addons) to buildCollectionDefinitions(collections)
+            }
+            if (generation != catalogSyncGeneration.value) return@withLock
+
+            definitions = updatedDefinitions
+            collectionDefinitions = updatedCollectionDefinitions
+            lastCatalogSync = syncInput
+            lastCollectionSync = lastCollectionSync?.takeIf {
+                it.first == collections && it.second == syncInput.locale
+            }
+            if (definitions.isEmpty() && collectionDefinitions.isEmpty()) {
+                publish()
+                return@withLock
+            }
+            normalizePreferences()
             publish()
-            return@withLock
+            persist()
         }
-        normalizePreferences()
-        publish()
-        persist()
     }
 
-    suspend fun syncCollections(collections: List<Collection>) = catalogSyncMutex.withLock {
-        ensureLoaded()
-        val syncInput = collections to Locale.current.toLanguageTag()
-        if (lastCollectionSync == syncInput) return@withLock
-
+    suspend fun syncCollections(collections: List<Collection>) {
         val generation = catalogSyncGeneration.value
-        val updatedDefinitions = withContext(Dispatchers.IO) {
-            buildCollectionDefinitions(collections)
-        }
-        if (generation != catalogSyncGeneration.value) return@withLock
+        catalogSyncMutex.withLock {
+            if (generation != catalogSyncGeneration.value) return@withLock
+            ensureLoaded()
+            val syncInput = collections to Locale.current.toLanguageTag()
+            if (lastCollectionSync == syncInput) return@withLock
 
-        collectionDefinitions = updatedDefinitions
-        lastCatalogSync = lastCatalogSync?.takeIf {
-            it.collections == collections && it.locale == syncInput.second
+            val updatedDefinitions = withContext(Dispatchers.IO) {
+                buildCollectionDefinitions(collections)
+            }
+            if (generation != catalogSyncGeneration.value) return@withLock
+
+            collectionDefinitions = updatedDefinitions
+            lastCatalogSync = lastCatalogSync?.takeIf {
+                it.collections == collections && it.locale == syncInput.second
+            }
+            lastCollectionSync = syncInput
+            normalizePreferences()
+            publish()
+            persist()
+            HomeRepository.applyCurrentSettings()
         }
-        lastCollectionSync = syncInput
-        normalizePreferences()
-        publish()
-        persist()
-        HomeRepository.applyCurrentSettings()
     }
 
     internal fun snapshot(): HomeCatalogSettingsSnapshot {
