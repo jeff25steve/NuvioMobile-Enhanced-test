@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -15,18 +16,33 @@ import java.io.File
 import java.net.URI
 
 internal actual object DownloadsPlatformDownloader {
+    @Volatile
     private var appContext: Context? = null
+
+    @Volatile
     private var downloadScheduler: AndroidDownloadScheduler? = null
+
     private val observerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun initialize(context: Context) {
-        scheduler(context)
+        val applicationContext = context.applicationContext
+        appContext = applicationContext
+        AndroidDownloadExport.initialize(applicationContext)
+    }
+
+    actual suspend fun prepareForStartup() {
+        val context = appContext ?: return
+        withContext(Dispatchers.IO) {
+            scheduler(context)
+        }
     }
 
     @Synchronized
     internal fun scheduler(context: Context): AndroidDownloadScheduler {
-        appContext = context.applicationContext
-        return downloadScheduler ?: AndroidDownloadScheduler(context.applicationContext).also { downloadScheduler = it }
+        val applicationContext = context.applicationContext
+        appContext = applicationContext
+        return downloadScheduler
+            ?: AndroidDownloadScheduler(applicationContext).also { downloadScheduler = it }
     }
 
     internal fun managedTransfers(): List<AndroidDownloadTransfer> =

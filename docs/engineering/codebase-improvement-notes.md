@@ -1955,3 +1955,39 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - After build/profile-generation authorization, generate the full-variant Baseline Profile on a physical Android device and measure cold startup with Macrobenchmark `StartupTimingMetric` under `CompilationMode.None` and Baseline Profile partial compilation. Record TTID and TTFD separately, with repeat runs and the same test account/cache state.
 - If the runtime intro change does not materially narrow the measured difference, collect Perfetto startup traces next. In particular, measure Activity/Application initialization and `SentryInitializer.start()`; do not defer SDK or profile storage initialization without trace evidence and lifecycle review.
+
+
+## 10 November 2026 — move Android download-transfer store hydration off the launch thread
+
+### Confirmed call chain
+
+- MainActivity.onCreate() called DownloadsPlatformDownloader.initialize(applicationContext) before super.onCreate().
+- Android initialize() previously constructed AndroidDownloadScheduler synchronously.
+- AndroidDownloadScheduler constructs AndroidDownloadStore; its initial MutableStateFlow(load()) immediately scans the download-transfers directory, reads every .json / .json.bak record using AtomicFile.readFully(), and JSON-decodes each persisted transfer. This ran on the main thread before the activity first draw.
+- The store is independent of the profile-scoped DownloadsStorage payload. DownloadsRepository.loadFromDisk() does depend on ProfileScopedKey, calls restoreItem() (including Android 14+ JobScheduler checks), publishes StateFlow changes, and may reattach active download observers.
+
+### Change
+
+- Android DownloadsPlatformDownloader.initialize() now only stores the application context and initializes the lightweight export context. It no longer constructs the scheduler/store.
+- Added the multiplatform suspend contract DownloadsPlatformDownloader.prepareForStartup(). Android creates the scheduler under Dispatchers.IO; iOS implements the contract as a no-op because its download path uses NSURLSession and has no Android transfer-record store.
+- StartupPreloader starts the Android scheduler warmup as a structured IO child before loading the profile cache and other repositories. It awaits that child before completing startup, so download state restoration in Compose still sees an initialized scheduler. The work overlaps existing profile/cache preparation rather than running synchronously before super.onCreate().
+- Marked Android's cached application context and scheduler references volatile. Scheduler creation remains synchronized, so a worker/notification receiver racing with the startup warmup can safely reuse the first completed instance.
+
+### Deliberately unchanged
+
+- Did not move DownloadsRepository.loadFromDisk() to a background dispatcher. It is profile-scoped and mutates activeHandles, calls platform restore logic, publishes state, and may start downloads; broadcast/worker entry points can also reach it. Moving that whole operation needs a separate serialized state/lifecycle design.
+- Did not defer or background Sentry initialization. Sentry Android 8.47.0 still performs integration registration synchronously. Upstream PR #4449 documents a GestureDetectorCompat crash in a background-init path when an Activity is resumed, and that PR introduced a fix; this is not evidence that the pinned version still has the bug, but it is a lifecycle/threading reason not to move initialization without targeted verification. Preserve early-start crash capture until a device trace justifies a different initialization contract.
+- No dependencies, storage formats, profile keys, permissions, backend settings, download scheduling semantics, progress callbacks, notification behavior, or iOS download behavior were changed.
+
+### Evidence and review
+
+- Pinned code inspected: AndroidDownloadScheduler.kt, AndroidDownloadStore.kt, AndroidDownloadExport.kt, DownloadsRepository.kt, DownloadsNotificationActionReceiver.kt, Android/iOS DownloadsPlatformDownloader, MainActivity.kt, and StartupPreloader.kt.
+- Existing Robolectric coverage in AndroidDownloadLifecycleTest and AndroidDownloadTransferTest exercises persisted-transfer restoration, process recreation, generation fencing, and partial-file behavior. Those tests were not run.
+- Source-level diff review must verify: initialize() does not create the scheduler; prepareForStartup() performs scheduler creation on IO; warmup is awaited before StartupPreloader completion; iOS has an actual no-op; scheduler creation remains synchronized and safely published.
+- Not run by instruction: Gradle tests, Android/iOS builds, Android host tests, Baseline Profile generation, CI, device timing, Perfetto or Macrobenchmark. Actual TTID/TTFD improvement remains unmeasured.
+- Local git status remains unavailable because no local checkout is mounted. The remote branch was rechecked at 3efc289dc3725dfcb35dc670ed4bfe155c9aa818 before these edits.
+
+### Next starting point
+
+- Measure cold startup with downloads absent, with a few persisted downloads, and with a larger transfer-record set. Compare TTID and TTFD before/after with the same account/cache state.
+- Inspect the remaining synchronous DownloadsRepository.loadFromDisk() cost separately. In particular, measure SharedPreferences payload decode and per-item JobScheduler checks before considering any change to repository restoration or callback threading.

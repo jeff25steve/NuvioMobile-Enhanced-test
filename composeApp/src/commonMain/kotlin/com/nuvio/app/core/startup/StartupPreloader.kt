@@ -2,6 +2,7 @@ package com.nuvio.app.core.startup
 
 import com.nuvio.app.core.logging.InAppLogger
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
+import com.nuvio.app.features.downloads.DownloadsPlatformDownloader
 import com.nuvio.app.features.home.HomeRepository
 import com.nuvio.app.features.library.LibraryRepository
 import com.nuvio.app.features.livetv.LiveTvRepository
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
@@ -48,19 +50,27 @@ object StartupPreloader {
 
     private fun start(): Deferred<Unit> = scope.async {
         val started = TimeSource.Monotonic.markNow()
-        profileCachePreloaded = step("profiles") { ProfileRepository.loadCachedProfiles() }
-        withContext(Dispatchers.IO) {
-            step("library") { LibraryRepository.ensureLoaded() }
-            step("watched") { WatchedRepository.ensureLoaded() }
-            step("watchProgress") { WatchProgressRepository.ensureLoaded() }
-            step("continueWatching") { ContinueWatchingPreferencesRepository.ensureLoaded() }
-            step("playerSettings") { PlayerSettingsRepository.ensureLoaded() }
-            step("p2pSettings") { P2pSettingsRepository.ensureLoaded() }
-            step("servers") { ServerRepository.ensureLoaded() }
-            step("metaScreen") { MetaScreenSettingsRepository.ensureLoaded() }
-            step("releaseNotifications") { EpisodeReleaseNotificationsRepository.ensureLoaded() }
-            step("liveTv") { LiveTvRepository.ensureLoaded() }
-            step("homeSnapshot") { HomeRepository.preloadSnapshot() }
+        coroutineScope {
+            // The Android download-transfer store reads and decodes one AtomicFile per
+            // persisted transfer. Warm it on IO while the profile and other caches load.
+            val downloadsWarmup = async(Dispatchers.IO) {
+                step("downloads") { DownloadsPlatformDownloader.prepareForStartup() }
+            }
+            profileCachePreloaded = step("profiles") { ProfileRepository.loadCachedProfiles() }
+            withContext(Dispatchers.IO) {
+                step("library") { LibraryRepository.ensureLoaded() }
+                step("watched") { WatchedRepository.ensureLoaded() }
+                step("watchProgress") { WatchProgressRepository.ensureLoaded() }
+                step("continueWatching") { ContinueWatchingPreferencesRepository.ensureLoaded() }
+                step("playerSettings") { PlayerSettingsRepository.ensureLoaded() }
+                step("p2pSettings") { P2pSettingsRepository.ensureLoaded() }
+                step("servers") { ServerRepository.ensureLoaded() }
+                step("metaScreen") { MetaScreenSettingsRepository.ensureLoaded() }
+                step("releaseNotifications") { EpisodeReleaseNotificationsRepository.ensureLoaded() }
+                step("liveTv") { LiveTvRepository.ensureLoaded() }
+                step("homeSnapshot") { HomeRepository.preloadSnapshot() }
+            }
+            downloadsWarmup.await()
         }
         InAppLogger.info(LogTag, "preloaded in ${started.elapsedNow().inWholeMilliseconds}ms")
     }.also { job = it }
