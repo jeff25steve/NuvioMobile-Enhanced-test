@@ -125,7 +125,6 @@ internal fun SettingsGlassPageBackground(
     additionalSurfaces: Set<LiquidGlassSurface> = emptySet(),
     content: @Composable () -> Unit,
 ) {
-    val backdrop = rememberNuvioBackdrop()
     val customImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
         ThemeSettingsRepository.customSettingsBackgroundImageUri
@@ -152,13 +151,14 @@ internal fun SettingsGlassPageBackground(
     )
     val settingsGlassTextContrastEnabled =
         isLiquidGlassSupported() && isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
+    val backdrop = if (settingsGlassBackdropEnabled) rememberNuvioBackdrop() else null
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (settingsGlassBackdropEnabled || customImageUri != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .then(if (settingsGlassBackdropEnabled) Modifier.nuvioBackdropSource(backdrop) else Modifier),
+                    .then(backdrop?.let { Modifier.nuvioBackdropSource(it) } ?: Modifier),
             ) {
                 Box(
                     modifier = Modifier
@@ -185,7 +185,7 @@ internal fun SettingsGlassPageBackground(
             }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (settingsGlassBackdropEnabled) backdrop else null,
+            LocalLiquidGlassBackdrop provides backdrop,
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || customImageUri != null
             ),

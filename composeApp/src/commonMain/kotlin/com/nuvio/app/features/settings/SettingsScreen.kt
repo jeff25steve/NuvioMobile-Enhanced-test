@@ -149,6 +149,36 @@ private fun SettingsPage.isEnabledByPolicy(): Boolean =
         SettingsPage.PlaybackBuffer -> !isIos
         else -> true
     }
+private val AllSettingsAdditionalBackdropSurfaces = setOf(
+    LiquidGlassSurface.PROFILE_WATCH_TIME,
+    LiquidGlassSurface.SUPPORTER_MEMBERSHIP,
+)
+private val ProfileWatchTimeBackdropSurface = setOf(LiquidGlassSurface.PROFILE_WATCH_TIME)
+private val SupporterMembershipBackdropSurface = setOf(LiquidGlassSurface.SUPPORTER_MEMBERSHIP)
+
+/**
+ * Route-backed Settings destinations expose their page before the background host is composed.
+ * Keep the legacy internal pager conservative: its current page is saveable state created later
+ * in the provider tree, and hoisting that state would change restoration behaviour.
+ */
+internal fun settingsAdditionalBackdropSurfacesForPage(
+    initialPageName: String,
+    usesRouteBasedNavigation: Boolean,
+): Set<LiquidGlassSurface> {
+    if (!usesRouteBasedNavigation) return AllSettingsAdditionalBackdropSurfaces
+
+    return when (initialPageName) {
+        SettingsPage.Profile.name -> ProfileWatchTimeBackdropSurface
+        SettingsPage.SupportersContributors.name -> {
+            if (SettingsPage.SupportersContributors.isEnabledByPolicy()) {
+                SupporterMembershipBackdropSurface
+            } else {
+                emptySet()
+            }
+        }
+        else -> emptySet()
+    }
+}
 
 @Composable
 private fun settingsPageTitles(): Map<SettingsPage, String> {
@@ -188,7 +218,6 @@ fun SettingsScreen(
     onCollectionsClick: () -> Unit = {},
     onWatchPartyClick: () -> Unit = {},
 ) {
-    val settingsBackdrop = rememberNuvioBackdrop()
     val customSettingsBackgroundImageUri by remember {
         ThemeSettingsRepository.ensureLoaded()
         ThemeSettingsRepository.customSettingsBackgroundImageUri
@@ -218,14 +247,15 @@ fun SettingsScreen(
     val settingsGlassBackdropEnabled = shouldCaptureLiquidGlassSettingsBackdrop(
         masterEnabled = isLiquidGlassSupported(),
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
-        additionalSurfaces = setOf(
-            LiquidGlassSurface.PROFILE_WATCH_TIME,
-            LiquidGlassSurface.SUPPORTER_MEMBERSHIP,
+        additionalSurfaces = settingsAdditionalBackdropSurfacesForPage(
+            initialPageName = initialPageName,
+            usesRouteBasedNavigation = onNavigatePage != null,
         ),
     )
     val settingsGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.SETTINGS)
     val settingsGlassTextContrastEnabled = settingsGlassEnabled && isLiquidGlassSupported()
+    val settingsBackdrop = if (settingsGlassBackdropEnabled) rememberNuvioBackdrop() else null
     BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
     ) {
@@ -233,7 +263,7 @@ fun SettingsScreen(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .then(if (settingsGlassBackdropEnabled) Modifier.nuvioBackdropSource(settingsBackdrop) else Modifier),
+                    .then(settingsBackdrop?.let { Modifier.nuvioBackdropSource(it) } ?: Modifier),
             ) {
                 Box(
                     modifier = Modifier
@@ -260,7 +290,7 @@ fun SettingsScreen(
             }
         }
         CompositionLocalProvider(
-            LocalLiquidGlassBackdrop provides if (settingsGlassBackdropEnabled) settingsBackdrop else null,
+            LocalLiquidGlassBackdrop provides settingsBackdrop,
             LocalNuvioThemeTokens provides MaterialTheme.nuvio.withSettingsGlassTextContrast(
                 enabled = settingsGlassTextContrastEnabled,
             ),

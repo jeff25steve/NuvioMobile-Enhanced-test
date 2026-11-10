@@ -227,3 +227,33 @@ Next verification, when device/build work is authorised:
 3. Revisit upstream issue #126 only when a tagged release or reviewable upstream PR is available. Compare its exact source changes against our 2.0.1 pin, then benchmark our own screens on Android and iOS before adopting them.
 
 This cycle was source/documentation review only. No build, build-triggering test, CI workflow, simulator, device run or Instruments profile was started. A local checkout is not present in this environment, so local `git status` and uncommitted changes remain unverified; the remote `main-build-testing` branch head was checked before this documentation-only update.
+## Follow-up — avoid unused Settings backdrop layers on native routes (10 November 2026)
+
+### Confirmed cause
+
+- `LiquidGlassSurface.SETTINGS` defaults to disabled, while `PROFILE_WATCH_TIME` and `SUPPORTER_MEMBERSHIP` default to enabled.
+- The shared `SettingsScreen` previously passed both additional surfaces to `shouldCaptureLiquidGlassSettingsBackdrop` for every Settings page. With the general Settings surface disabled, this still attached `nuvioBackdropSource` to the Settings background on unrelated pages.
+- `SettingsRootDestination` passes the route's `pageName` as `initialPageName` and supplies `onNavigatePage`. That identifies the active page before the background host is composed, without moving or recreating the inner `rememberSaveable` current-page state.
+- `SettingsGlassPageBackground` also called `rememberNuvioBackdrop()` before checking whether the current host had any enabled surface consumer. The six generic full-screen Settings hosts usually pass no additional surfaces; with the default-off general Settings surface, those hosts still constructed a graphics layer even though no backdrop source was attached.
+
+### Change applied
+
+- Native/route-backed Settings pages now request only their own extra backdrop surface: Profile requests Profile Watch Time, Supporters & Contributors requests Supporter Membership, and unrelated routes request neither.
+- The generic `SETTINGS` toggle still requests the shared source on any Settings route, preserving its existing behaviour.
+- Internal/tablet navigation retains the conservative two-surface capture set. Its current page is held inside a later saveable-state provider; this change deliberately avoids hoisting or changing that state and its restoration key.
+- Both the main Settings host and standalone `SettingsGlassPageBackground` now call `rememberNuvioBackdrop()` only when the capture predicate is true. When capture is not required, their composition local receives `null`, the background image remains unchanged, and no source modifier is attached.
+- Added common regression tests for Profile, Supporters, unrelated routes, the internal-navigation fallback and the global Settings toggle.
+
+### Independent evidence
+
+- The app's exact `NuvioBackdropSourceNode.draw()` implementation records source content into a Compose `GraphicsLayer`; the modifier is conditionally attached to the background host. The optimization therefore avoids both the source recording path and, when no enabled surface needs the source, the unused `GraphicsLayer` allocation.
+- Android's official [Compose graphics modifiers guide](https://developer.android.com/develop/ui/compose/graphics/draw/modifiers) describes a graphics layer as an isolated drawing layer, and documents recording composable drawing commands into `rememberGraphicsLayer()`.
+- Android's [`rememberGraphicsLayer` reference](https://developer.android.com/reference/kotlin/androidx/compose/ui/graphics/rememberGraphicsLayer.composable) states it creates a new `GraphicsLayer` that is released when its composable is disposed. The change prevents creating one for a host with no active backdrop consumer; no memory delta is inferred.
+- The upstream maintainer's [issue #237 comment](https://github.com/luqmanfadlli/NuvioMobile-Enhanced/issues/237#issuecomment-6754856947) warns about iOS glass-rendering overhead during 4K HDR/Dolby Vision playback. The change addresses unnecessary inactive Settings captures only; it does not attempt a global glass rewrite or claim that this alone solves iOS playback memory pressure.
+- Community searches surfaced Backdrop/Compose issues involving Skiko layer recording and physical-iOS flicker, but no controlled measurement of this app or a transferable per-screen memory figure. Reddit-specific search returned no relevant results.
+
+### Verification boundary
+
+The tests were added but not run. No Gradle task, build, simulator, physical device, Instruments session or CI workflow was started. The final remote diff was reviewed at source level only. The optimization is verified by route wiring, page/surface mapping, default values and the conditional source/layer creation paths; runtime allocation and frame-time gains remain unmeasured.
+
+The internal/tablet pager remains conservative by design. Revisit its page-aware gating only alongside a saved-state migration/regression plan; do not move `currentPage` out of its existing `rememberSaveableStateHolder` context.
