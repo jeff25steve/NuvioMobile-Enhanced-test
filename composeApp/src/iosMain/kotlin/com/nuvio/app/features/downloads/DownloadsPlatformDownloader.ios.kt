@@ -160,10 +160,12 @@ internal actual object DownloadsPlatformDownloader {
         resolveDownloadsBaseDirectory().withAccess { downloadsDirectory ->
             val destinationPath = "$downloadsDirectory/$destinationFileName"
             val subtitleDirectory = "$destinationPath.subtitles"
+            // Mark/cancel the background transfer first, before touching any artifact that a
+            // URLSession delegate callback could recreate.
+            IosBackgroundDownloadCoordinator.removeDownload(downloadId, destinationFileName)
             DownloadSubtitleStorage(
                 NSURL.fileURLWithPath(destinationPath).absoluteString ?: "file://$destinationPath",
             ).remove()
-            IosBackgroundDownloadCoordinator.removeDownload(downloadId, destinationFileName)
             val partialPath = "$destinationPath.part"
             val partialRemoved = !NSFileManager.defaultManager.fileExistsAtPath(partialPath) ||
                 removePathIfExists(partialPath)

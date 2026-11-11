@@ -3041,3 +3041,8 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - The shared cleanup now checks the partial-artifact Boolean result instead of treating a non-throwing call as success. iOS verifies both partial-file and subtitle-directory absence; the subtitle storage API returns Unit.
 - iOS permanent-removal tombstones are cleared by the terminal URLSession delegate callback, or after background-session enumeration when no known in-memory/pending/OS task exists. The marker remains set while a known task is awaiting cancellation.
 - No tests/builds were run; Kotlin/Native selector compatibility and actual Android/iOS callback timing remain unverified.
+
+
+### iOS cleanup ordering correction (11 November 2026)
+- Moved the permanent-removal fence and URLSession cancellation ahead of subtitle-directory and partial-file removal. A delegate callback can no longer recreate subtitle/file artifacts between storage cleanup and task cancellation.
+- Source-only correction; no build or test execution.
