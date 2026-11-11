@@ -159,11 +159,17 @@ internal actual object DownloadsPlatformDownloader {
     actual fun removePartialFile(downloadId: String, destinationFileName: String): Boolean =
         resolveDownloadsBaseDirectory().withAccess { downloadsDirectory ->
             val destinationPath = "$downloadsDirectory/$destinationFileName"
-            NSURL.fileURLWithPath(destinationPath).absoluteString?.let { uri ->
-                DownloadSubtitleStorage(uri).remove()
-            }
+            val subtitleDirectory = "$destinationPath.subtitles"
+            DownloadSubtitleStorage(
+                NSURL.fileURLWithPath(destinationPath).absoluteString ?: "file://$destinationPath",
+            ).remove()
             IosBackgroundDownloadCoordinator.removeDownload(downloadId, destinationFileName)
-            removePathIfExists("$destinationPath.part")
+            val partialPath = "$destinationPath.part"
+            val partialRemoved = !NSFileManager.defaultManager.fileExistsAtPath(partialPath) ||
+                removePathIfExists(partialPath)
+            // Subtitle storage's remove API is Unit; verify the directory is actually gone.
+            val subtitleRemoved = !NSFileManager.defaultManager.fileExistsAtPath(subtitleDirectory)
+            partialRemoved && subtitleRemoved
         }
 
     actual fun resolveLocalFileUri(localFileUri: String?, destinationFileName: String): String? =
@@ -347,7 +353,7 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         task.cancelByProducingResumeData { resumeData ->
             dispatch_async(dispatch_get_main_queue()) {
                 if (pendingPauses[downloadId] === pending) pendingPauses.remove(downloadId)
-                if (resumeData != null && !pending.discard) {
+                if (resumeData != null && !pending.discard && !wasPermanentlyRemoved(downloadId)) {
                     writeResumeData(fileName, resumeData)
                 }
                 pending.deferredStart?.invoke()
@@ -360,23 +366,35 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
             removedDownloadIds.add(downloadId)
         }
         cancelDownloadSubtitles(downloadId)
-        activeDownloads.remove(downloadId)?.deliberatelyCancelled = true
-        tasksByDownloadId.remove(downloadId)?.cancel()
-        pendingPauses[downloadId]?.let { pending ->
-            pending.discard = true
-            pending.deferredStart = null
+        val active = activeDownloads.remove(downloadId)
+        active?.deliberatelyCancelled = true
+        val task = tasksByDownloadId.remove(downloadId)
+        task?.cancel()
+        val pending = pendingPauses[downloadId]
+        pending?.let {
+            it.discard = true
+            it.deferredStart = null
         }
         discardResumeData(fileName)
 
         // Background URLSession tasks can survive process death. taskDescription is the stable
         // download ID, so enumerate the attached background session to cancel OS-retained tasks.
+        val hadKnownTask = active != null || task != null || pending != null
         ensureSessionCreated().getAllTasksWithCompletionHandler { tasks ->
-            tasks.filter { it.taskDescription == downloadId }.forEach { it.cancel() }
+            val matchingTasks = tasks.filter { it.taskDescription == downloadId }
+            matchingTasks.forEach { it.cancel() }
+            if (matchingTasks.isEmpty() && !hadKnownTask) clearPermanentlyRemoved(downloadId)
         }
     }
 
     private fun wasPermanentlyRemoved(downloadId: String): Boolean =
         synchronized(removedDownloadLock) { downloadId in removedDownloadIds }
+
+    private fun clearPermanentlyRemoved(downloadId: String) {
+        synchronized(removedDownloadLock) {
+            removedDownloadIds.remove(downloadId)
+        }
+    }
 
     fun discardResumeData(fileName: String) {
         pendingPauses.values
@@ -570,6 +588,13 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         task: NSURLSessionTask,
         didCompleteWithError: NSError?,
     ) {
+        val taskDownloadId = task.taskDescription
+        if (taskDownloadId != null && wasPermanentlyRemoved(taskDownloadId)) {
+            activeDownloads.remove(taskDownloadId)
+            tasksByDownloadId.remove(taskDownloadId)
+            clearPermanentlyRemoved(taskDownloadId)
+            return
+        }
         val (downloadId, active) = activeFor(task) ?: return
         tasksByDownloadId.remove(downloadId)
         if (didCompleteWithError == null) return

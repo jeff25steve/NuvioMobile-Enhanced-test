@@ -261,6 +261,13 @@ object DownloadsRepository {
 
     private fun removeDownloadArtifacts(item: DownloadItem): Boolean {
         var cleanupSucceeded = true
+        // Fence/cancel the transfer before deleting the completed file. On iOS a background
+        // delegate callback can otherwise finalize the file again after cleanup begins.
+        if (!runCatching {
+            DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
+        }.getOrDefault(false)) {
+            cleanupSucceeded = false
+        }
         val resolvedUri = runCatching {
             DownloadsPlatformDownloader.resolveLocalFileUri(
                 localFileUri = item.localFileUri,
@@ -273,11 +280,6 @@ object DownloadsRepository {
         if (resolvedUri != null && !runCatching {
             DownloadsPlatformDownloader.removeFile(resolvedUri)
         }.getOrDefault(false)) {
-            cleanupSucceeded = false
-        }
-        if (runCatching {
-            DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
-        }.isFailure) {
             cleanupSucceeded = false
         }
         return cleanupSucceeded

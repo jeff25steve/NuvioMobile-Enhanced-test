@@ -3034,3 +3034,10 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Two cleanup-plan regression cases were added alongside existing download ownership tests. They were not executed due the explicit no-test/no-build instruction.
 - No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started.
 - Kotlin/Native selector compatibility for `getAllTasksWithCompletionHandler` and runtime background callback timing remain unverified until authorized compile/device checks.
+
+
+### Follow-up static-review hardening (11 November 2026)
+- Reordered permanent artifact cleanup so the transfer ID is fenced/cancelled before deleting a completed file; this prevents a late iOS background callback from finalizing a deleted file again.
+- The shared cleanup now checks the partial-artifact Boolean result instead of treating a non-throwing call as success. iOS verifies both partial-file and subtitle-directory absence; the subtitle storage API returns Unit.
+- iOS permanent-removal tombstones are cleared by the terminal URLSession delegate callback, or after background-session enumeration when no known in-memory/pending/OS task exists. The marker remains set while a known task is awaiting cancellation.
+- No tests/builds were run; Kotlin/Native selector compatibility and actual Android/iOS callback timing remain unverified.
