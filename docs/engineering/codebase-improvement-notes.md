@@ -2950,3 +2950,29 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Seven gate tests are present in source, including two new overlapping-reset/cancellation cases. They were deliberately NOT executed because build-triggering tests are prohibited by the current instruction. No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started.
 - The remote source diff and known reset call sites were reviewed statically. Compilation and runtime cancellation/race behavior remain unverified until test/build execution is explicitly authorized.
 - Separate follow-up: `signOutIfSessionInvalid()` still needs the originating request's account/backend identity at its call boundary before it can safely join this reset protocol. A stale unauthorized response from an old backend must never sign out a replacement session.
+
+
+## 11 November 2026 — fence stale Supabase failures by originating session identity
+
+### Confirmed root cause
+- Both profile RPC error handlers checked `isCurrentRemoteOperation(operationScope)` and then called `AuthRepository.signOutIfSessionInvalid(error, source)` without passing the request's original identity.
+- The check and cleanup were separate operations. A profile/account/backend change could occur after the check but before the helper read current state, allowing an old request's 401/403 to clear a replacement session.
+- Comparing only `AuthRepository.state` is insufficient during a session transition because Supabase's `sessionStatus` collector may not yet have published the replacement account.
+
+### Integrated change
+- Added credential-free `AuthSessionIdentity` metadata: auth session generation, user ID, anonymous/local mode and server configuration.
+- Profile remote scopes now retain the identity captured before the RPC and compare the complete identity before applying responses.
+- Invalid-session handling now requires the originating identity. It acquires the shared reset gate, joins existing email authentication operations, then verifies the auth generation, cached account state, active backend configuration and Supabase's synchronous `currentSessionOrNull()?.user?.id` before clearing anything.
+- If any identity field differs, the stale failure is ignored and the replacement account/backend remains signed in. A matching invalid session still uses the existing account cleanup and session-status collector restart.
+- Removed the unscoped invalid-session helper signature so network error handlers must provide their captured identity. Focused review found profile pull/push as the consumers of this helper; 19 other inspected repository/sync files did not call it.
+- No tokens are copied into request identity, no backend schema or website-managed setting changes, and no UI behavior changes.
+
+### Research and API references
+- Project version catalog pins Supabase Kotlin `3.4.1`; Context7 resolved the Supabase Kotlin Auth API.
+- Exa cross-checked the official Kotlin session retrieval and auth-state references: `currentSessionOrNull()` returns the current in-memory session or null, while `sessionStatus` is the observable state flow. The synchronous SDK session view is used alongside, not instead of, Nuvio's state flow.
+- Sources: https://supabase.com/docs/reference/kotlin/auth-getsession ; https://supabase.com/docs/reference/kotlin/auth-onauthstatechange ; https://supabase.com/docs/reference/kotlin/auth-getuser
+
+### Verification boundary
+- Added seven auth-identity regression cases and updated six profile-scope cases. They were authored before production changes but deliberately NOT executed because builds, tests and CI remain prohibited until explicit authorization.
+- Static source checks confirm both profile RPC error handlers pass their original operation identity and the unscoped helper signature is gone. Compile-time compatibility and runtime race behavior remain unverified pending authorized test/build execution.
+- No build, test, workflow dispatch or CI run was started.

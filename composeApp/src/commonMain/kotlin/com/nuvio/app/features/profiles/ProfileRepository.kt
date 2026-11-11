@@ -2,10 +2,8 @@ package com.nuvio.app.features.profiles
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
-import com.nuvio.app.core.auth.AuthState
-import com.nuvio.app.core.network.ServerConfiguration
-import com.nuvio.app.core.network.ServerConfigurationRepository
-import com.nuvio.app.core.network.SupabaseProvider
+import com.nuvio.app.core.auth.AuthSessionIdentity
+remove redundant server config importsimport com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import com.nuvio.app.core.sync.ProfileSettingsSync
 import com.nuvio.app.core.sync.putSyncOriginClientId
@@ -74,23 +72,20 @@ import org.jetbrains.compose.resources.getString
 
 internal data class ProfileRemoteOperationScope(
     val generation: Long,
-    val userId: String,
-    val isAnonymous: Boolean,
-    val serverConfiguration: ServerConfiguration,
-)
+    val authSessionIdentity: AuthSessionIdentity,
+) {
+    val userId: String get() = authSessionIdentity.userId
+    val isAnonymous: Boolean get() = authSessionIdentity.isAnonymous
+    val serverConfiguration get() = authSessionIdentity.serverConfiguration
+}
 
 internal fun isProfileRemoteOperationCurrent(
     scope: ProfileRemoteOperationScope,
     currentGeneration: Long,
-    currentUserId: String?,
-    currentIsAnonymous: Boolean?,
-    currentServerConfiguration: ServerConfiguration,
+    currentSessionIdentity: AuthSessionIdentity?,
 ): Boolean =
     scope.generation == currentGeneration &&
-        scope.userId.isNotBlank() &&
-        scope.userId == currentUserId &&
-        scope.isAnonymous == currentIsAnonymous &&
-        scope.serverConfiguration == currentServerConfiguration
+        scope.authSessionIdentity == currentSessionIdentity
 
 @Serializable
 private data class StoredProfilePayload(
@@ -190,28 +185,20 @@ object ProfileRepository {
 
     private fun captureRemoteOperationScope(): ProfileRemoteOperationScope? =
         synchronized(remoteOperationLock) {
-            val authState = AuthRepository.state.value as? AuthState.Authenticated
+            val authIdentity = AuthRepository.captureSessionIdentity()
                 ?: return@synchronized null
-            authState.userId.takeIf { it.isNotBlank() }?.let { userId ->
-                ProfileRemoteOperationScope(
-                    generation = profileCacheGeneration,
-                    userId = userId,
-                    isAnonymous = authState.isAnonymous,
-                    serverConfiguration = ServerConfigurationRepository.active.value,
-                )
-            }
+            ProfileRemoteOperationScope(
+                generation = profileCacheGeneration,
+                authSessionIdentity = authIdentity,
+            )
         }
 
-    private fun isCurrentRemoteOperationLocked(scope: ProfileRemoteOperationScope): Boolean {
-        val authState = AuthRepository.state.value as? AuthState.Authenticated
-        return isProfileRemoteOperationCurrent(
+    private fun isCurrentRemoteOperationLocked(scope: ProfileRemoteOperationScope): Boolean =
+        isProfileRemoteOperationCurrent(
             scope = scope,
             currentGeneration = profileCacheGeneration,
-            currentUserId = authState?.userId,
-            currentIsAnonymous = authState?.isAnonymous,
-            currentServerConfiguration = ServerConfigurationRepository.active.value,
+            currentSessionIdentity = AuthRepository.captureSessionIdentity(),
         )
-    }
 
     private fun isCurrentRemoteOperation(scope: ProfileRemoteOperationScope): Boolean =
         synchronized(remoteOperationLock) { isCurrentRemoteOperationLocked(scope) }
@@ -282,7 +269,7 @@ object ProfileRepository {
             throw e
         } catch (e: Throwable) {
             if (!isCurrentRemoteOperation(operationScope)) return
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull", operationScope.authSessionIdentity)) return
             if (!isCurrentRemoteOperation(operationScope)) return
             log.e(e) { "Failed to pull profiles" }
             if (!_state.value.isLoaded) _state.value = _state.value.copy(isLoaded = true)
@@ -358,7 +345,7 @@ object ProfileRepository {
             throw e
         } catch (e: Throwable) {
             if (!isCurrentRemoteOperation(operationScope)) return
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile push")) return
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile push", operationScope.authSessionIdentity)) return
             if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to push profiles" }
         }
     }

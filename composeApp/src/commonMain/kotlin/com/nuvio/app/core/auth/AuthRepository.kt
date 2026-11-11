@@ -3,6 +3,7 @@ package com.nuvio.app.core.auth
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.concurrency.cancelAndJoinNonCancellable
 import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
+import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
 import io.github.jan.supabase.auth.auth
@@ -45,6 +46,37 @@ object AuthRepository {
     private var sessionStatusJob: Job? = null
     private var validatedRemoteUserId: String? = null
     private var trustNextSessionWithoutValidation = false
+
+    /** Captures account/backend identity without copying any credential material. */
+    internal fun captureSessionIdentity(): AuthSessionIdentity? {
+        val authenticated = state.value as? AuthState.Authenticated ?: return null
+        val userId = authenticated.userId.takeIf { it.isNotBlank() } ?: return null
+        return AuthSessionIdentity(
+            sessionGeneration = sessionGeneration.current(),
+            userId = userId,
+            isAnonymous = authenticated.isAnonymous,
+            serverConfiguration = ServerConfigurationRepository.active.value,
+        )
+    }
+
+    private fun isCurrentSessionIdentity(expected: AuthSessionIdentity): Boolean {
+        if (!sessionGeneration.isCurrent(expected.sessionGeneration)) return false
+        val configuration = ServerConfigurationRepository.active.value
+        if (configuration != expected.serverConfiguration) return false
+        val authenticated = state.value as? AuthState.Authenticated ?: return false
+        if (authenticated.userId != expected.userId || authenticated.isAnonymous != expected.isAnonymous) {
+            return false
+        }
+        val currentSupabaseUserId = SupabaseProvider.client.auth.currentSessionOrNull()?.user?.id
+        return isAuthSessionIdentityCurrent(
+            expected = expected,
+            currentSessionGeneration = sessionGeneration.current(),
+            currentUserId = authenticated.userId,
+            currentIsAnonymous = authenticated.isAnonymous,
+            currentServerConfiguration = configuration,
+            currentSupabaseUserId = currentSupabaseUserId,
+        )
+    }
 
     fun initialize() {
         if (initialized) return
@@ -224,12 +256,18 @@ object AuthRepository {
      * Blocks new credential operations, cancels existing operations and waits for their
      * Supabase session imports to finish unwinding before the old client's session is cleared.
      */
-    private suspend fun beginSessionReset() {
+    private suspend fun beginSessionReset(expectedIdentity: AuthSessionIdentity? = null): Boolean {
         val operations = sessionOperationGate.beginReset()
         try {
+            // Close the gate and let any existing auth import settle before checking identity.
+            cancelAndJoinNonCancellable(operations)
+            if (expectedIdentity != null && !isCurrentSessionIdentity(expectedIdentity)) {
+                sessionOperationGate.endReset()
+                return false
+            }
             sessionGeneration.invalidate()
             trustNextSessionWithoutValidation = false
-            cancelAndJoinNonCancellable(operations)
+            return true
         } catch (error: Throwable) {
             // The lease has been acquired. Restore a live session-status collector and
             // release reset ownership even when this caller is cancelled while joining.
@@ -244,7 +282,9 @@ object AuthRepository {
         }
     }
 
-    suspend fun beginServerSwitch() = beginSessionReset()
+    suspend fun beginServerSwitch() {
+        beginSessionReset()
+    }
 
     private fun endSessionReset() {
         sessionOperationGate.endReset()
@@ -335,17 +375,32 @@ object AuthRepository {
         initialize()
     }
 
-    suspend fun signOutIfSessionInvalid(error: Throwable, source: String): Boolean {
+    suspend fun signOutIfSessionInvalid(
+        error: Throwable,
+        source: String,
+        expectedIdentity: AuthSessionIdentity,
+    ): Boolean {
         if (!isInvalidRemoteSessionError(error)) return false
 
-        log.w(error) { "$source failed because the current Supabase account/session is no longer valid; clearing local auth" }
-        val accountUserId = (state.value as? AuthState.Authenticated)?.userId
-        val client = SupabaseProvider.client
-        clearLocalSessionAfterRemoteInvalidation(
-            accountUserId = accountUserId,
-            clearSession = { client.auth.clearSession() },
-        )
-        return true
+        // A delayed error from an old request must never clear a replacement account/backend.
+        if (!beginSessionReset(expectedIdentity)) return false
+        try {
+            log.w(error) { "$source failed because the originating Supabase session is invalid; clearing that account's local auth" }
+            val client = SupabaseProvider.client
+            clearLocalSessionAfterRemoteInvalidation(
+                accountUserId = expectedIdentity.userId,
+                clearSession = { client.auth.clearSession() },
+            )
+            return true
+        } finally {
+            withContext(NonCancellable) {
+                try {
+                    reinitialize(publishLoadingState = false)
+                } finally {
+                    endSessionReset()
+                }
+            }
+        }
     }
 
     private suspend fun clearLocalSessionAfterRemoteInvalidation(
