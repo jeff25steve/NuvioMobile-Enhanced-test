@@ -495,7 +495,7 @@ object ProfileRepository {
             throw e
         } catch (e: Throwable) {
             if (!isCurrentRemoteOperation(operationScope)) return
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete", operationScope.authSessionIdentity)) return
             if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to delete profile $profileIndex" }
         }
     }

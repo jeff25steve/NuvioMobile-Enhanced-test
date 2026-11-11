@@ -2964,7 +2964,7 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Profile remote scopes now retain the identity captured before the RPC and compare the complete identity before applying responses.
 - Invalid-session handling now requires the originating identity. It acquires the shared reset gate, joins existing email authentication operations, then verifies the auth generation, cached account state, active backend configuration and Supabase's synchronous `currentSessionOrNull()?.user?.id` before clearing anything.
 - If any identity field differs, the stale failure is ignored and the replacement account/backend remains signed in. A matching invalid session still uses the existing account cleanup and session-status collector restart.
-- Removed the unscoped invalid-session helper signature so network error handlers must provide their captured identity. Focused review found profile pull/push as the consumers of this helper; 19 other inspected repository/sync files did not call it.
+- Removed the unscoped invalid-session helper signature so network error handlers must provide their captured identity. The three profile RPC paths handling invalid-session responses are pull, push and delete; all pass the identity captured before their request. Nineteen other inspected repository/sync files did not call this helper.
 - No tokens are copied into request identity, no backend schema or website-managed setting changes, and no UI behavior changes.
 
 ### Research and API references
@@ -2999,3 +2999,9 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Follow-up static-review hardening (11 November 2026)
 - `captureSessionIdentity()` now refuses to start profile/account-scoped remote work when the Supabase SDK's live session user already differs from Nuvio's cached `AuthState`. This closes the pre-request window where the sessionStatus collector had not yet published a replacement login; it fails closed until the two identity views agree.
 - The device-link gate regression test now advances the test scheduler before registering/cancelling the job, ensuring the coroutine has entered its cancellable section before the test asserts its `finally` block ran. The test remains unexecuted by instruction.
+
+
+### Follow-up call-site audit correction (11 November 2026)
+- A later full-file audit found the `deleteProfile()` path also used the old two-argument invalid-session helper. The earlier focused inspection ended before this method and incorrectly recorded only pull/push as consumers.
+- Updated the delete-profile error path to pass the same `operationScope.authSessionIdentity` captured before the delete RPC. A delayed delete error can no longer invoke an unscoped session reset, and all profile call sites now match the required helper signature.
+- Existing identity/scope regression tests cover replacement accounts, backend changes and generation mismatches; no text-based source test was added. Tests/builds remain unexecuted by instruction.
