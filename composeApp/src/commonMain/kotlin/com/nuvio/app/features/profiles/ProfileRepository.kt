@@ -3,7 +3,7 @@ package com.nuvio.app.features.profiles
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthSessionIdentity
-remove redundant server config importsimport com.nuvio.app.core.network.SupabaseProvider
+import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import com.nuvio.app.core.sync.ProfileSettingsSync
 import com.nuvio.app.core.sync.putSyncOriginClientId
