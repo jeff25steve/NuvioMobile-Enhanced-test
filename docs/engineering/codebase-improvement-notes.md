@@ -2715,3 +2715,23 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Added source and tests are NOT compiled or run. Red/green execution was intentionally withheld because this task explicitly prohibits build-triggering tests, builds and CI until separately authorized. No CI workflow was triggered. Code review and GitHub diff inspection are the available checks; runtime redaction, rendering and Android behavior remain unverified.
+
+
+## 11 November 2026 — keep fetched add-on subtitles when switching playback engines
+
+### Confirmed root cause
+- `PlayerScreenRuntime.activePlaybackKey` includes `playbackEngineOverride`, while `sourcePlaybackKey` deliberately excludes it and identifies the actual source/content/episode tuple.
+- The runtime's active-playback reset cleared `autoFetchedAddonSubtitlesForKey`, and the `LaunchedEffect` keyed by `activePlaybackKey` also cleared `SubtitleRepository` and the same marker. An ExoPlayer ↔ libmpv switch therefore looked like a source change to these subtitle resets even though the same stream was still playing.
+- This discarded already fetched addon subtitles and allowed an unnecessary repeat fetch on a pure engine handoff.
+
+### Integrated change
+- Added a source-identity guard `resetAddonSubtitlesIfSourceChanged()`; it clears the subtitle repository and fetch marker only when `sourcePlaybackKey` changes.
+- The source identity reset now clears the fetch marker; the playback-engine identity reset no longer does. Other per-engine playback state, track preferences, failover, progress and scrobble resets remain unchanged.
+- The existing runtime effect still reacts to its original keys but delegates subtitle invalidation to the source-identity guard. This preserves source, audio URL, header and response-header reset behavior while making same-source engine changes a no-op for fetched addon subtitles.
+- Added a regression test that records a fetched subtitle key, switches ExoPlayer to libmpv without changing the source, verifies the key remains, then changes the source and verifies it is cleared.
+
+### Research and verification
+- Adapted upstream Nuvio commit `82ca7d119279d4eab8fa74af57035ec76d17c2e0` after comparing the target's `PlaybackKey` data flow and existing engine-switch tests.
+- No additional dependency or API introduced. This is shared player state logic; Android host regression coverage was added. iOS uses the shared runtime key as well, but this host test exercises the same common code.
+- Regression test NOT run; no compilation, Android/iOS build, or CI workflow started, as requested. Runtime subtitle repository state and engine-switch behavior remain unverified until test authorization.
+
