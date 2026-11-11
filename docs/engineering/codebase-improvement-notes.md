@@ -2636,7 +2636,7 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Integrated change
 - Added `NetworkErrorInterceptor`, which unwraps only a direct `IOException` cause from a `RuntimeException`; unrelated runtime exceptions are rethrown unchanged.
 - Registered it once on `SharedOkHttpClient.base`, so clients derived with `newBuilder()` and Ktor clients configured with that preconfigured client inherit the correction without duplicate interceptors.
-- Added it to the independent ExoPlayer playback OkHttp client. This covers the other direct network client that is not derived from the shared client. No certificate validation, trust manager, TLS protocol, retry policy, redirect policy, or URL handling was changed.
+- Added it to the independent ExoPlayer playback OkHttp client. `SubtitleFileCache` also owns a separate client, but its per-download boundary already catches all `Exception` values and converts them into a skipped subtitle; it does not let that failure escape through an uncaught async callback. No certificate validation, trust manager, TLS protocol, retry policy, redirect policy, or URL handling was changed.
 - Added Android host regression tests verifying both IOException unwrapping and preservation of unrelated runtime exceptions.
 
 ### Research sources
