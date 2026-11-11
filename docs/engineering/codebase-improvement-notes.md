@@ -2688,3 +2688,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Regression test added but NOT run. No Gradle test task, compilation, Android/iOS build, device test, or CI workflow was started.
+
+
+## 11 November 2026 — retain safe libmpv failure context and redact stream credentials from diagnostics
+
+### Confirmed root cause and exposure
+- The current Android player registered an MPV log observer but wrote its raw message text to Logcat and, for night-mode filters, to InAppLogger. It only collapsed newlines and truncated the value; stream URLs, signed query parameters, cookies, or authorization values could therefore appear in diagnostic logs.
+- Playback errors shown to the user always used a generic message, even though the player already receives both error-level MPV messages and the MPV_EVENT_END_FILE.file_error value.
+- The pinned dependency is io.github.abdallahmehiz:mpv-android-lib:0.1.12. Its exact upstream wrapper source at commit 96c3507c5fc8eedbf5fff458101cad794392eca7 confirms that MPV.LogObserver forwards the raw prefix, level and text to observers and defines MPV.mpvLogLevel.MPV_LOG_LEVEL_ERROR = 20. The MPVNode implementation exposes map lookups and string conversion used by this player.
+- mpv's event documentation defines file_error as an approximate error string, but its log-message documentation warns that these messages are human-oriented hints whose format can change. The implementation therefore does not parse log text into program control flow.
+
+### Integrated change
+- Added sanitizeMpvLogMessage to flatten/bound diagnostic lines and redact complete source URLs, query strings without a scheme, user-info credentials, authorization/bearer values, common secret assignments and JWT-shaped values. Cookie and Set-Cookie header lines are discarded rather than partially redacted.
+- Applied the sanitizer before both Logcat and InAppLogger writes, closing the existing raw-log exposure rather than only sanitizing the new UI detail path.
+- Captured only MPV error/fatal-level messages (level <= the wrapper's official ERROR level), bounded the rolling context to three lines, and cleared it when a new file starts.
+- Appended the bounded safe error context and sanitized file_error to the existing player error message. When no safe detail exists, the original localized generic message remains.
+- Added Android host tests for URL/signature, authorization, cookie, query-string, line-bound and prefix-injection cases.
+
+### Research sources
+- mpv list-of-events / file_error: https://github.com/mpv-player/mpv/blob/master/DOCS/man/input.rst
+- mpv client API log-message/event contract: https://github.com/mpv-player/mpv/blob/master/DOCS/man/input.rst
+- Pinned wrapper MPV.kt: https://github.com/abdallahmehiz/mpv-android/blob/96c3507c5fc8eedbf5fff458101cad794392eca7/app/src/main/java/is/xyz/mpv/MPV.kt
+- Pinned wrapper MPVNode.kt: https://github.com/abdallahmehiz/mpv-android/blob/96c3507c5fc8eedbf5fff458101cad794392eca7/app/src/main/java/is/xyz/mpv/MPVNode.kt
+- Related upstream Nuvio detail-display change reviewed (not ported verbatim because of raw log exposure): https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/f004557cfb348cda4b881a1b4cbba94c5b162488
+- Context7 verified the mpv event/log contract; Exa located the exact wrapper repository and version source.
+
+### Verification boundary
+- Added source and tests are NOT compiled or run. Red/green execution was intentionally withheld because this task explicitly prohibits build-triggering tests, builds and CI until separately authorized. No CI workflow was triggered. Code review and GitHub diff inspection are the available checks; runtime redaction, rendering and Android behavior remain unverified.

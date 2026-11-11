@@ -1829,6 +1829,7 @@ private fun LibmpvPlayerSurface(
                 }
             }
         }
+        val recentErrorLogs = ArrayDeque<String>()
         val observer = object : MPV.EventObserver {
             override fun eventProperty(property: String) {
                 if (property == "sub-text" || property == "sid") view.updateStyledSubtitle()
@@ -1881,6 +1882,7 @@ private fun LibmpvPlayerSurface(
             override fun event(eventId: Int, data: MPVNode) {
                 when (eventId) {
                     MPV.mpvEvent.MPV_EVENT_START_FILE -> {
+                        synchronized(recentErrorLogs) { recentErrorLogs.clear() }
                         Log.i(
                             PLAYER_DIAGNOSTIC_TAG,
                             "mpv_event=START_FILE attempt=${playbackDiagnostics.attempt} " +
@@ -1934,13 +1936,18 @@ private fun LibmpvPlayerSurface(
                             nowPlayingController?.syncPlayback(snapshot)
                             view.keepScreenOn = snapshot.isPlaying || snapshot.isLoading
                             if (endReason.equals("error", ignoreCase = true)) {
+                                val safeFileError = sanitizeMpvErrorText(fileError)
                                 Log.e(
                                     PLAYER_DIAGNOSTIC_TAG,
                                     "mpv_error attempt=${playbackDiagnostics.attempt} " +
-                                        "fileError=${diagnosticPlayerMessage(fileError)}",
+                                        "fileError=${diagnosticPlayerMessage(safeFileError)}",
                                 )
+                                val details = synchronized(recentErrorLogs) { recentErrorLogs.toList() } +
+                                    listOfNotNull(safeFileError)
                                 latestOnError.value(
-                                    getString(Res.string.player_unable_to_play_stream),
+                                    details.distinct().joinToString("\n").ifEmpty {
+                                        getString(Res.string.player_unable_to_play_stream)
+                                    },
                                 )
                             }
                         }
@@ -1950,14 +1957,24 @@ private fun LibmpvPlayerSurface(
         }
         val logObserver = object : MPV.LogObserver {
             override fun logMessage(prefix: String, level: Int, text: String) {
-                if (prefix == "af" || prefix == "lavfi" || prefix.startsWith("af/") || text.contains("acompressor")) {
-                    InAppLogger.warn("Player/NightMode", "mpv $prefix: ${text.trim()}")
+                val safeLog = sanitizeMpvLogMessage(prefix, text) ?: return
+                if (safeLog.prefix == "af" || safeLog.prefix == "lavfi" ||
+                    safeLog.prefix.startsWith("af/") || safeLog.message.contains("acompressor")
+                ) {
+                    InAppLogger.warn("Player/NightMode", "mpv ${safeLog.formatted()}")
                 }
                 Log.w(
                     PLAYER_DIAGNOSTIC_TAG,
-                    "mpv_log level=$level prefix=${diagnosticPlayerMessage(prefix)} " +
-                        "message=${diagnosticPlayerMessage(text)}",
+                    "mpv_log level=$level prefix=${safeLog.prefix} message=${safeLog.message}",
                 )
+                if (level <= MPV.mpvLogLevel.MPV_LOG_LEVEL_ERROR) {
+                    synchronized(recentErrorLogs) {
+                        recentErrorLogs.addLast(safeLog.formatted())
+                        while (recentErrorLogs.size > MAX_RECENT_MPV_ERROR_LOGS) {
+                            recentErrorLogs.removeFirst()
+                        }
+                    }
+                }
             }
         }
         view.mpv.addObserver(observer)
