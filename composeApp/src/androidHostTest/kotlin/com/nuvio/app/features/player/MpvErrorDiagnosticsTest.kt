@@ -133,6 +133,16 @@ class MpvErrorDiagnosticsTest {
     }
 
     @Test
+    fun mpvPlaybackUrlLogsDropUserInfoQueryAndFragment() {
+        val source = "https://user:password@cdn.example/stream.m3u8?token=private#session=fragment"
+
+        assertEquals(
+            "https://cdn.example/stream.m3u8",
+            source.redactedPlaybackUrlForLogs(),
+        )
+    }
+
+    @Test
     fun queryStringsWithoutAnExplicitSchemeAreRedacted() {
         val line = assertNotNull(
             sanitizeMpvLogMessage(

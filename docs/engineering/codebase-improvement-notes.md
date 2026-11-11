@@ -2859,3 +2859,17 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Verification boundary
 - Static source replacement checks were performed before commit creation. New regression tests were NOT run. No Gradle test task, Android build, Xcode build, build-triggering test or CI workflow was started, as requested.
 - Runtime behavior, compilation and tests remain unverified pending explicit authorization.
+
+
+## 11 November 2026 — close MPV loadfile URL user-info leakage
+
+### Finding
+- The MPV loadfile diagnostic used a local helper that truncated at `?` but retained URL user-info credentials such as `https://user:password@host/path` and retained URL fragments. ExoPlayer and other player diagnostics already used `InAppLogger.redactUrl`, which removes credentials, query strings and fragments consistently.
+
+### Integrated change
+- Replaced the MPV-only partial URL truncator with the existing shared `InAppLogger.redactUrl` implementation, retaining the existing 180-character bound and ellipsis behavior.
+- Exposed the small formatter as internal solely so the Android host regression test can exercise the exact logging path.
+- Added a regression case proving user-info, query token and fragment material are absent from the MPV loadfile diagnostic URL. This does not alter the URL supplied to libmpv or playback/network requests.
+
+### Verification boundary
+- Inspected the helper call site and shared redactor implementation; added a regression test but did not run it. No tests, compilation, build or CI were started.

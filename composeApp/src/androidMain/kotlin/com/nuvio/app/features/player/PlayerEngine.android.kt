@@ -3115,14 +3115,8 @@ private fun Int.logIfMpvError(option: String) {
     }
 }
 
-private fun String.redactedPlaybackUrlForLogs(maxLength: Int = 180): String {
-    val withoutQuery = substringBefore('?')
-    return if (withoutQuery.length <= maxLength) {
-        withoutQuery
-    } else {
-        withoutQuery.take(maxLength) + "…"
-    }
-}
+internal fun String.redactedPlaybackUrlForLogs(maxLength: Int = 180): String =
+    InAppLogger.redactUrl(this, maxLength)
 
 private fun Double?.toMillis(): Long =
     this?.takeIf { it.isFinite() && it > 0.0 }?.let { (it * 1000.0).toLong() } ?: 0L
