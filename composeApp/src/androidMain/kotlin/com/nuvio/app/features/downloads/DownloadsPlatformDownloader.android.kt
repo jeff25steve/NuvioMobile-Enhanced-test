@@ -106,7 +106,8 @@ internal actual object DownloadsPlatformDownloader {
         return runCatching { file.delete() }.getOrDefault(false)
     }
 
-    actual fun removePartialFile(destinationFileName: String): Boolean {
+    @Suppress("UNUSED_PARAMETER")
+    actual fun removePartialFile(downloadId: String, destinationFileName: String): Boolean {
         val scheduler = downloadScheduler ?: return false
         scheduler.remove(destinationFileName)
         return true

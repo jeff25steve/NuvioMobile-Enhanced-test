@@ -1,6 +1,8 @@
 package com.nuvio.app.features.downloads
 
 import com.nuvio.app.core.concurrency.IdentityKeyedRegistry
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
@@ -154,13 +156,13 @@ internal actual object DownloadsPlatformDownloader {
         }
     }
 
-    actual fun removePartialFile(destinationFileName: String): Boolean =
+    actual fun removePartialFile(downloadId: String, destinationFileName: String): Boolean =
         resolveDownloadsBaseDirectory().withAccess { downloadsDirectory ->
             val destinationPath = "$downloadsDirectory/$destinationFileName"
             NSURL.fileURLWithPath(destinationPath).absoluteString?.let { uri ->
                 DownloadSubtitleStorage(uri).remove()
             }
-            IosBackgroundDownloadCoordinator.discardResumeData(destinationFileName)
+            IosBackgroundDownloadCoordinator.removeDownload(downloadId, destinationFileName)
             removePathIfExists("$destinationPath.part")
         }
 
@@ -236,6 +238,8 @@ private val IosBackgroundDownloadCoordinator: IosBackgroundDownloadCoordinatorIm
 @OptIn(ExperimentalForeignApi::class)
 private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDownloadDelegateProtocol {
     private var session: NSURLSession? = null
+    private val removedDownloadLock = SynchronizedObject()
+    private val removedDownloadIds = mutableSetOf<String>()
     private val activeDownloads = mutableMapOf<String, ActiveDownload>()
     private val tasksByDownloadId = mutableMapOf<String, NSURLSessionDownloadTask>()
 
@@ -270,6 +274,9 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         rangeStart: Long?,
         callbacks: DownloadCallbacks?,
     ) {
+        synchronized(removedDownloadLock) {
+            removedDownloadIds.remove(downloadId)
+        }
         val existing = activeDownloads[downloadId]
         if (existing != null) {
             existing.callbacks = callbacks ?: existing.callbacks
@@ -348,10 +355,36 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         }
     }
 
+    fun removeDownload(downloadId: String, fileName: String) {
+        synchronized(removedDownloadLock) {
+            removedDownloadIds.add(downloadId)
+        }
+        cancelDownloadSubtitles(downloadId)
+        activeDownloads.remove(downloadId)?.deliberatelyCancelled = true
+        tasksByDownloadId.remove(downloadId)?.cancel()
+        pendingPauses[downloadId]?.let { pending ->
+            pending.discard = true
+            pending.deferredStart = null
+        }
+        discardResumeData(fileName)
+
+        // Background URLSession tasks can survive process death. taskDescription is the stable
+        // download ID, so enumerate the attached background session to cancel OS-retained tasks.
+        ensureSessionCreated().getAllTasksWithCompletionHandler { tasks ->
+            tasks.filter { it.taskDescription == downloadId }.forEach { it.cancel() }
+        }
+    }
+
+    private fun wasPermanentlyRemoved(downloadId: String): Boolean =
+        synchronized(removedDownloadLock) { downloadId in removedDownloadIds }
+
     fun discardResumeData(fileName: String) {
         pendingPauses.values
             .filter { it.fileName == fileName }
-            .forEach { it.discard = true }
+            .forEach { pending ->
+                pending.discard = true
+                pending.deferredStart = null
+            }
         removePathIfExists(resumeDataPath(fileName))
     }
 
@@ -398,6 +431,10 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         didFinishDownloadingToURL: NSURL,
     ) {
         val downloadId = downloadTask.taskDescription ?: return
+        if (wasPermanentlyRemoved(downloadId)) {
+            runCatching { NSFileManager.defaultManager.removeItemAtPath(didFinishDownloadingToURL.path.orEmpty(), null) }
+            return
+        }
         val active = activeFor(downloadTask)?.second
         val request = active?.request
         if (request == null) {
@@ -473,6 +510,11 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                 append = isPartialResume,
                 rollbackLength = existingPartialSize,
             )
+            if (wasPermanentlyRemoved(downloadId)) {
+                removePathIfExists(tempPath)
+                removePathIfExists(responseTempPath)
+                return
+            }
             if (!appended) {
                 finishWithFailure(
                     downloadId,
@@ -498,6 +540,11 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 
             removePathIfExists(destinationPath)
             val moved = NSFileManager.defaultManager.moveItemAtPath(tempPath, destinationPath, null)
+            if (wasPermanentlyRemoved(downloadId)) {
+                removePathIfExists(destinationPath)
+                removePathIfExists(responseTempPath)
+                return
+            }
             if (!moved) {
                 finishWithFailure(
                     downloadId,

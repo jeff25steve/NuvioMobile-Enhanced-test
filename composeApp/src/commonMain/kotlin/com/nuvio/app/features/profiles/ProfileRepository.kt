@@ -431,6 +431,12 @@ object ProfileRepository {
         if (userId != operationScope.userId) return
 
         if (operationScope.isAnonymous) {
+            val downloadsRemoved = DownloadsRepository.deleteProfileData(
+                profileIndex = profileIndex,
+                expectedIdentity = operationScope.authSessionIdentity,
+                expectedProfileId = deletedProfile?.id,
+            )
+            if (!isCurrentRemoteOperation(operationScope)) return
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
                 synchronized(remoteOperationLock) {
@@ -452,11 +458,11 @@ object ProfileRepository {
                     _state.value = _state.value.copy(profiles = remaining, activeProfile = activeProfile)
                     if (activeProfile != null) activeProfileIndex = activeProfile.profileIndex
                     persist(operationScope.userId, operationScope.isAnonymous)
-                    pinCacheRemoved && biometricRemoved
+                    pinCacheRemoved && biometricRemoved && downloadsRemoved
                 }
             } ?: return
-            if (!localLockCleanupSucceeded) {
-                log.w { "Profile $profileIndex was deleted, but local profile-lock cleanup could not be confirmed" }
+            if (!localLockCleanupSucceeded || !downloadsRemoved) {
+                log.w { "Profile $profileIndex was deleted, but some local profile data or download artifacts could not be removed" }
             }
             return
         }
@@ -469,6 +475,12 @@ object ProfileRepository {
                 putSyncOriginClientId()
             }
             client.postgrest.rpc("sync_delete_profile_data", params)
+            val downloadsRemoved = DownloadsRepository.deleteProfileData(
+                profileIndex = profileIndex,
+                expectedIdentity = operationScope.authSessionIdentity,
+                expectedProfileId = deletedProfile?.id,
+            )
+            if (!isCurrentRemoteOperation(operationScope)) return
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
                 synchronized(remoteOperationLock) {
                     if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized null
@@ -484,11 +496,11 @@ object ProfileRepository {
                     val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
                     val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, operationScope.userId)
                     ServerRepository.removeProfile(profileIndex)
-                    pinCacheRemoved && biometricRemoved
+                    pinCacheRemoved && biometricRemoved && downloadsRemoved
                 }
             } ?: return
-            if (!localLockCleanupSucceeded) {
-                log.w { "Profile $profileIndex was deleted, but local profile-lock cleanup could not be confirmed" }
+            if (!localLockCleanupSucceeded || !downloadsRemoved) {
+                log.w { "Profile $profileIndex was deleted, but some local profile data or download artifacts could not be removed" }
             }
             if (isCurrentRemoteOperation(operationScope)) pullProfiles()
         } catch (e: CancellationException) {

@@ -183,6 +183,9 @@ internal class AndroidDownloadScheduler(val context: Context) {
             lock(fileName).withLock {
                 if (store.get(fileName) == null) {
                     File(directory, "$fileName.part").delete()
+                    // Wait behind the worker's per-file lock, then remove a final file too:
+                    // the worker may have passed its final active check just before cancellation.
+                    File(directory, fileName).delete()
                     transfer?.partialDocumentUri?.let(AndroidDownloadExport::delete)
                     DownloadSubtitleStorage(File(directory, fileName).toURI().toString()).remove()
                 }

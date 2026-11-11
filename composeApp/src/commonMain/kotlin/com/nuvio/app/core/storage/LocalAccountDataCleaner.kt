@@ -20,6 +20,7 @@ import com.nuvio.app.features.catalog.CatalogRepository
 import com.nuvio.app.features.collection.CollectionMobileSettingsRepository
 import com.nuvio.app.features.collection.CollectionRepository
 import com.nuvio.app.features.details.MetaDetailsRepository
+import com.nuvio.app.features.downloads.DownloadsRepository
 import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.HomeRepository
@@ -141,6 +142,10 @@ internal object LocalAccountDataCleaner {
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
 
         val steps = listOf<suspend () -> Unit>(
+            {
+                val cleared = DownloadsRepository.clearAccountData(cleanupUserId)
+                check(cleared) { "Download manifests or downloaded files could not all be cleared" }
+            },
             { MemberAccessRepository.clearLocalState() },
             { EpisodeReleaseNotificationsRepository.clearLocalState() },
             { EpisodeReleaseNotificationsRepository.clearPlatformNotificationsForAccountWipe() },

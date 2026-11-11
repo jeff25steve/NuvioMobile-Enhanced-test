@@ -2,11 +2,15 @@ package com.nuvio.app.features.downloads
 
 import com.nuvio.app.features.player.SubtitleRequestExtras
 import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthSessionIdentity
 import com.nuvio.app.core.auth.userId
 import com.nuvio.app.features.player.addonSubtitleRequests
+import com.nuvio.app.features.profiles.MAX_PROFILES
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.streams.StreamItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -129,12 +133,154 @@ object DownloadsRepository {
         val handles = activeHandles.values.toList()
         activeOperations.clear()
         activeHandles.clear()
-        handles.forEach(DownloadsTaskHandle::cancel)
+        handles.forEach { handle -> runCatching { handle.cancel() } }
         hasLoaded = false
         loadedProfileOwner = null
         _hasUnseenCompleted.value = false
         _uiState.value = DownloadsUiState()
         notifyLiveStatusPlatform()
+    }
+
+    /**
+     * Deletes downloads belonging to one profile after the profile-delete RPC succeeds.
+     * The original auth identity and profile ID fence delayed responses from replacement state.
+     */
+    suspend fun deleteProfileData(
+        profileIndex: Int,
+        expectedIdentity: AuthSessionIdentity,
+        expectedProfileId: String?,
+    ): Boolean {
+        if (AuthRepository.captureSessionIdentity() != expectedIdentity) return false
+        val prepared = runCatching { DownloadsPlatformDownloader.prepareForStartup() }.isSuccess
+        if (AuthRepository.captureSessionIdentity() != expectedIdentity) return false
+
+        return withContext(Dispatchers.IO) {
+            val profile = ProfileRepository.state.value.profiles.firstOrNull {
+                it.profileIndex == profileIndex
+            }
+            if (!expectedProfileId.isNullOrBlank() && profile?.id != expectedProfileId) {
+                return@withContext false
+            }
+            if (
+                profile != null &&
+                profile.userId.isNotBlank() &&
+                profile.userId != expectedIdentity.userId
+            ) return@withContext false
+
+            val persistedItems = DownloadsCodec.decodeItems(
+                DownloadsStorage.loadPayload(profileIndex).orEmpty(),
+            )
+            val visibleItems = _uiState.value.items.takeIf {
+                loadedProfileOwner?.profileIndex == profileIndex &&
+                    loadedProfileOwner?.userId == expectedIdentity.userId
+            }.orEmpty()
+            val plan = buildDownloadProfileCleanupPlan(
+                profileIndex = profileIndex,
+                userId = expectedIdentity.userId,
+                activeOperationKeys = activeOperations.keys,
+                persistedItems = persistedItems,
+                visibleItems = visibleItems,
+            )
+
+            val handles = plan.operationKeys.mapNotNull { key ->
+                activeOperations.remove(key)
+                activeHandles.remove(key)
+            }
+            handles.forEach { handle -> runCatching { handle.cancel() } }
+
+            var cleanupSucceeded = prepared || plan.items.none { it.status == DownloadStatus.Downloading }
+            try {
+                DownloadsStorage.savePayload(
+                    profileIndex = profileIndex,
+                    payload = DownloadsCodec.encodeItems(emptyList()),
+                )
+            } catch (_: Exception) {
+                cleanupSucceeded = false
+            }
+            plan.items.forEach { item ->
+                if (!removeDownloadArtifacts(item)) cleanupSucceeded = false
+            }
+
+            if (
+                loadedProfileOwner?.profileIndex == profileIndex &&
+                loadedProfileOwner?.userId == expectedIdentity.userId
+            ) {
+                _hasUnseenCompleted.value = false
+                publish(emptyList())
+            }
+            cleanupSucceeded
+        }
+    }
+
+    /**
+     * Download manifests are keyed only by profile index, so account cleanup must remove all of
+     * them before another account can reuse the same profile indexes.
+     */
+    suspend fun clearAccountData(expectedAccountUserId: String?): Boolean {
+        val currentUserId = AuthRepository.state.value.userId
+        if (currentUserId != null && currentUserId != expectedAccountUserId) return false
+        val prepared = runCatching { DownloadsPlatformDownloader.prepareForStartup() }.isSuccess
+
+        return withContext(Dispatchers.IO) {
+            val handles = activeHandles.values.toList()
+            activeOperations.clear()
+            activeHandles.clear()
+            handles.forEach { handle -> runCatching { handle.cancel() } }
+
+            val persistedItems = (1..MAX_PROFILES).flatMap { profileIndex ->
+                DownloadsCodec.decodeItems(DownloadsStorage.loadPayload(profileIndex).orEmpty())
+            }
+            val cleanupItems = uniqueDownloadCleanupItems(
+                visibleItems = _uiState.value.items,
+                persistedItems = persistedItems,
+            )
+            var cleanupSucceeded = prepared || cleanupItems.none { it.status == DownloadStatus.Downloading }
+
+            (1..MAX_PROFILES).forEach { profileIndex ->
+                try {
+                    DownloadsStorage.savePayload(
+                        profileIndex = profileIndex,
+                        payload = DownloadsCodec.encodeItems(emptyList()),
+                    )
+                } catch (_: Exception) {
+                    cleanupSucceeded = false
+                }
+            }
+            cleanupItems.forEach { item ->
+                if (!removeDownloadArtifacts(item)) cleanupSucceeded = false
+            }
+
+            hasLoaded = false
+            loadedProfileOwner = null
+            _hasUnseenCompleted.value = false
+            _uiState.value = DownloadsUiState()
+            notifyLiveStatusPlatform()
+            cleanupSucceeded
+        }
+    }
+
+    private fun removeDownloadArtifacts(item: DownloadItem): Boolean {
+        var cleanupSucceeded = true
+        val resolvedUri = runCatching {
+            DownloadsPlatformDownloader.resolveLocalFileUri(
+                localFileUri = item.localFileUri,
+                destinationFileName = item.fileName,
+            )
+        }.getOrElse {
+            cleanupSucceeded = false
+            null
+        }
+        if (resolvedUri != null && !runCatching {
+            DownloadsPlatformDownloader.removeFile(resolvedUri)
+        }.getOrDefault(false)) {
+            cleanupSucceeded = false
+        }
+        if (runCatching {
+            DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
+        }.isFailure) {
+            cleanupSucceeded = false
+        }
+        return cleanupSucceeded
     }
 
     fun findPlayableDownloadByVideoId(videoId: String?): DownloadItem? {
@@ -243,7 +389,7 @@ object DownloadsRepository {
             replacedExisting = true
             cancelDownloadOperation(owner, existing.id)
             DownloadsPlatformDownloader.removeFile(playableLocalFileUri(existing) ?: existing.localFileUri)
-            DownloadsPlatformDownloader.removePartialFile(existing.fileName)
+            DownloadsPlatformDownloader.removePartialFile(existing.id, existing.fileName)
             currentItems.removeAll { it.id == existing.id }
         }
 
@@ -383,7 +529,7 @@ object DownloadsRepository {
 
         cancelDownloadOperation(owner, downloadId)
         DownloadsPlatformDownloader.removeFile(playableLocalFileUri(item) ?: item.localFileUri)
-        DownloadsPlatformDownloader.removePartialFile(item.fileName)
+        DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
 
         publish(_uiState.value.items.filterNot { it.id == downloadId })
         persist(owner)
@@ -706,3 +852,29 @@ private fun String.isSupportedDownloadUrl(): Boolean {
 
 internal fun isCompletedTransition(previousStatus: DownloadStatus?, updatedStatus: DownloadStatus): Boolean =
     previousStatus != DownloadStatus.Completed && updatedStatus == DownloadStatus.Completed
+
+
+internal data class DownloadProfileCleanupPlan(
+    val operationKeys: List<DownloadOperationKey>,
+    val items: List<DownloadItem>,
+)
+
+internal fun buildDownloadProfileCleanupPlan(
+    profileIndex: Int,
+    userId: String,
+    activeOperationKeys: Collection<DownloadOperationKey>,
+    persistedItems: Collection<DownloadItem>,
+    visibleItems: Collection<DownloadItem>,
+): DownloadProfileCleanupPlan =
+    DownloadProfileCleanupPlan(
+        operationKeys = activeOperationKeys.filter { key ->
+            key.owner.profileIndex == profileIndex && key.owner.userId == userId
+        },
+        items = uniqueDownloadCleanupItems(visibleItems, persistedItems),
+    )
+
+internal fun uniqueDownloadCleanupItems(
+    visibleItems: Collection<DownloadItem>,
+    persistedItems: Collection<DownloadItem>,
+): List<DownloadItem> =
+    (visibleItems + persistedItems).distinctBy(DownloadItem::fileName)

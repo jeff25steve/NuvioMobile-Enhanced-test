@@ -3005,3 +3005,32 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - A later full-file audit found the `deleteProfile()` path also used the old two-argument invalid-session helper. The earlier focused inspection ended before this method and incorrectly recorded only pull/push as consumers.
 - Updated the delete-profile error path to pass the same `operationScope.authSessionIdentity` captured before the delete RPC. A delayed delete error can no longer invoke an unscoped session reset, and all profile call sites now match the required helper signature.
 - Existing identity/scope regression tests cover replacement accounts, backend changes and generation mismatches; no text-based source test was added. Tests/builds remain unexecuted by instruction.
+
+
+## 11 November 2026 — clear profile-owned and account-owned downloads
+
+### Confirmed root cause
+- Android and iOS manifests use `ProfileScopedKey.of("downloads_payload", profileIndex)`. The key is profile-index-only: neither the key nor `DownloadItem` records the owning account.
+- `LocalAccountDataCleaner.wipe()` omitted `DownloadsRepository`. After sign-out, another account could reuse profile index 1 and load the previous account's manifest and download history.
+- `ProfileRepository.deleteProfile()` also omitted download manifests and files while clearing tracking credentials, profile backgrounds, PIN and biometric state.
+- Android removes a scheduler record before cancellation. WorkManager cancellation is best-effort; cleanup now also deletes a final internal file after the worker releases its existing per-file mutex.
+- iOS uses a background `URLSession` with `sessionSendsLaunchEvents = true`. Removing only resume data and `.part` files did not cancel an in-flight or OS-retained task. A pending pause could also retain a deferred restart callback.
+
+### Integrated change
+- Added focused cleanup-plan regression tests and a helper that filters active operations by profile index/account and deduplicates visible/persisted items by destination filename.
+- Added `DownloadsRepository.deleteProfileData()`, guarded by the originating `AuthSessionIdentity` and expected profile ID. It cancels matching task handles, clears the profile manifest, deletes completed files and permanently removes partial/background artifacts. Both anonymous and cloud profile deletion invoke it.
+- Added `DownloadsRepository.clearAccountData()` to account wipe. Since the manifest key omits account identity, the wipe clears all profile-index manifests and artifacts before another account can sign in. Device-level download preferences and the configured download folder are preserved.
+- Android scheduler cleanup deletes a just-finalized internal file only after the active worker releases its per-file lock.
+- iOS permanent removal carries the stable download ID, marks it removed before delegate callbacks can finalize it, cancels in-memory tasks and tasks restored from the OS background session using `getAllTasksWithCompletionHandler`, and drops deferred restart closures/resume data.
+- No server schema, website-managed setting, new dependency or UI behavior changed.
+
+### Research and API references
+- Context7 checked AndroidX WorkManager `cancelUniqueWork`: cancellation is best-effort and returns an `Operation`; running work can continue until it observes cancellation. The existing per-file mutex/store checks are retained and final artifact cleanup runs after that lock.
+- Context7 checked Apple's Foundation `URLSession.getAllTasks(completionHandler:)` and `URLSessionDownloadTask.cancelByProducingResumeData` contracts. Background tasks can be enumerated after relaunch. Permanent removal cancels tasks instead of retaining newly generated resume data; pause resume data and deferred restarts are discarded.
+- Exa independently checked official Apple cancellation/resume-data semantics and Android background-work cancellation guidance.
+- Sources: https://developer.android.com/reference/kotlin/androidx/work/WorkManager#cancelUniqueWork(kotlin.String) ; https://developer.apple.com/documentation/foundation/urlsession/getalltasks(completionhandler:) ; https://developer.apple.com/documentation/foundation/urlsessiondownloadtask/cancel(byproducingresumedata:) ; https://developer.apple.com/documentation/foundation/pausing-and-resuming-downloads
+
+### Verification boundary
+- Two cleanup-plan regression cases were added alongside existing download ownership tests. They were not executed due the explicit no-test/no-build instruction.
+- No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started.
+- Kotlin/Native selector compatibility for `getAllTasksWithCompletionHandler` and runtime background callback timing remain unverified until authorized compile/device checks.

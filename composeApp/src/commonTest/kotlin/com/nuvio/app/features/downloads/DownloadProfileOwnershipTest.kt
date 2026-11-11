@@ -35,6 +35,54 @@ class DownloadProfileOwnershipTest {
     }
 
     @Test
+    fun profileCleanupPlanKeepsOnlyOperationsOwnedByTheDeletedAccountAndIndex() {
+        val deletedProfileOperation = DownloadOperationKey(
+            owner = DownloadProfileOwner(2, "account-one", "old-profile-id"),
+            downloadId = "download-old",
+        )
+        val plan = buildDownloadProfileCleanupPlan(
+            profileIndex = 2,
+            userId = "account-one",
+            activeOperationKeys = listOf(
+                deletedProfileOperation,
+                DownloadOperationKey(
+                    owner = DownloadProfileOwner(2, "account-two", "profile-two"),
+                    downloadId = "other-account",
+                ),
+                DownloadOperationKey(
+                    owner = DownloadProfileOwner(3, "account-one", "profile-three"),
+                    downloadId = "other-profile",
+                ),
+            ),
+            persistedItems = listOf(download("persisted")),
+            visibleItems = emptyList(),
+        )
+
+        assertEquals(listOf(deletedProfileOperation), plan.operationKeys)
+    }
+
+    @Test
+    fun profileCleanupPlanIncludesPersistedAndVisibleItemsOncePerDestination() {
+        val persisted = download("saved").copy(fileName = "saved.mp4")
+        val visibleDuplicate = download("visible-copy").copy(fileName = "shared.mp4")
+        val persistedDuplicate = download("persisted-copy").copy(fileName = "shared.mp4")
+        val visibleOnly = download("visible").copy(fileName = "visible.mp4")
+
+        val plan = buildDownloadProfileCleanupPlan(
+            profileIndex = 2,
+            userId = "account-one",
+            activeOperationKeys = emptyList(),
+            persistedItems = listOf(persisted, persistedDuplicate),
+            visibleItems = listOf(visibleDuplicate, visibleOnly),
+        )
+
+        assertEquals(
+            listOf("shared.mp4", "visible.mp4", "saved.mp4"),
+            plan.items.map(DownloadItem::fileName),
+        )
+    }
+
+    @Test
     fun updateChangesOnlyTheMatchingDownloadAndPreservesListOrder() {
         val first = download("first")
         val target = download("target")
