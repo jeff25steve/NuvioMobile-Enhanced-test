@@ -128,6 +128,18 @@ enum class LiquidGlassSurface {
 }
 
 /**
+ * Clear is only a usable material when Backdrop can run its lens against the exact rounded
+ * geometry used by Nuvio. Corner percentages are rounded before shape construction, so eligibility
+ * must use that same normalized value rather than comparing the persisted Float to zero.
+ */
+internal fun canUseClearLiquidGlassMaterial(
+    surface: LiquidGlassSurface,
+    refractionSupported: Boolean,
+    cornerRadiusPercent: Float?,
+): Boolean = surface.supportsLens && refractionSupported &&
+    (cornerRadiusPercent?.let { effectiveLiquidGlassCornerRadiusPercent(it) > 0 } ?: true)
+
+/**
  * A saved Clear material must not become an invisible/no-refraction surface when its target cannot
  * run the lens shader. Fall back to Liquid blur instead of silently losing both blur and lens.
  */
@@ -140,7 +152,7 @@ internal fun effectiveLiquidGlassMaterial(
     val requested = material ?: surface.defaultMaterial
     return if (
         requested == LiquidGlassMaterial.CLEAR &&
-        (!surface.supportsLens || !refractionSupported || cornerRadiusPercent == 0f)
+        !canUseClearLiquidGlassMaterial(surface, refractionSupported, cornerRadiusPercent)
     ) {
         LiquidGlassMaterial.LIQUID
     } else {

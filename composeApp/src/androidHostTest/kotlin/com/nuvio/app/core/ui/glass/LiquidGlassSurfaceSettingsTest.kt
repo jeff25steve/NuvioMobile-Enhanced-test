@@ -161,6 +161,45 @@ class LiquidGlassSurfaceSettingsTest {
     }
 
     @Test
+    fun clearMaterialEligibilityUsesTheSameRoundedCornerRadiusAsRendering() {
+        assertEquals(0, effectiveLiquidGlassCornerRadiusPercent(0.49f))
+        assertEquals(1, effectiveLiquidGlassCornerRadiusPercent(0.5f))
+
+        assertFalse(
+            canUseClearLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                refractionSupported = true,
+                cornerRadiusPercent = 0.49f,
+            ),
+        )
+        assertTrue(
+            canUseClearLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                refractionSupported = true,
+                cornerRadiusPercent = 0.5f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.LIQUID,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = true,
+                cornerRadiusPercent = 0.49f,
+            ),
+        )
+        assertEquals(
+            LiquidGlassMaterial.CLEAR,
+            effectiveLiquidGlassMaterial(
+                LiquidGlassSurface.SEARCH,
+                LiquidGlassMaterial.CLEAR,
+                refractionSupported = true,
+                cornerRadiusPercent = 0.5f,
+            ),
+        )
+    }
+
+    @Test
     fun adaptiveGlassFilmAddsSheenOnBlackAndShadeOnWhite() {
         val blackFilm = liquidGlassAdaptiveFilm(Color.Black)
         val whiteFilm = liquidGlassAdaptiveFilm(Color.White)

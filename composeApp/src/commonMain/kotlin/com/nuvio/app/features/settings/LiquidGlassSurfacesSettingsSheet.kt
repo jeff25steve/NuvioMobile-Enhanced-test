@@ -163,6 +163,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceOverrides
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfaceRecipe
 import com.nuvio.app.core.ui.glass.liquidGlassSurfaceRecipe
 import com.nuvio.app.core.ui.glass.LiquidGlassSurfacesSettings
+import com.nuvio.app.core.ui.glass.canUseClearLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.effectiveLiquidGlassMaterial
 import com.nuvio.app.core.ui.glass.LocalLiquidGlassBackdrop
 import com.nuvio.app.core.ui.glass.isLiquidGlassBackdropReady
@@ -1887,9 +1888,11 @@ private fun LiquidGlassSurfaceEditorControls(
                     cornerRadiusPercent = effectiveCornerRadiusPercent,
                 )
                 val materialStyle = LiquidGlassStyle(material = activeMaterial)
-                val canSelectClear = refractionSupported &&
-                    surface.supportsLens &&
-                    effectiveCornerRadiusPercent > 0f
+                val canSelectClear = canUseClearLiquidGlassMaterial(
+                    surface = surface,
+                    refractionSupported = refractionSupported,
+                    cornerRadiusPercent = effectiveCornerRadiusPercent,
+                )
                 val materialOptions = listOf(
                     LiquidGlassMaterial.LIQUID,
                     LiquidGlassMaterial.FROSTED,

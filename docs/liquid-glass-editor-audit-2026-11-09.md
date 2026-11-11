@@ -257,3 +257,25 @@ This cycle was source/documentation review only. No build, build-triggering test
 The tests were added but not run. No Gradle task, build, simulator, physical device, Instruments session or CI workflow was started. The final remote diff was reviewed at source level only. The optimization is verified by route wiring, page/surface mapping, default values and the conditional source/layer creation paths; runtime allocation and frame-time gains remain unmeasured.
 
 The internal/tablet pager remains conservative by design. Revisit its page-aware gating only alongside a saved-state migration/regression plan; do not move `currentPage` out of its existing `rememberSaveableStateHolder` context.
+
+## 11 November 2026 — align Clear material eligibility with rendered corner geometry
+
+### Confirmed cause
+
+- `effectiveLiquidGlassCornerRadiusPercent` rounds finite corner percentages to an integer before `RoundedCornerShape` is built.
+- `LiquidGlassSurfaceOverrides.sanitized()` and the JSON decoder preserve finite fractional percentages, although the current editor slider itself uses whole-percentage steps.
+- Clear-material fallback compared the raw Float with exactly `0f`, while the editor's Clear option used raw `> 0f`. A restored/imported value such as `0.49f` therefore produced square geometry but was still considered eligible for a Clear-only lens. Since Clear intentionally has no blur, Backdrop skips the zero-radius lens and the surface can lose its intended material.
+
+### Changes
+
+- Added `canUseClearLiquidGlassMaterial`, based on the same normalized corner-radius helper used for shape geometry.
+- Reused that rule in both the runtime/preview material resolver and the editor's Clear-option eligibility. Saved settings, slider range/steps, recipes, and the existing zero-refraction warning behavior are unchanged.
+- Added boundary coverage for `0.49f` (normalized square) and `0.5f` (normalized non-zero radius).
+
+### Verification boundary
+
+- Verified the source call path from JSON decoding and override sanitization through the recipe resolver, effective shape, material resolver, editor material options, and Backdrop lens guard.
+- Cross-checked Kotlin's documented `Float.roundToInt()` behavior and Backdrop's documented requirement for a `CornerBasedShape` with a usable corner radius.
+- Regression tests were added but **not executed**. No compilation, build, build-triggering test, CI workflow, simulator, or physical-device session was started.
+- No local checkout is mounted; local `git status` and uncommitted workstation changes remain inaccessible. Remote branch updates use an expected-head guard.
+
