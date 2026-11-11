@@ -4,6 +4,37 @@ import ComposeApp
 @testable import Nuvio
 
 @MainActor
+final class MpvDemuxerMemorySettingsTests: XCTestCase {
+    func testLowAvailableMemoryUsesReducedDemuxerBudgets() {
+        let settings = MpvDemuxerMemorySettings.resolve(
+            availableMemoryBytes: MpvDemuxerMemorySettings.constrainedThresholdBytes - 1
+        )
+
+        XCTAssertEqual(settings.demuxerMaxBytes, 32 * 1024 * 1024)
+        XCTAssertEqual(settings.demuxerMaxBackBytes, 8 * 1024 * 1024)
+    }
+
+    func testThresholdAndHigherAvailableMemoryPreserveDefaultBudgets() {
+        for availableMemory in [
+            MpvDemuxerMemorySettings.constrainedThresholdBytes,
+            MpvDemuxerMemorySettings.constrainedThresholdBytes + 1,
+        ] {
+            let settings = MpvDemuxerMemorySettings.resolve(availableMemoryBytes: availableMemory)
+
+            XCTAssertEqual(settings.demuxerMaxBytes, 64 * 1024 * 1024)
+            XCTAssertEqual(settings.demuxerMaxBackBytes, 32 * 1024 * 1024)
+        }
+    }
+
+    func testZeroAvailableMemoryUsesConstrainedDemuxerBudgets() {
+        let settings = MpvDemuxerMemorySettings.resolve(availableMemoryBytes: 0)
+
+        XCTAssertEqual(settings.demuxerMaxBytes, 32 * 1024 * 1024)
+        XCTAssertEqual(settings.demuxerMaxBackBytes, 8 * 1024 * 1024)
+    }
+}
+
+@MainActor
 final class SubtitlePlaybackTests: XCTestCase {
     private let factory = RecordingPlayerFactory()
 
