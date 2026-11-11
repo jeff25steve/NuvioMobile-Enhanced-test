@@ -91,6 +91,7 @@ class AuthSessionOperationGateTest {
                 jobFinished.complete(Unit)
             }
         }
+        runCurrent()
         val operation = assertNotNull(gate.beginOperation(deviceLinkJob))
 
         val activeOperations = gate.beginReset()

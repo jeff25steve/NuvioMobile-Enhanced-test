@@ -51,12 +51,26 @@ object AuthRepository {
     internal fun captureSessionIdentity(): AuthSessionIdentity? {
         val authenticated = state.value as? AuthState.Authenticated ?: return null
         val userId = authenticated.userId.takeIf { it.isNotBlank() } ?: return null
-        return AuthSessionIdentity(
+        val identity = AuthSessionIdentity(
             sessionGeneration = sessionGeneration.current(),
             userId = userId,
             isAnonymous = authenticated.isAnonymous,
             serverConfiguration = ServerConfigurationRepository.active.value,
         )
+        // Do not start account-scoped work while the SDK already holds a different session
+        // but Nuvio's sessionStatus collector has not published that transition yet.
+        val supabaseUserId = SupabaseProvider.client.auth.currentSessionOrNull()?.user?.id
+        val latestAuthState = state.value as? AuthState.Authenticated ?: return null
+        return identity.takeIf {
+            isAuthSessionIdentityCurrent(
+                expected = identity,
+                currentSessionGeneration = sessionGeneration.current(),
+                currentUserId = latestAuthState.userId,
+                currentIsAnonymous = latestAuthState.isAnonymous,
+                currentServerConfiguration = ServerConfigurationRepository.active.value,
+                currentSupabaseUserId = supabaseUserId,
+            )
+        }
     }
 
     private fun isCurrentSessionIdentity(expected: AuthSessionIdentity): Boolean {

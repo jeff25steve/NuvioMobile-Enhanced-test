@@ -2994,3 +2994,8 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Verification boundary
 - The regression case was added but NOT executed because the current instruction prohibits build-triggering tests. No Gradle task, compile, Android/iOS build, simulator/device test or CI workflow was started.
 - The source lifecycle and cancellation paths were statically inspected. Runtime timing and Kotlin compilation remain unverified until authorization is given.
+
+
+### Follow-up static-review hardening (11 November 2026)
+- `captureSessionIdentity()` now refuses to start profile/account-scoped remote work when the Supabase SDK's live session user already differs from Nuvio's cached `AuthState`. This closes the pre-request window where the sessionStatus collector had not yet published a replacement login; it fails closed until the two identity views agree.
+- The device-link gate regression test now advances the test scheduler before registering/cancelling the job, ensuring the coroutine has entered its cancellable section before the test asserts its `finally` block ran. The test remains unexecuted by instruction.
