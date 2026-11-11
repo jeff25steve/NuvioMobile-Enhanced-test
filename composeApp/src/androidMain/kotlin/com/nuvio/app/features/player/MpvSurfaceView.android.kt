@@ -165,6 +165,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun logFailure(error: Throwable) {
-        Log.w("MpvSurfaceView", "libmpv operation failed", error)
+        Log.w(
+            "MpvSurfaceView",
+            "libmpv operation failed: ${sanitizeMpvErrorText(error.message) ?: error::class.simpleName.orEmpty()}",
+        )
     }
 }

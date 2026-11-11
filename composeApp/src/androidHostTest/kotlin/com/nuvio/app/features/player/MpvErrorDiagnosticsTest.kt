@@ -101,6 +101,38 @@ class MpvErrorDiagnosticsTest {
     }
 
     @Test
+    fun awsAccessKeysAndCommonCredentialAssignmentsAreRedacted() {
+        val line = assertNotNull(
+            sanitizeMpvLogMessage(
+                "demux",
+                "keys AKIAIOSFODNN7EXAMPLE ASIAIOSFODNN7EXAMPLE " +
+                    "aws_secret_access_key='secret value' session-id=private-session " +
+                    "private_key=private-key-value x-amz-security-token=temporary-token",
+            ),
+        )
+
+        assertFalse(line.message.contains("AKIAIOSFODNN7EXAMPLE"))
+        assertFalse(line.message.contains("ASIAIOSFODNN7EXAMPLE"))
+        assertFalse(line.message.contains("secret value"))
+        assertFalse(line.message.contains("private-session"))
+        assertFalse(line.message.contains("private-key-value"))
+        assertFalse(line.message.contains("temporary-token"))
+    }
+
+    @Test
+    fun unknownAuthorizationSchemesAreRedactedThroughEndOfLine() {
+        val line = assertNotNull(
+            sanitizeMpvLogMessage(
+                "http",
+                "Authorization: Digest username=alice, response=private-proof request failed",
+            ),
+        )
+
+        assertEquals("Authorization: [redacted]", line.message)
+        assertFalse(line.message.contains("private-proof"))
+    }
+
+    @Test
     fun queryStringsWithoutAnExplicitSchemeAreRedacted() {
         val line = assertNotNull(
             sanitizeMpvLogMessage(

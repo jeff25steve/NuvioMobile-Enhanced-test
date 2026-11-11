@@ -20,17 +20,15 @@ internal fun sanitizeMpvLogMessage(prefix: String, value: String): SafeMpvLogMes
         match.groupValues[1] + "?[redacted]"
     }
     message = MPV_CREDENTIALS.replace(message, "[redacted]@")
-    message = MPV_AUTH_HEADER.replace(message) { match ->
-        match.groupValues[1] + ": [redacted]"
-    }
-    message = MPV_AUTH_ASSIGNMENT.replace(message) { match ->
-        match.groupValues[1] + "=[redacted]"
+    message = MPV_AUTH_VALUE.replace(message) { match ->
+        match.groupValues[1] + match.groupValues[2] + "[redacted]"
     }
     message = MPV_SECRET_ASSIGNMENT.replace(message) { match ->
         match.groupValues[1] + "=[redacted]"
     }
     message = MPV_BEARER_TOKEN.replace(message, "Bearer [redacted]")
     message = MPV_JWT.replace(message, "[redacted]")
+    message = MPV_AWS_ACCESS_KEY_ID.replace(message, "[redacted]")
     message = message.take(MPV_DIAGNOSTIC_MESSAGE_LIMIT)
 
     val safePrefix = prefix
@@ -77,15 +75,13 @@ private val MPV_COOKIE_HEADER = Regex("""(?i)\b(?:cookie|set-cookie)\s*[:=]""")
 private val MPV_SOURCE_URL = Regex("""(?i)\b[a-z][a-z0-9+.-]*://[^\s"'<>]+""")
 private val MPV_QUERY_STRING = Regex("""([^\s"'<>?]+)\?[^\s"'<>]+""")
 private val MPV_CREDENTIALS = Regex("""(?i)\b[^/\s:@]+:[^/\s@]+@""")
-private val MPV_AUTH_HEADER = Regex(
-    """(?i)\b(authorization|proxy-authorization)\s*:\s*(?:(?:bearer|basic)\s+)?[^\s,;]+"""
-)
-private val MPV_AUTH_ASSIGNMENT = Regex(
-    """(?i)\b(authorization|proxy-authorization)\s*=\s*(?:(?:bearer|basic)\s+)?(?:"[^"]*"|'[^']*'|[^\s,;]+)"""
+private val MPV_AUTH_VALUE = Regex(
+    """(?i)\b(authorization|proxy-authorization)(\s*[:=]\s*)[^\r\n]*"""
 )
 private val MPV_SECRET_ASSIGNMENT = Regex(
-    """(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|security[_-]?token|credential|client[_-]?secret|session(?:id)?|token|password|passwd|secret|signature|sig|jwt)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)"""
+    """(?i)\b((?:[a-z0-9]+[_-])*(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|secret[_-]?access[_-]?key|secret[_-]?key|private[_-]?key|access[_-]?token|refresh[_-]?token|security[_-]?token|credential|client[_-]?secret|session(?:[_-]?id)?|token|password|passwd|pwd|passphrase|secret|signature|sig|jwt))\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)"""
 )
+private val MPV_AWS_ACCESS_KEY_ID = Regex("""\b(?:AKIA|ASIA)[A-Z0-9]{16}\b""")
 private val MPV_BEARER_TOKEN = Regex("""(?i)\bBearer\s+[^\s,;]+""")
 private val MPV_JWT = Regex("""\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b""")
 

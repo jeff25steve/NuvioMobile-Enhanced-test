@@ -2832,3 +2832,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - `hwdec-extra-frames=1` on iOS: not ported. The app explicitly selects VideoToolbox. mpv's current option documentation says `hwdec-extra-frames` only affects hardware APIs requiring preallocated frame surfaces (known examples: D3D11VA and VAAPI), and warns too-low values can cause allocation failures, dropped or corrupted frames. FFmpeg's VideoToolbox hardware-context header describes native CVPixelBufferPool allocation. No demonstrated benefit justifies forcing a lower fixed count for this target; leave mpv's default sizing unchanged. Sources: https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst and https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/hwcontext_videotoolbox.h
 - Parked-PiP async-close patch: not ported. Upstream commit `03536e36f34daacac7fb27d7e12276cd7bf410d4` changes `closeParkedPictureInPicture()`, but that method is absent from the target's current `MPVPlayerBridge.swift`; the current `PlayerPictureInPictureParking` manager already owns close behavior. Do not transplant a stale bridge method without a current call site.
 - Forced subtitles and AutoSync defaults: not ported. Both settings are stored per profile only after explicit user changes; unset preferences use defaults in `SubtitleStyleState.DEFAULT` and `AutoSyncPreferencesRepository.ensureLoaded()`. Changing unset defaults would change first-run mobile playback behavior, and AutoSync additionally enables automatic startup subtitle matching work. The upstream commit describes matching TV behavior, which is not sufficient product justification for changing this mobile fork's defaults. Preserve existing explicit and implicit user choices. Source reviewed: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/a6065c8b17d47df497c4f908780154662a79b76b
+
+
+
+## 11 November 2026 — close Android playback diagnostic credential and exception leaks
+
+### Confirmed findings
+- The MPV sanitizer was used for libmpv log-observer messages and end-file errors, but ExoPlayer diagnostics separately emitted raw localized messages and throwable objects. Throwable logging can expose nested exception messages and stack traces.
+- `reportPlayerError`, decoder fallback and media-load diagnostics also passed exception text into the process-local InAppLogger buffer. The MPV surface helper and libmpv initialization path similarly logged throwable objects or unsanitized localized messages.
+- The first-pass assignment matcher missed common variants (`session-id`, `private_key`, `aws_secret_access_key`, `aws_access_key_id`) and standalone AWS access-key IDs. Authorization redaction handled Basic/Bearer only, not Digest or AWS Signature.
+
+### Integrated change
+- Reused the existing bounded, newline-flattening sanitizer for ExoPlayer messages and throwable-chain summaries. Raw Throwable arguments were removed from playback/MPV Logcat calls to prevent stack traces bypassing message sanitization.
+- Kept original localized playback errors for the player UI unchanged; only diagnostic sinks are sanitized.
+- Generalized authorization-header matching to redact the entire remainder of a line for either separator and any auth scheme.
+- Expanded assignment matching for access-key IDs/keys, secret/private keys, sessions, passphrases and provider-prefixed names; added standalone AKIA/ASIA masking.
+- Added regression cases for AWS key IDs, quoted secret values, session/private-key assignments, AWS security tokens and non-Basic/Bearer authorization schemes. No dependencies, playback settings, network behavior or UI behavior changed.
+
+### Research sources
+- AWS IAM documents AKIA as long-term and ASIA as temporary access-key ID prefixes, and describes the paired secret key and session token: https://docs.aws.amazon.com/IAM/latest/UserGuide/security-creds-programmatic-access.html
+- Databricks' credential-redaction implementation documents masking AWS access-key IDs and secret access keys in logs: https://docs.databricks.com/aws/en/security/keys/redaction
+- AWS application-logging guidance explicitly excludes session identifiers, access tokens, passwords and encryption keys from logs: https://docs.aws.amazon.com/prescriptive-guidance/latest/logging-monitoring-for-application-owners/logging-best-practices.html
+- Kotlin Regex capture-group and replacement behavior was checked against JetBrains documentation through Context7.
+- Android Log API reference: https://developer.android.com/reference/android/util/Log
+
+### Verification boundary
+- Static source replacement checks were performed before commit creation. New regression tests were NOT run. No Gradle test task, Android build, Xcode build, build-triggering test or CI workflow was started, as requested.
+- Runtime behavior, compilation and tests remain unverified pending explicit authorization.

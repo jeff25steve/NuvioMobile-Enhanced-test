@@ -909,13 +909,13 @@ private fun ExoPlayerSurface(
             ) {
                 Log.w(
                     TAG,
-                    "Decoder failure (${error.errorCodeName}); retrying with app decoders",
-                    error,
+                    "Decoder failure (${error.errorCodeName}); retrying with app decoders. " +
+                        "cause=${diagnosticThrowableChain(error)}",
                 )
                 InAppLogger.warn(
                     "ExoPlayer/Android",
                     "Decoder failure ${error.errorCodeName}; retrying with preferred app decoders. " +
-                        "cause=${error.cause?.let(InAppLogger::throwableSummary) ?: InAppLogger.throwableSummary(error)}",
+                        "cause=${error.cause?.let(::diagnosticThrowableChain) ?: diagnosticThrowableChain(error)}",
                 )
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 decoderPriorityOverride = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
@@ -924,8 +924,9 @@ private fun ExoPlayerSurface(
             }
             InAppLogger.error(
                 "ExoPlayer/Android",
-                "Playback error code=${error.errorCodeName} message=${error.localizedMessage ?: error.message ?: "unknown"} " +
-                    "cause=${error.cause?.let(InAppLogger::throwableSummary) ?: "none"}",
+                "Playback error code=${error.errorCodeName} " +
+                    "message=${diagnosticPlayerMessage(error.localizedMessage ?: error.message)} " +
+                    "cause=${error.cause?.let(::diagnosticThrowableChain) ?: "none"}",
             )
             latestOnError.value(error.localizedMessage ?: runBlocking { getString(Res.string.player_unable_to_play_stream) })
         }
@@ -936,7 +937,7 @@ private fun ExoPlayerSurface(
                 InAppLogger.error(
                     "ExoPlayer/Android",
                     "onPlayerError code=${error.errorCodeName} recoverableProbe=${!probeAttempted} " +
-                        "message=${error.localizedMessage ?: error.message ?: "unknown"}",
+                        "message=${diagnosticPlayerMessage(error.localizedMessage ?: error.message)}",
                 )
                 Log.e(
                     PLAYER_DIAGNOSTIC_TAG,
@@ -948,7 +949,6 @@ private fun ExoPlayerSurface(
                         "durationMs=${exoPlayer.duration.coerceAtLeast(0L)} " +
                         "message=${diagnosticPlayerMessage(error.message)} " +
                         "causeChain=${diagnosticThrowableChain(error)}",
-                    error,
                 )
 
                 val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
@@ -1200,7 +1200,7 @@ private fun ExoPlayerSurface(
                     "Network/Playback",
                     "loadError url=${InAppLogger.redactUrl(loadEventInfo.uri.toString())} " +
                         "type=${mediaLoadData.dataType} trackType=${mediaLoadData.trackType} canceled=$wasCanceled " +
-                        "error=${InAppLogger.throwableSummary(error)}",
+                        "error=${diagnosticThrowableChain(error)}",
                 )
             }
 
@@ -2097,8 +2097,9 @@ private fun LibmpvPlayerSurface(
                         Utils.copyAssets(viewContext)
                         initialize(viewContext.filesDir.path, viewContext.cacheDir.path)
                     }.onFailure { error ->
-                        Log.e(TAG, "Failed to initialize libmpv", error)
-                        InAppLogger.error("MPV/Android", "Failed to initialize libmpv: ${error.localizedMessage ?: error::class.simpleName.orEmpty()}")
+                        val safeMessage = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+                        Log.e(TAG, "Failed to initialize libmpv: $safeMessage")
+                        InAppLogger.error("MPV/Android", "Failed to initialize libmpv: $safeMessage")
                         latestOnError.value(error.localizedMessage ?: "libmpv unavailable")
                     }
                     playerViewRef = this
@@ -2558,7 +2559,7 @@ private class NuvioLibmpvView(
                 append('}')
             }
         } catch (error: Throwable) {
-            InAppLogger.warn("MPV/Android", "Failed to build playback info: ${InAppLogger.throwableSummary(error)}")
+            InAppLogger.warn("MPV/Android", "Failed to build playback info: ${diagnosticThrowableChain(error)}")
             "{}"
         }
     }
@@ -3419,7 +3420,7 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
             append('}')
         }
     } catch (error: Throwable) {
-        InAppLogger.warn("ExoPlayer/Android", "Failed to build playback info: ${InAppLogger.throwableSummary(error)}")
+        InAppLogger.warn("ExoPlayer/Android", "Failed to build playback info: ${diagnosticThrowableChain(error)}")
         "{}"
     }
 }
@@ -4553,7 +4554,7 @@ private fun isLoopbackPlaybackSource(value: String): Boolean = runCatching {
 }.getOrDefault(false)
 
 private fun diagnosticPlayerMessage(value: String?): String =
-    value?.replace('\n', ' ')?.replace('\r', ' ')?.take(160) ?: "none"
+    sanitizeMpvErrorText(value) ?: "none"
 
 private fun diagnosticThrowableChain(value: Throwable): String =
     generateSequence(value) { it.cause }
