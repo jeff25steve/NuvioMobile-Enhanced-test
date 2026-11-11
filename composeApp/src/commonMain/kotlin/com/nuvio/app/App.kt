@@ -17,7 +17,6 @@ import com.nuvio.app.core.ui.NativeProfileSwitcherController
 import com.nuvio.app.core.ui.NuvioTheme
 import com.nuvio.app.core.ui.NuvioSheetBackdrop
 import com.nuvio.app.core.ui.NuvioSheetBackdropHost
-import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 import com.nuvio.app.core.ui.configurePlatformImageLoader
 import com.nuvio.app.core.ui.platformProvidesImageLoader
 import com.nuvio.app.features.settings.ThemeSettingsRepository
@@ -106,8 +105,7 @@ internal fun AppEnvironment(content: @Composable () -> Unit) {
 
     val customThemeColors by ThemeSettingsRepository.customThemeColors.collectAsStateWithLifecycle()
 
-    val sheetBackdropLayer = rememberNuvioBackdrop()
-    val sheetBackdrop = remember(sheetBackdropLayer) { NuvioSheetBackdrop(sheetBackdropLayer) }
+    val sheetBackdrop = remember { NuvioSheetBackdrop() }
 
     NuvioTheme(appTheme = selectedTheme, amoled = amoledEnabled, customThemeColors = customThemeColors) {
         NuvioSheetBackdropHost(sheetBackdrop) {

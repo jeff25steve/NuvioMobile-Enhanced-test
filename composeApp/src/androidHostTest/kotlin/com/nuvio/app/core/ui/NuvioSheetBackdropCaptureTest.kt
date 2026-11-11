@@ -2,9 +2,15 @@ package com.nuvio.app.core.ui
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NuvioSheetBackdropCaptureTest {
+    @Test
+    fun sharedSheetBackdropStartsWithoutAllocatingAGraphicsLayer() {
+        assertNull(NuvioSheetBackdrop().backdrop)
+    }
+
     @Test
     fun studioPreviewCapturesLocalBackdropWhenMasterSwitchIsOff() {
         assertTrue(

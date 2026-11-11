@@ -26,9 +26,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -52,6 +54,7 @@ import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
+import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 
 import com.nuvio.app.core.ui.background.isGlassUiActive
 
@@ -91,7 +94,15 @@ internal fun Modifier.nuvioSheetSurface(
 }
 
 @Stable
-class NuvioSheetBackdrop(val backdrop: NuvioBackdrop) {
+class NuvioSheetBackdrop() {
+    constructor(backdrop: NuvioBackdrop) : this() {
+        this.backdrop = backdrop
+    }
+
+    /** Created only while a supported sheet or Studio preview needs to sample the shared source. */
+    var backdrop: NuvioBackdrop? by mutableStateOf<NuvioBackdrop?>(null)
+        internal set
+
     var activeSheets by mutableIntStateOf(0)
     var activeGlassPreviews by mutableIntStateOf(0)
 }
@@ -113,24 +124,26 @@ fun NuvioSheetBackdropHost(
     val needsPreviewBackdrop = sheetBackdrop.activeGlassPreviews > 0
     val needsSheetGlassBackdrop = sheetBackdrop.activeSheets > 0 &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+    val shouldCaptureBackdrop = shouldCaptureNuvioSheetBackdrop(
+        platformSupported = isLiquidGlassAvailable(),
+        masterEnabled = LiquidGlassSettings.enabled,
+        needsPreviewBackdrop = needsPreviewBackdrop,
+        needsSheetGlassBackdrop = needsSheetGlassBackdrop,
+    )
+    // Keep the stable owner/counts alive, but allocate the GraphicsLayer only for an active
+    // supported consumer. Leaving this branch disposes rememberGraphicsLayer and releases it.
+    val backdrop = if (shouldCaptureBackdrop) rememberNuvioBackdrop() else null
+    SideEffect {
+        sheetBackdrop.backdrop = backdrop
+    }
+    val sourceModifier = if (backdrop != null) {
+        Modifier.nuvioBackdropSource(backdrop)
+    } else {
+        Modifier
+    }
     CompositionLocalProvider(LocalNuvioSheetBackdrop provides sheetBackdrop) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(
-                    if (
-                        shouldCaptureNuvioSheetBackdrop(
-                            platformSupported = isLiquidGlassAvailable(),
-                            masterEnabled = LiquidGlassSettings.enabled,
-                            needsPreviewBackdrop = needsPreviewBackdrop,
-                            needsSheetGlassBackdrop = needsSheetGlassBackdrop,
-                        )
-                    ) {
-                        Modifier.nuvioBackdropSource(sheetBackdrop.backdrop)
-                    } else {
-                        Modifier
-                    },
-                ),
+            modifier = Modifier.fillMaxSize().then(sourceModifier),
         ) {
             content()
         }

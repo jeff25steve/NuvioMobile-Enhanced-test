@@ -279,3 +279,26 @@ The internal/tablet pager remains conservative by design. Revisit its page-aware
 - Regression tests were added but **not executed**. No compilation, build, build-triggering test, CI workflow, simulator, or physical-device session was started.
 - No local checkout is mounted; local `git status` and uncommitted workstation changes remain inaccessible. Remote branch updates use an expected-head guard.
 
+## 11 November 2026 — allocate the sheet backdrop only while a consumer needs it
+
+### Confirmed cause
+
+- `AppEnvironment` created `rememberNuvioBackdrop()` unconditionally and retained its `GraphicsLayer` for the lifetime of the root composition.
+- `NuvioSheetBackdropHost` already attached `nuvioBackdropSource` only while an active sheet or Studio preview needed a supported backdrop. The source recording was therefore dormant most of the time, but the remembered graphics resource still existed.
+- The official Compose `rememberGraphicsLayer` API is common multiplatform API and explicitly releases its `GraphicsLayer` when its owning composable is disposed. A conditional call in the existing host therefore ties the resource lifetime to actual sheet/preview demand on Android and the Skiko/iOS path.
+- No memory delta or frame-time improvement is claimed; the source establishes resource lifetime, not a device measurement.
+
+### Changes
+
+- `NuvioSheetBackdrop` now holds a nullable observable backdrop while retaining the same stable owner and active-consumer counters.
+- `AppEnvironment` remembers only that lightweight owner; it no longer creates a graphics layer at startup.
+- `NuvioSheetBackdropHost` calls `rememberNuvioBackdrop()` only when the existing capture predicate is true, attaches the source only for that layer, and publishes the current nullable layer to sheet/preview consumers using `SideEffect`.
+- When the last consumer leaves, or the platform/master/surface gate disables capture, the conditional composable is disposed and Compose releases the graphics layer. The sheet surface, preview capture override, native sheet selection, and capture predicate are unchanged.
+- Added a host-test assertion that a new shared owner starts with no backdrop resource; the existing tests continue to cover all capture-predicate gates.
+
+### Verification boundary
+
+- Traced every known owner/consumer: `AppEnvironment`, `NuvioSheetBackdropHost`, `NuvioModalBottomSheet`, and the Liquid Glass customize-sheet card style.
+- Cross-checked the common Compose API lifecycle contract against the official `rememberGraphicsLayer` / `GraphicsLayer` reference and Context7's AndroidX API documentation.
+- Static source and remote-diff review only. The new host test has **not** been executed; no compilation, build, CI, simulator, or device session was started.
+- No local checkout is mounted, so local `git status` and uncommitted workstation changes remain inaccessible.
