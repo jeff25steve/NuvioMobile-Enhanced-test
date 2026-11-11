@@ -2759,3 +2759,28 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - iOS regression tests added but NOT run. No Gradle test task, Kotlin compilation, iOS build, device test, or CI workflow started, as requested. Runtime peak-memory behavior and native Skia allocations remain unmeasured.
+
+
+## 11 November 2026 — adapt iOS mpv demux buffers to current process memory headroom
+
+### Confirmed cause and API contract
+- The iOS MPV bridge used fixed 64 MiB forward demux buffering and 32 MiB backward-cache buffering for every device and session.
+- Apple's `os_proc_available_memory()` is available from iOS 13 (this app targets iOS 16.1). It returns bytes remaining under the *current process dirty-memory limit*, not total device RAM. The value is a point-in-time snapshot that can change during the app lifecycle and must not be cached as a device classification.
+- mpv documents `demuxer-max-bytes` as the forward read-ahead cap and `demuxer-max-back-bytes` as retained past packet data used by the demuxer cache/seek range. Lowering the latter can shorten backward seek history; this tradeoff is limited to the low-headroom configuration.
+- mpv also warns that setting `hwdec-extra-frames` too low can cause hardware-decoder allocation failure, dropped frames or corruption. The target did not override that option, so this change deliberately leaves VideoToolbox frame-pool sizing on mpv's automatic default.
+
+### Integrated change
+- Added a pure `MpvDemuxerMemorySettings.resolve(availableMemoryBytes:)` decision with boundary tests.
+- Sampled `os_proc_available_memory()` once each time `setupMpv()` creates/rebuilds a core. Under 2 GiB available process headroom, forward/back buffers are reduced from 64/32 MiB to 32/8 MiB; at or above the threshold the existing 64/32 MiB budgets are preserved.
+- Re-sampling at each core setup covers device-loss core rebuilds without caching stale memory status.
+- No change to VideoToolbox surface counts, HDR/tone-mapping, Vulkan setup, playback quality settings, stream URLs, cache policy, or iOS app entitlements. This is an adaptive memory-headroom response rather than a new setting.
+
+### Research sources
+- Apple `os_proc_available_memory()` SDK/API: https://developer.apple.com/documentation/os/os_proc_available_memory
+- Apple WWDC 2022 memory guidance: https://developer.apple.com/videos/play/wwdc2022/10106/
+- mpv `demuxer-max-bytes` and `demuxer-max-back-bytes` option contract: https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst
+- mpv hardware-decoder frame pool caution (`hwdec-extra-frames`): https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst
+- Related upstream Nuvio tuning commit reviewed: `b147e233af2a9de72cd4e6c3c318a5a4de74784c`. The adaptive demux caps were adapted; forcing `hwdec-extra-frames=1` was intentionally excluded because mpv documents visual-corruption/frame-drop risk if the pool is undersized.
+
+### Verification boundary
+- XCTest cases added but NOT run. No Xcode build, iOS test plan, simulator/device test, Gradle build, or CI workflow was started, as requested. The imported SDK symbol and actual low-memory playback/rewind tradeoff remain uncompiled and unmeasured until build/test authorization.

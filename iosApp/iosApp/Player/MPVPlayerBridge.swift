@@ -1,4 +1,5 @@
 import Foundation
+import os
 import UIKit
 import AVFoundation
 import Metal
@@ -7,6 +8,27 @@ import Libavfilter
 import ComposeApp
 
 // MARK: - Player Bridge Implementation (Kotlin protocol conformance)
+
+
+internal struct MpvDemuxerMemorySettings: Equatable {
+    static let constrainedThresholdBytes = 2 * 1024 * 1024 * 1024
+
+    let demuxerMaxBytes: Int
+    let demuxerMaxBackBytes: Int
+
+    static func resolve(availableMemoryBytes: Int) -> MpvDemuxerMemorySettings {
+        if availableMemoryBytes < constrainedThresholdBytes {
+            return MpvDemuxerMemorySettings(
+                demuxerMaxBytes: 32 * 1024 * 1024,
+                demuxerMaxBackBytes: 8 * 1024 * 1024
+            )
+        }
+        return MpvDemuxerMemorySettings(
+            demuxerMaxBytes: 64 * 1024 * 1024,
+            demuxerMaxBackBytes: 32 * 1024 * 1024
+        )
+    }
+}
 
 final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
 
@@ -737,6 +759,10 @@ final class MPVPlayerViewController: UIViewController {
     // MARK: - MPV Setup
 
     private func setupMpv() {
+        // This is a point-in-time process memory-limit snapshot; sample again on core rebuild.
+        let memorySettings = MpvDemuxerMemorySettings.resolve(
+            availableMemoryBytes: Int(clamping: os_proc_available_memory())
+        )
         mpv = mpv_create()
         guard mpv != nil else {
             print("[MPV] Failed to create mpv instance")
@@ -775,8 +801,8 @@ final class MPVPlayerViewController: UIViewController {
         setSetupOption("target-colorspace-hint", "yes")
         setSetupOption("tone-mapping", "auto")
         setSetupOption("hdr-compute-peak", "yes")
-        setSetupOption("demuxer-max-bytes", "\(Self.demuxerMaxBytes)")
-        setSetupOption("demuxer-max-back-bytes", "\(Self.demuxerMaxBackBytes)")
+        setSetupOption("demuxer-max-bytes", "\(memorySettings.demuxerMaxBytes)")
+        setSetupOption("demuxer-max-back-bytes", "\(memorySettings.demuxerMaxBackBytes)")
         setSetupOption("demuxer-lavf-o", "protocol_whitelist=[file,crypto,data,http,https,tcp,tls]")
 
         checkError(mpv_initialize(mpv))
@@ -796,10 +822,6 @@ final class MPVPlayerViewController: UIViewController {
             vc.readEvents()
         }, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
     }
-
-    private static let demuxerMaxBytes = 64 * 1024 * 1024
-
-    private static let demuxerMaxBackBytes = 32 * 1024 * 1024
 
     private func setSetupOption(_ name: String, _ value: String) {
         guard let ctx = mpv else { return }
