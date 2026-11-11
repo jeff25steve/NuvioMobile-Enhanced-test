@@ -2624,3 +2624,28 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Added common unit coverage but did NOT run it. No Gradle test task, Kotlin compilation, Android/iOS build, device test, or CI workflow was started, as requested.
+
+
+## 11 November 2026 — normalize Android TLS setup failures at the OkHttp boundary
+
+### Confirmed failure mode
+- The repository uses OkHttp 4.12.0 directly and Ktor 3.4.1 with its OkHttp engine on Android. The API, add-on, AutoSync subtitle, Coil image, and episode-notification clients already use or derive from `SharedOkHttpClient`; playback streaming and cached subtitle downloads construct independent OkHttp clients.
+- Android 8.1 / Conscrypt has a documented TLS failure path that can surface a runtime exception around an underlying I/O/certificate failure. Exa located the original OkHttp Android 8.1 report and AOSP/Conscrypt references. Such an unchecked exception bypasses OkHttp's normal I/O failure channel. OkHttp's interceptor contract specifies `IOException` for transport failures; unchecked exceptions on asynchronous calls can reach the uncaught-exception handler instead of the callback's failure channel.
+- This matters directly to add-on requests: `AddonPlatform.android.kt` supplies an `onFailure(IOException)` callback and `AutoSyncSubtitleHttp` uses the same callback contract. A runtime wrapper can bypass those paths.
+
+### Integrated change
+- Added `NetworkErrorInterceptor`, which unwraps only a direct `IOException` cause from a `RuntimeException`; unrelated runtime exceptions are rethrown unchanged.
+- Registered it once on `SharedOkHttpClient.base`, so clients derived with `newBuilder()` and Ktor clients configured with that preconfigured client inherit the correction without duplicate interceptors.
+- Added it to the independent ExoPlayer playback OkHttp client. This covers the other direct network client that is not derived from the shared client. No certificate validation, trust manager, TLS protocol, retry policy, redirect policy, or URL handling was changed.
+- Added Android host regression tests verifying both IOException unwrapping and preservation of unrelated runtime exceptions.
+
+### Research sources
+- Android 8.1 Conscrypt / OkHttp issue: https://github.com/square/okhttp/issues/4010
+- Android Conscrypt source referenced by the issue: https://android.googlesource.com/platform/external/conscrypt/+/refs/tags/android-cts-8.1_r15/common/src/main/java/org/conscrypt/ConscryptFileDescriptorSocket.java
+- OkHttp 4.x/5.x interceptor exception contract: https://square.github.io/okhttp/5.x/okhttp/okhttp3/-interceptor/
+- Ktor OkHttp engine configuration documentation: https://ktor.io/docs/client-engines.html
+- Related upstream Nuvio fix: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/d534d14e9dd8f124ea0ccfba65c6bff1bb76124e
+- Context7 was used to verify the OkHttp interceptor contract and Ktor's OkHttp engine configuration; Exa independently surfaced the Android 8.1 Conscrypt failure and original OkHttp issue.
+
+### Verification boundary
+- Regression tests added but NOT run. No Gradle test task, compilation, Android/iOS build, device check, or CI workflow was started.
