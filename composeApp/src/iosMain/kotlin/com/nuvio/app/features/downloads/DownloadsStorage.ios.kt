@@ -7,11 +7,14 @@ internal actual object DownloadsStorage {
     private const val payloadKey = "downloads_payload"
     private const val downloadLocationUriKey = "download_location_uri"
 
-    actual fun loadPayload(): String? =
-        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(payloadKey))
+    actual fun loadPayload(profileIndex: Int): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(payloadKey, profileIndex))
 
-    actual fun savePayload(payload: String) {
-        NSUserDefaults.standardUserDefaults.setObject(payload, forKey = ProfileScopedKey.of(payloadKey))
+    actual fun savePayload(profileIndex: Int, payload: String) {
+        NSUserDefaults.standardUserDefaults.setObject(
+            payload,
+            forKey = ProfileScopedKey.of(payloadKey, profileIndex),
+        )
     }
 
     actual fun getDownloadLocationUri(): String? =

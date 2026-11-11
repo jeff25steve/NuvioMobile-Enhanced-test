@@ -2396,3 +2396,40 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 - After explicit authorisation, run the focused common cache test and the iOS compilation/test target. On device, trigger a memory warning with idle and active animated images, then verify that idle decoded frames and compressed in-memory source bytes are released while active images keep rendering and subsequent requests recover from disk/original sources.
 
+## 11 November 2026 — persist download callbacks to their originating profile
+
+### Confirmed defect and root cause
+
+- The common `DownloadsRepository` held one visible `_uiState` for the selected profile and a process-wide `activeHandles` map keyed only by download ID.
+- `ProfileRepository.selectProfile()` intentionally keeps profile-owned downloads running while `DownloadsRepository.onProfileChanged()` loads the newly selected profile. When a callback for profile A arrives while profile B is visible, the old callback mutates B's list and persists through a storage API that derives its key from the active profile. A's progress or terminal result is consequently not written to A.
+- On iOS, `restoreItem()` normalizes persisted `Downloading` entries to `Paused`. Returning to A while its original task is still active can expose Paused while the live task remains running. If A completes while B is selected, the common callback misses A's item and removes the active handle; A's persisted snapshot remains stale and is normalized on the next selection.
+- Android also uses the same common callback path, but its separate per-transfer `AndroidDownloadStore` is an additional authoritative recovery source. iOS has no equivalent durable transfer store.
+
+### Changes
+
+- Added `DownloadProfileOwner` and `DownloadOperationKey`, binding an in-process operation to profile index, account user ID, profile ID and download ID. A profile recreated at a reused index and a different account cannot inherit the old operation key.
+- Made the profile-owned download payload methods take an explicit profile index across common, Android and iOS. The existing persisted key format remains `downloads_payload_<profileIndex>`. The download-location URI methods, storage key and device/profile ownership semantics are unchanged.
+- Added an operation generation for start/resume. Pause, cancel and replacement invalidate it before cancellation; late callbacks from an older operation cannot update a newer resume or remove its task handle.
+- Progress, success, failure and pause callbacks now update the owning profile snapshot. When its profile is inactive, the repository reads and writes only that profile's payload and does not publish inactive data into the currently visible StateFlow or Live Status notification.
+- Selecting a profile again preserves `Downloading` while a matching in-process operation is still registered, instead of normalizing that live task to Paused.
+- iOS callbacks entering common repository state are dispatched to the main queue. This aligns delegate callback state changes with Compose/profile actions and Android's existing main-dispatcher observer. The native `activeDownloads`, `tasksByDownloadId` and `pendingPauses` maps are not made thread-safe by this change and remain a separate coordinator state-machine concern.
+
+### Regression coverage
+
+- Added common tests for operation-key separation across accounts and profile recreation, updating only a matching item while preserving list order, missing IDs and no-op transforms.
+- Tests were added before the production code but are **not executed**. No build-triggering tests, compilation, Android/iOS build, simulator/device run or CI workflow was started.
+
+### Evidence and design decisions
+
+- Compared the current common implementation with the current official Nuvio Mobile `cmp-rewrite` and parent Enhanced `enhanced` implementations. The active-profile callback/persistence pattern is inherited there; neither source tree contains the originating-profile snapshot update.
+- Apple's URLSession documentation states that delegate callbacks are scheduled on the configured delegate queue and that URLSession itself is thread-safe. The app supplies a serial delegate queue, but this does not serialize callbacks with Compose/profile actions on the main thread: https://developer.apple.com/documentation/foundation/urlsession.md.
+- Kotlin StateFlow `update` is atomic for the in-memory value only, and its update lambda may be re-evaluated on CAS contention. It cannot make the subsequent profile-scoped storage write atomic: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/update.html.
+- Rejected: replacing StateFlow assignment with `update { }` alone; dispatching callbacks to main without persisting under the originating profile; relying on Android's transfer store as an iOS fix; and changing the download-location preference, whose device-level migration policy remains unresolved.
+- Process-relaunch URLSession reattachment remains out of scope. Task enumeration alone cannot restore the full request, originating profile and optional custom destination, and persistence of `taskDescription` across process kill remains unverified. No `getAllTasks` reattachment code was added.
+
+### Verification boundary and next starting point
+
+- A complete GitHub comparison and remote-source review are required before advancing the branch. No local checkout is mounted, so local `git status` and uncommitted workstation changes remain inaccessible.
+- No Gradle task, Kotlin compilation, Android/iOS build, test, simulator/device run, performance trace or CI workflow was started. The implementation remains uncompiled and unexecuted.
+- Next: author deterministic repository tests for profile A -> B -> A with an active task, completion while B is visible, stale callback after resume, and callback races with pause/cancel. Separately design a durable non-secret task-to-profile association and serialized native iOS task registry before attempting process-relaunch reattachment.
+

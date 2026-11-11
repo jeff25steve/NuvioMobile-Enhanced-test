@@ -15,13 +15,13 @@ internal actual object DownloadsStorage {
         preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     }
 
-    actual fun loadPayload(): String? =
-        preferences?.getString(ProfileScopedKey.of(payloadKey), null)
+    actual fun loadPayload(profileIndex: Int): String? =
+        preferences?.getString(ProfileScopedKey.of(payloadKey, profileIndex), null)
 
-    actual fun savePayload(payload: String) {
+    actual fun savePayload(profileIndex: Int, payload: String) {
         preferences
             ?.edit()
-            ?.putString(ProfileScopedKey.of(payloadKey), payload)
+            ?.putString(ProfileScopedKey.of(payloadKey, profileIndex), payload)
             ?.apply()
     }
 

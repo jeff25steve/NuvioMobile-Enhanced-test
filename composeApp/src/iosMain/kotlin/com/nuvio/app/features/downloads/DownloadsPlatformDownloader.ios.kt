@@ -60,6 +60,12 @@ private const val PROGRESS_MIN_BYTE_DELTA = 512L * 1024L
 
 private val backgroundSessionCompletionHandlers = IdentityKeyedRegistry<String, () -> Unit>()
 
+private fun dispatchDownloadCallback(callback: () -> Unit) {
+    dispatch_async(dispatch_get_main_queue()) {
+        callback()
+    }
+}
+
 /**
  * Addon subtitles are fetched alongside the video. The download itself runs on a background
  * NSURLSession with no coroutine of its own, so the subtitle fetch gets a scope here and is
@@ -310,7 +316,9 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
                 callbacks = callbacks,
             )
             tasksByDownloadId[downloadId] = task
-            callbacks?.onProgress?.invoke(resumeFromBytes, null)
+            callbacks?.onProgress?.let { onProgress ->
+                dispatchDownloadCallback { onProgress(resumeFromBytes, null) }
+            }
             task.resume()
         } finally {
             if (started) base.scopedUrl?.stopAccessingSecurityScopedResource()
@@ -503,7 +511,7 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
             val callbacks = activeDownloads.remove(downloadId)?.callbacks
             tasksByDownloadId.remove(downloadId)
             if (callbacks != null) {
-                callbacks.onSuccess(localFileUri, finalSize)
+                dispatchDownloadCallback { callbacks.onSuccess(localFileUri, finalSize) }
             }
         } finally {
             if (scopedStarted) base.scopedUrl?.stopAccessingSecurityScopedResource()
@@ -546,7 +554,9 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
     private fun finishWithFailure(downloadId: String, message: String) {
         val callbacks = activeDownloads.remove(downloadId)?.callbacks
         tasksByDownloadId.remove(downloadId)
-        callbacks?.onFailure(message)
+        callbacks?.onFailure?.let { onFailure ->
+            dispatchDownloadCallback { onFailure(message) }
+        }
     }
 
     private fun reportProgress(downloadId: String, downloadedBytes: Long, totalBytes: Long?) {
@@ -569,7 +579,7 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
 
         val callbacks = active?.callbacks
         if (callbacks != null) {
-            callbacks.onProgress(downloadedBytes, totalBytes)
+            dispatchDownloadCallback { callbacks.onProgress(downloadedBytes, totalBytes) }
         }
     }
 

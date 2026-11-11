@@ -1,13 +1,15 @@
 package com.nuvio.app.features.downloads
 
 import com.nuvio.app.features.player.SubtitleRequestExtras
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.userId
 import com.nuvio.app.features.player.addonSubtitleRequests
+import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.streams.StreamItem
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -22,17 +24,96 @@ object DownloadsRepository {
     private val _hasUnseenCompleted = MutableStateFlow(false)
     val hasUnseenCompleted: StateFlow<Boolean> = _hasUnseenCompleted.asStateFlow()
 
-    private val activeHandles = mutableMapOf<String, DownloadsTaskHandle>()
+    private val activeHandles = mutableMapOf<DownloadOperationKey, DownloadsTaskHandle>()
+    private val activeOperations = mutableMapOf<DownloadOperationKey, Long>()
+    private var nextOperationGeneration = 0L
     private var hasLoaded = false
+    private var loadedProfileOwner: DownloadProfileOwner? = null
     private var nextDownloadOrdinal = 0L
 
     fun ensureLoaded() {
-        if (hasLoaded) return
-        loadFromDisk()
+        ensureLoadedForCurrentProfile()
+    }
+
+    private fun ensureLoadedForCurrentProfile(): DownloadProfileOwner {
+        val owner = currentProfileOwner()
+        if (!hasLoaded || loadedProfileOwner != owner) loadFromDisk(owner)
+        return owner
     }
 
     fun onProfileChanged() {
-        loadFromDisk()
+        loadFromDisk(currentProfileOwner())
+    }
+
+    private fun currentProfileOwner(): DownloadProfileOwner {
+        val profileIndex = ProfileRepository.activeProfileId
+        val profile = ProfileRepository.state.value.profiles.firstOrNull {
+            it.profileIndex == profileIndex
+        }
+        return DownloadProfileOwner(
+            profileIndex = profileIndex,
+            userId = AuthRepository.state.value.userId,
+            profileId = profile?.id,
+        )
+    }
+
+    private fun isProfileOwnerCurrent(owner: DownloadProfileOwner): Boolean {
+        if (AuthRepository.state.value.userId != owner.userId) return false
+        val profileState = ProfileRepository.state.value
+        if (!profileState.isLoaded || profileState.profiles.isEmpty()) {
+            return ProfileRepository.activeProfileId == owner.profileIndex
+        }
+        val profile = profileState.profiles.firstOrNull {
+            it.profileIndex == owner.profileIndex
+        } ?: return false
+        if (
+            !owner.profileId.isNullOrBlank() &&
+            profile.id.isNotBlank() &&
+            profile.id != owner.profileId
+        ) return false
+        if (
+            !owner.userId.isNullOrBlank() &&
+            profile.userId.isNotBlank() &&
+            profile.userId != owner.userId
+        ) return false
+        return true
+    }
+
+    private fun isCurrentOperation(key: DownloadOperationKey, generation: Long): Boolean =
+        activeOperations[key] == generation
+
+    private fun cancelDownloadOperation(owner: DownloadProfileOwner, downloadId: String) {
+        val key = DownloadOperationKey(owner, downloadId)
+        activeOperations.remove(key)
+        activeHandles.remove(key)?.cancel()
+    }
+
+    private fun finishDownloadOperation(key: DownloadOperationKey, generation: Long) {
+        if (!isCurrentOperation(key, generation)) return
+        activeOperations.remove(key)
+        activeHandles.remove(key)
+    }
+
+    private fun updateOwnedDownload(
+        owner: DownloadProfileOwner,
+        downloadId: String,
+        transform: (DownloadItem) -> DownloadItem,
+    ): Boolean {
+        if (!isProfileOwnerCurrent(owner)) return false
+        val updateVisibleState =
+            loadedProfileOwner == owner && ProfileRepository.activeProfileId == owner.profileIndex
+        val sourceItems = if (updateVisibleState) {
+            _uiState.value.items
+        } else {
+            DownloadsCodec.decodeItems(DownloadsStorage.loadPayload(owner.profileIndex).orEmpty())
+        }
+        val updatedItems = updateProfileDownloadItem(sourceItems, downloadId, transform) ?: return false
+        DownloadsStorage.savePayload(
+            profileIndex = owner.profileIndex,
+            payload = DownloadsCodec.encodeItems(updatedItems),
+        )
+        if (updateVisibleState) publish(updatedItems)
+        return true
     }
 
     fun markCompletedSeen() {
@@ -40,9 +121,12 @@ object DownloadsRepository {
     }
 
     fun clearLocalState() {
-        activeHandles.values.forEach(DownloadsTaskHandle::cancel)
+        val handles = activeHandles.values.toList()
+        activeOperations.clear()
         activeHandles.clear()
+        handles.forEach(DownloadsTaskHandle::cancel)
         hasLoaded = false
+        loadedProfileOwner = null
         _hasUnseenCompleted.value = false
         _uiState.value = DownloadsUiState()
         notifyLiveStatusPlatform()
@@ -87,7 +171,7 @@ object DownloadsRepository {
     }
 
     fun playableLocalFileUri(item: DownloadItem): String? {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
         if (item.status != DownloadStatus.Completed) return null
         val resolvedUri = DownloadsPlatformDownloader.resolveLocalFileUri(
             localFileUri = item.localFileUri,
@@ -95,7 +179,7 @@ object DownloadsRepository {
         ) ?: return null
 
         if (resolvedUri != item.localFileUri) {
-            mutateItem(item.id) { current ->
+            mutateItem(owner, item.id) { current ->
                 if (current.fileName == item.fileName) {
                     current.copy(
                         localFileUri = resolvedUri,
@@ -125,7 +209,7 @@ object DownloadsRepository {
         episodeThumbnail: String?,
         stream: StreamItem,
     ): DownloadEnqueueResult {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
 
         val sourceUrl = stream.playableDirectUrl
             ?.trim()
@@ -152,7 +236,7 @@ object DownloadsRepository {
         val existing = currentItems.firstOrNull { it.logicalContentKey == logicalKey }
         if (existing != null) {
             replacedExisting = true
-            activeHandles.remove(existing.id)?.cancel()
+            cancelDownloadOperation(owner, existing.id)
             DownloadsPlatformDownloader.removeFile(playableLocalFileUri(existing) ?: existing.localFileUri)
             DownloadsPlatformDownloader.removePartialFile(existing.fileName)
             currentItems.removeAll { it.id == existing.id }
@@ -208,8 +292,8 @@ object DownloadsRepository {
 
         currentItems.add(0, item)
         publish(currentItems)
-        persist()
-        startDownload(item)
+        persist(owner)
+        startDownload(item, owner)
 
         return if (replacedExisting) {
             DownloadEnqueueResult.Replaced
@@ -219,12 +303,12 @@ object DownloadsRepository {
     }
 
     fun pauseDownload(downloadId: String) {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
         if (item.status != DownloadStatus.Downloading) return
 
-        activeHandles.remove(downloadId)?.cancel()
-        mutateItem(downloadId) { current ->
+        cancelDownloadOperation(owner, downloadId)
+        mutateItem(owner, downloadId) { current ->
             when (current.status) {
                 DownloadStatus.Downloading,
                 DownloadStatus.Paused,
@@ -250,7 +334,7 @@ object DownloadsRepository {
     }
 
     fun resumeDownload(downloadId: String): DownloadEnqueueResult? {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return null
         if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return null
         if (!isDownloadNetworkAllowedForCurrentSettings()) return DownloadEnqueueResult.RequiresWifi
@@ -263,8 +347,8 @@ object DownloadsRepository {
         )
 
         replaceItem(reset)
-        persist()
-        startDownload(reset)
+        persist(owner)
+        startDownload(reset, owner)
         return DownloadEnqueueResult.Started
     }
 
@@ -279,31 +363,32 @@ object DownloadsRepository {
     }
 
     internal fun reattachBackgroundDownload(downloadId: String) {
-        if (!hasLoaded) return
+        val owner = ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
-        activeHandles.remove(downloadId)?.cancel()
+        cancelDownloadOperation(owner, downloadId)
         val restored = DownloadsPlatformDownloader.restoreItem(item)
         replaceItem(restored)
-        persist()
-        if (restored.status == DownloadStatus.Downloading) startDownload(restored)
+        persist(owner)
+        if (restored.status == DownloadStatus.Downloading) startDownload(restored, owner)
     }
 
     fun cancelDownload(downloadId: String) {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
 
-        activeHandles.remove(downloadId)?.cancel()
+        cancelDownloadOperation(owner, downloadId)
         DownloadsPlatformDownloader.removeFile(playableLocalFileUri(item) ?: item.localFileUri)
         DownloadsPlatformDownloader.removePartialFile(item.fileName)
 
         publish(_uiState.value.items.filterNot { it.id == downloadId })
-        persist()
+        persist(owner)
     }
 
-    private fun loadFromDisk() {
+    private fun loadFromDisk(owner: DownloadProfileOwner) {
         _hasUnseenCompleted.value = false
         hasLoaded = true
-        val payload = DownloadsStorage.loadPayload().orEmpty().trim()
+        loadedProfileOwner = owner
+        val payload = DownloadsStorage.loadPayload(owner.profileIndex).orEmpty().trim()
         if (payload.isEmpty()) {
             _uiState.value = DownloadsUiState()
             notifyLiveStatusPlatform()
@@ -313,7 +398,12 @@ object DownloadsRepository {
         var shouldPersistNormalized = false
         val normalized = DownloadsCodec.decodeItems(payload)
             .map { item ->
-                val statusNormalized = DownloadsPlatformDownloader.restoreItem(item)
+                val operationKey = DownloadOperationKey(owner, item.id)
+                val statusNormalized = if (operationKey in activeOperations) {
+                    item
+                } else {
+                    DownloadsPlatformDownloader.restoreItem(item)
+                }
 
                 val localUriNormalized = normalizeCompletedLocalFileUri(statusNormalized)
                 if (localUriNormalized != item) {
@@ -324,24 +414,28 @@ object DownloadsRepository {
 
         _uiState.value = DownloadsUiState(normalized)
         notifyLiveStatusPlatform()
-        if (shouldPersistNormalized) {
-            persist()
-        }
-        normalized.filter { it.status == DownloadStatus.Downloading && it.id !in activeHandles }
-            .forEach(::startDownload)
+        if (shouldPersistNormalized) persist(owner)
+        normalized
+            .filter { it.status == DownloadStatus.Downloading }
+            .filter { DownloadOperationKey(owner, it.id) !in activeOperations }
+            .forEach { item -> startDownload(item, owner) }
     }
 
-    private fun startDownload(item: DownloadItem) {
+    private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
+        val key = DownloadOperationKey(owner, item.id)
+        if (key in activeOperations) return
+
+        val generation = ++nextOperationGeneration
+        activeOperations[key] = generation
         val request = DownloadPlatformRequest(item)
 
         val handle = DownloadsPlatformDownloader.start(
             request = request,
             onProgress = { downloadedBytes, totalBytes ->
-                mutateItem(item.id) { current ->
-                    if (current.status != DownloadStatus.Downloading) {
-                        current
-                    } else {
-                        current.copy(
+                if (isCurrentOperation(key, generation)) {
+                    updateOwnedDownload(owner, item.id) { current ->
+                        if (current.status != DownloadStatus.Downloading) current
+                        else current.copy(
                             downloadedBytes = downloadedBytes.coerceAtLeast(0L),
                             totalBytes = totalBytes?.takeIf { it > 0L },
                             updatedAtEpochMs = DownloadsClock.nowEpochMs(),
@@ -351,70 +445,69 @@ object DownloadsRepository {
                 }
             },
             onSuccess = { localFileUri, totalBytes ->
-                activeHandles.remove(item.id)
-                mutateItem(item.id) { current ->
-                    if (current.status != DownloadStatus.Downloading) return@mutateItem current
-                    current.copy(
-                        status = DownloadStatus.Completed,
-                        localFileUri = localFileUri,
-                        downloadedBytes = if (totalBytes != null && totalBytes > 0L) {
-                            totalBytes
-                        } else {
-                            current.downloadedBytes
-                        },
-                        totalBytes = totalBytes?.takeIf { it > 0L } ?: current.totalBytes,
-                        errorMessage = null,
-                        updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                    )
+                if (isCurrentOperation(key, generation)) {
+                    try {
+                        updateOwnedDownload(owner, item.id) { current ->
+                            if (current.status != DownloadStatus.Downloading) current
+                            else current.copy(
+                                status = DownloadStatus.Completed,
+                                localFileUri = localFileUri,
+                                downloadedBytes = if (totalBytes != null && totalBytes > 0L) totalBytes
+                                    else current.downloadedBytes,
+                                totalBytes = totalBytes?.takeIf { it > 0L } ?: current.totalBytes,
+                                errorMessage = null,
+                                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+                            )
+                        }
+                    } finally {
+                        finishDownloadOperation(key, generation)
+                    }
                 }
             },
             onFailure = { message ->
-                activeHandles.remove(item.id)
-                mutateItem(item.id) { current ->
-                    if (current.status != DownloadStatus.Downloading) {
-                        current
-                    } else {
-                        current.copy(
-                            status = DownloadStatus.Failed,
-                            errorMessage = message.ifBlank { runBlocking { getString(Res.string.download_failed) } },
-                            updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                        )
+                if (isCurrentOperation(key, generation)) {
+                    try {
+                        updateOwnedDownload(owner, item.id) { current ->
+                            if (current.status != DownloadStatus.Downloading) current
+                            else current.copy(
+                                status = DownloadStatus.Failed,
+                                errorMessage = message.ifBlank { runBlocking { getString(Res.string.download_failed) } },
+                                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+                            )
+                        }
+                    } finally {
+                        finishDownloadOperation(key, generation)
                     }
                 }
             },
             onPaused = {
-                activeHandles.remove(item.id)
-                mutateItem(item.id) { current ->
-                    if (current.status != DownloadStatus.Downloading) return@mutateItem current
-                    current.copy(status = DownloadStatus.Paused, errorMessage = null)
+                if (isCurrentOperation(key, generation)) {
+                    try {
+                        updateOwnedDownload(owner, item.id) { current ->
+                            if (current.status != DownloadStatus.Downloading) current
+                            else current.copy(status = DownloadStatus.Paused, errorMessage = null)
+                        }
+                    } finally {
+                        finishDownloadOperation(key, generation)
+                    }
                 }
             },
         )
 
-        activeHandles[item.id] = handle
+        if (isCurrentOperation(key, generation)) activeHandles[key] = handle
+        else handle.cancel()
     }
 
-    private fun mutateItem(downloadId: String, transform: (DownloadItem) -> DownloadItem) {
-        var changed = false
-        val updated = _uiState.value.items.map { item ->
-            if (item.id == downloadId) {
-                changed = true
-                transform(item)
-            } else {
-                item
-            }
-        }
-
-        if (changed) {
-            publish(updated)
-            persist()
-        }
+    private fun mutateItem(
+        owner: DownloadProfileOwner,
+        downloadId: String,
+        transform: (DownloadItem) -> DownloadItem,
+    ) {
+        updateOwnedDownload(owner, downloadId, transform)
     }
 
     private fun replaceItem(item: DownloadItem) {
-        val updated = _uiState.value.items.map { existing ->
-            if (existing.id == item.id) item else existing
-        }
+        val updated = updateProfileDownloadItem(_uiState.value.items, item.id) { item } ?: return
         publish(updated)
     }
 
@@ -435,9 +528,11 @@ object DownloadsRepository {
         }
     }
 
-    private fun persist() {
+    private fun persist(owner: DownloadProfileOwner) {
+        if (loadedProfileOwner != owner || !isProfileOwnerCurrent(owner)) return
         DownloadsStorage.savePayload(
-            DownloadsCodec.encodeItems(_uiState.value.items),
+            profileIndex = owner.profileIndex,
+            payload = DownloadsCodec.encodeItems(_uiState.value.items),
         )
     }
 
