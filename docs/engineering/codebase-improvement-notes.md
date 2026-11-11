@@ -2799,3 +2799,29 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Regression coverage added for assignment-style cookie/auth secrets, common credential fields, URL-bearing END_FILE summaries and unrecognized reason values. Tests were NOT run; no test, build, or CI task was started.
+
+
+## 11 November 2026 — clear Coil's recreatable iOS image cache on UIKit memory warnings
+
+### Confirmed cause and exact dependency behavior
+- The iOS app uses Coil's singleton loader through AppEnvironment; its iOS platform builder previously had no memory-warning response. Coil's memory cache can retain decoded poster/backdrop images even when the OS is already reporting low memory.
+- The pinned dependency is Coil 3.6.3. Its tagged source sets the non-Android default memory-cache percentage to 15% and the non-JVM fallback memory basis to 512 MiB, yielding an initial cache budget of about 76.8 MiB on iOS for this exact dependency version. A newer upstream Nuvio patch introduced a 256 MiB iOS cache cap; that would enlarge this fork's current default and is intentionally NOT ported.
+- Coil 3.6.3's MemoryCache.clear() clears both strong and weak cache entries. It does not clear the disk cache or alter the loader/network configuration.
+- Apple documents UIApplication.didReceiveMemoryWarningNotification as the UIKit low-memory signal and recommends purging cached data that can be recreated or reloaded from disk.
+
+### Integrated change
+- Registered one application-lifetime observer using NSNotificationCenter and NSOperationQueue.mainQueue; the returned observer token is retained so registration is stable and duplicate installation is avoided.
+- On a warning, clear only the current Coil singleton's memory cache. Existing disk cache, decoded images still strongly referenced by active UI, cache sizing, network clients and Android image-loader behavior remain unchanged.
+- Added an iOS test using a real Coil MemoryCache and a small in-memory test image to assert the cache's actual entries and byte count are cleared through the warning handler.
+
+### Research sources
+- Coil 3.6.3 non-Android default memory-cache percentage (15%): https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/nonAndroidMain/kotlin/coil3/util/contexts.kt
+- Coil 3.6.3 non-JVM memory basis (512 MiB fallback): https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/nonJvmCommonMain/kotlin/coil3/util/contexts.nonJvmCommon.kt
+- Coil 3.6.3 MemoryCache clear contract: https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/memory/MemoryCache.kt
+- Coil 3.6.3 synchronized strong/weak cache clearing: https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/memory/RealMemoryCache.kt
+- Apple UIKit memory warning notification: https://developer.apple.com/documentation/uikit/uiapplication/didreceivememorywarningnotification
+- Apple memory-warning response guidance: https://developer.apple.com/documentation/uikit/respondingtomemorywarnings
+- Context7 verified the Coil 3.6.3 memory-cache and Foundation observer APIs; Exa checked Apple low-memory guidance and Coil cache behavior.
+
+### Verification boundary
+- iOS regression test added but NOT run. No Gradle test task, Kotlin/Native compile, Xcode build, iOS simulator/device test, or CI workflow was started. Runtime memory-warning delivery and cache release remain unverified until test/build authorization.

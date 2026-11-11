@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 
 class IosImageMemoryWarningTest {
     @Test
-    fun memoryWarningClearsCachedImagesWithoutChangingDiskData() {
+    fun memoryWarningClearsCachedImages() {
         val cache = MemoryCache.Builder()
             .maxSizeBytes(1024L)
             .build()
