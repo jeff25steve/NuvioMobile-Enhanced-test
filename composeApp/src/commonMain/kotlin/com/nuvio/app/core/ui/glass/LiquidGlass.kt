@@ -15,15 +15,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.DefaultCameraDistance
+import androidx.compose.ui.graphics.DefaultShadowColor
 import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -79,6 +88,120 @@ internal fun shouldUseLiquidGlassRenderer(
 
 fun isLiquidRefractionSupported(): Boolean = isRuntimeShaderSupported()
 
+/**
+ * Builds the inverse of the 2D transform applied by Backdrop's drawBackdrop layerBlock.
+ *
+ * Nuvio's shared backdrop currently has 2D consumers (translation, scale and Z rotation). A
+ * perspective transform or singular scale cannot be inverted safely in this drawing space, so
+ * those cases skip the sampling adjustment rather than applying a corrupt matrix.
+ */
+internal fun inverseBackdropLayerTransform(
+    size: Size,
+    translationX: Float,
+    translationY: Float,
+    scaleX: Float,
+    scaleY: Float,
+    rotationZ: Float,
+    rotationX: Float = 0f,
+    rotationY: Float = 0f,
+    transformOrigin: TransformOrigin = TransformOrigin.Center,
+): Matrix? {
+    val pivotFractionX = transformOrigin.pivotFractionX
+    val pivotFractionY = transformOrigin.pivotFractionY
+    if (
+        !size.width.isFinite() || !size.height.isFinite() ||
+        !translationX.isFinite() || !translationY.isFinite() ||
+        !scaleX.isFinite() || !scaleY.isFinite() || scaleX == 0f || scaleY == 0f ||
+        !rotationZ.isFinite() || !rotationX.isFinite() || !rotationY.isFinite() ||
+        rotationX != 0f || rotationY != 0f ||
+        !pivotFractionX.isFinite() || !pivotFractionY.isFinite()
+    ) {
+        return null
+    }
+
+    if (
+        translationX == 0f && translationY == 0f &&
+        scaleX == 1f && scaleY == 1f && rotationZ == 0f
+    ) {
+        return null
+    }
+
+    val pivotX = size.width * pivotFractionX
+    val pivotY = size.height * pivotFractionY
+    val scaleDeterminant = scaleX * scaleY
+    if (
+        !pivotX.isFinite() || !pivotY.isFinite() ||
+        !scaleDeterminant.isFinite() || scaleDeterminant == 0f
+    ) {
+        return null
+    }
+
+    val inverse = Matrix()
+    inverse.resetToPivotedTransform(
+        pivotX = pivotX,
+        pivotY = pivotY,
+        translationX = translationX,
+        translationY = translationY,
+        rotationZ = rotationZ,
+        scaleX = scaleX,
+        scaleY = scaleY,
+    )
+    if (inverse.values.any { !it.isFinite() }) return null
+
+    inverse.invert()
+    if (inverse.values.any { !it.isFinite() }) return null
+    return inverse
+}
+
+private class NuvioBackdropLayerTransformScope : GraphicsLayerScope {
+    override var size: Size = Size.Unspecified
+    override var density: Float = 1f
+    override var fontScale: Float = 1f
+    override var scaleX: Float = 1f
+    override var scaleY: Float = 1f
+    override var alpha: Float = 1f
+    override var translationX: Float = 0f
+    override var translationY: Float = 0f
+    override var shadowElevation: Float = 0f
+    override var ambientShadowColor: Color = DefaultShadowColor
+    override var spotShadowColor: Color = DefaultShadowColor
+    override var rotationX: Float = 0f
+    override var rotationY: Float = 0f
+    override var rotationZ: Float = 0f
+    override var cameraDistance: Float = DefaultCameraDistance
+    override var transformOrigin: TransformOrigin = TransformOrigin.Center
+    override var shape: Shape = RectangleShape
+    override var clip: Boolean = false
+    override var renderEffect: RenderEffect? = null
+    override var blendMode: BlendMode = BlendMode.SrcOver
+    override var colorFilter: ColorFilter? = null
+    override var compositingStrategy: CompositingStrategy = CompositingStrategy.Auto
+}
+
+private fun inverseBackdropLayerTransform(
+    drawSize: Size,
+    density: Density,
+    layerBlock: GraphicsLayerScope.() -> Unit,
+): Matrix? {
+    val scope = NuvioBackdropLayerTransformScope().apply {
+        size = drawSize
+        this.density = density.density
+        fontScale = density.fontScale
+    }
+    layerBlock.invoke(scope)
+    return inverseBackdropLayerTransform(
+        size = drawSize,
+        translationX = scope.translationX,
+        translationY = scope.translationY,
+        scaleX = scope.scaleX,
+        scaleY = scope.scaleY,
+        rotationZ = scope.rotationZ,
+        rotationX = scope.rotationX,
+        rotationY = scope.rotationY,
+        transformOrigin = scope.transformOrigin,
+    )
+}
+
 interface LiquidGlassBackdropHost {
     val isReady: Boolean
     fun acquire() {}
@@ -114,8 +237,17 @@ class NuvioBackdrop internal constructor(
         val target = coordinates ?: return
         val source = sourceCoordinates ?: return
         if (!target.isAttached || !source.isAttached) return
-        val offset = offsetBetween(source, target)
-        translate(-offset.x, -offset.y) {
+        withTransform({
+            if (layerBlock != null) {
+                inverseBackdropLayerTransform(
+                    drawSize = size,
+                    density = density,
+                    layerBlock = layerBlock,
+                )?.let { transform(it) }
+            }
+            val offset = offsetBetween(source, target)
+            translate(-offset.x, -offset.y)
+        }) {
             drawLayer(graphicsLayer)
         }
     }

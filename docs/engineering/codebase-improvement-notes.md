@@ -2439,3 +2439,26 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - No Gradle task, Kotlin compilation, Android/iOS build, test, simulator/device run, performance trace or CI workflow was started. The implementation remains uncompiled and unexecuted.
 - Next: author deterministic repository tests for profile A -> B -> A with an active task, completion while B is visible, stale callback after resume, and callback races with pause/cancel. Separately design a durable non-secret task-to-profile association and serialized native iOS task registry before attempting process-relaunch reattachment.
 
+
+
+## 11 November 2026 — invert transforms when sampling the shared Liquid Glass backdrop
+
+### Confirmed cause
+
+- Backdrop 2.0.1 forwards `drawBackdrop(layerBlock)` to the supplied `Backdrop.drawBackdrop` implementation. Its standard `LayerBackdrop` applies an inverse graphics transform before aligning the captured source.
+- Nuvio's custom `NuvioBackdrop.drawBackdrop` previously ignored its `layerBlock` argument and only translated the captured source by the layout-coordinate offset.
+- `FloatingNavigationBar` supplies a moving selected-tab lens transform to both its primary selection lens and optional icon-refraction lens. That transform includes `translationX`, `translationY`, `scaleX` and `scaleY`; the custom source sampler therefore did not cancel the target layer transform when sampling behind those moving lenses.
+- The upstream Backdrop 2.0.1 `InverseLayerScope` itself only inverts top-left-anchored rotationZ/scale and ignores translation and `transformOrigin` ([Kyant0/AndroidLiquidGlass issue #132](https://github.com/Kyant0/AndroidLiquidGlass/issues/132)). Nuvio's custom renderer can avoid that limitation without changing the pinned dependency.
+
+### Changes
+
+- The custom sampler now evaluates the supplied layer callback with the actual draw size, density and font scale.
+- It constructs the inverse from Compose's own pivoted graphics-layer matrix, including 2D translation, non-uniform scale, Z rotation and `transformOrigin`, then applies it before the existing source-to-target coordinate offset.
+- Non-finite values, zero scales and unsupported X/Y perspective rotations are rejected rather than emitting an invalid inverse matrix. Current Nuvio callers use only the supported 2D transform properties.
+- Added common-source math regression coverage for custom/default pivots, translation, non-uniform scaling, Z rotation, identity, singular scale, unsupported 3D rotation and non-finite values. No dependency or platform-specific code changed.
+
+### Verification boundary
+
+- Source-level contract checked against the pinned Backdrop 2.0.1 `Backdrop`, `DrawBackdropModifier`, `LayerBackdrop` and `InverseLayerScope` implementations and AndroidX Compose's `Matrix.resetToPivotedTransform` / `Matrix.invert` implementation (`resetToPivotedTransform` is available since Compose UI 1.8.0; the project pins Compose Multiplatform 1.13.0-beta01).
+- Regression tests are added but **not executed**. The explicit restriction against build-triggering tests, builds and CI remains in force. No Kotlin compilation, Android/iOS build, simulator or device rendering check was started.
+- Android and iOS both use this common renderer, but actual pixel alignment and animated rendering remain unverified on devices. The math tests validate inverse-matrix round trips, not GPU output or frame-time improvement.
