@@ -2515,3 +2515,38 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Added common tests for concurrent callers, one-time startup, forced-refresh coalescing/confirmation merging, and recovery after an aborted probe.
 - Tests are NOT run because build-triggering tests/builds/CI remain disallowed. Consequently TDD red/green execution and multiplatform compilation have not been observed in this cycle.
 - Source review verifies synchronization uses the project's existing atomicfu common-code dependency; Android/iOS runtime behavior remains unverified pending authorised test runs.
+
+
+## 11 November 2026 — preserve cancellation and bound connectivity probe responses
+
+### Confirmed cause and behaviour
+- `NetworkStatusRepository.probeReachable()` wrapped the suspending `httpRequestRaw()` operation in Kotlin's standard `runCatching`. That catches `Throwable`, including `CancellationException`, and converted a cancelled connectivity probe into an ordinary `false` result. A caller whose probe was no longer needed could consequently continue through `probeCondition()` and publish an offline-like state instead of unwinding.
+- Both mobile transports support cancellation: Android cancels its OkHttp call when the calling Job is cancelled and reports a cancellation exception; iOS delegates to Ktor's cancellable request execution.
+- The probe only consumed `RawHttpResponse.status`, but left the raw response reader at its default 1 MiB cap. Response bytes and text were therefore retained despite never being read by the connectivity check.
+
+### Integrated change
+- Reused the existing common `runCatchingUnlessCancelled` helper and introduced the small, testable `probeHttpReachability` boundary. Ordinary transport exceptions still map to unreachable; the probe's own `withTimeoutOrNull` still maps its timeout to unreachable; caller cancellation propagates unchanged.
+- Set `maxResponseBodyBytes = 0` for the actual status-only request. The Android/iOS readers retain no response body and only perform their existing one-byte truncation probe; response status, endpoint order, timeout duration, request headers and the accepted HTTP status range (100–599) are unchanged.
+- Added common regression cases for ordinary errors, HTTP 503 reachability, invalid status values, the probe's own timeout, and cancellation of an in-flight caller.
+
+### Evidence and verification boundary
+- Confirmed the source-level cancellation contract in Kotlin's [cancellation and timeouts guidance](https://kotlinlang.org/docs/cancellation-and-timeouts.html), [runCatching API documentation](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/run-catching.html), and kotlinx.coroutines maintainers' [runCatching cancellation discussion](https://github.com/Kotlin/kotlinx.coroutines/issues/1814).
+- Traced the Android OkHttp cancellation callback and iOS Ktor `prepareRequest().execute` path in the pinned branch. Verified both platform actuals honour the zero-byte limit without changing response status handling.
+- Regression tests are added but NOT run. No Gradle test, compilation, Android/iOS build, device test or CI workflow was started. Red/green execution and multiplatform compilation remain unverified by instruction.
+
+## 11 November 2026 — isolate Supabase rate-limit cooldowns by client generation
+
+### Confirmed cause
+- `SupabaseProvider` owned one process-wide `BackendRateLimitCoordinator` and injected it into every newly created Supabase/Ktor client. `reset()` cleared that shared coordinator before closing the previous client.
+- Ktor 3.4.1 documents and implements `HttpClient.close()` as a non-blocking shutdown that prevents new requests but does not terminate already-active requests. An in-flight response from the old client can therefore still reach its installed `BackendRateLimitPlugin` after reset and call `record()` on the same coordinator that the replacement client's requests use.
+- A late `Retry-After` response from the old backend could consequently re-establish a cooldown after reset and delay traffic to the newly configured backend. This is a backend-generation isolation failure, not a reason to remove rate limiting.
+
+### Integrated change
+- Moved `BackendRateLimitCoordinator` ownership into `createClient()`. Each Supabase/Ktor client now gets an independent coordinator, while all requests within that cached client continue sharing the same rate-limit cooldown.
+- Removed the reset-time clear of the former shared coordinator. Closing an old client can no longer mutate the replacement client's cooldown; old in-flight responses remain scoped to the old plugin instance.
+- Preserved Retry-After parsing, maximum/fallback delays, jitter, retry eligibility, request ordering within one client, Supabase endpoints, credentials, client caching/reset behaviour and platform engines. No dependency or backend configuration changed.
+- Added common coverage demonstrating that recording a cooldown in an old client's coordinator does not delay a newly created client's coordinator.
+
+### Research and verification boundary
+- Cross-checked the project's pinned Ktor 3.4.1 against the official [Ktor client lifecycle documentation](https://ktor.io/docs/client-create-and-configure.html) and tagged [Ktor 3.4.1 HttpClient source](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/HttpClient.kt). Context7 documentation confirms client plugins are installed on a client instance; Exa independently surfaced the official Ktor plugin implementation. The current `enhanced` branch has the same shared-coordinator design, so no upstream fix was being duplicated.
+- The new unit test and a complete source/diff review are static evidence only. No tests, compilation, Android/iOS build, runtime backend-switch exercise or CI was started. The test remains unexecuted and the change is not build-verified.

@@ -25,7 +25,6 @@ import kotlin.time.Duration.Companion.seconds
 object SupabaseProvider {
     private val clientLock = SynchronizedObject()
     private var cachedClient: SupabaseClient? = null
-    private val rateLimitCoordinator = BackendRateLimitCoordinator()
 
     @OptIn(SupabaseInternal::class)
     val client: SupabaseClient
@@ -36,6 +35,9 @@ object SupabaseProvider {
     @OptIn(SupabaseInternal::class)
     private fun createClient(): SupabaseClient {
         val configuration = ServerConfigurationRepository.active.value
+        // Ktor close() leaves in-flight requests running. Isolate each client's
+        // cooldown so a late response from an old backend cannot throttle its replacement.
+        val rateLimitCoordinator = BackendRateLimitCoordinator()
         val userAgent = "NuvioMobile/${AppVersionConfig.VERSION_NAME.ifBlank { "dev" }}"
         lateinit var client: SupabaseClient
         client = createSupabaseClient(
@@ -135,7 +137,6 @@ object SupabaseProvider {
         val previous = synchronized(clientLock) {
             cachedClient.also {
                 cachedClient = null
-                rateLimitCoordinator.clear()
             }
         }
         previous?.close()

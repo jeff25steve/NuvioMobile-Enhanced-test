@@ -65,4 +65,32 @@ class BackendRateLimitTest {
 
         assertEquals(listOf(5_000L), waits)
     }
+
+    @Test
+    fun `separate client coordinators do not share backend cooldowns`() = runBlocking {
+        var now = 1_000L
+        val oldClientWaits = mutableListOf<Long>()
+        val newClientWaits = mutableListOf<Long>()
+        val oldClientCoordinator = BackendRateLimitCoordinator(
+            currentTimeMillis = { now },
+            pause = { waitMs ->
+                oldClientWaits += waitMs
+                now += waitMs
+            },
+        )
+        val newClientCoordinator = BackendRateLimitCoordinator(
+            currentTimeMillis = { now },
+            pause = { waitMs ->
+                newClientWaits += waitMs
+                now += waitMs
+            },
+        )
+
+        oldClientCoordinator.record("30")
+        newClientCoordinator.awaitPermission()
+        oldClientCoordinator.awaitPermission()
+
+        assertEquals(emptyList(), newClientWaits)
+        assertEquals(listOf(30_000L), oldClientWaits)
+    }
 }

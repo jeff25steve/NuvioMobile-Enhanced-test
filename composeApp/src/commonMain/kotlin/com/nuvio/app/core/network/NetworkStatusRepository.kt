@@ -1,6 +1,7 @@
 package com.nuvio.app.core.network
 
 import androidx.compose.runtime.Composable
+import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.features.addons.httpRequestRaw
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
@@ -154,20 +155,17 @@ object NetworkStatusRepository {
     private suspend fun probeReachable(
         url: String,
         headers: Map<String, String> = emptyMap(),
-    ): Boolean {
-        val response = withTimeoutOrNull(REQUEST_TIMEOUT_MS) {
-            runCatching {
-                httpRequestRaw(
-                    method = "GET",
-                    url = url,
-                    headers = headers,
-                    body = "",
-                )
-            }.getOrNull()
-        } ?: return false
-
-        return response.status in 100..599
-    }
+    ): Boolean =
+        probeHttpReachability(REQUEST_TIMEOUT_MS) {
+            httpRequestRaw(
+                method = "GET",
+                url = url,
+                headers = headers,
+                body = "",
+                // Connectivity only needs the status code; do not buffer an unused response body.
+                maxResponseBodyBytes = 0,
+            ).status
+        }
 
     private fun NetworkCondition.isOfflineLike(): Boolean =
         this == NetworkCondition.NoInternet || this == NetworkCondition.ServersUnreachable
@@ -226,3 +224,21 @@ internal class NetworkRefreshGate {
         }
     }
 }
+
+
+/**
+ * Executes a status-only connectivity probe.
+ *
+ * Ordinary transport failures and this operation's own timeout mean that the
+ * endpoint is not reachable. Cancellation from the caller must propagate so
+ * obsolete lifecycle work cannot publish a stale offline state.
+ */
+internal suspend fun probeHttpReachability(
+    timeoutMillis: Long,
+    requestStatus: suspend () -> Int,
+): Boolean =
+    withTimeoutOrNull(timeoutMillis) {
+        val status = runCatchingUnlessCancelled { requestStatus() }.getOrNull()
+            ?: return@withTimeoutOrNull false
+        status in 100..599
+    } ?: false
