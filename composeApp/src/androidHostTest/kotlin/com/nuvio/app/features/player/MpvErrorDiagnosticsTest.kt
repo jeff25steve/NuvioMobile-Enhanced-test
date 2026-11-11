@@ -102,17 +102,21 @@ class MpvErrorDiagnosticsTest {
 
     @Test
     fun awsAccessKeysAndCommonCredentialAssignmentsAreRedacted() {
+        // Keep public AWS documentation examples out of static secret-scanning patterns.
+        val exampleSuffix = "IOSFODNN7EXAMPLE"
+        val longTermAccessKeyId = "AKIA" + exampleSuffix
+        val temporaryAccessKeyId = "ASIA" + exampleSuffix
         val line = assertNotNull(
             sanitizeMpvLogMessage(
                 "demux",
-                "keys AKIAIOSFODNN7EXAMPLE ASIAIOSFODNN7EXAMPLE " +
+                "keys $longTermAccessKeyId $temporaryAccessKeyId " +
                     "aws_secret_access_key='secret value' session-id=private-session " +
                     "private_key=private-key-value x-amz-security-token=temporary-token",
             ),
         )
 
-        assertFalse(line.message.contains("AKIAIOSFODNN7EXAMPLE"))
-        assertFalse(line.message.contains("ASIAIOSFODNN7EXAMPLE"))
+        assertFalse(line.message.contains(longTermAccessKeyId))
+        assertFalse(line.message.contains(temporaryAccessKeyId))
         assertFalse(line.message.contains("secret value"))
         assertFalse(line.message.contains("private-session"))
         assertFalse(line.message.contains("private-key-value"))

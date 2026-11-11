@@ -2899,3 +2899,27 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Verification boundary
 - Regression tests were authored before production changes in this patch, but deliberately NOT executed because the current instruction prohibits build-triggering tests. No Gradle task, compilation, Android/iOS build, simulator/device test, or CI workflow was started.
 - Source changes and the final commit diff were inspected remotely; compile-time compatibility and runtime race behavior remain unverified pending explicit authorization.
+
+
+## 11 November 2026 — resolve AWS secret-scanning test-fixture false positive
+
+### Root cause
+- The GitHub email points to `MpvErrorDiagnosticsTest.kt:108` in commit `41bbbd5568334917fe159b32c0efbd914f2f38bd` (`fix(android): redact credentials from playback diagnostics`, 17:00:54 UTC).
+- The test contained the exact public AWS documentation example identifiers for both long-term (`AKIA`) and STS temporary (`ASIA`) access-key IDs. They were sanitizer test fixtures, not account-issued credentials.
+- The accompanying secret-access-key, session, private-key and security-token assignments were explicit placeholder strings (for example, `secret value` and `temporary-token`); no real AWS secret access key or STS session token was present in this test input.
+- AWS publishes these identifiers as examples in its programmatic-credentials documentation. GitHub's supported pattern list includes AWS temporary access-key IDs, so scanning the static examples generated a provider-pattern alert. The alert email's generic wording did not mean these public examples were live credentials.
+
+### Integrated correction
+- The test now assembles the same AWS documentation example identifiers from separate prefix and suffix strings at runtime. The sanitizer still receives the full key-shaped sample values, so the regression remains meaningful without placing a complete provider-shaped identifier in the source file.
+- No production logging sanitizer, playback behavior, dependency, permission, credential storage, or AWS configuration was changed.
+- No history rewrite or force-push was performed. Commit `41bbbd55` remains an ancestor, so GitHub's history-based alert may remain open until it is explicitly resolved. Recommended resolution: `used_in_tests`, with a comment explaining that the source values exactly match AWS's published examples. Do not select `revoked`: there was no real credential to revoke.
+
+### Sources
+- AWS programmatic credentials documentation (contains the exact public `AKIA` and `ASIA` examples and explains temporary credential components): https://docs.aws.amazon.com/IAM/latest/UserGuide/security-creds-programmatic-access.html
+- GitHub supported secret-scanning patterns (includes `aws_temporary_access_key_id`): https://docs.github.com/en/code-security/reference/secret-security/supported-secret-scanning-patterns
+- GitHub documents `used_in_tests` as an available alert resolution: https://docs.github.com/en/rest/secret-scanning/secret-scanning
+
+### Verification boundary
+- Static inspection confirms the updated source no longer contains a contiguous AWS access-key identifier pattern and still constructs the same two documented examples at runtime. Regression tests were not executed.
+- All current workflow triggers were inspected: test/release builds are `workflow_dispatch`; the full-debug build is a pull-request workflow limited to target branch `enhanced`; there is no push-triggered build workflow for `main-build-testing`. The commit includes `[skip ci]` as an additional safeguard.
+- No Gradle task, test, Android/iOS build, simulator/device test, or CI workflow was started.
