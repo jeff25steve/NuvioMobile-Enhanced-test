@@ -35,6 +35,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
 
+internal object AndroidDownloadSchedulerLifecycleLock {
+    private val monitor = Any()
+
+    fun <T> withLock(block: () -> T): T = synchronized(monitor, block)
+}
+
 internal class AndroidDownloadScheduler(val context: Context) {
     val store = AndroidDownloadStore(File(context.filesDir, "download-transfers"))
     val directory = File(context.filesDir, "downloads")
@@ -46,44 +52,50 @@ internal class AndroidDownloadScheduler(val context: Context) {
     }
 
     fun enqueue(item: DownloadItem): AndroidDownloadTransfer {
-        val previous = store.get(item.fileName)
         val exportTreeUri = DownloadsSettingsRepository.run {
             ensureLoaded()
             downloadLocationUri.value
         }?.takeIf { it.isNotBlank() }
-        val transfer = store.begin(item, exportTreeUri)
-        previous?.takeIf { it.item.id == item.id }?.partialDocumentUri
-            ?.takeIf { it != transfer.partialDocumentUri }
-            ?.let { stale -> cleanupScope.launch { AndroidDownloadExport.delete(stale) } }
-        val existing = previous?.generation == transfer.generation
-        if (existing && Build.VERSION.SDK_INT >= 34) return transfer
-        try {
-            if (Build.VERSION.SDK_INT >= 34) {
-                check(jobScheduler().schedule(buildJob(transfer)) == JobScheduler.RESULT_SUCCESS) {
-                    "Android could not start the download. Open the app and try again."
-                }
-            } else {
-                val work = OneTimeWorkRequestBuilder<DownloadsTransferWorker>()
-                    .setInputData(workDataOf(FILE_NAME to item.fileName, GENERATION to transfer.generation))
-                    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                    .build()
-                val operation = WorkManager.getInstance(context).enqueueUniqueWork(
-                    workName(transfer), if (existing) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE, work,
-                )
-                operation.result.addListener({
-                    try {
-                        operation.result.get()
-                    } catch (error: Exception) {
-                        fail(transfer, error)
-                        notifyCurrent(item.fileName)
+        var stalePartialUri: String? = null
+        val result = AndroidDownloadSchedulerLifecycleLock.withLock {
+            val previous = store.get(item.fileName)
+            val transfer = store.begin(item, exportTreeUri)
+            stalePartialUri = previous?.takeIf { it.item.id == item.id }?.partialDocumentUri
+                ?.takeIf { it != transfer.partialDocumentUri }
+            val existing = previous?.generation == transfer.generation
+            if (existing && Build.VERSION.SDK_INT >= 34) return@withLock transfer
+            try {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    check(jobScheduler().schedule(buildJob(transfer)) == JobScheduler.RESULT_SUCCESS) {
+                        "Android could not start the download. Open the app and try again."
                     }
-                }, ContextCompat.getMainExecutor(context))
+                } else {
+                    val work = OneTimeWorkRequestBuilder<DownloadsTransferWorker>()
+                        .setInputData(workDataOf(FILE_NAME to item.fileName, GENERATION to transfer.generation))
+                        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                        .build()
+                    val operation = WorkManager.getInstance(context).enqueueUniqueWork(
+                        workName(transfer), if (existing) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE, work,
+                    )
+                    operation.result.addListener({
+                        try {
+                            operation.result.get()
+                        } catch (error: Exception) {
+                            fail(transfer, error)
+                            notifyCurrent(item.fileName)
+                        }
+                    }, ContextCompat.getMainExecutor(context))
+                }
+            } catch (error: Exception) {
+                fail(transfer, error)
             }
-        } catch (error: Exception) {
-            fail(transfer, error)
+            store.get(item.fileName) ?: transfer
         }
-        return store.get(item.fileName) ?: transfer
+        stalePartialUri?.let { stale ->
+            cleanupScope.launch { AndroidDownloadExport.delete(stale) }
+        }
+        return result
     }
 
     @RequiresApi(34)
@@ -118,25 +130,34 @@ internal class AndroidDownloadScheduler(val context: Context) {
     }
 
     fun reschedule(fileName: String) {
-        val transfer = store.get(fileName) ?: return
-        if (transfer.item.status != DownloadStatus.Downloading) return
-        val scheduled = if (Build.VERSION.SDK_INT >= 34) {
-            try {
-                jobScheduler().schedule(buildJob(transfer)) == JobScheduler.RESULT_SUCCESS
-            } catch (error: Exception) {
-                Log.w(TAG, "Could not reschedule download $fileName", error)
-                false
-            }
-        } else false
-        if (!scheduled) pause(fileName)
+        AndroidDownloadSchedulerLifecycleLock.withLock {
+            val transfer = store.get(fileName) ?: return@withLock
+            if (transfer.item.status != DownloadStatus.Downloading) return@withLock
+            val scheduled = if (Build.VERSION.SDK_INT >= 34) {
+                try {
+                    jobScheduler().schedule(buildJob(transfer)) == JobScheduler.RESULT_SUCCESS
+                } catch (error: Exception) {
+                    Log.w(TAG, "Could not reschedule download $fileName", error)
+                    false
+                }
+            } else false
+            if (!scheduled) pauseLocked(fileName, transfer.generation)
+        }
     }
 
     fun pause(fileName: String) {
-        val transfer = store.get(fileName) ?: return
-        pause(fileName, transfer.generation)
+        AndroidDownloadSchedulerLifecycleLock.withLock {
+            val transfer = store.get(fileName) ?: return@withLock
+            pauseLocked(fileName, transfer.generation)
+        }
     }
 
-    fun pause(fileName: String, generation: String): AndroidDownloadTransfer? {
+    fun pause(fileName: String, generation: String): AndroidDownloadTransfer? =
+        AndroidDownloadSchedulerLifecycleLock.withLock {
+            pauseLocked(fileName, generation)
+        }
+
+    private fun pauseLocked(fileName: String, generation: String): AndroidDownloadTransfer? {
         val transfer = store.get(fileName)?.takeIf { it.generation == generation } ?: return null
         val paused = store.pauseIfDownloading(fileName, generation)
         if (paused != null) {
@@ -151,9 +172,12 @@ internal class AndroidDownloadScheduler(val context: Context) {
     }
 
     fun remove(fileName: String) {
-        val transfer = store.get(fileName)
-        store.remove(fileName)
-        transfer?.let(::cancelScheduled)
+        val transfer = AndroidDownloadSchedulerLifecycleLock.withLock {
+            val current = store.get(fileName)
+            store.remove(fileName)
+            current?.let(::cancelScheduled)
+            current
+        }
         transfer?.let { DownloadsLiveStatusPlatform.removeNotification(it.item.id) }
         cleanupScope.launch {
             lock(fileName).withLock {
@@ -167,6 +191,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
     }
 
     private fun cancelScheduled(transfer: AndroidDownloadTransfer) {
+        // Callers must hold AndroidDownloadSchedulerLifecycleLock across the state change and this cancellation.
         if (Build.VERSION.SDK_INT >= 34) jobScheduler().cancel(transfer.jobId)
         else WorkManager.getInstance(context).cancelUniqueWork(workName(transfer))
     }

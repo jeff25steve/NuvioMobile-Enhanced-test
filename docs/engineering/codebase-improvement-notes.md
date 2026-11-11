@@ -2462,3 +2462,38 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Source-level contract checked against the pinned Backdrop 2.0.1 `Backdrop`, `DrawBackdropModifier`, `LayerBackdrop` and `InverseLayerScope` implementations and AndroidX Compose's `Matrix.resetToPivotedTransform` / `Matrix.invert` implementation (`resetToPivotedTransform` is available since Compose UI 1.8.0; the project pins Compose Multiplatform 1.13.0-beta01).
 - Regression tests are added but **not executed**. The explicit restriction against build-triggering tests, builds and CI remains in force. No Kotlin compilation, Android/iOS build, simulator or device rendering check was started.
 - Android and iOS both use this common renderer, but actual pixel alignment and animated rendering remain unverified on devices. The math tests validate inverse-matrix round trips, not GPU output or frame-time improvement.
+
+## 11 November 2026 — serialized Android download scheduler lifecycle transitions
+
+### Confirmed cause
+- AndroidDownloadStore.begin() reuses a transfer's jobId when a paused item is resumed, but assigns the new operation a different generation.
+- Previously, pause() persisted the Paused state and then cancelled its scheduler entry outside any lock shared with enqueue(). A concurrent resume could schedule the new generation under the same job ID before the old pause cancelled that ID. The equivalent pre-Android-14 WorkManager name is also derived from that reused ID.
+- Android documents that JobScheduler.schedule() replaces a scheduled job with the same ID and stops it if running, while cancellation addresses that job ID rather than the transfer generation: https://developer.android.com/reference/android/app/job/JobScheduler.
+- remove() had a state-removal/cancellation gap, and reschedule() could race a user pause between its state check and scheduler operation.
+
+### Integrated change
+- Added a process-wide monitor shared by scheduler instances and serialized the state/persistence plus scheduling transitions in enqueue(), reschedule(), pause() and remove().
+- For API 34+, the state transition and matching JobScheduler cancellation now happen in the same critical section. For older Android versions, the pinned androidx.work:work-runtime-ktx dependency is 2.10.3; WorkManager cancellation and unique enqueue return asynchronous Operations but are submitted through the same serial task executor, preserving the call order established by the lifecycle monitor.
+- Kept network transfer execution, per-file transfer mutexes, subtitle/file cleanup, stale SAF document deletion and notification removal outside the monitor. Transfer generations, scheduler IDs/names, namespace, WorkManager policies and persistence format are unchanged.
+- Added Android host-test coverage proving that a second thread blocks while the shared lifecycle critical section is held. This test verifies the lock contract, not a full JobScheduler/WorkManager end-to-end interleaving.
+
+### Evidence and verification boundary
+- Confirmed the reused job ID and generation behavior in AndroidDownloadStore, and traced enqueue/pause/remove/reschedule through AndroidDownloadScheduler, DownloadsTransferJobService, DownloadsTransferWorker and DownloadsPlatformDownloader.
+- WorkManager 2.10.3 is declared in gradle/libs.versions.toml. The AndroidX WorkManager implementation routes enqueue and cancellation operations through the same serial task executor, whose contract requires serial execution. References: https://github.com/androidx/androidx/blob/d288d9b5f3246be8b8e0d3e858de029edd4e183a/work/work-runtime/src/main/java/androidx/work/impl/WorkManagerImpl.java; https://github.com/androidx/androidx/blob/d288d9b5f3246be8b8e0d3e858de029edd4e183a/work/work-runtime/src/main/java/androidx/work/impl/WorkContinuationImpl.java; https://github.com/androidx/androidx/blob/d288d9b5f3246be8b8e0d3e858de029edd4e183a/work/work-runtime/src/main/java/androidx/work/impl/utils/taskexecutor/TaskExecutor.java.
+- Tests are present but NOT run. No Gradle test task, Kotlin compilation, Android/iOS build, simulator/device session or CI workflow was started, as instructed.
+- The change is committed directly to main-build-testing; no PR was created. Repository contribution policy still applies to any later PR submission.
+
+## 11 November 2026 — remove redundant full-list status indexing from download progress publication
+
+### Confirmed hot path
+- Android and iOS progress callbacks update one DownloadItem at a time through updateOwnedDownload(); the Android observer emits progress on its existing reporting cadence.
+- publish() previously built an associate map of all visible download statuses and then scanned the updated list on every publication solely to detect a transition into Completed. Ordinary progress updates therefore allocated a temporary O(n) map and performed a second O(n) scan despite changing one targeted item.
+
+### Integrated change
+- Capture the target item's status transition while its existing immutable-list transform is already executing, then pass the transition flag to publish(). replaceItem() captures its target's prior status in the same transform, avoiding an additional scan.
+- Preserve the unseen-completion rule: a missing or non-Completed status moving to Completed is new; Completed-to-Completed is not. Inactive-profile updates still do not modify the visible profile's unseen-completion flag.
+- Added common unit coverage for null, Downloading, Paused, Failed and already-Completed transitions. JSON persistence, ordering, list publication, Live Status notifications, callbacks and UI remain unchanged.
+
+### Verification boundary
+- Source review confirms the per-publication status map and second scan are removed while the existing Live Status notification refresh remains in publish(). The structural allocation/traversal reduction is not presented as a measured user-visible speedup; profiling remains necessary for that claim.
+- Tests are added but NOT run. No build-triggering checks or CI were started.

@@ -3,6 +3,8 @@ package com.nuvio.app.features.downloads
 import android.app.job.JobInfo
 import org.robolectric.RuntimeEnvironment
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -219,5 +221,46 @@ class AndroidDownloadLifecycleTest {
 
         assertEquals(DownloadStatus.Completed, scheduler.store.get(transfer.item.fileName)?.item?.status)
         assertEquals(10L, scheduler.store.get(transfer.item.fileName)?.item?.downloadedBytes)
+    }
+
+    @Test
+    fun schedulerLifecycleLockSerializesCriticalSectionsAcrossThreads() {
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondAttempting = CountDownLatch(1)
+        val secondEntered = CountDownLatch(1)
+
+        val first = Thread {
+            AndroidDownloadSchedulerLifecycleLock.withLock {
+                firstEntered.countDown()
+                releaseFirst.await(5, TimeUnit.SECONDS)
+            }
+        }.apply { start() }
+
+        assertTrue(firstEntered.await(2, TimeUnit.SECONDS))
+        val second = Thread {
+            secondAttempting.countDown()
+            AndroidDownloadSchedulerLifecycleLock.withLock { secondEntered.countDown() }
+        }.apply { start() }
+
+        try {
+            assertTrue(secondAttempting.await(2, TimeUnit.SECONDS))
+            val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+            while (secondEntered.count > 0L &&
+                second.state != Thread.State.BLOCKED &&
+                System.nanoTime() < deadlineNanos
+            ) {
+                Thread.yield()
+            }
+            assertEquals(Thread.State.BLOCKED, second.state)
+        } finally {
+            releaseFirst.countDown()
+        }
+
+        assertTrue(secondEntered.await(2, TimeUnit.SECONDS))
+        first.join(2_000)
+        second.join(2_000)
+        assertFalse(first.isAlive)
+        assertFalse(second.isAlive)
     }
 }

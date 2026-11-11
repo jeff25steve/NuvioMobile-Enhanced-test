@@ -107,12 +107,17 @@ object DownloadsRepository {
         } else {
             DownloadsCodec.decodeItems(DownloadsStorage.loadPayload(owner.profileIndex).orEmpty())
         }
-        val updatedItems = updateProfileDownloadItem(sourceItems, downloadId, transform) ?: return false
+        var newlyCompleted = false
+        val updatedItems = updateProfileDownloadItem(sourceItems, downloadId) { current ->
+            transform(current).also { updated ->
+                newlyCompleted = newlyCompleted || isCompletedTransition(current.status, updated.status)
+            }
+        } ?: return false
         DownloadsStorage.savePayload(
             profileIndex = owner.profileIndex,
             payload = DownloadsCodec.encodeItems(updatedItems),
         )
-        if (updateVisibleState) publish(updatedItems)
+        if (updateVisibleState) publish(updatedItems, newlyCompleted)
         return true
     }
 
@@ -512,15 +517,16 @@ object DownloadsRepository {
     }
 
     private fun replaceItem(item: DownloadItem) {
-        val updated = updateProfileDownloadItem(_uiState.value.items, item.id) { item } ?: return
-        publish(updated)
+        var previousStatus: DownloadStatus? = null
+        val updated = updateProfileDownloadItem(_uiState.value.items, item.id) { current ->
+            previousStatus = current.status
+            item
+        } ?: return
+        publish(updated, isCompletedTransition(previousStatus, item.status))
     }
 
-    private fun publish(items: List<DownloadItem>) {
-        val previousStatuses = _uiState.value.items.associate { it.id to it.status }
-        if (items.any { it.status == DownloadStatus.Completed && previousStatuses[it.id].let { status -> status != null && status != DownloadStatus.Completed } }) {
-            _hasUnseenCompleted.value = true
-        }
+    private fun publish(items: List<DownloadItem>, newlyCompleted: Boolean = false) {
+        if (newlyCompleted) _hasUnseenCompleted.value = true
         _uiState.value = DownloadsUiState(
             items = items,
         )
@@ -697,3 +703,6 @@ private fun String.isSupportedDownloadUrl(): Boolean {
     if (normalized.endsWith(".torrent") || normalized.contains(".torrent?")) return false
     return normalized.startsWith("http://") || normalized.startsWith("https://")
 }
+
+internal fun isCompletedTransition(previousStatus: DownloadStatus?, updatedStatus: DownloadStatus): Boolean =
+    previousStatus != DownloadStatus.Completed && updatedStatus == DownloadStatus.Completed
