@@ -1918,9 +1918,10 @@ private fun LibmpvPlayerSurface(
                         }
                     }
                     MPV.mpvEvent.MPV_EVENT_END_FILE -> {
-                        val endReason = data.nodeString("reason")
-                        val fileError = data.nodeString("file_error")
-                        val endFileJson = data.toJson()
+                        val endDetails = sanitizeMpvEndFileDetails(
+                            reason = data.nodeString("reason"),
+                            fileError = data.nodeString("file_error"),
+                        )
                         coroutineScope.launch(Dispatchers.Main.immediate) {
                             val snapshot = view.snapshot()
                             Log.w(
@@ -1929,14 +1930,14 @@ private fun LibmpvPlayerSurface(
                                     "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)} " +
                                     "positionMs=${snapshot.positionMs} bufferedMs=${snapshot.bufferedPositionMs} " +
                                     "durationMs=${snapshot.durationMs} eof=${snapshot.isEnded} " +
-                                    "data=${diagnosticPlayerMessage(endFileJson)}",
+                                    "details=${endDetails.formatted()}",
                             )
                             InAppLogger.info("MPV/Android", "event=end-file")
                             latestOnSnapshot.value(snapshot)
                             nowPlayingController?.syncPlayback(snapshot)
                             view.keepScreenOn = snapshot.isPlaying || snapshot.isLoading
-                            if (endReason.equals("error", ignoreCase = true)) {
-                                val safeFileError = sanitizeMpvErrorText(fileError)
+                            if (endDetails.reason == "error") {
+                                val safeFileError = endDetails.fileError
                                 Log.e(
                                     PLAYER_DIAGNOSTIC_TAG,
                                     "mpv_error attempt=${playbackDiagnostics.attempt} " +

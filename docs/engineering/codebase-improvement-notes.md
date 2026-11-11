@@ -2784,3 +2784,18 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - XCTest cases added but NOT run. No Xcode build, iOS test plan, simulator/device test, Gradle build, or CI workflow was started, as requested. The imported SDK symbol and actual low-memory playback/rewind tradeoff remain uncompiled and unmeasured until build/test authorization.
+
+
+## 11 November 2026 — close remaining libmpv end-file diagnostic leakage paths
+
+### Review finding
+- The first libmpv redaction pass sanitized the player-facing error and log-observer callback, but the same END_FILE handler also serialized the raw MPV event node with `data.toJson()` and wrote it through the old truncation-only diagnostic formatter. Because the event contains `file_error`, this left a path around the new sanitizer: a remote URL or credential embedded in the failure string could still be written to Logcat.
+- The first secret matcher also handled colon-form cookie/auth headers but not assignment-style `cookie=`, `Authorization=Basic`, or common cloud/client credential fields.
+
+### Follow-up change
+- Replaced raw END_FILE JSON logging with a small structured summary containing only an allow-listed reason (`eof`, `stop`, `quit`, `error`, `redirect`) and the sanitized file-error value. Unrecognized native reason strings become `unknown`; the JSON event node is no longer logged.
+- Expanded cookie filtering to drop both colon and equals forms; added Basic/Bearer authorization assignment handling and redaction of credential, client-secret, session/session-id, and security-token assignments.
+- Kept the generic localized error fallback, bounded recent error-log window, observer cleanup and player event ordering unchanged.
+
+### Verification boundary
+- Regression coverage added for assignment-style cookie/auth secrets, common credential fields, URL-bearing END_FILE summaries and unrecognized reason values. Tests were NOT run; no test, build, or CI task was started.

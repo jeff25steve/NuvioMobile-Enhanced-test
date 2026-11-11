@@ -23,6 +23,9 @@ internal fun sanitizeMpvLogMessage(prefix: String, value: String): SafeMpvLogMes
     message = MPV_AUTH_HEADER.replace(message) { match ->
         match.groupValues[1] + ": [redacted]"
     }
+    message = MPV_AUTH_ASSIGNMENT.replace(message) { match ->
+        match.groupValues[1] + "=[redacted]"
+    }
     message = MPV_SECRET_ASSIGNMENT.replace(message) { match ->
         match.groupValues[1] + "=[redacted]"
     }
@@ -40,19 +43,48 @@ internal fun sanitizeMpvLogMessage(prefix: String, value: String): SafeMpvLogMes
 internal fun sanitizeMpvErrorText(value: String?): String? =
     value?.let { sanitizeMpvLogMessage("mpv", it)?.message }
 
+internal data class SafeMpvEndFileDetails(
+    val reason: String,
+    val fileError: String?,
+) {
+    fun formatted(): String =
+        if (fileError == null) "reason=$reason" else "reason=$reason fileError=$fileError"
+}
+
+internal fun sanitizeMpvEndFileDetails(
+    reason: String?,
+    fileError: String?,
+): SafeMpvEndFileDetails {
+    val safeReason = when (reason?.lowercase()) {
+        "eof" -> "eof"
+        "stop" -> "stop"
+        "quit" -> "quit"
+        "error" -> "error"
+        "redirect" -> "redirect"
+        else -> "unknown"
+    }
+    return SafeMpvEndFileDetails(
+        reason = safeReason,
+        fileError = sanitizeMpvErrorText(fileError),
+    )
+}
+
 internal const val MPV_DIAGNOSTIC_MESSAGE_LIMIT = 160
 internal const val MAX_RECENT_MPV_ERROR_LOGS = 3
 
 private val MPV_WHITESPACE = Regex("\\s+")
-private val MPV_COOKIE_HEADER = Regex("""(?i)\b(?:cookie|set-cookie)\s*:""")
+private val MPV_COOKIE_HEADER = Regex("""(?i)\b(?:cookie|set-cookie)\s*[:=]""")
 private val MPV_SOURCE_URL = Regex("""(?i)\b[a-z][a-z0-9+.-]*://[^\s"'<>]+""")
 private val MPV_QUERY_STRING = Regex("""([^\s"'<>?]+)\?[^\s"'<>]+""")
 private val MPV_CREDENTIALS = Regex("""(?i)\b[^/\s:@]+:[^/\s@]+@""")
 private val MPV_AUTH_HEADER = Regex(
     """(?i)\b(authorization|proxy-authorization)\s*:\s*(?:(?:bearer|basic)\s+)?[^\s,;]+"""
 )
+private val MPV_AUTH_ASSIGNMENT = Regex(
+    """(?i)\b(authorization|proxy-authorization)\s*=\s*(?:(?:bearer|basic)\s+)?(?:"[^"]*"|'[^']*'|[^\s,;]+)"""
+)
 private val MPV_SECRET_ASSIGNMENT = Regex(
-    """(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|token|password|passwd|secret|signature|sig|jwt)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)"""
+    """(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|security[_-]?token|credential|client[_-]?secret|session(?:id)?|token|password|passwd|secret|signature|sig|jwt)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)"""
 )
 private val MPV_BEARER_TOKEN = Regex("""(?i)\bBearer\s+[^\s,;]+""")
 private val MPV_JWT = Regex("""\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b""")

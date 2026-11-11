@@ -50,6 +50,57 @@ class MpvErrorDiagnosticsTest {
     }
 
     @Test
+    fun cookieAssignmentsAreDroppedRatherThanPartiallyRedacted() {
+        assertNull(sanitizeMpvLogMessage("http", "cookie=session-secret; clearance=private"))
+        assertNull(sanitizeMpvLogMessage("http", "Set-Cookie=session-secret"))
+    }
+
+    @Test
+    fun authorizationAssignmentsRedactBasicAndBearerValues() {
+        val line = assertNotNull(
+            sanitizeMpvLogMessage(
+                "http",
+                "Authorization=Basic basic-secret proxy-authorization=Bearer bearer-secret",
+            ),
+        )
+
+        assertFalse(line.message.contains("basic-secret"))
+        assertFalse(line.message.contains("bearer-secret"))
+    }
+
+    @Test
+    fun cloudCredentialsAndClientSecretsAreRedacted() {
+        val line = assertNotNull(
+            sanitizeMpvLogMessage(
+                "demux",
+                "X-Amz-Credential=account%2Fdate client_secret=oauth-secret sessionid=session-secret",
+            ),
+        )
+
+        assertFalse(line.message.contains("account%2Fdate"))
+        assertFalse(line.message.contains("oauth-secret"))
+        assertFalse(line.message.contains("session-secret"))
+    }
+
+    @Test
+    fun endFileSummaryOnlyContainsAllowListedReasonAndSanitizedError() {
+        val summary = sanitizeMpvEndFileDetails(
+            reason = "error",
+            fileError = "HTTP 403 opening https://user:password@cdn.example/stream.m3u8?token=private",
+        )
+
+        val formatted = summary.formatted()
+        assertEquals("reason=error fileError=HTTP 403 opening [source URL]", formatted)
+        assertFalse(formatted.contains("cdn.example"))
+        assertFalse(formatted.contains("password"))
+        assertFalse(formatted.contains("private"))
+        assertEquals(
+            "reason=unknown",
+            sanitizeMpvEndFileDetails("error\\nraw-url=https://secret.invalid", null).formatted(),
+        )
+    }
+
+    @Test
     fun queryStringsWithoutAnExplicitSchemeAreRedacted() {
         val line = assertNotNull(
             sanitizeMpvLogMessage(
