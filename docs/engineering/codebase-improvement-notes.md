@@ -2582,3 +2582,21 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Android Open Source Project implementation: https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/view/accessibility/CaptioningManager.java
 - The upstream Nuvio change `81dc761eef0fed809264bc2dc9a58a55e6c00035` independently applies the same narrow guarded-read fallback.
 - No dedicated Robolectric test was added for framework-owned `Settings.Secure` getters. The common watched-key regression test is also unrun; no build-triggering tests, compilation, device checks or CI were started.
+
+
+
+## 11 November 2026 — keep AutoSync available when no preferred subtitle language is set
+
+### Confirmed cause
+- `AutoSyncPlaybackSettingsRows` disabled the persisted AutoSync-on-start setting unless a preferred subtitle language was configured. That incorrectly coupled the preference control to language-based automatic discovery.
+- The target branch's restored-subtitle path calls `maybeAutoSyncRestoredSubtitleAtStart`, which checks the persisted AutoSync preference and whether the active controller supports AutoSync. It does not require a preferred language. The separate preferred-subtitle discovery path correctly continues to require a usable language.
+- As a result, users who rely on restoring a previously selected add-on subtitle could not enable AutoSync-on-start when their preferred language was NONE/blank, despite the restored-selection path supporting that case.
+
+### Integrated change
+- Removed only the preferred-language gate from the AutoSync settings row and removed the now-unused language parameter/import at the call site. The setting remains disabled when the external player is enabled; Android-only visibility and all runtime language-selection rules are unchanged.
+- Updated the AutoSync description in all 15 existing translated locale resources plus the default resource. The description now explains matching the selected add-on subtitle to embedded video subtitle timing, without claiming a preferred language is mandatory. The target branch has no separate Hebrew AutoSync resource, so no new locale resource file was introduced.
+- Added Robolectric/Compose coverage asserting that the toggle is enabled without a preferred language and remains disabled for external-player mode.
+
+### Verification boundary
+- Static source tracing confirms restored manual selections and automatic preferred-language discovery remain separate paths; only the settings-row enablement predicate changed.
+- The new Android host UI tests were added but NOT run. No Gradle test task, Kotlin compilation, Android/iOS build or CI workflow was started, as instructed.
