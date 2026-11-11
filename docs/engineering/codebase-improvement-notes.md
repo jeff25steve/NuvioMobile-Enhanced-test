@@ -2600,3 +2600,27 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Verification boundary
 - Static source tracing confirms restored manual selections and automatic preferred-language discovery remain separate paths; only the settings-row enablement predicate changed.
 - The new Android host UI tests were added but NOT run. No Gradle test task, Kotlin compilation, Android/iOS build or CI workflow was started, as instructed.
+
+
+## 11 November 2026 — recover from a restored add-on subtitle that does not fit a new episode
+
+### Confirmed cause and impact
+- A stored add-on subtitle URL commonly changes between episodes. The restore path could choose a same-language item using only its display label (often identical for all subtitles from one provider), and the AutoSync controller then ran with `SELECTED_ONLY`. If the saved subtitle belonged to a different cut or episode timing, it failed and no other same-language candidate was checked.
+- The current matcher already lazily reads the live candidate provider and filters alternative candidates against the selected subtitle's language. The missing behavior was the restore-specific second pass, not a new matcher or networking implementation.
+- The mobile architecture on `main-build-testing` keeps ExoPlayer and libmpv coordinators separate in `androidMain`; it does not contain the newer shared `AutoSyncMpvCoordinator` from the latest upstream layout. The fix is therefore integrated into the actual ExoPlayer sidecar, ExoPlayer/libass, and Android libmpv paths only. iOS AutoSync remains unchanged.
+
+### Integrated change
+- Added `SELECTED_THEN_SEARCH` for restored preferences. It starts with the saved URL alone, preserving the selected subtitle when it fits. Only after an unsuccessful analysis with a usable embedded reference does it retry using the current same-language candidate provider.
+- No fallback is attempted when the video has no subtitle tracks or no usable reference. The operation token is checked and the coroutine's current context is checked with `ensureActive()` before the second search, so a cancelled or superseded playback operation does not start more work. The existing post-search cancellation/token checks remain in place.
+- The fallback is wired only to persisted restore. Explicit manual picks keep `SELECTED_ONLY`; normal first-start discovery keeps `STARTUP_SEARCH`.
+- libass retains its existing format preference: the restored subtitle/other ASS candidates are tried first, then other formats are considered only after the same no-fit/reference gates.
+- Restored selection now matches the persisted add-on subtitle ID after the exact URL has changed, and before display-name fallback. The match also requires the persisted provider name and matching language, avoiding cross-provider or cross-language ID collisions.
+
+### Tests and research
+- Added common policy tests for selected-first behavior, reference-gated fallback, and no fallback for manual selection; added track-selection tests for stable IDs across episode URL changes and provider/language isolation.
+- Original upstream mobile fix: https://github.com/NuvioMedia/NuvioMobile/pull/2537 (merged 9 November 2026), based on NuvioTV#4494. The target implementation was adapted to its Android-specific ExoPlayer/libmpv architecture rather than copying the newer shared files.
+- Context7 kotlinx.coroutines documentation and official source confirm cooperative cancellation and the use of `currentCoroutineContext().ensureActive()` before proceeding to another stage of work: https://kotlinlang.org/docs/cancellation-and-timeouts.html and https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/ensure-active.html
+- Exa independently located the merged upstream implementation and official coroutine cancellation documentation. Its behavior was compared against this branch's matcher, operation-token lifecycle, and live candidate-provider filtering.
+
+### Verification boundary
+- Added common unit coverage but did NOT run it. No Gradle test task, Kotlin compilation, Android/iOS build, device test, or CI workflow was started, as requested.

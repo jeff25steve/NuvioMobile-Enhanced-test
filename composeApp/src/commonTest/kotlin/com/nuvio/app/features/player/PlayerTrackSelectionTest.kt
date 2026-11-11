@@ -297,6 +297,72 @@ class PlayerTrackSelectionTest {
     }
 
     @Test
+    fun persistedAddonSubtitleMatchesStableIdWhenEpisodeUrlChanges() {
+        val subtitles = listOf(
+            AddonSubtitle(
+                id = "polish-first",
+                url = "https://example.com/episode-2/first.srt",
+                language = "pol",
+                display = "Polish (Addon)",
+                addonName = "Addon",
+            ),
+            AddonSubtitle(
+                id = "polish-second",
+                url = "https://example.com/episode-2/second.srt",
+                language = "pol",
+                display = "Polish (Addon)",
+                addonName = "Addon",
+            ),
+        )
+        val preference = PersistedPlayerTrackPreference(
+            subtitleType = PersistedSubtitleSelectionType.ADDON,
+            subtitleLanguage = "pol",
+            subtitleName = "Polish (Addon)",
+            addonSubtitleId = "polish-second",
+            addonSubtitleUrl = "https://example.com/episode-1/second.srt",
+            addonSubtitleAddonName = "Addon",
+        )
+
+        assertEquals("polish-second", findPersistedAddonSubtitle(subtitles, preference)?.id)
+    }
+
+    @Test
+    fun persistedAddonSubtitleIdMustMatchProviderAndLanguage() {
+        val subtitles = listOf(
+            AddonSubtitle(
+                id = "stable-id",
+                url = "https://example.com/wrong-provider.srt",
+                language = "pol",
+                display = "Other provider",
+                addonName = "Other Addon",
+            ),
+            AddonSubtitle(
+                id = "stable-id",
+                url = "https://example.com/wrong-language.srt",
+                language = "en",
+                display = "English",
+                addonName = "Addon",
+            ),
+            AddonSubtitle(
+                id = "fallback",
+                url = "https://example.com/fallback.srt",
+                language = "pol",
+                display = "Different display",
+                addonName = "Addon",
+            ),
+        )
+        val preference = PersistedPlayerTrackPreference(
+            subtitleType = PersistedSubtitleSelectionType.ADDON,
+            subtitleLanguage = "pol",
+            subtitleName = "Missing display",
+            addonSubtitleId = "stable-id",
+            addonSubtitleAddonName = "Addon",
+        )
+
+        assertEquals("fallback", findPersistedAddonSubtitle(subtitles, preference)?.id)
+    }
+
+    @Test
     fun preferredOnlyFilteringRemovesNonPreferredAddons() {
         val subtitles = listOf(
             addonSubtitle(id = "english", language = "en"),

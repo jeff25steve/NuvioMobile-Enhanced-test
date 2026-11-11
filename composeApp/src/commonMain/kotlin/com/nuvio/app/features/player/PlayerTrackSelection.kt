@@ -511,7 +511,16 @@ internal fun findPersistedAddonSubtitle(
     }
     val language = preference.subtitleLanguage?.takeIf { it.isNotBlank() } ?: return null
     val candidates = subtitles.filter { addonSubtitleMatchesLanguage(it, language) }
-    val providerCandidates = preference.addonSubtitleAddonName?.takeIf { it.isNotBlank() }?.let { name ->
+    val providerName = preference.addonSubtitleAddonName?.takeIf { it.isNotBlank() }
+    preference.addonSubtitleId?.takeIf { it.isNotBlank() }?.let { id ->
+        // Add-on IDs can be shared between providers; require the persisted provider and language.
+        if (providerName != null) {
+            candidates.firstOrNull { subtitle ->
+                subtitle.id == id && subtitle.addonName.equals(providerName, ignoreCase = true)
+            }?.let { return it }
+        }
+    }
+    val providerCandidates = providerName?.let { name ->
         candidates.filter { it.addonName.equals(name, ignoreCase = true) }
     }.orEmpty()
     val preferredCandidates = providerCandidates.ifEmpty { candidates }

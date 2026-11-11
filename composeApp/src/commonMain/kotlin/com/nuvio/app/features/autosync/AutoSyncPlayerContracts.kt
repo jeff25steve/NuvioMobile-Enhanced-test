@@ -15,6 +15,7 @@ internal interface AutoSyncPlayerController {
     fun setAutoSyncSubtitleCandidates(candidates: List<AutoSyncSubtitleCandidate>)
     fun setSubtitleUriWithAutoSync(url: String)
     fun setSubtitleUriWithSelectedAutoSync(url: String)
+    fun setSubtitleUriWithRestoredAutoSync(url: String)
     fun setAutoSyncAppliedListener(
         listener: ((subtitleUrl: String, delayMs: Int) -> Unit)?,
     )

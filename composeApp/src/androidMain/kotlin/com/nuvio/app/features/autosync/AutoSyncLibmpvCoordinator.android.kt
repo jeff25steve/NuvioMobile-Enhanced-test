@@ -140,19 +140,34 @@ internal class LibmpvAutoSyncCoordinator(
         job = scope.launch {
             try {
                 var outcome: AutoSyncAnalysisOutcome? = null
-                val resolved = AutomaticSubtitleSync.findTimelineRetime(
-                    sourceKey = sourceUrl,
-                    sourceHeaders = sourceHeaders,
-                    selectedSubtitleUrl = url,
-                    selectedSubtitleHeaders = subtitleHeaders,
-                    preferredLanguage = subtitleLanguage,
-                    alternativeSubtitles = candidateScope.alternativeCandidates(candidates),
-                    alternativeSubtitlesProvider = if (candidateScope.usesAlternativeProvider) {
-                        { candidates }
-                    } else null,
-                    onAnalysisOutcome = { outcome = it },
-                    allowLiveReference = false,
-                )
+                suspend fun search(searchScope: AutoSyncCandidateScope) =
+                    AutomaticSubtitleSync.findTimelineRetime(
+                        sourceKey = sourceUrl,
+                        sourceHeaders = sourceHeaders,
+                        selectedSubtitleUrl = url,
+                        selectedSubtitleHeaders = subtitleHeaders,
+                        preferredLanguage = subtitleLanguage,
+                        alternativeSubtitles = searchScope.alternativeCandidates(candidates),
+                        alternativeSubtitlesProvider = if (searchScope.usesAlternativeProvider) {
+                            { candidates }
+                        } else null,
+                        onAnalysisOutcome = { outcome = it },
+                        allowLiveReference = false,
+                    )
+                var resolved = search(candidateScope)
+                if (
+                    resolved == null &&
+                    token == operationToken &&
+                    candidateScope.shouldSearchAfterSelectedFailure(
+                        hasUsableReference =
+                            outcome != AutoSyncAnalysisOutcome.NO_SUBTITLE_TRACKS &&
+                                outcome != AutoSyncAnalysisOutcome.NO_USABLE_REFERENCE,
+                    )
+                ) {
+                    currentCoroutineContext().ensureActive()
+                    if (token != operationToken) return@launch
+                    resolved = search(AutoSyncCandidateScope.STARTUP_SEARCH)
+                }
                 currentCoroutineContext().ensureActive()
                 if (token != operationToken) return@launch
                 if (resolved == null) {
@@ -247,6 +262,9 @@ private class AutoSyncLibmpvEngineController(
 
     override fun setSubtitleUriWithSelectedAutoSync(url: String) =
         coordinator.start(url, AutoSyncCandidateScope.SELECTED_ONLY, base, replaceExternalSubtitle)
+
+    override fun setSubtitleUriWithRestoredAutoSync(url: String) =
+        coordinator.start(url, AutoSyncCandidateScope.SELECTED_THEN_SEARCH, base, replaceExternalSubtitle)
 
     override fun selectSubtitleTrack(index: Int) {
         coordinator.cancel()

@@ -84,14 +84,17 @@ internal fun PlayerScreenRuntime.attachSelectedAddonSubtitleWithAutoSync(url: St
     playerController?.setSubtitleUriWithSelectedAutoSync(url)
 }
 
-/** The user's own pick for this content: sync it at start, never swap in another subtitle. */
+/**
+ * A subtitle restored from another episode is checked first; AutoSync can search another
+ * same-language add-on subtitle if the restored file no longer fits this source.
+ */
 internal fun PlayerScreenRuntime.maybeAutoSyncRestoredSubtitleAtStart(url: String): Boolean {
     val controller = playerController ?: return false
     if (controller !is AutoSyncPlayerController) return false
     if (!AutoSyncPreferencesRepository.claimStartupRun(hashCode(), activePlaybackIdentity)) {
         return false
     }
-    controller.setSubtitleUriWithSelectedAutoSync(url)
+    controller.setSubtitleUriWithRestoredAutoSync(url)
     return true
 }
 
