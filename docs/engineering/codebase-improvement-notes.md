@@ -2976,3 +2976,21 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Added seven auth-identity regression cases and updated six profile-scope cases. They were authored before production changes but deliberately NOT executed because builds, tests and CI remain prohibited until explicit authorization.
 - Static source checks confirm both profile RPC error handlers pass their original operation identity and the unscoped helper signature is gone. Compile-time compatibility and runtime race behavior remain unverified pending authorized test/build execution.
 - No build, test, workflow dispatch or CI run was started.
+
+
+## 11 November 2026 — include device-link imports in the shared auth reset gate
+
+### Confirmed gap
+- `DeviceLinkAuthRepository.completeSession()` imports a Supabase session after its own polling flow, but that active job was only tracked by `DeviceLinkFlowGate`.
+- Server switching explicitly stopped the device-link flow, but manual sign-out, account deletion and invalid-session cleanup only cancelled jobs registered in `AuthSessionOperationGate`. A device-link exchange could therefore finish importing a session after one of those resets began.
+
+### Integrated change
+- Exposed narrow internal begin/finish methods on `AuthRepository` for session-importing jobs; email sign-in/sign-up now reuse the same methods.
+- `DeviceLinkAuthRepository.runAttempt()` registers its coroutine before starting any RPC/polling work and releases the registration in `finally`. This covers the exchange and `importSession` call, not only the final import.
+- The shared reset gate now cancels and joins a device-link attempt before clearing or replacing Supabase session state. If a reset is already active before registration, the device-link attempt exits without issuing its request.
+- Cancellation caused by a shared reset returns the device-link UI state to Idle, while user-initiated cancellation remains safe because its flow-generation token has already been invalidated.
+- Added a gate regression case that models a long-lived device-link job and checks it is cancelled/joined by the same reset gate. No new dependency or UI redesign.
+
+### Verification boundary
+- The regression case was added but NOT executed because the current instruction prohibits build-triggering tests. No Gradle task, compile, Android/iOS build, simulator/device test or CI workflow was started.
+- The source lifecycle and cancellation paths were statically inspected. Runtime timing and Kotlin compilation remain unverified until authorization is given.

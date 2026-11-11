@@ -81,6 +81,28 @@ class AuthSessionOperationGateTest {
     }
 
     @Test
+    fun deviceLinkSessionImportIsCancelledAndJoinedByTheSharedResetGate() = runTest {
+        val gate = AuthSessionOperationGate()
+        val jobFinished = CompletableDeferred<Unit>()
+        val deviceLinkJob = launch {
+            try {
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                jobFinished.complete(Unit)
+            }
+        }
+        val operation = assertNotNull(gate.beginOperation(deviceLinkJob))
+
+        val activeOperations = gate.beginReset()
+        activeOperations.forEach { it.cancelAndJoin() }
+
+        assertTrue(jobFinished.isCompleted)
+        assertFalse(gate.isCurrent(operation))
+        assertNull(gate.beginOperation(Job()))
+        gate.endReset()
+    }
+
+    @Test
     fun overlappingResetsKeepOperationsBlockedUntilBothHaveFinished() = runTest {
         val gate = AuthSessionOperationGate()
         gate.beginReset()

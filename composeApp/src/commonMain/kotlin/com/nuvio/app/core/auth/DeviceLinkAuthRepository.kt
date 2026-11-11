@@ -132,7 +132,13 @@ object DeviceLinkAuthRepository {
 
     @OptIn(ExperimentalUuidApi::class)
     private suspend fun runAttempt(attempt: Long) {
+        var sessionOperation: Long? = null
         try {
+            val job = currentCoroutineContext()[Job]
+                ?: error("Device-link session import requires a coroutine Job")
+            sessionOperation = AuthRepository.beginSessionImport(job)
+                ?: throw CancellationException("Authentication is paused during a session reset")
+
             val configuration = ServerConfigurationRepository.active.value
             val client = SupabaseProvider.client
             ensureAttemptCurrent(attempt)
@@ -153,6 +159,8 @@ object DeviceLinkAuthRepository {
             )
             pollAndComplete(client, session, nonce, attempt)
         } catch (error: CancellationException) {
+            // Reset cancellation must not leave the auth sheet stuck in its Starting state.
+            publishState(attempt, DeviceLinkAuthState.Idle)
             throw error
         } catch (error: DeviceLinkAuthException) {
             log.w(error) { "Device link sign-in stopped" }
@@ -161,6 +169,7 @@ object DeviceLinkAuthRepository {
             log.w(error) { "Device link sign-in failed" }
             publishState(attempt, DeviceLinkAuthState.Failed(DeviceLinkAuthFailure.Start))
         } finally {
+            sessionOperation?.let(AuthRepository::finishSessionImport)
             flowGate.finishAttempt(attempt)
             val completedJob = currentCoroutineContext()[Job]
             synchronized(lifecycleLock) {

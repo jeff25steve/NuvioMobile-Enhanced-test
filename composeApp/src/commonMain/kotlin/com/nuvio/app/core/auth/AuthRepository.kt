@@ -240,15 +240,22 @@ object AuthRepository {
         }
     }
 
+    internal fun beginSessionImport(job: Job): Long? =
+        sessionOperationGate.beginOperation(job)
+
+    internal fun finishSessionImport(operation: Long) {
+        sessionOperationGate.finishOperation(operation)
+    }
+
     private suspend fun <T> withSessionOperation(block: suspend () -> T): T {
         val job = currentCoroutineContext()[Job]
             ?: error("Authentication session operation requires a coroutine Job")
-        val operation = sessionOperationGate.beginOperation(job)
-            ?: throw CancellationException("Authentication is paused during a server switch")
+        val operation = beginSessionImport(job)
+            ?: throw CancellationException("Authentication is paused during a session reset")
         return try {
             block()
         } finally {
-            sessionOperationGate.finishOperation(operation)
+            finishSessionImport(operation)
         }
     }
 
