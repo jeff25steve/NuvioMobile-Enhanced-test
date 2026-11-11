@@ -41,6 +41,19 @@ class PlayerNowPlayingServiceTest {
     }
 
     @Test
+    fun blockedBackgroundStartFallsBackToForegroundStart() {
+        context.blockBackgroundStart = true
+        try {
+            PlayerNowPlayingService.publish(context, notification("Background"))
+            context.takeCall("foreground-start")
+        } finally {
+            context.blockBackgroundStart = false
+            PlayerNowPlayingService.hide(context)
+            context.takeCall("stop")
+        }
+    }
+
+    @Test
     fun eachDelayedStartStillPromotesAfterRapidPublishHideCycles() {
         val first = startThenHide("First")
         val second = startThenHide("Second")
@@ -117,10 +130,19 @@ class PlayerNowPlayingServiceTest {
     private class RecordingServiceContext(base: Context) : ContextWrapper(base) {
         private val calls = LinkedBlockingQueue<Pair<String, Intent>>()
 
+        @Volatile
+        var blockBackgroundStart = false
+
         override fun getApplicationContext(): Context = this
 
-        override fun startForegroundService(service: Intent): ComponentName? {
+        override fun startService(service: Intent): ComponentName? {
+            if (blockBackgroundStart) throw IllegalStateException("Not allowed to start service")
             calls.put("start" to service)
+            return service.component
+        }
+
+        override fun startForegroundService(service: Intent): ComponentName? {
+            calls.put("foreground-start" to service)
             return service.component
         }
 

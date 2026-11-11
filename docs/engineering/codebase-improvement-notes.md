@@ -2664,3 +2664,27 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Research and verification boundary
 - This is a focused port of upstream commit `334bd2b13d71ac2bd52db2b415f460052a046acf`, checked against this branch's crop implementation and current common tests.
 - Tests were updated but NOT run. No Gradle test task, compilation, Android/iOS build, device test or CI workflow was started.
+
+
+## 11 November 2026 — fall back to foreground start when Android rejects a normal playback-service start
+
+### Confirmed lifecycle context
+- The app declares PlayerNowPlayingService as android:foregroundServiceType="mediaPlayback" and declares FOREGROUND_SERVICE_MEDIA_PLAYBACK in androidApp/src/main/AndroidManifest.xml. The Play Store manifest removes this service and permission; AppFeaturePolicy.mediaPlaybackForegroundServiceEnabled already prevents this path in that flavor.
+- The controller starts the service on a dedicated single-thread executor. The service promotes itself immediately in onStartCommand; the command queue, conflated publish/hide ordering, latest-notification state, and start-request atomic flag are independent of the start API chosen.
+- Android's service-start rules differ by API: background service starts have restrictions from API 26, and foreground-service starts have additional restrictions from API 31. The fallback must not claim to bypass those restrictions; when Android rejects both paths, the existing outer error handling still clears startRequested and logs the failure.
+
+### Integrated change
+- Attempt Context.startService() first, allowing a normal service start when the app is permitted to start a background service.
+- If Android rejects that start with IllegalStateException, retry with Context.startForegroundService() on API 26+; on older API levels rethrow the original failure.
+- Kept the outer failure handling, single-threaded dispatch, notification identity checks, and service-side immediate startForeground() promotion unchanged.
+- Extended the existing Robolectric recording context to distinguish normal and foreground starts; added a regression test proving an IllegalStateException from the normal start takes the foreground fallback and still stops cleanly afterward.
+
+### Research and verification
+- Android foreground-service launch guidance: https://developer.android.com/develop/background-work/services/fgs/launch
+- Android background foreground-service restrictions and exceptions: https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start
+- Android foreground-service troubleshooting / start rejection: https://developer.android.com/develop/background-work/services/fgs/troubleshooting
+- Context7 Android documentation and Exa's official Android Developers sources were checked against minSdk 24, targetSdk 36, the declared mediaPlayback service type, and the actual app/playstore manifests.
+- Upstream Nuvio fix reviewed: c1dfd9898d11ee3397129b8bf1e31282c1d13e1f.
+
+### Verification boundary
+- Regression test added but NOT run. No Gradle test task, compilation, Android/iOS build, device test, or CI workflow was started.
