@@ -2,6 +2,8 @@ package com.nuvio.app.core.network
 
 import androidx.compose.runtime.Composable
 import com.nuvio.app.features.addons.httpRequestRaw
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,16 +68,11 @@ object NetworkStatusRepository {
     private val _uiState = MutableStateFlow(NetworkStatusUiState())
     val uiState: StateFlow<NetworkStatusUiState> = _uiState.asStateFlow()
 
-    private var started = false
-    private var probeInFlight = false
-    private var pendingProbeAfterCurrent = false
-    private var pendingProbeConfirmFailures = false
+    private val refreshGate = NetworkRefreshGate()
     private var foregroundRefreshJob: Job? = null
 
     fun ensureStarted() {
-        if (started) return
-        started = true
-        requestRefresh(force = true)
+        if (refreshGate.ensureStarted()) launchProbeLoop(confirmFailures = false)
     }
 
     fun requestForegroundRefresh() {
@@ -88,26 +85,28 @@ object NetworkStatusRepository {
     }
 
     fun requestRefresh(force: Boolean = false, confirmFailures: Boolean = false) {
-        if (!started) started = true
-        if (probeInFlight) {
-            if (force) {
-                pendingProbeAfterCurrent = true
-                pendingProbeConfirmFailures = pendingProbeConfirmFailures || confirmFailures
-            }
-            return
+        if (refreshGate.request(force, confirmFailures)) {
+            launchProbeLoop(confirmFailures)
         }
+    }
 
+    private fun launchProbeLoop(initialConfirmFailures: Boolean) {
         scope.launch {
-            var nextConfirmFailures = confirmFailures
-            do {
-                val runConfirmFailures = nextConfirmFailures || pendingProbeConfirmFailures
-                nextConfirmFailures = false
-                pendingProbeAfterCurrent = false
-                pendingProbeConfirmFailures = false
-                probeInFlight = true
-                runProbe(confirmFailures = runConfirmFailures)
-                probeInFlight = false
-            } while (pendingProbeAfterCurrent)
+            var nextConfirmFailures = initialConfirmFailures
+            var ownsRefreshGate = true
+            try {
+                while (true) {
+                    runProbe(confirmFailures = nextConfirmFailures)
+                    val pendingConfirmFailures = refreshGate.finishProbe()
+                    if (pendingConfirmFailures == null) {
+                        ownsRefreshGate = false
+                        return@launch
+                    }
+                    nextConfirmFailures = pendingConfirmFailures
+                }
+            } finally {
+                if (ownsRefreshGate) refreshGate.abort()
+            }
         }
     }
 
@@ -172,4 +171,58 @@ object NetworkStatusRepository {
 
     private fun NetworkCondition.isOfflineLike(): Boolean =
         this == NetworkCondition.NoInternet || this == NetworkCondition.ServersUnreachable
+}
+
+/**
+ * Thread-safe single-flight gate for the process-wide connectivity probe.
+ *
+ * At most one probe loop owns the gate. Forced refreshes requested while it
+ * runs are coalesced into one follow-up, retaining failure confirmation if
+ * any queued caller requested it.
+ */
+internal class NetworkRefreshGate {
+    private val lock = SynchronizedObject()
+    private var started = false
+    private var probeInFlight = false
+    private var pendingConfirmFailures: Boolean? = null
+
+    fun ensureStarted(): Boolean = synchronized(lock) {
+        if (started) return@synchronized false
+        started = true
+        probeInFlight = true
+        true
+    }
+
+    fun request(force: Boolean, confirmFailures: Boolean): Boolean = synchronized(lock) {
+        started = true
+        if (probeInFlight) {
+            if (force) {
+                pendingConfirmFailures = (pendingConfirmFailures ?: false) || confirmFailures
+            }
+            false
+        } else {
+            probeInFlight = true
+            true
+        }
+    }
+
+    /** Returns null when the loop is finished, or the confirmation mode for its next pass. */
+    fun finishProbe(): Boolean? = synchronized(lock) {
+        val pending = pendingConfirmFailures
+        if (pending == null) {
+            probeInFlight = false
+            null
+        } else {
+            pendingConfirmFailures = null
+            pending
+        }
+    }
+
+    fun abort() {
+        synchronized(lock) {
+            started = false
+            probeInFlight = false
+            pendingConfirmFailures = null
+        }
+    }
 }

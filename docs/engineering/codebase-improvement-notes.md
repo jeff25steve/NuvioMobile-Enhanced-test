@@ -2497,3 +2497,21 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Verification boundary
 - Source review confirms the per-publication status map and second scan are removed while the existing Live Status notification refresh remains in publish(). The structural allocation/traversal reduction is not presented as a measured user-visible speedup; profiling remains necessary for that claim.
 - Tests are added but NOT run. No build-triggering checks or CI were started.
+
+## 11 November 2026 — make connectivity probes single-flight across callers
+
+### Confirmed cause
+- NetworkStatusRepository runs its probe loop on Dispatchers.Default, which is a multi-threaded dispatcher. Previously requestRefresh() checked probeInFlight before dispatching a coroutine, but set probeInFlight only inside that coroutine. Concurrent UI/lifecycle/network callers could therefore all observe false and start duplicate public-internet and Supabase requests.
+- The in-flight and pending-confirmation flags were also read/written by callers and probe coroutines without a common synchronization boundary. Concurrent forced refreshes could lose a pending request or its confirmation requirement.
+- ensureStarted() also used an unguarded started flag, allowing duplicate initial scheduling when invoked concurrently.
+
+### Integrated change
+- Added NetworkRefreshGate using the existing kotlinx.atomicfu synchronized-lock pattern already used by common code. Gate ownership is acquired synchronously before launching a coroutine, so only one caller can start a probe loop.
+- Forced requests received during an active probe collapse into one follow-up pass. Confirmation remains enabled if any queued forced request requires it. Non-forced requests retain the existing behavior of not queueing behind an active probe.
+- The initial started transition is part of the same gate, preventing duplicate first probes. A cancelled or failed probe releases ownership in a finally block and resets startup state so a later ensureStarted() can recover.
+- Connectivity status semantics, endpoints, timeout values, debounce timing, failure-confirmation behavior, UI state and backend configuration remain unchanged.
+
+### Tests and verification boundary
+- Added common tests for concurrent callers, one-time startup, forced-refresh coalescing/confirmation merging, and recovery after an aborted probe.
+- Tests are NOT run because build-triggering tests/builds/CI remain disallowed. Consequently TDD red/green execution and multiplatform compilation have not been observed in this cycle.
+- Source review verifies synchronization uses the project's existing atomicfu common-code dependency; Android/iOS runtime behavior remains unverified pending authorised test runs.
