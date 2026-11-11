@@ -116,9 +116,11 @@ object ServerConnectionController {
         if (!acquired) return
 
         scope.launch {
+            var authServerSwitchAcquired = false
             try {
                 DeviceLinkAuthRepository.awaitServerSwitchStopped()
                 AuthRepository.beginServerSwitch()
+                authServerSwitchAcquired = true
                 if (AuthRepository.prepareForServerSwitch().isFailure) {
                     AuthRepository.reinitialize()
                     _state.update {
@@ -138,17 +140,20 @@ object ServerConnectionController {
                     activeServer = ServerConfigurationRepository.active.value,
                 )
             } catch (error: CancellationException) {
-                AuthRepository.reinitialize()
+                if (authServerSwitchAcquired) AuthRepository.reinitialize()
                 _state.update { it.copy(isSwitching = false) }
                 throw error
             } catch (_: Throwable) {
-                AuthRepository.reinitialize()
+                if (authServerSwitchAcquired) AuthRepository.reinitialize()
                 _state.update { it.copy(isSwitching = false, switchFailure = ServerSwitchFailure.Restart) }
             } finally {
-                AuthRepository.endServerSwitch()
-                DeviceLinkAuthRepository.endServerSwitch()
-                synchronized(switchLock) {
-                    switchInProgress = false
+                try {
+                    if (authServerSwitchAcquired) AuthRepository.endServerSwitch()
+                } finally {
+                    DeviceLinkAuthRepository.endServerSwitch()
+                    synchronized(switchLock) {
+                        switchInProgress = false
+                    }
                 }
             }
         }

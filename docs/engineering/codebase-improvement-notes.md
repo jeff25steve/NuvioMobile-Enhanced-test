@@ -2923,3 +2923,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Static inspection confirms the updated source no longer contains a contiguous AWS access-key identifier pattern and still constructs the same two documented examples at runtime. Regression tests were not executed.
 - All current workflow triggers were inspected: test/release builds are `workflow_dispatch`; the full-debug build is a pull-request workflow limited to target branch `enhanced`; there is no push-triggered build workflow for `main-build-testing`. The commit includes `[skip ci]` as an additional safeguard.
 - No Gradle task, test, Android/iOS build, simulator/device test, or CI workflow was started.
+
+
+## 11 November 2026 — serialize app-owned Supabase session resets
+
+### Confirmed root cause
+- `AuthSessionOperationGate` blocked new email sign-in/sign-up operations and cancelled/joined them before a server switch, but user-initiated `AuthRepository.signOut()` and `deleteAccount()` did not use that gate.
+- Those reset paths could therefore clear the Supabase session and run local account cleanup while an app-owned sign-in/sign-up was still importing a session.
+- The gate also used a Boolean reset flag without serializing reset owners. Overlapping reset callers could interleave; the first caller to finish could reopen the gate while the second reset was still active.
+- Auth status collection is generation-scoped. Invalidating the collector generation during a reset requires restarting it when the reset finishes.
+
+### Integrated change
+- Added a fair, cancellable coroutine `Mutex` around reset ownership. Server switches, manual sign-out and account deletion now share one exclusive reset boundary. The gate remains closed while ownership is handed to a queued reset; cancelling a waiter does not release the active reset.
+- Reused the existing cancel-and-join boundary for manual sign-out and account deletion. They prevent new anonymous/email auth operations, cancel and join registered email sign-in/sign-up jobs, and only then capture the current Supabase client and perform session clearing/account cleanup.
+- Restarted the session-status collector in a non-cancellable `finally` before releasing reset ownership, while preserving the existing logged-out state rather than briefly publishing a new loading state. If reset setup itself is cancelled after acquiring the lease, it restores the collector and releases the lease before propagating cancellation.
+- Updated `ServerConnectionController` to release the auth reset lease only when `beginServerSwitch()` returned successfully. Cancellation while queued on another reset no longer causes an unmatched unlock or reinitializes the other reset's owner.
+- Added gate regression cases for overlapping resets and cancellation while waiting. No new dependency, storage format, remote schema, website setting or UI appearance change was introduced.
+
+### Research and API references
+- Project dependency catalog: Kotlin `2.4.10`, kotlinx.coroutines `1.10.2`, atomicfu `0.32.1`, Supabase Kotlin `3.4.1`. The implementation uses the already-declared coroutine library; no dependency was added.
+- Context7 consulted the official kotlinx.coroutines `Mutex` contract: `lock()` suspends rather than blocking a thread, is cancellable while waiting, is fair, and lock ownership must be released after successful acquisition.
+- Exa cross-checked the official Kotlin `Mutex.lock` / `unlock` API documentation and Supabase's `sessionStatus` contract. The Nuvio gate coordinates app-owned sign-in/sign-up jobs; this change does not claim to replace or modify Supabase SDK-internal token-refresh coordination.
+- Sources: https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-mutex/lock.html ; https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/common/src/sync/Mutex.kt ; https://supabase.com/docs/reference/kotlin/auth-onauthstatechange
+
+### Verification boundary
+- Seven gate tests are present in source, including two new overlapping-reset/cancellation cases. They were deliberately NOT executed because build-triggering tests are prohibited by the current instruction. No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started.
+- The remote source diff and known reset call sites were reviewed statically. Compilation and runtime cancellation/race behavior remain unverified until test/build execution is explicitly authorized.
+- Separate follow-up: `signOutIfSessionInvalid()` still needs the originating request's account/backend identity at its call boundary before it can safely join this reset protocol. A stale unauthorized response from an old backend must never sign out a replacement session.

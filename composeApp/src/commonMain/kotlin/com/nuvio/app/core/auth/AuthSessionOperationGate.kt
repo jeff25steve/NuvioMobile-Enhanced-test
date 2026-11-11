@@ -3,6 +3,7 @@ package com.nuvio.app.core.auth
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
 
 /**
  * Tracks in-flight operations that can import a Supabase session.
@@ -12,21 +13,22 @@ import kotlinx.coroutines.Job
  */
 internal class AuthSessionOperationGate {
     private val lock = SynchronizedObject()
+    private val resetMutex = Mutex()
     private var nextOperationId = 0L
-    private var switching = false
+    private var resetting = false
     private val operations = mutableMapOf<Long, Job>()
 
     fun beginOperation(job: Job): Long? = synchronized(lock) {
-        if (switching) return@synchronized null
+        if (resetting) return@synchronized null
         (++nextOperationId).also { operations[it] = job }
     }
 
     fun isCurrent(operation: Long): Boolean = synchronized(lock) {
-        !switching && operation in operations
+        !resetting && operation in operations
     }
 
     fun runIfOpen(block: () -> Unit): Boolean = synchronized(lock) {
-        if (switching) return@synchronized false
+        if (resetting) return@synchronized false
         block()
         true
     }
@@ -37,14 +39,30 @@ internal class AuthSessionOperationGate {
         }
     }
 
-    fun beginServerSwitch(): List<Job> = synchronized(lock) {
-        switching = true
-        operations.values.distinct()
+    /**
+     * Acquires exclusive ownership of an account/session reset.
+     *
+     * The mutex serializes server switches, sign-outs and account deletion. The gate remains
+     * closed while ownership is handed to another queued reset.
+     */
+    suspend fun beginReset(): List<Job> {
+        resetMutex.lock()
+        return try {
+            synchronized(lock) {
+                resetting = true
+                operations.values.distinct()
+            }
+        } catch (error: Throwable) {
+            resetMutex.unlock()
+            synchronized(lock) { resetting = resetMutex.isLocked }
+            throw error
+        }
     }
 
-    fun endServerSwitch() {
+    fun endReset() {
+        resetMutex.unlock()
         synchronized(lock) {
-            switching = false
+            resetting = resetMutex.isLocked
         }
     }
 }
