@@ -2873,3 +2873,29 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Inspected the helper call site and shared redactor implementation; added a regression test but did not run it. No tests, compilation, build or CI were started.
+
+
+## 11 November 2026 — reject stale profile and PIN responses after account/backend changes
+
+### Confirmed root cause
+- `ProfileRepository.pullProfiles()` applied a returned profile list, synchronized account-sensitive PIN/biometric state by profile index, and persisted the result without validating the account or backend that initiated the request.
+- Ktor client closure does not cancel all in-flight requests. A profile RPC from account A or the previous server can therefore finish after sign-out, account replacement, or server reconfiguration.
+- The stale error path also called `AuthRepository.signOutIfSessionInvalid` before checking whether its originating session was current. A late authorization failure could act on a replacement session.
+- The same gap existed on PIN verification/set: a successful old-account response could write an offline PIN verifier into the current profile-indexed cache. Password-based PIN clearing and profile deletion also had post-request local cleanup that could erase the next account's same-index credential.
+
+### Integrated change
+- Added a profile-operation scope snapshot containing the monotonic profile-cache generation, authenticated user ID, anonymous/authenticated mode, and complete active `ServerConfiguration`.
+- Fenced profile pull/push, local anonymous profile writes, profile deletion, PIN verify/set/clear, password-based PIN cleanup, and profile-lock reads. Stale responses and stale errors are discarded before state publication, PIN-cache writes/removals, biometric cleanup, or auth invalidation.
+- Serialized remote profile cache publication and index-scoped credential cleanup against an invalidation point at the very beginning of `LocalAccountDataCleaner.wipe()`. A remote pull synchronizes PIN/biometric state only while its originating scope remains current, then persists only for that captured account/session.
+- Preserved anonymous local profile changes, existing online/offline PIN fallback behavior, backend-owned profile/PIN storage, profile indexes, UI appearance, and all playback/network settings. No new dependency or persistent schema was introduced.
+- Added deterministic pure-scope tests for unchanged scope, account switch/sign-out, generation change, backend change, and anonymous/authenticated transition.
+
+### Research and implementation references
+- Exa reviewed the merged Logto Kotlin SDK fix for in-flight token refresh/sign-in completion after sign-out; it uses a monotonic generation stamp and rejects stale credential writes: https://github.com/logto-io/kotlin/pull/263
+- Exa reviewed an independent stale-cache fix showing why generation checks must accompany owner identity checks when a cache may remain under the same key across sign-out: https://github.com/sozercan/kaset/commit/a8fa3cd6e907ef94ffa5f567aa882d163b174ee0
+- Context7 consulted JetBrains Kotlin coroutine/shared-state guidance: https://github.com/jetbrains/kotlin-web-site/blob/master/docs/topics/coroutines-overview.md
+- The repository's `SupabaseProvider` explicitly documents that closing a Ktor client leaves in-flight requests running; cancellation alone is not a sufficient stale-response guard.
+
+### Verification boundary
+- Regression tests were authored before production changes in this patch, but deliberately NOT executed because the current instruction prohibits build-triggering tests. No Gradle task, compilation, Android/iOS build, simulator/device test, or CI workflow was started.
+- Source changes and the final commit diff were inspected remotely; compile-time compatibility and runtime race behavior remain unverified pending explicit authorization.

@@ -3,7 +3,8 @@ package com.nuvio.app.features.profiles
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
-import com.nuvio.app.core.auth.isAnonymous
+import com.nuvio.app.core.network.ServerConfiguration
+import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
 import com.nuvio.app.core.sync.ProfileSettingsSync
@@ -54,6 +55,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
@@ -68,6 +71,26 @@ import kotlin.concurrent.Volatile
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
+
+internal data class ProfileRemoteOperationScope(
+    val generation: Long,
+    val userId: String,
+    val isAnonymous: Boolean,
+    val serverConfiguration: ServerConfiguration,
+)
+
+internal fun isProfileRemoteOperationCurrent(
+    scope: ProfileRemoteOperationScope,
+    currentGeneration: Long,
+    currentUserId: String?,
+    currentIsAnonymous: Boolean?,
+    currentServerConfiguration: ServerConfiguration,
+): Boolean =
+    scope.generation == currentGeneration &&
+        scope.userId.isNotBlank() &&
+        scope.userId == currentUserId &&
+        scope.isAnonymous == currentIsAnonymous &&
+        scope.serverConfiguration == currentServerConfiguration
 
 @Serializable
 private data class StoredProfilePayload(
@@ -91,6 +114,7 @@ object ProfileRepository {
     private var activeProfileIndex: Int = 1
     private var loadedCacheForUserId: String? = null
     private val profileCacheLoadMutex = Mutex()
+    private val remoteOperationLock = SynchronizedObject()
     @Volatile
     private var profileCacheGeneration: Long = 0L
 
@@ -158,44 +182,110 @@ object ProfileRepository {
         }
     }
 
+    internal fun invalidatePendingRemoteOperations() {
+        synchronized(remoteOperationLock) {
+            profileCacheGeneration += 1L
+        }
+    }
+
+    private fun captureRemoteOperationScope(): ProfileRemoteOperationScope? =
+        synchronized(remoteOperationLock) {
+            val authState = AuthRepository.state.value as? AuthState.Authenticated
+                ?: return@synchronized null
+            authState.userId.takeIf { it.isNotBlank() }?.let { userId ->
+                ProfileRemoteOperationScope(
+                    generation = profileCacheGeneration,
+                    userId = userId,
+                    isAnonymous = authState.isAnonymous,
+                    serverConfiguration = ServerConfigurationRepository.active.value,
+                )
+            }
+        }
+
+    private fun isCurrentRemoteOperationLocked(scope: ProfileRemoteOperationScope): Boolean {
+        val authState = AuthRepository.state.value as? AuthState.Authenticated
+        return isProfileRemoteOperationCurrent(
+            scope = scope,
+            currentGeneration = profileCacheGeneration,
+            currentUserId = authState?.userId,
+            currentIsAnonymous = authState?.isAnonymous,
+            currentServerConfiguration = ServerConfigurationRepository.active.value,
+        )
+    }
+
+    private fun isCurrentRemoteOperation(scope: ProfileRemoteOperationScope): Boolean =
+        synchronized(remoteOperationLock) { isCurrentRemoteOperationLocked(scope) }
+
+    private fun rememberVerifiedPinIfCurrent(
+        scope: ProfileRemoteOperationScope,
+        profileIndex: Int,
+        pin: String,
+    ): Boolean = synchronized(remoteOperationLock) {
+        if (!isCurrentRemoteOperationLocked(scope)) {
+            false
+        } else {
+            val profile = _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }
+            if (profile?.userId != scope.userId) false
+            else {
+                rememberVerifiedPin(profileIndex, pin)
+                true
+            }
+        }
+    }
+
     fun clearInMemory() {
-        profileCacheGeneration += 1L
-        loadedCacheForUserId = null
-        activeProfileIndex = 1
-        _state.value = ProfileState()
+        synchronized(remoteOperationLock) {
+            profileCacheGeneration += 1L
+            loadedCacheForUserId = null
+            activeProfileIndex = 1
+            _state.value = ProfileState()
+        }
     }
 
     suspend fun pullProfiles() {
-        if (AuthRepository.state.value.isAnonymous) {
-            if (!_state.value.isLoaded) {
+        val operationScope = captureRemoteOperationScope() ?: return
+        if (operationScope.isAnonymous) {
+            if (isCurrentRemoteOperation(operationScope) && !_state.value.isLoaded) {
                 _state.value = _state.value.copy(isLoaded = true)
             }
             return
         }
+
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) return
         try {
-            val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profiles")
+            val result = client.postgrest.rpc("sync_pull_profiles")
             val profiles = result.decodeList<NuvioProfile>()
-            _state.value = _state.value.copy(
-                profiles = profiles.sortedBy { it.profileIndex },
-                isLoaded = true,
-                activeProfile = profiles.find { it.profileIndex == activeProfileIndex }
-                    ?: profiles.firstOrNull(),
-            )
-            if (_state.value.activeProfile != null) {
-                activeProfileIndex = _state.value.activeProfile!!.profileIndex
-            }
             withContext(Dispatchers.IO) {
-                syncPinCache(profiles.sortedBy { it.profileIndex })
+                synchronized(remoteOperationLock) {
+                    if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized
+                    val sortedProfiles = profiles.sortedBy { it.profileIndex }
+                    // PIN verifiers and biometric keys are indexed locally, not by backend.
+                    // Serialize their synchronization with account-cleanup invalidation.
+                    syncPinCache(sortedProfiles)
+                    if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized
+                    val activeProfile = sortedProfiles.find { it.profileIndex == activeProfileIndex }
+                        ?: sortedProfiles.firstOrNull()
+                    _state.value = _state.value.copy(
+                        profiles = sortedProfiles,
+                        isLoaded = true,
+                        activeProfile = activeProfile,
+                    )
+                    if (activeProfile != null) activeProfileIndex = activeProfile.profileIndex
+                    persist(
+                        expectedUserId = operationScope.userId,
+                        expectedIsAnonymous = operationScope.isAnonymous,
+                    )
+                }
             }
-            persist()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            if (!isCurrentRemoteOperation(operationScope)) return
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return
+            if (!isCurrentRemoteOperation(operationScope)) return
             log.e(e) { "Failed to pull profiles" }
-            if (!_state.value.isLoaded) {
-                _state.value = _state.value.copy(isLoaded = true)
-            }
+            if (!_state.value.isLoaded) _state.value = _state.value.copy(isLoaded = true)
         }
     }
 
@@ -249,23 +339,27 @@ object ProfileRepository {
     }
 
     suspend fun pushProfiles(profiles: List<ProfilePushPayload>) {
-        if (AuthRepository.state.value.isAnonymous) {
-            applyPayloadsLocally(profiles)
+        val operationScope = captureRemoteOperationScope() ?: return
+        if (operationScope.isAnonymous) {
+            applyPayloadsLocally(profiles, operationScope)
             return
         }
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) return
         try {
             val params = buildJsonObject {
                 put("p_client_max_profiles", MAX_PROFILES)
                 put("p_profiles", json.encodeToJsonElement(profiles))
                 putSyncOriginClientId()
             }
-            SupabaseProvider.client.postgrest.rpc("sync_push_profiles", params)
-            pullProfiles()
+            client.postgrest.rpc("sync_push_profiles", params)
+            if (isCurrentRemoteOperation(operationScope)) pullProfiles()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            if (!isCurrentRemoteOperation(operationScope)) return
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile push")) return
-            log.e(e) { "Failed to push profiles" }
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to push profiles" }
         }
     }
 
@@ -344,75 +438,78 @@ object ProfileRepository {
     }
 
     suspend fun deleteProfile(profileIndex: Int) {
+        val operationScope = captureRemoteOperationScope() ?: return
         val deletedProfile = _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }
-        val userId = deletedProfile?.userId.orEmpty()
+        val userId = deletedProfile?.userId.orEmpty().ifBlank { operationScope.userId }
+        if (userId != operationScope.userId) return
 
-        if (AuthRepository.state.value.isAnonymous) {
+        if (operationScope.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
-                cleanupTrackingStores(profileIndex)
-                val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
-                if (!settingsBackgroundRemoved) {
-                    log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
+                synchronized(remoteOperationLock) {
+                    if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized null
+                    cleanupTrackingStores(profileIndex)
+                    val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
+                    if (!settingsBackgroundRemoved) {
+                        log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
+                    }
+                    val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                    if (!cloudBackgroundRemoved) {
+                        log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
+                    }
+                    val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
+                    val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, operationScope.userId)
+                    ServerRepository.removeProfile(profileIndex)
+                    val activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) remaining.firstOrNull()
+                        else _state.value.activeProfile
+                    _state.value = _state.value.copy(profiles = remaining, activeProfile = activeProfile)
+                    if (activeProfile != null) activeProfileIndex = activeProfile.profileIndex
+                    persist(operationScope.userId, operationScope.isAnonymous)
+                    pinCacheRemoved && biometricRemoved
                 }
-                val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
-                if (!cloudBackgroundRemoved) {
-                    log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
-                }
-                val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
-                val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, userId)
-                pinCacheRemoved && biometricRemoved
-            }
+            } ?: return
             if (!localLockCleanupSucceeded) {
                 log.w { "Profile $profileIndex was deleted, but local profile-lock cleanup could not be confirmed" }
             }
-            ServerRepository.removeProfile(profileIndex)
-            _state.value = _state.value.copy(
-                profiles = remaining,
-                activeProfile = if (_state.value.activeProfile?.profileIndex == profileIndex) {
-                    remaining.firstOrNull()
-                } else {
-                    _state.value.activeProfile
-                },
-            )
-            if (_state.value.activeProfile != null) {
-                activeProfileIndex = _state.value.activeProfile!!.profileIndex
-            }
-            persist()
             return
         }
+
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) return
         try {
             val params = buildJsonObject {
                 put("p_profile_id", profileIndex)
                 putSyncOriginClientId()
             }
-            SupabaseProvider.client.postgrest.rpc("sync_delete_profile_data", params)
-            ServerRepository.removeProfile(profileIndex)
-            // Remote deletion succeeded; remove device-local authentication artifacts even if
-            // the subsequent profile refresh is interrupted or unavailable.
+            client.postgrest.rpc("sync_delete_profile_data", params)
             val localLockCleanupSucceeded = withContext(Dispatchers.IO) {
-                cleanupTrackingStores(profileIndex)
-                val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
-                if (!settingsBackgroundRemoved) {
-                    log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
+                synchronized(remoteOperationLock) {
+                    if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized null
+                    cleanupTrackingStores(profileIndex)
+                    val settingsBackgroundRemoved = ThemeSettingsStorage.clearCustomSettingsBackgroundImage(profileIndex)
+                    if (!settingsBackgroundRemoved) {
+                        log.w { "Profile $profileIndex was deleted, but its local Settings background could not be removed" }
+                    }
+                    val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
+                    if (!cloudBackgroundRemoved) {
+                        log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
+                    }
+                    val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
+                    val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, operationScope.userId)
+                    ServerRepository.removeProfile(profileIndex)
+                    pinCacheRemoved && biometricRemoved
                 }
-                val cloudBackgroundRemoved = ThemeSettingsStorage.clearCustomLibraryCloudBackgroundImage(profileIndex)
-                if (!cloudBackgroundRemoved) {
-                    log.w { "Profile $profileIndex was deleted, but its local Cloud Library background could not be removed" }
-                }
-                val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
-                val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, userId)
-                pinCacheRemoved && biometricRemoved
-            }
+            } ?: return
             if (!localLockCleanupSucceeded) {
                 log.w { "Profile $profileIndex was deleted, but local profile-lock cleanup could not be confirmed" }
             }
-            pullProfiles()
+            if (isCurrentRemoteOperation(operationScope)) pullProfiles()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
+            if (!isCurrentRemoteOperation(operationScope)) return
             if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
-            log.e(e) { "Failed to delete profile $profileIndex" }
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to delete profile $profileIndex" }
         }
     }
 
@@ -422,28 +519,41 @@ object ProfileRepository {
                 verifyPinLocally(profileIndex, pin)
             }
         }
+        val operationScope = captureRemoteOperationScope()
+            ?: return PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) {
+            return PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+        }
 
         return runCatching {
             val params = buildJsonObject {
                 put("p_profile_id", profileIndex)
                 put("p_pin", pin)
             }
-            val result = SupabaseProvider.client.postgrest.rpc("verify_profile_pin", params)
-            result.decodeSingle<PinVerifyResult>().also { verifyResult ->
-                if (verifyResult.unlocked) {
-                    pullProfiles()
-                    withContext(Dispatchers.IO) {
-                        rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
-                    }
+            val result = client.postgrest.rpc("verify_profile_pin", params)
+            val verifyResult = result.decodeSingle<PinVerifyResult>()
+            if (!isCurrentRemoteOperation(operationScope)) {
+                PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+            } else if (verifyResult.unlocked) {
+                pullProfiles()
+                val remembered = withContext(Dispatchers.IO) {
+                    rememberVerifiedPinIfCurrent(operationScope, profileIndex, pin)
                 }
+                if (remembered && isCurrentRemoteOperation(operationScope)) verifyResult
+                else PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+            } else {
+                verifyResult
             }
         }.getOrElse { error ->
             if (error is CancellationException) throw error
-            // Never log the authentication exception: request/transport exceptions are not useful
-            // enough to justify risking credential-adjacent data in crash/log pipelines.
+            if (!isCurrentRemoteOperation(operationScope)) {
+                return@getOrElse PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+            }
             log.w { "PIN verification request failed; attempting local verification" }
             withContext(Dispatchers.IO) {
-                verifyPinLocally(profileIndex, pin)
+                if (isCurrentRemoteOperation(operationScope)) verifyPinLocally(profileIndex, pin)
+                else PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
             }
         }
     }
@@ -452,6 +562,12 @@ object ProfileRepository {
         if (AuthRepository.state.value !is AuthState.Authenticated) {
             return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_requires_internet))
         }
+        val operationScope = captureRemoteOperationScope()
+            ?: return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) {
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
+        }
 
         return runCatching {
             val params = buildJsonObject {
@@ -459,25 +575,31 @@ object ProfileRepository {
                 put("p_pin", pin)
                 currentPin?.let { put("p_current_pin", it) }
             }
-            SupabaseProvider.client.postgrest.rpc("set_profile_pin", params)
-            pullProfiles()
-            withContext(Dispatchers.IO) {
-                rememberVerifiedPin(profileIndex = profileIndex, pin = pin)
+            client.postgrest.rpc("set_profile_pin", params)
+            if (!isCurrentRemoteOperation(operationScope)) {
+                return@runCatching PinVerifyResult(false, getString(Res.string.profile_pin_set_failed))
             }
-            PinVerifyResult(unlocked = true)
+            pullProfiles()
+            val remembered = withContext(Dispatchers.IO) {
+                rememberVerifiedPinIfCurrent(operationScope, profileIndex, pin)
+            }
+            if (remembered && isCurrentRemoteOperation(operationScope)) PinVerifyResult(unlocked = true)
+            else PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
         }.onFailure { e ->
             if (e is CancellationException) throw e
-            log.e(e) { "Failed to set pin" }
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to set pin" }
         }.getOrElse {
             PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
         }
     }
 
     suspend fun clearPin(profileIndex: Int, currentPin: String? = null): PinVerifyResult {
-        val accountUserId =
-            (AuthRepository.state.value as? AuthState.Authenticated)?.userId.orEmpty()
-        if (accountUserId.isBlank()) {
-            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_requires_internet))
+        val operationScope = captureRemoteOperationScope()
+            ?: return PinVerifyResult(false, getString(Res.string.profile_pin_clear_requires_internet))
+        val accountUserId = operationScope.userId
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) {
+            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
         }
 
         val profileUserId = _state.value.profiles
@@ -485,18 +607,24 @@ object ProfileRepository {
             ?.userId
             .orEmpty()
             .ifBlank { accountUserId }
+        if (profileUserId != accountUserId) {
+            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+        }
 
         val params = buildJsonObject {
             put("p_profile_id", profileIndex)
             currentPin?.let { put("p_current_pin", it) }
         }
         try {
-            SupabaseProvider.client.postgrest.rpc("clear_profile_pin", params)
+            client.postgrest.rpc("clear_profile_pin", params)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            log.e(e) { "Failed to clear pin" }
-            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to clear pin" }
+            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+        }
+        if (!isCurrentRemoteOperation(operationScope)) {
+            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
         }
 
         // Once the server confirms PIN removal, local credential cleanup must not be
@@ -504,89 +632,101 @@ object ProfileRepository {
         // authenticated account changed while the request was in flight.
         var pinCacheRemoved = false
         var biometricRemoved = false
-        val sameAccount = {
-            (AuthRepository.state.value as? AuthState.Authenticated)?.userId == accountUserId
-        }
-        if (sameAccount()) {
+        val stillCurrent = { isCurrentRemoteOperation(operationScope) }
+        if (stillCurrent()) {
             withContext(NonCancellable) {
                 withContext(Dispatchers.IO) {
-                    // Re-check after the dispatcher switch so an account change while queued
-                    // cannot clear the new account's profile-indexed PIN cache.
-                    if (sameAccount()) {
-                        pinCacheRemoved = try {
-                            ProfilePinCacheStorage.removePayload(profileIndex)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            log.w { "Unable to remove local PIN cache after server PIN removal" }
-                            false
-                        }
-
-                        biometricRemoved = try {
-                            ProfileBiometricAuth.disable(profileIndex, profileUserId)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            log.w { "Unable to remove biometric credential after server PIN removal" }
-                            false
+                    synchronized(remoteOperationLock) {
+                        if (isCurrentRemoteOperationLocked(operationScope)) {
+                            pinCacheRemoved = try {
+                                ProfilePinCacheStorage.removePayload(profileIndex)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                log.w { "Unable to remove local PIN cache after server PIN removal" }
+                                false
+                            }
+                            biometricRemoved = try {
+                                ProfileBiometricAuth.disable(profileIndex, operationScope.userId)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                log.w { "Unable to remove biometric credential after server PIN removal" }
+                                false
+                            }
                         }
                     }
                 }
             }
         }
-
-        if (sameAccount()) {
-            pullProfiles()
-        }
-
-        val cleanupSucceeded = sameAccount() && pinCacheRemoved && biometricRemoved
+        if (stillCurrent()) pullProfiles()
+        val current = stillCurrent()
+        val cleanupSucceeded = current && pinCacheRemoved && biometricRemoved
         return PinVerifyResult(
-            unlocked = true,
-            message = if (cleanupSucceeded) null
-                else getString(Res.string.profile_pin_clear_cleanup_failed),
+            unlocked = current,
+            message = when {
+                !current -> getString(Res.string.profile_pin_clear_failed)
+                cleanupSucceeded -> null
+                else -> getString(Res.string.profile_pin_clear_cleanup_failed)
+            },
         )
     }
 
     suspend fun clearPinWithPassword(profileIndex: Int, accountPassword: String) {
+        val operationScope = captureRemoteOperationScope() ?: return
+        val profileUserId = _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty()
+        if (profileUserId.isNotBlank() && profileUserId != operationScope.userId) return
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) return
         runCatching {
             val params = buildJsonObject {
                 put("p_account_password", accountPassword)
                 put("p_profile_id", profileIndex)
             }
-            SupabaseProvider.client.postgrest.rpc("clear_profile_pin_with_account_password", params)
+            client.postgrest.rpc("clear_profile_pin_with_account_password", params)
+            if (!isCurrentRemoteOperation(operationScope)) return@runCatching
             pullProfiles()
             val localLockCleanup = withContext(Dispatchers.IO) {
-                val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
-                // PIN removal must not depend on biometric cleanup succeeding; check both local
-                // credential removals separately after the server confirms PIN removal.
-                val biometricRemoved = ProfileBiometricAuth.disable(
-                    profileIndex,
-                    _state.value.profiles.firstOrNull { it.profileIndex == profileIndex }?.userId.orEmpty(),
-                )
-                pinCacheRemoved to biometricRemoved
-            }
+                synchronized(remoteOperationLock) {
+                    if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized null
+                    val pinCacheRemoved = ProfilePinCacheStorage.removePayload(profileIndex)
+                    // PIN removal does not depend on biometric cleanup succeeding; both are
+                    // checked independently after the server confirms the change.
+                    val biometricRemoved = ProfileBiometricAuth.disable(profileIndex, operationScope.userId)
+                    pinCacheRemoved to biometricRemoved
+                }
+            } ?: return@runCatching
             if (!localLockCleanup.first || !localLockCleanup.second) {
                 log.w { "PIN was cleared but local profile-lock cleanup could not be confirmed" }
             }
         }.onFailure { e ->
             if (e is CancellationException) throw e
-            log.e(e) { "Failed to clear pin with password" }
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to clear pin with password" }
         }
     }
 
     suspend fun pullProfileLocks(): List<ProfileLockState> {
+        val operationScope = captureRemoteOperationScope() ?: return emptyList()
+        val client = SupabaseProvider.client
+        if (!isCurrentRemoteOperation(operationScope)) return emptyList()
         return runCatching {
-            val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profile_locks")
-            result.decodeList<ProfileLockState>()
+            val result = client.postgrest.rpc("sync_pull_profile_locks")
+            result.decodeList<ProfileLockState>().takeIf {
+                isCurrentRemoteOperation(operationScope)
+            }.orEmpty()
         }.getOrElse { e ->
             if (e is CancellationException) throw e
-            log.e(e) { "Failed to pull profile locks" }
+            if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to pull profile locks" }
             emptyList()
         }
     }
 
-    private suspend fun applyPayloadsLocally(payloads: List<ProfilePushPayload>) {
+    private suspend fun applyPayloadsLocally(
+        payloads: List<ProfilePushPayload>,
+        operationScope: ProfileRemoteOperationScope,
+    ) {
         val authState = AuthRepository.state.value as? AuthState.Authenticated ?: return
+        if (authState.userId != operationScope.userId || authState.isAnonymous != operationScope.isAnonymous) return
         val profiles = payloads.map { p ->
             NuvioProfile(
                 id = "",
@@ -602,18 +742,21 @@ object ProfileRepository {
                 usesPrimaryPlugins = p.usesPrimaryPlugins,
             )
         }.sortedBy { it.profileIndex }
-        _state.value = _state.value.copy(
-            profiles = profiles,
-            isLoaded = true,
-            activeProfile = profiles.find { it.profileIndex == activeProfileIndex } ?: profiles.firstOrNull(),
-        )
-        if (_state.value.activeProfile != null) {
-            activeProfileIndex = _state.value.activeProfile!!.profileIndex
-        }
         withContext(Dispatchers.IO) {
-            syncPinCache(profiles)
+            synchronized(remoteOperationLock) {
+                if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized
+                syncPinCache(profiles)
+                if (!isCurrentRemoteOperationLocked(operationScope)) return@synchronized
+                val activeProfile = profiles.find { it.profileIndex == activeProfileIndex } ?: profiles.firstOrNull()
+                _state.value = _state.value.copy(
+                    profiles = profiles,
+                    isLoaded = true,
+                    activeProfile = activeProfile,
+                )
+                if (activeProfile != null) activeProfileIndex = activeProfile.profileIndex
+                persist(operationScope.userId, operationScope.isAnonymous)
+            }
         }
-        persist()
     }
 
     private fun decodeStoredPayload(): StoredProfilePayload? {
@@ -749,8 +892,16 @@ object ProfileRepository {
         }
     }
 
-    private fun persist() {
+    private fun persist(
+        expectedUserId: String? = null,
+        expectedIsAnonymous: Boolean? = null,
+    ) {
         val authState = AuthRepository.state.value as? AuthState.Authenticated ?: return
+        if (
+            expectedUserId != null &&
+            (authState.userId != expectedUserId ||
+                (expectedIsAnonymous != null && authState.isAnonymous != expectedIsAnonymous))
+        ) return
         val state = _state.value
         ProfileStorage.savePayload(
             json.encodeToString(

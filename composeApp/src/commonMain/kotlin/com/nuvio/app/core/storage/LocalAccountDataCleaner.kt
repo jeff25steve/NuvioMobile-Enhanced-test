@@ -130,6 +130,8 @@ internal suspend fun runNonCancellableCleanup(block: suspend () -> Unit) {
 
 internal object LocalAccountDataCleaner {
     suspend fun wipe(accountUserId: String? = null) = runNonCancellableCleanup {
+        // Fence outstanding profile RPCs before any account-scoped storage is cleared.
+        ProfileRepository.invalidatePendingRemoteOperations()
         AddonRepository.beginAccountCleanup()
         if (AppFeaturePolicy.pluginsEnabled) {
             PluginRepository.beginAccountCleanup()
