@@ -99,7 +99,22 @@ private val animatedSourceHttpClient by lazy {
         }
     }
 }
-private val loadSemaphore = Semaphore(MaxConcurrentLoads)
+private const val MaxConcurrentDecodes = 2
+private val decodeSemaphore = Semaphore(MaxConcurrentDecodes)
+
+/**
+ * Keeps simultaneous Skia frame decodes bounded independently from source downloads.
+ * Semaphore.acquire is cancellable; the finally block releases the permit for success,
+ * failure, and cancellation alike.
+ */
+internal suspend fun <T> withAnimatedImageDecodePermit(block: suspend () -> T): T {
+    decodeSemaphore.acquire()
+    return try {
+        block()
+    } finally {
+        decodeSemaphore.release()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Compressed source cache (bytes only)
@@ -504,11 +519,15 @@ private suspend fun acquireShared(url: String, targetWidth: Int, targetHeight: I
 
     val inFlight = pending[key] ?: registryScope.async {
         val bytes = fetchSourceBytes(url) ?: return@async null
-        val remaining = MaxAnimationBudgetBytes - budgetUsedBytes
-        if (remaining <= 0) return@async null
-
-        val animation = withContext(Dispatchers.Default) {
-            decodeAnimation(bytes, targetWidth, targetHeight, remaining)
+        val animation = withAnimatedImageDecodePermit {
+            val remaining = MaxAnimationBudgetBytes - budgetUsedBytes
+            if (remaining <= 0L) {
+                null
+            } else {
+                withContext(Dispatchers.Default) {
+                    decodeAnimation(bytes, targetWidth, targetHeight, remaining)
+                }
+            }
         } ?: return@async null
 
         registry[key]?.let { return@async it }

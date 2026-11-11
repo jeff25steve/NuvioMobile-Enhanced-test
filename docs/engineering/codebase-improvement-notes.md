@@ -2735,3 +2735,27 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - No additional dependency or API introduced. This is shared player state logic; Android host regression coverage was added. iOS uses the shared runtime key as well, but this host test exercises the same common code.
 - Regression test NOT run; no compilation, Android/iOS build, or CI workflow started, as requested. Runtime subtitle repository state and engine-switch behavior remain unverified until test authorization.
 
+
+
+## 11 November 2026 — limit simultaneous iOS animated-artwork frame decodes
+
+### Confirmed root cause
+- The iOS animated-image loader limited concurrent source reads to six, but the subsequent Skia decode phase had no independent concurrency limit.
+- `decodeAnimation` allocates a source-sized bitmap and then creates downsampled frame images. Its final decoded-frame budget is bounded, but multiple large source bitmaps can coexist during decoding before that retained-frame budget is committed.
+- Apple's WWDC 2018 iOS Memory Deep Dive explains that decoded image memory scales with pixel dimensions rather than compressed file size, and recommends avoiding excessive image decode work and unloading large resources that are not visible. This supports limiting transient simultaneous decodes rather than reducing the existing visible-artwork budget.
+
+### Integrated change
+- Added a separate two-permit semaphore for Skia animation decoding; the existing six concurrent source-load limit is unchanged.
+- The remaining decoded-frame budget is calculated after acquiring the decode permit, avoiding a stale pre-wait budget snapshot.
+- Added a small shared helper that always releases its permit in `finally`, including when decoding fails or the coroutine is cancelled. Semaphore acquisition is cancellable.
+- Added iOS tests that hold concurrent decode work and assert the peak stays at two, and that a thrown decode does not leak a permit.
+- No image dimensions, animation quality, frame timing, on-screen animation lifecycle, HTTP timeout, disk cache, or source-cache behavior was changed.
+
+### Research sources
+- Apple's WWDC 2018 iOS Memory Deep Dive: https://developer.apple.com/videos/play/wwdc2018/416/
+- Apple's WWDC 2018 Image and Graphics Best Practices session: https://devstreaming-cdn.apple.com/videos/wwdc/2018/219mybpx95zm9x/219/219_image_and_graphics_best_practices.pdf?dl=1
+- Kotlinx Coroutines Semaphore source / cancellation behavior: https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.2/kotlinx-coroutines-core/common/src/sync/Semaphore.kt
+- Related upstream memory work reviewed: `e7d2372cbf43ea150f9497877de23cfae478a92b`; adapted only the independent decode-concurrency bound, not its broader image eviction, playback suspension, garbage collection or MPV lifecycle changes.
+
+### Verification boundary
+- iOS regression tests added but NOT run. No Gradle test task, Kotlin compilation, iOS build, device test, or CI workflow started, as requested. Runtime peak-memory behavior and native Skia allocations remain unmeasured.
