@@ -105,6 +105,13 @@ internal fun extraWatchedKeysChanged(
     current: Set<String>,
 ): Boolean = previous.orEmpty() != current
 
+/**
+ * Copies provider dirty keys while the watched-items store lock is held.
+ * Persistence serializes after the read callback returns, so retaining the
+ * mutable set through its read-only Set view would allow concurrent mutation.
+ */
+internal fun snapshotWatchedDirtyKeys(keys: Set<String>): Set<String> = keys.toSet()
+
 private const val maxRestorableWatchedPayloadChars = 4 * 1024 * 1024
 
 internal fun shouldRestoreWatchedPayload(payloadLength: Int): Boolean =
@@ -1354,7 +1361,7 @@ object WatchedRepository {
                         extraWatchedKeyGroups = compactExtraWatchedKeys(
                             providerExtraWatchedKeys[providerId].orEmpty(),
                         ),
-                        dirtyWatchedKeys = dirtyProviderKeys[providerId].orEmpty(),
+                        dirtyWatchedKeys = snapshotWatchedDirtyKeys(dirtyProviderKeys[providerId].orEmpty()),
                     )
                 },
             )

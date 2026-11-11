@@ -41,6 +41,16 @@ class WatchedRepositoryTest {
     }
 
     @Test
+    fun providerDirtyKeysAreSnapshottedBeforePersistence() {
+        val mutableProviderKeys = mutableSetOf("movie:tt123:-1:-1")
+
+        val persistedKeys = snapshotWatchedDirtyKeys(mutableProviderKeys)
+        mutableProviderKeys += "movie:tt456:-1:-1"
+
+        assertEquals(setOf("movie:tt123:-1:-1"), persistedKeys)
+    }
+
+    @Test
     fun providerRefreshFailure_isContainedWithoutReplacingState() = runBlocking {
         val failure = IllegalStateException("rate limited")
         var observedFailure: Throwable? = null

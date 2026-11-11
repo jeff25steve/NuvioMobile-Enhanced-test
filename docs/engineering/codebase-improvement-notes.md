@@ -2550,3 +2550,35 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### Research and verification boundary
 - Cross-checked the project's pinned Ktor 3.4.1 against the official [Ktor client lifecycle documentation](https://ktor.io/docs/client-create-and-configure.html) and tagged [Ktor 3.4.1 HttpClient source](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-core/common/src/io/ktor/client/HttpClient.kt). Context7 documentation confirms client plugins are installed on a client instance; Exa independently surfaced the official Ktor plugin implementation. The current `enhanced` branch has the same shared-coordinator design, so no upstream fix was being duplicated.
 - The new unit test and a complete source/diff review are static evidence only. No tests, compilation, Android/iOS build, runtime backend-switch exercise or CI was started. The test remains unexecuted and the change is not build-verified.
+
+
+## 11 November 2026 — snapshot provider watched-sync dirty keys before persistence
+
+### Confirmed cause
+- `WatchedItemsStore.read` holds its synchronization lock only for the supplied callback. The callback returns `StoredWatchedPayload`, which is JSON-encoded after that lock has been released.
+- The Nuvio dirty-key set was already copied with `toSet()`, but provider dirty keys were assigned from `dirtyProviderKeys[providerId].orEmpty()`. That read-only `Set` view still referred to the mutable set held by the store. A concurrent watched-state update could therefore mutate the collection while serialization traversed it.
+- This was an actual shared-state snapshot defect, not a speculative serialization optimization.
+
+### Integrated change
+- Added `snapshotWatchedDirtyKeys` and use it when capturing provider dirty keys inside the synchronized read callback. The payload now owns an independent set before serialization begins; profile/provider ownership and dirty-key acknowledgement semantics are unchanged.
+- Added a common regression test that mutates the source set after taking the persistence snapshot and verifies that the captured payload keys remain unchanged.
+
+### Research and verification boundary
+- Kotlin's official collection-construction documentation confirms `toSet()` creates a snapshot whose membership is unaffected by later additions/removals in the source collection: https://kotlinlang.org/docs/constructing-collections.html
+- Regression test added but NOT run. No Gradle test task, compilation, Android/iOS build, device test or CI workflow was started, as instructed.
+
+## 11 November 2026 — tolerate Android caption preference read failures
+
+### Confirmed failure boundary
+- ExoPlayer initialization reads optional system caption enablement and locale preferences through Android's `CaptioningManager`. A runtime failure from either settings read should not abort player/track-selector initialization.
+- Android's framework implementation obtains these preferences from `Settings.Secure`; the reads are platform settings access, not essential media-engine state.
+
+### Integrated change
+- Guarded the caption-enabled read with the existing false fallback and the locale read with the existing null fallback. Successful reads retain identical track-selection behaviour; failed reads use the same defaults already implied by an unavailable captioning manager.
+- Scoped the change to Android's ExoPlayer track-selector setup. No iOS behaviour, user settings, persistence, dependencies or UI changed.
+
+### Research and verification boundary
+- Android API reference: https://developer.android.com/reference/android/view/accessibility/CaptioningManager
+- Android Open Source Project implementation: https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/view/accessibility/CaptioningManager.java
+- The upstream Nuvio change `81dc761eef0fed809264bc2dc9a58a55e6c00035` independently applies the same narrow guarded-read fallback.
+- No dedicated Robolectric test was added for framework-owned `Settings.Secure` getters. The common watched-key regression test is also unrun; no build-triggering tests, compilation, device checks or CI were started.
