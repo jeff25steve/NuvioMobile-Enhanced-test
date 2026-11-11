@@ -23,13 +23,13 @@ class BackdropFocusTest {
     @Test
     fun subjectOnRightPullsFramingRight() {
         val profile = analyzeBackdropFocus(flatImageWithSubjectAt(subjectStartX = 70, subjectWidth = 20))
-        assertTrue(profile.horizontalBias(visibleFraction = 0.5f) > 0.5f)
+        assertTrue(profile.horizontalBias(visibleFraction = 0.5f) > 0.82f)
     }
 
     @Test
     fun subjectOnLeftPullsFramingLeft() {
         val profile = analyzeBackdropFocus(flatImageWithSubjectAt(subjectStartX = 4, subjectWidth = 20))
-        assertTrue(profile.horizontalBias(visibleFraction = 0.5f) < -0.5f)
+        assertTrue(profile.horizontalBias(visibleFraction = 0.5f) < -0.98f)
     }
 
     @Test

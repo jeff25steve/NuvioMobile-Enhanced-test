@@ -2649,3 +2649,18 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Verification boundary
 - Regression tests added but NOT run. No Gradle test task, compilation, Android/iOS build, device check, or CI workflow was started.
+
+
+## 11 November 2026 — stop pulling edge subjects back toward the center in backdrop crops
+
+### Confirmed cause
+- `BackdropFocusProfile.horizontalBias` finds the highest-energy crop window, but then multiplied its bias by `0.9f`. The subsequent crop alignment therefore moved the chosen window back toward center even when the subject occupied the outer part of the source image.
+- The existing backdrop tests only asserted that the crop moved in the correct direction; they allowed the damped value and could not catch the loss of edge coverage.
+
+### Integrated change
+- Removed the `BiasDamping` multiplier and use the best window's normalized bias directly. The centered-preference ratio, dead zone, crop threshold, saliency analysis, cache, and alignment interpolation are unchanged.
+- Tightened the existing asymmetric-subject tests: the right-edge crop must retain a bias above 0.72, and the left-edge crop below -0.98. The prior damped output fails those assertions.
+
+### Research and verification boundary
+- This is a focused port of upstream commit `334bd2b13d71ac2bd52db2b415f460052a046acf`, checked against this branch's crop implementation and current common tests.
+- Tests were updated but NOT run. No Gradle test task, compilation, Android/iOS build, device test or CI workflow was started.
