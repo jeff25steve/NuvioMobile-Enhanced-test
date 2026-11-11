@@ -422,6 +422,7 @@ object DownloadsRepository {
     }
 
     private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
+        if (!isProfileOwnerCurrent(owner)) return
         val key = DownloadOperationKey(owner, item.id)
         if (key in activeOperations) return
 
@@ -433,14 +434,18 @@ object DownloadsRepository {
             request = request,
             onProgress = { downloadedBytes, totalBytes ->
                 if (isCurrentOperation(key, generation)) {
-                    updateOwnedDownload(owner, item.id) { current ->
-                        if (current.status != DownloadStatus.Downloading) current
-                        else current.copy(
-                            downloadedBytes = downloadedBytes.coerceAtLeast(0L),
-                            totalBytes = totalBytes?.takeIf { it > 0L },
-                            updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                            errorMessage = null,
-                        )
+                    if (!isProfileOwnerCurrent(owner)) {
+                        cancelDownloadOperation(owner, item.id)
+                    } else {
+                        updateOwnedDownload(owner, item.id) { current ->
+                            if (current.status != DownloadStatus.Downloading) current
+                            else current.copy(
+                                downloadedBytes = downloadedBytes.coerceAtLeast(0L),
+                                totalBytes = totalBytes?.takeIf { it > 0L },
+                                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+                                errorMessage = null,
+                            )
+                        }
                     }
                 }
             },

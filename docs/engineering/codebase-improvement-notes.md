@@ -2427,6 +2427,12 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Rejected: replacing StateFlow assignment with `update { }` alone; dispatching callbacks to main without persisting under the originating profile; relying on Android's transfer store as an iOS fix; and changing the download-location preference, whose device-level migration policy remains unresolved.
 - Process-relaunch URLSession reattachment remains out of scope. Task enumeration alone cannot restore the full request, originating profile and optional custom destination, and persistence of `taskDescription` across process kill remains unverified. No `getAllTasks` reattachment code was added.
 
+### Adjacent cleanup gaps deliberately not changed
+
+- `LocalAccountDataCleaner.wipe()` does not currently call `DownloadsRepository.clearLocalState()`. The Android account cleaner's preference list omits `nuvio_downloads` and its transfer-record directory; the iOS account cleaner's profile-scoped key list omits `downloads_payload_<profileIndex>`. Sign-out/account deletion can therefore leave old download metadata or native work behind.
+- `ProfileRepository.deleteProfile()` also does not currently purge that profile's downloads payload or cancel its active operation. The new owner check prevents later callbacks from writing once the deleted profile disappears from the loaded profile list, but it does not itself cancel the native task or remove pre-existing metadata.
+- These were not patched by simply clearing the payload: a correct cleanup must coordinate WorkManager/JobScheduler and background URLSession cancellation, resume-data/transfer-file cleanup, profile-scoped metadata, and the intended keep/delete policy for completed media. Removing only one layer risks orphaned native transfers or inaccessible user files.
+
 ### Verification boundary and next starting point
 
 - A complete GitHub comparison and remote-source review are required before advancing the branch. No local checkout is mounted, so local `git status` and uncommitted workstation changes remain inaccessible.
