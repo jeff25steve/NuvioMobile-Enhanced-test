@@ -25,7 +25,6 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackAudioSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
-    highlightedSearchAnchorKey: String? = null,
 ) {
     var showPreferredAudioDialog by remember { mutableStateOf(false) }
     var showSecondaryAudioDialog by remember { mutableStateOf(false) }
@@ -39,8 +38,6 @@ internal fun PlaybackAudioSettings(
             SettingsGroup(isTablet = isTablet) {
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_preferred_audio_language),
-                    searchAnchorKey = "playback-audio-preferred-language",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = when (settings.preferredAudioLanguage) {
                         AudioLanguageOption.DEFAULT -> stringResource(Res.string.settings_playback_option_default)
                         AudioLanguageOption.DEVICE -> stringResource(Res.string.settings_playback_option_device_language)
@@ -54,8 +51,6 @@ internal fun PlaybackAudioSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_secondary_audio_language),
-                    searchAnchorKey = "playback-audio-secondary-language",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = languageLabelForCode(settings.secondaryPreferredAudioLanguage),
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
@@ -64,8 +59,6 @@ internal fun PlaybackAudioSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_night_mode_button),
-                    searchAnchorKey = "playback-audio-night-mode-button",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_playback_night_mode_button_description),
                     checked = settings.nightModeButtonEnabled,
                     enabled = !settings.externalPlayerEnabled,
@@ -76,8 +69,6 @@ internal fun PlaybackAudioSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_remember_audio_delay),
-                    searchAnchorKey = "playback-audio-remember-delay",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_remember_audio_delay_description),
                         checked = settings.rememberAudioDelayPerDevice,
                         enabled = !settings.externalPlayerEnabled,
@@ -100,8 +91,6 @@ internal fun PlaybackAudioSettings(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_downmix),
-                    searchAnchorKey = "playback-audio-downmix",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_downmix_description),
                         checked = settings.effectiveDownmixEnabled,
                         enabled = downmixAvailable,
@@ -112,8 +101,6 @@ internal fun PlaybackAudioSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsNavigationRow(
                             title = stringResource(Res.string.settings_playback_downmix_channels),
-                    searchAnchorKey = "playback-audio-downmix-channels",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = settings.audioOutputChannels.settingValue,
                             enabled = downmixAvailable,
                             isTablet = isTablet,
@@ -122,8 +109,6 @@ internal fun PlaybackAudioSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
                             title = stringResource(Res.string.settings_playback_downmix_maintain_volume),
-                    searchAnchorKey = "playback-audio-downmix-maintain-volume",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = stringResource(Res.string.settings_playback_downmix_maintain_volume_description),
                             checked = settings.maintainOriginalAudioOnDownmix,
                             enabled = downmixAvailable,
@@ -143,8 +128,6 @@ internal fun PlaybackAudioSettings(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_ios_audio_output),
-                    searchAnchorKey = "playback-audio-ios-output",
-                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = settings.iosAudioOutputMode.label,
                         isTablet = isTablet,
                         onClick = { showIosAudioOutputDialog = true },
