@@ -111,6 +111,10 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackSubtitlesSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackVideo ->
             if (key in PlaybackVideoSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackBuffer ->
+            if (key in PlaybackBufferSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackP2p ->
+            if (key in PlaybackP2pSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -194,6 +198,28 @@ private val PlaybackVideoSettingsSearchAnchorKeys = setOf(
     "playback-audio-passthrough",
     "playback-anime-upscale",
     "playback-anime-line-sharpen",
+)
+
+private val PlaybackBufferSettingsSearchAnchorKeys = setOf(
+    "playback-exo-native-memory",
+    "playback-custom-buffers",
+    "playback-min-buffer",
+    "playback-max-buffer",
+    "playback-start-buffer",
+    "playback-buffer-after-stall",
+    "playback-back-buffer",
+    "playback-target-buffer-size",
+    "playback-vod-cache",
+    "playback-vod-cache-auto-size",
+    "playback-vod-cache-size",
+)
+
+private val PlaybackP2pSettingsSearchAnchorKeys = setOf(
+    "playback-p2p-enabled",
+    "playback-p2p-hide-stats",
+    "playback-p2p-profile",
+    "playback-p2p-cache-size",
+    "playback-p2p-clear-cache",
 )
 
 private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
@@ -1305,9 +1331,38 @@ internal fun settingsSearchEntries(
                 add(PlaybackSearchRow("anime-line-sharpen", stringResource(Res.string.settings_playback_anime_line_sharpen), stringResource(Res.string.settings_playback_anime_line_sharpen_description), sectionOverride = stringResource(Res.string.settings_playback_section_anime_enhancement)))
                 add(PlaybackSearchRow("exo-native-memory", stringResource(Res.string.settings_playback_exo_native_memory), stringResource(Res.string.settings_playback_exo_native_memory_description), page = SettingsPage.PlaybackBuffer))
                 add(PlaybackSearchRow("custom-buffers", stringResource(Res.string.settings_playback_custom_buffers), stringResource(Res.string.settings_playback_custom_buffers_description), page = SettingsPage.PlaybackBuffer))
+                if (playerSettings.customPlaybackBuffersEnabled) {
+                    add(PlaybackSearchRow("min-buffer", stringResource(Res.string.settings_playback_min_buffer), page = SettingsPage.PlaybackBuffer))
+                    add(PlaybackSearchRow("max-buffer", stringResource(Res.string.settings_playback_max_buffer), page = SettingsPage.PlaybackBuffer))
+                    add(PlaybackSearchRow("start-buffer", stringResource(Res.string.settings_playback_start_buffer), page = SettingsPage.PlaybackBuffer))
+                    add(PlaybackSearchRow("buffer-after-stall", stringResource(Res.string.settings_playback_buffer_after_stall), page = SettingsPage.PlaybackBuffer))
+                    add(PlaybackSearchRow("back-buffer", stringResource(Res.string.settings_playback_back_buffer), page = SettingsPage.PlaybackBuffer))
+                    add(PlaybackSearchRow("target-buffer-size", stringResource(Res.string.settings_playback_target_buffer_size), page = SettingsPage.PlaybackBuffer))
+                }
                 add(PlaybackSearchRow("vod-cache", stringResource(Res.string.settings_playback_vod_disk_cache), stringResource(Res.string.settings_playback_vod_disk_cache_description), page = SettingsPage.PlaybackBuffer))
+                if (playerSettings.vodDiskCacheEnabled) {
+                    add(PlaybackSearchRow("vod-cache-auto-size", stringResource(Res.string.settings_playback_vod_disk_cache_auto_size), stringResource(Res.string.settings_playback_vod_disk_cache_auto_size_description), page = SettingsPage.PlaybackBuffer))
+                    if (!playerSettings.vodDiskCacheAutoSize) {
+                        add(PlaybackSearchRow("vod-cache-size", stringResource(Res.string.settings_playback_vod_disk_cache_size), page = SettingsPage.PlaybackBuffer))
+                    }
+                }
                 add(PlaybackSearchRow("exo-chapters", stringResource(Res.string.settings_playback_exo_chapters), stringResource(Res.string.settings_playback_exo_chapters_description), page = SettingsPage.PlaybackInterface))
             },
+        )
+    }
+    if (P2pSettingsRepository.isVisible) {
+        addPlaybackRows(
+            addRow = ::addRow,
+            pageLabel = playbackPage,
+            section = stringResource(Res.string.settings_playback_section_p2p),
+            page = SettingsPage.PlaybackP2p,
+            rows = listOf(
+                PlaybackSearchRow("p2p-enabled", stringResource(Res.string.settings_p2p_title), stringResource(Res.string.settings_p2p_subtitle)),
+                PlaybackSearchRow("p2p-hide-stats", stringResource(Res.string.settings_p2p_hide_stats_title), stringResource(Res.string.settings_p2p_hide_stats_subtitle)),
+                PlaybackSearchRow("p2p-profile", stringResource(Res.string.settings_p2p_profile_title)),
+                PlaybackSearchRow("p2p-cache-size", stringResource(Res.string.settings_p2p_cache_size_title)),
+                PlaybackSearchRow("p2p-clear-cache", stringResource(Res.string.settings_p2p_clear_cache_title)),
+            ),
         )
     }
     addPlaybackRows(
