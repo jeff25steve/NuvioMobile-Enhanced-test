@@ -679,38 +679,6 @@ internal fun settingsSearchEntries(
         category = advancedCategory,
     )
 
-    val advancedStartupSection = stringResource(Res.string.settings_advanced_section_startup)
-    addRow(
-        page = SettingsPage.Advanced,
-        key = "advanced-remember-last-profile",
-        title = stringResource(Res.string.settings_advanced_remember_last_profile),
-        description = stringResource(Res.string.settings_advanced_remember_last_profile_description),
-        pageLabel = advancedPage,
-        section = advancedStartupSection,
-        searchTerms = listOf("startup profile", "last used profile", "restore profile", "remember account"),
-    )
-    if (DnsSettingsRepository.isSupported) {
-        addRow(
-            page = SettingsPage.Advanced,
-            key = "advanced-dns-provider",
-            title = stringResource(Res.string.settings_advanced_dns),
-            description = stringResource(Res.string.settings_advanced_dns_note),
-            pageLabel = advancedPage,
-            section = stringResource(Res.string.settings_advanced_section_network),
-            searchTerms = listOf("dns over https", "doh", "cloudflare", "google dns", "system dns", "network resolver"),
-        )
-    }
-    if (SentrySettingsRepository.isSupported) {
-        addRow(
-            page = SettingsPage.Advanced,
-            key = "advanced-sentry-reports",
-            title = stringResource(Res.string.settings_advanced_sentry_reports),
-            description = stringResource(Res.string.settings_advanced_sentry_reports_subtitle),
-            pageLabel = advancedPage,
-            section = stringResource(Res.string.settings_advanced_section_diagnostics),
-            searchTerms = listOf("crash reports", "error reporting", "diagnostics", "send diagnostic data", "privacy"),
-        )
-    }
     addPage(
         page = SettingsPage.ContentDiscovery,
         key = "content-discovery",
@@ -1106,17 +1074,29 @@ internal fun settingsSearchEntries(
     )
     addRow(
         page = SettingsPage.Advanced,
-        key = "remember-last-profile",
+        key = "advanced-remember-last-profile",
         title = stringResource(Res.string.settings_advanced_remember_last_profile),
         description = stringResource(Res.string.settings_advanced_remember_last_profile_description),
         pageLabel = advancedPage,
         section = stringResource(Res.string.settings_advanced_section_startup),
         category = advancedCategory,
     )
+    if (DnsSettingsRepository.isSupported) {
+        addRow(
+            page = SettingsPage.Advanced,
+            key = "advanced-dns-provider",
+            title = stringResource(Res.string.settings_advanced_dns),
+            description = stringResource(Res.string.settings_advanced_dns_note),
+            pageLabel = advancedPage,
+            section = stringResource(Res.string.settings_advanced_section_network),
+            category = advancedCategory,
+            searchTerms = listOf("dns over https", "doh", "cloudflare", "google dns", "system dns", "network resolver"),
+        )
+    }
     if (SentrySettingsRepository.isSupported) {
         addRow(
             page = SettingsPage.Advanced,
-            key = "sentry-crash-reports",
+            key = "advanced-sentry-reports",
             title = stringResource(Res.string.settings_advanced_sentry_reports),
             description = stringResource(Res.string.settings_advanced_sentry_reports_subtitle),
             pageLabel = advancedPage,
@@ -1124,24 +1104,6 @@ internal fun settingsSearchEntries(
             category = advancedCategory,
         )
     }
-    addRow(
-        page = SettingsPage.Advanced,
-        key = "clear-cw-cache",
-        title = stringResource(Res.string.settings_advanced_clear_cw_cache),
-        description = stringResource(Res.string.settings_advanced_clear_cw_cache_subtitle),
-        pageLabel = advancedPage,
-        section = stringResource(Res.string.settings_advanced_section_cache),
-        category = advancedCategory,
-    )
-    addRow(
-        page = SettingsPage.Advanced,
-        key = "clear-metadata-cache",
-        title = stringResource(Res.string.settings_advanced_clear_metadata_cache),
-        description = stringResource(Res.string.settings_advanced_clear_metadata_cache_subtitle),
-        pageLabel = advancedPage,
-        section = stringResource(Res.string.settings_advanced_section_cache),
-        category = advancedCategory,
-    )
     addPage(
         page = SettingsPage.ContinueWatching,
         key = "continue-watching",
