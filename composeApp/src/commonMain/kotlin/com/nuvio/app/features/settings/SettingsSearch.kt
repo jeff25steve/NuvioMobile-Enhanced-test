@@ -96,6 +96,8 @@ internal fun settingsSearchAnchor(
     val sectionItemIndex = when (page) {
         SettingsPage.Appearance ->
             if (key in AppearanceSettingsSearchAnchorKeys) 1 else return null
+        SettingsPage.Layout ->
+            LayoutSettingsSearchAnchorItemIndexes[key] ?: return null
         SettingsPage.PlaybackPlayer ->
             if (key in PlaybackPlayerSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackStreamSelection ->
@@ -134,6 +136,15 @@ internal fun settingsSearchAnchor(
 }
 
 private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
+
+// These indexes match the four LazyListScope items in layoutSettingsContent:
+// home controls, streams navigation, detail-page navigation, and navigation-bar controls.
+private val LayoutSettingsSearchAnchorItemIndexes = mapOf(
+    "dynamic-artwork-background" to 0,
+    "catalog-accent" to 0,
+    "liquid-glass" to 3,
+    "navigation-bar" to 3,
+)
 
 private val DownloadsSettingsSearchAnchorKeys = setOf(
     "downloads-allow-mobile-data",
@@ -2100,7 +2111,7 @@ internal fun settingsSearchResults(
     entries: List<SettingsSearchEntry>,
 ): List<SettingsSearchEntry> {
     val normalizedQuery = normalizeSettingsSearchText(query)
-    val queryTerms = normalizedQuery.split(' ').filter(String::isNotBlank)
+    val queryTerms = normalizedQuery.split(' ').filter(String::isNotBlank).distinct()
     if (queryTerms.isEmpty()) return emptyList()
 
     return entries.mapIndexedNotNull { index, entry ->

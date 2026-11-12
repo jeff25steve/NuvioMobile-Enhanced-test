@@ -68,6 +68,7 @@ internal fun LazyListScope.layoutSettingsContent(
     onCollectionsClick: () -> Unit,
     onContinueWatchingClick: () -> Unit,
     onPosterCustomizationClick: () -> Unit,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         val dynamicArtworkBackgroundEnabled by ThemeSettingsRepository.dynamicArtworkBackgroundEnabled.collectAsStateWithLifecycle()
@@ -112,6 +113,8 @@ internal fun LazyListScope.layoutSettingsContent(
                     ),
                     checked = dynamicArtworkBackgroundEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "dynamic-artwork-background",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = ThemeSettingsRepository::setDynamicArtworkBackground,
                 )
                 SettingsGroupDivider(isTablet = isTablet)
@@ -120,6 +123,8 @@ internal fun LazyListScope.layoutSettingsContent(
                     description = stringResource(Res.string.settings_appearance_catalog_accent_description),
                     checked = showCatalogAccentEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "catalog-accent",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = ThemeSettingsRepository::setShowCatalogAccent,
                 )
             }
@@ -179,6 +184,8 @@ internal fun LazyListScope.layoutSettingsContent(
                         title = stringResource(Res.string.settings_appearance_tab_bar_behavior),
                         description = stringResource(tabBarBehavior.labelRes),
                         isTablet = isTablet,
+                        searchAnchorKey = "liquid-glass",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onClick = { showTabBarBehaviorSheet = true },
                     )
                 }
@@ -196,6 +203,8 @@ internal fun LazyListScope.layoutSettingsContent(
                             stringResource(effectiveNavBarStyle.labelRes)
                         },
                         isTablet = isTablet,
+                        searchAnchorKey = "navigation-bar",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onClick = { showNavBarStyleSheet = true },
                     )
                 }

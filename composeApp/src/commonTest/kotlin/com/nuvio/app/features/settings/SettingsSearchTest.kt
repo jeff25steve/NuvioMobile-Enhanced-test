@@ -90,6 +90,26 @@ class SettingsSearchTest {
         assertTrue(settingsSearchResults("subtitle bluetooth", listOf(entry)).isEmpty())
     }
 
+    @Test
+    fun duplicateQueryWordsDoNotChangeResultRanking() {
+        val titleMatch = entry(
+            key = "subtitle-title",
+            title = "Subtitle",
+            category = "Delay",
+        )
+        val descriptionMatch = entry(
+            key = "delay-title",
+            title = "Delay",
+            description = "Subtitle",
+        )
+        val entries = listOf(titleMatch, descriptionMatch)
+
+        assertEquals(
+            settingsSearchResults("subtitle delay", entries).map { it.key },
+            settingsSearchResults("subtitle subtitle delay", entries).map { it.key },
+        )
+    }
+
     private fun entry(
         key: String,
         title: String,

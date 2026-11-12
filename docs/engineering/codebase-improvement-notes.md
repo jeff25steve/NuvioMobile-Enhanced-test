@@ -3863,3 +3863,28 @@ References checked:
 - Research basis: Android Open Source Project [Universal search](https://source.android.com/docs/core/settings/universal-search) explicitly recommends hidden keywords based on users' mental models, including synonyms, and warns against duplicate indexing. AOSP [Settings design guidelines](https://source.android.com/docs/core/settings/settings-guidelines) also emphasise findability and clear labels.
 - Context7 confirmed the existing common-code `lowercase()` and `Char.isLetterOrDigit()` APIs are multiplatform-safe; no API, dependency or ranking algorithm changes were made.
 - Source and test review was performed from the committed diff. Tests, builds, compilation, Gradle tasks and CI were not run, as authorised by the project restrictions.
+
+
+## 12 November 2026 — Settings Search continuation (two improvement cycles)
+
+**Starting branch head:** `6946efda21e8d248b9b3d625f00aacdb5b6b63d7` (`main-build-testing`).
+
+### Cycle 1 — Layout settings deep links
+
+- Audited the rendered `LayoutSettingsPage` against the existing search catalogue. Four existing searchable controls were missing registered row anchors: Dynamic artwork background, Catalog accent, Tab bar behavior (the existing `liquid-glass` search key), and Navigation bar style.
+- Registered their actual `LazyListScope` section indexes (home controls at item 0; navigation-bar controls at item 3), passed the highlight key through both mobile and tablet rendering paths, and attached the same stable keys to the rendered controls.
+- Kept page-only navigation for the other Layout destinations: those search results already open their actual destination pages and should not receive fabricated row anchors.
+- Added regression assertions for all four keys, unknown-key rejection, and phone/tablet list-index offsets.
+
+### Cycle 2 — Duplicate query-token ranking stability
+
+- The matcher previously scored every repeated query token independently. Repeating a word could therefore overweight that field and change result ordering without adding new intent.
+- Deduplicated normalized query tokens while preserving their first-seen order. Distinct-token matching, typo tolerance, field weights, and phrase boosts remain unchanged.
+- Added a regression case comparing the ranking for `subtitle delay` and `subtitle subtitle delay`.
+
+### Research and verification boundary
+
+- Used Superpowers workflow guidance, GitHub source inspection, Context7 Compose Multiplatform documentation, and independent Exa research on Compose lazy-list identity and navigation.
+- The project dependency catalogue previously recorded Compose Multiplatform `1.13.0-beta01`; Context7's resolved documentation did not expose that exact version (the nearest listed stable documentation was `1.12.2`). No API or dependency change was made.
+- Regression test source was updated, but tests were **not executed**. No build, compilation, Gradle task, benchmark, or CI run was started, as explicitly requested.
+- This was a source-level integration and remote-content verification only; runtime correctness and test execution remain pending authorisation.

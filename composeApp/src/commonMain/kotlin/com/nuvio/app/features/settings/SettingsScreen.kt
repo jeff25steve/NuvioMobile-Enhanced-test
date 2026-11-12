@@ -925,6 +925,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.Layout -> layoutSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     liquidGlassNativeTabBarSupported = liquidGlassNativeTabBarSupported,
                     onHomescreenClick = onHomescreenClick,
                     onMetaScreenClick = onMetaScreenClick,
@@ -1404,6 +1405,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.Layout -> layoutSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         liquidGlassNativeTabBarSupported = liquidGlassNativeTabBarSupported,
                         onHomescreenClick = { openInlinePage(SettingsPage.Homescreen) },
                         onMetaScreenClick = { openInlinePage(SettingsPage.MetaScreen) },

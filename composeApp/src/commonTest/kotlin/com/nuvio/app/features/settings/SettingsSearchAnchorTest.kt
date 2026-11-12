@@ -299,8 +299,44 @@ class SettingsSearchAnchorTest {
     fun onlyVerifiedAppearanceRowsReceiveDeepLinkAnchors() {
         assertNull(settingsSearchAnchor(SettingsPage.Appearance, "unknown-control", "Unknown", ""))
         assertNull(settingsSearchAnchor(SettingsPage.Advanced, "amoled", "AMOLED", ""))
-        // The existing liquid-glass catalogue key is a Layout setting, not the Appearance editor row.
-        assertNull(settingsSearchAnchor(SettingsPage.Layout, "liquid-glass", "Tab bar behavior", ""))
+        // Unknown keys stay page-only; the known Layout row is anchored to its rendered section.
+        assertNull(settingsSearchAnchor(SettingsPage.Layout, "unknown-layout-row", "Unknown", ""))
+    }
+
+    @Test
+    fun layoutSearchResultsHaveExactRenderedRowAnchors() {
+        val expected = mapOf(
+            "dynamic-artwork-background" to 0,
+            "catalog-accent" to 0,
+            "liquid-glass" to 3,
+            "navigation-bar" to 3,
+        )
+        expected.forEach { (key, sectionItemIndex) ->
+            val anchor = settingsSearchAnchor(SettingsPage.Layout, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.Layout, anchor?.page)
+            assertEquals(sectionItemIndex, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun layoutAnchorIndexesAccountForPhoneAndTabletHeaders() {
+        val homeAnchor = settingsSearchAnchor(
+            SettingsPage.Layout,
+            "dynamic-artwork-background",
+            "Dynamic artwork background",
+            "",
+        )!!
+        val navigationAnchor = settingsSearchAnchor(
+            SettingsPage.Layout,
+            "navigation-bar",
+            "Navigation bar style",
+            "",
+        )!!
+        assertEquals(1, settingsSearchAnchorListIndex(homeAnchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(homeAnchor, true, false))
+        assertEquals(4, settingsSearchAnchorListIndex(navigationAnchor, false, true))
+        assertEquals(3, settingsSearchAnchorListIndex(navigationAnchor, true, false))
     }
 
     @Test
