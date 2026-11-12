@@ -32,6 +32,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackVideoSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showLibmpvVideoOutputDialog by remember { mutableStateOf(false) }
     var showDecoderPriorityDialog by remember { mutableStateOf(false) }
@@ -52,6 +53,8 @@ internal fun PlaybackVideoSettings(
                     if (libmpvOptionsVisible) {
                         SettingsNavigationRow(
                             title = stringResource(Res.string.settings_playback_libmpv_video_output),
+                            searchAnchorKey = "playback-libmpv-video-output",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = settings.androidLibmpvVideoOutput.label,
                             enabled = libmpvOptionsEnabled,
                             isTablet = isTablet,
@@ -60,6 +63,8 @@ internal fun PlaybackVideoSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
                             title = stringResource(Res.string.settings_playback_libmpv_hardware_decoding),
+                            searchAnchorKey = "playback-libmpv-hardware-decoding",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = stringResource(Res.string.settings_playback_libmpv_hardware_decoding_description),
                             checked = settings.androidLibmpvHardwareDecodingEnabled,
                             enabled = libmpvOptionsEnabled,
@@ -69,6 +74,8 @@ internal fun PlaybackVideoSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
                             title = stringResource(Res.string.settings_playback_libmpv_yuv420p),
+                            searchAnchorKey = "playback-libmpv-yuv420p",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = stringResource(Res.string.settings_playback_libmpv_yuv420p_description),
                             checked = settings.androidLibmpvYuv420pEnabled,
                             enabled = libmpvOptionsEnabled,
@@ -79,6 +86,8 @@ internal fun PlaybackVideoSettings(
                     if (libmpvOptionsVisible) SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_decoder_priority),
+                        searchAnchorKey = "playback-decoder-priority",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = decoderPriorityLabel(settings.decoderPriority),
                         enabled = exoOptionsEnabled,
                         isTablet = isTablet,
@@ -87,6 +96,8 @@ internal fun PlaybackVideoSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_map_dv7_to_hevc),
+                        searchAnchorKey = "playback-dv7-hevc",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_map_dv7_to_hevc_description),
                         checked = settings.mapDV7ToHevc,
                         enabled = exoOptionsEnabled,
@@ -96,6 +107,8 @@ internal fun PlaybackVideoSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_tunneled_playback),
+                        searchAnchorKey = "playback-tunneled-playback",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_tunneled_playback_description),
                         checked = settings.tunnelingEnabled,
                         enabled = exoOptionsEnabled,
@@ -105,6 +118,8 @@ internal fun PlaybackVideoSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_audio_passthrough),
+                        searchAnchorKey = "playback-audio-passthrough",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_audio_passthrough_description),
                         checked = settings.androidAudioPassthroughEnabled,
                         enabled = exoOptionsEnabled,
@@ -120,6 +135,8 @@ internal fun PlaybackVideoSettings(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_anime_upscale),
+                        searchAnchorKey = "playback-anime-upscale",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_anime_upscale_description),
                         checked = settings.androidAnimeUpscaleEnabled,
                         enabled = decoderEnabled,
@@ -129,6 +146,8 @@ internal fun PlaybackVideoSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_anime_line_sharpen),
+                        searchAnchorKey = "playback-anime-line-sharpen",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_anime_line_sharpen_description),
                         checked = settings.androidAnimeLineSharpenEnabled,
                         enabled = decoderEnabled,
