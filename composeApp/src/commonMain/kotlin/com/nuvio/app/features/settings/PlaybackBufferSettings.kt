@@ -21,6 +21,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun PlaybackBufferSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val exoOptionsEnabled = !settings.externalPlayerEnabled && settings.androidPlaybackEngine != AndroidPlaybackEngine.Libmpv
     Column(verticalArrangement = Arrangement.spacedBy(if (isTablet) 18.dp else 12.dp)) {
@@ -31,6 +32,8 @@ internal fun PlaybackBufferSettings(
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_exo_native_memory),
+                    searchAnchorKey = "playback-exo-native-memory",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_playback_exo_native_memory_description),
                     checked = settings.exoNativeMemoryEnabled,
                     enabled = exoOptionsEnabled,
@@ -58,6 +61,8 @@ internal fun PlaybackBufferSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_custom_buffers),
+                    searchAnchorKey = "playback-custom-buffers",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_playback_custom_buffers_description),
                     checked = settings.customPlaybackBuffersEnabled,
                     enabled = exoOptionsEnabled,
@@ -72,6 +77,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_min_buffer),
+                    searchAnchorKey = "playback-min-buffer",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackMinBufferSeconds,
                         formatValue = { "${it}s" },
                         valueRange = 5..1200,
@@ -82,6 +89,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_max_buffer),
+                    searchAnchorKey = "playback-max-buffer",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackMaxBufferSeconds,
                         formatValue = { "${it}s" },
                         valueRange = 5..1200,
@@ -92,6 +101,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_start_buffer),
+                    searchAnchorKey = "playback-start-buffer",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackStartBufferSeconds,
                         formatValue = { "${it}s" },
                         valueRange = 1..30,
@@ -102,6 +113,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_buffer_after_stall),
+                    searchAnchorKey = "playback-buffer-after-stall",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackRebufferSeconds,
                         formatValue = { "${it}s" },
                         valueRange = 1..60,
@@ -112,6 +125,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_back_buffer),
+                    searchAnchorKey = "playback-back-buffer",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackBackBufferSeconds,
                         formatValue = { "${it}s" },
                         valueRange = 0..120,
@@ -122,6 +137,8 @@ internal fun PlaybackBufferSettings(
                     )
                     SettingsSliderRow(
                         title = stringResource(Res.string.settings_playback_target_buffer_size),
+                    searchAnchorKey = "playback-target-buffer-size",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         value = settings.playbackTargetBufferMb.coerceIn(50, targetBufferLimitMb),
                         formatValue = { "$it MB" },
                         valueRange = 50..targetBufferLimitMb,
@@ -134,6 +151,8 @@ internal fun PlaybackBufferSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_vod_disk_cache),
+                    searchAnchorKey = "playback-vod-cache",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_playback_vod_disk_cache_description),
                     checked = settings.vodDiskCacheEnabled,
                     enabled = exoOptionsEnabled,
@@ -144,6 +163,8 @@ internal fun PlaybackBufferSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_vod_disk_cache_auto_size),
+                    searchAnchorKey = "playback-vod-cache-auto-size",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_vod_disk_cache_auto_size_description),
                         checked = settings.vodDiskCacheAutoSize,
                         enabled = exoOptionsEnabled,
@@ -153,6 +174,8 @@ internal fun PlaybackBufferSettings(
                     if (!settings.vodDiskCacheAutoSize) {
                         SettingsSliderRow(
                             title = stringResource(Res.string.settings_playback_vod_disk_cache_size),
+                    searchAnchorKey = "playback-vod-cache-size",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             value = settings.vodDiskCacheSizeMb,
                             formatValue = { "$it MB" },
                             valueRange = 256..20480,
