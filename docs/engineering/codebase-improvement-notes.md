@@ -3382,3 +3382,21 @@ References checked:
 ### Next action
 
 - On an available physical Android device, collect cold-start and home-content time-to-interactive baselines with/without the existing Baseline Profile on a profileable release-like target; verify the packaged release profile. Separately, repair and review the TraktAuthStorage.ios.kt byte-pointer access before any new iOS validation run.
+
+
+### 12 November 2026 — add controlled cold-start Macrobenchmark harness
+
+**Integrated on main-build-testing:** commit d59849cdf6bf4e09ed9a3582e1a89bdbcdc22eab.
+
+- Added an optimized benchmark build type that inherits release configuration and uses the debug signing key, avoiding the production keystore requirement while retaining release minification/shrinking defaults.
+- Added android:shell profileability to the app manifest so Macrobenchmark can collect traces from the non-debuggable benchmark target.
+- Added StartupBenchmarks with ten cold-start iterations per mode: CompilationMode.None() and CompilationMode.Partial(BaselineProfileMode.Require). Both use StartupTimingMetric and the existing targetAppId instrumentation argument.
+- Reused the existing Macrobenchmark 1.5.0 dependency and Baseline Profile module. No new dependency, production UI change, startup deferral, or Liquid Glass change.
+- AndroidX documentation confirms Macrobenchmark targets must be profileable and non-debuggable, and recommends release-like builds, physical devices, cold-start iterations, and comparison of None versus Partial + required Baseline Profile. Context7 resolved AndroidX Benchmark API signatures for the project's 1.5.0 line (the indexed API source is 1.5.0-beta01). Exa cross-checked Android Developers guidance and an independent 2026 real-world measurement write-up.
+- The benchmark harness is committed and remotely verified. No Gradle build or instrumented benchmark has been run in this cycle, so compilation and results are pending. Emulator or GitHub-hosted runner numbers must not be presented as physical-device performance measurements.
+
+**Measurement boundary:** This first pass measures TTID via StartupTimingMetric. It does not claim app-home time-to-interactive/TTFD; that requires a deterministic fully-drawn signal after the relevant Nuvio home content is ready. The existing app's reportFullyDrawn usage and loading lifecycle must be audited before adding that marker, rather than treating first frame as full usability.
+
+**Physical device execution:** Connect a real Android 14+ device with USB debugging and run the full benchmark variant using the generated Gradle task for the connected device. The task name should be confirmed from Gradle task discovery because AGP 9.4.0 and the com.android.test variant wiring determine the exact task name. Keep battery charged, close background apps, use stable Wi-Fi, and record device model, Android version, build SHA, profile mode, median and spread for each ten-iteration result.
+
+**Next action:** Verify the generated benchmark task graph and profileable benchmark APK with a compile-only build, then run the paired benchmark on a physical device. Add a separate TTFD/time-to-home-content signal only after confirming the correct application readiness lifecycle.
