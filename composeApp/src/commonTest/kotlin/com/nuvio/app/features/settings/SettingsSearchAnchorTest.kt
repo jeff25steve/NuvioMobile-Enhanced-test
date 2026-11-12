@@ -489,7 +489,8 @@ class SettingsSearchAnchorTest {
 
     @Test
     fun advancedSettingsUnknownRowsRemainPageOnly() {
-        assertNull(settingsSearchAnchor(SettingsPage.Advanced, "advanced-clear-cache", "Clear cache", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.Advanced, "clear-cw-cache", "Clear continue watching cache", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.Advanced, "clear-metadata-cache", "Clear metadata cache", ""))
         assertNull(settingsSearchAnchor(SettingsPage.Advanced, "advanced-debug-logs", "Debug logs", ""))
     }
 
