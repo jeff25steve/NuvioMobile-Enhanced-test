@@ -3107,3 +3107,33 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Static source review confirms the active Android thumbnail JNI entry constructs the RangeReader options and the parser changes preserve its public API. The eight regression tests are authored but deliberately NOT executed.
 - No `cargo test`, `cargo check`, Gradle task, compilation, Android/iOS build, simulator/device run, or CI workflow was started.
 - Rust compilation and runtime behaviour against real HTTP servers/MP4/MKV files remain unverified until tests/builds are explicitly authorized.
+
+
+## 12 November 2026 — harden MP4 sample-table parsing
+
+### Confirmed root causes
+- `native/container/src/mp4.rs` parsed the optional `stss` sync-sample table with `filter_map` and `n - 1`. ISO BMFF sample numbers are one-based, so a malformed zero entry underflowed; truncated entries were silently discarded; duplicate, descending and out-of-range sample indices were not rejected.
+- The sample-to-chunk (`stsc`) parser trusted table rows without checking the FullBox version, the required first chunk of 1, strictly increasing one-based run starts, nonzero samples per chunk, a nonzero description index or coverage of every sample declared by `stsz`. A malformed run could silently associate sample bytes with the wrong chunk or leave samples unmapped.
+- Several table-entry offsets and cumulative sample/chunk/timestamp calculations used unchecked arithmetic. Decoding timestamps also cast the unsigned decode timeline to `i64` before adding a signed composition offset, which corrupted values above `i64::MAX`.
+
+### Integrated changes
+- Added strict `stss` parsing: validate version 0, require the full declared entry payload, reject zero, duplicate, descending and out-of-range one-based sample numbers, then convert them to zero-based indices.
+- Added `stsc` validation: require version 0, a first run beginning at chunk 1, strictly increasing in-range run starts, nonzero samples-per-chunk and a nonzero sample-description index. The checked run totals must exactly match the sample count declared by `stsz`.
+- Centralized checked table-entry offset calculation and made the big-endian integer readers reject offset overflow.
+- Reworked timestamp conversion to combine unsigned decode timestamps with signed composition offsets in `i128`, clamp negative presentation times to zero and reject unrepresentable millisecond values. Chunk byte offsets and cumulative decode timestamps now use checked addition.
+- Made empty `tkhd`/`mdhd` version fields non-panicking.
+- Added ten focused Rust regression tests covering sync-sample indexing and malformed tables, sample-to-chunk ordering/count coverage, table-index overflow and timestamp boundaries.
+- No dependencies, public APIs, file formats, settings, backend schemas, UI, iOS code or build configuration changed.
+
+### Research and design decisions
+- Superpowers systematic-debugging was used to trace the malformed sample-table inputs into thumbnail keyframe selection. Test-driven-development and the writing-good-tests reference informed tests-first authoring. The verification-before-completion skill was applied to keep all unexecuted checks explicitly unverified.
+- Exa checked ISO BMFF sample-table rules against the FFmpeg MOV demuxer documentation/source and independent parser/validator implementations. The relevant contracts are that `stss` sample numbers are one-based; `stsc` first-chunk values are one-based and describe consecutive chunk runs; and the summed sample mapping must agree with the track sample count.
+- Context7 was not needed for this batch: it changes no framework, library, dependency or platform API. The implementation uses existing Rust standard-library checked arithmetic and collection APIs.
+- CTTS signedness remains an explicit follow-up rather than being changed here: ISO BMFF version 0 defines unsigned offsets and version 1 signed offsets, while legacy QuickTime MOV documentation describes signed offsets. Correctly resolving that distinction requires using the file brand/format rather than guessing from a shared parser path.
+- Sources: https://cdn.standards.iteh.ai/samples/52356/255ce0c51be648bb895667a00af1336a/ISO-IEC-14496-12-2008-Amd-1-2009.pdf ; https://ffmpeg.org/doxygen/trunk/mov_8c.html ; https://docs.rs/crate/mp4lint/latest/source/src/rules/sample_table.rs ; https://docs.rs/mp4-core/latest/src/mp4_core/sample.rs.html ; https://docs.rs/oxideav-mov/latest/src/oxideav_mov/sample_table.rs.html ; https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap2/qtff2.html#//apple_ref/doc/uid/TP40000939-CH204-SW19
+
+### Verification boundary
+- Static review traced the affected parser path and reviewed the full source diff. Ten regression tests were authored before the corresponding production changes.
+- The RED/GREEN test executions were deliberately NOT performed because the instruction prohibits running tests/builds/CI without authorization. The tests remain unexecuted and compilation/API compatibility remains unverified.
+- No `cargo test`, `cargo check`, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
+- The files are integrated only after checking the target branch head against the expected parent; the pushed commit and affected-file list are verified separately.

@@ -4,15 +4,139 @@ use crate::keyframes::{Container, Keyframe, Keyframes};
 use crate::track::{Track, TrackKind, Video};
 
 pub(crate) fn u16be(b: &[u8], i: usize) -> Option<u64> {
-    Some(u16::from_be_bytes(b.get(i..i + 2)?.try_into().ok()?) as u64)
+    let end = i.checked_add(2)?;
+    Some(u16::from_be_bytes(b.get(i..end)?.try_into().ok()?) as u64)
 }
 
 pub(crate) fn u32be(b: &[u8], i: usize) -> Option<u64> {
-    Some(u32::from_be_bytes(b.get(i..i + 4)?.try_into().ok()?) as u64)
+    let end = i.checked_add(4)?;
+    Some(u32::from_be_bytes(b.get(i..end)?.try_into().ok()?) as u64)
 }
 
 pub(crate) fn u64be(b: &[u8], i: usize) -> Option<u64> {
-    Some(u64::from_be_bytes(b.get(i..i + 8)?.try_into().ok()?))
+    let end = i.checked_add(8)?;
+    Some(u64::from_be_bytes(b.get(i..end)?.try_into().ok()?))
+}
+
+fn table_entry_offset(base: usize, index: usize, stride: usize) -> Option<usize> {
+    base.checked_add(index.checked_mul(stride)?)
+}
+
+fn parse_sync_samples(stss: Option<&[u8]>, sample_count: u64) -> Result<Option<Vec<u64>>> {
+    let Some(stss) = stss else {
+        return Ok(None);
+    };
+    let bad = || Error::Malformed("sample tables");
+    if stss.first() != Some(&0) {
+        return Err(bad());
+    }
+    let entry_count = usize::try_from(u32be(stss, 4).ok_or_else(bad)?).map_err(|_| bad())?;
+    let required_len = entry_count
+        .checked_mul(4)
+        .and_then(|bytes| bytes.checked_add(8))
+        .ok_or_else(bad)?;
+    if stss.len() < required_len {
+        return Err(bad());
+    }
+    let mut samples = Vec::new();
+    samples.try_reserve_exact(entry_count).map_err(|_| bad())?;
+    let mut previous = 0u64;
+    for index in 0..entry_count {
+        let offset = table_entry_offset(8, index, 4).ok_or_else(bad)?;
+        let one_based = u32be(stss, offset).ok_or_else(bad)?;
+        if one_based == 0 || one_based > sample_count || one_based <= previous {
+            return Err(bad());
+        }
+        samples.push(one_based - 1);
+        previous = one_based;
+    }
+    Ok(Some(samples))
+}
+
+fn sample_time_ms(dts: u64, composition_offset: i64, timescale: u64) -> Result<u64> {
+    let bad = || Error::Malformed("sample timestamps");
+    if timescale == 0 {
+        return Err(bad());
+    }
+    let presentation_time = (i128::from(dts) + i128::from(composition_offset)).max(0) as u128;
+    let milliseconds = presentation_time
+        .checked_mul(1_000)
+        .ok_or_else(bad)?
+        / u128::from(timescale);
+    u64::try_from(milliseconds).map_err(|_| bad())
+}
+
+fn parse_sample_to_chunk(
+    stsc: &[u8],
+    chunk_count: usize,
+    sample_count: u64,
+) -> Result<Vec<(u64, u64)>> {
+    let bad = || Error::Malformed("sample tables");
+    if stsc.first() != Some(&0) {
+        return Err(bad());
+    }
+    let chunk_count = u64::try_from(chunk_count).map_err(|_| bad())?;
+    let entry_count = usize::try_from(u32be(stsc, 4).ok_or_else(bad)?).map_err(|_| bad())?;
+    if entry_count == 0 || chunk_count == 0 {
+        return Err(bad());
+    }
+    let required_len = entry_count
+        .checked_mul(12)
+        .and_then(|bytes| bytes.checked_add(8))
+        .ok_or_else(bad)?;
+    if stsc.len() < required_len {
+        return Err(bad());
+    }
+
+    let mut runs = Vec::new();
+    runs.try_reserve_exact(entry_count).map_err(|_| bad())?;
+    let mut previous_first_chunk = 0u64;
+    for index in 0..entry_count {
+        let first_chunk = u32be(
+            stsc,
+            table_entry_offset(8, index, 12).ok_or_else(bad)?,
+        )
+        .ok_or_else(bad)?;
+        let samples_per_chunk = u32be(
+            stsc,
+            table_entry_offset(12, index, 12).ok_or_else(bad)?,
+        )
+        .ok_or_else(bad)?;
+        let description = u32be(
+            stsc,
+            table_entry_offset(16, index, 12).ok_or_else(bad)?,
+        )
+        .ok_or_else(bad)?;
+
+        if first_chunk == 0
+            || first_chunk > chunk_count
+            || samples_per_chunk == 0
+            || description == 0
+            || (index == 0 && first_chunk != 1)
+            || (index > 0 && first_chunk <= previous_first_chunk)
+        {
+            return Err(bad());
+        }
+        runs.push((first_chunk, samples_per_chunk));
+        previous_first_chunk = first_chunk;
+    }
+
+    let mut mapped_samples = 0u64;
+    for (index, &(first_chunk, samples_per_chunk)) in runs.iter().enumerate() {
+        let end_exclusive = match runs.get(index + 1) {
+            Some((next_first_chunk, _)) => *next_first_chunk,
+            None => chunk_count.checked_add(1).ok_or_else(bad)?,
+        };
+        let chunks_in_run = end_exclusive.checked_sub(first_chunk).ok_or_else(bad)?;
+        let run_samples = chunks_in_run
+            .checked_mul(samples_per_chunk)
+            .ok_or_else(bad)?;
+        mapped_samples = mapped_samples.checked_add(run_samples).ok_or_else(bad)?;
+    }
+    if mapped_samples != sample_count {
+        return Err(bad());
+    }
+    Ok(runs)
 }
 
 /// (type, body) of each box in `b`.
@@ -105,7 +229,7 @@ pub fn keyframes(r: &mut RangeReader) -> Result<Keyframes> {
         };
         if child(mdia, b"hdlr").and_then(|h| h.get(8..12)) == Some(b"vide") {
             let number = child(trak, b"tkhd")
-                .and_then(|t| u32be(t, if t[0] == 1 { 20 } else { 12 }))
+                .and_then(|t| u32be(t, if t.first() == Some(&1) { 20 } else { 12 }))
                 .unwrap_or(1);
             return video_keyframes(number, mdia);
         }
@@ -116,7 +240,7 @@ pub fn keyframes(r: &mut RangeReader) -> Result<Keyframes> {
 fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
     let bad = || Error::Malformed("sample tables");
     let mdhd = child(mdia, b"mdhd").ok_or_else(bad)?;
-    let (timescale, duration) = if mdhd[0] == 1 {
+    let (timescale, duration) = if mdhd.first() == Some(&1) {
         (u32be(mdhd, 20), u64be(mdhd, 24))
     } else {
         (u32be(mdhd, 12), u32be(mdhd, 16))
@@ -177,34 +301,27 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
         if fixed != 0 {
             Some(fixed)
         } else {
-            u32be(stsz, 12 + 4 * s)
+            table_entry_offset(12, s, 4).and_then(|offset| u32be(stsz, offset))
         }
     };
     let chunks: Vec<u64> = if let Some(stco) = child(stbl, b"stco") {
         (0..u32be(stco, 4).ok_or_else(bad)? as usize)
-            .map(|i| u32be(stco, 8 + 4 * i))
+            .map(|i| table_entry_offset(8, i, 4).and_then(|offset| u32be(stco, offset)))
             .collect::<Option<_>>()
             .ok_or_else(bad)?
     } else {
         let co64 = child(stbl, b"co64").ok_or_else(bad)?;
         (0..u32be(co64, 4).ok_or_else(bad)? as usize)
-            .map(|i| u64be(co64, 8 + 8 * i))
+            .map(|i| table_entry_offset(8, i, 8).and_then(|offset| u64be(co64, offset)))
             .collect::<Option<_>>()
             .ok_or_else(bad)?
     };
     let stsc = child(stbl, b"stsc").ok_or_else(bad)?;
-    let runs: Vec<(u64, u64)> = (0..u32be(stsc, 4).ok_or_else(bad)? as usize)
-        .map(|i| Some((u32be(stsc, 8 + 12 * i)?, u32be(stsc, 12 + 12 * i)?)))
-        .collect::<Option<_>>()
-        .ok_or_else(bad)?;
+    let runs = parse_sample_to_chunk(stsc, chunks.len(), count as u64)?;
     let stts = child(stbl, b"stts").ok_or_else(bad)?;
     let ctts = child(stbl, b"ctts");
-    // Without stss every sample is a sync sample.
-    let sync: Option<Vec<u64>> = child(stbl, b"stss").map(|s| {
-        (0..u32be(s, 4).unwrap_or(0) as usize)
-            .filter_map(|i| u32be(s, 8 + 4 * i).map(|n| n - 1))
-            .collect()
-    });
+    // Without stss every sample is a sync sample. Entries in stss are one-based.
+    let sync = parse_sync_samples(child(stbl, b"stss"), count as u64)?;
 
     let mut entries = Vec::new();
     let (mut sample, mut run, mut dts) = (0usize, 0usize, 0u64);
@@ -221,16 +338,31 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
                 break;
             }
             while stts_left == 0 {
-                stts_left = u32be(stts, 8 + 8 * stts_i).ok_or_else(bad)?;
-                stts_delta = u32be(stts, 12 + 8 * stts_i).ok_or_else(bad)?;
-                stts_i += 1;
+                stts_left = u32be(
+                    stts,
+                    table_entry_offset(8, stts_i, 8).ok_or_else(bad)?,
+                )
+                .ok_or_else(bad)?;
+                stts_delta = u32be(
+                    stts,
+                    table_entry_offset(12, stts_i, 8).ok_or_else(bad)?,
+                )
+                .ok_or_else(bad)?;
+                stts_i = stts_i.checked_add(1).ok_or_else(bad)?;
             }
             if let Some(ctts) = ctts {
                 while ctts_left == 0 {
-                    ctts_left = u32be(ctts, 8 + 8 * ctts_i).ok_or_else(bad)?;
-                    ctts_offset =
-                        u32be(ctts, 12 + 8 * ctts_i).ok_or_else(bad)? as u32 as i32 as i64;
-                    ctts_i += 1;
+                    ctts_left = u32be(
+                        ctts,
+                        table_entry_offset(8, ctts_i, 8).ok_or_else(bad)?,
+                    )
+                    .ok_or_else(bad)?;
+                    ctts_offset = u32be(
+                        ctts,
+                        table_entry_offset(12, ctts_i, 8).ok_or_else(bad)?,
+                    )
+                    .ok_or_else(bad)? as u32 as i32 as i64;
+                    ctts_i = ctts_i.checked_add(1).ok_or_else(bad)?;
                 }
                 ctts_left -= 1;
             }
@@ -244,18 +376,17 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
                 None => true,
             };
             if is_sync {
-                let pts = (dts as i64 + ctts_offset).max(0) as u64;
                 entries.push(Keyframe {
-                    time_ms: pts * 1000 / timescale,
+                    time_ms: sample_time_ms(dts, ctts_offset, timescale)?,
                     offset: at,
                     relative: None,
                     size: Some(len),
                 });
             }
-            at += len;
-            dts += stts_delta;
+            at = at.checked_add(len).ok_or_else(bad)?;
+            dts = dts.checked_add(stts_delta).ok_or_else(bad)?;
             stts_left -= 1;
-            sample += 1;
+            sample = sample.checked_add(1).ok_or_else(bad)?;
         }
     }
     entries.sort_by_key(|k| k.time_ms);
@@ -266,7 +397,7 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
     Ok(Keyframes {
         container: Container::Mp4,
         track,
-        duration_ms: duration.unwrap_or(dts) * 1000 / timescale,
+        duration_ms: sample_time_ms(duration.unwrap_or(dts), 0, timescale)?,
         scale_ns: 1_000_000,
         entries,
     })
@@ -274,7 +405,10 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_box_header;
+    use super::{
+        parse_box_header, parse_sample_to_chunk, parse_sync_samples, sample_time_ms,
+        table_entry_offset,
+    };
     use crate::error::Error;
 
     #[test]
@@ -321,4 +455,122 @@ mod tests {
             Err(Error::Malformed("MP4 box extends to EOF")),
         ));
     }
+
+    fn sync_table(entries: &[u32]) -> Vec<u8> {
+        let mut table = vec![0, 0, 0, 0];
+        table.extend_from_slice(&(entries.len() as u32).to_be_bytes());
+        for entry in entries {
+            table.extend_from_slice(&entry.to_be_bytes());
+        }
+        table
+    }
+
+    #[test]
+    fn parses_one_based_sync_samples_as_zero_based_indices() {
+        let table = sync_table(&[1, 3]);
+        assert_eq!(
+            parse_sync_samples(Some(&table), 3).unwrap(),
+            Some(vec![0, 2]),
+        );
+    }
+
+    #[test]
+    fn rejects_zero_duplicate_descending_and_out_of_range_sync_samples() {
+        for (entries, sample_count) in [
+            (vec![0], 3),
+            (vec![1, 1], 3),
+            (vec![2, 1], 3),
+            (vec![4], 3),
+        ] {
+            let table = sync_table(&entries);
+            assert!(parse_sync_samples(Some(&table), sample_count).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_truncated_sync_sample_tables_and_unsupported_versions() {
+        let mut truncated = sync_table(&[1, 3]);
+        truncated.pop();
+        assert!(parse_sync_samples(Some(&truncated), 3).is_err());
+
+        let mut unsupported = sync_table(&[1]);
+        unsupported[0] = 1;
+        assert!(parse_sync_samples(Some(&unsupported), 3).is_err());
+    }
+
+    #[test]
+    fn absent_sync_table_keeps_the_all_samples_are_sync_default() {
+        assert_eq!(parse_sync_samples(None, 12).unwrap(), None);
+    }
+
+    #[test]
+    fn table_entry_offsets_reject_usize_overflow() {
+        assert_eq!(table_entry_offset(8, 2, 4), Some(16));
+        assert_eq!(table_entry_offset(usize::MAX, 1, 4), None);
+        assert_eq!(table_entry_offset(8, usize::MAX, 4), None);
+    }
+
+    #[test]
+    fn sample_timestamps_keep_large_decode_times_and_clamp_negative_pts() {
+        assert_eq!(sample_time_ms(2_000, -500, 1_000).unwrap(), 1_500);
+        assert_eq!(sample_time_ms(100, -200, 1_000).unwrap(), 0);
+        assert!(sample_time_ms(u64::MAX, i64::MAX, 1).is_err());
+        assert!(sample_time_ms(1, 0, 0).is_err());
+    }
+
+
+    fn stsc_table(entries: &[(u32, u32, u32)]) -> Vec<u8> {
+        let mut table = vec![0, 0, 0, 0];
+        table.extend_from_slice(&(entries.len() as u32).to_be_bytes());
+        for (first_chunk, samples_per_chunk, description) in entries {
+            table.extend_from_slice(&first_chunk.to_be_bytes());
+            table.extend_from_slice(&samples_per_chunk.to_be_bytes());
+            table.extend_from_slice(&description.to_be_bytes());
+        }
+        table
+    }
+
+    #[test]
+    fn maps_valid_one_based_chunk_runs_to_the_declared_sample_count() {
+        let table = stsc_table(&[(1, 2, 1), (3, 1, 1)]);
+        assert_eq!(
+            parse_sample_to_chunk(&table, 3, 5).unwrap(),
+            vec![(1, 2), (3, 1)],
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_stsc_first_chunk_order_and_empty_runs() {
+        for entries in [
+            vec![(0, 1, 1)],
+            vec![(2, 1, 1)],
+            vec![(1, 1, 1), (1, 1, 1)],
+            vec![(1, 1, 1), (3, 1, 1), (2, 1, 1)],
+            vec![(1, 0, 1)],
+            vec![(1, 1, 0)],
+            vec![(1, 1, 1), (4, 1, 1)],
+        ] {
+            let table = stsc_table(&entries);
+            assert!(parse_sample_to_chunk(&table, 3, 3).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_stsc_runs_that_do_not_cover_every_declared_sample() {
+        let table = stsc_table(&[(1, 2, 1), (3, 1, 1)]);
+        assert!(parse_sample_to_chunk(&table, 3, 4).is_err());
+        assert!(parse_sample_to_chunk(&table, 3, 6).is_err());
+    }
+
+    #[test]
+    fn rejects_truncated_stsc_entry_data_and_unsupported_versions() {
+        let mut table = stsc_table(&[(1, 2, 1)]);
+        table.pop();
+        assert!(parse_sample_to_chunk(&table, 1, 2).is_err());
+
+        let mut unsupported = stsc_table(&[(1, 2, 1)]);
+        unsupported[0] = 1;
+        assert!(parse_sample_to_chunk(&unsupported, 1, 2).is_err());
+    }
+
 }
