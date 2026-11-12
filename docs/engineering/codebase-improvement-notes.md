@@ -3773,3 +3773,17 @@ References checked:
 #### Next checkpoint
 
 - Continue the Settings coverage audit beyond Playback: Appearance/Layout, Home, Details, Integrations, Tracking, Downloads, Notifications, Account and Advanced. Keep each catalogue entry tied to a real visible control and add deep links only where the actual row supports a stable anchor.
+
+### 12 November 2026 — Downloads search coverage and exact-row navigation
+
+- Rechecked the live `main-build-testing` Settings Search catalogue against `DownloadsSettingsPage.kt`. The catalogue contained only the download-location row, while the actual page also exposed two persistent switches: allow downloads over mobile data and show the download button.
+- Added localized search entries for both missing switches, with aliases for cellular/mobile data usage and the download action/button. Added exact-row anchor keys for those switches and the existing download-location row.
+- Forwarded the active search highlight from both mobile and tablet Settings renderers into `downloadsSettingsContent`. The page is rendered as one lazy-list item on both layouts, so all three rows correctly use section item index 0; the existing phone/tablet header offset helper remains unchanged.
+- Kept the conditional reset-location action out of the catalogue: it is only rendered when a custom location exists and is an action rather than a persistent preference. The location picker remains represented by the existing location setting result.
+- Added regression source covering all three Downloads keys, the phone/tablet list offsets and unknown-key page-only fallback. **Tests were not executed** because no build, Gradle test, compilation or CI run was authorised.
+- Context7 resolved JetBrains Compose Multiplatform, but its indexed documentation did not return a relevant commonMain relocation API match (the project pins 1.13.0-beta01, newer than the indexed 1.12.2). No new Compose API or dependency was introduced. Exa cross-checked official AndroidX documentation: `BringIntoViewRequester` sends a request to scrollable parents to reveal the child, and Compose semantics guidance recommends meaningful labels for interactive controls. The existing shared switch/navigation row implementation already provides this behavior.
+- Self-review (no independent reviewer/subagent tool available): verified the three keys across the strict anchor allow-list, search catalogue, test source and actual row modifiers; checked both mobile and tablet renderer forwarding; confirmed the page's single lazy item justifies index 0; confirmed the direct Downloads screen keeps its default null highlight; confirmed the conditional reset action is not falsely indexed. No builds, tests or CI were started. Compiler and runtime verification remain outstanding.
+
+#### Next checkpoint
+
+- Continue the Settings audit with Notifications and then Advanced. Keep conditional actions and runtime-only status text out of the preference catalogue; index actual user-configurable controls and only provide exact-row navigation where a stable row contract exists.
