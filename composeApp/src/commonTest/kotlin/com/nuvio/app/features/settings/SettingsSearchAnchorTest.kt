@@ -8,6 +8,70 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun playbackBufferSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-exo-native-memory",
+            "playback-custom-buffers",
+            "playback-min-buffer",
+            "playback-max-buffer",
+            "playback-start-buffer",
+            "playback-buffer-after-stall",
+            "playback-back-buffer",
+            "playback-target-buffer-size",
+            "playback-vod-cache",
+            "playback-vod-cache-auto-size",
+            "playback-vod-cache-size",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackBuffer, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackBuffer, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackBufferAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackBuffer, "playback-target-buffer-size", "Target buffer size", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun playbackP2pSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-p2p-enabled",
+            "playback-p2p-hide-stats",
+            "playback-p2p-profile",
+            "playback-p2p-cache-size",
+            "playback-p2p-clear-cache",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackP2p, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackP2p, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackP2pAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackP2p, "playback-p2p-cache-size", "P2P cache size", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun unknownBufferAndP2pRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackBuffer, "playback-buffer-unknown", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackP2p, "playback-p2p-secret", "Secret", ""))
+    }
+
+    @Test
     fun playbackVideoSearchResultsHaveExactRowAnchors() {
         val keys = listOf(
             "playback-libmpv-video-output",
