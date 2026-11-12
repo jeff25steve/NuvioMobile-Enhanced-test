@@ -3453,3 +3453,41 @@ References checked:
 #### Next improvement checkpoint
 
 - Validate Search on a real iOS device and Android API 33+ plus API 24–30 fallback: compare Search glass on/off, light/dark or high-contrast content, and keyboard focus/IME insets. Confirm filter-chip contrast and hit targets, text selection/clear behavior, screen-reader labels, and whether the search header remains discoverable over fast-scrolling posters. Only then consider a separate compact search-header/keyboard-layout refinement; do not change query/search data flow or introduce more glass surfaces without device evidence.
+
+### 12 November 2026 — Search keyboard/accessibility checkpoint (source audit; device validation blocked)
+
+#### Validation environment and boundary
+
+- Re-read the live Search implementation and engineering history at `main-build-testing` (`f712e3d`). The previous Search UI batch remains in place.
+- Attempted a read-only check for available platform targets. The active execution environment has no `adb` or `xcrun`, no mounted Git checkout, and no connected Android emulator QA action. There is no attached iOS device or simulator available in this session. As a result, the requested Android API 33+, Android API 24–30, and real-iOS interaction/rendering checks **could not be performed**.
+- No build, compile, test task, emulator launch, simulator launch, or CI workflow was started in this checkpoint. The existing Android Phone Benchmark run [#7](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43284320750) was already running from the previous unintentional push at the time of the last status check; it was not started or rerun in this checkpoint.
+- This is a source audit, not a claim of device validation or visual pass.
+
+#### Source-level findings
+
+- The current Search layout uses a measured overlay header: `SearchScreen` records the header height and passes it as `NuvioScreen(topPadding = searchHeaderHeight)`. This correctly keeps the scrolling content below the pinned header in the normal layout.
+- `NuvioScreen` builds a `LazyColumn` with that top content padding and `nuvioSafeBottomPadding`; it does not itself apply `WindowInsets.ime` or `imePadding()`. The Search screen's outer `BoxWithConstraints` also has no explicit IME inset modifier.
+- Android calls `enableEdgeToEdge()` in `MainActivity`. Its activity manifest does not declare `windowSoftInputMode="adjustResize"`; the Android `ResizeForKeyboard()` actual can set `SOFT_INPUT_ADJUST_RESIZE` at runtime and restores the previous mode on disposal. A Search-specific call site for this helper was not established in the inspected active screen/root path. Do not assume it is applied without a device trace.
+- iOS `MainViewController` configures `OnFocusBehavior.DoNothing`, and the iOS `ResizeForKeyboard()` actual is a no-op. This intentionally avoids Compose moving the entire view automatically, but means the interaction between UIKit keyboard insets, Compose's `WindowInsets.ime`, and the parent controller needs real-device confirmation. The current Search/NuvioScreen layout does not explicitly consume IME insets.
+- The Search header height is measured dynamically, so hiding or collapsing filters while the field is focused would change the LazyColumn top padding. That is a viable future refinement, but it has not been adopted: the keyboard-open state, focus transition and first-result visibility have not been observed on real iOS/Android targets.
+- The Search field's clear icon has a localized content description; the leading magnifying-glass icon is decorative and correctly has no separate accessibility label. The native iOS `UISearchBar` assigns its accessibility label, shows its built-in clear control, and uses the Search return-key type. It suppresses UIKit's built-in Cancel button; Nuvio's header Close action is intended to provide the exit/dismiss affordance. VoiceOver behaviour and whether the header Close action dismisses the keyboard smoothly remain unverified.
+- Discover Type, Catalog and Genre still share the configured Search glass surface from the previous commit. `NuvioDropdownChip` routes through the existing native iOS or Backdrop path when supported, and to its solid surface fallback when not supported. The source path is present, but chip contrast, tap bounds and TalkBack/VoiceOver announcements have not been measured on devices.
+- `discoverInFocus` is currently derived in `SearchScreen` but is not read by that composable. It was not removed in this checkpoint because the intended focus/scroll behavior is not established and it is unrelated to the blocked platform validation.
+
+#### Platform guidance reviewed
+
+- Apple [WWDC26 — Design intuitive search experiences](https://developer.apple.com/videos/play/wwdc2026/292/) describes the expected search field elements (leading search symbol, placeholder, clear control, and a focused-state Cancel affordance) and explains how placement determines the active keyboard presentation. A field inline below the top toolbar can remain at the top, while toolbar search may move above the keyboard.
+- Apple [Search Fields HIG](https://developer.apple.com/design/human-interface-guidelines/search-fields) recommends a standard Search tab/landing-page pattern when discovery and exploration are useful. Nuvio already uses this pattern with Discover content before typing, so that flow is preserved.
+- Context7 confirmed that Compose Foundation's `Modifier.imePadding()` applies the remaining IME inset and consumes it for descendants; it must not be combined with another parent that already applies the same inset. JetBrains Compose Multiplatform examples document system/keyboard inset integration in `ComposeUIViewController`. Context7's Compose Multiplatform index did not expose the project's exact `1.13.0-beta01` version (the indexed versions topped out at `1.12.2`), so no version-sensitive inset code was changed.
+- Android's official [software keyboard/insets guidance](https://developer.android.com/develop/ui/views/layout/sw-keyboard) recommends edge-to-edge plus correct resize/inset handling and notes that Compose handles IME animation/insets when configured properly. Adding `imePadding()` without confirming the parent window's resize and inset consumption could create a double offset.
+
+#### Decision
+
+- No product-source modification was justified without the requested device evidence. In particular, do not add `imePadding()`, force another resize path, hide the filter row on focus, or add another glass surface until the current iOS and Android keyboard behaviour has been observed. These changes affect different platform window-sizing paths and could introduce double-padding or inaccessible controls.
+- Existing Search icon and shared Search-surface filter changes remain integrated. No dependency or renderer changes were made.
+
+#### Next improvement checkpoint
+
+1. Install the current `main-build-testing` build on a physical iPhone and an Android API 33+ device, then validate keyboard open/close, search focus, filter visibility, recent searches, clear/close, poster reachability, and screen-reader output.
+2. Repeat on Android API 24–30 to inspect the non-Backdrop solid fallback and legacy IME resizing path. Capture a screenshot plus UI/accessibility tree for each state.
+3. Only after those observations decide whether the Search overlay should apply explicit IME insets, whether filters should collapse while focused, and whether the native iOS header Close affordance needs a clearer Cancel treatment. Preserve the discover-first Search landing page.
