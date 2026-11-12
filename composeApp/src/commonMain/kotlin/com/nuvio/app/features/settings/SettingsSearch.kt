@@ -120,8 +120,14 @@ internal fun settingsSearchAnchor(
             if (key in DownloadsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.Notifications ->
             if (key in NotificationsSettingsSearchAnchorKeys) 0 else return null
-        SettingsPage.Advanced ->
-            if (key in AdvancedSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.Advanced -> when (key) {
+            "advanced-remember-last-profile" -> 0
+            "advanced-dns-provider" -> if (DnsSettingsRepository.isSupported) 1 else return null
+            "advanced-sentry-reports" -> if (SentrySettingsRepository.isSupported) {
+                1 + if (DnsSettingsRepository.isSupported) 1 else 0
+            } else return null
+            else -> return null
+        }
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
