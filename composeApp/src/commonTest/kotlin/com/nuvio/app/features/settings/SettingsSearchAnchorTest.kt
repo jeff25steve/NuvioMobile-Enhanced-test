@@ -472,23 +472,17 @@ class SettingsSearchAnchorTest {
 
     @Test
     fun advancedSettingsSearchResultsHaveExactRowAnchors() {
-        val keys = listOf(
-            "advanced-remember-last-profile",
-            "advanced-dns-provider",
-            "advanced-sentry-reports",
-        )
-        keys.forEach { key ->
+        val expectedAnchors = buildList {
+            add("advanced-remember-last-profile" to 0)
+            if (DnsSettingsRepository.isSupported) add("advanced-dns-provider" to 1)
+            if (SentrySettingsRepository.isSupported) {
+                add("advanced-sentry-reports" to (1 + if (DnsSettingsRepository.isSupported) 1 else 0))
+            }
+        }
+        expectedAnchors.forEach { (key, expectedIndex) ->
             val anchor = settingsSearchAnchor(SettingsPage.Advanced, key, key, "")
             assertEquals(key, anchor?.key)
             assertEquals(SettingsPage.Advanced, anchor?.page)
-            val expectedIndex = when (key) {
-                "advanced-remember-last-profile" -> 0
-                "advanced-dns-provider" -> if (DnsSettingsRepository.isSupported) 1 else null
-                "advanced-sentry-reports" -> if (SentrySettingsRepository.isSupported) {
-                    1 + if (DnsSettingsRepository.isSupported) 1 else 0
-                } else null
-                else -> null
-            }
             assertEquals(expectedIndex, anchor?.sectionItemIndex)
         }
     }
