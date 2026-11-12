@@ -230,7 +230,7 @@ internal fun MainAppContent(
         val navBackStack = rememberNavBackStack(navigationSavedStateConfiguration, initialRoute)
         val posterNavigation = remember { PosterNavigationState() }
         val metaScreenSettings by remember {
-            MetaScreenSettingsRepository.ensureLoaded()
+            if (isIos) MetaScreenSettingsRepository.ensureLoaded()
             MetaScreenSettingsRepository.uiState
         }.collectAsStateWithLifecycle()
         val posterNavigationEnabled = supportsPosterNavigationMotion &&
@@ -252,9 +252,6 @@ internal fun MainAppContent(
         }
         val appUpdaterController = rememberAppUpdaterController()
         if (ownsAppRuntime) {
-            remember {
-                EpisodeReleaseNotificationsRepository.ensureLoaded()
-            }
             remember {
                 CollectionSyncService.startObserving()
             }
@@ -314,14 +311,14 @@ internal fun MainAppContent(
             AddonRepository.uiState
         }.collectAsStateWithLifecycle()
         val libraryUiState by remember {
-            LibraryRepository.ensureLoaded()
+            if (isIos) LibraryRepository.ensureLoaded()
             LibraryRepository.uiState
         }.collectAsStateWithLifecycle()
         LaunchedEffect(libraryUiState.items) {
             warmLibraryReleaseSchedule(libraryUiState.items)
         }
         val liveTvUiState by remember {
-            LiveTvRepository.ensureLoaded()
+            if (isIos) LiveTvRepository.ensureLoaded()
             LiveTvRepository.uiState
         }.collectAsStateWithLifecycle()
         val showLiveTvInNavigation = liveTvUiState.showInNavigation
@@ -332,13 +329,14 @@ internal fun MainAppContent(
             selectedPosterAnchor = PosterZoomAnchorHolder.consume()
             coroutineScope.launch {
                 withFrameNanos { }
+                LibraryRepository.ensureLoaded()
                 selectedPosterActionTarget = target
             }
         }
         val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
         val launchOverlayProfile = profileState.activeProfile ?: profileState.profiles.firstOrNull()
     val playerSettingsUiState by remember {
-        PlayerSettingsRepository.ensureLoaded()
+        if (isIos) PlayerSettingsRepository.ensureLoaded()
         PlayerSettingsRepository.uiState
     }.collectAsStateWithLifecycle()
     var visiblePlayerEntries by remember { mutableIntStateOf(0) }
@@ -351,7 +349,7 @@ internal fun MainAppContent(
         HidePlayerSystemBars()
     }
     val p2pSettingsUiState by remember {
-        P2pSettingsRepository.ensureLoaded()
+        if (isIos) P2pSettingsRepository.ensureLoaded()
         P2pSettingsRepository.uiState
     }.collectAsStateWithLifecycle()
     val watchedUiState by remember {
@@ -360,7 +358,7 @@ internal fun MainAppContent(
     }.collectAsStateWithLifecycle()
     val fullyWatchedSeriesKeys by WatchedRepository.fullyWatchedSeriesKeys.collectAsStateWithLifecycle()
     val downloadsUiState by remember {
-        DownloadsRepository.ensureLoaded()
+        if (isIos) DownloadsRepository.ensureLoaded()
         DownloadsRepository.uiState
     }.collectAsStateWithLifecycle()
     val networkStatusUiState by remember {
@@ -418,12 +416,13 @@ internal fun MainAppContent(
     }
 
     val serversUiState by remember {
-        ServerRepository.ensureLoaded()
+        if (isIos) ServerRepository.ensureLoaded()
         ServerRepository.uiState
     }.collectAsStateWithLifecycle()
 
     LaunchedEffect(appContentGeneration, homeCatalogRefreshKey, serversUiState.revision) {
         if (!ownsAppRuntime) return@LaunchedEffect
+        if (serversUiState.revision == 0) return@LaunchedEffect
         val enabledAddons = addonsUiState.addons.enabledAddons()
         if (enabledAddons.isWaitingForFirstEnabledManifest()) return@LaunchedEffect
         HomeCatalogSettingsRepository.syncCatalogs(enabledAddons)
@@ -469,7 +468,8 @@ internal fun MainAppContent(
         }
     }
 
-    LaunchedEffect(showLiveTvInNavigation, selectedTab) {
+    LaunchedEffect(showLiveTvInNavigation, liveTvUiState.isLoaded, selectedTab) {
+        if (!liveTvUiState.isLoaded) return@LaunchedEffect
         if (!showLiveTvInNavigation && selectedTab == AppScreenTab.LiveTv) {
             activateTab(AppScreenTab.Home)
         }
@@ -484,10 +484,18 @@ internal fun MainAppContent(
         currentRoute,
         selectedTab,
         showLiveTvInNavigation,
+        liveTvUiState.isLoaded,
     ) {
         NativeTabBridge.requestedTabs.collectLatest { requestedTab ->
             val requestedAppTab = requestedTab.toAppScreenTab()
-            if (requestedAppTab == AppScreenTab.LiveTv && !showLiveTvInNavigation) {
+            val liveTvStateForRequest = if (
+                requestedAppTab == AppScreenTab.LiveTv && !liveTvUiState.isLoaded
+            ) {
+                LiveTvRepository.uiState.first { it.isLoaded }
+            } else {
+                liveTvUiState
+            }
+            if (requestedAppTab == AppScreenTab.LiveTv && !liveTvStateForRequest.showInNavigation) {
                 return@collectLatest
             }
             if (
@@ -626,6 +634,7 @@ internal fun MainAppContent(
         if (!ownsAppRuntime) return@LaunchedEffect
         InAppLogger.info("App/Runtime", "Starting main app runtime services")
         NetworkStatusRepository.ensureStarted()
+        if (!isIos) withFrameNanos { }
         EpisodeReleaseNotificationsRepository.refreshAsync()
         // Safety-net timeout only: the real signal is onInitialHomeContentRendered below, which
         // flips initialHomeReady as soon as the first catalog section renders (often well under
@@ -729,10 +738,18 @@ internal fun MainAppContent(
         initialHomeReady,
         offlineLaunchRouteHandled,
         networkStatusUiState.condition,
+        downloadsUiState.isLoaded,
         downloadsUiState.completedItems,
     ) {
         if (!ownsAppRuntime) return@LaunchedEffect
-        if (!initialHomeReady || offlineLaunchRouteHandled) return@LaunchedEffect
+        if (
+            !shouldResolveInitialLaunchRoute(
+                initialHomeReady = initialHomeReady,
+                offlineLaunchRouteHandled = offlineLaunchRouteHandled,
+                downloadsLoaded = downloadsUiState.isLoaded,
+                networkCondition = networkStatusUiState.condition,
+            )
+        ) return@LaunchedEffect
 
         when (networkStatusUiState.condition) {
             NetworkCondition.Unknown,

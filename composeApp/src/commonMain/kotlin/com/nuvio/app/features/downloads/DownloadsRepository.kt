@@ -544,7 +544,7 @@ object DownloadsRepository {
         loadedProfileOwner = owner
         val payload = DownloadsStorage.loadPayload(owner.profileIndex).orEmpty().trim()
         if (payload.isEmpty()) {
-            _uiState.value = DownloadsUiState()
+            _uiState.value = DownloadsUiState(isLoaded = true)
             notifyLiveStatusPlatform()
             return
         }
@@ -566,7 +566,7 @@ object DownloadsRepository {
                 localUriNormalized
             }
 
-        _uiState.value = DownloadsUiState(normalized)
+        _uiState.value = DownloadsUiState(items = normalized, isLoaded = true)
         notifyLiveStatusPlatform()
         if (shouldPersistNormalized) persist(owner)
         normalized
@@ -678,6 +678,7 @@ object DownloadsRepository {
         if (newlyCompleted) _hasUnseenCompleted.value = true
         _uiState.value = DownloadsUiState(
             items = items,
+            isLoaded = hasLoaded,
         )
         notifyLiveStatusPlatform()
     }

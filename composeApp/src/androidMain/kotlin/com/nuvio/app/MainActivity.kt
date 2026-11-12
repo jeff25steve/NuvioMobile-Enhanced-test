@@ -9,7 +9,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.nuvio.app.core.auth.AuthStorage
 import com.nuvio.app.core.network.ServerConfigurationStorage
@@ -194,11 +196,11 @@ open class MainActivity : AppCompatActivity() {
         EpisodeReleaseNotificationPlatform.initialize(applicationContext)
         EpisodeReleaseNotificationPlatform.bindActivity(this)
 
-        if (StartupPreloader.isComplete) {
+        if (StartupPreloader.isCriticalReady) {
             showContent()
         } else {
             startupScope.launch {
-                StartupPreloader.awaitReady()
+                StartupPreloader.awaitCriticalReady()
                 if (!isFinishing && !isDestroyed) showContent()
             }
         }
@@ -207,6 +209,10 @@ open class MainActivity : AppCompatActivity() {
     private fun showContent() {
         handleIncomingAppIntent(intent)
         setContent {
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                StartupPreloader.startPostFrameWarmup()
+            }
             val sheetBackdropSource = rememberNuvioBackdrop()
             val sheetBackdrop = remember(sheetBackdropSource) { NuvioSheetBackdrop(sheetBackdropSource) }
             NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {

@@ -70,6 +70,7 @@ data class LiveTvPlaylist(
 )
 
 data class LiveTvUiState(
+    val isLoaded: Boolean = false,
     val playlistUrl: String = "",
     val playlists: List<LiveTvPlaylist> = emptyList(),
     val stalkerSettings: LiveTvStalkerSettings = LiveTvStalkerSettings(),

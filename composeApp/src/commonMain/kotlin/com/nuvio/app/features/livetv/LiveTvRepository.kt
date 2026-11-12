@@ -50,6 +50,7 @@ object LiveTvRepository {
         hasLoaded = true
         val playlists = loadSavedPlaylists()
         _uiState.value = LiveTvUiState(
+            isLoaded = true,
             playlistUrl = playlists.firstEnabledUrlSource(),
             playlists = playlists,
             stalkerSettings = LiveTvStorage.loadStalkerSettings(),
