@@ -8,6 +8,25 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun notificationsSearchResultHasExactRowAnchor() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.Notifications,
+            "episode-release-alerts",
+            "Episode release alerts",
+            "",
+        )
+        assertEquals("episode-release-alerts", anchor?.key)
+        assertEquals(SettingsPage.Notifications, anchor?.page)
+        assertEquals(0, anchor?.sectionItemIndex)
+    }
+
+    @Test
+    fun unknownNotificationRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.Notifications, "notification-test", "Send test notification", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.Notifications, "unknown-notification", "Unknown", ""))
+    }
+
+    @Test
     fun downloadsSearchResultsHaveExactRowAnchors() {
         val keys = listOf(
             "downloads-allow-mobile-data",
