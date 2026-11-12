@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.nuvio.app.features.details.components.loadedBackdropImageBitmap
-import com.nuvio.app.core.ui.background.softwareBitmap
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.layout.ContentScale
@@ -57,7 +56,7 @@ internal fun PlayerTitleArtwork(
                 .data(url)
                 .size(Size(requestWidth, requestHeight))
                 .scale(Scale.FIT)
-                .softwareBitmap()
+                .allowHardware(false)
                 .build()
         }
         val painter = rememberAsyncImagePainter(

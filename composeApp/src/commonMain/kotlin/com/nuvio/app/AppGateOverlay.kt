@@ -20,7 +20,7 @@ internal fun AppGateOverlay(
     val currentOnMainContentMountChanged by rememberUpdatedState(onMainContentMountChanged)
     val currentOnMainContentVisibleChanged by rememberUpdatedState(onMainContentVisibleChanged)
 
-    AppEnvironment(drawAppBackground = false) {
+    AppEnvironment {
         AppGate(
             initialTab = AppScreenTab.Home,
             initialRoute = TabsRoute,

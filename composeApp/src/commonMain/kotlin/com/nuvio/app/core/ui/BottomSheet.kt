@@ -56,8 +56,6 @@ import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
 
-import com.nuvio.app.core.ui.background.isGlassUiActive
-
 private val SheetShape = RoundedCornerShape(NuvioTokens.Space.s28)
 
 @Composable
@@ -163,7 +161,10 @@ fun NuvioModalBottomSheet(
     dismissOnBackPress: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (usesNativeNuvioBottomSheet && !isGlassUiActive()) {
+    val sheetGlassEnabled = LiquidGlassSettings.enabled &&
+        isLiquidGlassSupported() &&
+        isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
+    if (usesNativeNuvioBottomSheet && !sheetGlassEnabled) {
         NuvioNativeModalBottomSheet(
             onDismissRequest = onDismissRequest,
             modifier = modifier,
@@ -176,16 +177,13 @@ fun NuvioModalBottomSheet(
     } else {
         val tokens = MaterialTheme.nuvio
         val sheetBackdrop = LocalNuvioSheetBackdrop.current
-        val sheetGlassEnabled = LiquidGlassSettings.enabled &&
-            isLiquidGlassSupported() &&
-            isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.BOTTOM_SHEETS)
         if (sheetBackdrop != null && sheetGlassEnabled) {
             DisposableEffect(sheetBackdrop) {
                 sheetBackdrop.activeSheets += 1
                 onDispose { sheetBackdrop.activeSheets -= 1 }
             }
         }
-        val sheetGlassReady = sheetBackdrop != null && sheetBackdrop.backdrop.isReady && sheetGlassEnabled
+        val sheetGlassReady = sheetBackdrop != null && sheetBackdrop.backdrop?.isReady == true && sheetGlassEnabled
         val effectiveSheetShape = if (sheetGlassEnabled) {
             liquidGlassShape(LiquidGlassSurface.BOTTOM_SHEETS, SheetShape)
         } else {

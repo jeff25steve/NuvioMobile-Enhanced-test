@@ -3266,10 +3266,32 @@ After the user explicitly authorized a CI build, a separate validation branch wa
 - Branch-only change: the existing `.github/workflows/pr-full-debug-build.yml` was configured to run on push to this dedicated validation branch. No application source was changed on the CI branch.
 - Workflow: `PR Full Debug Build`, run [#121](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43140105200), started 2026-11-12 02:15:19 UTC.
 - Command: `./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace`.
-- Java/Gradle setup, runtime property preparation, and Rust target setup were reported successful. The build step was still in progress on the last status check; no artifact had yet been published.
+- Job setup, runtime property preparation, and Rust target setup succeeded. The Android/Rust compile step failed, artifact upload was skipped, and no APK was published. The Rust E0277 and Kotlin source diagnostics are recorded in the following compile-repair section.
 
 The Rust unit tests were not run. This CI path builds the Android fullDebug APK and does not execute `cargo test`. Do not report the APK build as passing until the workflow run reaches a successful conclusion and the uploaded artifact is present.
 
 ### Next action
 
-- Check workflow run #121 to completion. If successful, verify the `androidApp-full-debug.apk` artifact and record the final run result. If it fails, inspect the failing step/logs before making any source changes. Then remove only the temporary validation branch after the result and artifact have been recorded; keep `main-build-testing` and `enhanced` untouched.
+- Repair the source diagnostics reported by run #121 on `main-build-testing`, then run a fresh isolated fullDebug validation branch from that exact target commit. Only remove the temporary validation branch after recording a final run outcome; keep `enhanced` untouched.
+
+### 12 November 2026 — repair fullDebug compile regressions on the latest target head
+
+The fullDebug run above exercised target commit `1bd2f33b99dd50617209aa15e9218dc3a4380337` and failed before producing an APK. Inspection of the complete job log identified one Rust compiler error and the complete Kotlin diagnostic set. The reported regressions came from changes accumulated after the previous successful CI snapshot, not from Gradle runner setup.
+
+**Root causes and corrections:**
+
+- `native/container/src/mkv.rs`: a checked slice read passed `bad()` (an `Error`) to `Option::ok_or_else`, which requires a closure. Pass the closure as `ok_or_else(bad)`.
+- The legacy `core/ui/background` package was removed during the Liquid Glass migration, but consumers remained. Remove the stale `drawAppBackground` argument in `AppGateOverlay`, the no-longer-mounted `OpaqueAppSurfaces` Home wrapper, the inactive dialog backdrop modifier, and the unreachable party join-card background branch. Do not restore the retired app-background host.
+- `BottomSheet.kt` previously used deleted `isGlassUiActive()` to choose between the native sheet and custom glass-capable sheet. It now uses the existing `LiquidGlassSurface.BOTTOM_SHEETS` master/platform/per-surface state, and safely checks nullable backdrop readiness. This preserves the new Liquid Glass sheet path without reviving the old background system.
+- `PlayerTitleArtwork.kt` used the deleted platform-specific `softwareBitmap()` helper. Coil 3.6.3 documents `ImageRequest.Builder.allowHardware(false)` for images whose pixel data is read; use that supported option instead.
+- `NetworkStatusRepository.kt` called `launchProbeLoop` with a stale named argument; the parameter is `initialConfirmFailures`.
+- `ProfileRepository.kt` imports `AuthState` from its extracted model file and uses named `message` arguments for all 12 `PinVerifyResult` failure constructions; the second positional field is the retry-delay `Int`, not a message `String`.
+- `AuthRepository.signOutIfSessionInvalid` and `DownloadsRepository.deleteProfileData` are internal helpers because their signatures intentionally carry the internal `AuthSessionIdentity` type. Their callers remain inside the Compose app module.
+
+**Research and tooling:** The failed run's Rust diagnostic was `E0277` at `mkv.rs:60`; Kotlin diagnostics named the stale background imports/calls, visibility and named-argument errors, nullable backdrop access, and PIN result argument mismatches. Context7 was consulted for Coil 3.6.3's `allowHardware(false)`, Kotlin visibility rules, and the Compose Multiplatform 1.13 source/API surface. Exa cross-checked the reported background-import diagnostics against the 1.13.0-beta01 release notes; the missing symbol was the retired Nuvio-specific `core.ui.background` package, not Compose Foundation's `Modifier.background`. No dependency versions were changed.
+
+**Verification boundary:** Run #121 failed in `:androidApp:buildRust` with the `mkv.rs` closure error and in `:composeApp:compileAndroidMain` with Kotlin diagnostics; artifact upload was skipped. This repair is source-reviewed but not build-verified yet. The user explicitly authorised a follow-up CI build; no separate local `cargo test` or Gradle test suite was run.
+
+### Next action
+
+- Push this compile-repair batch to `main-build-testing`, refresh the temporary fullDebug CI branch from the exact new target head, and run the established `:androidApp:assembleFullDebug` workflow. Resolve only diagnostics reported by that fresh run, then record the final build outcome and APK artifact availability.

@@ -2,6 +2,7 @@ package com.nuvio.app.features.profiles
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.auth.AuthSessionIdentity
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.poster.CustomPosterUrlRepository
@@ -519,10 +520,10 @@ object ProfileRepository {
             }
         }
         val operationScope = captureRemoteOperationScope()
-            ?: return PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+            ?: return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
         val client = SupabaseProvider.client
         if (!isCurrentRemoteOperation(operationScope)) {
-            return PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
         }
 
         return runCatching {
@@ -533,26 +534,26 @@ object ProfileRepository {
             val result = client.postgrest.rpc("verify_profile_pin", params)
             val verifyResult = result.decodeSingle<PinVerifyResult>()
             if (!isCurrentRemoteOperation(operationScope)) {
-                PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+                PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
             } else if (verifyResult.unlocked) {
                 pullProfiles()
                 val remembered = withContext(Dispatchers.IO) {
                     rememberVerifiedPinIfCurrent(operationScope, profileIndex, pin)
                 }
                 if (remembered && isCurrentRemoteOperation(operationScope)) verifyResult
-                else PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+                else PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
             } else {
                 verifyResult
             }
         }.getOrElse { error ->
             if (error is CancellationException) throw error
             if (!isCurrentRemoteOperation(operationScope)) {
-                return@getOrElse PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+                return@getOrElse PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
             }
             log.w { "PIN verification request failed; attempting local verification" }
             withContext(Dispatchers.IO) {
                 if (isCurrentRemoteOperation(operationScope)) verifyPinLocally(profileIndex, pin)
-                else PinVerifyResult(false, getString(Res.string.profile_pin_offline_verification_requires_online))
+                else PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_offline_verification_requires_online))
             }
         }
     }
@@ -576,7 +577,7 @@ object ProfileRepository {
             }
             client.postgrest.rpc("set_profile_pin", params)
             if (!isCurrentRemoteOperation(operationScope)) {
-                return@runCatching PinVerifyResult(false, getString(Res.string.profile_pin_set_failed))
+                return@runCatching PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_set_failed))
             }
             pullProfiles()
             val remembered = withContext(Dispatchers.IO) {
@@ -594,11 +595,11 @@ object ProfileRepository {
 
     suspend fun clearPin(profileIndex: Int, currentPin: String? = null): PinVerifyResult {
         val operationScope = captureRemoteOperationScope()
-            ?: return PinVerifyResult(false, getString(Res.string.profile_pin_clear_requires_internet))
+            ?: return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_requires_internet))
         val accountUserId = operationScope.userId
         val client = SupabaseProvider.client
         if (!isCurrentRemoteOperation(operationScope)) {
-            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
 
         val profileUserId = _state.value.profiles
@@ -607,7 +608,7 @@ object ProfileRepository {
             .orEmpty()
             .ifBlank { accountUserId }
         if (profileUserId != accountUserId) {
-            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
 
         val params = buildJsonObject {
@@ -620,10 +621,10 @@ object ProfileRepository {
             throw e
         } catch (e: Exception) {
             if (isCurrentRemoteOperation(operationScope)) log.e(e) { "Failed to clear pin" }
-            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
         if (!isCurrentRemoteOperation(operationScope)) {
-            return PinVerifyResult(false, getString(Res.string.profile_pin_clear_failed))
+            return PinVerifyResult(unlocked = false, message = getString(Res.string.profile_pin_clear_failed))
         }
 
         // Once the server confirms PIN removal, local credential cleanup must not be

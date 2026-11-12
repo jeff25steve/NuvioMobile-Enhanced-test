@@ -427,7 +427,7 @@ object AuthRepository {
         initialize()
     }
 
-    suspend fun signOutIfSessionInvalid(
+    internal suspend fun signOutIfSessionInvalid(
         error: Throwable,
         source: String,
         expectedIdentity: AuthSessionIdentity,

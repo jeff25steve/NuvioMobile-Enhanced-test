@@ -145,7 +145,7 @@ object DownloadsRepository {
      * Deletes downloads belonging to one profile after the profile-delete RPC succeeds.
      * The original auth identity and profile ID fence delayed responses from replacement state.
      */
-    suspend fun deleteProfileData(
+    internal suspend fun deleteProfileData(
         profileIndex: Int,
         expectedIdentity: AuthSessionIdentity,
         expectedProfileId: String?,

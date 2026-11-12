@@ -73,7 +73,7 @@ object NetworkStatusRepository {
     private var foregroundRefreshJob: Job? = null
 
     fun ensureStarted() {
-        if (refreshGate.ensureStarted()) launchProbeLoop(confirmFailures = false)
+        if (refreshGate.ensureStarted()) launchProbeLoop(initialConfirmFailures = false)
     }
 
     fun requestForegroundRefresh() {

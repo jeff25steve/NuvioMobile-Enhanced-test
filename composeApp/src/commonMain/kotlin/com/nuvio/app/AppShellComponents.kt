@@ -1,7 +1,5 @@
 package com.nuvio.app
 
-import com.nuvio.app.features.settings.ThemeSettingsRepository
-import com.nuvio.app.core.ui.background.OpaqueAppSurfaces
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -198,22 +196,19 @@ internal fun AppTabHost(
         when (tab) {
             AppScreenTab.Home -> {
                 key(state.homeContentGeneration) {
-                    val homeDynamicBackground by ThemeSettingsRepository.dynamicArtworkBackgroundEnabled.collectAsStateWithLifecycle()
-                    OpaqueAppSurfaces(enabled = homeDynamicBackground) {
-                        HomeScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            animateCollectionGifs = state.animateHomeCollectionGifs,
-                            scrollToTopRequests = requests.homeScrollToTopRequests,
-                            onCatalogClick = actions.onCatalogClick,
-                            onPosterClick = actions.onPosterClick,
-                            onPosterLongClick = actions.onPosterLongClick,
-                            onContinueWatchingClick = actions.onContinueWatchingClick,
-                            onContinueWatchingLongPress = actions.onContinueWatchingLongPress,
-                            continueWatchingDisintegrationRequest = state.continueWatchingDisintegrationRequest,
-                            onFolderClick = actions.onFolderClick,
-                            onFirstCatalogRendered = actions.onInitialHomeContentRendered,
-                        )
-                    }
+                    HomeScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        animateCollectionGifs = state.animateHomeCollectionGifs,
+                        scrollToTopRequests = requests.homeScrollToTopRequests,
+                        onCatalogClick = actions.onCatalogClick,
+                        onPosterClick = actions.onPosterClick,
+                        onPosterLongClick = actions.onPosterLongClick,
+                        onContinueWatchingClick = actions.onContinueWatchingClick,
+                        onContinueWatchingLongPress = actions.onContinueWatchingLongPress,
+                        continueWatchingDisintegrationRequest = state.continueWatchingDisintegrationRequest,
+                        onFolderClick = actions.onFolderClick,
+                        onFirstCatalogRendered = actions.onInitialHomeContentRendered,
+                    )
                 }
             }
 

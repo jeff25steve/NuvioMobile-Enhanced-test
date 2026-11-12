@@ -57,7 +57,7 @@ fn read_element(r: &mut RangeReader, pos: u64) -> Result<(u32, Vec<u8>)> {
     if tail.len() as u64 != tail_len {
         return Err(bad());
     }
-    let mut body = head.get(h..).ok_or_else(bad())?.to_vec();
+    let mut body = head.get(h..).ok_or_else(bad)?.to_vec();
     body.try_reserve_exact(tail.len()).map_err(|_| bad())?;
     body.extend(tail);
     Ok((id, body))
