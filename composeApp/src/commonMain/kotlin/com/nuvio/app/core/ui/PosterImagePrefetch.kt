@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpSize
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
@@ -23,6 +24,7 @@ internal val ShelfRowCacheWindow = LazyLayoutCacheWindow(aheadFraction = 0.5f, b
 
 private const val ShelfImagePrefetchAheadCount = 6
 
+// The LazyRow cache window prepares nearby items; Coil prefetch starts beyond those immediate neighbours.
 private const val ShelfImagePrefetchSkipCount = 2
 
 internal fun posterImageModel(
@@ -45,6 +47,8 @@ internal data class PosterPrefetchTarget(
     val imageUrl: String,
     val fallbackImageUrl: String?,
     val shape: NuvioPosterShape,
+    /** Exact rendered image bounds for cards whose artwork region differs from the poster shape. */
+    val sizeDp: DpSize? = null,
 )
 
 @Composable
@@ -70,8 +74,12 @@ internal fun PosterRowImagePrefetchEffect(
                 for (index in from..to) {
                     if (!enqueued.add(index)) continue
                     val target = items[index] ?: continue
-                    val widthPx = with(density) { target.shape.cardWidth(basePosterWidthDp).toPx() }
-                    val heightPx = widthPx / target.shape.aspectRatio
+                    val (widthPx, heightPx) = target.sizeDp?.let { sizeDp ->
+                        with(density) { sizeDp.width.toPx() to sizeDp.height.toPx() }
+                    } ?: run {
+                        val width = with(density) { target.shape.cardWidth(basePosterWidthDp).toPx() }
+                        width to (width / target.shape.aspectRatio)
+                    }
                     if (widthPx <= 0f || heightPx <= 0f) continue
                     val model = posterImageModel(
                         platformContext = platformContext,

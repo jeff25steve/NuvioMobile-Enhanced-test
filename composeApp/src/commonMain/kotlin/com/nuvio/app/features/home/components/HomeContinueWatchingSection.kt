@@ -43,6 +43,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,7 +55,11 @@ import com.nuvio.app.core.ui.NuvioProgressBar
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.NuvioShelfSection
 import com.nuvio.app.core.ui.NuvioTokens
+import com.nuvio.app.core.ui.NuvioPosterShape
 import com.nuvio.app.core.ui.PosterLandscapeAspectRatio
+import com.nuvio.app.core.ui.PosterPrefetchTarget
+import com.nuvio.app.core.ui.PosterRowImagePrefetchEffect
+import com.nuvio.app.core.ui.posterImageModel
 import com.nuvio.app.core.ui.PosterCardStyleUiState
 import com.nuvio.app.core.ui.ScopedDisintegrationTracker
 import com.nuvio.app.core.ui.landscapePosterHeightForWidth
@@ -233,6 +238,53 @@ private fun ContinueWatchingItem.fallbackUrlForArtwork(artworkUrl: String?): Str
     return null
 }
 
+internal fun ContinueWatchingItem.toPosterPrefetchTarget(
+    style: ContinueWatchingSectionStyle,
+    layout: ContinueWatchingLayout,
+    basePosterWidthDp: Int,
+    useEpisodeThumbnails: Boolean,
+    preferBackdropForNextUp: Boolean,
+): PosterPrefetchTarget? {
+    val artworkUrl = when (style) {
+        ContinueWatchingSectionStyle.Card ->
+            continueWatchingCardArtworkUrl(useEpisodeThumbnails, preferBackdropForNextUp)
+        ContinueWatchingSectionStyle.Wide ->
+            continueWatchingArtworkUrl(useEpisodeThumbnails)
+        ContinueWatchingSectionStyle.Poster ->
+            continueWatchingPosterArtworkUrl(useEpisodeThumbnails)
+    }
+    val imageUrl = cloudLibraryDisplayArtworkUrl(artworkUrl)
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    val fallbackUrl = fallbackUrlForArtwork(artworkUrl)
+        ?.takeIf { it.isNotBlank() && it != imageUrl }
+    val sizeDp = when (style) {
+        ContinueWatchingSectionStyle.Card -> DpSize(
+            width = continueWatchingLandscapeCardWidth(basePosterWidthDp),
+            height = continueWatchingLandscapeCardHeight(basePosterWidthDp),
+        )
+        ContinueWatchingSectionStyle.Wide -> DpSize(
+            width = layout.widePosterStripWidth,
+            height = layout.wideCardHeight,
+        )
+        ContinueWatchingSectionStyle.Poster -> DpSize(
+            width = layout.posterCardWidth,
+            height = layout.posterCardHeight,
+        )
+    }
+    val shape = if (style == ContinueWatchingSectionStyle.Poster) {
+        NuvioPosterShape.Poster
+    } else {
+        NuvioPosterShape.Landscape
+    }
+    return PosterPrefetchTarget(
+        imageUrl = imageUrl,
+        fallbackImageUrl = fallbackUrl,
+        shape = shape,
+        sizeDp = sizeDp,
+    )
+}
+
 @Composable
 private fun continuewatchingImageModel(
     imageUrl: String?,
@@ -240,16 +292,14 @@ private fun continuewatchingImageModel(
 ): Any? {
     val platformContext = coil3.compose.LocalPlatformContext.current
     return remember(imageUrl, fallbackUrl, platformContext) {
-        if (imageUrl.isNullOrBlank()) return@remember imageUrl
-        if (!fallbackUrl.isNullOrBlank() && fallbackUrl != imageUrl) {
-            coil3.request.ImageRequest.Builder(platformContext)
-                .data(imageUrl)
-                .memoryCacheKeyExtras(
-                    mapOf(com.nuvio.app.core.poster.CustomPosterFallbackInterceptor.FALLBACK_URL_KEY to fallbackUrl)
-                )
-                .build()
-        } else {
+        if (imageUrl.isNullOrBlank()) {
             imageUrl
+        } else {
+            posterImageModel(
+                platformContext = platformContext,
+                imageUrl = imageUrl,
+                fallbackImageUrl = fallbackUrl?.takeIf { it.isNotBlank() && it != imageUrl },
+            )
         }
     }
 }
@@ -344,6 +394,46 @@ private fun HomeContinueWatchingSectionContent(
             )
         }
         val displayEntries = disintegration.sync(dataSourceKey, items, disintegrationRequest)
+        val todayIsoDate = CurrentDateProvider.todayIsoDate()
+        val preferBackdropKeys = mutableSetOf<String>()
+        for (entry in displayEntries) {
+            val item = entry.item
+            if (
+                !entry.exiting &&
+                item.isNextUp &&
+                !item.isReleaseAlert &&
+                item.progressFraction <= 0f &&
+                item.seasonNumber != null &&
+                item.episodeNumber != null &&
+                computeAirDateBadgeText(item.released, todayIsoDate) != null
+            ) {
+                preferBackdropKeys += entry.key
+            }
+        }
+        val posterCardStyle = rememberPosterCardStyleUiState()
+        val prefetchTargets = remember(
+            displayEntries,
+            style,
+            layout,
+            useEpisodeThumbnails,
+            posterCardStyle.widthDp,
+            preferBackdropKeys,
+        ) {
+            displayEntries.map { entry ->
+                if (entry.exiting) {
+                    null
+                } else {
+                    entry.item.toPosterPrefetchTarget(
+                        style = style,
+                        layout = layout,
+                        basePosterWidthDp = posterCardStyle.widthDp,
+                        useEpisodeThumbnails = useEpisodeThumbnails,
+                        preferBackdropForNextUp = entry.key in preferBackdropKeys,
+                    )
+                }
+            }
+        }
+        PosterRowImagePrefetchEffect(state = listState, targets = prefetchTargets)
 
         NuvioShelfSection(
             title = title ?: stringResource(Res.string.compose_settings_page_continue_watching),

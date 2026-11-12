@@ -30,3 +30,7 @@ No APK artifact had yet been uploaded, and no physical-device measurement had be
 - The first metric is cold-start TTID from `StartupTimingMetric`. It is not a home-content TTFD or a complete time-to-interactive measurement.
 - Android instrumentation test APKs may require the ADB install test-only flag. Confirm the final APK metadata and installation command before handing the bundle to the user.
 - The next user-facing step should be minimal and device-specific; do not ask the user to handle Gradle, source code, or GitHub workflow configuration.
+
+## Scope update — 12 November 2026
+
+Macrobenchmark follow-up is paused at the user's request while the broader performance goals are addressed. No additional benchmark APK builds, device benchmark runs, Gradle tests, workflow dispatches, or CI runs were authorised in the subsequent poster-pipeline review. See [poster-prefetch-review.md](poster-prefetch-review.md) for the separate source-verified investigation and contained Continue Watching prefetch improvement.
