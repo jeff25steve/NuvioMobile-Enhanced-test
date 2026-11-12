@@ -3329,3 +3329,56 @@ The newest target revision was inspected before recovery. The complete `native/c
 ### Next action
 
 - Verify the repaired target ref and source diff, then launch isolated Android fullDebug and iOS Debug validation from the same commit. Inspect both fresh logs and artifact uploads before making a pass/fail claim.
+
+
+### 12 November 2026 — Linux fullDebug verified, APK published; performance measurement checkpoint reviewed
+
+**Android build result (success):**
+
+- Source commit: 87cdeb95896fe984d553ad92c83660919ad7d13b on main-build-testing.
+- Isolated validation branch: ci/nuvio-main-build-testing-recovery-20261112; workflow-only commit: 28495bfb7bc18815e611531ba69c18bcd7189b5d.
+- Linux workflow [#43153877235](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43153877235) completed with success.
+- cargo test --manifest-path native/container/Cargo.toml completed successfully, including the restored MP4 parser and the new stsz/stco/co64 regression tests.
+- ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace completed successfully.
+- APK artifact androidApp-full-debug.apk, artifact ID 13915911263, was uploaded successfully (168,811,025 bytes). It was retrieved from the Actions artifact and verified as an Android package; ZIP integrity validation passed. A copy was made available as NuvioMobile-Enhanced-fullDebug.apk.
+- SHA-256 of the retrieved APK: a7a4effc200349248c7cc7212f458759599078990aeb9d0bb7bca09582462889.
+- This is the Full Debug APK for installation/testing, not the optimized release artifact and not a valid input for release-performance measurements.
+
+**Separate iOS validation result (failure; does not block the Android APK):**
+
+- iOS workflow [#43153877203](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43153877203) completed with failure at :composeApp:compileKotlinIosArm64.
+- The remaining diagnostic is in TraktAuthStorage.ios.kt:118: the ByteVar pointer indexed access expression resolves to an unrelated MatchGroupCollection.get candidate, yielding expected Byte / actual MatchGroup? and a receiver-type mismatch.
+- Setup, Xcode toolchain verification and iOS dependency preparation succeeded. IPA summarization/upload was skipped. No IPA artifact exists.
+- Keep this as a discrete iOS follow-up; the user's immediate Android APK deliverable is complete. Do not run another iOS build until the pointer access is corrected and reviewed.
+
+**Review of the proposed speed/load-time directions (research only; no optimization code changed):**
+
+Repository inspection confirms the Baseline Profile system is already substantially in place:
+
+- :baselineprofile is included from settings.gradle.kts; its module applies Android Test and the AndroidX Baseline Profile plugin, and depends on Macrobenchmark 1.5.0 plus UI Automator.
+- BaselineProfileGenerator already collects a startup profile and a home-scroll interaction profile.
+- androidApp applies the Baseline Profile plugin, depends on :baselineprofile and ProfileInstaller, and configures mergeIntoMain = true, saveInSrc = true, and automaticGenerationDuringBuild = false.
+- The repository contains androidApp/src/main/baseline-prof.txt (1,409,345 bytes). This is evidence of a checked-in profile source, not proof by itself that the optimized release artifact contains the compiled profile; that needs an artifact-level release check.
+- Release minification and resource shrinking default to enabled in androidApp/build.gradle.kts; the fullDebug APK generated above does not represent this optimized release path.
+- Project versions are AndroidX Benchmark 1.5.0, AGP 9.4.0 and Compose Multiplatform 1.13.0-beta01. Do not add/upgrade a performance library without a concrete measurement gap.
+
+**Evidence-based next measurement:**
+
+1. Use Macrobenchmark on a physical mid-range Android device against a profileable, non-debuggable, release-like/minified target variant. Record cold-start StartupTimingMetric plus a deterministic home-content-visible / time-to-interactive marker. Run repeated iterations and record distributions, not a single launch.
+2. Compare fresh-install/no-AOT CompilationMode.None() with the Baseline-Profile path (Partial + Require) to quantify the profile's benefit. The Android documentation recommends cold/warm/hot modes and explains Baseline Profile compilation behavior; no fixed 150–300 ms gain is guaranteed for this app or device.
+3. Confirm the generated release APK/AAB contains the compiled assets/dexopt/baseline.prof and that its size remains within Android's documented 1.5 MB limit. Regenerate the existing profile only when user journeys or startup code paths have changed; do not add a duplicate module.
+4. Profile startup and the first home screen before deferring Trakt, Live TV, downloads, image caches or other initialization. Preserve auth/profile gates until traces show a measured critical-path contribution and a safe sequencing plan.
+5. For Compose, use the project's exact 1.13.0-beta01 API surface. The current Android guidance recommends avoiding expensive work in composition, stable item keys/content types for lazy lists, and using computedStateOf for light high-frequency derivations in Compose 1.13+; retain derivedStateOf where expensive derived values are read repeatedly. Do not blanket-wrap state or convert short lists into Sequence without evidence.
+6. Keep iOS performance work separate: first restore a passing iOS compile, then use device Instruments traces to identify Metal first-use stalls, Kotlin/Native GC pauses or launch work before changing shared collection or rendering code.
+
+References checked:
+- Android Developers, [Macrobenchmark overview and startup modes](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
+- Android Developers, [Measure Baseline Profile benefit with CompilationMode](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile).
+- Android Developers, [Baseline Profiles overview and packaging](https://developer.android.com/topic/performance/baselineprofiles/overview).
+- Android Developers, [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices).
+
+**Scope boundary:** No speculative performance, UI, Liquid Glass or dependency changes were made. The one next improvement checkpoint is a measurement-only startup/profile audit using the existing benchmark module and release-like variant; only after collecting a baseline should one bounded optimization be selected.
+
+### Next action
+
+- On an available physical Android device, collect cold-start and home-content time-to-interactive baselines with/without the existing Baseline Profile on a profileable release-like target; verify the packaged release profile. Separately, repair and review the TraktAuthStorage.ios.kt byte-pointer access before any new iOS validation run.
