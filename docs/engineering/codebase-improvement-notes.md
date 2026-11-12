@@ -3538,3 +3538,35 @@ References checked:
 #### Next improvement checkpoint
 
 - After the user authorizes validation, inspect the calendar on a physical Android and iPhone in both Saved and Cloud modes, with Liquid Glass enabled/disabled. Confirm TalkBack/VoiceOver announce the full date, Today, release count and selected state once, and verify touch-target spacing between adjacent date cells. Then consider a visual-only refinement if the real-device comparison shows the calendar shell is too transparent over dense poster content; do not increase blur or add another inner glass layer by default.
+
+### 12 November 2026 — make Settings search broader and relevance-ranked
+
+#### Confirmed root causes
+
+- The search catalogue in `SettingsSearch.kt` was maintained separately from the actual Settings page registry. Four routable pages—Debrid, Live TV, Discord RPC, and Debug Logs—had no search entries, so neither their page names nor their controls could be found from the Settings root.
+- Existing matching lowercased the text and required every query token to be a literal substring of one concatenated title/description/page/section/category string. The index omitted the stable entry key and had no explicit aliases, prefix/partial-token matching, typo tolerance, or relevance ordering. Results therefore depended on the catalogue author remembering both an entry and its exact vocabulary, then appeared in registration order.
+
+#### Integrated change
+
+- Added missing page entries and searchable control rows for Debrid stream resolution/filtering and formatting, Live TV playlists/providers/EPG reload, Discord Rich Presence controls, and Debug Logs. The entries use each page's existing localized titles, descriptions, and section labels and route to the existing page targets.
+- Added explicit, localized-catalogue aliases for familiar user vocabulary such as Real-Debrid/Torbox/Premiumize, IPTV/M3U/EPG/XTream, Discord/Rich Presence, Plex/Jellyfin/Emby, Dark Mode, downloads, notifications, and playback terms. Compound aliases cover queries such as “Torbox resolutions”, “IPTV EPG”, and “Discord poster”. Aliases are optional metadata on `SettingsSearchEntry`; they do not change the rendered search field or result-row layout.
+- Replaced the boolean substring filter with deterministic relevance ranking: exact title/phrase matches rank highest; then field-weighted exact token and prefix/partial matches; longer queries can tolerate a tightly bounded edit distance (one edit for 5–7 characters, two for 8+); short queries receive no fuzzy expansion. Query terms can appear in any order but every term must still match somewhere. Stable source order breaks ties.
+- Search text now includes the stable setting key and aliases. Normalization uses only common Kotlin character/string APIs and retains letters/digits, so no JVM-only dependency or new library was added.
+- Added seven common regression cases before implementation for word-order independence, exact-title ranking, punctuation/partial tokens, aliases and key names, bounded typo tolerance, short-query protection, and the all-terms requirement.
+
+#### Research and API review
+
+- Apple Support documents the simple user-facing pattern—enter a term in Settings and tap a result—but does not publish its internal ranking or synonym algorithm: [Find settings on iPhone](https://support.apple.com/guide/iphone/find-settings-iph079e1fe9d/ios). The implementation follows the user-friendly "search by intent, then open a result" pattern without claiming to reproduce Apple's private internals.
+- LINE Engineering's [settings search implementation write-up](https://engineering.linecorp.com/en/blog/how-we-added-settings-searching-to-the-line-app) documents why a separate partial hand-maintained list drifts from the settings screens, and describes indexing nested sections/items, synonyms, and navigating to the associated setting. This cycle closes clear catalogue omissions and improves matching/ranking; it deliberately does not yet restructure every setting control around row anchors.
+- Independent critique in [Six Colors' 2025 iOS Settings search review](https://sixcolors.com/post/2025/03/searching-for-settings-in-all-the-wrong-places/) shows that copying the iOS UI does not guarantee good recall: synonyms and query variants such as “Notification Summaries” versus “Summarize Notifications” can still fail. The Nuvio matcher therefore keeps an explicit alias path and testable ranking rules rather than attempting to imitate undocumented Apple behavior.
+- Context7 resolved Kotlin and Compose Multiplatform docs. The repository pins Compose Multiplatform `1.13.0-beta01` / Kotlin `2.4.10`; Context7 did not index those exact versions (Compose results ended at `1.12.2`, Kotlin results did not provide a 2.4.10 entry). The implementation stays in existing common Kotlin source and uses `String.lowercase()`, common `Char.isLetterOrDigit()`, and bounded string distance; no Compose API or dependency changed.
+
+#### Review and verification boundary
+
+- Read-only source review traced SettingsPage definitions, both phone and tablet search-result navigation handlers, the existing localized resource catalogues, and the four missing page implementations. Results still navigate to the existing page destination; no settings value is read, changed, or persisted by search.
+- Seven common regression tests are present. **They were not run**, and no build, compilation, build-triggering test, or CI workflow was started, as requested. No runtime ranking or recall claim is made until those tests and a real-device query matrix are authorized.
+- The existing search field styling, Liquid Glass treatment, reveal animation, empty state, and result-row presentation were not modified.
+
+#### Next improvement checkpoint
+
+- The larger recall improvement is to make each actual setting row publish its searchable metadata (localized title, description, section path, aliases, and a stable navigation anchor) at the point where the row is declared, then let Settings search build its index from that shared source. LINE's article shows this avoids the drift of a duplicate manually maintained catalogue. It will require a planned, incremental migration across settings pages and a safe phone/tablet row-scroll/highlight path; do not do a broad UI rewrite in this matcher-only cycle.

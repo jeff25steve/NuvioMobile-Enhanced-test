@@ -86,8 +86,9 @@ internal data class SettingsSearchEntry(
     val category: String,
     val icon: ImageVector,
     val target: SettingsSearchTarget,
+    val searchTerms: List<String> = emptyList(),
 ) {
-    val searchableText: String = listOf(title, description, page, section, category)
+    val searchableText: String = (listOf(title, description, page, section, category, key) + searchTerms)
         .joinToString(separator = " ")
         .lowercase()
 
@@ -140,6 +141,10 @@ internal fun settingsSearchEntries(
 
     val categories = SettingsCategory.entries.associateWith { stringResource(it.labelRes) }
     val pageTitles = SettingsPage.entries.associateWith { stringResource(it.titleRes) }
+    val debridPage = pageTitles.getValue(SettingsPage.Debrid)
+    val liveTvPage = pageTitles.getValue(SettingsPage.LiveTv)
+    val discordRpcPage = pageTitles.getValue(SettingsPage.DiscordRpc)
+    val debugLogsPage = pageTitles.getValue(SettingsPage.DebugLogs)
     val playerSettings by remember {
         PlayerSettingsRepository.ensureLoaded()
         PlayerSettingsRepository.uiState
@@ -155,6 +160,7 @@ internal fun settingsSearchEntries(
         section: String = "",
         category: String = generalCategory,
         target: SettingsSearchTarget,
+        searchTerms: List<String> = emptyList(),
     ) {
         entries += SettingsSearchEntry(
             key = key,
@@ -165,6 +171,7 @@ internal fun settingsSearchEntries(
             category = (target as? SettingsSearchTarget.Page)?.page?.category?.let(categories::getValue) ?: category,
             icon = target.icon,
             target = target,
+            searchTerms = searchTerms,
         )
     }
 
@@ -174,6 +181,7 @@ internal fun settingsSearchEntries(
         title: String,
         description: String,
         category: String = generalCategory,
+        searchTerms: List<String> = emptyList(),
     ) {
         add(
             key = key,
@@ -182,6 +190,7 @@ internal fun settingsSearchEntries(
             page = title,
             category = category,
             target = SettingsSearchTarget.Page(page),
+            searchTerms = searchTerms,
         )
     }
 
@@ -193,6 +202,7 @@ internal fun settingsSearchEntries(
         pageLabel: String,
         section: String,
         category: String = generalCategory,
+        searchTerms: List<String> = emptyList(),
     ) {
         if (page.parentPage == SettingsPage.Playback && playbackSections.none { it.page == page }) return
         add(
@@ -203,6 +213,7 @@ internal fun settingsSearchEntries(
             section = if (page.parentPage == SettingsPage.Playback) pageTitles.getValue(page) else section,
             category = category,
             target = SettingsSearchTarget.Page(page),
+            searchTerms = searchTerms,
         )
     }
 
@@ -223,6 +234,7 @@ internal fun settingsSearchEntries(
         title = accountPage,
         description = stringResource(Res.string.compose_settings_root_account_description),
         category = accountCategory,
+        searchTerms = listOf("profile", "sign in", "sign out", "account details"),
     )
     addPage(
         page = SettingsPage.TraktAuthentication,
@@ -236,6 +248,7 @@ internal fun settingsSearchEntries(
         key = "appearance",
         title = appearancePage,
         description = stringResource(Res.string.settings_appearance_description),
+        searchTerms = listOf("theme", "dark mode", "light mode", "amoled", "colors", "app icon", "language", "look"),
     )
     addPage(
         page = SettingsPage.Layout,
@@ -271,6 +284,7 @@ internal fun settingsSearchEntries(
         key = "content-discovery",
         title = contentDiscoveryPage,
         description = stringResource(Res.string.compose_settings_root_content_discovery_description),
+        searchTerms = listOf("sources", "catalogs", "providers", "addons", "plugins", "media servers", "live tv"),
     )
     addRow(
         page = SettingsPage.ContentDiscovery,
@@ -287,12 +301,14 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.compose_settings_root_downloads_description),
         pageLabel = downloadsPage,
         section = downloadsPage,
+        searchTerms = listOf("offline", "download manager", "storage", "saved files"),
     )
     addPage(
         page = SettingsPage.Playback,
         key = "playback",
         title = playbackPage,
         description = stringResource(Res.string.settings_playback_subtitle),
+        searchTerms = listOf("video player", "audio", "subtitles", "captions", "buffer", "decoder", "streams", "playback speed"),
     )
     addPage(
         page = SettingsPage.Streams,
@@ -305,12 +321,56 @@ internal fun settingsSearchEntries(
         key = "integrations",
         title = integrationsPage,
         description = stringResource(Res.string.compose_settings_root_integrations_description),
+        searchTerms = listOf("services", "providers", "external services", "api integrations"),
+    )
+    addPage(
+        page = SettingsPage.Debrid,
+        key = "debrid",
+        title = debridPage,
+        description = stringResource(Res.string.settings_debrid_experimental_notice),
+        searchTerms = listOf(
+            "real debrid", "premiumize", "torbox", "cloud library", "cloud downloads",
+            "link resolver", "cached streams", "instant playback", "stream filtering",
+            "resolutions", "quality filters", "release groups", "audio tags", "audio channels",
+            "visual tags", "encoding", "language filters", "size limits", "result sorting",
+        ),
+    )
+    addPage(
+        page = SettingsPage.LiveTv,
+        key = "live-tv",
+        title = liveTvPage,
+        description = stringResource(Res.string.live_tv_settings_description),
+        searchTerms = listOf(
+            "iptv", "m3u", "m3u8", "epg", "electronic program guide", "tv guide",
+            "xtream codes", "stalker portal", "channels", "live channels", "playlist", "channel guide",
+        ),
+    )
+    addPage(
+        page = SettingsPage.DiscordRpc,
+        key = "discord-rpc",
+        title = discordRpcPage,
+        description = stringResource(Res.string.discord_rpc_enable_description),
+        searchTerms = listOf(
+            "discord", "rpc", "rich presence", "now playing", "game status", "activity status",
+            "show poster", "playback state", "timestamps", "application id",
+        ),
+    )
+    addPage(
+        page = SettingsPage.DebugLogs,
+        key = "debug-logs",
+        title = debugLogsPage,
+        description = stringResource(Res.string.settings_advanced_debugging_log_viewer_description),
+        searchTerms = listOf(
+            "debug", "debugging", "logs", "log viewer", "logging", "diagnostics",
+            "troubleshooting", "console", "copy logs", "clear logs", "log level",
+        ),
     )
     addPage(
         page = SettingsPage.Notifications,
         key = "notifications",
         title = notificationsPage,
         description = stringResource(Res.string.compose_settings_root_notifications_description),
+        searchTerms = listOf("alerts", "push notifications", "notification sound", "reminders", "episode alerts", "release notifications"),
     )
     if (supportersContributorsPageEnabled) {
         addPage(
@@ -378,6 +438,127 @@ internal fun settingsSearchEntries(
             section = stringResource(Res.string.compose_settings_root_about_section),
             category = aboutCategory,
             target = SettingsSearchTarget.CheckForUpdates,
+        )
+    }
+
+    val debridMainSection = stringResource(Res.string.settings_debrid_section_title)
+    val debridInstantSection = stringResource(Res.string.settings_debrid_section_instant_playback)
+    val debridResultsSection = stringResource(Res.string.settings_debrid_section_result_management)
+    val debridFormattingSection = stringResource(Res.string.settings_debrid_section_formatting)
+    listOf(
+        PlaybackSearchRow("cloud-library", stringResource(Res.string.settings_debrid_cloud_library), stringResource(Res.string.settings_debrid_cloud_library_description), debridMainSection),
+        PlaybackSearchRow("link-resolving", stringResource(Res.string.settings_debrid_enable), stringResource(Res.string.settings_debrid_enable_description), debridMainSection),
+        PlaybackSearchRow("resolve-provider", stringResource(Res.string.settings_debrid_resolve_with), stringResource(Res.string.settings_debrid_resolve_with_description), debridMainSection),
+        PlaybackSearchRow("instant-playback", stringResource(Res.string.settings_debrid_prepare_instant_playback), stringResource(Res.string.settings_debrid_prepare_instant_playback_description), debridInstantSection),
+        PlaybackSearchRow("instant-playback-count", stringResource(Res.string.settings_debrid_prepare_stream_count), sectionOverride = debridInstantSection),
+        PlaybackSearchRow("max-results", stringResource(Res.string.settings_debrid_max_results), stringResource(Res.string.settings_debrid_max_results_desc), debridResultsSection),
+        PlaybackSearchRow("sort-results", stringResource(Res.string.settings_debrid_sort_results), stringResource(Res.string.settings_debrid_sort_results_desc), debridResultsSection),
+        PlaybackSearchRow("resolution-limit", stringResource(Res.string.settings_debrid_per_resolution_limit), stringResource(Res.string.settings_debrid_per_resolution_limit_desc), debridResultsSection),
+        PlaybackSearchRow("quality-limit", stringResource(Res.string.settings_debrid_per_quality_limit), stringResource(Res.string.settings_debrid_per_quality_limit_desc), debridResultsSection),
+        PlaybackSearchRow("size-range", stringResource(Res.string.settings_debrid_size_range), stringResource(Res.string.settings_debrid_size_range_desc), debridResultsSection),
+        PlaybackSearchRow("name-template", stringResource(Res.string.settings_debrid_name_template), stringResource(Res.string.settings_debrid_name_template_description), debridFormattingSection),
+        PlaybackSearchRow("description-template", stringResource(Res.string.settings_debrid_description_template), stringResource(Res.string.settings_debrid_description_template_description), debridFormattingSection),
+        PlaybackSearchRow("preferred-resolutions", stringResource(Res.string.settings_debrid_rule_preferred_resolutions), stringResource(Res.string.settings_debrid_rule_preferred_resolutions_desc), debridResultsSection),
+        PlaybackSearchRow("required-resolutions", stringResource(Res.string.settings_debrid_rule_required_resolutions), stringResource(Res.string.settings_debrid_rule_required_resolutions_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-resolutions", stringResource(Res.string.settings_debrid_rule_excluded_resolutions), stringResource(Res.string.settings_debrid_rule_excluded_resolutions_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-qualities", stringResource(Res.string.settings_debrid_rule_preferred_qualities), stringResource(Res.string.settings_debrid_rule_preferred_qualities_desc), debridResultsSection),
+        PlaybackSearchRow("required-qualities", stringResource(Res.string.settings_debrid_rule_required_qualities), stringResource(Res.string.settings_debrid_rule_required_qualities_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-qualities", stringResource(Res.string.settings_debrid_rule_excluded_qualities), stringResource(Res.string.settings_debrid_rule_excluded_qualities_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-visual-tags", stringResource(Res.string.settings_debrid_rule_preferred_visual_tags), stringResource(Res.string.settings_debrid_rule_preferred_visual_tags_desc), debridResultsSection),
+        PlaybackSearchRow("required-visual-tags", stringResource(Res.string.settings_debrid_rule_required_visual_tags), stringResource(Res.string.settings_debrid_rule_required_visual_tags_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-visual-tags", stringResource(Res.string.settings_debrid_rule_excluded_visual_tags), stringResource(Res.string.settings_debrid_rule_excluded_visual_tags_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-audio-tags", stringResource(Res.string.settings_debrid_rule_preferred_audio_tags), stringResource(Res.string.settings_debrid_rule_preferred_audio_tags_desc), debridResultsSection),
+        PlaybackSearchRow("required-audio-tags", stringResource(Res.string.settings_debrid_rule_required_audio_tags), stringResource(Res.string.settings_debrid_rule_required_audio_tags_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-audio-tags", stringResource(Res.string.settings_debrid_rule_excluded_audio_tags), stringResource(Res.string.settings_debrid_rule_excluded_audio_tags_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-channels", stringResource(Res.string.settings_debrid_rule_preferred_channels), stringResource(Res.string.settings_debrid_rule_preferred_channels_desc), debridResultsSection),
+        PlaybackSearchRow("required-channels", stringResource(Res.string.settings_debrid_rule_required_channels), stringResource(Res.string.settings_debrid_rule_required_channels_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-channels", stringResource(Res.string.settings_debrid_rule_excluded_channels), stringResource(Res.string.settings_debrid_rule_excluded_channels_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-encodes", stringResource(Res.string.settings_debrid_rule_preferred_encodes), stringResource(Res.string.settings_debrid_rule_preferred_encodes_desc), debridResultsSection),
+        PlaybackSearchRow("required-encodes", stringResource(Res.string.settings_debrid_rule_required_encodes), stringResource(Res.string.settings_debrid_rule_required_encodes_desc), debridResultsSection),
+        PlaybackSearchRow("preferred-languages", stringResource(Res.string.settings_debrid_rule_preferred_languages), stringResource(Res.string.settings_debrid_rule_preferred_languages_desc), debridResultsSection),
+        PlaybackSearchRow("required-languages", stringResource(Res.string.settings_debrid_rule_required_languages), stringResource(Res.string.settings_debrid_rule_required_languages_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-languages", stringResource(Res.string.settings_debrid_rule_excluded_languages), stringResource(Res.string.settings_debrid_rule_excluded_languages_desc), debridResultsSection),
+        PlaybackSearchRow("required-release-groups", stringResource(Res.string.settings_debrid_rule_required_release_groups), stringResource(Res.string.settings_debrid_rule_required_release_groups_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-release-groups", stringResource(Res.string.settings_debrid_rule_excluded_release_groups), stringResource(Res.string.settings_debrid_rule_excluded_release_groups_desc), debridResultsSection),
+    ).forEach { row ->
+        addRow(
+            page = SettingsPage.Debrid,
+            key = "debrid-${row.key}",
+            title = row.title,
+            description = row.description,
+            pageLabel = debridPage,
+            section = row.sectionOverride ?: debridResultsSection,
+        )
+    }
+
+    val liveTvProvidersSection = stringResource(Res.string.live_tv_settings_section_providers)
+    val liveTvPlaylistSection = stringResource(Res.string.live_tv_settings_section_playlist)
+    val liveTvEpgSection = stringResource(Res.string.live_tv_settings_section_epg)
+    val liveTvReloadSection = stringResource(Res.string.live_tv_settings_section_reload)
+    listOf(
+        PlaybackSearchRow("playlist", stringResource(Res.string.live_tv_settings_playlist_label), stringResource(Res.string.live_tv_settings_description), liveTvPlaylistSection),
+        PlaybackSearchRow("playlist-url", stringResource(Res.string.live_tv_settings_playlist_url_label), stringResource(Res.string.live_tv_settings_add_url_playlist), liveTvPlaylistSection),
+        PlaybackSearchRow("local-playlist", stringResource(Res.string.live_tv_settings_add_local_playlist), stringResource(Res.string.live_tv_settings_playlist_source_local), liveTvPlaylistSection),
+        PlaybackSearchRow("playlist-name", stringResource(Res.string.live_tv_settings_playlist_name_label), stringResource(Res.string.live_tv_settings_playlist_name_placeholder), liveTvPlaylistSection),
+        PlaybackSearchRow("epg-auto", stringResource(Res.string.live_tv_settings_epg_auto_title), stringResource(Res.string.live_tv_settings_epg_auto_description), liveTvEpgSection),
+        PlaybackSearchRow("epg-url", stringResource(Res.string.live_tv_settings_epg_label), stringResource(Res.string.live_tv_settings_epg_description), liveTvEpgSection),
+        PlaybackSearchRow("epg-add", stringResource(Res.string.live_tv_settings_epg_add), stringResource(Res.string.live_tv_settings_epg_url_placeholder), liveTvEpgSection),
+        PlaybackSearchRow("reload-channels", stringResource(Res.string.live_tv_settings_reload_channels), stringResource(Res.string.live_tv_settings_reload_description), liveTvReloadSection),
+        PlaybackSearchRow("reload-epg", stringResource(Res.string.live_tv_settings_reload_epg), sectionOverride = liveTvReloadSection),
+        PlaybackSearchRow("xtream-codes", stringResource(Res.string.live_tv_xtream_title), stringResource(Res.string.live_tv_xtream_description), liveTvProvidersSection),
+        PlaybackSearchRow("stalker-portal", stringResource(Res.string.live_tv_stalker_title), stringResource(Res.string.live_tv_stalker_description), liveTvProvidersSection),
+        PlaybackSearchRow("stalker-mac", stringResource(Res.string.live_tv_stalker_mac), stringResource(Res.string.live_tv_stalker_portal), liveTvProvidersSection),
+    ).forEach { row ->
+        addRow(
+            page = SettingsPage.LiveTv,
+            key = "live-tv-${row.key}",
+            title = row.title,
+            description = row.description,
+            pageLabel = liveTvPage,
+            section = row.sectionOverride ?: liveTvProvidersSection,
+        )
+    }
+
+    val discordAccountSection = stringResource(Res.string.discord_rpc_section_account)
+    val discordPresenceSection = stringResource(Res.string.discord_rpc_section_presence)
+    val discordDisplaySection = stringResource(Res.string.discord_rpc_section_display)
+    val discordAdvancedSection = stringResource(Res.string.discord_rpc_section_advanced)
+    listOf(
+        PlaybackSearchRow("enable", stringResource(Res.string.discord_rpc_enable_title), stringResource(Res.string.discord_rpc_enable_description), discordPresenceSection),
+        PlaybackSearchRow("activity-type", stringResource(Res.string.discord_rpc_activity_type_title), stringResource(Res.string.discord_rpc_activity_type_description), discordPresenceSection),
+        PlaybackSearchRow("status", stringResource(Res.string.discord_rpc_status_title), stringResource(Res.string.discord_rpc_status_description), discordPresenceSection),
+        PlaybackSearchRow("show-title-as-name", stringResource(Res.string.discord_rpc_show_title_as_name_title), stringResource(Res.string.discord_rpc_show_title_as_name_description), discordDisplaySection),
+        PlaybackSearchRow("show-poster", stringResource(Res.string.discord_rpc_show_poster_title), stringResource(Res.string.discord_rpc_show_poster_description), discordDisplaySection),
+        PlaybackSearchRow("show-playback-state", stringResource(Res.string.discord_rpc_show_playback_state_title), stringResource(Res.string.discord_rpc_show_playback_state_description), discordDisplaySection),
+        PlaybackSearchRow("show-timestamps", stringResource(Res.string.discord_rpc_show_timestamps_title), stringResource(Res.string.discord_rpc_show_timestamps_description), discordDisplaySection),
+        PlaybackSearchRow("hide-on-pause", stringResource(Res.string.discord_rpc_hide_on_pause_title), stringResource(Res.string.discord_rpc_hide_on_pause_description), discordDisplaySection),
+        PlaybackSearchRow("show-imdb-button", stringResource(Res.string.discord_rpc_show_imdb_button_title), stringResource(Res.string.discord_rpc_show_imdb_button_description), discordDisplaySection),
+        PlaybackSearchRow("application-id", stringResource(Res.string.discord_rpc_application_id_title), stringResource(Res.string.discord_rpc_application_id_description), discordAdvancedSection),
+        PlaybackSearchRow("login", stringResource(Res.string.discord_rpc_login_button), stringResource(Res.string.discord_rpc_login_description), discordAccountSection),
+    ).forEach { row ->
+        addRow(
+            page = SettingsPage.DiscordRpc,
+            key = "discord-${row.key}",
+            title = row.title,
+            description = row.description,
+            pageLabel = discordRpcPage,
+            section = row.sectionOverride ?: discordAccountSection,
+        )
+    }
+
+    val debugSection = stringResource(Res.string.settings_advanced_section_debugging)
+    listOf(
+        PlaybackSearchRow("copy-logs", stringResource(Res.string.settings_advanced_debugging_copy_logs), stringResource(Res.string.settings_advanced_debugging_copy_logs_description), debugSection),
+        PlaybackSearchRow("clear-logs", stringResource(Res.string.settings_advanced_debugging_clear_logs), stringResource(Res.string.settings_advanced_debugging_clear_logs_description), debugSection),
+        PlaybackSearchRow("log-viewer", stringResource(Res.string.settings_advanced_debugging_log_viewer_description), sectionOverride = debugSection),
+    ).forEach { row ->
+        addRow(
+            page = SettingsPage.DebugLogs,
+            key = "debug-${row.key}",
+            title = row.title,
+            description = row.description,
+            pageLabel = debugLogsPage,
+            section = row.sectionOverride ?: debugSection,
         )
     }
 
@@ -541,6 +722,7 @@ internal fun settingsSearchEntries(
         key = "media-servers",
         title = stringResource(Res.string.compose_settings_page_media_servers),
         description = stringResource(Res.string.settings_content_discovery_media_servers_description),
+        searchTerms = listOf("plex", "jellyfin", "emby", "media server", "server connection", "network media"),
     )
     if (pluginsEnabled) {
         addPage(
@@ -1356,21 +1538,151 @@ private fun SettingsSearchEmptyState(isTablet: Boolean) {
     }
 }
 
-private fun settingsSearchResults(
+internal fun settingsSearchResults(
     query: String,
     entries: List<SettingsSearchEntry>,
 ): List<SettingsSearchEntry> {
-    val terms = query
-        .trim()
-        .lowercase()
-        .split(Regex("\\s+"))
-        .filter { it.isNotBlank() }
+    val normalizedQuery = normalizeSettingsSearchText(query)
+    val queryTerms = normalizedQuery.split(' ').filter(String::isNotBlank)
+    if (queryTerms.isEmpty()) return emptyList()
 
-    if (terms.isEmpty()) return emptyList()
-
-    return entries.filter { entry ->
-        terms.all { term -> entry.searchableText.contains(term) }
+    return entries.mapIndexedNotNull { index, entry ->
+        val score = settingsSearchEntryScore(normalizedQuery, queryTerms, entry)
+            ?: return@mapIndexedNotNull null
+        RankedSettingsSearchEntry(entry = entry, score = score, sourceIndex = index)
     }
+        .sortedWith(
+            compareByDescending<RankedSettingsSearchEntry> { it.score }
+                .thenBy { it.sourceIndex },
+        )
+        .map(RankedSettingsSearchEntry::entry)
+}
+
+private data class RankedSettingsSearchEntry(
+    val entry: SettingsSearchEntry,
+    val score: Int,
+    val sourceIndex: Int,
+)
+
+private data class SettingsSearchIndexField(
+    val value: String,
+    val weight: Int,
+)
+
+private fun settingsSearchEntryScore(
+    normalizedQuery: String,
+    queryTerms: List<String>,
+    entry: SettingsSearchEntry,
+): Int? {
+    val fields = listOf(
+        SettingsSearchIndexField(entry.title, weight = 12),
+        SettingsSearchIndexField(entry.searchTerms.joinToString(" "), weight = 10),
+        SettingsSearchIndexField(entry.section, weight = 6),
+        SettingsSearchIndexField(entry.page, weight = 4),
+        SettingsSearchIndexField(entry.description, weight = 3),
+        SettingsSearchIndexField(entry.key, weight = 2),
+        SettingsSearchIndexField(entry.category, weight = 1),
+    ).map { field ->
+        normalizeSettingsSearchText(field.value)
+            .split(' ')
+            .filter(String::isNotBlank) to field.weight
+    }.filter { (words, _) -> words.isNotEmpty() }
+
+    var score = 0
+    queryTerms.forEach { queryTerm ->
+        val bestTermScore = fields.maxOfOrNull { (words, weight) ->
+            (words.maxOfOrNull { candidate ->
+                settingsSearchTermScore(queryTerm, candidate)
+            } ?: 0) * weight
+        } ?: 0
+        if (bestTermScore == 0) return null
+        score += bestTermScore
+    }
+
+    val title = normalizeSettingsSearchText(entry.title)
+    if (title == normalizedQuery) {
+        score += 1_000
+    } else if (title.startsWith(normalizedQuery)) {
+        score += 500
+    } else if (title.contains(normalizedQuery)) {
+        score += 250
+    }
+
+    val aliases = normalizeSettingsSearchText(entry.searchTerms.joinToString(" "))
+    if (aliases == normalizedQuery) {
+        score += 750
+    } else if (aliases.contains(normalizedQuery)) {
+        score += 180
+    }
+
+    val page = normalizeSettingsSearchText(entry.page)
+    if (page == normalizedQuery) score += 350
+
+    return score
+}
+
+/** Common-source normalization: ignore case and punctuation, preserve letters and digits. */
+private fun normalizeSettingsSearchText(value: String): String = buildString(value.length) {
+    var previousWasSeparator = true
+    value.lowercase().forEach { character ->
+        if (character.isLetterOrDigit()) {
+            append(character)
+            previousWasSeparator = false
+        } else if (!previousWasSeparator) {
+            append(' ')
+            previousWasSeparator = true
+        }
+    }
+}.trim()
+
+private fun settingsSearchTermScore(query: String, candidate: String): Int {
+    if (query == candidate) return 100
+    if (candidate.startsWith(query)) return 80
+    if (candidate.length >= 4 && query.startsWith(candidate) && query.length - candidate.length in 1..2) return 74
+    if (query.length >= 3 && candidate.contains(query)) return 55
+
+    val maximumDistance = when (query.length) {
+        in 0..4 -> 0
+        in 5..7 -> 1
+        else -> 2
+    }
+    if (maximumDistance == 0) return 0
+
+    val distance = boundedSettingsSearchEditDistance(query, candidate, maximumDistance)
+        ?: return 0
+    return 36 - ((distance - 1) * 9)
+}
+
+private fun boundedSettingsSearchEditDistance(
+    left: String,
+    right: String,
+    maximumDistance: Int,
+): Int? {
+    if (kotlin.math.abs(left.length - right.length) > maximumDistance) return null
+    if (left.isEmpty()) return right.length.takeIf { it <= maximumDistance }
+    if (right.isEmpty()) return left.length.takeIf { it <= maximumDistance }
+
+    var previous = IntArray(right.length + 1) { it }
+    for (leftIndex in left.indices) {
+        val current = IntArray(right.length + 1)
+        current[0] = leftIndex + 1
+        var rowMinimum = current[0]
+
+        for (rightIndex in right.indices) {
+            val substitutionCost = if (left[leftIndex] == right[rightIndex]) 0 else 1
+            current[rightIndex + 1] = minOf(
+                previous[rightIndex + 1] + 1,
+                current[rightIndex] + 1,
+                previous[rightIndex] + substitutionCost,
+            )
+            rowMinimum = minOf(rowMinimum, current[rightIndex + 1])
+        }
+
+        if (rowMinimum > maximumDistance) return null
+        previous = current
+    }
+
+    return previous[right.length].takeIf { it <= maximumDistance }
 }
 
 private fun SettingsSearchEntry.resultDescription(): String {
