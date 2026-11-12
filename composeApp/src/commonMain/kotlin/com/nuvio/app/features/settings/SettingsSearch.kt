@@ -57,6 +57,7 @@ import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.player.PlayerSettingsRepository
+import com.nuvio.app.features.player.effectiveDownmixEnabled
 import com.nuvio.app.features.streams.StreamAutoPlayMode
 import com.nuvio.app.features.streams.StreamAutoPlaySource
 import com.nuvio.app.isIos
@@ -104,6 +105,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackSkipSegmentsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackInterface ->
             if (key in PlaybackInterfaceSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackAudio ->
+            if (key in PlaybackAudioSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -153,6 +156,17 @@ private val PlaybackInterfaceSettingsSearchAnchorKeys = setOf(
     "playback-interface-hold-speed-value",
     "playback-interface-skip-backward",
     "playback-interface-skip-forward",
+)
+
+private val PlaybackAudioSettingsSearchAnchorKeys = setOf(
+    "playback-audio-preferred-language",
+    "playback-audio-secondary-language",
+    "playback-audio-night-mode-button",
+    "playback-audio-remember-delay",
+    "playback-audio-downmix",
+    "playback-audio-downmix-channels",
+    "playback-audio-downmix-maintain-volume",
+    "playback-audio-ios-output",
 )
 
 private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
@@ -1188,6 +1202,27 @@ internal fun settingsSearchEntries(
         addRow = ::addRow,
         pageLabel = playbackPage,
         section = playbackSubtitleAudio,
+        page = SettingsPage.PlaybackAudio,
+        rows = buildList {
+            add(PlaybackSearchRow("audio-preferred-language", stringResource(Res.string.settings_playback_preferred_audio_language), page = SettingsPage.PlaybackAudio))
+            add(PlaybackSearchRow("audio-secondary-language", stringResource(Res.string.settings_playback_secondary_audio_language), page = SettingsPage.PlaybackAudio))
+            add(PlaybackSearchRow("audio-night-mode-button", stringResource(Res.string.settings_playback_night_mode_button), stringResource(Res.string.settings_playback_night_mode_button_description), page = SettingsPage.PlaybackAudio))
+            if (!isIos) {
+                add(PlaybackSearchRow("audio-remember-delay", stringResource(Res.string.settings_playback_remember_audio_delay), stringResource(Res.string.settings_playback_remember_audio_delay_description), page = SettingsPage.PlaybackAudio))
+                add(PlaybackSearchRow("audio-downmix", stringResource(Res.string.settings_playback_downmix), stringResource(Res.string.settings_playback_downmix_description), page = SettingsPage.PlaybackAudio))
+                if (playerSettings.effectiveDownmixEnabled) {
+                    add(PlaybackSearchRow("audio-downmix-channels", stringResource(Res.string.settings_playback_downmix_channels), page = SettingsPage.PlaybackAudio))
+                    add(PlaybackSearchRow("audio-downmix-maintain-volume", stringResource(Res.string.settings_playback_downmix_maintain_volume), stringResource(Res.string.settings_playback_downmix_maintain_volume_description), page = SettingsPage.PlaybackAudio))
+                }
+            } else {
+                add(PlaybackSearchRow("audio-ios-output", stringResource(Res.string.settings_playback_ios_audio_output), page = SettingsPage.PlaybackAudio))
+            }
+        },
+    )
+    addPlaybackRows(
+        addRow = ::addRow,
+        pageLabel = playbackPage,
+        section = playbackSubtitleAudio,
         page = SettingsPage.PlaybackSubtitles,
         rows = listOf(
             PlaybackSearchRow("preferred-audio", stringResource(Res.string.settings_playback_preferred_audio_language), page = SettingsPage.PlaybackAudio),
@@ -1246,8 +1281,6 @@ internal fun settingsSearchEntries(
                 PlaybackSearchRow("custom-buffers", stringResource(Res.string.settings_playback_custom_buffers), stringResource(Res.string.settings_playback_custom_buffers_description), page = SettingsPage.PlaybackBuffer),
                 PlaybackSearchRow("vod-cache", stringResource(Res.string.settings_playback_vod_disk_cache), stringResource(Res.string.settings_playback_vod_disk_cache_description), page = SettingsPage.PlaybackBuffer),
                 PlaybackSearchRow("exo-chapters", stringResource(Res.string.settings_playback_exo_chapters), stringResource(Res.string.settings_playback_exo_chapters_description), page = SettingsPage.PlaybackInterface),
-                PlaybackSearchRow("remember-audio-delay", stringResource(Res.string.settings_playback_remember_audio_delay), stringResource(Res.string.settings_playback_remember_audio_delay_description), page = SettingsPage.PlaybackAudio),
-                PlaybackSearchRow("downmix", stringResource(Res.string.settings_playback_downmix), stringResource(Res.string.settings_playback_downmix_description), page = SettingsPage.PlaybackAudio),
             ),
         )
         addPlaybackRows(

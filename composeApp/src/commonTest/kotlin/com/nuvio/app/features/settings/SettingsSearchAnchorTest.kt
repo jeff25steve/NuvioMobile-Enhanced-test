@@ -187,4 +187,34 @@ class SettingsSearchAnchorTest {
         assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
     }
 
+
+    @Test
+    fun playbackAudioSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-audio-preferred-language",
+            "playback-audio-secondary-language",
+            "playback-audio-night-mode-button",
+            "playback-audio-remember-delay",
+            "playback-audio-downmix",
+            "playback-audio-downmix-channels",
+            "playback-audio-downmix-maintain-volume",
+            "playback-audio-ios-output",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackAudio, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackAudio, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackAudioAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackAudio, "playback-audio-downmix-channels", "Number of Channels", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
 }
