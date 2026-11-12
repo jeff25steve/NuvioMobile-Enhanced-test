@@ -8,6 +8,58 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun duplicateCatalogueRowsCollapseAndPreferExactRowNavigation() {
+        val page = SettingsPage.PlaybackAudio
+        val anchor = settingsSearchAnchor(page, "playback-audio-downmix", "Downmix", "")!!
+        val pageOnly = SettingsSearchEntry(
+            key = "legacy-downmix-entry",
+            title = "Downmix",
+            description = "Convert multichannel audio",
+            page = "Playback",
+            section = "Audio",
+            category = "General",
+            icon = androidx.compose.material.icons.Icons.Rounded.Search,
+            target = SettingsSearchTarget.Page(page),
+            searchTerms = listOf("surround sound"),
+        )
+        val anchored = pageOnly.copy(
+            key = "playback-audio-downmix",
+            target = SettingsSearchTarget.Page(page, anchor),
+            searchTerms = listOf("channel mix"),
+        )
+
+        val results = deduplicateSettingsSearchEntries(listOf(pageOnly, anchored))
+
+        assertEquals(1, results.size)
+        assertEquals("playback-audio-downmix", (results.single().target as SettingsSearchTarget.Page).anchor?.key)
+        assertEquals(listOf("surround sound", "channel mix"), results.single().searchTerms)
+    }
+
+    @Test
+    fun duplicateLabelsInDifferentSectionsOrDestinationsRemainDistinct() {
+        fun entry(page: SettingsPage, section: String) = SettingsSearchEntry(
+            key = "${page.name}-$section",
+            title = "Enabled",
+            description = "Turn this feature on",
+            page = "Settings",
+            section = section,
+            category = "General",
+            icon = androidx.compose.material.icons.Icons.Rounded.Search,
+            target = SettingsSearchTarget.Page(page),
+        )
+
+        val results = deduplicateSettingsSearchEntries(
+            listOf(
+                entry(SettingsPage.PlaybackAudio, "Audio"),
+                entry(SettingsPage.PlaybackAudio, "Subtitles"),
+                entry(SettingsPage.Notifications, "Audio"),
+            ),
+        )
+
+        assertEquals(3, results.size)
+    }
+
+    @Test
     fun anchorMatchesOnlyItsExactSettingKeyOnTheExpectedPage() {
         val anchor = SettingsSearchAnchor(
             page = SettingsPage.Appearance,
