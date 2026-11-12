@@ -1,0 +1,119 @@
+name: Android Phone Benchmark APKs
+
+on:
+  push:
+    branches: [main-build-testing]
+    paths:
+      - "androidApp/**"
+      - "baselineprofile/**"
+      - "composeApp/**"
+      - "native/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-phone-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-phone-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-benchmark-apks:
+    name: Build phone benchmark APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Prepare runtime properties
+        env:
+          LOCAL_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "$LOCAL_PROPERTIES_BASE64" ]; then
+            printf '%s' "$LOCAL_PROPERTIES_BASE64" | base64 --decode > local.properties
+          else
+            touch local.properties
+          fi
+
+          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE|NUVIO_SUPABASE_URL|NUVIO_SUPABASE_ANON_KEY|NUVIO_SUPABASE_FALLBACK_URL)[[:space:]]*=/d' local.properties
+
+          discovery_json="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            https://api.nuvio.tv/.well-known/nuvio)"
+          nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
+          nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
+          test -n "$nuvio_backend_url"
+          test -n "$nuvio_publishable_key"
+
+          cat >> local.properties <<EOF
+          NUVIO_SUPABASE_URL=$nuvio_backend_url
+          NUVIO_SUPABASE_ANON_KEY=$nuvio_publishable_key
+          NUVIO_SUPABASE_FALLBACK_URL=
+          EOF
+
+      - name: Set up Rust Android targets
+        run: |
+          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Build optimized app and benchmark test APKs
+        run: |
+          ./gradlew \
+            :androidApp:assembleFullBenchmark \
+            :baselineprofile:assembleFullBenchmark \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore \
+            --stacktrace
+
+      - name: Assemble phone-ready bundle
+        run: |
+          set -euo pipefail
+          mkdir -p phone-benchmark
+          app_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path '*/full/benchmark/*' | head -n 1)"
+          test_apk="$(find baselineprofile/build/outputs/apk -type f -name '*.apk' -path '*/full/benchmark/*' | head -n 1)"
+          test -n "$app_apk"
+          test -n "$test_apk"
+          cp "$app_apk" phone-benchmark/Nuvio-Benchmark.apk
+          cp "$test_apk" phone-benchmark/Nuvio-Benchmark-Tests.apk
+
+          cat > phone-benchmark/START-HERE.txt <<'EOF'
+          NUVIO PHONE BENCHMARK
+
+          1. Install Nuvio-Benchmark.apk.
+          2. Install Nuvio-Benchmark-Tests.apk.
+          3. Open your wireless ADB app (for example, LADB).
+          4. Run this command to start the 20 cold-start measurements:
+
+          am instrument -w -e class com.nuvio.baselineprofile.StartupBenchmarks com.nuvio.baselineprofile.test/androidx.test.runner.AndroidJUnitRunner
+
+          Keep the phone cool, plugged in, and leave Nuvio closed while the test runs.
+          The test compares cold startup without ahead-of-time compilation and with the required Baseline Profile.
+          This is a physical-device measurement. Do not use an emulator for the result.
+          EOF
+
+          sha256sum phone-benchmark/*.apk > phone-benchmark/SHA256SUMS.txt
+          ls -lh phone-benchmark
+
+      - name: Upload phone-ready benchmark bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-phone-benchmark-${{ github.sha }}
+          path: phone-benchmark/
+          if-no-files-found: error
+          retention-days: 14
