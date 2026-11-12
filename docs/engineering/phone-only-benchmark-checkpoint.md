@@ -34,3 +34,7 @@ No APK artifact had yet been uploaded, and no physical-device measurement had be
 ## Scope update — 12 November 2026
 
 Macrobenchmark follow-up is paused at the user's request while the broader performance goals are addressed. No additional benchmark APK builds, device benchmark runs, Gradle tests, workflow dispatches, or CI runs were authorised in the subsequent poster-pipeline review. See [poster-prefetch-review.md](poster-prefetch-review.md) for the separate source-verified investigation and contained Continue Watching prefetch improvement.
+
+## Android cold-start split — 12 November 2026
+
+See android-startup-critical-path-review.md. Android waits only for profile/Home-critical state and parallel downloader platform recovery before setContent; feature-specific warmup starts after the first Compose frame. Live TV tab routing and offline download fallback both wait for their respective persisted state to restore. No Macrobenchmark or measured latency claim. The phone-only Macrobenchmark work remains paused.
