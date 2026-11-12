@@ -334,7 +334,7 @@ class SettingsSearchAnchorTest {
             "",
         )!!
         assertEquals(1, settingsSearchAnchorListIndex(homeAnchor, false, true))
-        assertEquals(1, settingsSearchAnchorListIndex(homeAnchor, true, false))
+        assertEquals(0, settingsSearchAnchorListIndex(homeAnchor, true, false))
         assertEquals(4, settingsSearchAnchorListIndex(navigationAnchor, false, true))
         assertEquals(3, settingsSearchAnchorListIndex(navigationAnchor, true, false))
     }
