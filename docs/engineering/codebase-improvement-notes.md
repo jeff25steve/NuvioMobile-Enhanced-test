@@ -3582,7 +3582,7 @@ References checked:
 #### Integrated change
 
 - Added the missing typed SettingsSearchAnchor model and optional anchor property on page targets. Matching requires both expected page and exact stable key.
-- Added a conservative verified anchor mapping for four actual Appearance controls: AMOLED black, Customize Liquid Glass, App icon, and App language. Other results retain page-only navigation until their real row and containing section are mapped.
+- Added a conservative verified anchor mapping for three actual Appearance controls: AMOLED black, App icon, and App language. The existing liquid-glass catalogue key belongs to Layout > Tab bar behavior, so it remains page-only; it is not misapplied to the separate Appearance editor row. Other results retain page-only navigation until their real row and containing section are mapped.
 - Added phone/tablet lazy-list index calculations for Appearance > Display. Phone accounts for its sticky header or top spacer; tablet accounts for its optional header. Search scrolls to the containing section, then gives the exact row a temporary accent outline/background for 1.8 seconds.
 - Preserved the setting key through route-backed SettingsPageRoute navigation and the initial destination. Tablet inline navigation uses the existing SettingsScreen pending-key state. Existing setting handlers and persisted values remain unchanged.
 - Expanded common regression source for anchor identity, unknown-key fallback, page-only target compatibility, and phone/tablet section-index arithmetic.

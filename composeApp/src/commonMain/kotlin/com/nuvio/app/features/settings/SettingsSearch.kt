@@ -93,7 +93,7 @@ internal fun settingsSearchAnchor(
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex = 1)
 }
 
-private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "liquid-glass", "app-icon", "app-language")
+private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
 
 internal fun settingsSearchAnchorListIndex(
     anchor: SettingsSearchAnchor,

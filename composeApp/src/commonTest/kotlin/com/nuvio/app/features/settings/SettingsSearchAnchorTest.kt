@@ -46,6 +46,8 @@ class SettingsSearchAnchorTest {
     fun onlyVerifiedAppearanceRowsReceiveDeepLinkAnchors() {
         assertNull(settingsSearchAnchor(SettingsPage.Appearance, "unknown-control", "Unknown", ""))
         assertNull(settingsSearchAnchor(SettingsPage.Advanced, "amoled", "AMOLED", ""))
+        // The existing liquid-glass catalogue key is a Layout setting, not the Appearance editor row.
+        assertNull(settingsSearchAnchor(SettingsPage.Layout, "liquid-glass", "Tab bar behavior", ""))
     }
 
     @Test

@@ -184,8 +184,6 @@ internal fun LazyListScope.appearanceSettingsContent(
                         title = stringResource(Res.string.settings_liquid_glass_customize),
                         description = stringResource(Res.string.settings_liquid_glass_customize_description),
                         isTablet = isTablet,
-                        searchAnchorKey = "liquid-glass",
-                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onClick = { showLiquidGlassSurfacesSheet = true },
                     )
                 }
