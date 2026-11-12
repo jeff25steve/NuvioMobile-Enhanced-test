@@ -36,6 +36,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackUpNextSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(if (isTablet) 18.dp else 12.dp)) {
@@ -48,6 +49,8 @@ internal fun PlaybackUpNextSettings(
                     title = stringResource(Res.string.settings_playback_auto_play_next_episode),
                     description = stringResource(Res.string.settings_playback_auto_play_next_episode_description),
                     checked = settings.streamAutoPlayNextEpisodeEnabled,
+                    searchAnchorKey = "playback-up-next-auto-play",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setStreamAutoPlayNextEpisodeEnabled,
                 )
@@ -58,6 +61,8 @@ internal fun PlaybackUpNextSettings(
                         title = stringResource(Res.string.settings_playback_auto_play_next_episode_fallback),
                         description = stringResource(Res.string.settings_playback_auto_play_next_episode_fallback_description),
                         checked = settings.streamAutoPlayNextEpisodeFallbackEnabled,
+                        searchAnchorKey = "playback-up-next-fallback",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onCheckedChange = PlayerSettingsRepository::setStreamAutoPlayNextEpisodeFallbackEnabled,
                     )
@@ -67,6 +72,8 @@ internal fun PlaybackUpNextSettings(
                     title = stringResource(Res.string.settings_playback_prefer_binge_group),
                     description = stringResource(Res.string.settings_playback_prefer_binge_group_description),
                     checked = settings.streamAutoPlayPreferBingeGroup,
+                    searchAnchorKey = "playback-up-next-prefer-binge",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setStreamAutoPlayPreferBingeGroup,
                 )
@@ -76,6 +83,8 @@ internal fun PlaybackUpNextSettings(
                         title = stringResource(Res.string.settings_playback_reuse_binge_group),
                         description = stringResource(Res.string.settings_playback_reuse_binge_group_description),
                         checked = settings.streamAutoPlayReuseBingeGroup,
+                        searchAnchorKey = "playback-up-next-reuse-binge",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onCheckedChange = PlayerSettingsRepository::setStreamAutoPlayReuseBingeGroup,
                     )
@@ -85,6 +94,8 @@ internal fun PlaybackUpNextSettings(
                     title = stringResource(Res.string.settings_playback_preload_next_episode),
                     description = stringResource(Res.string.settings_playback_preload_next_episode_description),
                     checked = settings.preloadNextEpisodeSources,
+                    searchAnchorKey = "playback-up-next-preload",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setPreloadNextEpisodeSources,
                 )
@@ -93,6 +104,8 @@ internal fun PlaybackUpNextSettings(
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_threshold_mode),
                     description = stringResource(settings.nextEpisodeThresholdMode.labelRes),
+                    searchAnchorKey = "playback-up-next-threshold-mode",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onClick = { showThresholdModeDialog = true },
                 )

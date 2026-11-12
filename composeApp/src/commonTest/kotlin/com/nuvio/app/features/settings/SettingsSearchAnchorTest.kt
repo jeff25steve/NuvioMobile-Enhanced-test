@@ -112,9 +112,30 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun playbackUpNextSearchResultsHaveExactRowAnchors() {
+        val keys = listOf("playback-up-next-auto-play", "playback-up-next-fallback", "playback-up-next-prefer-binge", "playback-up-next-reuse-binge", "playback-up-next-preload", "playback-up-next-threshold-mode")
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackUpNext, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackUpNext, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackUpNextAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackUpNext, "playback-up-next-threshold-mode", "Threshold Mode", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
     fun unknownPlaybackRowsRemainPageOnly() {
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackPlayer, "playback-unregistered-row", "Unknown", ""))
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackStreamSelection, "playback-unregistered-row", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackUpNext, "playback-unregistered-row", "Unknown", ""))
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackVideo, "playback-engine", "Playback engine", ""))
     }
 

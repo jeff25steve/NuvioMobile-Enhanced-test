@@ -98,6 +98,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackPlayerSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackStreamSelection ->
             if (key in PlaybackStreamSelectionSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackUpNext ->
+            if (key in PlaybackUpNextSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -123,6 +125,15 @@ private val PlaybackStreamSelectionSettingsSearchAnchorKeys = setOf(
     "playback-stream-source-scope",
     "playback-stream-allowed-addons",
     "playback-stream-allowed-plugins",
+)
+
+private val PlaybackUpNextSettingsSearchAnchorKeys = setOf(
+    "playback-up-next-auto-play",
+    "playback-up-next-fallback",
+    "playback-up-next-prefer-binge",
+    "playback-up-next-reuse-binge",
+    "playback-up-next-preload",
+    "playback-up-next-threshold-mode",
 )
 
 internal fun settingsSearchAnchorListIndex(
@@ -480,6 +491,18 @@ internal fun settingsSearchEntries(
             searchTerms = listOf("enabled plugins", "plugin provider filter", "plugin allow list"),
         )
     }
+
+    val upNextSection = stringResource(Res.string.settings_playback_section_next_episode)
+    addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-auto-play", title = stringResource(Res.string.settings_playback_auto_play_next_episode), description = stringResource(Res.string.settings_playback_auto_play_next_episode_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("autoplay", "next show", "next tv episode"))
+    if (playerSettings.streamAutoPlayNextEpisodeEnabled && playerSettings.streamAutoPlayMode == StreamAutoPlayMode.MANUAL) {
+        addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-fallback", title = stringResource(Res.string.settings_playback_auto_play_next_episode_fallback), description = stringResource(Res.string.settings_playback_auto_play_next_episode_fallback_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("binge group failure", "fallback stream"))
+    }
+    addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-prefer-binge", title = stringResource(Res.string.settings_playback_prefer_binge_group), description = stringResource(Res.string.settings_playback_prefer_binge_group_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("same source", "same addon", "quality group"))
+    if (playerSettings.streamAutoPlayPreferBingeGroup) {
+        addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-reuse-binge", title = stringResource(Res.string.settings_playback_reuse_binge_group), description = stringResource(Res.string.settings_playback_reuse_binge_group_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("remember source", "reuse addon"))
+    }
+    addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-preload", title = stringResource(Res.string.settings_playback_preload_next_episode), description = stringResource(Res.string.settings_playback_preload_next_episode_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("prefetch", "background source search"))
+    addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-threshold-mode", title = stringResource(Res.string.settings_playback_threshold_mode), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("next episode prompt", "when to show next episode", "percentage or minutes"))
 
     addPage(
         page = SettingsPage.Advanced,

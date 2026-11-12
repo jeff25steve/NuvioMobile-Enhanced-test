@@ -3662,3 +3662,16 @@ References checked:
 #### Next checkpoint
 
 - Continue with Playback Up Next or Skip Segments, selecting based on visible controls and exact-row mapping. Keep conditional catalogue entries synchronized with UI branches and preserve true subsection breadcrumbs.
+
+
+### 12 November 2026 — Playback Up Next settings search
+
+- Added six searchable Up Next controls: Auto-play Next Episode, manual-mode fallback, Prefer Binge Group, Reuse Binge Group, Preload Next Episode Sources and Threshold Mode.
+- Catalogue visibility mirrors the UI: fallback requires auto-play-next enabled and MANUAL stream mode; reuse-binge requires Prefer Binge Group. Threshold Mode is indexed; the active percentage/minutes slider remains page-only in this cycle.
+- Added exact row anchors to five switch controls and the threshold-mode navigation row. Highlight key is forwarded through PlaybackUpNextSettings on phone and tablet. Existing settings callbacks, values and persistence are unchanged.
+- Context7 resolved JetBrains Compose Multiplatform; repository pins 1.13.0-beta01 / Kotlin 2.4.10, not present in indexed versions. No dependency/API changes. Exa cross-checked AOSP Universal Search and Settings guidelines for conditional non-indexable keys, aliases and grouped controls. Existing Compose Foundation bring-into-view row behavior reused.
+- Regression source added for exact keys, page/index, header offsets and unknown-key fallback. **No Gradle tasks, tests, builds, compilation, device sessions or CI were started**, per instruction; runtime behavior remains device-unverified. Commit uses [skip ci].
+
+#### Next checkpoint
+
+- Continue Playback Skip Segments, auditing platform availability, timing controls and provider dependencies before indexing visible rows.
