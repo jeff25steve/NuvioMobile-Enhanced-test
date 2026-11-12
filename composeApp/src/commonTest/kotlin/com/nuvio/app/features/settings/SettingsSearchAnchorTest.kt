@@ -575,6 +575,22 @@ class SettingsSearchAnchorTest {
             SettingsPage.Layout,
             (settingsSearchResults("catalog layout", entries).first().target as SettingsSearchTarget.Page).page,
         )
+        assertEquals(
+            SettingsPage.Layout,
+            (settingsSearchResults("sidebar navigation", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Appearance,
+            (settingsSearchResults("color scheme", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Appearance,
+            (settingsSearchResults("localization", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Account,
+            (settingsSearchResults("profile management", entries).first().target as SettingsSearchTarget.Page).page,
+        )
     }
 
     @Test
