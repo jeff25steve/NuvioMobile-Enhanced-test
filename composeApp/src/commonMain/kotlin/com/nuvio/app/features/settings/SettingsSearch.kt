@@ -477,7 +477,7 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.compose_settings_root_layout_description),
         searchTerms = listOf(
             "navigation", "navigation tabs", "bottom navigation", "tab bar",
-            "catalog layout", "poster layout", "screen layout", "home layout",
+            "catalog layout", "screen layout",
             "appearance layout", "interface layout",
         ),
     )
@@ -1127,7 +1127,7 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.settings_appearance_continue_watching_description),
         searchTerms = listOf(
             "resume playback", "keep watching", "resume prompt",
-            "continue playback", "next episode prompt", "watch progress",
+            "continue playback", "next episode prompt",
         ),
     )
     addPage(
