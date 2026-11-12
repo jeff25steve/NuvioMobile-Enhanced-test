@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nuvio.app.core.network.DnsSettingsRepository
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
@@ -119,6 +120,8 @@ internal fun settingsSearchAnchor(
             if (key in DownloadsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.Notifications ->
             if (key in NotificationsSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.Advanced ->
+            if (key in AdvancedSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -133,6 +136,12 @@ private val DownloadsSettingsSearchAnchorKeys = setOf(
 )
 
 private val NotificationsSettingsSearchAnchorKeys = setOf("episode-release-alerts")
+
+private val AdvancedSettingsSearchAnchorKeys = setOf(
+    "advanced-remember-last-profile",
+    "advanced-dns-provider",
+    "advanced-sentry-reports",
+)
 
 private val PlaybackPlayerSettingsSearchAnchorKeys = setOf(
     "playback-player-preference",
@@ -663,6 +672,39 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.compose_settings_root_advanced_description),
         category = advancedCategory,
     )
+
+    val advancedStartupSection = stringResource(Res.string.settings_advanced_section_startup)
+    addRow(
+        page = SettingsPage.Advanced,
+        key = "advanced-remember-last-profile",
+        title = stringResource(Res.string.settings_advanced_remember_last_profile),
+        description = stringResource(Res.string.settings_advanced_remember_last_profile_description),
+        pageLabel = advancedPage,
+        section = advancedStartupSection,
+        searchTerms = listOf("startup profile", "last used profile", "restore profile", "remember account"),
+    )
+    if (DnsSettingsRepository.isSupported) {
+        addRow(
+            page = SettingsPage.Advanced,
+            key = "advanced-dns-provider",
+            title = stringResource(Res.string.settings_advanced_dns),
+            description = stringResource(Res.string.settings_advanced_dns_note),
+            pageLabel = advancedPage,
+            section = stringResource(Res.string.settings_advanced_section_network),
+            searchTerms = listOf("dns over https", "doh", "cloudflare", "google dns", "system dns", "network resolver"),
+        )
+    }
+    if (SentrySettingsRepository.isSupported) {
+        addRow(
+            page = SettingsPage.Advanced,
+            key = "advanced-sentry-reports",
+            title = stringResource(Res.string.settings_advanced_sentry_reports),
+            description = stringResource(Res.string.settings_advanced_sentry_reports_subtitle),
+            pageLabel = advancedPage,
+            section = stringResource(Res.string.settings_advanced_section_diagnostics),
+            searchTerms = listOf("crash reports", "error reporting", "diagnostics", "send diagnostic data", "privacy"),
+        )
+    }
     addPage(
         page = SettingsPage.ContentDiscovery,
         key = "content-discovery",
