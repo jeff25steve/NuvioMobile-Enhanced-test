@@ -25,6 +25,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun PlaybackP2pSettings(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showP2pConsentDialog by remember { mutableStateOf(false) }
     var showP2pProfileDialog by remember { mutableStateOf(false) }
@@ -46,6 +47,8 @@ internal fun PlaybackP2pSettings(
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_p2p_title),
+                    searchAnchorKey = "playback-p2p-enabled",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_p2p_subtitle),
                     checked = p2pSettings.p2pEnabled,
                     isTablet = isTablet,
@@ -60,6 +63,8 @@ internal fun PlaybackP2pSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_p2p_hide_stats_title),
+                    searchAnchorKey = "playback-p2p-hide-stats",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_p2p_hide_stats_subtitle),
                     checked = p2pSettings.hideTorrentStats,
                     isTablet = isTablet,
@@ -68,6 +73,8 @@ internal fun PlaybackP2pSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_p2p_profile_title),
+                    searchAnchorKey = "playback-p2p-profile",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = p2pProfileLabel(p2pSettings.torrentProfile),
                     isTablet = isTablet,
                     onClick = { showP2pProfileDialog = true },
@@ -75,6 +82,8 @@ internal fun PlaybackP2pSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_p2p_cache_size_title),
+                    searchAnchorKey = "playback-p2p-cache-size",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = p2pCacheSizeLabel(p2pSettings.cacheSize),
                     isTablet = isTablet,
                     onClick = { showP2pCacheSizeDialog = true },
@@ -85,6 +94,8 @@ internal fun PlaybackP2pSettings(
                     !p2pCacheState.isClearing
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_p2p_clear_cache_title),
+                    searchAnchorKey = "playback-p2p-clear-cache",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = when {
                         p2pCacheState.isClearing ->
                             stringResource(Res.string.settings_p2p_clear_cache_clearing)
