@@ -3787,3 +3787,16 @@ References checked:
 #### Next checkpoint
 
 - Continue the Settings audit with Notifications and then Advanced. Keep conditional actions and runtime-only status text out of the preference catalogue; index actual user-configurable controls and only provide exact-row navigation where a stable row contract exists.
+
+### 12 November 2026 — Notifications exact-row search navigation
+
+- Audited the live Notifications catalogue against `NotificationsSettingsPage.kt`. The page has one persistent user preference (episode release alerts) and a separate test-notification card containing transient status, permission state and a test action.
+- Kept the existing localized `episode-release-alerts` catalogue entry and added a strict exact-row anchor allow-list for that preference. Forwarded the active highlight into the Notifications page on both mobile and tablet and attached the shared reveal/highlight contract to the switch.
+- Deliberately did not add the test-notification card, send-test action, scheduled count, permission message or status/error strings as preference results. Those values are runtime state/actions, not stable settings. The page-only Notifications destination remains available through its existing result.
+- Added regression source for the exact episode-alert anchor and page-only fallback for the test action/unknown keys. **Tests were not executed**; no build, Gradle test, compilation, device session or CI was authorised.
+- Context7 resolved Compose Multiplatform but only returned general lazy-list examples; its indexed versions stop at 1.12.2 while this project pins 1.13.0-beta01. No new Compose API or dependency was added. Exa cross-checked the official AndroidX `BringIntoViewRequester` reference: requests propagate to scrollable parents to bring the associated child into the viewport. The implementation reuses the already-established shared settings-row behavior.
+- Self-review (no independent reviewer/subagent tool available): checked the notification key in the catalogue, strict allow-list, test source and rendered switch; checked mobile and tablet forwarding; confirmed transient test-card content remains excluded; verified changed Kotlin source delimiter balance and duplicate imports. Compiler/runtime verification remains outstanding. No builds, tests or CI were started.
+
+#### Next checkpoint
+
+- Continue with Advanced settings. Audit supported DNS and Sentry controls against their platform/policy gates, plus startup profile preference and cache/debug actions. Keep destructive/cache actions and one-off actions out of preference search unless the product explicitly wants searchable actions with safe, accurate semantics.
