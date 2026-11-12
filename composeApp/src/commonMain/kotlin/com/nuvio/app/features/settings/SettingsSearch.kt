@@ -109,6 +109,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackAudioSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackSubtitles ->
             if (key in PlaybackSubtitlesSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackVideo ->
+            if (key in PlaybackVideoSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -180,6 +182,18 @@ private val PlaybackSubtitlesSettingsSearchAnchorKeys = setOf(
     "playback-libass-render-mode",
     "playback-libass-render",
     "playback-libmpv-ass",
+)
+
+private val PlaybackVideoSettingsSearchAnchorKeys = setOf(
+    "playback-libmpv-video-output",
+    "playback-libmpv-hardware-decoding",
+    "playback-libmpv-yuv420p",
+    "playback-decoder-priority",
+    "playback-dv7-hevc",
+    "playback-tunneled-playback",
+    "playback-audio-passthrough",
+    "playback-anime-upscale",
+    "playback-anime-line-sharpen",
 )
 
 private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
@@ -1276,19 +1290,23 @@ internal fun settingsSearchEntries(
             pageLabel = playbackPage,
             section = playbackDecoder,
             page = SettingsPage.PlaybackVideo,
-            rows = listOf(
-                PlaybackSearchRow("auto-switch-engine", stringResource(Res.string.settings_playback_auto_switch_engine_on_error), stringResource(Res.string.settings_playback_auto_switch_engine_on_error_description), page = SettingsPage.PlaybackPlayer),
-                PlaybackSearchRow("decoder-priority", stringResource(Res.string.settings_playback_decoder_priority)),
-                PlaybackSearchRow("dv7-hevc", stringResource(Res.string.settings_playback_map_dv7_to_hevc), stringResource(Res.string.settings_playback_map_dv7_to_hevc_description)),
-                PlaybackSearchRow("tunneled-playback", stringResource(Res.string.settings_playback_tunneled_playback), stringResource(Res.string.settings_playback_tunneled_playback_description)),
-                PlaybackSearchRow("audio-passthrough", stringResource(Res.string.settings_playback_audio_passthrough), stringResource(Res.string.settings_playback_audio_passthrough_description)),
-                PlaybackSearchRow("anime-upscale", stringResource(Res.string.settings_playback_anime_upscale), stringResource(Res.string.settings_playback_anime_upscale_description), sectionOverride = stringResource(Res.string.settings_playback_section_anime_enhancement)),
-                PlaybackSearchRow("anime-line-sharpen", stringResource(Res.string.settings_playback_anime_line_sharpen), stringResource(Res.string.settings_playback_anime_line_sharpen_description), sectionOverride = stringResource(Res.string.settings_playback_section_anime_enhancement)),
-                PlaybackSearchRow("exo-native-memory", stringResource(Res.string.settings_playback_exo_native_memory), stringResource(Res.string.settings_playback_exo_native_memory_description), page = SettingsPage.PlaybackBuffer),
-                PlaybackSearchRow("custom-buffers", stringResource(Res.string.settings_playback_custom_buffers), stringResource(Res.string.settings_playback_custom_buffers_description), page = SettingsPage.PlaybackBuffer),
-                PlaybackSearchRow("vod-cache", stringResource(Res.string.settings_playback_vod_disk_cache), stringResource(Res.string.settings_playback_vod_disk_cache_description), page = SettingsPage.PlaybackBuffer),
-                PlaybackSearchRow("exo-chapters", stringResource(Res.string.settings_playback_exo_chapters), stringResource(Res.string.settings_playback_exo_chapters_description), page = SettingsPage.PlaybackInterface),
-            ),
+            rows = buildList {
+                if (playerSettings.androidPlaybackEngine != com.nuvio.app.features.player.AndroidPlaybackEngine.ExoPlayer) {
+                    add(PlaybackSearchRow("libmpv-video-output", stringResource(Res.string.settings_playback_libmpv_video_output)))
+                    add(PlaybackSearchRow("libmpv-hardware-decoding", stringResource(Res.string.settings_playback_libmpv_hardware_decoding), stringResource(Res.string.settings_playback_libmpv_hardware_decoding_description)))
+                    add(PlaybackSearchRow("libmpv-yuv420p", stringResource(Res.string.settings_playback_libmpv_yuv420p), stringResource(Res.string.settings_playback_libmpv_yuv420p_description)))
+                }
+                add(PlaybackSearchRow("decoder-priority", stringResource(Res.string.settings_playback_decoder_priority)))
+                add(PlaybackSearchRow("dv7-hevc", stringResource(Res.string.settings_playback_map_dv7_to_hevc), stringResource(Res.string.settings_playback_map_dv7_to_hevc_description)))
+                add(PlaybackSearchRow("tunneled-playback", stringResource(Res.string.settings_playback_tunneled_playback), stringResource(Res.string.settings_playback_tunneled_playback_description)))
+                add(PlaybackSearchRow("audio-passthrough", stringResource(Res.string.settings_playback_audio_passthrough), stringResource(Res.string.settings_playback_audio_passthrough_description)))
+                add(PlaybackSearchRow("anime-upscale", stringResource(Res.string.settings_playback_anime_upscale), stringResource(Res.string.settings_playback_anime_upscale_description), sectionOverride = stringResource(Res.string.settings_playback_section_anime_enhancement)))
+                add(PlaybackSearchRow("anime-line-sharpen", stringResource(Res.string.settings_playback_anime_line_sharpen), stringResource(Res.string.settings_playback_anime_line_sharpen_description), sectionOverride = stringResource(Res.string.settings_playback_section_anime_enhancement)))
+                add(PlaybackSearchRow("exo-native-memory", stringResource(Res.string.settings_playback_exo_native_memory), stringResource(Res.string.settings_playback_exo_native_memory_description), page = SettingsPage.PlaybackBuffer))
+                add(PlaybackSearchRow("custom-buffers", stringResource(Res.string.settings_playback_custom_buffers), stringResource(Res.string.settings_playback_custom_buffers_description), page = SettingsPage.PlaybackBuffer))
+                add(PlaybackSearchRow("vod-cache", stringResource(Res.string.settings_playback_vod_disk_cache), stringResource(Res.string.settings_playback_vod_disk_cache_description), page = SettingsPage.PlaybackBuffer))
+                add(PlaybackSearchRow("exo-chapters", stringResource(Res.string.settings_playback_exo_chapters), stringResource(Res.string.settings_playback_exo_chapters_description), page = SettingsPage.PlaybackInterface))
+            },
         )
     }
     addPlaybackRows(
