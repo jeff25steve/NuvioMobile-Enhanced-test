@@ -31,6 +31,7 @@ internal fun SubtitleAppearanceSettings(
     style: SubtitleStyleState,
     isTablet: Boolean = false,
     enabled: Boolean = true,
+    highlightedSearchAnchorKey: String? = null,
     onStyleChanged: (SubtitleStyleState) -> Unit,
 ) {
     var showFonts by remember { mutableStateOf(false) }
@@ -56,6 +57,8 @@ internal fun SubtitleAppearanceSettings(
         SettingsGroup(isTablet) {
             SettingsNavigationRow(
                 title = stringResource(Res.string.subtitle_font),
+                searchAnchorKey = "playback-subtitle-font",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = subtitleFontLabel(style.appearance.fontId),
                 enabled = enabled, isTablet = isTablet, onClick = { showFonts = true },
             )
@@ -135,6 +138,8 @@ internal fun SubtitleAppearanceSettings(
             SettingsGroupDivider(isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.subtitle_shadow),
+                searchAnchorKey = "playback-subtitle-shadow",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.subtitle_shadow_description),
                 checked = style.appearance.shadowEnabled, enabled = enabled, isTablet = isTablet,
                 onCheckedChange = { onStyleChanged(style.copy(appearance = style.appearance.copy(shadowEnabled = it))) },
