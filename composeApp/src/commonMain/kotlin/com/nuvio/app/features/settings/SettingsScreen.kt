@@ -956,6 +956,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.Downloads -> downloadsSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.ContinueWatching -> continueWatchingSettingsContent(
                     isTablet = false,
@@ -1432,6 +1433,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.Downloads -> downloadsSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.ContinueWatching -> continueWatchingSettingsContent(
                         isTablet = true,
