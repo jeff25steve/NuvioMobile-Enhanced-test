@@ -1125,12 +1125,20 @@ internal fun settingsSearchEntries(
         key = "continue-watching",
         title = continueWatchingPage,
         description = stringResource(Res.string.settings_appearance_continue_watching_description),
+        searchTerms = listOf(
+            "resume playback", "keep watching", "resume prompt",
+            "continue playback", "next episode prompt", "watch progress",
+        ),
     )
     addPage(
         page = SettingsPage.PosterCustomization,
         key = "poster-card-style",
         title = posterStylePage,
         description = stringResource(Res.string.settings_appearance_poster_customization_description),
+        searchTerms = listOf(
+            "poster design", "card appearance", "movie artwork cards",
+            "tv artwork", "poster cards", "artwork style", "media cards",
+        ),
     )
 
     addPage(
