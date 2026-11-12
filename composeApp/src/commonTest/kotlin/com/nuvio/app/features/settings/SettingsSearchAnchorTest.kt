@@ -147,4 +147,24 @@ class SettingsSearchAnchorTest {
         assertEquals(2, settingsSearchAnchorListIndex(anchor, true, true))
         assertEquals(1, settingsSearchAnchorListIndex(anchor, true, false))
     }
+    @Test
+    fun playbackSkipSegmentsSearchResultsHaveExactRowAnchors() {
+        val keys = listOf("playback-skip-intro-enabled", "playback-skip-intro-offset", "playback-auto-skip-segments", "playback-anime-skip-enabled", "playback-anime-skip-client-id", "playback-intro-submit-enabled", "playback-introdb-api-key")
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackSkipSegments, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackSkipSegments, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackSkipSegmentsAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackSkipSegments, "playback-auto-skip-segments", "Auto Skip Segments", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
 }

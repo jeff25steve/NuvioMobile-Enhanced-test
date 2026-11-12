@@ -3675,3 +3675,16 @@ References checked:
 #### Next checkpoint
 
 - Continue Playback Skip Segments, auditing platform availability, timing controls and provider dependencies before indexing visible rows.
+
+
+### 12 November 2026 — Playback Skip Segments settings search
+
+- Added seven searchable controls: skip intro/outro/recap, intro offset, automatic segment selection, Anime Skip, Anime Skip Client ID, IntroDB submission and IntroDB API key.
+- Catalogue visibility follows the actual conditional rows: Anime Skip Client ID appears only while Anime Skip is enabled; IntroDB API key appears only while intro submission is enabled. Skip-intro dependent rows remain searchable while disabled because they stay visible but disabled, including with external playback. Credential values are never indexed.
+- Added exact row anchors and forwarded the highlight key through PlaybackSkipSettings on phone and tablet. Existing settings callbacks, values, API verification and persistence are unchanged.
+- Context7 resolved JetBrains Compose Multiplatform; repository pins 1.13.0-beta01 / Kotlin 2.4.10, not indexed by Context7. No new API or dependency was introduced. Exa cross-checked AndroidX BringIntoViewRequester and Android settings visibility/key guidance; existing shared row reveal behavior is reused.
+- Regression source added for all seven anchors and phone/tablet offsets. **No Gradle tasks, tests, builds, compilation, device sessions or CI were started**, per instruction; tests remain unexecuted and runtime scrolling/highlighting is device-unverified. Commit uses [skip ci].
+
+#### Next checkpoint
+
+- Continue Playback Interface settings, auditing conditional and platform-specific controls before extending the strict anchor allow-list.

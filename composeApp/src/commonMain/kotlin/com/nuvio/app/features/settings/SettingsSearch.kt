@@ -100,6 +100,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackStreamSelectionSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackUpNext ->
             if (key in PlaybackUpNextSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackSkipSegments ->
+            if (key in PlaybackSkipSegmentsSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -125,6 +127,16 @@ private val PlaybackStreamSelectionSettingsSearchAnchorKeys = setOf(
     "playback-stream-source-scope",
     "playback-stream-allowed-addons",
     "playback-stream-allowed-plugins",
+)
+
+private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
+    "playback-skip-intro-enabled",
+    "playback-skip-intro-offset",
+    "playback-auto-skip-segments",
+    "playback-anime-skip-enabled",
+    "playback-anime-skip-client-id",
+    "playback-intro-submit-enabled",
+    "playback-introdb-api-key",
 )
 
 private val PlaybackUpNextSettingsSearchAnchorKeys = setOf(
@@ -491,6 +503,15 @@ internal fun settingsSearchEntries(
             searchTerms = listOf("enabled plugins", "plugin provider filter", "plugin allow list"),
         )
     }
+
+    val skipSegmentsSection = stringResource(Res.string.settings_playback_section_skip_segments)
+    addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-skip-intro-enabled", title = stringResource(Res.string.settings_playback_skip_intro_outro_recap), description = stringResource(Res.string.settings_playback_skip_intro_outro_recap_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("skip intro", "skip outro", "recap", "credits"))
+    addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-skip-intro-offset", title = stringResource(Res.string.settings_playback_skip_intro_offset), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("intro timing", "skip offset", "seconds earlier", "seconds later"))
+    addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-auto-skip-segments", title = stringResource(Res.string.settings_playback_auto_skip_segments), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("automatic segment skipping", "intro credits recap selection"))
+    addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-anime-skip-enabled", title = stringResource(Res.string.settings_playback_anime_skip), description = stringResource(Res.string.settings_playback_anime_skip_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("aniskip", "anime openings", "anime endings"))
+    if (playerSettings.animeSkipEnabled) addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-anime-skip-client-id", title = stringResource(Res.string.settings_playback_anime_skip_client_id), description = stringResource(Res.string.settings_playback_anime_skip_client_id_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("aniskip client id", "oauth client id"))
+    addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-intro-submit-enabled", title = stringResource(Res.string.settings_playback_intro_submit_enabled), description = stringResource(Res.string.settings_playback_intro_submit_enabled_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("introdb", "submit intro timestamps", "contribute skip times"))
+    if (playerSettings.introSubmitEnabled) addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-introdb-api-key", title = stringResource(Res.string.settings_playback_introdb_api_key), description = stringResource(Res.string.settings_playback_introdb_api_key_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("introdb api token", "intro database credential"))
 
     val upNextSection = stringResource(Res.string.settings_playback_section_next_episode)
     addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-auto-play", title = stringResource(Res.string.settings_playback_auto_play_next_episode), description = stringResource(Res.string.settings_playback_auto_play_next_episode_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("autoplay", "next show", "next tv episode"))

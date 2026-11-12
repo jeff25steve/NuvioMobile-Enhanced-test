@@ -45,6 +45,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackSkipSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showAutoSkipSegmentDialog by remember { mutableStateOf(false) }
     var showSkipIntroOffsetDialog by remember { mutableStateOf(false) }
@@ -58,6 +59,8 @@ internal fun PlaybackSkipSettings(
                     title = stringResource(Res.string.settings_playback_skip_intro_outro_recap),
                     description = stringResource(Res.string.settings_playback_skip_intro_outro_recap_description),
                     checked = settings.skipIntroEnabled,
+                    searchAnchorKey = "playback-skip-intro-enabled",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setSkipIntroEnabled,
@@ -66,6 +69,8 @@ internal fun PlaybackSkipSettings(
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_skip_intro_offset),
                     description = skipIntroOffsetLabel(settings.skipIntroOffsetSeconds),
+                    searchAnchorKey = "playback-skip-intro-offset",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = settings.skipIntroEnabled && !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onClick = { showSkipIntroOffsetDialog = true },
@@ -74,6 +79,8 @@ internal fun PlaybackSkipSettings(
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_auto_skip_segments),
                     description = autoSkipSelectionSummary(settings.autoSkipSegmentTypes),
+                    searchAnchorKey = "playback-auto-skip-segments",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = settings.skipIntroEnabled && !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onClick = { showAutoSkipSegmentDialog = true },
@@ -83,6 +90,8 @@ internal fun PlaybackSkipSettings(
                     title = stringResource(Res.string.settings_playback_anime_skip),
                     description = stringResource(Res.string.settings_playback_anime_skip_description),
                     checked = settings.animeSkipEnabled,
+                    searchAnchorKey = "playback-anime-skip-enabled",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setAnimeSkipEnabled,
                 )
@@ -93,6 +102,8 @@ internal fun PlaybackSkipSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_anime_skip_client_id),
                         description = settings.animeSkipClientId.ifBlank { notSetLabel },
+                        searchAnchorKey = "playback-anime-skip-client-id",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showAnimeSkipClientIdDialog = true },
                     )
@@ -112,6 +123,8 @@ internal fun PlaybackSkipSettings(
                     title = stringResource(Res.string.settings_playback_intro_submit_enabled),
                     description = stringResource(Res.string.settings_playback_intro_submit_enabled_description),
                     checked = settings.introSubmitEnabled,
+                    searchAnchorKey = "playback-intro-submit-enabled",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setIntroSubmitEnabled,
                 )
@@ -122,6 +135,8 @@ internal fun PlaybackSkipSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_introdb_api_key),
                         description = settings.introDbApiKey.ifBlank { notSetLabel },
+                        searchAnchorKey = "playback-introdb-api-key",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showIntroDbApiKeyDialog = true },
                     )
