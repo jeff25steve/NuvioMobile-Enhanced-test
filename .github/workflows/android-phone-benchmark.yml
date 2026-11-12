@@ -100,7 +100,7 @@ jobs:
           3. Open your wireless ADB app (for example, LADB).
           4. Run this command to start the 20 cold-start measurements:
 
-          am instrument -w -e class com.nuvio.baselineprofile.StartupBenchmarks com.nuvio.baselineprofile.test/androidx.test.runner.AndroidJUnitRunner
+          am instrument -w -e class com.nuvio.baselineprofile.StartupBenchmarks com.nuvio.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 
           Keep the phone cool, plugged in, and leave Nuvio closed while the test runs.
           The test compares cold startup without ahead-of-time compilation and with the required Baseline Profile.
