@@ -3427,3 +3427,29 @@ References checked:
 #### Next improvement checkpoint
 
 - Continue a bounded runtime-versus-Studio audit of the remaining Liquid Glass areas, prioritizing the Category Header title/back-button layers and the Library release-calendar sheet. Check for opaque parent fills that mask the shared backdrop, compare each enabled/disabled fallback, and preserve the independent per-surface recipes. Do not make broad renderer/dependency changes without device profiling evidence.
+
+### 12 November 2026 — unify Search field affordance and Liquid Glass filter controls
+
+#### Video and UX finding
+
+- Reviewed the supplied search-page recording across focused/keyboard-visible and idle states. The Compose search field lacked the familiar leading search symbol, while the three Discover filters were visibly opaque compared with the glass-enabled search field. The filter row ignored the already-configurable Search Liquid Glass surface and looked like a separate, heavier component family.
+- The Search screen already has a distinct discover landing state, recent-search history, a debounced query path, and context-aware type/catalog/genre filters. Preserve this discover-first flow instead of forcing the keyboard open or moving navigation controls.
+- Apple’s current search guidance retains recognizable search-field conventions, distinguishes search from filtering, recommends contextual scope/filter controls, and recommends clear/recent-search affordances. Apple’s Liquid Glass guidance says to limit glass to functional controls, prevent overcrowding, and maintain legibility over scrolling content. Independent user/design feedback continues to flag low contrast and visual distraction when glass layers are excessive; this change therefore reuses one restrained, frosted Search recipe rather than introducing additional decorative effects.
+
+#### Integrated change
+
+- Added an optional leading-icon slot to the shared `NuvioInputField` component. It defaults to null, preserving every existing call site and visual layout that does not opt in.
+- Added the standard magnifying-glass leading symbol to both Compose Search field paths (glass-enabled and standard fallback), using the Search surface’s configured icon tint when Liquid Glass is active and the existing muted text token otherwise. The native iOS `UISearchBar` path remains untouched and continues to supply its platform-native search affordance.
+- Extended `DiscoverFilterRow` with a nullable optional `glassSurface` parameter and passed it through to all three `NuvioDropdownChip` controls. `SearchScreen` now supplies the existing `LiquidGlassSurface.SEARCH`, so Type, Catalog, and Genre filters use the same per-surface Studio recipe, enabled state, native iOS glass path, and platform fallback as Search. No new settings, dependencies, persistence, or renderer code were introduced.
+- Query debounce/history, recent-search behavior, discover selection, filter callbacks, pagination, poster rows, and tab navigation remain unchanged.
+
+#### Evidence and review
+
+- Traced the Search composable through its backdrop capture, Compose/native search field branching, and Discover filter components. Confirmed that `NuvioDropdownChip` already implements native and Backdrop glass when given a surface, while the Search filter-row call omitted that parameter; its default opaque theme surface was the cause of the mismatch.
+- Context7 confirmed the Material3 `OutlinedTextField.leadingIcon` slot. The project pins Compose Multiplatform and Material3 at `1.13.0-beta01`; Context7’s Compose Multiplatform version index currently exposes up to `1.12.2`, not the exact beta. No new API/dependency or version-specific platform behavior was introduced. Backdrop documentation for the pinned `2.0.1` package was reviewed; the existing `NuvioDropdownChip` renderer and fallback paths are reused.
+- Apple references consulted: [Design intuitive search experiences — WWDC26](https://developer.apple.com/videos/play/wwdc2026/292/), [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass.md), and [Color — Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/color). Independent feedback reviewed from Nielsen Norman Group, MacRumors/user reactions, and community discussion about contrast and visual busyness.
+- Manual source-level review only. **No build, compilation, test task, device/simulator run, or CI workflow was started**, per instruction. The changes are committed but runtime rendering and keyboard/IME layout still require device validation before being called visually verified.
+
+#### Next improvement checkpoint
+
+- Validate Search on a real iOS device and Android API 33+ plus API 24–30 fallback: compare Search glass on/off, light/dark or high-contrast content, and keyboard focus/IME insets. Confirm filter-chip contrast and hit targets, text selection/clear behavior, screen-reader labels, and whether the search header remains discoverable over fast-scrolling posters. Only then consider a separate compact search-header/keyboard-layout refinement; do not change query/search data flow or introduce more glass surfaces without device evidence.

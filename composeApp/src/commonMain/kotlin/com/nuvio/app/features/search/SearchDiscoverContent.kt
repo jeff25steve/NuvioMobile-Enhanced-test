@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.nuvio.app.core.network.NetworkCondition
 import com.nuvio.app.core.ui.NuvioDropdownChip
 import com.nuvio.app.core.ui.NuvioDropdownOption
+import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.components.PosterGridRow
@@ -120,6 +121,7 @@ internal fun DiscoverFilterRow(
     onCatalogSelected: (String) -> Unit,
     onGenreSelected: (String?) -> Unit,
     modifier: Modifier = Modifier,
+    glassSurface: LiquidGlassSurface? = null,
 ) {
     Row(
         modifier = modifier.horizontalScroll(rememberScrollState()),
@@ -131,6 +133,7 @@ internal fun DiscoverFilterRow(
             selectedKey = state.selectedType,
             options = state.typeOptions.map { NuvioDropdownOption(key = it, label = it.displayTypeLabel()) },
             enabled = state.typeOptions.isNotEmpty(),
+            glassSurface = glassSurface,
             onSelected = { onTypeSelected(it.key) },
         )
         NuvioDropdownChip(
@@ -139,6 +142,7 @@ internal fun DiscoverFilterRow(
             selectedKey = state.selectedCatalogKey,
             options = state.catalogOptions.map { option -> NuvioDropdownOption(key = option.key, label = option.catalogName) },
             enabled = state.catalogOptions.isNotEmpty(),
+            glassSurface = glassSurface,
             onSelected = { onCatalogSelected(it.key) },
         )
 
@@ -155,6 +159,7 @@ internal fun DiscoverFilterRow(
             selectedKey = state.selectedGenre ?: "",
             options = genreOptions,
             enabled = genreOptions.size > 1 || selectedCatalog?.genreRequired == true,
+            glassSurface = glassSurface,
             onSelected = { option ->
                 onGenreSelected(option.key.ifBlank { null })
             },

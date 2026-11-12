@@ -499,6 +499,20 @@ fun SearchScreen(
                                 } else {
                                     defaultSearchFieldShape
                                 }
+                                val leadingContent: @Composable () -> Unit = {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Search,
+                                        contentDescription = null,
+                                        tint = if (searchGlassEnabled) {
+                                            liquidGlassIconTint(
+                                                LiquidGlassSurface.SEARCH,
+                                                MaterialTheme.nuvio.colors.textMuted,
+                                            )
+                                        } else {
+                                            MaterialTheme.nuvio.colors.textMuted
+                                        },
+                                    )
+                                }
                                 val trailingContent: (@Composable () -> Unit)? = if (query.isNotBlank()) {
                                     {
                                         IconButton(onClick = { query = "" }) {
@@ -554,6 +568,7 @@ fun SearchScreen(
                                                 modifier = Modifier
                                                     .focusRequester(focusRequester)
                                                     .onFocusChanged { isSearchFocused = it.isFocused },
+                                                leadingContent = leadingContent,
                                                 trailingContent = trailingContent,
                                                 containerColor = Color.Transparent,
                                                 shape = searchFieldShape,
@@ -573,6 +588,7 @@ fun SearchScreen(
                                         modifier = Modifier
                                             .focusRequester(focusRequester)
                                             .onFocusChanged { isSearchFocused = it.isFocused },
+                                        leadingContent = leadingContent,
                                         trailingContent = trailingContent,
                                     )
                                 }
@@ -583,6 +599,7 @@ fun SearchScreen(
                     if (query.isBlank()) {
                         DiscoverFilterRow(
                             state = discoverUiState,
+                            glassSurface = LiquidGlassSurface.SEARCH,
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .padding(top = 8.dp, bottom = 14.dp),

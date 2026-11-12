@@ -489,6 +489,7 @@ fun NuvioInputField(
     trailingContent: (@Composable (() -> Unit))? = null,
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
     showOutline: Boolean = true,
+    leadingContent: (@Composable (() -> Unit))? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val borderColor = if (showOutline) tokens.colors.borderDefault else Color.Transparent
@@ -506,6 +507,7 @@ fun NuvioInputField(
             )
         },
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
+        leadingIcon = leadingContent,
         trailingIcon = trailingContent,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = if (showOutline) tokens.colors.borderFocus else Color.Transparent,
