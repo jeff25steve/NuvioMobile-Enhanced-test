@@ -3849,3 +3849,6 @@ References checked:
 - Added regression source for representative Continue Watching and Poster Customization queries.
 - Retained page-level navigation rather than claiming direct row navigation where the actual destination rows have not yet been inspected.
 - No tests, builds, compilation or CI were run.
+
+
+- Final catalogue review removed overlapping aliases ("poster layout" and "watch progress") from the generic Layout and Continue Watching pages. These terms can more naturally describe the dedicated Poster Customization and Tracking destinations, so avoiding duplicate matches keeps the search results more intentional.
