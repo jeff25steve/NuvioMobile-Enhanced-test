@@ -53,12 +53,21 @@ fn parse_sync_samples(stss: Option<&[u8]>, sample_count: u64) -> Result<Option<V
     Ok(Some(samples))
 }
 
-fn sample_time_ms(dts: u64, composition_offset: i64, timescale: u64) -> Result<u64> {
+fn sample_time_ms(
+    dts: u64,
+    composition_offset: i64,
+    composition_shift: i64,
+    timescale: u64,
+) -> Result<u64> {
     let bad = || Error::Malformed("sample timestamps");
     if timescale == 0 {
         return Err(bad());
     }
-    let presentation_time = (i128::from(dts) + i128::from(composition_offset)).max(0) as u128;
+    // Keep decode time independent: cslg shifts only the composition/presentation axis.
+    let presentation_time = (i128::from(dts)
+        + i128::from(composition_offset)
+        + i128::from(composition_shift))
+    .max(0) as u128;
     let milliseconds = presentation_time
         .checked_mul(1_000)
         .ok_or_else(bad)?
@@ -297,6 +306,118 @@ fn parse_composition_offsets(
     Ok(Some(runs))
 }
 
+fn parse_media_header(mdhd: &[u8]) -> Result<(u64, Option<u64>)> {
+    let bad = || Error::Malformed("media header");
+    if mdhd.get(1..4) != Some(&[0, 0, 0][..]) {
+        return Err(bad());
+    }
+    let (timescale, duration) = match mdhd.first() {
+        Some(&0) if mdhd.len() == 24 => (
+            u32be(mdhd, 12),
+            u32be(mdhd, 16).filter(|&value| value != u64::from(u32::MAX)),
+        ),
+        Some(&1) if mdhd.len() == 36 => (
+            u32be(mdhd, 20),
+            u64be(mdhd, 24).filter(|&value| value != u64::MAX),
+        ),
+        _ => return Err(bad()),
+    };
+    let timescale = timescale.filter(|&value| value > 0).ok_or_else(bad)?;
+    Ok((timescale, duration))
+}
+
+fn parse_composition_to_decode(cslg: Option<&[u8]>) -> Result<Option<i64>> {
+    let Some(cslg) = cslg else {
+        return Ok(None);
+    };
+    let bad = || Error::Malformed("composition to decode table");
+    if cslg.len() < 4 || !matches!(cslg[0], 0 | 1) || cslg[1..4] != [0, 0, 0] {
+        return Err(bad());
+    }
+
+    let field_width: usize = if cslg[0] == 0 { 4 } else { 8 };
+    let expected_len = field_width
+        .checked_mul(5)
+        .and_then(|bytes| bytes.checked_add(4))
+        .ok_or_else(bad)?;
+    if cslg.len() != expected_len {
+        return Err(bad());
+    }
+
+    let signed_field = |index: usize| {
+        let offset = 4usize.checked_add(index.checked_mul(field_width)?)?;
+        if field_width == 4 {
+            u32be(cslg, offset).map(|value| i64::from(value as u32 as i32))
+        } else {
+            u64be(cslg, offset).map(|value| value as i64)
+        }
+    };
+    let composition_to_dts_shift = signed_field(0).ok_or_else(bad)?;
+    let least_decode_to_display_delta = signed_field(1).ok_or_else(bad)?;
+    let greatest_decode_to_display_delta = signed_field(2).ok_or_else(bad)?;
+    let composition_start_time = signed_field(3).ok_or_else(bad)?;
+    let composition_end_time = signed_field(4).ok_or_else(bad)?;
+
+    // The end-time value 0 means unknown; otherwise the declared bounds must be ordered.
+    if least_decode_to_display_delta > greatest_decode_to_display_delta
+        || (composition_end_time != 0 && composition_start_time > composition_end_time)
+    {
+        return Err(bad());
+    }
+    Ok(Some(composition_to_dts_shift))
+}
+
+fn parse_decode_time_table(
+    stts: &[u8],
+    expected_samples: usize,
+) -> Result<(Vec<(u64, u64)>, u64)> {
+    let bad = || Error::Malformed("decode time table");
+    if stts.len() < 8 || stts[0] != 0 || stts[1..4] != [0, 0, 0] {
+        return Err(bad());
+    }
+    let entry_count = usize::try_from(u32be(stts, 4).ok_or_else(bad)?).map_err(|_| bad())?;
+    let expected_len = entry_count
+        .checked_mul(8)
+        .and_then(|bytes| bytes.checked_add(8))
+        .ok_or_else(bad)?;
+    if stts.len() != expected_len {
+        return Err(bad());
+    }
+
+    let expected_samples = u64::try_from(expected_samples).map_err(|_| bad())?;
+    let mut runs = Vec::new();
+    runs.try_reserve_exact(entry_count).map_err(|_| bad())?;
+    let mut covered_samples = 0u64;
+    let mut decode_duration = 0u64;
+    for index in 0..entry_count {
+        let offset = table_entry_offset(8, index, 8).ok_or_else(bad)?;
+        let sample_count = u32be(stts, offset).ok_or_else(bad)?;
+        let sample_delta = u32be(
+            stts,
+            table_entry_offset(offset, 1, 4).ok_or_else(bad)?,
+        )
+        .ok_or_else(bad)?;
+        if sample_count == 0
+            || (sample_delta == 0 && !(index + 1 == entry_count && sample_count == 1))
+        {
+            return Err(bad());
+        }
+        covered_samples = covered_samples
+            .checked_add(sample_count)
+            .filter(|&total| total <= expected_samples)
+            .ok_or_else(bad)?;
+        let run_duration = sample_count.checked_mul(sample_delta).ok_or_else(bad)?;
+        decode_duration = decode_duration
+            .checked_add(run_duration)
+            .ok_or_else(bad)?;
+        runs.push((sample_count, sample_delta));
+    }
+    if covered_samples != expected_samples {
+        return Err(bad());
+    }
+    Ok((runs, decode_duration))
+}
+
 pub fn keyframes(r: &mut RangeReader) -> Result<Keyframes> {
     let (moov, quicktime_format) = moov_with_format(r)?;
     if child(&moov, b"mvex").is_some() {
@@ -326,12 +447,7 @@ fn video_keyframes(
 ) -> Result<Keyframes> {
     let bad = || Error::Malformed("sample tables");
     let mdhd = child(mdia, b"mdhd").ok_or_else(bad)?;
-    let (timescale, duration) = if mdhd.first() == Some(&1) {
-        (u32be(mdhd, 20), u64be(mdhd, 24))
-    } else {
-        (u32be(mdhd, 12), u32be(mdhd, 16))
-    };
-    let timescale = timescale.filter(|&t| t > 0).ok_or_else(bad)?;
+    let (timescale, duration) = parse_media_header(mdhd)?;
     let stbl = path(mdia, &[b"minf", b"stbl"]).ok_or_else(bad)?;
     let (entry_kind, entry) = boxes(
         child(stbl, b"stsd")
@@ -405,7 +521,10 @@ fn video_keyframes(
     let stsc = child(stbl, b"stsc").ok_or_else(bad)?;
     let runs = parse_sample_to_chunk(stsc, chunks.len(), count as u64)?;
     let stts = child(stbl, b"stts").ok_or_else(bad)?;
+    let (stts_runs, decode_duration) = parse_decode_time_table(stts, count)?;
     let ctts = parse_composition_offsets(child(stbl, b"ctts"), quicktime_format, count)?;
+    let composition_shift =
+        parse_composition_to_decode(child(stbl, b"cslg"))?.unwrap_or(0);
     // Without stss every sample is a sync sample. Entries in stss are one-based.
     let sync = parse_sync_samples(child(stbl, b"stss"), count as u64)?;
 
@@ -424,16 +543,10 @@ fn video_keyframes(
                 break;
             }
             while stts_left == 0 {
-                stts_left = u32be(
-                    stts,
-                    table_entry_offset(8, stts_i, 8).ok_or_else(bad)?,
-                )
-                .ok_or_else(bad)?;
-                stts_delta = u32be(
-                    stts,
-                    table_entry_offset(12, stts_i, 8).ok_or_else(bad)?,
-                )
-                .ok_or_else(bad)?;
+                let (sample_count, sample_delta) =
+                    *stts_runs.get(stts_i).ok_or_else(bad)?;
+                stts_left = sample_count;
+                stts_delta = sample_delta;
                 stts_i = stts_i.checked_add(1).ok_or_else(bad)?;
             }
             if let Some(ctts_runs) = &ctts {
@@ -457,7 +570,7 @@ fn video_keyframes(
             };
             if is_sync {
                 entries.push(Keyframe {
-                    time_ms: sample_time_ms(dts, ctts_offset, timescale)?,
+                    time_ms: sample_time_ms(dts, ctts_offset, composition_shift, timescale)?,
                     offset: at,
                     relative: None,
                     size: Some(len),
@@ -477,7 +590,7 @@ fn video_keyframes(
     Ok(Keyframes {
         container: Container::Mp4,
         track,
-        duration_ms: sample_time_ms(duration.unwrap_or(dts), 0, timescale)?,
+        duration_ms: sample_time_ms(duration.unwrap_or(decode_duration), 0, 0, timescale)?,
         scale_ns: 1_000_000,
         entries,
     })
@@ -592,10 +705,10 @@ mod tests {
 
     #[test]
     fn sample_timestamps_keep_large_decode_times_and_clamp_negative_pts() {
-        assert_eq!(sample_time_ms(2_000, -500, 1_000).unwrap(), 1_500);
-        assert_eq!(sample_time_ms(100, -200, 1_000).unwrap(), 0);
-        assert!(sample_time_ms(u64::MAX, i64::MAX, 1).is_err());
-        assert!(sample_time_ms(1, 0, 0).is_err());
+        assert_eq!(sample_time_ms(2_000, -500, 0, 1_000).unwrap(), 1_500);
+        assert_eq!(sample_time_ms(100, -200, 0, 1_000).unwrap(), 0);
+        assert!(sample_time_ms(u64::MAX, i64::MAX, 0, 1).is_err());
+        assert!(sample_time_ms(1, 0, 0, 0).is_err());
     }
 
 
@@ -657,7 +770,10 @@ mod tests {
 
 #[cfg(test)]
 mod composition_offset_tests {
-    use super::{is_quicktime_brand, parse_composition_offsets};
+    use super::{
+        is_quicktime_brand, parse_composition_offsets, parse_composition_to_decode,
+        sample_time_ms,
+    };
 
     fn ctts_table(version: u8, entries: &[(u32, u32)]) -> Vec<u8> {
         let mut table = vec![version, 0, 0, 0];
@@ -734,5 +850,184 @@ mod composition_offset_tests {
         assert!(!is_quicktime_brand(b"isom"));
         assert!(!is_quicktime_brand(b"mp42"));
     }
+
+    fn cslg_table(version: u8, fields: &[i64; 5]) -> Vec<u8> {
+        let mut table = vec![version, 0, 0, 0];
+        for field in fields {
+            if version == 0 {
+                table.extend_from_slice(&(*field as i32).to_be_bytes());
+            } else {
+                table.extend_from_slice(&field.to_be_bytes());
+            }
+        }
+        table
+    }
+
+    #[test]
+    fn parses_the_published_mpeg_negative_ctso_cslg_and_shifts_only_pts() {
+        // Payload fields from 17_negative_ctso.mp4 in the MPEG conformance suite:
+        // shift=8, least=-8, greatest=8, composition start=0, end=5000.
+        let table = cslg_table(0, &[8, -8, 8, 0, 5_000]);
+        let shift = parse_composition_to_decode(Some(&table)).unwrap().unwrap();
+        assert_eq!(shift, 8);
+        assert_eq!(sample_time_ms(0, -8, shift, 1_000).unwrap(), 0);
+        assert_eq!(sample_time_ms(1, -8, shift, 1_000).unwrap(), 1);
+    }
+
+    #[test]
+    fn parses_version_one_cslg_with_signed_64_bit_fields() {
+        let table = cslg_table(1, &[i64::MAX, i64::MIN, 8, i64::MIN, i64::MAX]);
+        assert_eq!(
+            parse_composition_to_decode(Some(&table)).unwrap(),
+            Some(i64::MAX),
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_cslg_versions_flags_lengths_and_bounds() {
+        let mut unsupported = cslg_table(0, &[8, -8, 8, 0, 5_000]);
+        unsupported[0] = 2;
+        assert!(parse_composition_to_decode(Some(&unsupported)).is_err());
+
+        let mut flagged = cslg_table(0, &[8, -8, 8, 0, 5_000]);
+        flagged[3] = 1;
+        assert!(parse_composition_to_decode(Some(&flagged)).is_err());
+
+        let mut truncated = cslg_table(0, &[8, -8, 8, 0, 5_000]);
+        truncated.pop();
+        assert!(parse_composition_to_decode(Some(&truncated)).is_err());
+
+        assert!(parse_composition_to_decode(Some(&cslg_table(0, &[8, 2, 1, 0, 5_000]))).is_err());
+        assert!(parse_composition_to_decode(Some(&cslg_table(0, &[8, -8, 8, 10, 9]))).is_err());
+    }
+
+    #[test]
+    fn absent_cslg_does_not_shift_the_presentation_timeline() {
+        assert_eq!(parse_composition_to_decode(None).unwrap(), None);
+        assert_eq!(sample_time_ms(1_000, -100, 0, 1_000).unwrap(), 900);
+    }
 }
 
+#[cfg(test)]
+mod decode_time_table_tests {
+    use super::parse_decode_time_table;
+
+    fn stts_table(version: u8, entries: &[(u32, u32)]) -> Vec<u8> {
+        let mut table = vec![version, 0, 0, 0];
+        table.extend_from_slice(&(entries.len() as u32).to_be_bytes());
+        for (sample_count, sample_delta) in entries {
+            table.extend_from_slice(&sample_count.to_be_bytes());
+            table.extend_from_slice(&sample_delta.to_be_bytes());
+        }
+        table
+    }
+
+    #[test]
+    fn validates_complete_stts_runs_and_sums_decode_duration() {
+        let table = stts_table(0, &[(2, 100), (1, 0)]);
+        assert_eq!(
+            parse_decode_time_table(&table, 3).unwrap(),
+            (vec![(2, 100), (1, 0)], 200),
+        );
+    }
+
+    #[test]
+    fn rejects_stts_version_flags_and_inexact_box_lengths() {
+        let mut unsupported = stts_table(0, &[(1, 100)]);
+        unsupported[0] = 1;
+        assert!(parse_decode_time_table(&unsupported, 1).is_err());
+
+        let mut flagged = stts_table(0, &[(1, 100)]);
+        flagged[3] = 1;
+        assert!(parse_decode_time_table(&flagged, 1).is_err());
+
+        let mut truncated = stts_table(0, &[(1, 100)]);
+        truncated.pop();
+        assert!(parse_decode_time_table(&truncated, 1).is_err());
+
+        let mut trailing = stts_table(0, &[(1, 100)]);
+        trailing.push(0);
+        assert!(parse_decode_time_table(&trailing, 1).is_err());
+    }
+
+    #[test]
+    fn rejects_zero_counts_and_zero_deltas_before_the_final_sample() {
+        for table in [
+            stts_table(0, &[(0, 100)]),
+            stts_table(0, &[(2, 0)]),
+            stts_table(0, &[(1, 0), (1, 100)]),
+        ] {
+            assert!(parse_decode_time_table(&table, 2).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_stts_runs_that_do_not_cover_the_sample_table() {
+        let table = stts_table(0, &[(1, 100)]);
+        assert!(parse_decode_time_table(&table, 0).is_err());
+        assert!(parse_decode_time_table(&table, 2).is_err());
+    }
+
+    #[test]
+    fn accepts_unknown_last_sample_duration_as_zero() {
+        let table = stts_table(0, &[(1, 100), (1, 0)]);
+        assert_eq!(
+            parse_decode_time_table(&table, 2).unwrap(),
+            (vec![(1, 100), (1, 0)], 100),
+        );
+    }
+}
+
+#[cfg(test)]
+mod media_header_tests {
+    use super::parse_media_header;
+
+    fn mdhd_v0(timescale: u32, duration: u32) -> Vec<u8> {
+        let mut box_body = vec![0, 0, 0, 0];
+        box_body.extend_from_slice(&0u32.to_be_bytes());
+        box_body.extend_from_slice(&0u32.to_be_bytes());
+        box_body.extend_from_slice(&timescale.to_be_bytes());
+        box_body.extend_from_slice(&duration.to_be_bytes());
+        box_body.extend_from_slice(&[0, 0, 0, 0]);
+        box_body
+    }
+
+    fn mdhd_v1(timescale: u32, duration: u64) -> Vec<u8> {
+        let mut box_body = vec![1, 0, 0, 0];
+        box_body.extend_from_slice(&0u64.to_be_bytes());
+        box_body.extend_from_slice(&0u64.to_be_bytes());
+        box_body.extend_from_slice(&timescale.to_be_bytes());
+        box_body.extend_from_slice(&duration.to_be_bytes());
+        box_body.extend_from_slice(&[0, 0, 0, 0]);
+        box_body
+    }
+
+    #[test]
+    fn treats_all_ones_media_duration_as_unknown_in_both_versions() {
+        assert_eq!(parse_media_header(&mdhd_v0(1_000, u32::MAX)).unwrap(), (1_000, None));
+        assert_eq!(parse_media_header(&mdhd_v1(48_000, u64::MAX)).unwrap(), (48_000, None));
+    }
+
+    #[test]
+    fn preserves_known_media_durations_in_both_versions() {
+        assert_eq!(parse_media_header(&mdhd_v0(1_000, 12_345)).unwrap(), (1_000, Some(12_345)));
+        assert_eq!(parse_media_header(&mdhd_v1(48_000, 987_654)).unwrap(), (48_000, Some(987_654)));
+    }
+
+    #[test]
+    fn rejects_unsupported_versions_flags_invalid_timescales_and_lengths() {
+        let mut unsupported = mdhd_v0(1_000, 12_345);
+        unsupported[0] = 2;
+        assert!(parse_media_header(&unsupported).is_err());
+
+        let mut flagged = mdhd_v0(1_000, 12_345);
+        flagged[3] = 1;
+        assert!(parse_media_header(&flagged).is_err());
+
+        assert!(parse_media_header(&mdhd_v0(0, 12_345)).is_err());
+
+        let mut truncated = mdhd_v1(48_000, 987_654);
+        truncated.pop();
+        assert!(parse_media_header(&truncated).is_err());
+    }
+}

@@ -3227,3 +3227,30 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 
 ### Next action
 - Audit how `cslg` (composition shift least/greatest) and the complete `stts`/media-duration tables affect reconstruction of negative presentation timestamps. Preserve decode-time and presentation-time axes separately and compare the result against real MP4/MOV fixtures before changing timestamp normalization.
+
+### 12 November 2026 — CSLG presentation shift and complete STTS validation
+
+The previous checkpoint left an explicit audit of `cslg`, `stts` and media-duration reconstruction. The native parser now treats the decode and presentation axes separately:
+
+- `cslg` version 0 decodes five signed 32-bit fields; version 1 decodes five signed 64-bit fields. The parser validates version, zero flags, exact body length, ordered least/greatest composition deltas and known composition bounds. The standard-defined `compositionToDTSShift` is applied only when calculating presentation timestamps. DTS accumulation is unchanged, and no heuristic shift is inferred when `cslg` is absent.
+- `stts` is parsed as a complete FullBox before sample traversal. It validates version/flags, exact entry length, nonzero sample counts, exact coverage of the `stsz` sample count, checked duration summation, and the specification's exception for a zero duration on the single final sample only.
+- `mdhd` is parsed as a versioned FullBox with zero flags and exact version-specific body length. All-ones duration values are treated as unknown (32-bit for version 0, 64-bit for version 1); the fully summed `stts` duration is used as the fallback. Known `mdhd` durations retain their existing precedence.
+- No public API, edit-list behavior, keyframe ordering, CTTS parsing, or file-brand handling was changed.
+
+**Fixture evidence:** The bundled real file `testFixtures/subtitles/video.mp4` was inspected directly from the target branch without running the test suite. Both tracks have exact `stts` sample coverage and durations matching `mdhd`: video 480 samples at 512 ticks (245,760 ticks, timescale 12,288), audio 939 samples (961,024 ticks, timescale 48,000). The video has CTTS v0 and both tracks carry edit lists; no CSLG box is present. This supports the unchanged existing-file path but is not a CSLG end-to-end fixture. The public MPEG conformance case `17_negative_ctso.mp4` is published as Git LFS data; its repository entry was only an LFS pointer in the available GitHub response. The exact CSLG v0 sample fields used in regression coverage are independently preserved in the `mp4-atom` parser test for that conformance file (shift 8, least -8, greatest 8, composition range 0–5000). No MOV fixture was present in this repository's native-container test fixtures, so no QuickTime-specific end-to-end fixture claim is made.
+
+**Research:** ISO/IEC 14496-12:2026 is the current published edition (Edition 8, April 2026). The publicly indexed text for prior editions supplies the normative clauses used for the field semantics: §8.4.2.3 (all-ones MDHD duration means unknown), §8.6.1.2 (the sum of STTS deltas is media decode duration), and §8.6.1.4 (CSLG shift is added to computed composition times; composition end time 0 means unknown). The 2026 public index confirms the current edition and CTS/DTS definitions, but its complete normative clauses were not openly available in the search excerpt. Independent implementation checks included FFmpeg MOV demuxer shift handling and checked STTS arithmetic, GPAC's CSLG v1 support work, and the signed 32/64-bit CSLG decoder plus official conformance sample in `kixelated/mp4-atom`.
+
+Research links:
+- ISO/IEC, [ISO/IEC 14496-12:2026 — current edition metadata](https://www.iso.org/standard/85596.html).
+- ISO/IEC, [14496-12:2012 public text](https://ossrs.io/lts/zh-cn/assets/files/ISO_IEC_14496-12-base-format-2012-b70dd5f101daecd072700609842c9649.pdf), clauses 8.4.2.3, 8.6.1.2 and 8.6.1.4.
+- MPEGGroup, [17_negative_ctso.mp4 conformance fixture metadata](https://github.com/MPEGGroup/FileFormatConformance/blob/767a5bcb9fa4841d1b3bb0ca112a6e7d4c6bf067/data/file_features/published/isobmff/17_negative_ctso.json).
+- kixelated/mp4-atom, [CSLG decoder and conformance test payload](https://github.com/kixelated/mp4-atom/blob/87a9e492766a3ff03d0a3a8f862f161da03e57ea/src/moov/trak/mdia/minf/stbl/cslg.rs).
+- GPAC, [CSLG version 1 support](https://github.com/gpac/gpac/pull/3067).
+- FFmpeg, [checked arithmetic in STTS parsing](https://ffmpeg.org/pipermail/ffmpeg-devel/2024-September/334143.html).
+
+**Tooling and verification:** Exa research and GitHub source/fixture inspection were used. Context7 was not applicable: this native Rust change uses existing endian helpers and the standard library only; no third-party library, framework, dependency, or platform API is involved. Regression tests were added but not executed; no Rust build, cargo test, Android/iOS build, or CI workflow was started, per the explicit project restriction. A separate fresh-context reviewer was unavailable, so the final review is self-review by the author and is weaker than independent review.
+
+### Next action
+
+- Audit `elst` edit-list semantics for MP4 and QuickTime MOV: empty edits, signed media time, movie/media timescale conversion and playback-rate handling. Compare real MP4 and MOV fixtures before mapping keyframe timestamps or exposed duration onto the presentation timeline. Keep decode timestamps and composition timestamps separate throughout.
