@@ -3506,3 +3506,35 @@ References checked:
 - Therefore no device screenshots, UI hierarchy, keyboard traces, VoiceOver/TalkBack results, or runtime Liquid Glass comparisons can be collected from this environment. No source-code change is justified until those observations are available.
 - No build, test, install, emulator/simulator launch, or CI run was started. This reattempt changes documentation only.
 - **Unblocking requirement:** attach a physical iPhone and Android device / emulator endpoint with device-control access (Android API 33+ and a separate API 24–30 target), or provide captured Search recordings/screenshots and accessibility trees from those targets. Then perform the previously listed interaction matrix before deciding on an IME/layout change.
+
+### 12 November 2026 — improve Library Liquid Glass calendar accessibility
+
+#### Confirmed gap
+
+- The live release calendar and Liquid Glass Studio preview share `LibraryCalendarMonthGrid` and the same outer `LibraryCalendarGlassSurface`, but each day cell exposed only its numeric Text and a generic click action. Assistive technology therefore had no explicit full-date label, no explicit selected state, and no spoken cue for the release-count dot shown visually.
+- The adjacent Today chip was also a custom `Surface.clickable` without an explicit button role. The calendar's month navigation controls already use labelled `IconButton` components.
+- This is a shared production/preview component issue, not a Category Header issue. The Category Header and its independent recipes were left untouched.
+
+#### Integrated change
+
+- Every date cell now exposes a full date using the existing localized month-name formatter, adds the existing localized Today label only for the current date, and adds the existing singular/plural release-count string when events exist.
+- Each date cell declares a Button role and its current selected state through Compose semantics, while retaining the same visual 38 dp selected pill, date dot, click callback, grid geometry and month-selection behavior.
+- The Today action now declares a Button role. No new resource strings, dependencies, native platform code, glass material, blur, tint, refraction or capture layers were added.
+- Added common regression tests for full-date/context labels and the no-metadata case. The live dialog and Studio preview receive the same semantics because they both use the shared calendar grid.
+
+#### Research and API review
+
+- Android's current [Compose accessibility guidance](https://developer.android.com/develop/ui/compose/accessibility/api-defaults) recommends minimum 48 dp interactive targets and explains the default semantics provided by standard controls; [Compose semantics documentation](https://developer.android.com/reference/kotlin/androidx/compose/ui/Modifier) defines the common `semantics`, `selected`, and `clickable(role = ...)` contracts. The existing clickable cells retain their current geometry; this change addresses spoken context and state, not a claim that every 7-column cell meets a measured width target.
+- Apple's [Materials HIG](https://developer.apple.com/design/human-interface-guidelines/materials) and [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass.md) advise keeping the glass layer distinct from content, using standard materials inside content surfaces, and preserving legibility. This change deliberately leaves the single modal glass shell and its solid inner calendar content intact rather than adding nested glass.
+- Context7 resolved the JetBrains Compose Multiplatform documentation, but its version index did not expose the repository's exact Compose Multiplatform `1.13.0-beta01` (latest indexed version: `1.12.2`). Context7's AndroidX Compose UI reference confirmed the common `Modifier.semantics`, `selected`, and `clickable(role)` APIs. No version-sensitive or new API surface was introduced.
+- The project remains pinned to Kyant Backdrop `2.0.1`. Its API contract was reviewed; no Backdrop modifier/effect/source behavior was changed.
+
+#### Review and verification boundary
+
+- Read-only review covered the Library calendar production dialog, the Studio preview, the shared date grid, localized Today/release-count resources, and existing Library glass regression tests. The change is limited to semantic metadata; selection, date computation, event grouping, dialog dismissal, preview selection, and Liquid Glass rendering stay on their existing paths.
+- Added common test source, but **did not run tests, builds, compilation, device/simulator sessions, or CI**, as requested. No runtime TalkBack or VoiceOver result is claimed.
+- The source/test/docs update is committed with GitHub's documented `[skip ci]` push instruction so the `composeApp/**` path filter does not start the benchmark workflow. GitHub documents that this skips `push` and `pull_request` workflow runs; skipped required checks would remain pending, so do not use this on a PR that requires those checks without an explicit validation window.
+
+#### Next improvement checkpoint
+
+- After the user authorizes validation, inspect the calendar on a physical Android and iPhone in both Saved and Cloud modes, with Liquid Glass enabled/disabled. Confirm TalkBack/VoiceOver announce the full date, Today, release count and selected state once, and verify touch-target spacing between adjacent date cells. Then consider a visual-only refinement if the real-device comparison shows the calendar shell is too transparent over dense poster content; do not increase blur or add another inner glass layer by default.

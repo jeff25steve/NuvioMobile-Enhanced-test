@@ -99,7 +99,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -3054,7 +3056,7 @@ private fun LibraryCalendarCard(
                     )
                 }
                 Surface(
-                    modifier = Modifier.clickable(onClick = onToday),
+                    modifier = Modifier.clickable(role = Role.Button, onClick = onToday),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     shape = RoundedCornerShape(50),
@@ -3147,11 +3149,20 @@ private fun LibraryCalendarMonthGrid(
                         val hasEvents = dayEvents.isNotEmpty()
                         val isSelected = selectedDateIso == date.iso
                         val isToday = todayIso == date.iso
+                        val dayAccessibilityDescription = libraryCalendarDayAccessibilityDescription(
+                            dateLabel = displayLibraryCalendarEventDate(date),
+                            todayLabel = if (isToday) stringResource(Res.string.library_calendar_today) else null,
+                            releaseCountLabel = if (hasEvents) libraryCalendarReleaseCountText(dayEvents.size) else null,
+                        )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(40.dp)
-                                .clickable { onDateSelected(date) },
+                                .clickable(role = Role.Button) { onDateSelected(date) }
+                                .semantics {
+                                    contentDescription = dayAccessibilityDescription
+                                    selected = isSelected
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             val dayColor = when {
@@ -3253,6 +3264,14 @@ private fun LibraryCalendarAgendaHeader(
         }
     }
 }
+
+internal fun libraryCalendarDayAccessibilityDescription(
+    dateLabel: String,
+    todayLabel: String?,
+    releaseCountLabel: String?,
+): String = listOfNotNull(dateLabel, todayLabel, releaseCountLabel)
+    .filter { it.isNotBlank() }
+    .joinToString(separator = ", ")
 
 @Composable
 private fun libraryCalendarReleaseCountText(count: Int): String =

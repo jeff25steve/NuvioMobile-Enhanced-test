@@ -11,6 +11,30 @@ import kotlin.test.assertTrue
 
 class LibraryGlassLayoutTest {
     @Test
+    fun calendarDayAccessibilityLabelIncludesFullDateTodayAndReleaseCount() {
+        assertEquals(
+            "November 12, 2026, Today, 2 releases",
+            libraryCalendarDayAccessibilityDescription(
+                dateLabel = "November 12, 2026",
+                todayLabel = "Today",
+                releaseCountLabel = "2 releases",
+            ),
+        )
+    }
+
+    @Test
+    fun calendarDayAccessibilityLabelOmitsUnavailableContext() {
+        assertEquals(
+            "November 12, 2026",
+            libraryCalendarDayAccessibilityDescription(
+                dateLabel = "November 12, 2026",
+                todayLabel = null,
+                releaseCountLabel = null,
+            ),
+        )
+    }
+
+    @Test
     fun calendarInnerSurfaceUsesTranslucencyOnlyWhenGlassAndBackdropAreReady() {
         assertTrue(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = true))
         assertFalse(shouldRenderLibraryCalendarGlass(surfaceEnabled = true, backdropReady = false))
