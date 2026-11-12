@@ -538,4 +538,42 @@ class SettingsSearchAnchorTest {
         )
     }
 
+    @Test
+    fun settingsSearchFindsAccountAndLayoutTaskAliases() {
+        fun entry(key: String, page: SettingsPage, title: String, terms: List<String>) =
+            SettingsSearchEntry(
+                key = key,
+                title = title,
+                description = "",
+                page = "Settings",
+                section = "",
+                category = "General",
+                icon = androidx.compose.material.icons.Icons.Rounded.Search,
+                target = SettingsSearchTarget.Page(page),
+                searchTerms = terms,
+            )
+
+        val entries = listOf(
+            entry("account", SettingsPage.Account, "Account", listOf("manage account", "log in", "log out", "user profile")),
+            entry("layout", SettingsPage.Layout, "Layout", listOf("navigation tabs", "bottom navigation", "catalog layout", "poster layout")),
+        )
+
+        assertEquals(
+            SettingsPage.Account,
+            (settingsSearchResults("manage account", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Account,
+            (settingsSearchResults("log out", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Layout,
+            (settingsSearchResults("bottom navigation", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Layout,
+            (settingsSearchResults("catalog layout", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+    }
+
 }
