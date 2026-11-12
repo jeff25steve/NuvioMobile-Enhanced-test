@@ -517,16 +517,21 @@ internal fun SettingsNavigationRow(
     val iconSize = if (isTablet) 42.dp else 36.dp
     val verticalPadding = if (isTablet) 16.dp else 14.dp
     val horizontalPadding = if (isTablet) 20.dp else 16.dp
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey) {
-        if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
-            bringIntoViewRequester.bringIntoView()
+    val bringIntoViewRequester = remember(searchAnchorKey) {
+        searchAnchorKey?.let { BringIntoViewRequester() }
+    }
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey, bringIntoViewRequester) {
+        val requester = bringIntoViewRequester
+        if (requester != null && searchAnchorKey == highlightedSearchAnchorKey) {
+            requester.bringIntoView()
         }
     }
 
     Row(
         modifier = Modifier
-            .bringIntoViewRequester(bringIntoViewRequester)
+            .then(
+                bringIntoViewRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier
+            )
             .fillMaxWidth()
             .then(
                 if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
@@ -614,16 +619,21 @@ internal fun SettingsSwitchRow(
 ) {
     val tokens = MaterialTheme.nuvio
     val verticalPadding = if (isTablet) 16.dp else 14.dp
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey) {
-        if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
-            bringIntoViewRequester.bringIntoView()
+    val bringIntoViewRequester = remember(searchAnchorKey) {
+        searchAnchorKey?.let { BringIntoViewRequester() }
+    }
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey, bringIntoViewRequester) {
+        val requester = bringIntoViewRequester
+        if (requester != null && searchAnchorKey == highlightedSearchAnchorKey) {
+            requester.bringIntoView()
         }
     }
 
     Row(
         modifier = Modifier
-            .bringIntoViewRequester(bringIntoViewRequester)
+            .then(
+                bringIntoViewRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier
+            )
             .fillMaxWidth()
             .then(
                 if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
