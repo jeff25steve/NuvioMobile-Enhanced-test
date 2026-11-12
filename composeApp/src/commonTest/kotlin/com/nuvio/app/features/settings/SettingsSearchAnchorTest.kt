@@ -576,4 +576,42 @@ class SettingsSearchAnchorTest {
         )
     }
 
+    @Test
+    fun settingsSearchFindsContinueWatchingAndPosterStyleAliases() {
+        fun entry(key: String, page: SettingsPage, title: String, terms: List<String>) =
+            SettingsSearchEntry(
+                key = key,
+                title = title,
+                description = "",
+                page = "Settings",
+                section = "",
+                category = "General",
+                icon = androidx.compose.material.icons.Icons.Rounded.Search,
+                target = SettingsSearchTarget.Page(page),
+                searchTerms = terms,
+            )
+
+        val entries = listOf(
+            entry("continue-watching", SettingsPage.ContinueWatching, "Continue Watching", listOf("resume playback", "keep watching", "resume prompt")),
+            entry("poster-card-style", SettingsPage.PosterCustomization, "Poster Style", listOf("poster design", "card appearance", "movie artwork cards")),
+        )
+
+        assertEquals(
+            SettingsPage.ContinueWatching,
+            (settingsSearchResults("resume playback", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.ContinueWatching,
+            (settingsSearchResults("keep watching", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.PosterCustomization,
+            (settingsSearchResults("poster design", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.PosterCustomization,
+            (settingsSearchResults("card appearance", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+    }
+
 }
