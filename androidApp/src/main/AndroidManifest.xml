@@ -22,6 +22,7 @@
         android:localeConfig="@xml/locale_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.Nuvio">
+        <profileable android:shell="true" />
         <meta-data
             android:name="io.sentry.auto-init"
             android:value="false" />
