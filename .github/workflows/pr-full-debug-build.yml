@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: ["ci/nuvio-main-build-testing-cslg-stts-fullDebug-20261112"]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
