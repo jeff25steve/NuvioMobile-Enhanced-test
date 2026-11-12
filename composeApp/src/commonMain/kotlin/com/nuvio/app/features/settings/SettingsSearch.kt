@@ -446,7 +446,11 @@ internal fun settingsSearchEntries(
         title = accountPage,
         description = stringResource(Res.string.compose_settings_root_account_description),
         category = accountCategory,
-        searchTerms = listOf("profile", "sign in", "sign out", "account details"),
+        searchTerms = listOf(
+            "profile", "sign in", "sign out", "account details",
+            "manage account", "user account", "user profile", "log in", "login",
+            "log out", "logout", "authentication", "account settings",
+        ),
     )
     addPage(
         page = SettingsPage.TraktAuthentication,
@@ -471,6 +475,11 @@ internal fun settingsSearchEntries(
         key = "layout",
         title = layoutPage,
         description = stringResource(Res.string.compose_settings_root_layout_description),
+        searchTerms = listOf(
+            "navigation", "navigation tabs", "bottom navigation", "tab bar",
+            "catalog layout", "poster layout", "screen layout", "home layout",
+            "appearance layout", "interface layout",
+        ),
     )
     addPage(
         page = SettingsPage.About,
