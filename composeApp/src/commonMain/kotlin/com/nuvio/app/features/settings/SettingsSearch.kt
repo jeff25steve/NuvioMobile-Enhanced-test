@@ -369,6 +369,10 @@ internal fun settingsSearchEntries(
         PlayerSettingsRepository.ensureLoaded()
         PlayerSettingsRepository.uiState
     }.collectAsStateWithLifecycle()
+    val tabBarBehavior by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.tabBarBehavior
+    }.collectAsStateWithLifecycle()
     val playbackSections = visiblePlaybackSections(isIos, playerSettings.androidPlaybackEngine, P2pSettingsRepository.isVisible)
     val entries = mutableListOf<SettingsSearchEntry>()
 
@@ -1089,7 +1093,7 @@ internal fun settingsSearchEntries(
         pageLabel = appearancePage,
         section = stringResource(Res.string.settings_appearance_section_display),
     )
-    if (!isIos) {
+    if (!isIos && (!liquidGlassNativeTabBarSupported || !tabBarBehavior.isEnabled)) {
         addRow(
             page = SettingsPage.Layout,
             key = "navigation-bar",

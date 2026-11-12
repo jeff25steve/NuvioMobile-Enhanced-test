@@ -3888,3 +3888,6 @@ References checked:
 - The project dependency catalogue previously recorded Compose Multiplatform `1.13.0-beta01`; Context7's resolved documentation did not expose that exact version (the nearest listed stable documentation was `1.12.2`). No API or dependency change was made.
 - Regression test source was updated, but tests were **not executed**. No build, compilation, Gradle task, benchmark, or CI run was started, as explicitly requested.
 - This was a source-level integration and remote-content verification only; runtime correctness and test execution remain pending authorisation.
+
+
+- Follow-up source review aligned the Navigation bar style search result's visibility with the rendered control: it is now omitted on iOS and when the native tab bar behavior hides that row. This avoids deep-linking to an empty section.
