@@ -8,6 +8,47 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun playbackSubtitleSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-preferred-subtitles",
+            "playback-secondary-subtitles",
+            "playback-subtitle-font",
+            "playback-subtitle-shadow",
+            "playback-libass",
+            "playback-libass-render-mode",
+            "playback-libass-render",
+            "playback-libmpv-ass",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackSubtitles, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackSubtitles, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackSubtitleAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.PlaybackSubtitles,
+            "playback-subtitle-font",
+            "Subtitle font",
+            "",
+        )!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun unknownPlaybackSubtitleRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackSubtitles, "playback-subtitle-unknown", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackSubtitles, "playback-subtitle-background-opacity", "Opacity", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackSubtitles, "playback-subtitle-background-roundness", "Roundness", ""))
+    }
+
+    @Test
     fun duplicateCatalogueRowsCollapseAndPreferExactRowNavigation() {
         val page = SettingsPage.PlaybackAudio
         val anchor = settingsSearchAnchor(page, "playback-audio-downmix", "Downmix", "")!!
