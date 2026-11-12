@@ -3254,3 +3254,22 @@ Research links:
 ### Next action
 
 - Audit `elst` edit-list semantics for MP4 and QuickTime MOV: empty edits, signed media time, movie/media timescale conversion and playback-rate handling. Compare real MP4 and MOV fixtures before mapping keyframe timestamps or exposed duration onto the presentation timeline. Keep decode timestamps and composition timestamps separate throughout.
+
+### 12 November 2026 — authorized fullDebug CI follow-up
+
+The CSLG/STTS parser improvement and regression coverage were already integrated on `main-build-testing` in commit `1bd2f33b99dd50617209aa15e9218dc3a4380337` before this CI follow-up. The latest existing CI branch was inspected at `ci/nuvio-main-build-testing-android-fullDebug-only-20261110`; its successful run #120 showed the established fullDebug validation path and artifact upload.
+
+After the user explicitly authorized a CI build, a separate validation branch was created from the exact target commit:
+- Branch: `ci/nuvio-main-build-testing-cslg-stts-fullDebug-20261112`
+- Branch commit: `53c58a5de87e7a2f55df2abcb34acec39b517098`
+- Source parent: `1bd2f33b99dd50617209aa15e9218dc3a4380337`
+- Branch-only change: the existing `.github/workflows/pr-full-debug-build.yml` was configured to run on push to this dedicated validation branch. No application source was changed on the CI branch.
+- Workflow: `PR Full Debug Build`, run [#121](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43140105200), started 2026-11-12 02:15:19 UTC.
+- Command: `./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace`.
+- Java/Gradle setup, runtime property preparation, and Rust target setup were reported successful. The build step was still in progress on the last status check; no artifact had yet been published.
+
+The Rust unit tests were not run. This CI path builds the Android fullDebug APK and does not execute `cargo test`. Do not report the APK build as passing until the workflow run reaches a successful conclusion and the uploaded artifact is present.
+
+### Next action
+
+- Check workflow run #121 to completion. If successful, verify the `androidApp-full-debug.apk` artifact and record the final run result. If it fails, inspect the failing step/logs before making any source changes. Then remove only the temporary validation branch after the result and artifact have been recorded; keep `main-build-testing` and `enhanced` untouched.
