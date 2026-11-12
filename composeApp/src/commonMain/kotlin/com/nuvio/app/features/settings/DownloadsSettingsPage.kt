@@ -21,6 +21,7 @@ import org.jetbrains.compose.resources.stringResource
 
 internal fun LazyListScope.downloadsSettingsContent(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         val downloadLocationUri by DownloadsSettingsRepository.downloadLocationUri.collectAsStateWithLifecycle()
@@ -35,6 +36,8 @@ internal fun LazyListScope.downloadsSettingsContent(
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.downloads_allow_mobile_data_title),
+                    searchAnchorKey = "downloads-allow-mobile-data",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.downloads_allow_mobile_data_description),
                     checked = allowMobileData,
                     isTablet = isTablet,
@@ -43,6 +46,8 @@ internal fun LazyListScope.downloadsSettingsContent(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.downloads_show_download_button_title),
+                    searchAnchorKey = "downloads-show-download-button",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.downloads_show_download_button_description),
                     checked = showDownloadButton,
                     isTablet = isTablet,
@@ -51,6 +56,8 @@ internal fun LazyListScope.downloadsSettingsContent(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_downloads_location_title),
+                    searchAnchorKey = "download-location",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = downloadLocationUri?.let { formatUriForDisplay(it) } ?: stringResource(Res.string.settings_downloads_location_private),
                     isTablet = isTablet,
                     onClick = { showPicker = true },
