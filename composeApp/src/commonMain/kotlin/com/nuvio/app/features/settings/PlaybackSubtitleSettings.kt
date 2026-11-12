@@ -36,6 +36,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackSubtitleSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showPreferredSubtitleDialog by remember { mutableStateOf(false) }
     var showSecondarySubtitleDialog by remember { mutableStateOf(false) }
@@ -49,6 +50,8 @@ internal fun PlaybackSubtitleSettings(
             SettingsGroup(isTablet = isTablet) {
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_preferred_subtitle_language),
+                    searchAnchorKey = "playback-preferred-subtitles",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = when (settings.preferredSubtitleLanguage) {
                         SubtitleLanguageOption.NONE -> stringResource(Res.string.settings_playback_option_none)
                         SubtitleLanguageOption.DEVICE -> stringResource(Res.string.settings_playback_option_device_language)
@@ -62,6 +65,8 @@ internal fun PlaybackSubtitleSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_secondary_subtitle_language),
+                    searchAnchorKey = "playback-secondary-subtitles",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = languageLabelForCode(settings.secondaryPreferredSubtitleLanguage),
                     enabled = !settings.externalPlayerEnabled || settings.externalPlayerForwardSubtitles,
                     isTablet = isTablet,
@@ -143,6 +148,7 @@ internal fun PlaybackSubtitleSettings(
                 style = settings.subtitleStyle,
                 isTablet = isTablet,
                 enabled = subtitleRenderingEnabled,
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onStyleChanged = PlayerSettingsRepository::setSubtitleStyle,
             )
             val showLibassSettings = !isIos && settings.androidPlaybackEngine != AndroidPlaybackEngine.Libmpv
@@ -150,6 +156,8 @@ internal fun PlaybackSubtitleSettings(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_enable_libass),
+                        searchAnchorKey = "playback-libass",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_enable_libass_description),
                         checked = settings.useLibass,
                         enabled = subtitleRenderingEnabled,
@@ -160,6 +168,8 @@ internal fun PlaybackSubtitleSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsNavigationRow(
                             title = stringResource(Res.string.settings_playback_render_mode),
+                            searchAnchorKey = "playback-libass-render-mode",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = if (settings.tunnelingEnabled) {
                                 stringResource(Res.string.settings_playback_render_mode_tunneled)
                             } else {
@@ -175,6 +185,8 @@ internal fun PlaybackSubtitleSettings(
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsNavigationRow(
                             title = stringResource(Res.string.settings_playback_render_scale),
+                            searchAnchorKey = "playback-libass-render",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             description = libassRenderScaleLabel(settings.libassRenderScale),
                             enabled = subtitleRenderingEnabled,
                             isTablet = isTablet,
@@ -184,6 +196,8 @@ internal fun PlaybackSubtitleSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_enable_libmpv_ass),
+                        searchAnchorKey = "playback-libmpv-ass",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_enable_libmpv_ass_description),
                         checked = settings.useLibmpvAss,
                         enabled = subtitleRenderingEnabled,
