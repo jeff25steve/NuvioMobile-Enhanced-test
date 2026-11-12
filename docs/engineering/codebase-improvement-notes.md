@@ -3295,3 +3295,37 @@ The fullDebug run above exercised target commit `1bd2f33b99dd50617209aa15e9218dc
 ### Next action
 
 - Push this compile-repair batch to `main-build-testing`, refresh the temporary fullDebug CI branch from the exact new target head, and run the established `:androidApp:assembleFullDebug` workflow. Resolve only diagnostics reported by that fresh run, then record the final build outcome and APK artifact availability.
+
+
+### 12 November 2026 — restore MP4 parser and fix cross-platform compiler failures from runs #123 and iOS Debug #1
+
+The newest target revision was inspected before recovery. The complete `native/container/src/mp4.rs` had been reduced first to a partial source file, then to the literal `PLACEHOLDER`; the previous intermediate source also called an absent `video_keyframes()`. The original recent table-hardening work has been retained and integrated into the recovered parser rather than discarded.
+
+**Observed build failures:**
+
+- Android fullDebug run [#123](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43146649193), commit `162cdd1`, failed at `PlayerTitleArtwork.kt:54,59`: Coil's request builder could not infer the call and `allowHardware` was unresolved.
+- iOS Debug run [#1](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43147433896), commit `f23eeba`, repeated the Coil errors and reported inaccessible `Dispatchers.IO`, missing `loadSemaphore`, nullable/generic NSURLSession task-list errors, and a CoreFoundation byte-pointer type mismatch.
+- Workflow setup, Java/Gradle setup, Apple toolchain checks, iOS dependency preparation and Rust setup succeeded; the compiler tasks failed and neither APK nor IPA artifact was uploaded.
+
+**MP4 parser recovery and preserved table work:**
+
+- Restored the full parser from the last structurally complete revision, including `video_keyframes`, existing QuickTime/ISO CTTS handling, CSLG presentation shifting, STTS decode-time coverage and prior regression modules.
+- Re-applied the recent `parse_sample_sizes` and `parse_chunk_offsets` validators and wired them into the active `video_keyframes` path. Fixed-size `stsz` requires exactly the 12-byte header; variable tables require exact length, nonzero sizes and matching sample count. `stco` and `co64` require correct entry width, zero version/flags, nonzero count and exact body length.
+- Added focused regression tests for fixed/variable sample sizes, malformed version/flags/counts/truncation/trailing bytes/zero sizes, valid 32-bit and 64-bit offsets, and malformed chunk-table width/length.
+- The restored file is structurally checked, but the Rust tests have not yet been executed.
+
+**Android/iOS compiler corrections:**
+
+- Coil 3.6.3's `ImageRequest.Builder.allowHardware(Boolean)` is Android-only. Added a narrow common expect/actual adapter: Android applies `allowHardware(false)` for artwork pixel inspection; iOS leaves the request unchanged because Coil uses Skia-backed software images there.
+- Imported kotlinx.coroutines' public Native `IO` extension in `DownloadsRepository.kt` for the shared `Dispatchers.IO` usages.
+- Restored a source-load semaphore using the existing `MaxConcurrentLoads` limit, separate from the independent frame-decode semaphore.
+- Explicitly narrowed nullable/generic NSURLSession task candidates to `NSURLSessionTask`. A null task list remains unknown and does not clear permanent-removal state.
+- Reinterpreted the CoreFoundation data pointer as `ByteVar` before indexed copying into the UTF-8 decoder.
+
+**Research:** Context7 resolved and queried Coil 3.6.3, kotlinx.coroutines 1.10.x and Kotlin/Native C interop. Coil's platform API guidance and [issue #2429](https://github.com/coil-kt/coil/issues/2429) establish that `allowHardware` is Android-only. Kotlin coroutines' Native source exposes `Dispatchers.IO` as a public extension property. Context7 Kotlin/Native interop docs and Exa independent source examples support typed pointer reinterpretation for byte access. Exa cross-checked Foundation's NSURLSession task-list API and task-cancellation behavior. No dependency versions were changed.
+
+**Verification boundary:** The two original workflows are confirmed failures. The source recovery and compatibility fixes are committed, but no tests or new builds have passed yet. Both Android fullDebug and iOS Debug must be re-run from the exact repaired head, with successful APK/IPA artifacts confirmed before reporting either platform as fixed.
+
+### Next action
+
+- Verify the repaired target ref and source diff, then launch isolated Android fullDebug and iOS Debug validation from the same commit. Inspect both fresh logs and artifact uploads before making a pass/fail claim.

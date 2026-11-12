@@ -383,9 +383,17 @@ private class IosBackgroundDownloadCoordinatorImpl : NSObject(), NSURLSessionDow
         // download ID, so enumerate the attached background session to cancel OS-retained tasks.
         val hadKnownTask = active != null || task != null || pending != null
         ensureSessionCreated().getAllTasksWithCompletionHandler { tasks ->
-            val matchingTasks = tasks.filter { it.taskDescription == downloadId }
-            matchingTasks.forEach { it.cancel() }
-            if (matchingTasks.isEmpty() && !hadKnownTask) clearPermanentlyRemoved(downloadId)
+            var matchingTaskCount = 0
+            tasks?.forEach { candidate ->
+                val sessionTask = candidate as? NSURLSessionTask ?: return@forEach
+                if (sessionTask.taskDescription == downloadId) {
+                    matchingTaskCount++
+                    sessionTask.cancel()
+                }
+            }
+            if (tasks != null && matchingTaskCount == 0 && !hadKnownTask) {
+                clearPermanentlyRemoved(downloadId)
+            }
         }
     }
 

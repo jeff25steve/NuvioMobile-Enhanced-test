@@ -1,25 +1,10 @@
-# Restore note — truncated `mp4.rs` push (12 November 2026)
+# MP4 parser recovery — restored source and table hardening integrated (12 November 2026)
 
-## What happened
-A partial push left `native/container/src/mp4.rs` incomplete (missing `video_keyframes` and below).
-The last known-good content is commit `ff728994d9e086e93b370a350edd30b418045f05`.
+The truncated and placeholder versions of `native/container/src/mp4.rs` have been superseded by a complete parser on `main-build-testing`.
 
-## Restore immediately
+- Restored the complete parser from the last structurally complete revision, including `video_keyframes`, CTTS/CSLG/STTS handling and existing regression modules.
+- Preserved the newer sample-size (`stsz`) and chunk-offset (`stco`/`co64`) validation by integrating both validators into the active `video_keyframes` path.
+- Added regression coverage for fixed/variable sample-size tables, malformed lengths/flags/counts/zero sizes, 32-bit and 64-bit offsets, and invalid offset table widths.
+- Structural checks verify the parser entry points, both validator call sites and the new regression module are present.
 
-```bash
-git fetch origin
-git checkout ff728994d9e086e93b370a350edd30b418045f05 -- native/container/src/mp4.rs
-git commit -m "fix(native): restore mp4.rs after truncated push [skip ci]"
-git push origin main-build-testing
-```
-
-## Improvement ready to re-apply
-
-After restore, the sample-size / chunk-offset hardening lives in the agent workspace as:
-- Local: prepared complete `mp4.rs` (41 398 bytes) with `parse_sample_sizes`, `parse_chunk_offsets`, call-site switch, and regression tests
-- Diff vs good: ~7 KB unified patch
-
-Re-apply only after the good file is restored and verified to compile structurally (`fn video_keyframes` present).
-
-## Do not build until restored
-The truncated file will fail `:androidApp:buildRust` / native linking.
+Rust tests and both platform builds still need fresh validation. This note does not claim those checks have passed.

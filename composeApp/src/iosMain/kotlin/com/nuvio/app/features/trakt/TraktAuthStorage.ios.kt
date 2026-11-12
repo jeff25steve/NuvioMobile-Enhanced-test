@@ -2,6 +2,7 @@ package com.nuvio.app.features.trakt
 
 import com.nuvio.app.core.storage.ProfileScopedKey
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
@@ -113,8 +114,8 @@ internal actual object TraktAuthStorage {
                 val payload = data?.let { item ->
                     try {
                         val length = CFDataGetLength(item).toInt()
-                        val bytes = CFDataGetBytePtr(item) ?: return@let null
-                        ByteArray(length) { index -> bytes[index].toByte() }.decodeToString()
+                        val bytes = CFDataGetBytePtr(item)?.reinterpret<ByteVar>() ?: return@let null
+                        ByteArray(length) { index -> bytes[index] }.decodeToString()
                     } finally {
                         CFRelease(item)
                     }

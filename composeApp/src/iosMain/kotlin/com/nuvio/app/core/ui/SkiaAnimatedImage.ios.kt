@@ -100,6 +100,7 @@ private val animatedSourceHttpClient by lazy {
     }
 }
 private const val MaxConcurrentDecodes = 2
+private val loadSemaphore = Semaphore(MaxConcurrentLoads)
 private val decodeSemaphore = Semaphore(MaxConcurrentDecodes)
 
 /**
