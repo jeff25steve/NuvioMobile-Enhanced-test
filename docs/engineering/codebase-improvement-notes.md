@@ -3852,3 +3852,14 @@ References checked:
 
 
 - Final catalogue review removed overlapping aliases ("poster layout" and "watch progress") from the generic Layout and Continue Watching pages. These terms can more naturally describe the dedicated Poster Customization and Tracking destinations, so avoiding duplicate matches keeps the search results more intentional.
+
+## 12 November 2026 — Appearance, Layout and Account search refinement
+
+- Extended Appearance page discovery with user-facing concepts including color scheme, app appearance, display theme, accent color, icon style, localization and translation. Existing title and theme aliases remain intact.
+- Extended Layout discovery with tab navigation, bottom/navigation bar, sidebar navigation, grid/list view and layout settings. Kept the previously removed ambiguous `poster layout` alias out of this generic destination.
+- Extended Account discovery with profile management and account access. Avoided duplicating existing sign-in/sign-out aliases.
+- Expanded the focused search regression source to cover Appearance, Layout and Account queries. These tests use explicit catalogue-entry fixtures to exercise ranking and destination selection; they do not prove that every production localized catalogue entry is wired correctly.
+- Kept all three destinations page-level. This source audit did not establish reliable row-level anchors for their other controls, so no new anchors or assumed navigation offsets were added.
+- Research basis: Android Open Source Project [Universal search](https://source.android.com/docs/core/settings/universal-search) explicitly recommends hidden keywords based on users' mental models, including synonyms, and warns against duplicate indexing. AOSP [Settings design guidelines](https://source.android.com/docs/core/settings/settings-guidelines) also emphasise findability and clear labels.
+- Context7 confirmed the existing common-code `lowercase()` and `Char.isLetterOrDigit()` APIs are multiplatform-safe; no API, dependency or ranking algorithm changes were made.
+- Source and test review was performed from the committed diff. Tests, builds, compilation, Gradle tasks and CI were not run, as authorised by the project restrictions.
