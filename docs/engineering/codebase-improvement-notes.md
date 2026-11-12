@@ -3498,3 +3498,11 @@ References checked:
 - Its Gradle build step completed successfully: `:androidApp:assembleFullBenchmark` and `:baselineprofile:assembleFullBenchmark` finished, and the log reported `BUILD SUCCESSFUL` (128 actionable tasks).
 - The subsequent `Assemble phone-ready bundle` step failed while checking for the expected APK files under the workflow's `*/full/benchmark/*` paths. At least one path lookup produced an empty result and the script exited before copying the APKs into the bundle. The upload step was skipped; GitHub returned no artifacts for this run.
 - This run was triggered automatically by the earlier Search source push, not by a manual build request. It does not validate keyboard behavior or Search's visual rendering. No retry or replacement workflow was started.
+
+### 12 November 2026 — Search device-checkpoint reattempt
+
+- Re-attempted the exact physical-device Search validation requested after the prior checkpoint. This session again exposes no connected Android emulator/device or iOS simulator/device-control integration. Read-only environment checks returned `adb=NOT_FOUND`, `xcrun=NOT_FOUND`, and `xcodebuild=NOT_FOUND`; no `ANDROID_HOME` / `ANDROID_SDK_ROOT` is configured, and no local `.git` checkout is mounted.
+- Confirmed the available GitHub integration supports repository/source/workflow inspection and Git data writes, but does not expose a connected-device execution action. No installable APK artifact exists for the previous automatic benchmark run.
+- Therefore no device screenshots, UI hierarchy, keyboard traces, VoiceOver/TalkBack results, or runtime Liquid Glass comparisons can be collected from this environment. No source-code change is justified until those observations are available.
+- No build, test, install, emulator/simulator launch, or CI run was started. This reattempt changes documentation only.
+- **Unblocking requirement:** attach a physical iPhone and Android device / emulator endpoint with device-control access (Android API 33+ and a separate API 24–30 target), or provide captured Search recordings/screenshots and accessibility trees from those targets. Then perform the previously listed interaction matrix before deciding on an IME/layout change.
