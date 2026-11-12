@@ -3832,3 +3832,20 @@ References checked:
 - Kept these as page-level destinations: the underlying page controls have not yet been verified for stable row-level anchors, so no deep-link anchors were invented.
 - Added regression test source that checks representative natural-language queries resolve to the intended page destinations. Tests were not executed because this continuation was kept source-only; no builds, compilation or CI were run.
 - Research basis: Android's official Settings universal-search guidance recommends invisible keyword synonyms users may type; LINE Engineering's settings-search implementation describes direct destination navigation and highlighting. The existing Nuvio ranking keeps exact titles ahead of broader aliases.
+
+
+## 12 November 2026 — Account and Layout search vocabulary
+
+- Expanded the Account page's hidden search vocabulary with common task phrases for managing an account, user profile, login/logout and authentication.
+- Expanded Layout discovery with navigation, bottom tabs, tab bar, catalog layout, poster layout and screen/interface layout terms.
+- Added regression source asserting representative Account and Layout task queries resolve to their intended page destinations.
+- Kept these as page-level destinations because the exact Account and Layout row composition and anchor IDs have not yet been verified. No new deep-link anchors were introduced.
+- No tests, builds, compilation or CI were run.
+
+## 12 November 2026 — Continue Watching and Poster Customization discovery
+
+- Added task-oriented search aliases for resuming playback, keep-watching, resume prompts and next-episode prompts.
+- Added poster/card vocabulary for poster design, artwork style, TV artwork and media cards.
+- Added regression source for representative Continue Watching and Poster Customization queries.
+- Retained page-level navigation rather than claiming direct row navigation where the actual destination rows have not yet been inspected.
+- No tests, builds, compilation or CI were run.
