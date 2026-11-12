@@ -3137,3 +3137,32 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - The RED/GREEN test executions were deliberately NOT performed because the instruction prohibits running tests/builds/CI without authorization. The tests remain unexecuted and compilation/API compatibility remains unverified.
 - No `cargo test`, `cargo check`, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
 - The files are integrated only after checking the target branch head against the expected parent; the pushed commit and affected-file list are verified separately.
+
+
+## 12 November 2026 — make Matroska block reads and cue scanning bounds-safe
+
+### Confirmed root causes
+- The native/container/src/mkv.rs block reader used unchecked at + header + size arithmetic and cast an EBML size directly to usize. If the initial read did not contain the whole block, it appended a second RangeReader.read result but did not verify that the read supplied the missing byte count. A truncated file or range ending at EOF could therefore reach an out-of-bounds slice and panic.
+- BlockGroup scanning assumed its first child was the Block, although other child elements can precede it. This could inspect the wrong bytes when resolving cue-less cluster keyframes.
+- The cluster fallback scan also used unchecked element-boundary arithmetic and cast an unsigned cluster timestamp to i64 before adding the signed block-relative timestamp. Large valid timestamps could wrap.
+
+### Integrated changes
+- Added checked EBML element-bound calculation and made block() require the exact missing tail before slicing. Truncated block data now returns a malformed-media error rather than panicking.
+- Hardened read_element() with checked total/file offsets, known-file-size boundary checks and exact tail-read validation.
+- Validated EBML/Segment and top-level element offsets using checked conversion/addition. SeekHead and CueClusterPosition calculations now reject offset overflow.
+- Added explicit BlockGroup child traversal that locates the actual Block element and rejects child elements extending beyond their parent.
+- Reworked cluster fallback scanning to skip incomplete scan-window tails safely, validate child extents, check timestamp sizes and use wide signed/unsigned timestamp arithmetic.
+- Added eight Rust regression tests for exact partial reads, truncated blocks, unknown-sized blocks, nested BlockGroup boundaries and timestamp arithmetic.
+- No dependencies, public APIs, file formats, settings, backend schemas, UI, iOS code or build configuration changed.
+
+### Research and design decisions
+- Superpowers systematic-debugging and root-cause-tracing were used to follow the cue/block read path. Test-driven-development and writing-good-tests guidance informed tests-first authoring. Verification-before-completion was used to keep unexecuted checks explicitly unverified.
+- Exa checked the behavior against RFC 8794 (EBML VINT/data sizes and unknown-sized elements) and RFC 9559 (Matroska Cluster/Cues/CueRelativePosition rules). CueRelativePosition remains interpreted relative to the first possible element inside the Cluster; this patch does not alter its origin or seek semantics.
+- Context7 was not needed: no framework, dependency, library API or platform contract changed. The implementation uses existing Rust and RangeReader interfaces.
+- Sources: https://www.rfc-editor.org/rfc/rfc8794.html#section-6 ; https://www.rfc-editor.org/rfc/rfc9559.html#section-5.1.5.1.2.3 ; https://www.rfc-editor.org/rfc/rfc9559.html#section-22 ; https://www.matroska.org/technical/cues.html ; https://www.matroska.org/technical/elements.html
+
+### Verification boundary
+- Static review confirms the active Matroska path uses Segment.open(), Segment.cues(), keyframe() and block(); all newly added reads and slices are guarded by checked ranges and exact-length checks.
+- Eight regression tests were authored before the production helpers/guards but were deliberately NOT executed because builds/tests/CI have not been authorized.
+- No cargo test, cargo check, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
+- Compilation, red/green test results and runtime behavior against real MKV assets remain unverified. The remote branch update is verified separately by the resulting commit and ref.

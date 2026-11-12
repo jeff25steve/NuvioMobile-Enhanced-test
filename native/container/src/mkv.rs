@@ -34,13 +34,88 @@ fn read_element(r: &mut RangeReader, pos: u64) -> Result<(u32, Vec<u8>)> {
     if size == UNKNOWN {
         return Err(Error::Unsupported("unknown-size element".into()));
     }
-    let total = h as u64 + size;
-    if total <= head.len() as u64 {
-        return Ok((id, head[h..total as usize].to_vec()));
+    let bad = || Error::Malformed("element bounds");
+    let header_size = u64::try_from(h).map_err(|_| bad())?;
+    let total = header_size.checked_add(size).ok_or_else(bad)?;
+    let end = pos.checked_add(total).ok_or_else(bad)?;
+    if r.size.is_some_and(|file_size| end > file_size) {
+        return Err(bad());
     }
-    let mut body = head[h..].to_vec();
-    body.extend(r.read(pos + head.len() as u64, total - head.len() as u64)?);
+    if total <= head.len() as u64 {
+        let end = usize::try_from(total).map_err(|_| bad())?;
+        let body = head.get(h..end).ok_or_else(bad)?.to_vec();
+        return Ok((id, body));
+    }
+
+    let tail_start = pos
+        .checked_add(u64::try_from(head.len()).map_err(|_| bad())?)
+        .ok_or_else(bad)?;
+    let tail_len = total - head.len() as u64;
+    let tail = r.read(tail_start, tail_len)?;
+    if tail.len() as u64 != tail_len {
+        return Err(bad());
+    }
+    let mut body = head.get(h..).ok_or_else(bad())?.to_vec();
+    body.try_reserve_exact(tail.len()).map_err(|_| bad())?;
+    body.extend(tail);
     Ok((id, body))
+}
+
+fn element_bounds(buf: &[u8], at: usize) -> Result<(u32, usize, usize)> {
+    let bad = || Error::Malformed("element bounds");
+    let (element, header_size, size) =
+        header(buf, at).ok_or(Error::Malformed("element header"))?;
+    if size == UNKNOWN {
+        return Err(Error::Unsupported("unknown-size element".into()));
+    }
+    let body_start = at.checked_add(header_size).ok_or_else(bad)?;
+    let body_size = usize::try_from(size).map_err(|_| bad())?;
+    let end = body_start.checked_add(body_size).ok_or_else(bad)?;
+    Ok((element, body_start, end))
+}
+
+fn block_payload_range(
+    buf: &[u8],
+    element: u32,
+    body_start: usize,
+    element_end: usize,
+) -> Result<Option<(usize, usize)>> {
+    let bad = || Error::Malformed("block group");
+    match element {
+        id::SIMPLE_BLOCK => Ok(Some((body_start, element_end))),
+        id::BLOCK_GROUP => {
+            let mut child_at = body_start;
+            while child_at < element_end {
+                let (child_id, header_size, child_size) =
+                    header(buf, child_at).ok_or_else(bad)?;
+                if child_size == UNKNOWN {
+                    return Err(Error::Unsupported("unknown-size block group child".into()));
+                }
+                let child_start = child_at.checked_add(header_size).ok_or_else(bad)?;
+                let child_len = usize::try_from(child_size).map_err(|_| bad())?;
+                let child_end = child_start.checked_add(child_len).ok_or_else(bad)?;
+                if child_end > element_end {
+                    return Err(bad());
+                }
+                if child_id == id::BLOCK {
+                    return Ok(Some((child_start, child_end)));
+                }
+                child_at = child_end;
+            }
+            Ok(None)
+        }
+        _ => Ok(None),
+    }
+}
+
+fn cluster_time_ms(timestamp: u64, relative: i16, scale_ns: u64) -> Result<u64> {
+    let bad = || Error::Malformed("cluster timestamp");
+    let ticks = (i128::from(timestamp) + i128::from(relative)).max(0) as u128;
+    let nanoseconds = ticks
+        .checked_mul(u128::from(scale_ns))
+        .ok_or_else(bad)?;
+    let milliseconds = nanoseconds / 1_000_000;
+    u64::try_from(milliseconds).map_err(|_| bad())
 }
 
 fn seek_entries(body: &[u8], data_start: u64) -> impl Iterator<Item = (u32, u64)> + '_ {
@@ -49,7 +124,7 @@ fn seek_entries(body: &[u8], data_start: u64) -> impl Iterator<Item = (u32, u64)
         .filter_map(move |(_, s)| {
             Some((
                 uint(find(s, id::SEEK_ID)?) as u32,
-                data_start + uint(find(s, id::SEEK_POSITION)?),
+                data_start.checked_add(uint(find(s, id::SEEK_POSITION)?))?,
             ))
         })
 }
@@ -124,24 +199,37 @@ impl Segment {
     pub fn open(r: &mut RangeReader) -> Result<Segment> {
         let head = r.read(0, HEAD)?;
         let (ebml, h, size) = header(&head, 0).ok_or(Error::Malformed("EBML header"))?;
-        if ebml != id::EBML {
-            return Err(Error::Unsupported("not Matroska".into()));
+        if ebml != id::EBML || size == UNKNOWN {
+            return Err(Error::Unsupported("invalid EBML header".into()));
         }
-        let mut i = h + size as usize;
-        let (segment, h, _) = header(&head, i).ok_or(Error::Malformed("segment"))?;
+        let bad = || Error::Malformed("element bounds");
+        let ebml_end = h
+            .checked_add(usize::try_from(size).map_err(|_| bad())?)
+            .ok_or_else(bad)?;
+        let (segment, segment_header_size, _) =
+            header(&head, ebml_end).ok_or(Error::Malformed("segment"))?;
         if segment != id::SEGMENT {
             return Err(Error::Malformed("segment"));
         }
-        i += h;
+        let mut i = ebml_end
+            .checked_add(segment_header_size)
+            .ok_or_else(bad)?;
         let data_start = i as u64;
         let (mut info, mut tracks, mut seeks) = (None, None, Vec::new());
         while let Some((element, h, size)) = header(&head, i) {
             if element == id::CLUSTER || size == UNKNOWN {
                 break;
             }
-            let end = i + h + size as usize;
-            let body = if end <= head.len() {
-                head[i + h..end].to_vec()
+            let element_end = i
+                .checked_add(h)
+                .and_then(|body_start| {
+                    usize::try_from(size)
+                        .ok()
+                        .and_then(|body_size| body_start.checked_add(body_size))
+                })
+                .ok_or_else(bad)?;
+            let body = if element_end <= head.len() {
+                head.get(i + h..element_end).ok_or_else(bad)?.to_vec()
             } else if matches!(element, id::INFO | id::TRACKS | id::SEEK_HEAD) {
                 read_element(r, i as u64)?.1
             } else {
@@ -153,7 +241,7 @@ impl Segment {
                 id::TRACKS => tracks = Some(body),
                 _ => {}
             }
-            i = end;
+            i = element_end;
         }
         // A SeekHead may point at a second one, often at the end of the file.
         let more: Vec<u64> = seeks
@@ -236,7 +324,10 @@ impl Segment {
                 out.push(CuePoint {
                     time,
                     track: uint(track),
-                    cluster: self.data_start + uint(cluster),
+                    cluster: self
+                        .data_start
+                        .checked_add(uint(cluster))
+                        .ok_or(Error::Malformed("cue cluster position"))?,
                     relative: find(pos, id::CUE_RELATIVE_POSITION).map(uint),
                     duration: find(pos, id::CUE_DURATION).map(uint),
                 });
@@ -286,13 +377,23 @@ fn block(
     mut buf: Vec<u8>,
     at: usize,
 ) -> Result<Vec<u8>> {
-    let (element, h, size) = header(&buf, at).ok_or(Error::Malformed("block header"))?;
-    let end = at + h + size as usize;
+    let (element, body_start, end) = element_bounds(&buf, at)?;
     if end > buf.len() {
-        let have = buf.len() as u64;
-        buf.extend(r.read(base + have, end as u64 - have)?);
+        let bad = || Error::Malformed("block data");
+        let have = u64::try_from(buf.len()).map_err(|_| bad())?;
+        let read_at = base.checked_add(have).ok_or_else(bad)?;
+        let missing = end.checked_sub(buf.len()).ok_or_else(bad)?;
+        let tail = r.read(
+            read_at,
+            u64::try_from(missing).map_err(|_| bad())?,
+        )?;
+        if tail.len() != missing {
+            return Err(bad());
+        }
+        buf.try_reserve_exact(tail.len()).map_err(|_| bad())?;
+        buf.extend(tail);
     }
-    let body = &buf[at + h..end];
+    let body = buf.get(body_start..end).ok_or(Error::Malformed("block data"))?;
     let block = match element {
         id::SIMPLE_BLOCK => body,
         id::BLOCK_GROUP => find(body, id::BLOCK).ok_or(Error::Malformed("block group"))?,
@@ -302,11 +403,13 @@ fn block(
     if track != k.track.number {
         return Err(Error::Malformed("block of another track"));
     }
-    if block.get(i + 2).ok_or(Error::Malformed("block"))? & 0x06 != 0 {
+    let flags_at = i.checked_add(2).ok_or(Error::Malformed("block"))?;
+    if block.get(flags_at).ok_or(Error::Malformed("block"))? & 0x06 != 0 {
         return Err(Error::Unsupported("laced video block".into()));
     }
+    let frame_at = i.checked_add(3).ok_or(Error::Malformed("block"))?;
     let mut frame = k.track.header_strip.clone();
-    frame.extend_from_slice(&block[i + 3..]);
+    frame.extend_from_slice(block.get(frame_at..).ok_or(Error::Malformed("block"))?);
     Ok(frame)
 }
 
@@ -321,57 +424,215 @@ pub(crate) fn keyframe(
     };
     // A cluster header is at most 12 bytes; read it with the block when they are close.
     let near = rel < 256 * 1024;
-    let buf = r.read(e.offset, if near { 12 + rel + guess } else { 12 })?;
+    let requested = if near {
+        12u64
+            .checked_add(rel)
+            .and_then(|length| length.checked_add(guess))
+            .ok_or(Error::Malformed("cluster position"))?
+    } else {
+        12
+    };
+    let buf = r.read(e.offset, requested)?;
     let (element, h, _) = header(&buf, 0).ok_or(Error::Malformed("cluster"))?;
     if element != id::CLUSTER {
         return Err(Error::Malformed("cluster"));
     }
     if near {
-        return block(k, r, e.offset, buf, h + rel as usize);
+        let relative = usize::try_from(rel).map_err(|_| Error::Malformed("cluster position"))?;
+        let at = h.checked_add(relative).ok_or(Error::Malformed("cluster position"))?;
+        return block(k, r, e.offset, buf, at);
     }
-    let base = e.offset + h as u64 + rel;
+    let base = e
+        .offset
+        .checked_add(u64::try_from(h).map_err(|_| Error::Malformed("cluster position"))?)
+        .and_then(|offset| offset.checked_add(rel))
+        .ok_or(Error::Malformed("cluster position"))?;
     let buf = r.read(base, guess)?;
     block(k, r, base, buf, 0)
 }
 
 fn scan_cluster(k: &Keyframes, r: &mut RangeReader, e: &Keyframe) -> Result<Vec<u8>> {
     let buf = r.read(e.offset, 512 * 1024)?;
-    let (element, h, _) = header(&buf, 0).ok_or(Error::Malformed("cluster"))?;
+    let (element, header_size, _) =
+        header(&buf, 0).ok_or(Error::Malformed("cluster"))?;
     if element != id::CLUSTER {
         return Err(Error::Malformed("cluster"));
     }
-    let (mut i, mut ts) = (h, 0u64);
-    while let Some((element, eh, size)) = header(&buf, i) {
-        let start = i + eh;
+
+    let mut i = header_size;
+    let mut timestamp = 0u64;
+    while i < buf.len() {
+        let Some((element, header_size, size)) = header(&buf, i) else {
+            break;
+        };
+        if size == UNKNOWN {
+            return Err(Error::Unsupported("unknown-size cluster child".into()));
+        }
+        let body_start = i
+            .checked_add(header_size)
+            .ok_or(Error::Malformed("cluster element"))?;
+        let body_size = usize::try_from(size)
+            .map_err(|_| Error::Malformed("cluster element"))?;
+        let element_end = body_start
+            .checked_add(body_size)
+            .ok_or(Error::Malformed("cluster element"))?;
+        // The fixed scan window may end in a later element. Do not inspect a partial one.
+        if element_end > buf.len() {
+            break;
+        }
+
         match element {
-            id::CLUSTER_TIMESTAMP if start + size as usize <= buf.len() => {
-                ts = uint(&buf[start..start + size as usize])
+            id::CLUSTER_TIMESTAMP => {
+                if body_size > 8 {
+                    return Err(Error::Malformed("cluster timestamp"));
+                }
+                timestamp = uint(&buf[body_start..element_end]);
             }
             id::SIMPLE_BLOCK | id::BLOCK_GROUP => {
-                let first = if element == id::SIMPLE_BLOCK {
-                    start
-                } else {
-                    start + header(&buf, start).map_or(0, |x| x.1)
-                };
-                if let Some((track, j)) = vint(&buf, first, false)
-                    && track == k.track.number
-                    && j + 2 <= buf.len()
+                if let Some((block_start, block_end)) =
+                    block_payload_range(&buf, element, body_start, element_end)?
                 {
-                    let rel = i16::from_be_bytes([buf[j], buf[j + 1]]) as i64;
-                    let t = (ts as i64 + rel).max(0) as u64 * k.scale_ns / 1_000_000;
-                    if t + 1 >= e.time_ms {
-                        return block(k, r, e.offset, buf, i);
+                    let block_data = buf
+                        .get(block_start..block_end)
+                        .ok_or(Error::Malformed("cluster block"))?;
+                    if let Some((track, timestamp_at)) = vint(block_data, 0, false)
+                        && track == k.track.number
+                    {
+                        let timestamp_end = timestamp_at
+                            .checked_add(2)
+                            .ok_or(Error::Malformed("cluster block"))?;
+                        if let Some(relative_bytes) = block_data.get(timestamp_at..timestamp_end) {
+                            let relative = i16::from_be_bytes([
+                                relative_bytes[0],
+                                relative_bytes[1],
+                            ]);
+                            let time_ms = cluster_time_ms(timestamp, relative, k.scale_ns)?;
+                            if time_ms.saturating_add(1) >= e.time_ms {
+                                return block(k, r, e.offset, buf, i);
+                            }
+                        }
                     }
                 }
             }
             _ => {}
         }
-        i = start + size as usize;
-        if i >= buf.len() {
-            break;
-        }
+        i = element_end;
     }
     Err(Error::Unsupported(
         "keyframe not near its cluster start".into(),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        block, block_payload_range, cluster_time_ms, element_bounds,
+    };
+    use crate::ebml::id;
+    use crate::http::{Options, RangeReader};
+    use crate::keyframes::{Container, Keyframes};
+    use crate::track::{Track, TrackKind};
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_media_file(bytes: &[u8]) -> String {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "nuvio-matroska-block-{}-{nonce}.mkv",
+            std::process::id(),
+        ));
+        fs::write(&path, bytes).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    fn keyframes() -> Keyframes {
+        Keyframes {
+            container: Container::Matroska,
+            track: Track::new(1, TrackKind::Video, "V_TEST".to_string()),
+            duration_ms: 0,
+            scale_ns: 1_000_000,
+            entries: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn element_bounds_reports_the_checked_block_body_range() {
+        let bytes = [0xA3, 0x87, 0x81, 0, 0, 0, 0xAA, 0xBB, 0xCC];
+        assert_eq!(
+            element_bounds(&bytes, 0).unwrap(),
+            (id::SIMPLE_BLOCK, 2, 9),
+        );
+    }
+
+    #[test]
+    fn block_reads_a_partial_buffer_tail_before_returning_the_frame() {
+        let full = [0xA3, 0x87, 0x81, 0, 0, 0, 0xAA, 0xBB, 0xCC];
+        let path = temp_media_file(&full);
+        let result = (|| {
+            let mut reader = RangeReader::new(&path, Options::default()).unwrap();
+            block(&keyframes(), &mut reader, 0, full[..6].to_vec(), 0)
+        })();
+        fs::remove_file(path).unwrap();
+        assert_eq!(result.unwrap(), vec![0xAA, 0xBB, 0xCC]);
+    }
+
+    #[test]
+    fn block_returns_an_error_when_the_declared_tail_is_truncated() {
+        let truncated = [0xA3, 0x87, 0x81, 0, 0, 0, 0xAA];
+        let path = temp_media_file(&truncated);
+        let result = (|| {
+            let mut reader = RangeReader::new(&path, Options::default()).unwrap();
+            block(&keyframes(), &mut reader, 0, truncated[..6].to_vec(), 0)
+        })();
+        fs::remove_file(path).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unknown_sized_blocks_are_rejected() {
+        let bytes = [0xA3, 0xFF];
+        assert!(element_bounds(&bytes, 0).is_err());
+    }
+
+    #[test]
+    fn cluster_time_uses_wide_timestamp_arithmetic_and_clamps_negative_values() {
+        assert_eq!(cluster_time_ms(100, -10, 1_000_000).unwrap(), 90);
+        assert_eq!(cluster_time_ms(5, -10, 1_000_000).unwrap(), 0);
+        assert!(cluster_time_ms(u64::MAX, 1, u64::MAX).is_err());
+    }
+
+
+    #[test]
+    fn finds_the_block_inside_a_block_group_after_other_elements() {
+        // BlockGroup payload: ReferenceBlock, then Block (track 1, timestamp, flags).
+        let bytes = [
+            0xA0, 0x8B,
+            0xFB, 0x81, 0x00,
+            0xA1, 0x86, 0x81, 0x00, 0x00, 0x00, 0xAA, 0xBB,
+        ];
+        assert_eq!(
+            block_payload_range(&bytes, id::BLOCK_GROUP, 2, bytes.len()).unwrap(),
+            Some((7, 13)),
+        );
+    }
+
+    #[test]
+    fn rejects_a_block_group_child_that_exceeds_its_parent() {
+        let bytes = [0xA0, 0x83, 0xA1, 0x86, 0x81];
+        assert!(block_payload_range(&bytes, id::BLOCK_GROUP, 2, bytes.len()).is_err());
+    }
+
+    #[test]
+    fn simple_block_payload_range_excludes_its_element_header() {
+        let bytes = [0xA3, 0x87, 0x81, 0, 0, 0, 0xAA, 0xBB, 0xCC];
+        assert_eq!(
+            block_payload_range(&bytes, id::SIMPLE_BLOCK, 2, bytes.len()).unwrap(),
+            Some((2, 9)),
+        );
+    }
+
+}
+
