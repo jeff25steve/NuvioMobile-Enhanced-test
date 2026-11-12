@@ -1,7 +1,12 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -72,6 +78,8 @@ internal fun SettingsSliderRow(
     isTablet: Boolean,
     enabled: Boolean = true,
     description: String? = null,
+    searchAnchorKey: String? = null,
+    highlightedSearchAnchorKey: String? = null,
     formatValue: (@Composable (Int) -> String)? = null,
     onValueChange: (Int) -> Unit,
 ) {
@@ -86,10 +94,28 @@ internal fun SettingsSliderRow(
         }
     }
     val shownValue = sliderValue.roundToInt().coerceIn(valueRange.first, valueRange.last)
+    val bringIntoViewRequester = remember(searchAnchorKey) {
+        searchAnchorKey?.let { BringIntoViewRequester() }
+    }
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey, bringIntoViewRequester) {
+        val requester = bringIntoViewRequester
+        if (requester != null && searchAnchorKey == highlightedSearchAnchorKey) {
+            requester.bringIntoView()
+        }
+    }
+    val highlighted = searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey
+    val highlightShape = RoundedCornerShape(12.dp)
 
     Column(
         modifier = Modifier
+            .then(bringIntoViewRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier)
             .fillMaxWidth()
+            .then(
+                if (highlighted) Modifier
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), highlightShape)
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.58f)), highlightShape)
+                else Modifier
+            )
             .padding(horizontal = horizontalPadding, vertical = 10.dp)
             .alpha(if (enabled) 1f else 0.55f),
         verticalArrangement = Arrangement.spacedBy(8.dp),
