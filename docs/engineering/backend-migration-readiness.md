@@ -5,9 +5,43 @@ Branch reviewed: `main-build-testing`
 
 ## Executive finding
 
-The reported early-2027 credential rotation is **not officially confirmed by the evidence found**. [Nuvio Enhanced issue #371](https://github.com/luqmanfadlli/NuvioMobile-Enhanced/issues/371) was opened on 12 November 2026 as an unanswered feature question. It attributes the claim to the Italian community but links no original announcement, maintainer post, release note or policy. It had no maintainer response when checked. Treat the date as an unverified risk signal, not a fact.
+The reported early-2027 credential rotation is **not officially confirmed and is now materially contradicted by additional contemporaneous evidence**. [Nuvio Enhanced issue #371](https://github.com/luqmanfadlli/NuvioMobile-Enhanced/issues/371) was opened on 12 November 2026 as an unanswered feature question. It attributes the claim to the Italian community but links no original announcement, maintainer post, release note or policy. It had no maintainer response when checked.
 
-The official [Nuvio self-host repository](https://github.com/NuvioMedia/self-host) is real and documents a self-hosted Supabase deployment, a client discovery protocol and a server-side account importer. Its documentation describes personal self-hosting and discourages public third-party hosted backends. This provides a credible fallback path without making a community-operated backend the default.
+The user then supplied a screenshot from the Nuvio Discord `#general-chat` conversation on 12 November 2026. A sender displayed as `skoruppa` with a `NUVIO` role badge says, conditionally, that **if** forks do something bad, they would assume the team could issue API keys per developer to identify and limit/block a problematic app or fork. In the same conversation the sender says they had not heard this from Tap and expected Tap to announce such a policy in the official Discord. This is not an authenticated official policy statement, and the screenshot alone cannot verify the sender's employment/authority or Tap's private plans. However, it is strong counter-evidence to the rumour of a blanket early-2027 shutdown. The key-per-developer idea is explicitly speculative ("I would assume"), not a confirmed implementation or schedule.
+
+**Updated risk posture:** do not plan around a blanket shutdown date. Retain a contingency for targeted key revocation or rate-limiting if a particular fork causes abuse, and keep the self-host migration route as a fallback. No user migration, public community backend or automatic endpoint change should be triggered by this rumour.
+
+The official [Nuvio self-host repository](https://github.com/NuvioMedia/self-host) is real and documents a self-hosted Supabase deployment, a client discovery protocol and a server-side account importer. Its documented publishable key is public client configuration, not a service-role secret. Its documentation describes personal self-hosting and discourages public third-party hosted backends. This provides a credible fallback path without making a community-operated backend the default.
+
+## How to interpret the Discord developer discussion
+
+The screenshot is best treated as **first-hand but informal evidence**:
+
+- It shows a Discord conversation, not a published policy, changelog or maintainer announcement.
+- The sender's `NUVIO` role badge is visible in the image; the sender's actual role and authority have not been independently authenticated in this review.
+- The statement about developer-specific API keys is conditional and speculative. It describes a potential targeted control if a fork causes abuse; it does not state that all forks will be blocked or that credentials will rotate in early 2027.
+- The sender explicitly says they had not heard this from Tap and expected an official announcement in the project Discord if such a decision had been made.
+- The thread also includes another participant questioning the source and saying they had heard nothing from Tap. This reinforces that the original report was circulating as hearsay, not as an acknowledged decision.
+
+### Three different mechanisms must not be conflated
+
+| Mechanism | Possible effect | Current evidence |
+|---|---|---|
+| One shared upstream publishable key is rotated | Every client still using the old key may lose access until updated | Hypothetical risk in issue #371; no official date or plan found |
+| Per-developer/per-fork public client keys are issued and selectively revoked | The upstream could distinguish clients by key and target a particular key | Mentioned as a developer's assumption in the screenshot; no confirmed product design |
+| Backend actively blocks unofficial clients regardless of key | Would require additional server-side enforcement or identity signals | No official announcement or implementation evidence found |
+
+A Supabase publishable/anon key is designed to be public client configuration. It can identify a project/client configuration for routing, analytics or selective rate limiting, but it is **not a cryptographic attestation that a request came from an untampered official APK**. It can be extracted and copied from an application. Any restriction must be enforced server-side, and a per-fork key alone should not be treated as a trustworthy device or binary identity. Do not embed service-role keys or administrative secrets as a supposed workaround.
+
+The official self-host client guide says each self-hosted deployment publishes its own backend URL and publishable key at `<BACKEND_URL>/.well-known/nuvio`. A user's independent deployment therefore has its own key and does not rely on the official hosted project's publishable key. The origin-binding hardening in this branch follows that documented discovery model.
+
+### Practical readiness decision
+
+1. Keep the official Nuvio backend as the default while it remains available.
+2. Keep optional user-controlled self-hosting on the Full build as the migration escape hatch; do not silently move users or their credentials.
+3. If upstream later offers legitimate per-developer client keys, evaluate the official process and terms before adopting one. Do not attempt to extract, copy, spoof or bypass another app's key.
+4. If upstream announces a targeted restriction, determine whether this fork is affected from the maintainer's explicit criteria and a controlled compatibility test. Do not infer a global ban from an API error alone.
+5. If an official blanket policy is ever confirmed, use the existing self-host importer/discovery route and a documented account-migration plan. Keep backups and validate imported profiles, libraries, add-ons and watch progress before deleting the source account.
 
 ## What this fork already supports
 
@@ -47,7 +81,7 @@ This is a separate P1 hardening task before broad distribution of a security-sen
 
 ## Remaining readiness checks
 
-- Obtain the original community announcement or an official maintainer statement before treating early 2027 as a deadline.
+- No longer treat early 2027 as a working deadline. Re-open this question only if Tap or another authorised upstream channel publishes a specific policy or the service begins returning a documented client-key restriction.
 - Compare self-host capabilities with this fork's actual feature usage (not just login). Verify TV login/device-link, profile, library, settings, watch-progress and other sync behaviour against a running self-host instance.
 - Validate `./nuvio import-account` on a disposable self-host instance; record imported data and what needs reconnecting; keep an independent backup.
 - Decide whether non-Full distribution variants should expose custom-server selection. They currently disable it intentionally; changing that is a release-policy decision, not a backend code fix.
@@ -64,6 +98,7 @@ This is a separate P1 hardening task before broad distribution of a security-sen
 ## References
 
 - [Unanswered Enhanced issue #371](https://github.com/luqmanfadlli/NuvioMobile-Enhanced/issues/371)
+- User-supplied Nuvio Discord `#general-chat` screenshot, 12 November 2026 (informal developer discussion; no public message URL was supplied)
 - [Official Nuvio self-host repository](https://github.com/NuvioMedia/self-host)
 - [Official client configuration](https://github.com/NuvioMedia/self-host/blob/main/docs/client-configuration.md)
 - [Official self-hosting guide](https://github.com/NuvioMedia/self-host/blob/main/docs/self-hosting.md)
