@@ -2,7 +2,9 @@ package com.nuvio.app.core.sync
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthSessionIdentity
 import com.nuvio.app.core.auth.AuthState
+import com.nuvio.app.core.auth.isAuthSessionIdentityCurrentForProfile
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.features.collection.CollectionMobileSettingsRepository
 import com.nuvio.app.features.collection.CollectionMobileSettingsStorage
@@ -39,6 +41,7 @@ import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepositor
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlin.concurrent.Volatile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -109,14 +112,17 @@ object ProfileSettingsSync {
     suspend fun pull(profileId: Int): Boolean {
         ensureRepositoriesLoaded()
         return syncMutex.withLock {
-            if (ProfileRepository.activeProfileId != profileId) {
-                log.d { "pull(profileId=$profileId) — skipped because profile is no longer active" }
+            val identity = AuthRepository.captureSessionIdentity()
+                ?.takeIf { session -> !session.isAnonymous }
+                ?: return@withLock false
+            if (!isCurrentProfileScope(profileId, identity)) {
+                log.d { "pull(profileId=$profileId) — skipped because account/profile scope changed" }
                 return@withLock false
             }
             isServerSyncInFlight = true
             try {
                 val localBlob = exportSettingsBlob()
-                if (ProfileRepository.activeProfileId != profileId) return@withLock false
+                if (!isCurrentProfileScope(profileId, identity)) return@withLock false
                 val localSignature = buildSignature(localBlob)
 
                 val params = buildJsonObject {
@@ -124,8 +130,9 @@ object ProfileSettingsSync {
                     put("p_platform", MOBILE_SYNC_PLATFORM)
                 }
                 val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profile_settings_blob", params)
-                if (ProfileRepository.activeProfileId != profileId) return@withLock false
-                val response = result.decodeList<SettingsBlobResponse>().firstOrNull()
+                if (!isCurrentProfileScope(profileId, identity)) return@withLock false
+                val response = result.decodeList<SettingsBlobResponse>()
+                    .firstOrNull { item -> item.profileId == profileId }
                 val remoteJson = response?.settingsJson
 
                 if (remoteJson == null) {
@@ -147,16 +154,25 @@ object ProfileSettingsSync {
                         return@withLock false
                     }
 
-                    if (ProfileRepository.activeProfileId != profileId) return@withLock false
-                    applyRemoteBlob(remoteBlob)
-                    skipNextPushSignature = currentObservedStateSignature()
+                    var applied = false
+                    val identityCurrent = AuthRepository.runIfSessionIdentityCurrent(identity) {
+                        if (ProfileRepository.activeProfileId == profileId) {
+                            applyRemoteBlob(remoteBlob)
+                            skipNextPushSignature = currentObservedStateSignature()
+                            applied = true
+                        }
+                    }
+                    if (!identityCurrent || !applied) return@withLock false
                 } finally {
                     isApplyingRemoteBlob = false
                 }
 
                 log.i { "pull(profileId=$profileId) — applied remote settings blob" }
                 true
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
+                AuthRepository.signOutIfSessionInvalid(error, "Profile settings pull", identity)
                 log.e(error) { "pull(profileId=$profileId) — FAILED" }
                 false
             } finally {
@@ -168,15 +184,22 @@ object ProfileSettingsSync {
     suspend fun pushCurrentProfileToRemote(): Boolean {
         ensureRepositoriesLoaded()
         return syncMutex.withLock {
-            runCatching {
-                val profileId = ProfileRepository.activeProfileId
+            val profileId = ProfileRepository.activeProfileId
+            val identity = AuthRepository.captureSessionIdentity()
+                ?.takeIf { session -> !session.isAnonymous }
+                ?: return@withLock false
+            try {
+                if (!isCurrentProfileScope(profileId, identity)) return@withLock false
                 val blob = exportSettingsBlob()
-                if (ProfileRepository.activeProfileId != profileId) return@runCatching false
-                pushToRemoteLocked(profileId, blob)
-                true
-            }.onFailure { error ->
+                if (!isCurrentProfileScope(profileId, identity)) return@withLock false
+                pushToRemoteLocked(profileId, blob, identity)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                AuthRepository.signOutIfSessionInvalid(error, "Profile settings push", identity)
                 log.e(error) { "pushCurrentProfileToRemote() — FAILED" }
-            }.getOrDefault(false)
+                false
+            }
         }
     }
 
@@ -224,7 +247,12 @@ object ProfileSettingsSync {
         }
     }
 
-    private suspend fun pushToRemoteLocked(profileId: Int, blob: MobileProfileSettingsBlob) {
+    private suspend fun pushToRemoteLocked(
+        profileId: Int,
+        blob: MobileProfileSettingsBlob,
+        expectedIdentity: AuthSessionIdentity,
+    ): Boolean {
+        if (!isCurrentProfileScope(profileId, expectedIdentity)) return false
         val params = buildJsonObject {
             put("p_profile_id", profileId)
             put("p_platform", MOBILE_SYNC_PLATFORM)
@@ -232,7 +260,9 @@ object ProfileSettingsSync {
             putSyncOriginClientId()
         }
         SupabaseProvider.client.postgrest.rpc("sync_push_profile_settings_blob", params)
+        if (!isCurrentProfileScope(profileId, expectedIdentity)) return false
         log.d { "pushToRemoteLocked(profileId=$profileId) — success" }
+        return true
     }
 
     private fun exportSettingsBlob(): MobileProfileSettingsBlob {
@@ -354,6 +384,17 @@ object ProfileSettingsSync {
 
         EpisodeReleaseNotificationsRepository.applyFromSyncEnabled(blob.features.notificationsSettings.episodeReleaseAlertsEnabled)
     }
+
+    private fun isCurrentProfileScope(
+        profileId: Int,
+        expectedIdentity: AuthSessionIdentity,
+    ): Boolean =
+        isAuthSessionIdentityCurrentForProfile(
+            expectedProfileId = profileId,
+            currentProfileId = ProfileRepository.activeProfileId,
+            expectedIdentity = expectedIdentity,
+            currentIdentity = AuthRepository.captureSessionIdentity(),
+        )
 
     private fun ensureRepositoriesLoaded() {
         ThemeSettingsRepository.ensureLoaded()

@@ -3046,3 +3046,31 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 ### iOS cleanup ordering correction (11 November 2026)
 - Moved the permanent-removal fence and URLSession cancellation ahead of subtitle-directory and partial-file removal. A delegate callback can no longer recreate subtitle/file artifacts between storage cleanup and task cancellation.
 - Source-only correction; no build or test execution.
+
+
+## 11 November 2026 — fence profile sync commits by originating account identity
+
+### Confirmed root cause
+- The shared auth API now requires the originating `AuthSessionIdentity` when handling an invalid-session response. The provider-credential and media-server sync handlers still used the removed two-argument form, leaving their call sites inconsistent with the account-reset safety contract.
+- Profile settings, provider credentials and media-server sync identify their remote rows by a device-local profile index. That index can be reused by another signed-in account. Checking only `ProfileRepository.activeProfileId` cannot distinguish the original account from a replacement account using the same index.
+- Coroutine cancellation is cooperative. An in-flight network operation must still validate its captured identity after the response and immediately before committing local state; cancellation alone is not a sufficient isolation boundary.
+
+### Integrated change
+- Added `AuthRepository.runIfSessionIdentityCurrent`, a synchronous local-commit boundary serialized with the existing auth session generation lock. It checks the captured generation, Nuvio account state, active backend configuration and Supabase SDK session user before running a local state/storage mutation.
+- Added a pure profile-scope predicate requiring both the expected active profile index and the complete captured session identity.
+- Profile-settings pull now carries the originating identity through the RPC, rejects a response after an account/backend/profile change, selects only a response row for the requested profile, and applies the decoded settings blob only inside the identity-guarded commit. Push checks the same identity before and after the RPC and returns false for a stale completion.
+- Provider-credential sync now scopes its baselines by account/backend/profile, guards pull and push completions, and applies the credential snapshot in one identity-guarded synchronous commit. Both invalid-session handlers pass the captured identity. A stale profile/account outcome returns without cancelling the long-lived observer.
+- Media-server sync now captures account/backend/profile identity for each operation, checks it around RPCs, guards `ServerRepository.applySync` and `markPushed`, and supplies the originating identity to invalid-session handling. Stale completions are ignored rather than clearing replacement-account data.
+- Added two auth-identity regression cases for the profile-index reuse scenario and for preserving the active-profile check.
+- No new dependency, server schema, website-managed setting, account data format, UI, or `enhanced` branch change.
+
+### Research and API references
+- Superpowers systematic-debugging and test-driven-development guidance was used to trace the request-to-commit path and author regression cases before changing the implementation.
+- Context7 resolved the project's `kotlinx.coroutines` usage and confirmed the mutex lock/cancellation contract. The checked-in version catalog pins kotlinx.coroutines `1.10.2`; Context7's available versioned package entries did not list that exact patch, so the official current API/KDoc source was used for the relevant stable contracts rather than claiming an exact 1.10.2-specific sample.
+- Exa independently cross-checked Kotlin's official cancellation and shared-mutable-state documentation. Cancellation is cooperative and shared state needs a synchronized/atomic commit boundary; the implementation therefore uses the existing generation lock and does not add cancellation jobs.
+- Sources: https://kotlinlang.org/docs/cancellation-and-timeouts.html ; https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html ; https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-mutex/ ; https://github.com/Kotlin/kotlinx.coroutines/blob/master/kotlinx-coroutines-core/common/src/sync/Mutex.kt
+
+### Verification boundary
+- Static source review confirms the touched sync files pass the captured identity into invalid-session handling; their previous unscoped helper invocations are removed. The account/profile predicate has regression cases for replacement-account reuse and wrong active profile.
+- Regression tests were authored but deliberately NOT executed. No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started, as instructed.
+- Compilation/API compatibility and live account-switch timing remain unverified until builds and tests are explicitly authorized. The branch update itself is verified separately by the resulting commit and remote ref.

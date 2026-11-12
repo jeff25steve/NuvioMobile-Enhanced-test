@@ -45,6 +45,18 @@ internal fun isAuthSessionIdentityCurrent(
             else currentSupabaseUserId == expected.userId
         )
 
+/**
+ * A profile index is device-local and can be reused after an account switch. Remote profile
+ * operations therefore require both the same account/backend identity and the same active index.
+ */
+internal fun isAuthSessionIdentityCurrentForProfile(
+    expectedProfileId: Int,
+    currentProfileId: Int,
+    expectedIdentity: AuthSessionIdentity,
+    currentIdentity: AuthSessionIdentity?,
+): Boolean =
+    expectedProfileId == currentProfileId && expectedIdentity == currentIdentity
+
 val AuthState.isLoggedIn: Boolean
     get() = this is AuthState.Authenticated
 

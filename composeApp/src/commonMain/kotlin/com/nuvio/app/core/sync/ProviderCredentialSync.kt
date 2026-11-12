@@ -2,7 +2,8 @@ package com.nuvio.app.core.sync
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
-import com.nuvio.app.core.auth.AuthState
+import com.nuvio.app.core.auth.AuthSessionIdentity
+import com.nuvio.app.core.auth.isAuthSessionIdentityCurrentForProfile
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.debrid.DebridSettings
@@ -37,18 +38,30 @@ import kotlinx.serialization.json.put
 
 private const val PROVIDER_CREDENTIAL_PUSH_DEBOUNCE_MS = 500L
 
-private data class ProviderCredentialScope(
+private data class ProviderCredentialBaselineScope(
     val userId: String,
+    val serverConfiguration: com.nuvio.app.core.network.ServerConfiguration,
     val profileId: Int,
 )
+
+private data class ProviderCredentialScope(
+    val identity: AuthSessionIdentity,
+    val profileId: Int,
+) {
+    val baselineScope = ProviderCredentialBaselineScope(
+        userId = identity.userId,
+        serverConfiguration = identity.serverConfiguration,
+        profileId = profileId,
+    )
+}
 
 object ProviderCredentialSync {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("ProviderCredentialSync")
     private val syncMutex = Mutex()
     private val stateLock = SynchronizedObject()
-    private val observedSnapshots = mutableMapOf<Int, ProviderCredentialSnapshot>()
-    private val baselineSnapshots = mutableMapOf<ProviderCredentialScope, ProviderCredentialSnapshot>()
+    private val observedSnapshots = mutableMapOf<ProviderCredentialBaselineScope, ProviderCredentialSnapshot>()
+    private val baselineSnapshots = mutableMapOf<ProviderCredentialBaselineScope, ProviderCredentialSnapshot>()
     private var observeJob: Job? = null
     private var isApplyingRemote = false
 
@@ -77,13 +90,12 @@ object ProviderCredentialSync {
         if (observeJob?.isActive != true) return
         ensureRepositoriesLoaded()
         val profileId = ProfileRepository.activeProfileId
+        val credentialScope = currentScope(profileId) ?: return
         val snapshot = currentSnapshot(profileId)
-        val credentialScope = currentScope(profileId)
+        if (!isCurrentScope(credentialScope)) return
         synchronized(stateLock) {
-            observedSnapshots[profileId] = snapshot
-            if (credentialScope != null) {
-                baselineSnapshots[credentialScope] = snapshot
-            }
+            observedSnapshots[credentialScope.baselineScope] = snapshot
+            baselineSnapshots[credentialScope.baselineScope] = snapshot
         }
     }
 
@@ -91,50 +103,67 @@ object ProviderCredentialSync {
         ensureRepositoriesLoaded()
         val credentialScope = currentScope(profileId) ?: return@withLock false
         try {
+            if (!isCurrentScope(credentialScope)) return@withLock false
             val localSnapshot = currentSnapshot(profileId)
-            val rows = pullRows(profileId)
-            requireCurrentScope(credentialScope)
+            if (!isCurrentScope(credentialScope)) return@withLock false
+            val rows = pullRows(profileId, credentialScope) ?: return@withLock false
             val remoteSnapshot = localSnapshot.mergeRemote(rows)
             val applied = remoteSnapshot != localSnapshot
             if (applied) {
                 isApplyingRemote = true
-                try {
+                val committed = try {
                     applySnapshot(remoteSnapshot, credentialScope)
                 } finally {
                     isApplyingRemote = false
                 }
+                if (!committed) return@withLock false
             }
-            requireCurrentScope(credentialScope)
+            if (!isCurrentScope(credentialScope)) return@withLock false
             synchronized(stateLock) {
-                observedSnapshots[profileId] = remoteSnapshot
-                baselineSnapshots[credentialScope] = remoteSnapshot
+                observedSnapshots[credentialScope.baselineScope] = remoteSnapshot
+                baselineSnapshots[credentialScope.baselineScope] = remoteSnapshot
             }
             log.d { "Synchronized ${remoteSnapshot.values.size} credentials for profile $profileId applied=$applied" }
             applied
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            AuthRepository.signOutIfSessionInvalid(error, "Provider credential sync")
+            AuthRepository.signOutIfSessionInvalid(
+                error,
+                "Provider credential sync",
+                credentialScope.identity,
+            )
             log.e(error) { "Provider credential sync failed for profile $profileId" }
             throw error
         }
     }
 
-    private suspend fun pushSnapshot(snapshot: ProviderCredentialSnapshot) {
+    private suspend fun pushSnapshot(
+        snapshot: ProviderCredentialSnapshot,
+        expectedScope: ProviderCredentialScope,
+    ): Boolean {
+        if (!isCurrentScope(expectedScope)) return false
         SupabaseProvider.client.postgrest.rpc(
             function = "sync_push_provider_credentials",
             parameters = credentialParams(snapshot),
         )
+        if (!isCurrentScope(expectedScope)) return false
         log.d { "Pushed ${snapshot.values.size} credentials for profile ${snapshot.profileId}" }
+        return true
     }
 
-    private suspend fun pullRows(profileId: Int): List<SupabaseProviderCredential> {
+    private suspend fun pullRows(
+        profileId: Int,
+        expectedScope: ProviderCredentialScope,
+    ): List<SupabaseProviderCredential>? {
+        if (!isCurrentScope(expectedScope)) return null
         val params = buildJsonObject {
             put("p_profile_id", profileId)
         }
-        return SupabaseProvider.client.postgrest
+        val rows = SupabaseProvider.client.postgrest
             .rpc("sync_pull_provider_credentials", params)
-            .decodeList()
+            .decodeList<SupabaseProviderCredential>()
+        return rows.takeIf { isCurrentScope(expectedScope) }
     }
 
     private fun credentialParams(snapshot: ProviderCredentialSnapshot) = buildJsonObject {
@@ -216,83 +245,97 @@ object ProviderCredentialSync {
         },
     )
 
-    private suspend fun applySnapshot(
+    private fun applySnapshot(
         snapshot: ProviderCredentialSnapshot,
         expectedScope: ProviderCredentialScope,
-    ) {
-        snapshot.values.forEach { credential ->
-            requireCurrentScope(expectedScope)
-            when {
-                credential.provider.startsWith("debrid:") -> {
-                    DebridSettingsRepository.setProviderApiKey(
-                        credential.provider.substringAfter("debrid:"),
-                        credential.value,
-                    )
+    ): Boolean {
+        var applied = false
+        val identityCurrent = AuthRepository.runIfSessionIdentityCurrent(expectedScope.identity) {
+            if (ProfileRepository.activeProfileId == expectedScope.profileId) {
+                snapshot.values.forEach { credential ->
+                    when {
+                        credential.provider.startsWith("debrid:") -> {
+                            DebridSettingsRepository.setProviderApiKey(
+                                credential.provider.substringAfter("debrid:"),
+                                credential.value,
+                            )
+                        }
+                        credential.provider == ProviderCredentialIds.TMDB -> {
+                            TmdbSettingsRepository.setApiKey(credential.value)
+                        }
+                        credential.provider == ProviderCredentialIds.MDBLIST -> {
+                            MdbListSettingsRepository.setApiKey(credential.value)
+                        }
+                        credential.provider == ProviderCredentialIds.ANIMESKIP -> {
+                            PlayerSettingsRepository.setAnimeSkipClientId(credential.value)
+                        }
+                        credential.provider == ProviderCredentialIds.INTRODB -> {
+                            PlayerSettingsRepository.setIntroDbApiKey(credential.value)
+                        }
+                    }
                 }
-                credential.provider == ProviderCredentialIds.TMDB -> {
-                    TmdbSettingsRepository.setApiKey(credential.value)
-                }
-                credential.provider == ProviderCredentialIds.MDBLIST -> {
-                    MdbListSettingsRepository.setApiKey(credential.value)
-                }
-                credential.provider == ProviderCredentialIds.ANIMESKIP -> {
-                    PlayerSettingsRepository.setAnimeSkipClientId(credential.value)
-                }
-                credential.provider == ProviderCredentialIds.INTRODB -> {
-                    PlayerSettingsRepository.setIntroDbApiKey(credential.value)
-                }
+                applied = true
             }
         }
+        return identityCurrent && applied
     }
 
     private suspend fun handleLocalSnapshot(snapshot: ProviderCredentialSnapshot) {
         if (isApplyingRemote) return
         syncMutex.withLock {
-            if (ProfileRepository.activeProfileId != snapshot.profileId) return@withLock
+            val credentialScope = currentScope(snapshot.profileId) ?: return@withLock
+            if (!isCurrentScope(credentialScope)) return@withLock
             if (snapshot != currentSnapshot(snapshot.profileId)) return@withLock
             val previous = synchronized(stateLock) {
-                observedSnapshots.put(snapshot.profileId, snapshot)
+                observedSnapshots.put(credentialScope.baselineScope, snapshot)
             }
-            val credentialScope = currentScope(snapshot.profileId) ?: return@withLock
             if (previous == null) {
                 synchronized(stateLock) {
-                    if (credentialScope !in baselineSnapshots) {
-                        baselineSnapshots[credentialScope] = snapshot
+                    if (credentialScope.baselineScope !in baselineSnapshots) {
+                        baselineSnapshots[credentialScope.baselineScope] = snapshot
                     }
                 }
                 return@withLock
             }
             if (previous == snapshot) return@withLock
             val baseline = synchronized(stateLock) {
-                baselineSnapshots.getOrPut(credentialScope) { previous }
+                baselineSnapshots.getOrPut(credentialScope.baselineScope) { previous }
             }
             if (baseline == snapshot) return@withLock
 
             try {
-                pushSnapshot(snapshot)
+                if (!pushSnapshot(snapshot, credentialScope)) return@withLock
                 synchronized(stateLock) {
-                    baselineSnapshots[credentialScope] = snapshot
+                    baselineSnapshots[credentialScope.baselineScope] = snapshot
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                AuthRepository.signOutIfSessionInvalid(error, "Provider credential push")
+                AuthRepository.signOutIfSessionInvalid(
+                    error,
+                    "Provider credential push",
+                    credentialScope.identity,
+                )
                 log.e(error) { "Failed to push provider credentials for profile ${snapshot.profileId}" }
             }
         }
     }
 
     private fun currentScope(profileId: Int): ProviderCredentialScope? {
-        val state = AuthRepository.state.value as? AuthState.Authenticated ?: return null
-        if (state.isAnonymous || ProfileRepository.activeProfileId != profileId) return null
-        return ProviderCredentialScope(state.userId, profileId)
+        if (ProfileRepository.activeProfileId != profileId) return null
+        val identity = AuthRepository.captureSessionIdentity()
+            ?.takeIf { session -> !session.isAnonymous }
+            ?: return null
+        return ProviderCredentialScope(identity = identity, profileId = profileId)
     }
 
-    private fun requireCurrentScope(expected: ProviderCredentialScope) {
-        if (currentScope(expected.profileId) != expected) {
-            throw CancellationException("Provider credential sync target changed")
-        }
-    }
+    private fun isCurrentScope(expected: ProviderCredentialScope): Boolean =
+        isAuthSessionIdentityCurrentForProfile(
+            expectedProfileId = expected.profileId,
+            currentProfileId = ProfileRepository.activeProfileId,
+            expectedIdentity = expected.identity,
+            currentIdentity = AuthRepository.captureSessionIdentity(),
+        )
 
     private fun ensureRepositoriesLoaded() {
         DebridSettingsRepository.ensureLoaded()

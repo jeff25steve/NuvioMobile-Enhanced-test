@@ -92,6 +92,37 @@ object AuthRepository {
         )
     }
 
+    /**
+     * Commits a synchronous local update only while the originating Supabase identity is current.
+     * The session-generation lock serializes this check and update with auth-state publication
+     * and reset, so a replacement session cannot slip between the check and the commit.
+     */
+    internal fun runIfSessionIdentityCurrent(
+        expected: AuthSessionIdentity,
+        action: () -> Unit,
+    ): Boolean {
+        var committed = false
+        sessionGeneration.runIfCurrent(expected.sessionGeneration) {
+            val authenticated = state.value as? AuthState.Authenticated
+            val configuration = ServerConfigurationRepository.active.value
+            val supabaseUserId = SupabaseProvider.client.auth.currentSessionOrNull()?.user?.id
+            if (
+                isAuthSessionIdentityCurrent(
+                    expected = expected,
+                    currentSessionGeneration = expected.sessionGeneration,
+                    currentUserId = authenticated?.userId,
+                    currentIsAnonymous = authenticated?.isAnonymous,
+                    currentServerConfiguration = configuration,
+                    currentSupabaseUserId = supabaseUserId,
+                )
+            ) {
+                action()
+                committed = true
+            }
+        }
+        return committed
+    }
+
     fun initialize() {
         if (initialized) return
         initialized = true

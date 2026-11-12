@@ -52,6 +52,39 @@ class AuthSessionIdentityTest {
     }
 
     @Test
+    fun sameProfileIndexDoesNotMakeAReplacementAccountCurrent() {
+        val replacement = identity.copy(userId = "account-two")
+        assertFalse(
+            isAuthSessionIdentityCurrentForProfile(
+                expectedProfileId = 3,
+                currentProfileId = 3,
+                expectedIdentity = identity,
+                currentIdentity = replacement,
+            ),
+        )
+    }
+
+    @Test
+    fun sameAccountStillRequiresTheSameActiveProfileIndex() {
+        assertTrue(
+            isAuthSessionIdentityCurrentForProfile(
+                expectedProfileId = 3,
+                currentProfileId = 3,
+                expectedIdentity = identity,
+                currentIdentity = identity,
+            ),
+        )
+        assertFalse(
+            isAuthSessionIdentityCurrentForProfile(
+                expectedProfileId = 3,
+                currentProfileId = 2,
+                expectedIdentity = identity,
+                currentIdentity = identity,
+            ),
+        )
+    }
+
+    @Test
     fun anonymousIdentityRequiresNoSupabaseUserSession() {
         val anonymous = identity.copy(isAnonymous = true)
         assertTrue(isAuthSessionIdentityCurrent(anonymous, 4L, "account-one", true, official, null))
