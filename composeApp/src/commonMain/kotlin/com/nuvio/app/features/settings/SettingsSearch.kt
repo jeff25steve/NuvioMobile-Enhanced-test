@@ -449,7 +449,8 @@ internal fun settingsSearchEntries(
         searchTerms = listOf(
             "profile", "sign in", "sign out", "account details",
             "manage account", "user account", "user profile", "log in", "login",
-            "log out", "logout", "authentication", "account settings",\n            "profile management", "account access", "sign in", "sign out", "account details",
+            "log out", "logout", "authentication", "account settings",
+            "profile management", "account access", "sign in", "sign out", "account details",
         ),
     )
     addPage(
@@ -468,7 +469,11 @@ internal fun settingsSearchEntries(
         key = "appearance",
         title = appearancePage,
         description = stringResource(Res.string.settings_appearance_description),
-        searchTerms = listOf(\n            "theme", "dark mode", "light mode", "amoled", "colors", "app icon", "language", "look",\n            "color scheme", "app appearance", "display theme", "localization", "translation",\n            "accent color", "icon style", "visual settings",\n        ),
+        searchTerms = listOf(
+            "theme", "dark mode", "light mode", "amoled", "colors", "app icon", "language", "look",
+            "color scheme", "app appearance", "display theme", "localization", "translation",
+            "accent color", "icon style", "visual settings",
+        ),
     )
     addPage(
         page = SettingsPage.Layout,
