@@ -8,6 +8,40 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun downloadsSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "downloads-allow-mobile-data",
+            "downloads-show-download-button",
+            "download-location",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.Downloads, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.Downloads, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun downloadsAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.Downloads,
+            "downloads-allow-mobile-data",
+            "Allow mobile data",
+            "",
+        )!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun unknownDownloadsRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.Downloads, "downloads-private-value", "Private value", ""))
+    }
+
+    @Test
     fun playbackBufferSearchResultsHaveExactRowAnchors() {
         val keys = listOf(
             "playback-exo-native-memory",
