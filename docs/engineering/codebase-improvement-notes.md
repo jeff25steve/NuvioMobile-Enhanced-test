@@ -3715,3 +3715,18 @@ References checked:
 #### Next checkpoint
 
 - Continue Playback Subtitles, then audit Video and Buffer for remaining controls, preserving strict row anchors and visibility parity.
+
+
+
+### 12 November 2026 — Project-wide Settings Search catalogue de-duplication
+
+- Audited the live Settings Search path at `9420ffd2b921069c3495659ae418102e7d5dfcef`: `SettingsSearch.kt` builds one catalogue from page-level entries and individual row entries; each row is assigned an exact anchor only when its page/key pair is allow-listed by `settingsSearchAnchor`. The result renderer displayed the ranked entries directly and did not collapse repeated catalogue records.
+- Implemented stable de-duplication at the catalogue boundary. Entries are considered the same visible setting only when destination page, breadcrumb page, section, normalized title and normalized description all match. Entries in different sections or destinations remain distinct. When duplicate records differ only in navigation quality, the exact-row anchored target wins over a page-only target; search aliases are merged in encounter order and deduplicated.
+- Added common tests for anchor preference, alias preservation, and retaining same-label settings in different sections/destinations. **Tests were not executed** because this cycle was restricted to source-level integration and no build/test execution was authorised. No builds or CI were started.
+- Research cross-check: AOSP Settings Universal Search supports explicit aliases/keywords and suppressing duplicate or context-dependent entries; LINE's engineering write-up describes building search data across settings levels and scrolling/highlighting the selected item. These support a single normalized catalogue and stable destination identity, while this change deliberately does not broaden the existing anchor allow-list or invent row mappings.
+- Context7 resolved Compose Multiplatform. The repo pins 1.13.0-beta01 / Kotlin 2.4.10; the exact beta is not among Context7's indexed versions. No Compose API, dependency, navigation, persistence, or UI layout changes were made.
+- Review boundary: source changes are limited to catalogue normalization, its pure helper and regression source. Runtime result ordering/scrolling and compilation remain unverified; review must confirm that distinct settings do not collapse and aliases remain searchable.
+
+#### Next checkpoint
+
+- Continue the audited coverage matrix across every Settings page. Add exact row anchors only after matching each catalogue key to a real rendered control and its platform/feature/dependency visibility. Highest remaining gaps: Playback Subtitles, Video, Buffer and P2P, then non-Playback controls (Appearance/Layout, Home, Details, Integrations, Tracking, Downloads, Notifications, Account and Advanced). Never index credential values; index visible credential labels only.
