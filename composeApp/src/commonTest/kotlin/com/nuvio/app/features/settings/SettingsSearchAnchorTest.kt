@@ -554,8 +554,9 @@ class SettingsSearchAnchorTest {
             )
 
         val entries = listOf(
-            entry("account", SettingsPage.Account, "Account", listOf("manage account", "log in", "log out", "user profile")),
-            entry("layout", SettingsPage.Layout, "Layout", listOf("navigation tabs", "bottom navigation", "catalog layout", "poster layout")),
+            entry("account", SettingsPage.Account, "Account", listOf("manage account", "log in", "log out", "user profile", "profile management", "account access", "sign in", "sign out", "account details")),
+            entry("layout", SettingsPage.Layout, "Layout", listOf("navigation tabs", "bottom navigation", "catalog layout", "tab navigation", "bottom bar", "navigation bar", "sidebar navigation", "grid view", "list view")),
+            entry("appearance", SettingsPage.Appearance, "Appearance", listOf("color scheme", "app appearance", "display theme", "localization", "translation", "dark mode", "light mode")),
         )
 
         assertEquals(
