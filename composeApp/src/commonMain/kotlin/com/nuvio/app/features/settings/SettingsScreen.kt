@@ -953,6 +953,7 @@ private fun MobileSettingsScreen(
                 SettingsPage.Notifications -> notificationsSettingsContent(
                     isTablet = false,
                     uiState = episodeReleaseNotificationsUiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Downloads -> downloadsSettingsContent(
                     isTablet = false,
@@ -1430,6 +1431,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.Notifications -> notificationsSettingsContent(
                         isTablet = true,
                         uiState = episodeReleaseNotificationsUiState,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Downloads -> downloadsSettingsContent(
                         isTablet = true,
