@@ -13,6 +13,7 @@ internal fun LazyListScope.playbackSettingsContent(
     isTablet: Boolean,
     page: SettingsPage,
     onPageChange: (SettingsPage) -> Unit,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         val settings by remember {
@@ -34,7 +35,11 @@ internal fun LazyListScope.playbackSettingsContent(
                     }
                 }
             }
-            SettingsPage.PlaybackPlayer -> PlaybackPlayerSettings(isTablet, settings)
+            SettingsPage.PlaybackPlayer -> PlaybackPlayerSettings(
+                isTablet = isTablet,
+                settings = settings,
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            )
             SettingsPage.PlaybackStreamSelection -> PlaybackStreamSettings(isTablet, settings)
             SettingsPage.PlaybackUpNext -> PlaybackUpNextSettings(isTablet, settings)
             SettingsPage.PlaybackSkipSegments -> PlaybackSkipSettings(isTablet, settings)

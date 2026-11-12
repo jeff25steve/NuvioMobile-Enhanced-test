@@ -89,11 +89,26 @@ internal fun settingsSearchAnchor(
     title: String,
     description: String,
 ): SettingsSearchAnchor? {
-    if (page != SettingsPage.Appearance || key !in AppearanceSettingsSearchAnchorKeys) return null
-    return SettingsSearchAnchor(page, key, title, description, sectionItemIndex = 1)
+    val sectionItemIndex = when (page) {
+        SettingsPage.Appearance ->
+            if (key in AppearanceSettingsSearchAnchorKeys) 1 else return null
+        SettingsPage.PlaybackPlayer ->
+            if (key in PlaybackPlayerSettingsSearchAnchorKeys) 0 else return null
+        else -> return null
+    }
+    return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
 }
 
 private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
+
+private val PlaybackPlayerSettingsSearchAnchorKeys = setOf(
+    "playback-player-preference",
+    "playback-external-player-app",
+    "playback-external-player-forward-subtitles",
+    "playback-external-player-send-skip-segments",
+    "playback-engine",
+    "playback-auto-switch-engine-on-error",
+)
 
 internal fun settingsSearchAnchorListIndex(
     anchor: SettingsSearchAnchor,
@@ -311,6 +326,68 @@ internal fun settingsSearchEntries(
             section = pageTitles.getValue(section.page),
         )
     }
+
+    val playbackPlayerSection = stringResource(Res.string.settings_playback_section_player)
+    val playbackDecoderSection = stringResource(Res.string.settings_playback_section_decoder)
+    addRow(
+        page = SettingsPage.PlaybackPlayer,
+        key = "playback-player-preference",
+        title = stringResource(Res.string.settings_playback_player_preference),
+        description = stringResource(Res.string.settings_playback_player_preference_description),
+        pageLabel = playbackPage,
+        section = playbackPlayerSection,
+        searchTerms = listOf("internal player", "external player", "default player"),
+    )
+    if (isIos && playerSettings.externalPlayerEnabled) {
+        addRow(
+            page = SettingsPage.PlaybackPlayer,
+            key = "playback-external-player-app",
+            title = stringResource(Res.string.settings_playback_external_player_app),
+            pageLabel = playbackPage,
+            section = playbackPlayerSection,
+            searchTerms = listOf("vlc", "infuse", "choose external player"),
+        )
+    }
+    if (!isIos) {
+        if (playerSettings.externalPlayerEnabled) {
+            addRow(
+                page = SettingsPage.PlaybackPlayer,
+                key = "playback-external-player-forward-subtitles",
+                title = stringResource(Res.string.settings_playback_external_player_forward_subtitles),
+                description = stringResource(Res.string.settings_playback_external_player_forward_subtitles_description),
+                pageLabel = playbackPage,
+                section = playbackPlayerSection,
+                searchTerms = listOf("captions", "subtitle forwarding"),
+            )
+            addRow(
+                page = SettingsPage.PlaybackPlayer,
+                key = "playback-external-player-send-skip-segments",
+                title = stringResource(Res.string.settings_playback_external_player_send_skip_segments),
+                description = stringResource(Res.string.settings_playback_external_player_send_skip_segments_description),
+                pageLabel = playbackPage,
+                section = playbackPlayerSection,
+                searchTerms = listOf("skip intro", "skip credits", "skip segments"),
+            )
+        }
+        addRow(
+            page = SettingsPage.PlaybackPlayer,
+            key = "playback-engine",
+            title = stringResource(Res.string.settings_playback_engine),
+            pageLabel = playbackPage,
+            section = playbackDecoderSection,
+            searchTerms = listOf("decoder", "exoplayer", "exo player", "mpv", "libmpv", "automatic engine"),
+        )
+        addRow(
+            page = SettingsPage.PlaybackPlayer,
+            key = "playback-auto-switch-engine-on-error",
+            title = stringResource(Res.string.settings_playback_auto_switch_engine_on_error),
+            description = stringResource(Res.string.settings_playback_auto_switch_engine_on_error_description),
+            pageLabel = playbackPage,
+            section = playbackDecoderSection,
+            searchTerms = listOf("decoder fallback", "switch player", "engine fallback"),
+        )
+    }
+
     addPage(
         page = SettingsPage.Advanced,
         key = "advanced",

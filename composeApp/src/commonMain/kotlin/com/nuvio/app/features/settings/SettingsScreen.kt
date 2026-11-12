@@ -904,6 +904,7 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                     page = page,
                     onPageChange = onPageChange,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Streams -> streamsSettingsContent(
                     isTablet = false,
@@ -1379,6 +1380,7 @@ private fun TabletSettingsScreen(
                         isTablet = true,
                         page = page,
                         onPageChange = ::openInlinePage,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Streams -> streamsSettingsContent(
                         isTablet = true,

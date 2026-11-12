@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -514,9 +517,16 @@ internal fun SettingsNavigationRow(
     val iconSize = if (isTablet) 42.dp else 36.dp
     val verticalPadding = if (isTablet) 16.dp else 14.dp
     val horizontalPadding = if (isTablet) 20.dp else 16.dp
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey) {
+        if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Row(
         modifier = Modifier
+            .bringIntoViewRequester(bringIntoViewRequester)
             .fillMaxWidth()
             .then(
                 if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
@@ -604,9 +614,16 @@ internal fun SettingsSwitchRow(
 ) {
     val tokens = MaterialTheme.nuvio
     val verticalPadding = if (isTablet) 16.dp else 14.dp
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey) {
+        if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     Row(
         modifier = Modifier
+            .bringIntoViewRequester(bringIntoViewRequester)
             .fillMaxWidth()
             .then(
                 if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {

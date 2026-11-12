@@ -30,6 +30,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackPlayerSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showExternalPlayerDialog by remember { mutableStateOf(false) }
     var showExternalPlayerAppDialog by remember { mutableStateOf(false) }
@@ -44,6 +45,8 @@ internal fun PlaybackPlayerSettings(
             SettingsGroup(isTablet = isTablet) {
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_player_preference),
+                    searchAnchorKey = "playback-player-preference",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = if (settings.externalPlayerEnabled) {
                         stringResource(Res.string.settings_playback_player_preference_external)
                     } else {
@@ -56,6 +59,8 @@ internal fun PlaybackPlayerSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_external_player_app),
+                        searchAnchorKey = "playback-external-player-app",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = selectedExternalPlayer?.name
                             ?: if (availableExternalPlayers.isEmpty()) {
                                 stringResource(Res.string.settings_playback_external_player_none_available)
@@ -71,6 +76,8 @@ internal fun PlaybackPlayerSettings(
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_external_player_forward_subtitles),
                         description = stringResource(Res.string.settings_playback_external_player_forward_subtitles_description),
+                        searchAnchorKey = "playback-external-player-forward-subtitles",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         checked = settings.externalPlayerForwardSubtitles,
                         isTablet = isTablet,
                         onCheckedChange = PlayerSettingsRepository::setExternalPlayerForwardSubtitles,
@@ -79,6 +86,8 @@ internal fun PlaybackPlayerSettings(
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_external_player_send_skip_segments),
                         description = stringResource(Res.string.settings_playback_external_player_send_skip_segments_description),
+                        searchAnchorKey = "playback-external-player-send-skip-segments",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         checked = settings.externalPlayerSendSkipSegments,
                         isTablet = isTablet,
                         onCheckedChange = PlayerSettingsRepository::setExternalPlayerSendSkipSegments,
@@ -95,6 +104,8 @@ internal fun PlaybackPlayerSettings(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_engine),
+                        searchAnchorKey = "playback-engine",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = settings.androidPlaybackEngine.label,
                         enabled = !settings.externalPlayerEnabled,
                         isTablet = isTablet,
@@ -103,6 +114,8 @@ internal fun PlaybackPlayerSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_playback_auto_switch_engine_on_error),
+                        searchAnchorKey = "playback-auto-switch-engine-on-error",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_auto_switch_engine_on_error_description),
                         checked = settings.autoSwitchPlaybackEngineOnError,
                         enabled = !settings.externalPlayerEnabled,

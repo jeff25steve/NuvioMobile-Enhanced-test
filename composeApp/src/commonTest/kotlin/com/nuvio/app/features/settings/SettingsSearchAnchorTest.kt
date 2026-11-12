@@ -51,6 +51,39 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun playbackPlayerSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-player-preference",
+            "playback-external-player-app",
+            "playback-external-player-forward-subtitles",
+            "playback-external-player-send-skip-segments",
+            "playback-engine",
+            "playback-auto-switch-engine-on-error",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackPlayer, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackPlayer, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackPlayerAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackPlayer, "playback-engine", "Playback engine", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun unknownPlaybackRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackPlayer, "playback-unregistered-row", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackVideo, "playback-engine", "Playback engine", ""))
+    }
+
+    @Test
     fun anchorIndexAccountsForPhoneAndTabletHeaders() {
         val anchor = settingsSearchAnchor(SettingsPage.Appearance, "amoled", "AMOLED", "")!!
         assertEquals(2, settingsSearchAnchorListIndex(anchor, false, true))

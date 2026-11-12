@@ -3603,3 +3603,36 @@ References checked:
 #### Next improvement checkpoint
 
 - Incrementally migrate the next high-value Settings page (Playback first), registering exact rows at declaration sites, including conditional visibility and parent-section indices. Avoid broad settings UI rewrite or guessed text mappings. Validate Appearance anchors on phone/tablet before expanding the allow-list.
+
+### 12 November 2026 — Playback Player settings search: exact nested-row reveal
+
+#### Confirmed gap
+
+- The previous checkpoint identified Playback as the next incremental page migration. Playback Player already had a page-level search result, but its individual controls were not indexed.
+- Playback subpages are each rendered as one LazyColumn item containing regular Column/SettingsGroup content. A guessed LazyColumn child index cannot target an individual Player row; scrolling only to the page item can still leave the desired row below the viewport.
+
+#### Integrated change
+
+- Added exact searchable entries for Player preference, iOS external-player app (only while external playback is enabled), Android external-player subtitle forwarding and skip-segment forwarding (only while external playback is enabled), Android playback engine, and Android automatic engine fallback.
+- Each entry uses the existing localized row title/description, the Playback page label, and the actual Player or Decoder section. Existing visibility filtering still suppresses entries for Playback sections unavailable on the platform.
+- Extended the strict anchor allow-list for PlaybackPlayer only. The Player page's containing LazyColumn item index is zero; the existing phone/tablet header offsets are retained.
+- Added row-level BringIntoViewRequester support to shared navigation and switch rows. After the screen scrolls the containing LazyColumn item and activates the matched key, the actual composed row requests that all scrollable parents reveal it, then retains the existing temporary accent highlight. This also makes the existing Appearance anchors reveal their exact row rather than only their containing Display group.
+- Passed the active highlight key through both phone and tablet Playback content paths and attached it to the six actual Player control declarations. Existing settings handlers, values, and conditional UI branches are unchanged.
+- Added common regression source for all six anchor keys, exact page/key matching, unknown-key fallback, and phone/tablet header offsets.
+
+#### Research and API review
+
+- Context7 resolved JetBrains Compose Multiplatform; the repository pins Compose Multiplatform 1.13.0-beta01 and Kotlin 2.4.10, while the Context7 Compose Multiplatform version index did not expose that exact beta (indexed stable version: 1.12.2). The shared Foundation artifact is already declared in the version catalog; no dependency was added.
+- Context7's AndroidX Compose reference documents BringIntoViewRequester, Modifier.bringIntoViewRequester, and suspend bringIntoView() as available since Foundation 1.1.0. Its contract is to ask all BringIntoViewModifierNode parents to reveal the associated composable and to suspend until satisfied or interrupted.
+- Android's official [BringIntoViewRequester API reference](https://developer.android.com/reference/kotlin/androidx/compose/foundation/relocation/BringIntoViewRequester) confirms nested-parent behavior. Jetpack Compose [Lazy lists guidance](https://developer.android.com/develop/ui/compose/lists) explains lazy item composition and stable item keys; therefore the implementation keeps the known parent-item scroll first and only requests row visibility after that item is composed.
+- Exa cross-checked Android's official Settings guidelines (search result title, subtext, breadcrumb), a real Compose settings search implementation that flattens only enabled groups/rows, and the AndroidX API. This change keeps the current breadcrumb-style catalogue and only exposes conditional rows when the corresponding control is visible.
+
+#### Review and verification boundary
+
+- Source review covers the search catalogue visibility conditions, Playback Player's actual row declarations, both phone/tablet forwarding call sites, shared navigation/switch row behavior, and anchor regression source.
+- **No Gradle tasks, tests, builds, compilation, device sessions, or CI were started**, as required. Tests are added but unexecuted; the actual bring-into-view animation and platform behavior are not device-verified.
+- The change is committed with [skip ci]; no workflow was dispatched.
+
+#### Next improvement checkpoint
+
+- Continue the same incremental migration with Playback Stream Selection, then Subtitles and Video. For each page, register only controls whose visibility and actual row declarations have been audited; use the row requester rather than assuming that a LazyColumn item index maps to a child row.
