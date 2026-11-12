@@ -117,6 +117,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackP2pSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.Downloads ->
             if (key in DownloadsSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.Notifications ->
+            if (key in NotificationsSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -129,6 +131,8 @@ private val DownloadsSettingsSearchAnchorKeys = setOf(
     "downloads-show-download-button",
     "download-location",
 )
+
+private val NotificationsSettingsSearchAnchorKeys = setOf("episode-release-alerts")
 
 private val PlaybackPlayerSettingsSearchAnchorKeys = setOf(
     "playback-player-preference",
