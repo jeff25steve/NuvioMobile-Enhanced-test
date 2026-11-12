@@ -3744,3 +3744,17 @@ References checked:
 #### Next checkpoint
 
 - Continue Playback Video, Buffer and P2P. Audit every result against the rendered row, then extend the same coverage matrix to non-Playback settings. Keep platform/feature/dependency visibility synchronized and never index credential values.
+
+### 12 November 2026 — Playback Video search coverage and exact-row navigation
+
+- Rechecked the live `main-build-testing` branch after the previous Playback Subtitles checkpoint. Audited `PlaybackVideoSettings.kt`, `PlaybackSettingsPage.kt` and the Playback search catalogue against the actual rendered controls.
+- Added exact search anchors and forwarded `highlightedSearchAnchorKey` through the shared Playback renderer for all nine Android Playback Video controls: Libmpv video output, Libmpv hardware decoding, Libmpv YUV420P, decoder priority, DV7-to-HEVC mapping, tunneled playback, audio passthrough, anime upscale and anime line sharpening.
+- Filled a real catalogue omission: the three Libmpv-specific video controls were visible in the UI but had no search entries. Added their localized title/description entries only when the selected engine is not ExoPlayer, matching the UI's `libmpvOptionsVisible` predicate. Existing decoder/ExoPlayer controls remain searchable on Android even when disabled by the selected engine, matching their visible disabled state.
+- Preserved the pre-existing auto-switch-engine result and its Playback Player destination while restructuring the decoder catalogue. Existing Buffer and Interface entries retain their separate destinations.
+- Added regression source for all nine exact Playback Video anchor keys, phone/tablet list offsets and page-only fallback for unknown/iOS-only keys. **Tests were not executed**: no Gradle test/build tasks, compilation, device sessions or CI were started, in keeping with the explicit no-build/no-CI instruction. The test additions have not been demonstrated RED→GREEN in this session.
+- Context7 resolved JetBrains Compose Multiplatform. The repository pins 1.13.0-beta01, which is not among Context7's indexed versions (latest indexed 1.12.2). No new Compose APIs or dependencies were introduced; existing shared settings-row anchor/highlight parameters were reused. Exa cross-checked AOSP Universal Search guidance: omit non-applicable results using the same availability predicates as the rendered settings UI.
+- Review: independently re-fetched the modified source and test files; checked all nine keys across the strict allow-list, test cases and actual row modifiers; checked the page renderer forwarding; checked the Libmpv visibility predicate against the UI; confirmed the auto-switch-engine result and Buffer/Interface destinations remain. No fresh subagent reviewer is available, so this was a self-review, not an independent review. Compilation and runtime behavior remain unverified.
+
+#### Next checkpoint
+
+- Continue with Playback Buffer and P2P, with special attention to controls that are visible-but-disabled versus genuinely absent. Then extend exact-row coverage to the remaining non-Playback settings pages. Keep every catalogue entry tied to the real UI's platform, engine, feature and dependency visibility; do not index secrets or values.
