@@ -115,12 +115,20 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackBufferSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackP2p ->
             if (key in PlaybackP2pSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.Downloads ->
+            if (key in DownloadsSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
 }
 
 private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
+
+private val DownloadsSettingsSearchAnchorKeys = setOf(
+    "downloads-allow-mobile-data",
+    "downloads-show-download-button",
+    "download-location",
+)
 
 private val PlaybackPlayerSettingsSearchAnchorKeys = setOf(
     "playback-player-preference",
@@ -665,6 +673,24 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.settings_content_discovery_recent_searches_description),
         pageLabel = contentDiscoveryPage,
         section = stringResource(Res.string.settings_content_discovery_section_search),
+    )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "downloads-allow-mobile-data",
+        title = stringResource(Res.string.downloads_allow_mobile_data_title),
+        description = stringResource(Res.string.downloads_allow_mobile_data_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+        searchTerms = listOf("cellular data", "mobile network", "data usage", "download over mobile data"),
+    )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "downloads-show-download-button",
+        title = stringResource(Res.string.downloads_show_download_button_title),
+        description = stringResource(Res.string.downloads_show_download_button_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+        searchTerms = listOf("download action", "download control", "download icon", "save media"),
     )
     addRow(
         page = SettingsPage.Downloads,
