@@ -1290,35 +1290,35 @@ internal fun settingsSearchEntries(
                 PlaybackSearchRow("exo-chapters", stringResource(Res.string.settings_playback_exo_chapters), stringResource(Res.string.settings_playback_exo_chapters_description), page = SettingsPage.PlaybackInterface),
             ),
         )
+    }
+    addPlaybackRows(
+        addRow = ::addRow,
+        pageLabel = playbackPage,
+        section = playbackSubtitleRendering,
+        page = SettingsPage.PlaybackSubtitles,
+        rows = listOf(
+            PlaybackSearchRow("subtitle-font", stringResource(Res.string.subtitle_font), stringResource(Res.string.subtitle_font_import_hint)),
+            PlaybackSearchRow("subtitle-background-opacity", stringResource(Res.string.subtitle_background_opacity)),
+            PlaybackSearchRow("subtitle-background-roundness", stringResource(Res.string.subtitle_background_roundness)),
+            PlaybackSearchRow("subtitle-shadow", stringResource(Res.string.subtitle_shadow), stringResource(Res.string.subtitle_shadow_description)),
+        ),
+    )
+    if (!isIos && playerSettings.androidPlaybackEngine != com.nuvio.app.features.player.AndroidPlaybackEngine.Libmpv) {
         addPlaybackRows(
             addRow = ::addRow,
             pageLabel = playbackPage,
             section = playbackSubtitleRendering,
             page = SettingsPage.PlaybackSubtitles,
-            rows = listOf(
-                PlaybackSearchRow("subtitle-font", stringResource(Res.string.subtitle_font), stringResource(Res.string.subtitle_font_import_hint)),
-                PlaybackSearchRow("subtitle-background-opacity", stringResource(Res.string.subtitle_background_opacity)),
-                PlaybackSearchRow("subtitle-background-roundness", stringResource(Res.string.subtitle_background_roundness)),
-                PlaybackSearchRow("subtitle-shadow", stringResource(Res.string.subtitle_shadow), stringResource(Res.string.subtitle_shadow_description)),
-            ),
+            rows = buildList {
+                add(PlaybackSearchRow("libass", stringResource(Res.string.settings_playback_enable_libass), stringResource(Res.string.settings_playback_enable_libass_description)))
+                if (playerSettings.useLibass) {
+                    add(PlaybackSearchRow("libass-render-mode", stringResource(Res.string.settings_playback_render_mode), stringResource(Res.string.settings_playback_render_mode_description)))
+                    add(PlaybackSearchRow("libass-render", stringResource(Res.string.settings_playback_render_scale)))
+                }
+                add(PlaybackSearchRow("libmpv-ass", stringResource(Res.string.settings_playback_enable_libmpv_ass), stringResource(Res.string.settings_playback_enable_libmpv_ass_description)))
+            },
         )
-        if (playerSettings.androidPlaybackEngine != com.nuvio.app.features.player.AndroidPlaybackEngine.Libmpv) {
-            addPlaybackRows(
-                addRow = ::addRow,
-                pageLabel = playbackPage,
-                section = playbackSubtitleRendering,
-                page = SettingsPage.PlaybackSubtitles,
-                rows = buildList {
-                    add(PlaybackSearchRow("libass", stringResource(Res.string.settings_playback_enable_libass), stringResource(Res.string.settings_playback_enable_libass_description)))
-                    if (playerSettings.useLibass) {
-                        add(PlaybackSearchRow("libass-render-mode", stringResource(Res.string.settings_playback_render_mode), stringResource(Res.string.settings_playback_render_mode_description)))
-                        add(PlaybackSearchRow("libass-render", stringResource(Res.string.settings_playback_render_scale)))
-                    }
-                    add(PlaybackSearchRow("libmpv-ass", stringResource(Res.string.settings_playback_enable_libmpv_ass), stringResource(Res.string.settings_playback_enable_libmpv_ass_description)))
-                },
-            )
-        }
-    }    }
+    }
     addPlaybackRows(
         addRow = ::addRow,
         pageLabel = playbackPage,
