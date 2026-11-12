@@ -454,6 +454,10 @@ internal fun settingsSearchEntries(
         title = trackingPage,
         description = stringResource(Res.string.compose_settings_root_tracking_description),
         category = accountCategory,
+        searchTerms = listOf(
+            "watch history", "watch progress sync", "sync viewing activity",
+            "trakt", "simkl", "mdblist", "scrobbling", "tracking services",
+        ),
     )
     addPage(
         page = SettingsPage.Appearance,
@@ -739,7 +743,10 @@ internal fun settingsSearchEntries(
         key = "integrations",
         title = integrationsPage,
         description = stringResource(Res.string.compose_settings_root_integrations_description),
-        searchTerms = listOf("services", "providers", "external services", "api integrations"),
+        searchTerms = listOf(
+            "services", "providers", "external services", "api integrations",
+            "connect services", "link accounts", "third party", "connected apps",
+        ),
     )
     addPage(
         page = SettingsPage.Debrid,
