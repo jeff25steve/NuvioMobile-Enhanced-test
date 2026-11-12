@@ -3701,3 +3701,17 @@ References checked:
 #### Next checkpoint
 
 - Continue Playback Audio settings; audit platform availability and dependent controls before indexing.
+
+
+### 12 November 2026 — Playback Audio settings search and exact-row navigation
+
+- Added eight searchable Playback Audio controls: preferred and secondary audio language, Night Mode Button, Remember Audio Delay per Device, Downmix, Number of Channels, Maintain Original Audio on Downmix, and iOS Audio Output.
+- Catalogue platform conditions mirror the UI: Android-only audio delay/downmix controls are omitted on iOS; iOS Audio Output is indexed only on iOS. Downmix channel count and volume preservation appear only while the UI renders those dependent rows (effectiveDownmixEnabled). Disabled-but-visible controls remain searchable.
+- Added strict allow-listed anchors to each actual audio row and forwarded the highlighted key through PlaybackAudio page rendering. Moved the existing Remember Audio Delay and Downmix search entries out of the Decoder subsection into the actual Audio subsection, avoiding duplicate results and correcting their breadcrumb.
+- Context7 resolved JetBrains Compose Multiplatform. The repository pins 1.13.0-beta01 / Kotlin 2.4.10; that exact Compose beta is not in Context7's indexed versions. Its returned commonMain testTag guidance was not needed because existing settings row anchor/highlight APIs are reused; no new API or dependency was introduced. Exa cross-checked AOSP Settings Universal Search and Android Settings controller availability guidance: index only supported/visible rows while retaining navigation for controls disabled by a dependency.
+- Regression source added for all eight audio anchors and phone/tablet list offsets. Source-level review checks catalogue/UI platform and dependency parity, duplicate removal, anchor forwarding and resource references.
+- **No Gradle tasks, tests, builds, compilation, device sessions, or CI were started**, per instruction. Regression tests are present but unexecuted; runtime scroll/highlight behavior remains device-unverified. Commit uses [skip ci].
+
+#### Next checkpoint
+
+- Continue Playback Subtitles, then audit Video and Buffer for remaining controls, preserving strict row anchors and visibility parity.
