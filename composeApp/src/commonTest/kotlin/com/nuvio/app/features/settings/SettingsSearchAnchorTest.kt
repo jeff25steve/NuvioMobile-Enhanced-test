@@ -494,4 +494,48 @@ class SettingsSearchAnchorTest {
         assertNull(settingsSearchAnchor(SettingsPage.Advanced, "advanced-debug-logs", "Debug logs", ""))
     }
 
+    @Test
+    fun settingsSearchFindsHomeDetailsTrackingAndIntegrationAliases() {
+        fun entry(
+            key: String,
+            page: SettingsPage,
+            title: String,
+            searchTerms: List<String>,
+        ) = SettingsSearchEntry(
+            key = key,
+            title = title,
+            description = "",
+            page = "Settings",
+            section = "",
+            category = "General",
+            icon = androidx.compose.material.icons.Icons.Rounded.Search,
+            target = SettingsSearchTarget.Page(page),
+            searchTerms = searchTerms,
+        )
+
+        val entries = listOf(
+            entry("home-layout", SettingsPage.Homescreen, "Homescreen", listOf("homepage", "hero trailers")),
+            entry("detail-page", SettingsPage.MetaScreen, "Details", listOf("movie details", "metadata", "synopsis")),
+            entry("tracking", SettingsPage.TraktAuthentication, "Tracking", listOf("watch history", "scrobbling", "trakt")),
+            entry("integrations", SettingsPage.Integrations, "Integrations", listOf("link accounts", "third party")),
+        )
+
+        assertEquals(
+            SettingsPage.Homescreen,
+            (settingsSearchResults("homepage", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.MetaScreen,
+            (settingsSearchResults("movie details", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.TraktAuthentication,
+            (settingsSearchResults("watch history", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+        assertEquals(
+            SettingsPage.Integrations,
+            (settingsSearchResults("link accounts", entries).first().target as SettingsSearchTarget.Page).page,
+        )
+    }
+
 }
