@@ -76,6 +76,7 @@ internal fun LazyListScope.advancedSettingsContent(
     isTablet: Boolean,
     rememberLastProfileEnabled: Boolean,
     onDebugLogsClick: () -> Unit,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -85,6 +86,8 @@ internal fun LazyListScope.advancedSettingsContent(
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_advanced_remember_last_profile),
+                    searchAnchorKey = "advanced-remember-last-profile",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_advanced_remember_last_profile_description),
                     checked = rememberLastProfileEnabled,
                     isTablet = isTablet,
@@ -107,6 +110,8 @@ internal fun LazyListScope.advancedSettingsContent(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_advanced_dns),
+                        searchAnchorKey = "advanced-dns-provider",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = dnsProviderLabel(dnsProvider),
                         isTablet = isTablet,
                         onClick = { showDnsDialog = true },
@@ -141,6 +146,8 @@ internal fun LazyListScope.advancedSettingsContent(
                 SettingsGroup(isTablet = isTablet) {
                     SettingsSwitchRow(
                         title = stringResource(Res.string.settings_advanced_sentry_reports),
+                        searchAnchorKey = "advanced-sentry-reports",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_advanced_sentry_reports_subtitle),
                         checked = sentryEnabled,
                         isTablet = isTablet,
