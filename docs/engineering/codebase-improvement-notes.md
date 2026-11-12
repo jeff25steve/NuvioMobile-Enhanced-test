@@ -3800,3 +3800,17 @@ References checked:
 #### Next checkpoint
 
 - Continue with Advanced settings. Audit supported DNS and Sentry controls against their platform/policy gates, plus startup profile preference and cache/debug actions. Keep destructive/cache actions and one-off actions out of preference search unless the product explicitly wants searchable actions with safe, accurate semantics.
+
+
+### 12 November 2026 — Advanced Settings search coverage
+
+- Completed the Advanced page audit against its rendered sections. Added searchable preference results for Remember last profile, DNS provider and Sentry reports; DNS and Sentry entries use the same isSupported gates as their actual UI sections.
+- Added strict exact-row anchors for those three persistent preferences, attached the shared reveal/highlight contract to their real switch/navigation rows, and forwarded the active highlight through both mobile and tablet Advanced page renderers.
+- Kept cache-clearing actions and the Debug Logs navigation out of preference results. They are one-off actions/destinations, not persistent preferences; no misleading row anchor is created for them.
+- Added common regression source for all three exact anchors and page-only fallback for the cache/debug actions. Tests were not executed because builds, Gradle tests, compilation and CI were not authorised.
+- Context7 resolved Compose Multiplatform; the indexed docs demonstrate stable LazyColumn item identity. Exa independently cross-checked official AndroidX BringIntoViewRequester and LazyListState references. The implementation reuses the established row anchor/reveal contract and introduces no new Compose API or dependency. Project pin 1.13.0-beta01 is newer than Context7 latest indexed version 1.12.2.
+- Self-review only (no independent reviewer/subagent available): checked the three keys across catalogue, allow-list, rendered rows, renderer forwarding and regression source; verified unsupported DNS/Sentry controls remain gated consistently; verified cache/debug actions remain excluded. Compiler/runtime verification remains outstanding.
+
+#### Next checkpoint
+
+- The Settings Search coverage initiative is not yet complete: continue auditing the remaining non-Playback pages (Appearance/Layout, Home, Details, Integrations, Tracking, Account and related subpages) against actual rendered controls. Add entries only for real preferences and exact anchors only for rows that expose the shared anchor contract.
