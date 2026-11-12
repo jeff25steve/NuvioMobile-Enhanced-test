@@ -479,7 +479,15 @@ class SettingsSearchAnchorTest {
             val anchor = settingsSearchAnchor(SettingsPage.Advanced, key, key, "")
             assertEquals(key, anchor?.key)
             assertEquals(SettingsPage.Advanced, anchor?.page)
-            assertEquals(0, anchor?.sectionItemIndex)
+            val expectedIndex = when (key) {
+                "advanced-remember-last-profile" -> 0
+                "advanced-dns-provider" -> if (DnsSettingsRepository.isSupported) 1 else null
+                "advanced-sentry-reports" -> if (SentrySettingsRepository.isSupported) {
+                    1 + if (DnsSettingsRepository.isSupported) 1 else 0
+                } else null
+                else -> null
+            }
+            assertEquals(expectedIndex, anchor?.sectionItemIndex)
         }
     }
 
