@@ -483,19 +483,17 @@ internal fun MainAppContent(
         initialTab,
         currentRoute,
         selectedTab,
-        showLiveTvInNavigation,
-        liveTvUiState.isLoaded,
     ) {
         NativeTabBridge.requestedTabs.collectLatest { requestedTab ->
             val requestedAppTab = requestedTab.toAppScreenTab()
-            val liveTvStateForRequest = if (
-                requestedAppTab == AppScreenTab.LiveTv && !liveTvUiState.isLoaded
-            ) {
+            val liveTvStateForRequest = if (requestedAppTab == AppScreenTab.LiveTv) {
+                // Keep this collector alive while the repository warms; a state-keyed restart
+                // here could cancel and lose the native tab request that is waiting for loading.
                 LiveTvRepository.uiState.first { it.isLoaded }
             } else {
-                liveTvUiState
+                null
             }
-            if (requestedAppTab == AppScreenTab.LiveTv && !liveTvStateForRequest.showInNavigation) {
+            if (requestedAppTab == AppScreenTab.LiveTv && liveTvStateForRequest?.showInNavigation != true) {
                 return@collectLatest
             }
             if (
