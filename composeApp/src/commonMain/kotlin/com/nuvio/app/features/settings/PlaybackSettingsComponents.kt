@@ -78,9 +78,9 @@ internal fun SettingsSliderRow(
     isTablet: Boolean,
     enabled: Boolean = true,
     description: String? = null,
+    formatValue: (@Composable (Int) -> String)? = null,
     searchAnchorKey: String? = null,
     highlightedSearchAnchorKey: String? = null,
-    formatValue: (@Composable (Int) -> String)? = null,
     onValueChange: (Int) -> Unit,
 ) {
     val horizontalPadding = if (isTablet) 20.dp else 16.dp
