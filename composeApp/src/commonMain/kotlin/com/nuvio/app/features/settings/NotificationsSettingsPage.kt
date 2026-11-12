@@ -34,6 +34,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.notificationsSettingsContent(
     isTablet: Boolean,
     uiState: EpisodeReleaseNotificationsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -43,6 +44,8 @@ internal fun LazyListScope.notificationsSettingsContent(
             SettingsGroup(isTablet = isTablet) {
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_notifications_episode_release_alerts),
+                    searchAnchorKey = "episode-release-alerts",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_notifications_episode_release_alerts_description),
                     checked = uiState.isEnabled,
                     enabled = !uiState.isLoading,
