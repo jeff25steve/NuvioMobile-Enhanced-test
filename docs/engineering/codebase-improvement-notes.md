@@ -3491,3 +3491,10 @@ References checked:
 1. Install the current `main-build-testing` build on a physical iPhone and an Android API 33+ device, then validate keyboard open/close, search focus, filter visibility, recent searches, clear/close, poster reachability, and screen-reader output.
 2. Repeat on Android API 24–30 to inspect the non-Backdrop solid fallback and legacy IME resizing path. Capture a screenshot plus UI/accessibility tree for each state.
 3. Only after those observations decide whether the Search overlay should apply explicit IME insets, whether filters should collapse while focused, and whether the native iOS header Close affordance needs a clearer Cancel treatment. Preserve the discover-first Search landing page.
+
+### 12 November 2026 — automatic benchmark workflow #7 final status
+
+- The previously unintended push-triggered [Android Phone Benchmark APKs run #7](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43284320750) has now completed with failure.
+- Its Gradle build step completed successfully: `:androidApp:assembleFullBenchmark` and `:baselineprofile:assembleFullBenchmark` finished, and the log reported `BUILD SUCCESSFUL` (128 actionable tasks).
+- The subsequent `Assemble phone-ready bundle` step failed while checking for the expected APK files under the workflow's `*/full/benchmark/*` paths. At least one path lookup produced an empty result and the script exited before copying the APKs into the bundle. The upload step was skipped; GitHub returned no artifacts for this run.
+- This run was triggered automatically by the earlier Search source push, not by a manual build request. It does not validate keyboard behavior or Search's visual rendering. No retry or replacement workflow was started.
