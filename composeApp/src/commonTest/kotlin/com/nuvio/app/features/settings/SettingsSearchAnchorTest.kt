@@ -468,4 +468,25 @@ class SettingsSearchAnchorTest {
         assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
     }
 
+    @Test
+    fun advancedSettingsSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "advanced-remember-last-profile",
+            "advanced-dns-provider",
+            "advanced-sentry-reports",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.Advanced, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.Advanced, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun advancedSettingsUnknownRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.Advanced, "advanced-clear-cache", "Clear cache", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.Advanced, "advanced-debug-logs", "Debug logs", ""))
+    }
+
 }
