@@ -3823,3 +3823,12 @@ References checked:
 - Added the missing DNS provider row alongside existing Advanced preferences, gated by DnsSettingsRepository.isSupported. Retained the Sentry gate and strict row offsets for optional sections.
 - Updated regression source to assert page-only fallback for both removed cache actions. No builds, tests, compilation or CI were run.
 - Review note: this corrective pass addresses a catalogue duplication/action-classification issue found during reinspection. Search entry keys now have a single canonical Advanced row each.
+
+
+## 12 November 2026 — Settings Search natural-language page discovery
+
+- Audited the remaining top-level page catalogue entries against the user vocabulary likely to be used for Home, Details, Tracking and Integrations.
+- Added explicit synonyms and task-oriented aliases for Home (homepage, hero, trailers, catalog rows), Details (movie/TV details, metadata, synopsis, cast), Tracking (watch history, scrobbling, Trakt, Simkl, MDBList) and Integrations (link accounts, third-party services, connected apps).
+- Kept these as page-level destinations: the underlying page controls have not yet been verified for stable row-level anchors, so no deep-link anchors were invented.
+- Added regression test source that checks representative natural-language queries resolve to the intended page destinations. Tests were not executed because this continuation was kept source-only; no builds, compilation or CI were run.
+- Research basis: Android's official Settings universal-search guidance recommends invisible keyword synonyms users may type; LINE Engineering's settings-search implementation describes direct destination navigation and highlighting. The existing Nuvio ranking keeps exact titles ahead of broader aliases.
