@@ -450,7 +450,7 @@ internal fun settingsSearchEntries(
             "profile", "sign in", "sign out", "account details",
             "manage account", "user account", "user profile", "log in", "login",
             "log out", "logout", "authentication", "account settings",
-            "profile management", "account access", "sign in", "sign out", "account details",
+            "profile management", "account access",
         ),
     )
     addPage(
@@ -483,7 +483,8 @@ internal fun settingsSearchEntries(
         searchTerms = listOf(
             "navigation", "navigation tabs", "bottom navigation", "tab bar",
             "catalog layout", "screen layout",
-            "appearance layout", "interface layout",
+            "appearance layout", "interface layout", "tab navigation", "bottom bar",
+            "navigation bar", "sidebar navigation", "grid view", "list view", "layout settings",
         ),
     )
     addPage(
