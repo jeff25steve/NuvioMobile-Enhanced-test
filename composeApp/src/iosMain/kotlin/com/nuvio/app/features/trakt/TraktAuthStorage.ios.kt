@@ -7,6 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.refTo
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.value
@@ -114,8 +115,14 @@ internal actual object TraktAuthStorage {
                 val payload = data?.let { item ->
                     try {
                         val length = CFDataGetLength(item).toInt()
-                        val bytes = CFDataGetBytePtr(item)?.reinterpret<ByteVar>() ?: return@let null
-                        ByteArray(length) { index -> bytes[index] }.decodeToString()
+                        if (length <= 0) {
+                            return@let null
+                        }
+                        // CFDataGetBytePtr returns an opaque byte pointer; readBytes is the
+                        // Kotlin/Native-supported path into a ByteArray (avoids ByteVar index
+                        // type issues that failed iOS Debug compile on recovery run).
+                        val ptr = CFDataGetBytePtr(item) ?: return@let null
+                        ptr.readBytes(length).decodeToString()
                     } finally {
                         CFRelease(item)
                     }
