@@ -1,4 +1,6 @@
-use crate::ebml::{UNKNOWN, children, find, float, header, id, string, uint, vint};
+use crate::ebml::{
+    UNKNOWN, children, find, float, header, id, string, try_uint, uint, vint,
+};
 use crate::error::{Error, Result};
 use crate::http::RangeReader;
 use crate::keyframes::{Container, Keyframe, Keyframes};
@@ -121,27 +123,39 @@ fn cluster_time_ms(timestamp: u64, relative: i16, scale_ns: u64) -> Result<u64> 
 fn seek_entries(body: &[u8], data_start: u64) -> impl Iterator<Item = (u32, u64)> + '_ {
     children(body)
         .filter(|(i, _)| *i == id::SEEK)
-        .filter_map(move |(_, s)| {
-            Some((
-                uint(find(s, id::SEEK_ID)?) as u32,
-                data_start.checked_add(uint(find(s, id::SEEK_POSITION)?))?,
-            ))
+        .filter_map(move |(_, seek)| {
+            let seek_id = find(seek, id::SEEK_ID)?;
+            // SeekID is a binary EBML Element ID, not an unsigned integer payload.
+            if seek_id.is_empty() || seek_id.len() > 4 {
+                return None;
+            }
+            let element_id = u32::try_from(uint(seek_id)).ok()?;
+            let position = try_uint(find(seek, id::SEEK_POSITION)?)?;
+            Some((element_id, data_start.checked_add(position)?))
         })
 }
 
-fn flag(entry: &[u8], element: u32, default: bool) -> bool {
-    find(entry, element).map_or(default, |v| uint(v) != 0)
+fn optional_uint(entry: &[u8], element: u32, default: u64) -> Option<u64> {
+    match find(entry, element) {
+        None => Some(default),
+        Some(value) if value.is_empty() => Some(default),
+        Some(value) => try_uint(value),
+    }
+}
+
+fn flag(entry: &[u8], element: u32, default: bool) -> Option<bool> {
+    optional_uint(entry, element, u64::from(default)).map(|value| value != 0)
 }
 
 fn parse_track(entry: &[u8]) -> Option<Track> {
-    let kind = match find(entry, id::TRACK_TYPE).map(uint)? {
+    let kind = match find(entry, id::TRACK_TYPE).and_then(try_uint)? {
         1 => TrackKind::Video,
         2 => TrackKind::Audio,
         17 => TrackKind::Subtitle,
         _ => TrackKind::Other,
     };
     let mut t = Track::new(
-        find(entry, id::TRACK_NUMBER).map(uint)?,
+        find(entry, id::TRACK_NUMBER).and_then(try_uint)?,
         kind,
         string(find(entry, id::CODEC_ID)?),
     );
@@ -152,15 +166,15 @@ fn parse_track(entry: &[u8]) -> Option<Track> {
     t.language = find(entry, id::LANGUAGE_IETF)
         .or_else(|| find(entry, id::LANGUAGE))
         .map(string);
-    t.enabled = flag(entry, id::FLAG_ENABLED, true);
-    t.default = flag(entry, id::FLAG_DEFAULT, true);
-    t.forced = flag(entry, id::FLAG_FORCED, false);
-    t.hearing_impaired = flag(entry, id::FLAG_HEARING_IMPAIRED, false);
-    t.commentary = flag(entry, id::FLAG_COMMENTARY, false);
+    t.enabled = flag(entry, id::FLAG_ENABLED, true)?;
+    t.default = flag(entry, id::FLAG_DEFAULT, true)?;
+    t.forced = flag(entry, id::FLAG_FORCED, false)?;
+    t.hearing_impaired = flag(entry, id::FLAG_HEARING_IMPAIRED, false)?;
+    t.commentary = flag(entry, id::FLAG_COMMENTARY, false)?;
     if let Some(encodings) = find(entry, id::CONTENT_ENCODINGS) {
         for (_, encoding) in children(encodings).filter(|(i, _)| *i == id::CONTENT_ENCODING) {
             if let Some(comp) = find(encoding, id::CONTENT_COMPRESSION)
-                && find(comp, id::CONTENT_COMP_ALGO).map(uint) == Some(3)
+                && optional_uint(comp, id::CONTENT_COMP_ALGO, 0)? == 3
             {
                 t.header_strip = find(comp, id::CONTENT_COMP_SETTINGS)
                     .map(<[u8]>::to_vec)
@@ -170,20 +184,20 @@ fn parse_track(entry: &[u8]) -> Option<Track> {
     }
     if let Some(video) = find(entry, id::VIDEO) {
         let mut v = Video::new(
-            find(video, id::PIXEL_WIDTH).map_or(0, uint),
-            find(video, id::PIXEL_HEIGHT).map_or(0, uint),
+            optional_uint(video, id::PIXEL_WIDTH, 0)?,
+            optional_uint(video, id::PIXEL_HEIGHT, 0)?,
         );
-        v.display_width = find(video, id::DISPLAY_WIDTH).map_or(v.width, uint);
-        v.display_height = find(video, id::DISPLAY_HEIGHT).map_or(v.height, uint);
+        v.display_width = optional_uint(video, id::DISPLAY_WIDTH, v.width)?;
+        v.display_height = optional_uint(video, id::DISPLAY_HEIGHT, v.height)?;
         if let Some(c) = find(video, id::COLOUR) {
-            v.matrix = find(c, id::MATRIX_COEFFICIENTS).map_or(2, uint);
-            v.range = find(c, id::RANGE).map_or(0, uint);
-            v.transfer = find(c, id::TRANSFER_CHARACTERISTICS).map_or(2, uint);
-            v.primaries = find(c, id::PRIMARIES).map_or(2, uint);
+            v.matrix = optional_uint(c, id::MATRIX_COEFFICIENTS, 2)?;
+            v.range = optional_uint(c, id::RANGE, 0)?;
+            v.transfer = optional_uint(c, id::TRANSFER_CHARACTERISTICS, 2)?;
+            v.primaries = optional_uint(c, id::PRIMARIES, 2)?;
         }
         for (_, map) in children(entry).filter(|(i, _)| *i == id::BLOCK_ADDITION_MAPPING) {
             if matches!(
-                find(map, id::BLOCK_ADD_ID_TYPE).map(uint),
+                find(map, id::BLOCK_ADD_ID_TYPE).and_then(try_uint),
                 Some(0x64766343 | 0x64767643)
             ) && let Some(record) = find(map, id::BLOCK_ADD_ID_EXTRA_DATA)
             {
@@ -285,7 +299,11 @@ impl Segment {
                 .1
             }
         };
-        segment.scale_ns = find(&info, id::TIMESTAMP_SCALE).map_or(1_000_000, uint);
+        segment.scale_ns = optional_uint(&info, id::TIMESTAMP_SCALE, 1_000_000)
+            .ok_or(Error::Malformed("timestamp scale"))?;
+        if segment.scale_ns == 0 {
+            return Err(Error::Malformed("timestamp scale"));
+        }
         segment.duration_ms = find(&info, id::DURATION)
             .map_or(0.0, |d| float(d) * segment.scale_ns as f64 / 1e6)
             as u64;
@@ -313,7 +331,8 @@ impl Segment {
         let (_, cues) = read_element(r, self.position(id::CUES).ok_or(Error::NoIndex)?)?;
         let mut out = Vec::new();
         for (_, point) in children(&cues).filter(|(e, _)| *e == id::CUE_POINT) {
-            let time = find(point, id::CUE_TIME).map_or(0, uint);
+            let time = optional_uint(point, id::CUE_TIME, 0)
+                .ok_or(Error::Malformed("cue time"))?;
             for (_, pos) in children(point).filter(|(e, _)| *e == id::CUE_TRACK_POSITIONS) {
                 let (Some(track), Some(cluster)) = (
                     find(pos, id::CUE_TRACK),
@@ -321,15 +340,23 @@ impl Segment {
                 ) else {
                     continue;
                 };
+                let track = try_uint(track).ok_or(Error::Malformed("cue track"))?;
+                let cluster = try_uint(cluster).ok_or(Error::Malformed("cue cluster position"))?;
+                let relative = find(pos, id::CUE_RELATIVE_POSITION)
+                    .map(|value| try_uint(value).ok_or(Error::Malformed("cue relative position")))
+                    .transpose()?;
+                let duration = find(pos, id::CUE_DURATION)
+                    .map(|value| try_uint(value).ok_or(Error::Malformed("cue duration")))
+                    .transpose()?;
                 out.push(CuePoint {
                     time,
-                    track: uint(track),
+                    track,
                     cluster: self
                         .data_start
-                        .checked_add(uint(cluster))
+                        .checked_add(cluster)
                         .ok_or(Error::Malformed("cue cluster position"))?,
-                    relative: find(pos, id::CUE_RELATIVE_POSITION).map(uint),
-                    duration: find(pos, id::CUE_DURATION).map(uint),
+                    relative,
+                    duration,
                 });
             }
         }
@@ -486,7 +513,8 @@ fn scan_cluster(k: &Keyframes, r: &mut RangeReader, e: &Keyframe) -> Result<Vec<
                 if body_size > 8 {
                     return Err(Error::Malformed("cluster timestamp"));
                 }
-                timestamp = uint(&buf[body_start..element_end]);
+                timestamp = try_uint(&buf[body_start..element_end])
+                    .ok_or(Error::Malformed("cluster timestamp"))?;
             }
             id::SIMPLE_BLOCK | id::BLOCK_GROUP => {
                 if let Some((block_start, block_end)) =
@@ -634,5 +662,49 @@ mod tests {
         );
     }
 
+}
+
+#[cfg(test)]
+mod unsigned_integer_tests {
+    use super::{flag, optional_uint, parse_track};
+    use crate::ebml::id;
+
+    fn append_element(output: &mut Vec<u8>, element_id: u8, payload: &[u8]) {
+        assert!(payload.len() < 127);
+        output.push(element_id);
+        output.push(0x80 | payload.len() as u8);
+        output.extend_from_slice(payload);
+    }
+
+    #[test]
+    fn optional_integer_uses_default_for_missing_or_empty_elements() {
+        assert_eq!(optional_uint(&[], id::TIMESTAMP_SCALE, 1_000_000), Some(1_000_000));
+        let empty = [0x2A, 0x80];
+        assert_eq!(optional_uint(&empty, 0x2A, 42), Some(42));
+    }
+
+    #[test]
+    fn optional_integer_rejects_payloads_wider_than_ebml_uinteger_limit() {
+        let mut element = Vec::new();
+        append_element(&mut element, 0xD7, &[0, 1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(optional_uint(&element, id::TRACK_NUMBER, 1), None);
+    }
+
+    #[test]
+    fn malformed_track_number_does_not_wrap_into_a_valid_track() {
+        let mut entry = Vec::new();
+        append_element(&mut entry, 0x83, &[1]); // TrackType = video.
+        append_element(&mut entry, 0xD7, &[0, 1, 2, 3, 4, 5, 6, 7, 8]); // Nine-byte TrackNumber.
+        append_element(&mut entry, 0x86, b"V_TEST"); // CodecID.
+        assert!(parse_track(&entry).is_none());
+    }
+
+    #[test]
+    fn empty_track_flags_resolve_to_their_declared_defaults() {
+        let enabled = [0xB9, 0x80];
+        let forced = [0x55, 0xAA, 0x80];
+        assert_eq!(flag(&enabled, id::FLAG_ENABLED, true), Some(true));
+        assert_eq!(flag(&forced, id::FLAG_FORCED, false), Some(false));
+    }
 }
 

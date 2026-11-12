@@ -3166,3 +3166,31 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Eight regression tests were authored before the production helpers/guards but were deliberately NOT executed because builds/tests/CI have not been authorized.
 - No cargo test, cargo check, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
 - Compilation, red/green test results and runtime behavior against real MKV assets remain unverified. The remote branch update is verified separately by the resulting commit and ref.
+
+
+## 12 November 2026 — reject over-wide EBML unsigned integers in Matroska parsing
+
+### Confirmed root cause
+- The public EBML `uint()` helper folded every payload byte into a `u64` without validating its width. Payloads longer than eight bytes silently discarded high-order bytes during shifts, so malformed integer fields could be interpreted as unrelated, smaller values.
+- Matroska's parser used this helper for track metadata, flags, video dimensions/colour, compression algorithm IDs, SeekPosition, cue fields, TimestampScale and Cluster timestamps. A malformed large value could therefore become a plausible but incorrect track property or file offset.
+- `SeekID` is a binary Element ID rather than an EBML Unsigned Integer Element; it needs its own 1–4 byte constraint rather than being treated as a generic unsigned integer.
+
+### Integrated changes
+- Added public `try_uint(&[u8]) -> Option<u64>`, which accepts the RFC-permitted 0–8 byte range (including an empty element as zero) and rejects payloads wider than eight bytes. The existing public `uint()` signature remains intact for source compatibility and is documented as the unchecked legacy helper.
+- Routed internal Matroska unsigned-integer fields through checked decoding: required TrackType/TrackNumber, track flags, video dimensions and colour values, ContentCompAlgo, TimestampScale, CueTime, CueTrack/CueClusterPosition/CueRelativePosition/CueDuration, SeekPosition and Cluster Timestamp.
+- Preserved EBML empty-element/default semantics in the shared optional-field helper: absent or empty fields resolve to the supplied schema default; empty fields without a nonzero default remain zero.
+- Validated binary SeekID payload width (1–4 bytes) separately and kept its existing binary-to-ID interpretation.
+- Added six regression tests: two for the EBML decoder's empty/1-byte/8-byte and over-wide boundaries, and four for Matroska default handling, over-wide fields, invalid TrackNumber payloads and default track flags.
+- No dependencies, build settings, file formats, backend schema, playback API, UI or iOS code changed.
+
+### Research and design decisions
+- Superpowers systematic-debugging traced the unchecked integer helper into all Matroska integer call sites. Test-driven-development and writing-good-tests guidance informed the focused boundary tests; verification-before-completion was used to keep the test/build boundary explicit.
+- Exa confirmed RFC 8794 Section 7.2: EBML Unsigned Integer Elements permit lengths from zero through eight octets; zero-length elements represent zero unless an element default applies. Section 6.1 governs empty-element defaults. The decoder accepts empty values and rejects only widths greater than eight.
+- Context7 was not needed because this is a native Rust parser change with no external library, framework, dependency or platform API change.
+- Sources: https://www.rfc-editor.org/rfc/rfc8794.html#section-6.1 ; https://www.rfc-editor.org/rfc/rfc8794.html#section-7.2 ; https://www.rfc-editor.org/rfc/rfc9559.html
+
+### Verification boundary
+- Static source review confirms the internal Matroska unsigned-integer call sites use checked decoding; the remaining legacy `uint()` use is only for the separately width-limited binary SeekID payload.
+- Six regression tests are present in source but were NOT executed. The TDD red/green cycle therefore remains unverified.
+- No `cargo test`, `cargo check`, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
+- Compilation and runtime behavior against existing MKV fixtures remain unverified pending explicit authorization to run tests/builds.

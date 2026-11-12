@@ -109,6 +109,18 @@ pub fn find(b: &[u8], id: u32) -> Option<&[u8]> {
     children(b).find(|(i, _)| *i == id).map(|(_, v)| v)
 }
 
+/// Decode an EBML unsigned integer only when its payload fits the 0–8 byte limit.
+pub fn try_uint(b: &[u8]) -> Option<u64> {
+    if b.len() > 8 {
+        return None;
+    }
+    Some(b.iter().fold(0, |value, &byte| (value << 8) | u64::from(byte)))
+}
+
+/// Decode an EBML unsigned integer without validating its payload width (legacy API).
+///
+/// Prefer try_uint when reading untrusted element payloads so over-wide values
+/// can be rejected instead of silently wrapping.
 pub fn uint(b: &[u8]) -> u64 {
     b.iter().fold(0, |v, &x| (v << 8) | x as u64)
 }
@@ -126,3 +138,27 @@ pub fn string(b: &[u8]) -> String {
         .trim_end_matches('\0')
         .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::try_uint;
+
+    #[test]
+    fn accepts_unsigned_integer_payloads_from_zero_to_eight_bytes() {
+        assert_eq!(try_uint(&[]), Some(0));
+        assert_eq!(try_uint(&[0x2A]), Some(42));
+        assert_eq!(
+            try_uint(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
+            Some(u64::MAX),
+        );
+    }
+
+    #[test]
+    fn rejects_unsigned_integer_payloads_wider_than_eight_bytes() {
+        assert_eq!(
+            try_uint(&[0, 1, 2, 3, 4, 5, 6, 7, 8]),
+            None,
+        );
+    }
+}
+
