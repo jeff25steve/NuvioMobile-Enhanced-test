@@ -107,6 +107,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackInterfaceSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackAudio ->
             if (key in PlaybackAudioSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackSubtitles ->
+            if (key in PlaybackSubtitlesSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -167,6 +169,17 @@ private val PlaybackAudioSettingsSearchAnchorKeys = setOf(
     "playback-audio-downmix-channels",
     "playback-audio-downmix-maintain-volume",
     "playback-audio-ios-output",
+)
+
+private val PlaybackSubtitlesSettingsSearchAnchorKeys = setOf(
+    "playback-preferred-subtitles",
+    "playback-secondary-subtitles",
+    "playback-subtitle-font",
+    "playback-subtitle-shadow",
+    "playback-libass",
+    "playback-libass-render-mode",
+    "playback-libass-render",
+    "playback-libmpv-ass",
 )
 
 private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
@@ -1225,10 +1238,6 @@ internal fun settingsSearchEntries(
         section = playbackSubtitleAudio,
         page = SettingsPage.PlaybackSubtitles,
         rows = listOf(
-            PlaybackSearchRow("subtitle-font", stringResource(Res.string.subtitle_font), stringResource(Res.string.subtitle_font_import_hint)),
-            PlaybackSearchRow("subtitle-background-opacity", stringResource(Res.string.subtitle_background_opacity)),
-            PlaybackSearchRow("subtitle-background-roundness", stringResource(Res.string.subtitle_background_roundness)),
-            PlaybackSearchRow("subtitle-shadow", stringResource(Res.string.subtitle_shadow), stringResource(Res.string.subtitle_shadow_description)),
             PlaybackSearchRow("preferred-subtitles", stringResource(Res.string.settings_playback_preferred_subtitle_language)),
             PlaybackSearchRow("secondary-subtitles", stringResource(Res.string.settings_playback_secondary_subtitle_language)),
         ),
@@ -1287,13 +1296,29 @@ internal fun settingsSearchEntries(
             section = playbackSubtitleRendering,
             page = SettingsPage.PlaybackSubtitles,
             rows = listOf(
-                PlaybackSearchRow("libass", stringResource(Res.string.settings_playback_enable_libass), stringResource(Res.string.settings_playback_enable_libass_description)),
-                PlaybackSearchRow("libass-render-mode", stringResource(Res.string.settings_playback_render_mode), stringResource(Res.string.settings_playback_render_mode_description)),
-                PlaybackSearchRow("libass-render", stringResource(Res.string.settings_playback_render_scale)),
-                PlaybackSearchRow("libmpv-ass", stringResource(Res.string.settings_playback_enable_libmpv_ass), stringResource(Res.string.settings_playback_enable_libmpv_ass_description)),
+                PlaybackSearchRow("subtitle-font", stringResource(Res.string.subtitle_font), stringResource(Res.string.subtitle_font_import_hint)),
+                PlaybackSearchRow("subtitle-background-opacity", stringResource(Res.string.subtitle_background_opacity)),
+                PlaybackSearchRow("subtitle-background-roundness", stringResource(Res.string.subtitle_background_roundness)),
+                PlaybackSearchRow("subtitle-shadow", stringResource(Res.string.subtitle_shadow), stringResource(Res.string.subtitle_shadow_description)),
             ),
         )
-    }
+        if (playerSettings.androidPlaybackEngine != com.nuvio.app.features.player.AndroidPlaybackEngine.Libmpv) {
+            addPlaybackRows(
+                addRow = ::addRow,
+                pageLabel = playbackPage,
+                section = playbackSubtitleRendering,
+                page = SettingsPage.PlaybackSubtitles,
+                rows = buildList {
+                    add(PlaybackSearchRow("libass", stringResource(Res.string.settings_playback_enable_libass), stringResource(Res.string.settings_playback_enable_libass_description)))
+                    if (playerSettings.useLibass) {
+                        add(PlaybackSearchRow("libass-render-mode", stringResource(Res.string.settings_playback_render_mode), stringResource(Res.string.settings_playback_render_mode_description)))
+                        add(PlaybackSearchRow("libass-render", stringResource(Res.string.settings_playback_render_scale)))
+                    }
+                    add(PlaybackSearchRow("libmpv-ass", stringResource(Res.string.settings_playback_enable_libmpv_ass), stringResource(Res.string.settings_playback_enable_libmpv_ass_description)))
+                },
+            )
+        }
+    }    }
     addPlaybackRows(
         addRow = ::addRow,
         pageLabel = playbackPage,
