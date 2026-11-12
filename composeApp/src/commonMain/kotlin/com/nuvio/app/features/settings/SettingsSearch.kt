@@ -1620,7 +1620,51 @@ internal fun settingsSearchEntries(
         )
     }
 
-    return entries
+    return deduplicateSettingsSearchEntries(entries)
+}
+
+private data class SettingsSearchEntryIdentity(
+    val destination: String,
+    val page: String,
+    val section: String,
+    val title: String,
+    val description: String,
+)
+
+/** Collapses repeated catalogue records for the same visible setting without losing aliases. */
+internal fun deduplicateSettingsSearchEntries(
+    entries: List<SettingsSearchEntry>,
+): List<SettingsSearchEntry> {
+    val uniqueEntries = linkedMapOf<SettingsSearchEntryIdentity, SettingsSearchEntry>()
+    entries.forEach { entry ->
+        val destination = when (val target = entry.target) {
+            is SettingsSearchTarget.Page -> "page:${target.page.name}"
+            SettingsSearchTarget.Collections -> "collections"
+            SettingsSearchTarget.SwitchProfile -> "switch-profile"
+            SettingsSearchTarget.CheckForUpdates -> "check-for-updates"
+        }
+        val identity = SettingsSearchEntryIdentity(
+            destination = destination,
+            page = normalizeSettingsSearchText(entry.page),
+            section = normalizeSettingsSearchText(entry.section),
+            title = normalizeSettingsSearchText(entry.title),
+            description = normalizeSettingsSearchText(entry.description),
+        )
+        val existing = uniqueEntries[identity]
+        if (existing == null) {
+            uniqueEntries[identity] = entry
+        } else {
+            val preferred = when {
+                existing.target is SettingsSearchTarget.Page && existing.target.anchor == null &&
+                    entry.target is SettingsSearchTarget.Page && entry.target.anchor != null -> entry
+                else -> existing
+            }
+            uniqueEntries[identity] = preferred.copy(
+                searchTerms = (existing.searchTerms + entry.searchTerms).distinct(),
+            )
+        }
+    }
+    return uniqueEntries.values.toList()
 }
 
 private data class PlaybackSearchRow(
