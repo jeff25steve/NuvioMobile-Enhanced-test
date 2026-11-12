@@ -244,6 +244,10 @@ internal fun libraryHeaderUsesArtworkBackdrop(
     artworkBackgroundActive: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
 
+/** Match the pinned Cloud toolbar to its dedicated black/artwork screen backdrop. */
+internal fun libraryCloudToolbarBackgroundColor(artworkBackgroundActive: Boolean): Color =
+    if (artworkBackgroundActive) Color.Transparent else Color.Black
+
 internal fun librarySavedHeaderUsesGlassScrim(
     sourceMode: LibraryViewMode,
     librarySurfaceGlassEnabled: Boolean,
@@ -595,7 +599,10 @@ fun LibraryScreen(
         platformSupported = isLiquidGlassAvailable(),
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
-    val cloudBackgroundActive = sourceMode == LibraryViewMode.Cloud && cloudBackgroundImageUri != null
+    val cloudBackgroundActive = libraryHeaderUsesArtworkBackdrop(
+        sourceMode = sourceMode,
+        artworkBackgroundActive = cloudBackgroundImageRequest != null,
+    )
     val cloudHeaderBackdropActive = libraryHeaderUsesArtworkBackdrop(
         sourceMode = sourceMode,
         artworkBackgroundActive = cloudBackgroundActive || LocalDynamicArtworkBackgroundActive.current,
@@ -883,6 +890,7 @@ fun LibraryScreen(
             if (sourceMode == LibraryViewMode.Cloud) {
                 cloudLibraryContent(
                     uiState = cloudUiState,
+                    artworkBackgroundActive = cloudBackgroundActive,
                     cloudFiltersGlassEnabled = cloudFiltersGlassEnabled,
                     cloudSearchGlassEnabled = cloudSearchGlassEnabled,
                     cloudCardsGlassEnabled = cloudCardsGlassEnabled,
@@ -1153,6 +1161,7 @@ fun LibraryScreen(
 
 private fun LazyListScope.cloudLibraryContent(
     uiState: CloudLibraryUiState,
+    artworkBackgroundActive: Boolean,
     cloudFiltersGlassEnabled: Boolean,
     cloudSearchGlassEnabled: Boolean,
     cloudCardsGlassEnabled: Boolean,
@@ -1244,7 +1253,7 @@ private fun LazyListScope.cloudLibraryContent(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background)
+                            .background(libraryCloudToolbarBackgroundColor(artworkBackgroundActive))
                             .nuvioConsumePointerEvents(),
                     ) {
                         CloudLibraryToolbar(

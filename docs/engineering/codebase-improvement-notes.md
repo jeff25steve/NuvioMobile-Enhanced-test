@@ -3400,3 +3400,30 @@ References checked:
 **Physical device execution:** Connect a real Android 14+ device with USB debugging and run the full benchmark variant using the generated Gradle task for the connected device. The task name should be confirmed from Gradle task discovery because AGP 9.4.0 and the com.android.test variant wiring determine the exact task name. Keep battery charged, close background apps, use stable Wi-Fi, and record device model, Android version, build SHA, profile mode, median and spread for each ten-iteration result.
 
 **Next action:** Verify the generated benchmark task graph and profileable benchmark APK with a compile-only build, then run the paired benchmark on a physical device. Add a separate TTFD/time-to-home-content signal only after confirming the correct application readiness lifecycle.
+
+
+
+### 12 November 2026 — reveal the Library Cloud artwork behind pinned Liquid Glass controls
+
+#### Root cause
+
+- The live Library already draws a dedicated black Cloud backdrop, places the optional profile-local image above it, records that layer as the Library backdrop source, and passes that source to the Cloud glass controls.
+- The Cloud list's sticky toolbar/search parent nevertheless painted an unconditional `MaterialTheme.colorScheme.background` rectangle across its full width. That opaque wrapper covered the custom Cloud artwork in the uncovered portions of the pinned controls and made the live screen differ from the Liquid Glass Studio preview, whose Cloud controls sit directly over the black/artwork backdrop.
+- The screen's artwork-active flag was based on a non-null stored URI, while the actual Coil request is only created for an accepted local `file:` URI. Make the flag follow the request that the screen can actually render, so the header fade and artwork-background state cannot activate for an unusable URI.
+
+#### Integrated change
+
+- The Cloud artwork-active decision now follows the successfully constructed local-image request, rather than merely checking whether the stored URI is non-null. Existing profile-local image persistence, size limits, cache revision keys, and black fallback remain unchanged.
+- The pinned Cloud toolbar now uses a transparent backing when the custom artwork request is available, allowing the image and shared Liquid Glass backdrop to remain visible around/between controls. Without a custom image it retains a solid black backing, matching the Cloud screen's deliberate black default instead of using the app theme background.
+- Added common regression coverage for both custom-image and no-image toolbar backdrop policies.
+- Saved Library, Servers, editor recipes, global Liquid Glass settings, image storage, and other screens are unchanged. No dependency or platform-specific code was changed.
+
+#### Evidence and review
+
+- Traced the production path from the local-image `ImageRequest`, through the black/image backdrop source and `LocalLiquidGlassBackdrop`, into the Cloud sticky header and its independently configured filter/search surfaces. Compared it with `LiquidGlassLibraryCloudBackdrop` in the Studio preview.
+- Consulted the pinned Backdrop 2.0.1 documentation for shared backdrop sampling and the exact Coil 3.6.3 documentation for Compose `AsyncImage` / `ImageRequest` behavior. Exa independently corroborated the upstream Backdrop source/architecture. Context7's Compose Multiplatform index did not expose the repository's exact 1.13.0-beta01 build (its returned version list stopped at 1.12.2); no Compose dependency or API change was made, and the fix uses the existing `Modifier.background` call already present in this source.
+- Source-level diff review only. The common regression test was added but **not executed**, because this task explicitly prohibits build-triggering tests, builds, and CI before authorization. No Gradle task, compilation, simulator/device run, or workflow was started.
+
+#### Next improvement checkpoint
+
+- Continue a bounded runtime-versus-Studio audit of the remaining Liquid Glass areas, prioritizing the Category Header title/back-button layers and the Library release-calendar sheet. Check for opaque parent fills that mask the shared backdrop, compare each enabled/disabled fallback, and preserve the independent per-surface recipes. Do not make broad renderer/dependency changes without device profiling evidence.

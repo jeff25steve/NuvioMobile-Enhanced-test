@@ -1,6 +1,7 @@
 package com.nuvio.app.features.library
 
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
 import kotlin.test.Test
@@ -134,6 +135,18 @@ class LibraryGlassLayoutTest {
         assertTrue(libraryTitleHeaderNeedsOpaqueBackground(LibraryViewMode.Saved))
         assertFalse(libraryTitleHeaderNeedsOpaqueBackground(LibraryViewMode.Cloud))
         assertFalse(libraryTitleHeaderNeedsOpaqueBackground(LibraryViewMode.Servers))
+    }
+
+    @Test
+    fun cloudStickyToolbarRevealsCustomArtworkAndKeepsBlackDefaultBackdrop() {
+        assertEquals(
+            Color.Transparent,
+            libraryCloudToolbarBackgroundColor(artworkBackgroundActive = true),
+        )
+        assertEquals(
+            Color.Black,
+            libraryCloudToolbarBackgroundColor(artworkBackgroundActive = false),
+        )
     }
 
     @Test
