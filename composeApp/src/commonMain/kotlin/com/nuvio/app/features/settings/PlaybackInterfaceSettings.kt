@@ -27,6 +27,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackInterfaceSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showHoldToSpeedValueDialog by remember { mutableStateOf(false) }
     var skipDirectionDialog by remember { mutableStateOf<Boolean?>(null) } // true = forward
@@ -43,6 +44,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_legacy_layout),
                     description = stringResource(Res.string.settings_playback_legacy_layout_description),
                     checked = settings.useLegacyPlayerLayout,
+                    searchAnchorKey = "playback-interface-legacy-layout",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setUseLegacyPlayerLayout,
                 )
@@ -51,6 +54,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_show_title_logo),
                     description = stringResource(Res.string.settings_playback_show_title_logo_description),
                     checked = settings.showPlayerTitleLogo,
+                    searchAnchorKey = "playback-interface-title-logo",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setShowPlayerTitleLogo,
                 )
@@ -59,6 +64,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_control_glass),
                     description = stringResource(Res.string.settings_playback_control_glass_description),
                     checked = settings.playerControlGlassEnabled,
+                    searchAnchorKey = "playback-interface-control-glass",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setPlayerControlGlassEnabled,
                 )
@@ -67,6 +74,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_show_skip_buttons),
                     description = stringResource(Res.string.settings_playback_show_skip_buttons_description),
                     checked = settings.showSkipButtons,
+                    searchAnchorKey = "playback-interface-skip-buttons",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setShowSkipButtons,
                 )
@@ -74,6 +83,8 @@ internal fun PlaybackInterfaceSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_toolbar_layout),
+                        searchAnchorKey = "playback-interface-toolbar-layout",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_toolbar_layout_description),
                         isTablet = isTablet,
                         onClick = { showToolbarLayoutDialog = true },
@@ -82,6 +93,8 @@ internal fun PlaybackInterfaceSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_legacy_top_buttons),
+                        searchAnchorKey = "playback-interface-legacy-top-buttons",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_legacy_top_buttons_description),
                         isTablet = isTablet,
                         onClick = { showLegacyTopButtonsDialog = true },
@@ -89,6 +102,8 @@ internal fun PlaybackInterfaceSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_legacy_bottom_buttons),
+                        searchAnchorKey = "playback-interface-legacy-bottom-buttons",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = stringResource(Res.string.settings_playback_legacy_bottom_buttons_description),
                         isTablet = isTablet,
                         onClick = { showLegacyBottomButtonsDialog = true },
@@ -99,6 +114,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_show_loading_overlay),
                     description = stringResource(Res.string.settings_playback_show_loading_overlay_description),
                     checked = settings.showLoadingOverlay,
+                    searchAnchorKey = "playback-interface-loading-overlay",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setShowLoadingOverlay,
                 )
@@ -107,6 +124,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_exo_chapters),
                     description = stringResource(Res.string.settings_playback_exo_chapters_description),
                     checked = settings.androidExoChaptersEnabled,
+                    searchAnchorKey = "playback-interface-exo-chapters",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setAndroidExoChaptersEnabled,
                 )
@@ -115,6 +134,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.playback_show_loading_status),
                     description = stringResource(Res.string.playback_show_loading_status_sub),
                     checked = settings.showPlayerLoadingStatus,
+                    searchAnchorKey = "playback-interface-loading-status",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setShowPlayerLoadingStatus,
                 )
@@ -123,6 +144,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_pause_overlay),
                     description = stringResource(Res.string.settings_playback_pause_overlay_description),
                     checked = settings.pauseOverlayEnabled,
+                    searchAnchorKey = "playback-interface-pause-overlay",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setPauseOverlayEnabled,
                 )
@@ -131,6 +154,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_parental_guide),
                     description = stringResource(Res.string.settings_playback_parental_guide_description),
                     checked = settings.showParentalGuide,
+                    searchAnchorKey = "playback-interface-parental-guide",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setShowParentalGuide,
                 )
@@ -139,6 +164,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_movie_recommendations),
                     description = stringResource(Res.string.settings_playback_movie_recommendations_description),
                     checked = settings.movieRecommendationsEnabled,
+                    searchAnchorKey = "playback-interface-movie-recommendations",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setMovieRecommendationsEnabled,
                 )
@@ -147,6 +174,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_mini_player),
                     description = stringResource(Res.string.settings_playback_mini_player_description),
                     checked = settings.miniPlayerEnabled,
+                    searchAnchorKey = "playback-interface-mini-player",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setMiniPlayerEnabled,
@@ -156,6 +185,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_seek_preview),
                     description = stringResource(Res.string.settings_playback_seek_preview_description),
                     checked = settings.seekPreviewEnabled,
+                    searchAnchorKey = "playback-interface-seek-preview",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setSeekPreviewEnabled,
@@ -165,6 +196,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_touch_gestures),
                     description = stringResource(Res.string.settings_playback_touch_gestures_description),
                     checked = settings.touchGesturesEnabled,
+                    searchAnchorKey = "playback-interface-touch-gestures",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setTouchGesturesEnabled,
@@ -175,6 +208,8 @@ internal fun PlaybackInterfaceSettings(
                         title = stringResource(Res.string.settings_playback_swipe_to_seek),
                         description = stringResource(Res.string.settings_playback_swipe_to_seek_description),
                         checked = settings.swipeToSeekEnabled,
+                        searchAnchorKey = "playback-interface-swipe-to-seek",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onCheckedChange = PlayerSettingsRepository::setSwipeToSeekEnabled,
                     )
@@ -184,6 +219,8 @@ internal fun PlaybackInterfaceSettings(
                     title = stringResource(Res.string.settings_playback_hold_to_speed),
                     description = stringResource(Res.string.settings_playback_hold_to_speed_description),
                     checked = settings.holdToSpeedEnabled,
+                    searchAnchorKey = "playback-interface-hold-to-speed",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     enabled = !settings.externalPlayerEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setHoldToSpeedEnabled,
@@ -192,6 +229,8 @@ internal fun PlaybackInterfaceSettings(
                     SettingsGroupDivider(isTablet = isTablet)
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_hold_speed),
+                        searchAnchorKey = "playback-interface-hold-speed-value",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         description = formatPlaybackSpeedLabel(settings.holdToSpeedValue),
                         isTablet = isTablet,
                         onClick = { showHoldToSpeedValueDialog = true },
@@ -200,6 +239,8 @@ internal fun PlaybackInterfaceSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_skip_backward),
+                    searchAnchorKey = "playback-interface-skip-backward",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(
                         Res.string.settings_playback_skip_seconds_value,
                         settings.skipBackwardSeconds,
@@ -211,6 +252,8 @@ internal fun PlaybackInterfaceSettings(
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_skip_forward),
+                    searchAnchorKey = "playback-interface-skip-forward",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(
                         Res.string.settings_playback_skip_seconds_value,
                         settings.skipForwardSeconds,

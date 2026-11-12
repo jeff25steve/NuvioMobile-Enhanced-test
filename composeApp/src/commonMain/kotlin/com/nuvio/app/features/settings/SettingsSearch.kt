@@ -102,6 +102,8 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackUpNextSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackSkipSegments ->
             if (key in PlaybackSkipSegmentsSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackInterface ->
+            if (key in PlaybackInterfaceSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -127,6 +129,30 @@ private val PlaybackStreamSelectionSettingsSearchAnchorKeys = setOf(
     "playback-stream-source-scope",
     "playback-stream-allowed-addons",
     "playback-stream-allowed-plugins",
+)
+
+private val PlaybackInterfaceSettingsSearchAnchorKeys = setOf(
+    "playback-interface-legacy-layout",
+    "playback-interface-title-logo",
+    "playback-interface-control-glass",
+    "playback-interface-skip-buttons",
+    "playback-interface-toolbar-layout",
+    "playback-interface-legacy-top-buttons",
+    "playback-interface-legacy-bottom-buttons",
+    "playback-interface-loading-overlay",
+    "playback-interface-exo-chapters",
+    "playback-interface-loading-status",
+    "playback-interface-pause-overlay",
+    "playback-interface-parental-guide",
+    "playback-interface-movie-recommendations",
+    "playback-interface-mini-player",
+    "playback-interface-seek-preview",
+    "playback-interface-touch-gestures",
+    "playback-interface-swipe-to-seek",
+    "playback-interface-hold-to-speed",
+    "playback-interface-hold-speed-value",
+    "playback-interface-skip-backward",
+    "playback-interface-skip-forward",
 )
 
 private val PlaybackSkipSegmentsSettingsSearchAnchorKeys = setOf(
@@ -512,6 +538,32 @@ internal fun settingsSearchEntries(
     if (playerSettings.animeSkipEnabled) addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-anime-skip-client-id", title = stringResource(Res.string.settings_playback_anime_skip_client_id), description = stringResource(Res.string.settings_playback_anime_skip_client_id_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("aniskip client id", "oauth client id"))
     addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-intro-submit-enabled", title = stringResource(Res.string.settings_playback_intro_submit_enabled), description = stringResource(Res.string.settings_playback_intro_submit_enabled_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("introdb", "submit intro timestamps", "contribute skip times"))
     if (playerSettings.introSubmitEnabled) addRow(page = SettingsPage.PlaybackSkipSegments, key = "playback-introdb-api-key", title = stringResource(Res.string.settings_playback_introdb_api_key), description = stringResource(Res.string.settings_playback_introdb_api_key_description), pageLabel = playbackPage, section = skipSegmentsSection, searchTerms = listOf("introdb api token", "intro database credential"))
+
+
+    val playbackInterfaceSection = stringResource(Res.string.settings_playback_page_interface)
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-legacy-layout", title = stringResource(Res.string.settings_playback_legacy_layout), description = stringResource(Res.string.settings_playback_legacy_layout_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("classic player layout", "old player controls"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-title-logo", title = stringResource(Res.string.settings_playback_show_title_logo), description = stringResource(Res.string.settings_playback_show_title_logo_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("movie logo", "title branding"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-control-glass", title = stringResource(Res.string.settings_playback_control_glass), description = stringResource(Res.string.settings_playback_control_glass_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("glass controls", "liquid glass player controls"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-skip-buttons", title = stringResource(Res.string.settings_playback_show_skip_buttons), description = stringResource(Res.string.settings_playback_show_skip_buttons_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("seek buttons", "forward backward buttons"))
+    if (!playerSettings.useLegacyPlayerLayout) addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-toolbar-layout", title = stringResource(Res.string.settings_playback_toolbar_layout), description = stringResource(Res.string.settings_playback_toolbar_layout_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("player toolbar", "control arrangement"))
+    if (playerSettings.useLegacyPlayerLayout) {
+        addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-legacy-top-buttons", title = stringResource(Res.string.settings_playback_legacy_top_buttons), description = stringResource(Res.string.settings_playback_legacy_top_buttons_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("classic top buttons", "legacy controls"))
+        addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-legacy-bottom-buttons", title = stringResource(Res.string.settings_playback_legacy_bottom_buttons), description = stringResource(Res.string.settings_playback_legacy_bottom_buttons_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("classic bottom buttons", "legacy controls"))
+    }
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-loading-overlay", title = stringResource(Res.string.settings_playback_show_loading_overlay), description = stringResource(Res.string.settings_playback_show_loading_overlay_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("buffering screen", "loading spinner overlay"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-exo-chapters", title = stringResource(Res.string.settings_playback_exo_chapters), description = stringResource(Res.string.settings_playback_exo_chapters_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("exoplayer chapters", "chapter markers"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-loading-status", title = stringResource(Res.string.playback_show_loading_status), description = stringResource(Res.string.playback_show_loading_status_sub), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("playback status", "loading details"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-pause-overlay", title = stringResource(Res.string.settings_playback_pause_overlay), description = stringResource(Res.string.settings_playback_pause_overlay_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("pause screen", "paused overlay"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-parental-guide", title = stringResource(Res.string.settings_playback_parental_guide), description = stringResource(Res.string.settings_playback_parental_guide_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("age rating", "content rating", "parental ratings"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-movie-recommendations", title = stringResource(Res.string.settings_playback_movie_recommendations), description = stringResource(Res.string.settings_playback_movie_recommendations_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("recommendations after movie", "related movies"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-mini-player", title = stringResource(Res.string.settings_playback_mini_player), description = stringResource(Res.string.settings_playback_mini_player_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("picture in picture", "miniplayer"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-seek-preview", title = stringResource(Res.string.settings_playback_seek_preview), description = stringResource(Res.string.settings_playback_seek_preview_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("thumbnail preview", "scrub preview", "seek thumbnails"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-touch-gestures", title = stringResource(Res.string.settings_playback_touch_gestures), description = stringResource(Res.string.settings_playback_touch_gestures_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("swipe controls", "touch controls", "gesture controls"))
+    if (playerSettings.touchGesturesEnabled && !playerSettings.externalPlayerEnabled) addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-swipe-to-seek", title = stringResource(Res.string.settings_playback_swipe_to_seek), description = stringResource(Res.string.settings_playback_swipe_to_seek_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("swipe seeking", "drag to seek"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-hold-to-speed", title = stringResource(Res.string.settings_playback_hold_to_speed), description = stringResource(Res.string.settings_playback_hold_to_speed_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("press and hold speed", "temporary fast forward"))
+    if (playerSettings.holdToSpeedEnabled && !playerSettings.externalPlayerEnabled) addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-hold-speed-value", title = stringResource(Res.string.settings_playback_hold_speed), description = stringResource(Res.string.settings_playback_hold_speed_description), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("hold speed multiplier", "playback speed while holding"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-skip-backward", title = stringResource(Res.string.settings_playback_skip_backward), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("rewind duration", "back skip seconds"))
+    addRow(page = SettingsPage.PlaybackInterface, key = "playback-interface-skip-forward", title = stringResource(Res.string.settings_playback_skip_forward), pageLabel = playbackPage, section = playbackInterfaceSection, searchTerms = listOf("forward seek duration", "skip ahead seconds"))
 
     val upNextSection = stringResource(Res.string.settings_playback_section_next_episode)
     addRow(page = SettingsPage.PlaybackUpNext, key = "playback-up-next-auto-play", title = stringResource(Res.string.settings_playback_auto_play_next_episode), description = stringResource(Res.string.settings_playback_auto_play_next_episode_description), pageLabel = playbackPage, section = upNextSection, searchTerms = listOf("autoplay", "next show", "next tv episode"))

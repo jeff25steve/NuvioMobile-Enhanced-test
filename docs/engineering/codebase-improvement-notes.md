@@ -3688,3 +3688,16 @@ References checked:
 #### Next checkpoint
 
 - Continue Playback Interface settings, auditing conditional and platform-specific controls before extending the strict anchor allow-list.
+
+
+### 12 November 2026 — Playback Interface settings search
+
+- Added searchable entries and exact-row anchors for 21 player-interface controls, including layout, glass controls, chapter/loading/pause overlays, gestures, hold-to-speed and skip durations.
+- Catalogue visibility matches the UI: Toolbar Layout is shown only for the modern layout; legacy top/bottom button layouts only for legacy mode; Swipe to Seek only when touch gestures are enabled and internal playback is active; Hold Speed Value only when hold-to-speed is enabled and internal playback is active. Disabled-but-visible controls remain searchable.
+- Forwarded the highlighted search key into PlaybackInterfaceSettings and attached stable row keys without changing player behavior, settings callbacks or persistence.
+- Context7 resolved JetBrains Compose Multiplatform; repository version 1.13.0-beta01 / Kotlin 2.4.10 is not in the indexed version list. Context7 did not return a matching common relocation API page; no Compose API or dependency change was made. Exa cross-checked AOSP Settings Universal Search conditional indexing/keywords and AndroidX BringIntoViewRequester and accessibility guidance. Existing reveal implementation reused.
+- Regression source added for all 21 anchor keys and phone/tablet list offsets. **No Gradle tasks, tests, builds, compilation, device sessions or CI were started**, per instruction. Runtime reveal/highlight remains device-unverified. Commit uses [skip ci].
+
+#### Next checkpoint
+
+- Continue Playback Audio settings; audit platform availability and dependent controls before indexing.

@@ -167,4 +167,24 @@ class SettingsSearchAnchorTest {
         assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
     }
 
+    @Test
+    fun playbackInterfaceSearchResultsHaveExactRowAnchors() {
+        val keys = listOf("playback-interface-legacy-layout", "playback-interface-title-logo", "playback-interface-control-glass", "playback-interface-skip-buttons", "playback-interface-toolbar-layout", "playback-interface-legacy-top-buttons", "playback-interface-legacy-bottom-buttons", "playback-interface-loading-overlay", "playback-interface-exo-chapters", "playback-interface-loading-status", "playback-interface-pause-overlay", "playback-interface-parental-guide", "playback-interface-movie-recommendations", "playback-interface-mini-player", "playback-interface-seek-preview", "playback-interface-touch-gestures", "playback-interface-swipe-to-seek", "playback-interface-hold-to-speed", "playback-interface-hold-speed-value", "playback-interface-skip-backward", "playback-interface-skip-forward")
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackInterface, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackInterface, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackInterfaceAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(SettingsPage.PlaybackInterface, "playback-interface-toolbar-layout", "Toolbar Layout", "")!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
 }
