@@ -8,6 +8,47 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun playbackVideoSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-libmpv-video-output",
+            "playback-libmpv-hardware-decoding",
+            "playback-libmpv-yuv420p",
+            "playback-decoder-priority",
+            "playback-dv7-hevc",
+            "playback-tunneled-playback",
+            "playback-audio-passthrough",
+            "playback-anime-upscale",
+            "playback-anime-line-sharpen",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackVideo, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackVideo, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackVideoAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.PlaybackVideo,
+            "playback-libmpv-video-output",
+            "Libmpv video output",
+            "",
+        )!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
+    fun unknownPlaybackVideoRowsRemainPageOnly() {
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackVideo, "playback-video-unknown", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackVideo, "playback-ios-hardware-decoder", "iOS hardware decoder", ""))
+    }
+
+    @Test
     fun playbackSubtitleSearchResultsHaveExactRowAnchors() {
         val keys = listOf(
             "playback-preferred-subtitles",
