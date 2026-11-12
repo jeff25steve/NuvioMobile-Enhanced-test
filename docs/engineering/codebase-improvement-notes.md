@@ -3804,13 +3804,22 @@ References checked:
 
 ### 12 November 2026 — Advanced Settings search coverage
 
-- Completed the Advanced page audit against its rendered sections. Added searchable preference results for Remember last profile, DNS provider and Sentry reports; DNS and Sentry entries use the same isSupported gates as their actual UI sections.
+- Completed the Advanced page audit against its rendered sections. Consolidated the pre-existing Remember last profile and Sentry catalogue rows instead of duplicating them, and added DNS provider search under the same isSupported gate as its actual UI section.
 - Added strict exact-row anchors for those three persistent preferences, attached the shared reveal/highlight contract to their real switch/navigation rows, and forwarded the active highlight through both mobile and tablet Advanced page renderers. Anchor indices account for the optional DNS and Sentry sections, so each result targets the correct lazy-list item on platforms where either section is unavailable.
-- Kept cache-clearing actions and the Debug Logs navigation out of preference results. They are one-off actions/destinations, not persistent preferences; no misleading row anchor is created for them.
-- Added common regression source for all three exact anchors and page-only fallback for the cache/debug actions. Tests were not executed because builds, Gradle tests, compilation and CI were not authorised.
+- Removed the pre-existing cache-clearing action results and kept Debug Logs navigation out of preference results. They are one-off actions/destinations, not persistent preferences; no misleading row anchor is created for them.
+- Added common regression source for all three exact anchors and page-only fallback for the cache/debug actions. Conditional section offsets are checked against the actual platform support gates. Tests were not executed because builds, Gradle tests, compilation and CI were not authorised.
 - Context7 resolved Compose Multiplatform; the indexed docs demonstrate stable LazyColumn item identity. Exa independently cross-checked official AndroidX BringIntoViewRequester and LazyListState references. The implementation reuses the established row anchor/reveal contract and introduces no new Compose API or dependency. Project pin 1.13.0-beta01 is newer than Context7 latest indexed version 1.12.2.
 - Self-review only (no independent reviewer/subagent available): checked the three keys across catalogue, allow-list, rendered rows, renderer forwarding and regression source; verified unsupported DNS/Sentry controls remain gated consistently; verified cache/debug actions remain excluded. Compiler/runtime verification remains outstanding.
 
 #### Next checkpoint
 
 - The Settings Search coverage initiative is not yet complete: continue auditing the remaining non-Playback pages (Appearance/Layout, Home, Details, Integrations, Tracking, Account and related subpages) against actual rendered controls. Add entries only for real preferences and exact anchors only for rows that expose the shared anchor contract.
+
+
+### 12 November 2026 — Advanced search catalogue deduplication and action hygiene
+
+- Follow-up source review found legacy Advanced catalogue rows for Remember last profile, Sentry reports and cache-clearing actions. Consolidated the two preference rows under the exact-anchor keys, removing duplicate search results rather than adding parallel entries.
+- Removed Clear continue watching cache and Clear metadata cache from preference search. These destructive one-off actions are not persistent preferences and must not be advertised as direct preference navigation.
+- Added the missing DNS provider row alongside existing Advanced preferences, gated by DnsSettingsRepository.isSupported. Retained the Sentry gate and strict row offsets for optional sections.
+- Updated regression source to assert page-only fallback for both removed cache actions. No builds, tests, compilation or CI were run.
+- Review note: this corrective pass addresses a catalogue duplication/action-classification issue found during reinspection. Search entry keys now have a single canonical Advanced row each.
