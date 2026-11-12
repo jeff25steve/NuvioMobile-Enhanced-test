@@ -87,6 +87,7 @@ internal fun LazyListScope.appearanceSettingsContent(
     onAppIconFailureDismissed: () -> Unit,
     selectedAppLanguage: AppLanguage,
     onAppLanguageSelected: (AppLanguage) -> Unit,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -165,6 +166,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                     description = stringResource(Res.string.settings_appearance_amoled_description),
                     checked = amoledEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "amoled",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = onAmoledToggle,
                 )
                 if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
@@ -181,6 +184,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                         title = stringResource(Res.string.settings_liquid_glass_customize),
                         description = stringResource(Res.string.settings_liquid_glass_customize_description),
                         isTablet = isTablet,
+                        searchAnchorKey = "liquid-glass",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onClick = { showLiquidGlassSurfacesSheet = true },
                     )
                 }
@@ -190,6 +195,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                     description = stringResource(appIconState.selected.labelResource),
                     enabled = appIconState.pending == null,
                     isTablet = isTablet,
+                    searchAnchorKey = "app-icon",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     trailingContent = {
                         AppIconThumbnail(
                             icon = appIconState.selected,
@@ -207,6 +214,8 @@ internal fun LazyListScope.appearanceSettingsContent(
                     title = stringResource(Res.string.settings_appearance_app_language),
                     description = stringResource(selectedAppLanguage.labelRes),
                     isTablet = isTablet,
+                    searchAnchorKey = "app-language",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onClick = { showLanguageSheet = true },
                 )
             }

@@ -3570,3 +3570,36 @@ References checked:
 #### Next improvement checkpoint
 
 - The larger recall improvement is to make each actual setting row publish its searchable metadata (localized title, description, section path, aliases, and a stable navigation anchor) at the point where the row is declared, then let Settings search build its index from that shared source. LINE's article shows this avoids the drift of a duplicate manually maintained catalogue. It will require a planned, incremental migration across settings pages and a safe phone/tablet row-scroll/highlight path; do not do a broad UI rewrite in this matcher-only cycle.
+
+### 12 November 2026 — Settings search: stable row anchors and exact-result reveal
+
+#### Defects addressed
+
+- The previous checkpoint added anchor tests without defining the production SettingsSearchAnchor model or the anchor property expected by SettingsSearchTarget.Page; test source and production API were out of sync.
+- Searchable setting rows still navigated only to their parent page. Route-backed phone navigation discarded child-setting identity, and tablet inline navigation had no row-reveal handoff.
+- A generic BringIntoViewRequester cannot discover a child that LazyColumn has not composed. The implementation scrolls to a known containing LazyColumn section first, then highlights the actual row once composed.
+
+#### Integrated change
+
+- Added the missing typed SettingsSearchAnchor model and optional anchor property on page targets. Matching requires both expected page and exact stable key.
+- Added a conservative verified anchor mapping for four actual Appearance controls: AMOLED black, Customize Liquid Glass, App icon, and App language. Other results retain page-only navigation until their real row and containing section are mapped.
+- Added phone/tablet lazy-list index calculations for Appearance > Display. Phone accounts for its sticky header or top spacer; tablet accounts for its optional header. Search scrolls to the containing section, then gives the exact row a temporary accent outline/background for 1.8 seconds.
+- Preserved the setting key through route-backed SettingsPageRoute navigation and the initial destination. Tablet inline navigation uses the existing SettingsScreen pending-key state. Existing setting handlers and persisted values remain unchanged.
+- Expanded common regression source for anchor identity, unknown-key fallback, page-only target compatibility, and phone/tablet section-index arithmetic.
+
+#### Research and API review
+
+- Context7 confirmed LazyListState.animateScrollToItem, stable lazy item keys, and BringIntoViewRequester semantics. The project pins Compose Multiplatform 1.13.0-beta01; Context7 did not index that exact beta (latest indexed 1.12.2), so no new dependency or version-sensitive API was introduced.
+- Android [Lazy lists and grids guidance](https://developer.android.com/develop/ui/compose/lists) explains that LazyColumn composes only items needed for the viewport and that animateScrollToItem is the supported indexed scroll mechanism. This is why the implementation scrolls the containing Display item before applying the row highlight.
+- LINE Engineering [settings-search implementation](https://engineering.linecorp.com/en/blog/how-we-added-settings-searching-to-the-line-app) independently supports result-to-row navigation and highlight, and describes the maintenance advantage of deriving searchable data from real setting models. This change is an incremental bridge, not a claim that every Nuvio setting has been migrated.
+- Exa research reviewed a production Compose settings-search change and a settings-search implementation with lazy-tab anchor lookup. Reusable concepts were stable IDs, explicit mappings for conditional rows, and bounded highlights; web/router polling was not copied into Compose LazyColumn.
+
+#### Review and verification boundary
+
+- Source review covered both phone and tablet result handlers, route serialization/navigation handoff, actual Appearance row declarations, and shared row components. Unmapped catalogue entries still open their containing page.
+- **No builds, tests, compilation, device sessions, or CI were started.** Regression tests are added but remain unexecuted. Scroll alignment and the visual highlight are source-reviewed, not device-verified.
+- The commit uses [skip ci] to respect the explicit no-CI boundary.
+
+#### Next improvement checkpoint
+
+- Incrementally migrate the next high-value Settings page (Playback first), registering exact rows at declaration sites, including conditional visibility and parent-section indices. Avoid broad settings UI rewrite or guessed text mappings. Validate Appearance anchors on phone/tablet before expanding the allow-list.

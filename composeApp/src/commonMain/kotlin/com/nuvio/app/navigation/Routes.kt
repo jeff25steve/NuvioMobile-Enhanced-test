@@ -70,6 +70,7 @@ data class EntityBrowseRoute(
 data class SettingsPageRoute(
     val pageName: String,
     override val title: String,
+    val settingKey: String? = null,
 ) : SettingsDestinationRoute
 
 @Serializable

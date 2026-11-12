@@ -63,10 +63,46 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 internal sealed class SettingsSearchTarget {
-    data class Page(val page: SettingsPage) : SettingsSearchTarget()
+    data class Page(
+        val page: SettingsPage,
+        val anchor: SettingsSearchAnchor? = null,
+    ) : SettingsSearchTarget()
     object Collections : SettingsSearchTarget()
     object SwitchProfile : SettingsSearchTarget()
     object CheckForUpdates : SettingsSearchTarget()
+}
+
+internal data class SettingsSearchAnchor(
+    val page: SettingsPage,
+    val key: String,
+    val title: String,
+    val description: String,
+    val sectionItemIndex: Int,
+) {
+    fun matches(currentPage: SettingsPage, requestedKey: String?): Boolean =
+        page == currentPage && key == requestedKey
+}
+
+internal fun settingsSearchAnchor(
+    page: SettingsPage,
+    key: String,
+    title: String,
+    description: String,
+): SettingsSearchAnchor? {
+    if (page != SettingsPage.Appearance || key !in AppearanceSettingsSearchAnchorKeys) return null
+    return SettingsSearchAnchor(page, key, title, description, sectionItemIndex = 1)
+}
+
+private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "liquid-glass", "app-icon", "app-language")
+
+internal fun settingsSearchAnchorListIndex(
+    anchor: SettingsSearchAnchor,
+    isTablet: Boolean,
+    showInternalHeader: Boolean,
+): Int = anchor.sectionItemIndex + when {
+    isTablet && showInternalHeader -> 1
+    isTablet -> 0
+    else -> 1 // Phone has either a sticky header or top spacer.
 }
 
 internal val SettingsSearchTarget.icon: ImageVector
@@ -212,7 +248,10 @@ internal fun settingsSearchEntries(
             page = if (page.parentPage == SettingsPage.Playback) playbackPage else pageLabel,
             section = if (page.parentPage == SettingsPage.Playback) pageTitles.getValue(page) else section,
             category = category,
-            target = SettingsSearchTarget.Page(page),
+            target = SettingsSearchTarget.Page(
+                page = page,
+                anchor = settingsSearchAnchor(page, key, title, description),
+            ),
             searchTerms = searchTerms,
         )
     }

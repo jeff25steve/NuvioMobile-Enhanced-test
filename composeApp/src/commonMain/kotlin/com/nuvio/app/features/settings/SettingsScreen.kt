@@ -192,11 +192,12 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     rootActionRequests: Flow<Unit> = emptyFlow(),
     initialPageName: String = SettingsPage.Root.name,
+    initialSearchAnchorKey: String? = null,
     requestedPageName: String? = null,
     onRequestedPageConsumed: () -> Unit = {},
     rootActionsEnabled: Boolean = true,
     isSelectedTab: Boolean = true,
-    onNavigatePage: ((pageName: String, title: String) -> Unit)? = null,
+    onNavigatePage: ((pageName: String, title: String, settingKey: String?) -> Unit)? = null,
     onExternalBack: (() -> Unit)? = null,
     showInternalHeader: Boolean = true,
     onSwitchProfile: (() -> Unit)? = null,
@@ -412,6 +413,9 @@ fun SettingsScreen(
                 ?: SettingsPage.Root
         }
         var currentPage by rememberSaveable(initialPageName) { mutableStateOf(initialPage.name) }
+        var pendingSearchAnchorKey by rememberSaveable(initialPageName) {
+            mutableStateOf(initialSearchAnchorKey)
+        }
         val scrollToTopRequests = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
         val pageTitles = if (onNavigatePage != null) settingsPageTitles() else emptyMap()
         val page = remember(currentPage) {
@@ -422,8 +426,9 @@ fun SettingsScreen(
         }
         val previousPage = page.previousPage()
 
-        fun openPage(targetPage: SettingsPage) {
+        fun openPage(targetPage: SettingsPage, settingKey: String? = null) {
             if (!targetPage.isEnabledByPolicy()) return
+            pendingSearchAnchorKey = settingKey
             val externalNavigator = onNavigatePage
             if (externalNavigator == null) {
                 currentPage = targetPage.name
@@ -436,6 +441,7 @@ fun SettingsScreen(
             externalNavigator(
                 targetPage.name,
                 pageTitles.getValue(targetPage),
+                settingKey,
             )
         }
 
@@ -536,6 +542,11 @@ fun SettingsScreen(
                         page = page,
                         scrollToTopRequests = scrollToTopRequests,
                         onPageChange = ::openPage,
+                        onSearchAnchorNavigate = { target ->
+                            target.anchor?.let { openPage(target.page, it.key) }
+                        },
+                        searchAnchorKey = pendingSearchAnchorKey,
+                        onSearchAnchorConsumed = { pendingSearchAnchorKey = null },
                         onNavigateBack = ::navigateBack,
                         showInternalHeader = showInternalHeader,
                         rememberLastProfileEnabled = profileSettingsState.rememberLastProfileEnabled,
@@ -589,6 +600,11 @@ fun SettingsScreen(
                         hasCustomSettingsBackgroundImage = customSettingsBackgroundImageUri != null,
                         scrollToTopRequests = scrollToTopRequests,
                         onPageChange = ::openPage,
+                        onSearchAnchorNavigate = { target ->
+                            target.anchor?.let { openPage(target.page, it.key) }
+                        },
+                        searchAnchorKey = pendingSearchAnchorKey,
+                        onSearchAnchorConsumed = { pendingSearchAnchorKey = null },
                         onNavigateBack = ::navigateBack,
                         showInternalHeader = showInternalHeader,
                         rememberLastProfileEnabled = profileSettingsState.rememberLastProfileEnabled,
@@ -655,6 +671,9 @@ private fun MobileSettingsScreen(
     hasCustomSettingsBackgroundImage: Boolean,
     scrollToTopRequests: Flow<Unit>,
     onPageChange: (SettingsPage) -> Unit,
+    onSearchAnchorNavigate: (SettingsSearchTarget.Page) -> Unit,
+    searchAnchorKey: String?,
+    onSearchAnchorConsumed: () -> Unit,
     onNavigateBack: () -> Unit,
     showInternalHeader: Boolean,
     rememberLastProfileEnabled: Boolean,
@@ -717,6 +736,16 @@ private fun MobileSettingsScreen(
         var rootSearchVisible by rememberSaveable { mutableStateOf(false) }
         var rootSearchRevealAnimating by rememberSaveable { mutableStateOf(false) }
         val listState = rememberLazyListState()
+        var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
+        LaunchedEffect(page, searchAnchorKey) {
+            val anchor = searchAnchorKey?.let { settingsSearchAnchor(page, it, it, "") }
+                ?: return@LaunchedEffect
+            listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, false, showInternalHeader))
+            highlightedSearchAnchorKey = anchor.key
+            delay(1_800)
+            if (highlightedSearchAnchorKey == anchor.key) highlightedSearchAnchorKey = null
+            onSearchAnchorConsumed()
+        }
         ScreenActivityEffect(listState) { screenActive ->
             if (!screenActive) listState.stopScroll()
         }
@@ -737,7 +766,9 @@ private fun MobileSettingsScreen(
         }
         fun openSearchTarget(target: SettingsSearchTarget) {
             when (target) {
-                is SettingsSearchTarget.Page -> when (target.page) {
+                is SettingsSearchTarget.Page -> if (target.anchor != null) {
+                    onSearchAnchorNavigate(target)
+                } else when (target.page) {
                     SettingsPage.Account -> onAccountClick()
                     SettingsPage.SupportersContributors -> {
                         if (AppFeaturePolicy.supportersContributorsPageEnabled) {
@@ -888,6 +919,8 @@ private fun MobileSettingsScreen(
                     onAppIconFailureDismissed = onAppIconFailureDismissed,
                     selectedAppLanguage = selectedAppLanguage,
                     onAppLanguageSelected = onAppLanguageSelected,
+
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Layout -> layoutSettingsContent(
                     isTablet = false,
@@ -1067,6 +1100,9 @@ private fun TabletSettingsScreen(
     page: SettingsPage,
     scrollToTopRequests: Flow<Unit>,
     onPageChange: (SettingsPage) -> Unit,
+    onSearchAnchorNavigate: (SettingsSearchTarget.Page) -> Unit,
+    searchAnchorKey: String?,
+    onSearchAnchorConsumed: () -> Unit,
     onNavigateBack: () -> Unit,
     showInternalHeader: Boolean,
     rememberLastProfileEnabled: Boolean,
@@ -1191,7 +1227,9 @@ private fun TabletSettingsScreen(
             fun openSearchTarget(target: SettingsSearchTarget) {
                 when (target) {
                     is SettingsSearchTarget.Page -> {
-                        if (target.page.isEnabledByPolicy()) {
+                        if (target.anchor != null) {
+                            onSearchAnchorNavigate(target)
+                        } else if (target.page.isEnabledByPolicy()) {
                             openInlinePage(target.page)
                         }
                     }
@@ -1202,6 +1240,16 @@ private fun TabletSettingsScreen(
             }
 
             val listState = rememberLazyListState()
+            var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
+            LaunchedEffect(page, searchAnchorKey) {
+                val anchor = searchAnchorKey?.let { settingsSearchAnchor(page, it, it, "") }
+                    ?: return@LaunchedEffect
+                listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, true, showInternalHeader))
+                highlightedSearchAnchorKey = anchor.key
+                delay(1_800)
+                if (highlightedSearchAnchorKey == anchor.key) highlightedSearchAnchorKey = null
+                onSearchAnchorConsumed()
+            }
             ScreenActivityEffect(listState) { screenActive ->
                 if (!screenActive) listState.stopScroll()
             }
@@ -1346,6 +1394,8 @@ private fun TabletSettingsScreen(
                         onAppIconFailureDismissed = onAppIconFailureDismissed,
                         selectedAppLanguage = selectedAppLanguage,
                         onAppLanguageSelected = onAppLanguageSelected,
+
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Layout -> layoutSettingsContent(
                         isTablet = true,

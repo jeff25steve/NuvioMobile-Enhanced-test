@@ -52,9 +52,10 @@ internal fun SettingsRootDestination(
     SettingsScreen(
         modifier = Modifier.fillMaxSize(),
         initialPageName = route.pageName,
+        initialSearchAnchorKey = route.settingKey,
         rootActionsEnabled = false,
-        onNavigatePage = { pageName, title ->
-            navController.navigate(SettingsPageRoute(pageName, title))
+        onNavigatePage = { pageName, title, settingKey ->
+            navController.navigate(SettingsPageRoute(pageName, title, settingKey))
         },
         onExternalBack = onBack,
         showInternalHeader = !useNativeNavigation,

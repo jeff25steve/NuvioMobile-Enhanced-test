@@ -506,6 +506,8 @@ internal fun SettingsNavigationRow(
     enabled: Boolean = true,
     isTablet: Boolean,
     trailingContent: (@Composable RowScope.() -> Unit)? = null,
+    searchAnchorKey: String? = null,
+    highlightedSearchAnchorKey: String? = null,
     onClick: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -516,6 +518,13 @@ internal fun SettingsNavigationRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
+                    val shape = RoundedCornerShape(12.dp)
+                    Modifier.background(tokens.colors.accent.copy(alpha = 0.10f), shape)
+                        .border(BorderStroke(1.dp, tokens.colors.accent.copy(alpha = 0.58f)), shape)
+                } else Modifier
+            )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = horizontalPadding, vertical = verticalPadding)
             .alpha(if (enabled) NuvioTokens.Opacity.visible else tokens.opacity.medium),
@@ -589,6 +598,8 @@ internal fun SettingsSwitchRow(
     enabled: Boolean = true,
     isTablet: Boolean,
     horizontalPadding: Dp = if (isTablet) 20.dp else 16.dp,
+    searchAnchorKey: String? = null,
+    highlightedSearchAnchorKey: String? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -597,6 +608,13 @@ internal fun SettingsSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (searchAnchorKey != null && searchAnchorKey == highlightedSearchAnchorKey) {
+                    val shape = RoundedCornerShape(12.dp)
+                    Modifier.background(tokens.colors.accent.copy(alpha = 0.10f), shape)
+                        .border(BorderStroke(1.dp, tokens.colors.accent.copy(alpha = 0.58f)), shape)
+                } else Modifier
+            )
             .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         horizontalArrangement = Arrangement.Start,
