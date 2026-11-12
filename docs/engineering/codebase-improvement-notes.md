@@ -3730,3 +3730,17 @@ References checked:
 #### Next checkpoint
 
 - Continue the audited coverage matrix across every Settings page. Add exact row anchors only after matching each catalogue key to a real rendered control and its platform/feature/dependency visibility. Highest remaining gaps: Playback Subtitles, Video, Buffer and P2P, then non-Playback controls (Appearance/Layout, Home, Details, Integrations, Tracking, Downloads, Notifications, Account and Advanced). Never index credential values; index visible credential labels only.
+
+### 12 November 2026 — Playback Subtitles search navigation and catalogue alignment
+
+- Audited `PlaybackSubtitleSettings.kt`, `SubtitleAppearanceSettings.kt`, `PlaybackSettingsPage.kt`, the shared Playback renderer and the Settings Search catalogue against the live `main-build-testing` source.
+- Fixed a navigation gap: Playback Subtitles had no `highlightedSearchAnchorKey` parameter or row anchors, despite being listed in Settings Search. Forwarded the key through `PlaybackSettingsPage` and attached stable anchors to the preferred/secondary subtitle language rows, subtitle font, shadow toggle, Libass toggle, Libass render mode/scale and Libmpv ASS toggle.
+- Corrected catalogue breadcrumbs: preferred and secondary subtitle language remain in Subtitle Audio; font, background opacity, background roundness and shadow are now grouped under Subtitle Rendering, matching their actual UI section.
+- Corrected conditional indexing for Libass controls: the entire Libass group is omitted on iOS and when the selected Android engine is Libmpv; render mode and render scale are indexed only while `useLibass` makes those rows visible. Disabled-but-visible controls remain searchable. Background opacity and roundness remain page-level results because their slider row component does not currently expose the shared anchor/highlight contract; no fake row anchors were registered.
+- Added regression source for all eight exact anchor keys, phone/tablet header offsets and page-only fallback for unknown/unanchored slider keys. **Tests were not executed**: no Gradle test/build tasks, compilation, device sessions or CI were started, in keeping with the no-build/no-CI instruction. The new regression source therefore remains unexecuted.
+- Context7 resolved JetBrains Compose Multiplatform; the repo's pinned 1.13.0-beta01 is newer than the latest indexed Context7 version (1.12.2). The existing common Compose row anchor pattern was reused; no new Compose APIs or dependencies were introduced. Exa cross-checked AOSP Universal Search's non-indexable-key guidance and the official AndroidX `BringIntoViewRequester` contract: index only currently available rows and request reveal from the actual child row.
+- Self-review (no subagent reviewer available): verified the result key strings match the strict page allow-list and the exact row modifiers, checked the renderer forwarding path, checked the platform/engine/Libass visibility predicates against the UI, and confirmed the test source covers all registered keys. Remaining verification gap: no compiler/test execution or device validation.
+
+#### Next checkpoint
+
+- Continue Playback Video, Buffer and P2P. Audit every result against the rendered row, then extend the same coverage matrix to non-Playback settings. Keep platform/feature/dependency visibility synchronized and never index credential values.
