@@ -3074,3 +3074,36 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Static source review confirms the touched sync files pass the captured identity into invalid-session handling; their previous unscoped helper invocations are removed. The account/profile predicate has regression cases for replacement-account reuse and wrong active profile.
 - Regression tests were authored but deliberately NOT executed. No Gradle task, compilation, Android/iOS build, simulator/device run or CI workflow was started, as instructed.
 - Compilation/API compatibility and live account-switch timing remain unverified until builds and tests are explicitly authorized. The branch update itself is verified separately by the resulting commit and remote ref.
+
+
+## 12 November 2026 — validate native thumbnail byte ranges and MP4 box headers
+
+### Confirmed root causes
+- `native/container/src/http.rs` is in the active Android thumbnail path: `native/android/src/thumbnails.rs` constructs `aiostreams_container::Options` and opens `Thumbnails`, whose container reader performs HTTP byte-range requests.
+- The reader required status 206 and capped the body to the requested length plus one byte, but it did not validate the `Content-Range` start/end against the requested offsets. It also trusted a missing/malformed total-size suffix and accepted a body whose byte count did not match the declared range. A misbehaving or hostile origin could therefore return bytes from a different offset and have them parsed as container metadata or video packets.
+- Cache and budget calculations used unchecked `u64` addition, and zero-length ranges reached `len - 1` when constructing the HTTP header. Local reads converted an untrusted `u64` allocation size directly to `usize`.
+- `native/container/src/mp4.rs` parsed top-level box sizes independently from the general box iterator. A declared box smaller than its 8- or 16-byte header could reach `body.drain(..8/16)` and panic; advancing `pos` used unchecked addition.
+
+### Integrated changes
+- Added strict parsing and validation for single-part byte `Content-Range` responses. The returned start must equal the requested start; the end may not exceed the requested end; a shorter response is accepted only when a known complete length proves that it ends exactly at EOF. Caller-provided `Range` headers are ignored so they cannot replace or duplicate the reader's own requested interval.
+- Rejects absent, malformed, mismatched or size-changing range metadata before caching returned bytes. Verifies that the actual body length equals the declared range length, while retaining the existing ureq body limit that prevents an origin from returning an unbounded response.
+- Added explicit zero-length handling and checked arithmetic for request bounds, cache bounds, byte/request counters and the extra-byte body limit. Local file reads now use checked `usize` conversion and fallible vector reservation.
+- Added a shared MP4 top-level box-header parser. It validates standard and extended header lengths, rejects undersized or unsupported zero-extent boxes without slicing/draining panics, reads only the `moov` payload, verifies that the payload matches the declared box length, and checks the next-box offset for overflow.
+- Added eight Rust regression tests in source: four for Content-Range parsing/validation and four for MP4 box-header validity.
+- No dependency, file format, backend schema, user setting, UI, iOS implementation or build configuration changed.
+
+### Age-based dependency audit and decision
+- The root `libass-android` submodule points to `c10b71ab` (18 March 2026); upstream `peerless2012/libass-android` master is 58 commits ahead. However, this is not the library currently declared to the Android application: `composeApp/build.gradle.kts` consumes `composeApp/libs/nuvio-libass-release.aar`, whose source is the separate `NuvioMedia/nuvio-libass` repository. That runtime AAR was last updated to v0.0.13 on 4 November, with Nuvio-specific track replacement, font fallback and native library-load fixes. Updating the old submodule pointer would not update the renderer the app actually packages, and upstream libass-android has also moved to Media3 1.11.1 while the app's catalog is still on Media3 1.8.0. The submodule was therefore left unchanged pending an intentional source/AAR compatibility update.
+- The `MPVKit` gitlink matches the current `nuvio-enhanced` branch head, so it is not stale despite the folder age shown in GitHub.
+- The old `vendor/TorrServer` and `vendor/quickjs-kt` pins are not part of the currently included Gradle module graph. Android P2P uses the NuvioEngine AAR, and the full distribution declares a separate customized QuickJS AAR. Their source pins were left in place rather than removed or blindly advanced; whether they remain needed for reproducible native/AAR rebuilds should be settled before cleanup.
+
+### Research and API references
+- Superpowers systematic-debugging and test-driven-development guidance was used to trace the active thumbnail call path, identify the trust boundary, and add regression cases before production changes.
+- Context7 resolved the ureq API documentation. The workspace declares ureq `3.4`; the consulted ureq 3.x contracts confirm `BodyWithConfig::limit` bounds response buffering, `read_to_vec` should be used with a limit, and `ResponseExt::get_uri` returns the final redirect target.
+- Exa cross-checked the relevant HTTP semantics against RFC 9110: byte-range positions are inclusive; a single-range 206 response describes the actual returned interval with `Content-Range`; the complete length must be greater than the final byte position; a shorter returned interval needs to be treated as an EOF case rather than silently as the requested length.
+- Sources: https://www.rfc-editor.org/rfc/rfc9110#section-14.4 ; https://www.rfc-editor.org/rfc/rfc9110#section-14.4.2 ; https://www.rfc-editor.org/rfc/rfc9110#section-15.3.7.1 ; https://docs.rs/ureq/latest/ureq/struct.BodyWithConfig.html ; https://docs.rs/ureq/latest/ureq/trait.ResponseExt.html ; https://github.com/NuvioMedia/nuvio-libass ; https://github.com/peerless2012/libass-android/compare/c10b71ab8b4d90796d4a795f775d337c29198ad0...master
+
+### Verification boundary
+- Static source review confirms the active Android thumbnail JNI entry constructs the RangeReader options and the parser changes preserve its public API. The eight regression tests are authored but deliberately NOT executed.
+- No `cargo test`, `cargo check`, Gradle task, compilation, Android/iOS build, simulator/device run, or CI workflow was started.
+- Rust compilation and runtime behaviour against real HTTP servers/MP4/MKV files remain unverified until tests/builds are explicitly authorized.

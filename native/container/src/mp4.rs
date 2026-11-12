@@ -44,32 +44,50 @@ pub(crate) fn path<'a>(b: &'a [u8], kinds: &[&[u8; 4]]) -> Option<&'a [u8]> {
     kinds.iter().try_fold(b, |b, k| child(b, k))
 }
 
+fn parse_box_header(head: &[u8]) -> Result<([u8; 4], u64, u64)> {
+    let size32 = u32be(head, 0).ok_or(Error::Malformed("MP4 box header"))?;
+    let kind: [u8; 4] = head
+        .get(4..8)
+        .and_then(|value| value.try_into().ok())
+        .ok_or(Error::Malformed("MP4 box header"))?;
+    let (header_size, size) = match size32 {
+        1 => (
+            16,
+            u64be(head, 8).ok_or(Error::Malformed("MP4 extended box header"))?,
+        ),
+        0 => return Err(Error::Malformed("MP4 box extends to EOF")),
+        size => (8, size),
+    };
+    if size < header_size {
+        return Err(Error::Malformed("MP4 box size"));
+    }
+    Ok((kind, size, header_size))
+}
+
 /// The moov box's body, before or after the media data.
 pub fn moov(r: &mut RangeReader) -> Result<Vec<u8>> {
     let mut pos = 0u64;
     loop {
         let head = r.read(pos, 16)?;
-        if head.len() < 8 {
-            return Err(Error::Malformed("MP4 without moov"));
-        }
-        let kind = &head[4..8];
-        let size = match u32be(&head, 0).unwrap() {
-            1 => u64be(&head, 8).ok_or(Error::Malformed("box header"))?,
-            0 => return Err(Error::Malformed("MP4 without moov")),
-            n => n,
-        };
-        if pos == 0 && kind != b"ftyp" {
+        let (kind, size, header_size) = parse_box_header(&head)?;
+        if pos == 0 && kind != *b"ftyp" {
             return Err(Error::Unsupported("not MP4".into()));
         }
-        if kind == b"moov" {
-            let mut body = r.read(pos, size)?;
-            body.drain(..if u32be(&body, 0) == Some(1) { 16 } else { 8 });
+        if kind == *b"moov" {
+            let body_start = pos
+                .checked_add(header_size)
+                .ok_or(Error::Malformed("MP4 box offset"))?;
+            let body_size = size - header_size;
+            let body = r.read(body_start, body_size)?;
+            if body.len() as u64 != body_size {
+                return Err(Error::Malformed("MP4 moov length"));
+            }
             return Ok(body);
         }
-        if kind == b"moof" {
+        if kind == *b"moof" {
             return Err(Error::Unsupported("fragmented MP4".into()));
         }
-        pos += size.max(8);
+        pos = pos.checked_add(size).ok_or(Error::Malformed("MP4 box offset"))?;
     }
 }
 
@@ -252,4 +270,55 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
         scale_ns: 1_000_000,
         entries,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_box_header;
+    use crate::error::Error;
+
+    #[test]
+    fn parses_a_standard_box_header() {
+        let header = [0, 0, 0, 12, b'f', b't', b'y', b'p'];
+        assert_eq!(
+            parse_box_header(&header).unwrap(),
+            (*b"ftyp", 12, 8),
+        );
+    }
+
+    #[test]
+    fn parses_a_valid_extended_box_header() {
+        let header = [
+            0, 0, 0, 1, b'm', b'o', b'o', b'v',
+            0, 0, 0, 0, 0, 0, 0, 16,
+        ];
+        assert_eq!(
+            parse_box_header(&header).unwrap(),
+            (*b"moov", 16, 16),
+        );
+    }
+
+    #[test]
+    fn rejects_truncated_and_undersized_box_headers() {
+        assert!(matches!(
+            parse_box_header(&[0, 0, 0, 8, b'm', b'o', b'o']),
+            Err(Error::Malformed("MP4 box header")),
+        ));
+        assert!(matches!(
+            parse_box_header(&[0, 0, 0, 4, b'm', b'o', b'o', b'v']),
+            Err(Error::Malformed("MP4 box size")),
+        ));
+        assert!(matches!(
+            parse_box_header(&[0, 0, 0, 1, b'm', b'o', b'o', b'v', 0, 0, 0, 0, 0, 0, 0, 8]),
+            Err(Error::Malformed("MP4 box size")),
+        ));
+    }
+
+    #[test]
+    fn rejects_zero_sized_boxes_with_implicit_eof_extent() {
+        assert!(matches!(
+            parse_box_header(&[0, 0, 0, 0, b'm', b'o', b'o', b'v']),
+            Err(Error::Malformed("MP4 box extends to EOF")),
+        ));
+    }
 }
