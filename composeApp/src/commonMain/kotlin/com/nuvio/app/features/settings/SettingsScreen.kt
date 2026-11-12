@@ -946,6 +946,7 @@ private fun MobileSettingsScreen(
                     isTablet = false,
                     rememberLastProfileEnabled = rememberLastProfileEnabled,
                     onDebugLogsClick = { onPageChange(SettingsPage.DebugLogs) },
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.DebugLogs -> debugLogsSettingsContent(
                     isTablet = false,
@@ -1424,6 +1425,7 @@ private fun TabletSettingsScreen(
                         isTablet = true,
                         rememberLastProfileEnabled = rememberLastProfileEnabled,
                         onDebugLogsClick = { openInlinePage(SettingsPage.DebugLogs) },
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.DebugLogs -> debugLogsSettingsContent(
                         isTablet = true,
