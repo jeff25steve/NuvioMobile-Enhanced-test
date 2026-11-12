@@ -30,6 +30,30 @@ import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
+internal suspend fun runServerSwitchCleanup(
+    clearAnonymousUserId: suspend () -> Unit,
+    clearRemoteSession: suspend () -> Unit,
+    clearLocalAccountData: suspend () -> Unit,
+): Result<Unit> {
+    val anonymousClear = runCatching { clearAnonymousUserId() }
+    val remoteClear = runCatching { clearRemoteSession() }
+    val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
+        ?: remoteClear.exceptionOrNull() as? CancellationException
+    if (cancellation != null) throw cancellation
+
+    val credentialFailure = anonymousClear.exceptionOrNull() ?: remoteClear.exceptionOrNull()
+    if (credentialFailure != null) return Result.failure(credentialFailure)
+
+    return try {
+        clearLocalAccountData()
+        Result.success(Unit)
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }
+}
+
 object AuthRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("AuthRepository")
@@ -407,14 +431,20 @@ object AuthRepository {
         _error.value = null
         sessionGeneration.invalidate()
         trustNextSessionWithoutValidation = false
-        val anonymousClear = runCatching { AuthStorage.clearAnonymousUserId() }
+        val accountUserId =
+            SupabaseProvider.client.auth.currentSessionOrNull()?.user?.id?.takeIf { it.isNotBlank() }
+                ?: (state.value as? AuthState.Authenticated)?.userId?.takeIf { it.isNotBlank() }
+                ?: validatedRemoteUserId?.takeIf { it.isNotBlank() }
+                ?: AuthStorage.loadAnonymousUserId()?.takeIf { it.isNotBlank() }
         validatedRemoteUserId = null
-        val sessionClear = runCatching { SupabaseProvider.client.auth.clearSession() }
+
+        val cleanup = runServerSwitchCleanup(
+            clearAnonymousUserId = { AuthStorage.clearAnonymousUserId() },
+            clearRemoteSession = { SupabaseProvider.client.auth.clearSession() },
+            clearLocalAccountData = { LocalAccountDataCleaner.wipe(accountUserId) },
+        )
         _state.value = AuthState.Unauthenticated
-        val failure = anonymousClear.exceptionOrNull() ?: sessionClear.exceptionOrNull()
-        val cancellation = sessionClear.exceptionOrNull() as? CancellationException
-        if (cancellation != null) throw cancellation
-        return if (failure == null) Result.success(Unit) else Result.failure(failure)
+        return cleanup
     }
 
     fun reinitialize(publishLoadingState: Boolean = true) {

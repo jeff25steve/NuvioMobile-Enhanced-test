@@ -42,3 +42,7 @@ One contained improvement was selected: prefetch the actual artwork used by the 
 - Compose LazyLayout cache window: https://developer.android.com/reference/kotlin/androidx/compose/foundation/lazy/layout/LazyLayoutCacheWindow
 - Compose LazyRow: https://developer.android.com/reference/kotlin/androidx/compose/foundation/lazy/LazyRow.composable
 - GitHub workflow skip markers: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs
+
+## Backend readiness follow-up — 12 November 2026
+
+The early-2027 credential rotation remains unverified. The existing Full-build self-host discovery path has been source-reviewed and hardened rather than replaced. See [backend-migration-readiness.md](backend-migration-readiness.md) for the risk assessment, alternative strategies, security findings and remaining work.

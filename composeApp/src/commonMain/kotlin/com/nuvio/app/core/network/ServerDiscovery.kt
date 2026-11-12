@@ -21,6 +21,7 @@ enum class ServerDiscoveryFailure {
     NotSelfHosted,
     MissingConfiguration,
     UnsupportedAuthentication,
+    BackendOriginMismatch,
 }
 
 class ServerDiscoveryException(
@@ -79,6 +80,9 @@ internal object ServerDiscoveryPolicy {
             throw ServerDiscoveryException(ServerDiscoveryFailure.NotSelfHosted)
         }
         val backendUrl = normalizeBackendUrl(payload.backendUrl)
+        if (!hasSameOrigin(discoveryUrl, backendUrl)) {
+            throw ServerDiscoveryException(ServerDiscoveryFailure.BackendOriginMismatch)
+        }
         val key = payload.publishableKey.trim()
         if (key.isBlank()) {
             throw ServerDiscoveryException(ServerDiscoveryFailure.MissingConfiguration)
@@ -97,6 +101,14 @@ internal object ServerDiscoveryPolicy {
             isCustom = true,
             discoveryUrl = discoveryUrl,
         )
+    }
+
+    internal fun hasSameOrigin(first: String, second: String): Boolean {
+        val firstUrl = runCatching { Url(first) }.getOrNull() ?: return false
+        val secondUrl = runCatching { Url(second) }.getOrNull() ?: return false
+        return firstUrl.protocol.name.equals(secondUrl.protocol.name, ignoreCase = true) &&
+            firstUrl.host.equals(secondUrl.host, ignoreCase = true) &&
+            firstUrl.port == secondUrl.port
     }
 
     fun isOfficial(candidateUrl: String): Boolean =
@@ -163,6 +175,7 @@ object ServerDiscoveryService {
                         "User-Agent" to "Mobile/${AppVersionConfig.VERSION_NAME.ifBlank { "dev" }}",
                     ),
                     body = "",
+                    followRedirects = false,
                     maxResponseBodyBytes = maxDocumentBytes + 1,
                 )
             }
@@ -177,11 +190,8 @@ object ServerDiscoveryService {
                 statusCode = response.status,
             )
         }
-        if (
-            discoveryUrl.startsWith("https://", ignoreCase = true) &&
-            !response.url.startsWith("https://", ignoreCase = true)
-        ) {
-            throw ServerDiscoveryException(ServerDiscoveryFailure.ConnectionFailed)
+        if (!ServerDiscoveryPolicy.hasSameOrigin(discoveryUrl, response.url)) {
+            throw ServerDiscoveryException(ServerDiscoveryFailure.BackendOriginMismatch)
         }
         if (response.body.encodeToByteArray().size > maxDocumentBytes) {
             throw ServerDiscoveryException(ServerDiscoveryFailure.ResponseTooLarge)

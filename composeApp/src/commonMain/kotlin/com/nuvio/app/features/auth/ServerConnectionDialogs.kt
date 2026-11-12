@@ -57,6 +57,7 @@ import nuvio.composeapp.generated.resources.server_connect_subtitle
 import nuvio.composeapp.generated.resources.server_connect_title
 import nuvio.composeapp.generated.resources.server_connect_url_placeholder
 import nuvio.composeapp.generated.resources.server_error_auth
+import nuvio.composeapp.generated.resources.server_error_backend_origin_mismatch
 import nuvio.composeapp.generated.resources.server_error_connection
 import nuvio.composeapp.generated.resources.server_error_http
 import nuvio.composeapp.generated.resources.server_error_invalid_document
@@ -86,6 +87,7 @@ import nuvio.composeapp.generated.resources.server_review_trust
 import nuvio.composeapp.generated.resources.server_review_verified_label
 import nuvio.composeapp.generated.resources.server_switching
 import nuvio.composeapp.generated.resources.server_warning_credentials
+import nuvio.composeapp.generated.resources.server_warning_local_data
 import nuvio.composeapp.generated.resources.server_warning_http
 import nuvio.composeapp.generated.resources.server_warning_private
 import nuvio.composeapp.generated.resources.server_warning_public
@@ -303,6 +305,11 @@ internal fun ServerTrustDialog(
                 style = MaterialTheme.typography.bodySmall,
                 color = tokens.colors.textSecondary,
             )
+            Text(
+                text = stringResource(Res.string.server_warning_local_data),
+                style = MaterialTheme.typography.bodySmall,
+                color = tokens.colors.warning,
+            )
         }
         if (switchFailure != null) {
             Text(
@@ -337,6 +344,11 @@ internal fun OfficialServerDialog(
             text = stringResource(Res.string.server_official_body),
             style = MaterialTheme.typography.bodyMedium,
             color = tokens.colors.textSecondary,
+        )
+        Text(
+            text = stringResource(Res.string.server_warning_local_data),
+            style = MaterialTheme.typography.bodySmall,
+            color = tokens.colors.warning,
         )
         if (switchFailure != null) {
             Text(
@@ -425,6 +437,8 @@ private fun serverDiscoveryError(state: ServerConnectionUiState): String? {
         ServerDiscoveryFailure.NotSelfHosted -> stringResource(Res.string.server_error_not_self_hosted)
         ServerDiscoveryFailure.MissingConfiguration -> stringResource(Res.string.server_error_missing_configuration)
         ServerDiscoveryFailure.UnsupportedAuthentication -> stringResource(Res.string.server_error_auth)
+        ServerDiscoveryFailure.BackendOriginMismatch ->
+            stringResource(Res.string.server_error_backend_origin_mismatch)
         null -> null
     }
 }
