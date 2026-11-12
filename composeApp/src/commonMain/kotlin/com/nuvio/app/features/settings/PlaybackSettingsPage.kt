@@ -40,7 +40,11 @@ internal fun LazyListScope.playbackSettingsContent(
                 settings = settings,
                 highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             )
-            SettingsPage.PlaybackStreamSelection -> PlaybackStreamSettings(isTablet, settings)
+            SettingsPage.PlaybackStreamSelection -> PlaybackStreamSettings(
+                isTablet = isTablet,
+                settings = settings,
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            )
             SettingsPage.PlaybackUpNext -> PlaybackUpNextSettings(isTablet, settings)
             SettingsPage.PlaybackSkipSegments -> PlaybackSkipSettings(isTablet, settings)
             SettingsPage.PlaybackInterface -> PlaybackInterfaceSettings(isTablet, settings)

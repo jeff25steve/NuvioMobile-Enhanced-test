@@ -78,8 +78,43 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun playbackStreamSelectionSearchResultsHaveExactRowAnchors() {
+        val keys = listOf(
+            "playback-stream-reuse-last-link",
+            "playback-stream-cache-duration",
+            "playback-stream-selection-mode",
+            "playback-stream-regex-pattern",
+            "playback-stream-timeout",
+            "playback-stream-source-scope",
+            "playback-stream-allowed-addons",
+            "playback-stream-allowed-plugins",
+        )
+        keys.forEach { key ->
+            val anchor = settingsSearchAnchor(SettingsPage.PlaybackStreamSelection, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(SettingsPage.PlaybackStreamSelection, anchor?.page)
+            assertEquals(0, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun playbackStreamSelectionAnchorIndexAccountsForPhoneAndTabletHeaders() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.PlaybackStreamSelection,
+            "playback-stream-timeout",
+            "Stream Selection Timeout",
+            "",
+        )!!
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, true))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, false, false))
+        assertEquals(1, settingsSearchAnchorListIndex(anchor, true, true))
+        assertEquals(0, settingsSearchAnchorListIndex(anchor, true, false))
+    }
+
+    @Test
     fun unknownPlaybackRowsRemainPageOnly() {
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackPlayer, "playback-unregistered-row", "Unknown", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackStreamSelection, "playback-unregistered-row", "Unknown", ""))
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackVideo, "playback-engine", "Playback engine", ""))
     }
 

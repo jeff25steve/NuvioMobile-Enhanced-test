@@ -46,6 +46,7 @@ import com.nuvio.app.features.player.PlayerSettingsUiState
 internal fun PlaybackStreamSettings(
     isTablet: Boolean,
     settings: PlayerSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     var showReuseCacheDurationDialog by remember { mutableStateOf(false) }
     var showAutoPlayModeDialog by remember { mutableStateOf(false) }
@@ -71,6 +72,8 @@ internal fun PlaybackStreamSettings(
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_playback_reuse_last_link),
                     description = stringResource(Res.string.settings_playback_reuse_last_link_description),
+                    searchAnchorKey = "playback-stream-reuse-last-link",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     checked = settings.streamReuseLastLinkEnabled,
                     isTablet = isTablet,
                     onCheckedChange = PlayerSettingsRepository::setStreamReuseLastLinkEnabled,
@@ -80,6 +83,8 @@ internal fun PlaybackStreamSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_last_link_cache_duration),
                         description = formatReuseCacheDuration(settings.streamReuseLastLinkCacheHours),
+                        searchAnchorKey = "playback-stream-cache-duration",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showReuseCacheDurationDialog = true },
                     )
@@ -95,6 +100,8 @@ internal fun PlaybackStreamSettings(
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_stream_selection_mode),
                     description = stringResource(settings.streamAutoPlayMode.labelRes),
+                    searchAnchorKey = "playback-stream-selection-mode",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onClick = { showAutoPlayModeDialog = true },
                 )
@@ -104,6 +111,8 @@ internal fun PlaybackStreamSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_regex_pattern),
                         description = settings.streamAutoPlayRegex.ifBlank { notSetLabel },
+                        searchAnchorKey = "playback-stream-regex-pattern",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showAutoPlayRegexDialog = true },
                     )
@@ -115,11 +124,15 @@ internal fun PlaybackStreamSettings(
                     Int.MAX_VALUE -> stringResource(Res.string.settings_playback_timeout_unlimited)
                     else -> stringResource(Res.string.settings_playback_timeout_seconds, timeoutSec)
                 }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = if (isTablet) 18.dp else 16.dp, vertical = 10.dp),
-                ) {
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "playback-stream-timeout",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Column(
+                        modifier = anchorModifier
+                            .fillMaxWidth()
+                            .padding(horizontal = if (isTablet) 18.dp else 16.dp, vertical = 10.dp),
+                    ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -162,11 +175,14 @@ internal fun PlaybackStreamSettings(
                         steps = calculateSteps(0f, maxIndex, 1f),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    }
                 }
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_playback_source_scope),
                     description = stringResource(settings.streamAutoPlaySource.labelRes(pluginsEnabled)),
+                    searchAnchorKey = "playback-stream-source-scope",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     isTablet = isTablet,
                     onClick = { showAutoPlaySourceDialog = true },
                 )
@@ -183,6 +199,8 @@ internal fun PlaybackStreamSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_allowed_addons),
                         description = addonSubtitle,
+                        searchAnchorKey = "playback-stream-allowed-addons",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showAutoPlayAddonSelectionDialog = true },
                     )
@@ -200,6 +218,8 @@ internal fun PlaybackStreamSettings(
                     SettingsNavigationRow(
                         title = stringResource(Res.string.settings_playback_allowed_plugins),
                         description = pluginSubtitle,
+                        searchAnchorKey = "playback-stream-allowed-plugins",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         isTablet = isTablet,
                         onClick = { showAutoPlayPluginSelectionDialog = true },
                     )

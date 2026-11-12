@@ -94,6 +94,8 @@ internal fun settingsSearchAnchor(
             if (key in AppearanceSettingsSearchAnchorKeys) 1 else return null
         SettingsPage.PlaybackPlayer ->
             if (key in PlaybackPlayerSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.PlaybackStreamSelection ->
+            if (key in PlaybackStreamSelectionSettingsSearchAnchorKeys) 0 else return null
         else -> return null
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
@@ -108,6 +110,17 @@ private val PlaybackPlayerSettingsSearchAnchorKeys = setOf(
     "playback-external-player-send-skip-segments",
     "playback-engine",
     "playback-auto-switch-engine-on-error",
+)
+
+private val PlaybackStreamSelectionSettingsSearchAnchorKeys = setOf(
+    "playback-stream-reuse-last-link",
+    "playback-stream-cache-duration",
+    "playback-stream-selection-mode",
+    "playback-stream-regex-pattern",
+    "playback-stream-timeout",
+    "playback-stream-source-scope",
+    "playback-stream-allowed-addons",
+    "playback-stream-allowed-plugins",
 )
 
 internal fun settingsSearchAnchorListIndex(
@@ -261,7 +274,7 @@ internal fun settingsSearchEntries(
             title = title,
             description = description,
             page = if (page.parentPage == SettingsPage.Playback) playbackPage else pageLabel,
-            section = if (page.parentPage == SettingsPage.Playback) pageTitles.getValue(page) else section,
+            section = section,
             category = category,
             target = SettingsSearchTarget.Page(
                 page = page,
@@ -385,6 +398,84 @@ internal fun settingsSearchEntries(
             pageLabel = playbackPage,
             section = playbackDecoderSection,
             searchTerms = listOf("decoder fallback", "switch player", "engine fallback"),
+        )
+    }
+
+    val streamSelectionSection = stringResource(Res.string.settings_playback_section_stream_selection)
+    val streamAutoPlaySection = stringResource(Res.string.settings_playback_section_stream_auto_play)
+    addRow(
+        page = SettingsPage.PlaybackStreamSelection,
+        key = "playback-stream-reuse-last-link",
+        title = stringResource(Res.string.settings_playback_reuse_last_link),
+        description = stringResource(Res.string.settings_playback_reuse_last_link_description),
+        pageLabel = playbackPage,
+        section = streamSelectionSection,
+        searchTerms = listOf("reuse source", "last working stream", "cached stream", "auto play last link"),
+    )
+    if (playerSettings.streamReuseLastLinkEnabled) {
+        addRow(
+            page = SettingsPage.PlaybackStreamSelection,
+            key = "playback-stream-cache-duration",
+            title = stringResource(Res.string.settings_playback_last_link_cache_duration),
+            pageLabel = playbackPage,
+            section = streamSelectionSection,
+            searchTerms = listOf("cache expiry", "cache lifetime", "last stream retention"),
+        )
+    }
+    addRow(
+        page = SettingsPage.PlaybackStreamSelection,
+        key = "playback-stream-selection-mode",
+        title = stringResource(Res.string.settings_playback_stream_selection_mode),
+        pageLabel = playbackPage,
+        section = streamAutoPlaySection,
+        searchTerms = listOf("automatic stream", "auto select", "manual stream selection", "first source", "regex"),
+    )
+    if (playerSettings.streamAutoPlayMode == StreamAutoPlayMode.REGEX_MATCH) {
+        addRow(
+            page = SettingsPage.PlaybackStreamSelection,
+            key = "playback-stream-regex-pattern",
+            title = stringResource(Res.string.settings_playback_regex_pattern),
+            description = stringResource(Res.string.settings_playback_stream_selection_mode_regex_description),
+            pageLabel = playbackPage,
+            section = streamAutoPlaySection,
+            searchTerms = listOf("regular expression", "pattern matching", "match source text"),
+        )
+    }
+    addRow(
+        page = SettingsPage.PlaybackStreamSelection,
+        key = "playback-stream-timeout",
+        title = stringResource(Res.string.settings_playback_stream_timeout),
+        description = stringResource(Res.string.settings_playback_stream_timeout_description),
+        pageLabel = playbackPage,
+        section = streamAutoPlaySection,
+        searchTerms = listOf("wait time", "provider timeout", "selection delay", "seconds"),
+    )
+    addRow(
+        page = SettingsPage.PlaybackStreamSelection,
+        key = "playback-stream-source-scope",
+        title = stringResource(Res.string.settings_playback_source_scope),
+        pageLabel = playbackPage,
+        section = streamAutoPlaySection,
+        searchTerms = listOf("source providers", "addon sources", "plugin sources", "where auto play searches"),
+    )
+    if (playerSettings.streamAutoPlaySource != StreamAutoPlaySource.ENABLED_PLUGINS_ONLY) {
+        addRow(
+            page = SettingsPage.PlaybackStreamSelection,
+            key = "playback-stream-allowed-addons",
+            title = stringResource(Res.string.settings_playback_allowed_addons),
+            pageLabel = playbackPage,
+            section = streamAutoPlaySection,
+            searchTerms = listOf("installed addons", "provider allow list", "addon filter"),
+        )
+    }
+    if (pluginsEnabled && playerSettings.streamAutoPlaySource != StreamAutoPlaySource.INSTALLED_ADDONS_ONLY) {
+        addRow(
+            page = SettingsPage.PlaybackStreamSelection,
+            key = "playback-stream-allowed-plugins",
+            title = stringResource(Res.string.settings_playback_allowed_plugins),
+            pageLabel = playbackPage,
+            section = streamAutoPlaySection,
+            searchTerms = listOf("enabled plugins", "plugin provider filter", "plugin allow list"),
         )
     }
 

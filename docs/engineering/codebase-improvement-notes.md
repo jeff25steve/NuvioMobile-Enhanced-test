@@ -3636,3 +3636,29 @@ References checked:
 #### Next improvement checkpoint
 
 - Continue the same incremental migration with Playback Stream Selection, then Subtitles and Video. For each page, register only controls whose visibility and actual row declarations have been audited; use the row requester rather than assuming that a LazyColumn item index maps to a child row.
+
+
+### 12 November 2026 — Playback Stream Selection settings search and row navigation
+
+- Added eight searchable Stream Selection controls: Reuse Last Link, Last Link Cache Duration, Auto Stream Selection, Regex Pattern, Stream Selection Timeout, Auto-play Source Scope, Allowed Addons, and Allowed Plugins.
+- Search visibility follows the live UI state: cache duration only when reuse-last-link is enabled; regex only in REGEX_MATCH mode; addon restrictions only outside ENABLED_PLUGINS_ONLY; plugin restrictions only when plugins are enabled and source scope is not INSTALLED_ADDONS_ONLY.
+- Added exact anchors to all eight actual controls, including the custom timeout slider through a shared SettingsSearchAnchorContainer that reuses bring-into-view and the accent-highlight treatment.
+- Passed the active highlight key through PlaybackStreamSelection page rendering on phone and tablet. Existing settings values, provider selection, feature flags, and dialog handlers are unchanged.
+- Corrected the shared Playback row catalogue helper to retain its supplied subsection label. Search results now distinguish Playback > Player/Decoder and Playback > Stream Selection/Stream Auto-play instead of collapsing subsection detail to Playback.
+
+#### Research and API review
+
+- Context7 resolved JetBrains Compose Multiplatform. Its commonMain examples confirm LaunchedEffect is composition-scoped and restarts/cancels with keys. No platform-specific APIs or dependencies were introduced. The repository pins Compose Multiplatform 1.13.0-beta01 / Kotlin 2.4.10; Context7's indexed release list does not include that exact beta (latest indexed 1.12.2).
+- Android Open Source Project [Settings universal search guidance](https://source.android.com/docs/core/settings/universal-search) explicitly supports keyword aliases and non-indexable keys for controls unavailable in a given device/configuration. This implementation mirrors that principle by using PlayerSettingsUiState and the plugins feature flag to omit hidden rows.
+- Android [Settings design guidance](https://developer.android.com/design/ui/mobile/guides/patterns/settings) recommends consistent subscreen labels and grouping related settings. Preserving actual subsection breadcrumbs follows that guidance and the existing search-result model.
+- Exa also surfaced a production settings-search implementation using weighted metadata and keyword fields; this change follows Nuvio's existing catalogue rather than adding a second search engine.
+
+#### Review and verification boundary
+
+- Source-level review traced every new key from catalogue to actual row, checked conditional catalogue branches against PlaybackStreamSettings, verified the timeout custom-row anchor container, and inspected the phone/tablet highlight forwarding path.
+- **No Gradle tasks, tests, builds, compilation, device sessions, or CI were started**, as requested. Regression source is added but unexecuted; scroll/highlight behavior remains device-unverified.
+- Commit uses [skip ci]; no workflow was dispatched.
+
+#### Next checkpoint
+
+- Continue with Playback Up Next or Skip Segments, selecting based on visible controls and exact-row mapping. Keep conditional catalogue entries synchronized with UI branches and preserve true subsection breadcrumbs.

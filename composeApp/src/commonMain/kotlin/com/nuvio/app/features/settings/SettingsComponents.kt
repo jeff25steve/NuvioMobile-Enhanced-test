@@ -606,6 +606,32 @@ internal fun SettingsNavigationRow(
 }
 
 @Composable
+internal fun SettingsSearchAnchorContainer(
+    searchAnchorKey: String,
+    highlightedSearchAnchorKey: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable (Modifier) -> Unit,
+) {
+    val tokens = MaterialTheme.nuvio
+    val shape = RoundedCornerShape(12.dp)
+    val bringIntoViewRequester = remember(searchAnchorKey) { BringIntoViewRequester() }
+    val isHighlighted = searchAnchorKey == highlightedSearchAnchorKey
+    LaunchedEffect(searchAnchorKey, highlightedSearchAnchorKey, bringIntoViewRequester) {
+        if (isHighlighted) bringIntoViewRequester.bringIntoView()
+    }
+    val anchorModifier = Modifier
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .then(
+            if (isHighlighted) {
+                Modifier
+                    .background(tokens.colors.accent.copy(alpha = 0.10f), shape)
+                    .border(BorderStroke(1.dp, tokens.colors.accent.copy(alpha = 0.58f)), shape)
+            } else Modifier
+        )
+    content(modifier.then(anchorModifier))
+}
+
+@Composable
 internal fun SettingsSwitchRow(
     title: String,
     description: String? = null,
