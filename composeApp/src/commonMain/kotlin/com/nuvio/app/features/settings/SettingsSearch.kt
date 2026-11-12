@@ -1149,12 +1149,20 @@ internal fun settingsSearchEntries(
         key = "home-layout",
         title = homeLayoutPage,
         description = stringResource(Res.string.settings_content_discovery_homescreen_description),
+        searchTerms = listOf(
+            "home screen", "homepage", "home page", "hero", "featured content",
+            "trailers", "catalog rows", "home screen layout", "home page settings",
+        ),
     )
     addPage(
         page = SettingsPage.MetaScreen,
         key = "detail-page",
         title = detailPage,
         description = stringResource(Res.string.settings_content_discovery_meta_screen_description),
+        searchTerms = listOf(
+            "details screen", "detail page", "movie details", "tv show details",
+            "metadata", "movie page", "show page", "cast", "synopsis", "backdrop",
+        ),
     )
     add(
         key = "collections",
