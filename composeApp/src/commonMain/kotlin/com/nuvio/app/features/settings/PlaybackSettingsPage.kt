@@ -55,8 +55,8 @@ internal fun LazyListScope.playbackSettingsContent(
             SettingsPage.PlaybackAudio -> PlaybackAudioSettings(isTablet, settings, highlightedSearchAnchorKey)
             SettingsPage.PlaybackSubtitles -> PlaybackSubtitleSettings(isTablet, settings, highlightedSearchAnchorKey)
             SettingsPage.PlaybackVideo -> PlaybackVideoSettings(isTablet, settings, highlightedSearchAnchorKey)
-            SettingsPage.PlaybackBuffer -> if (!isIos) PlaybackBufferSettings(isTablet, settings)
-            SettingsPage.PlaybackP2p -> if (P2pSettingsRepository.isVisible) PlaybackP2pSettings(isTablet)
+            SettingsPage.PlaybackBuffer -> if (!isIos) PlaybackBufferSettings(isTablet, settings, highlightedSearchAnchorKey)
+            SettingsPage.PlaybackP2p -> if (P2pSettingsRepository.isVisible) PlaybackP2pSettings(isTablet, highlightedSearchAnchorKey)
             else -> Unit
         }
     }
