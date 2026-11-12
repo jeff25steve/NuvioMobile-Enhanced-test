@@ -188,14 +188,35 @@ fn parse_box_header(head: &[u8]) -> Result<([u8; 4], u64, u64)> {
     Ok((kind, size, header_size))
 }
 
-/// The moov box's body, before or after the media data.
-pub fn moov(r: &mut RangeReader) -> Result<Vec<u8>> {
+/// QuickTime movie files identify their preferred file format with the `qt  ` major brand.
+fn is_quicktime_brand(major_brand: &[u8]) -> bool {
+    major_brand == b"qt  "
+}
+
+fn moov_with_format(r: &mut RangeReader) -> Result<(Vec<u8>, bool)> {
     let mut pos = 0u64;
+    let mut quicktime_format = false;
     loop {
         let head = r.read(pos, 16)?;
         let (kind, size, header_size) = parse_box_header(&head)?;
         if pos == 0 && kind != *b"ftyp" {
             return Err(Error::Unsupported("not MP4".into()));
+        }
+        if kind == *b"ftyp" && pos == 0 {
+            let payload_size = size
+                .checked_sub(header_size)
+                .ok_or(Error::Malformed("MP4 file type size"))?;
+            if payload_size < 8 || (payload_size - 8) % 4 != 0 {
+                return Err(Error::Malformed("MP4 file type box"));
+            }
+            let brand_at = pos
+                .checked_add(header_size)
+                .ok_or(Error::Malformed("MP4 file type offset"))?;
+            let major_brand = r.read(brand_at, 4)?;
+            if major_brand.len() != 4 {
+                return Err(Error::Malformed("MP4 file type brand"));
+            }
+            quicktime_format = is_quicktime_brand(&major_brand);
         }
         if kind == *b"moov" {
             let body_start = pos
@@ -206,7 +227,7 @@ pub fn moov(r: &mut RangeReader) -> Result<Vec<u8>> {
             if body.len() as u64 != body_size {
                 return Err(Error::Malformed("MP4 moov length"));
             }
-            return Ok(body);
+            return Ok((body, quicktime_format));
         }
         if kind == *b"moof" {
             return Err(Error::Unsupported("fragmented MP4".into()));
@@ -215,8 +236,69 @@ pub fn moov(r: &mut RangeReader) -> Result<Vec<u8>> {
     }
 }
 
+/// The moov box's body, before or after the media data.
+pub fn moov(r: &mut RangeReader) -> Result<Vec<u8>> {
+    moov_with_format(r).map(|(body, _)| body)
+}
+
+fn parse_composition_offsets(
+    ctts: Option<&[u8]>,
+    quicktime_format: bool,
+    expected_samples: usize,
+) -> Result<Option<Vec<(u64, i64)>>> {
+    let Some(ctts) = ctts else {
+        return Ok(None);
+    };
+    let bad = || Error::Malformed("composition offset table");
+    if ctts.len() < 8 || !matches!(ctts[0], 0 | 1) || ctts[1..4] != [0, 0, 0] {
+        return Err(bad());
+    }
+    let entry_count = usize::try_from(u32be(ctts, 4).ok_or_else(bad)?).map_err(|_| bad())?;
+    let expected_len = entry_count
+        .checked_mul(8)
+        .and_then(|bytes| bytes.checked_add(8))
+        .ok_or_else(bad)?;
+    if ctts.len() != expected_len {
+        return Err(bad());
+    }
+
+    let expected_samples = u64::try_from(expected_samples).map_err(|_| bad())?;
+    let mut runs = Vec::new();
+    runs.try_reserve_exact(entry_count).map_err(|_| bad())?;
+    let mut covered_samples = 0u64;
+    for index in 0..entry_count {
+        let offset = table_entry_offset(8, index, 8).ok_or_else(bad)?;
+        let sample_count = u32be(ctts, offset).ok_or_else(bad)?;
+        let raw_offset = u32be(
+            ctts,
+            table_entry_offset(offset, 1, 4).ok_or_else(bad)?,
+        )
+        .ok_or_else(bad)?;
+        if sample_count == 0 {
+            return Err(bad());
+        }
+        covered_samples = covered_samples
+            .checked_add(sample_count)
+            .filter(|&total| total <= expected_samples)
+            .ok_or_else(bad)?;
+
+        // QuickTime's ctts atom defines a signed compositionOffset. ISO BMFF
+        // version 0 defines it as unsigned; ISO BMFF version 1 defines it as signed.
+        let composition_offset = if quicktime_format || ctts[0] == 1 {
+            i64::from(raw_offset as u32 as i32)
+        } else {
+            i64::from(raw_offset as u32)
+        };
+        runs.push((sample_count, composition_offset));
+    }
+    if covered_samples != expected_samples {
+        return Err(bad());
+    }
+    Ok(Some(runs))
+}
+
 pub fn keyframes(r: &mut RangeReader) -> Result<Keyframes> {
-    let moov = moov(r)?;
+    let (moov, quicktime_format) = moov_with_format(r)?;
     if child(&moov, b"mvex").is_some() {
         return Err(Error::Unsupported("fragmented MP4".into()));
     }
@@ -231,13 +313,17 @@ pub fn keyframes(r: &mut RangeReader) -> Result<Keyframes> {
             let number = child(trak, b"tkhd")
                 .and_then(|t| u32be(t, if t.first() == Some(&1) { 20 } else { 12 }))
                 .unwrap_or(1);
-            return video_keyframes(number, mdia);
+            return video_keyframes(number, mdia, quicktime_format);
         }
     }
     Err(Error::Unsupported("no video track".into()))
 }
 
-fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
+fn video_keyframes(
+    number: u64,
+    mdia: &[u8],
+    quicktime_format: bool,
+) -> Result<Keyframes> {
     let bad = || Error::Malformed("sample tables");
     let mdhd = child(mdia, b"mdhd").ok_or_else(bad)?;
     let (timescale, duration) = if mdhd.first() == Some(&1) {
@@ -319,7 +405,7 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
     let stsc = child(stbl, b"stsc").ok_or_else(bad)?;
     let runs = parse_sample_to_chunk(stsc, chunks.len(), count as u64)?;
     let stts = child(stbl, b"stts").ok_or_else(bad)?;
-    let ctts = child(stbl, b"ctts");
+    let ctts = parse_composition_offsets(child(stbl, b"ctts"), quicktime_format, count)?;
     // Without stss every sample is a sync sample. Entries in stss are one-based.
     let sync = parse_sync_samples(child(stbl, b"stss"), count as u64)?;
 
@@ -350,18 +436,12 @@ fn video_keyframes(number: u64, mdia: &[u8]) -> Result<Keyframes> {
                 .ok_or_else(bad)?;
                 stts_i = stts_i.checked_add(1).ok_or_else(bad)?;
             }
-            if let Some(ctts) = ctts {
+            if let Some(ctts_runs) = &ctts {
                 while ctts_left == 0 {
-                    ctts_left = u32be(
-                        ctts,
-                        table_entry_offset(8, ctts_i, 8).ok_or_else(bad)?,
-                    )
-                    .ok_or_else(bad)?;
-                    ctts_offset = u32be(
-                        ctts,
-                        table_entry_offset(12, ctts_i, 8).ok_or_else(bad)?,
-                    )
-                    .ok_or_else(bad)? as u32 as i32 as i64;
+                    let (sample_count, composition_offset) =
+                        *ctts_runs.get(ctts_i).ok_or_else(bad)?;
+                    ctts_left = sample_count;
+                    ctts_offset = composition_offset;
                     ctts_i = ctts_i.checked_add(1).ok_or_else(bad)?;
                 }
                 ctts_left -= 1;
@@ -574,3 +654,85 @@ mod tests {
     }
 
 }
+
+#[cfg(test)]
+mod composition_offset_tests {
+    use super::{is_quicktime_brand, parse_composition_offsets};
+
+    fn ctts_table(version: u8, entries: &[(u32, u32)]) -> Vec<u8> {
+        let mut table = vec![version, 0, 0, 0];
+        table.extend_from_slice(&(entries.len() as u32).to_be_bytes());
+        for (sample_count, offset) in entries {
+            table.extend_from_slice(&sample_count.to_be_bytes());
+            table.extend_from_slice(&offset.to_be_bytes());
+        }
+        table
+    }
+
+    #[test]
+    fn iso_version_zero_keeps_the_full_unsigned_offset_range() {
+        let table = ctts_table(0, &[(1, 0xF000_0000)]);
+        assert_eq!(
+            parse_composition_offsets(Some(&table), false, 1).unwrap(),
+            Some(vec![(1, 4_026_531_840)]),
+        );
+    }
+
+    #[test]
+    fn iso_version_one_decodes_negative_signed_offsets() {
+        let table = ctts_table(1, &[(1, (-100i32) as u32)]);
+        assert_eq!(
+            parse_composition_offsets(Some(&table), false, 1).unwrap(),
+            Some(vec![(1, -100)]),
+        );
+    }
+
+    #[test]
+    fn quicktime_brand_uses_signed_legacy_offsets() {
+        let table = ctts_table(0, &[(1, (-100i32) as u32)]);
+        assert_eq!(
+            parse_composition_offsets(Some(&table), true, 1).unwrap(),
+            Some(vec![(1, -100)]),
+        );
+    }
+
+    #[test]
+    fn absent_ctts_preserves_decode_order_timestamps() {
+        assert_eq!(parse_composition_offsets(None, false, 3).unwrap(), None);
+    }
+
+    #[test]
+    fn rejects_unsupported_composition_offset_versions_and_nonzero_flags() {
+        let table = ctts_table(2, &[(1, 0)]);
+        assert!(parse_composition_offsets(Some(&table), false, 1).is_err());
+
+        let mut flagged = ctts_table(0, &[(1, 0)]);
+        flagged[3] = 1;
+        assert!(parse_composition_offsets(Some(&flagged), false, 1).is_err());
+    }
+
+    #[test]
+    fn rejects_zero_length_or_truncated_ctts_entries() {
+        let zero_count = ctts_table(0, &[(0, 0)]);
+        assert!(parse_composition_offsets(Some(&zero_count), false, 0).is_err());
+
+        let mut truncated = ctts_table(0, &[(1, 0)]);
+        truncated.pop();
+        assert!(parse_composition_offsets(Some(&truncated), false, 1).is_err());
+    }
+
+    #[test]
+    fn requires_ctts_runs_to_cover_exactly_the_track_sample_count() {
+        let table = ctts_table(0, &[(2, 0)]);
+        assert!(parse_composition_offsets(Some(&table), false, 1).is_err());
+        assert!(parse_composition_offsets(Some(&table), false, 3).is_err());
+    }
+
+    #[test]
+    fn detects_the_quicktime_file_type_brand_without_classifying_iso_brands() {
+        assert!(is_quicktime_brand(b"qt  "));
+        assert!(!is_quicktime_brand(b"isom"));
+        assert!(!is_quicktime_brand(b"mp42"));
+    }
+}
+

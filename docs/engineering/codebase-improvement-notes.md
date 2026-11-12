@@ -3194,3 +3194,36 @@ The first direct Linux run, [42744145008](https://github.com/jeff25steve/NuvioMo
 - Six regression tests are present in source but were NOT executed. The TDD red/green cycle therefore remains unverified.
 - No `cargo test`, `cargo check`, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
 - Compilation and runtime behavior against existing MKV fixtures remain unverified pending explicit authorization to run tests/builds.
+
+
+## 12 November 2026 — interpret MP4/MOV composition offsets by file format and CTTS version
+
+### Confirmed root cause
+- `native/container/src/mp4.rs` previously read every `ctts` sample offset as a big-endian u32 and unconditionally cast it to i32. This conflated two distinct format rules: ISO BMFF version 0 offsets are unsigned, ISO BMFF version 1 offsets are signed, and the QuickTime File Format defines its compositionOffset field as signed.
+- An ISO BMFF version-0 offset above `i32::MAX` was therefore interpreted as a negative timestamp. `sample_time_ms` clamps negative presentation times to zero, which can collapse multiple keyframes onto the wrong time and distort thumbnail/seek indexing.
+- The parser previously did not validate the `ctts` FullBox version/flags or verify that composition-offset runs cover exactly the number of samples declared by `stsz`.
+
+### Integrated changes
+- Added an internal file-type-aware movie reader that extracts the `ftyp` major brand while retaining the public `mp4::moov()` signature and return type.
+- Validates the `ftyp` payload layout (major brand, minor version and four-byte compatible-brand entries) before using the major brand to identify QuickTime's `qt  ` file type.
+- Added a prevalidated composition-offset run parser. It applies ISO rules (v0 unsigned, v1 signed) to ISO brands, and the QuickTime signed-offset rule to QuickTime-branded files.
+- Rejects unsupported CTTS versions, nonzero reserved flags, truncated or extra table bytes, zero-length runs, and run totals that do not exactly match the track's sample count.
+- Feeds the validated run offsets into the existing keyframe loop without changing the public API or sample-ordering behavior.
+- Added eight regression tests covering high-bit unsigned ISO v0 offsets, negative ISO v1 offsets, signed QuickTime v0 offsets, absent CTTS, unsupported versions/flags, zero/truncated runs, sample-count coverage and QuickTime-vs-ISO major-brand classification.
+- No dependencies, build settings, public playback APIs, file formats, backend schemas, settings, UI or iOS code changed.
+
+### Research and design decisions
+- Superpowers systematic-debugging traced the incorrect signed cast from CTTS entry decoding through `sample_time_ms` to keyframe timestamps. Test-driven-development and writing-good-tests guidance informed the regression cases; verification-before-completion was used to maintain the no-build/no-test boundary.
+- Exa research compared the ISO syntax, Apple's QuickTime File Format and two independent parser implementations. ISO/IEC 14496-12 defines version 0 `sample_offset` as unsigned and version 1 as signed. Apple's QuickTime File Format describes `compositionOffset` as a signed 32-bit value. The format is therefore detected from the `ftyp` major brand instead of extension-based guesses.
+- FFmpeg's MOV parser history also distinguishes unsigned STTS deltas from signed CTTS offsets (FFmpeg commit `203b0e3561dea1ec459be226d805abe73e7535e5`). OxideAV's maintained MOV parser documents the same ISO v0/v1 distinction.
+- Context7 was not needed: this change is confined to the existing Rust container parser and does not change a library, framework, dependency or platform API.
+- Sources: https://developer.apple.com/documentation/quicktime-file-format/composition_offset_atom ; https://leopard-adc.pepas.com/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html ; https://ffmpeg.org/pipermail/ffmpeg-devel/2015-May/173430.html ; https://github.com/FFmpeg/FFmpeg/commit/203b0e3561dea1ec459be226d805abe73e7535e5 ; https://docs.rs/oxideav-mov/latest/src/oxideav_mov/sample_table.rs.html ; https://standards.iteh.ai/catalog/standards/iso/d21bc347-5349-4a5b-b734-b1c0e0b20f39/iso-iec-14496-12-2005
+
+### Verification boundary
+- Static source review confirms the file brand is captured once during movie-box traversal, passed into the video sample-table parser, and used to select the CTTS offset interpretation. The existing public `moov()` function remains source-compatible.
+- Eight CTTS/brand regression tests are present in source but were NOT executed. The TDD red/green cycle remains unverified.
+- No `cargo test`, `cargo check`, formatter/build task, Gradle task, Android/iOS build, simulator/device run or CI workflow was started.
+- Rust compilation and runtime seek/thumbnail behavior against ISO MP4 and QuickTime MOV fixtures remain unverified pending explicit authorization to run tests/builds.
+
+### Next action
+- Audit how `cslg` (composition shift least/greatest) and the complete `stts`/media-duration tables affect reconstruction of negative presentation timestamps. Preserve decode-time and presentation-time axes separately and compare the result against real MP4/MOV fixtures before changing timestamp normalization.
