@@ -1291,6 +1291,7 @@ internal fun settingsSearchEntries(
             section = playbackDecoder,
             page = SettingsPage.PlaybackVideo,
             rows = buildList {
+                add(PlaybackSearchRow("auto-switch-engine", stringResource(Res.string.settings_playback_auto_switch_engine_on_error), stringResource(Res.string.settings_playback_auto_switch_engine_on_error_description), page = SettingsPage.PlaybackPlayer))
                 if (playerSettings.androidPlaybackEngine != com.nuvio.app.features.player.AndroidPlaybackEngine.ExoPlayer) {
                     add(PlaybackSearchRow("libmpv-video-output", stringResource(Res.string.settings_playback_libmpv_video_output)))
                     add(PlaybackSearchRow("libmpv-hardware-decoding", stringResource(Res.string.settings_playback_libmpv_hardware_decoding), stringResource(Res.string.settings_playback_libmpv_hardware_decoding_description)))
