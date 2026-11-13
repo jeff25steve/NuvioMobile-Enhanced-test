@@ -170,7 +170,7 @@ internal fun settingsSearchAnchor(
                 if (liveTvHasPlaylist == true) 2 else if (liveTvHasPlaylist == false) 0 else return null
             "live-tv-playlist", "live-tv-playlist-url", "live-tv-local-playlist", "live-tv-playlist-name" ->
                 if (liveTvHasPlaylist == true) 3 else if (liveTvHasPlaylist == false) 1 else return null
-            "live-tv-epg-auto", "live-tv-epg-url", "live-tv-epg-add" ->
+            "live-tv-epg-auto", "live-tv-epg-url", "live-tv-epg-add", "live-tv-epg-refresh" ->
                 if (liveTvHasPlaylist == true) 4 else if (liveTvHasPlaylist == false) 2 else return null
             else -> return null
         }
