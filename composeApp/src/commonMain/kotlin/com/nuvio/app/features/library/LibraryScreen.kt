@@ -1027,53 +1027,53 @@ fun LibraryScreen(
             }
         }
     }
+            if (hasSavedControls) {
+                    val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
+                    CompositionLocalProvider(
+                        LocalLiquidGlassBackdrop provides if (
+                            libraryPinnedChromeUsesContentBackdrop(
+                                sourceMode = sourceMode,
+                                glassEnabled = savedTypeGlassEnabled || savedSortGlassEnabled,
+                            )
+                        ) libraryContentBackdrop else libraryBackdrop,
+                    ) {
+                        LiquidGlassTextContrastScope(enabled = savedControlsGlassTextEnabled) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .height(savedControlsInset),
+                        ) {
+                            // Keep the overlay hit target without painting a full-width black bar.
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .nuvioConsumePointerEvents(),
+                            )
+                            LibrarySavedControls(
+                                layoutMode = displaySettings.layoutMode,
+                                sourceMode = uiState.sourceMode,
+                                sortOption = effectiveSortOption,
+                                verticalProjection = verticalProjection,
+                                onSectionSelected = { sectionKey ->
+                                    selectedLibrarySectionKey = sectionKey
+                                    selectedLibraryType = null
+                                },
+                                onTypeSelected = { type -> selectedLibraryType = type },
+                                onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
+                                typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
+                                sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .padding(top = 8.dp, bottom = 14.dp),
+                            )
+                        }
+                        }
+                    }
+                }
         }
     }
         }
-        if (hasSavedControls) {
-                val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
-                CompositionLocalProvider(
-                    LocalLiquidGlassBackdrop provides if (
-                        libraryPinnedChromeUsesContentBackdrop(
-                            sourceMode = sourceMode,
-                            glassEnabled = savedTypeGlassEnabled || savedSortGlassEnabled,
-                        )
-                    ) libraryContentBackdrop else libraryBackdrop,
-                ) {
-                    LiquidGlassTextContrastScope(enabled = savedControlsGlassTextEnabled) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .height(savedControlsInset),
-                    ) {
-                        // Keep the overlay hit target without painting a full-width black bar.
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .nuvioConsumePointerEvents(),
-                        )
-                        LibrarySavedControls(
-                            layoutMode = displaySettings.layoutMode,
-                            sourceMode = uiState.sourceMode,
-                            sortOption = effectiveSortOption,
-                            verticalProjection = verticalProjection,
-                            onSectionSelected = { sectionKey ->
-                                selectedLibrarySectionKey = sectionKey
-                                selectedLibraryType = null
-                            },
-                            onTypeSelected = { type -> selectedLibraryType = type },
-                            onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
-                            typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
-                            sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 8.dp, bottom = 14.dp),
-                        )
-                    }
-                    }
-                }
-            }
     if (showReleaseCalendar) {
         // Dialog is outside the main Library provider. Supply captured content explicitly so
         // runtime glass samples the Library beneath it instead of falling back to a solid tint.
