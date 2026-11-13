@@ -737,7 +737,13 @@ private fun MobileSettingsScreen(
         var rootSearchRevealAnimating by rememberSaveable { mutableStateOf(false) }
         val listState = rememberLazyListState()
         var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
-        LaunchedEffect(page, searchAnchorKey) {
+        LaunchedEffect(
+            page,
+            searchAnchorKey,
+            debridSettings.canResolvePlayableLinks,
+            debridSettings.instantPlaybackPreparationLimit,
+            liveTvUiState.hasPlaylist,
+        ) {
             val anchor = searchAnchorKey?.let {
                 settingsSearchAnchor(
                     page = page,
@@ -748,7 +754,10 @@ private fun MobileSettingsScreen(
                     debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                     liveTvHasPlaylist = liveTvUiState.hasPlaylist,
                 )
-            } ?: return@LaunchedEffect
+            } ?: run {
+                onSearchAnchorConsumed()
+                return@LaunchedEffect
+            }
             listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, false, showInternalHeader))
             highlightedSearchAnchorKey = anchor.key
             delay(1_800)
@@ -1271,7 +1280,13 @@ private fun TabletSettingsScreen(
 
             val listState = rememberLazyListState()
             var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
-            LaunchedEffect(page, searchAnchorKey) {
+            LaunchedEffect(
+                page,
+                searchAnchorKey,
+                debridSettings.canResolvePlayableLinks,
+                debridSettings.instantPlaybackPreparationLimit,
+                liveTvUiState.hasPlaylist,
+            ) {
                 val anchor = searchAnchorKey?.let {
                     settingsSearchAnchor(
                         page = page,
@@ -1282,7 +1297,10 @@ private fun TabletSettingsScreen(
                         debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                         liveTvHasPlaylist = liveTvUiState.hasPlaylist,
                     )
-                } ?: return@LaunchedEffect
+                } ?: run {
+                    onSearchAnchorConsumed()
+                    return@LaunchedEffect
+                }
                 listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, true, showInternalHeader))
                 highlightedSearchAnchorKey = anchor.key
                 delay(1_800)
