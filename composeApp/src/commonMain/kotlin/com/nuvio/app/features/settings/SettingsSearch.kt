@@ -2596,7 +2596,7 @@ private data class IndexedSettingsSearchEntry(
     val sourceIndex: Int,
     val fields: List<IndexedSettingsSearchField>,
     val normalizedTitle: String,
-    val normalizedAliases: String,
+    val normalizedAliases: List<String>,
     val normalizedPage: String,
 )
 
