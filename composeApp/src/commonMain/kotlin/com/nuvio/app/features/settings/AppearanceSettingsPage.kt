@@ -179,20 +179,34 @@ internal fun LazyListScope.appearanceSettingsContent(
                 )
                 if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    LiquidGlassSettingsSwitchRow(
-                        title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
-                        description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
-                        checked = liquidGlassEffectsEnabled,
-                        isTablet = isTablet,
-                        onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
-                    )
+                    SettingsSearchAnchorContainer(
+                        searchAnchorKey = "liquid-glass-effects",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                    ) { anchorModifier ->
+                        Box(modifier = anchorModifier.fillMaxWidth()) {
+                            LiquidGlassSettingsSwitchRow(
+                                title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
+                                description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
+                                checked = liquidGlassEffectsEnabled,
+                                isTablet = isTablet,
+                                onCheckedChange = ThemeSettingsRepository::setLiquidGlassEffectsEnabled,
+                            )
+                        }
+                    }
                     SettingsGroupDivider(isTablet = isTablet)
-                    SettingsNavigationRow(
-                        title = stringResource(Res.string.settings_liquid_glass_customize),
-                        description = stringResource(Res.string.settings_liquid_glass_customize_description),
-                        isTablet = isTablet,
-                        onClick = { showLiquidGlassSurfacesSheet = true },
-                    )
+                    SettingsSearchAnchorContainer(
+                        searchAnchorKey = "liquid-glass-customize",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                    ) { anchorModifier ->
+                        Box(modifier = anchorModifier.fillMaxWidth()) {
+                            SettingsNavigationRow(
+                                title = stringResource(Res.string.settings_liquid_glass_customize),
+                                description = stringResource(Res.string.settings_liquid_glass_customize_description),
+                                isTablet = isTablet,
+                                onClick = { showLiquidGlassSurfacesSheet = true },
+                            )
+                        }
+                    }
                 }
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsNavigationRow(
