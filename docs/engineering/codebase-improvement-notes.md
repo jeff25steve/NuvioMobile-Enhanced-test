@@ -5022,3 +5022,33 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - No production source or test file was changed in this pass. The required test-first red/green check needs a focused Android host test task, which compiles project/test code. No Gradle task, compilation, test, build, benchmark, device/simulator run or CI workflow was started because the standing instruction prohibits builds/CI without authorisation.
 - Next step: after explicit approval for one narrowly filtered Android host test task, add the regression test first, verify its expected failure, implement the status-only acceptance rule, then verify the focused test. Do not run app packaging or CI.
 - A black/near-black frame is a legitimate playback state, so the current heuristic is a concrete source-level defect. The entire Player still cannot be called fully fixed until the focused regression is verified and Android/iOS playback, engine switching, subtitles, gestures, overlays and Liquid Glass are exercised at runtime.
+
+
+## 13 November 2026 — Player regression follow-up and focused-test execution blocker
+
+### Authorisation and execution attempt
+
+- User explicitly authorised one narrowly filtered Android host regression test task for the PixelCopy black-frame issue.
+- Reconfirmed the remote `main-build-testing` HEAD before investigation: `9f12276a17dfa1cd09ed16723e6119ae1ec431c5`.
+- Attempted to establish a local shallow checkout of the exact branch so the approved Gradle host test could run. The execution environment could not resolve `github.com` (DNS failure: `Could not resolve host: github.com`); no repository checkout or Gradle wrapper is available in the active container.
+- GitHub connector access is read/write only for repository contents and metadata in this session; it does not provide a local Gradle execution environment. Dispatching GitHub Actions would be CI, which remains unauthorised. Therefore the approved test task could not be executed here.
+- No test, compile, build, packaging task, benchmark, device/simulator run or CI workflow was started.
+
+### Player source review cycle 2 — existing interaction and regression coverage
+
+- Re-read Android host tests for gesture overlays, surface gestures and engine-switch track carry-over, plus common Liquid Glass responsiveness and playback-stall recovery tests.
+- Existing tests cover seek preview/commit, gesture lock/loading gating, navigation-edge exclusion, speed/brightness feedback, cross-engine audio/subtitle preference carry-over, source-change invalidation, Liquid Glass fallback responsiveness and playback reopen position.
+- The Android host capture-lifecycle test currently covers unavailable-frame backoff, successful-frame backoff reset, counter saturation and reference-counted backdrop consumers. It does not cover PixelCopy success with an all-black bitmap, which is the missing regression.
+- No independent additional Player defect was conclusively established in this review cycle. No speculative surface-buffer/lifecycle changes were made.
+
+### Implementation gate
+
+- The confirmed black-frame root cause remains in `PlayerLiquidGlass.android.kt`: capture publication requires both PixelCopy success and a sparse sampled-pixel non-black heuristic. This wrongly discards legitimate all-black video frames.
+- Required test-first change remains:
+  1. Add a regression that proves a successful PixelCopy result is accepted even when the copied frame pixels are all black, while documented PixelCopy failure statuses remain unavailable.
+  2. Run the focused Android host test and observe the expected red result.
+  3. Remove the bitmap-colour rejection, preserve the existing failure/backoff path, and update stale comments that describe black frames as unavailable.
+  4. Re-run the focused host test to verify green.
+- Media3 is pinned at `1.8.0`. Context7's indexed Media3 source does not list that exact version; the returned PlayerView API documentation confirms the relevant surface-selection contract (`getVideoSurfaceView()`, default SurfaceView, TextureView selected via layout attribute). No Media3 API change is needed for this fix.
+- Official Android PixelCopy documentation and AOSP source confirm the API result codes already distinguish successful copies from no-data and invalid/protected/destroyed sources. A successful copy may legitimately contain black pixels.
+- The production fix has deliberately not been committed without the required failing-test execution. Do not mark Player fixed or the regression verified until the focused task can actually run.
