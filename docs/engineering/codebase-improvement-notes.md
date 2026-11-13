@@ -4801,3 +4801,30 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Apple Human Interface Guidelines, [Materials](https://developer.apple.com/design/human-interface-guidelines/materials), describe Liquid Glass as a distinct functional layer that preserves visibility of underlying content while maintaining legibility; the separate [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass) overview advises against obscuring controls or overusing custom materials.
 - Kyant Backdrop's [official backdrop API](https://kyant.gitbook.io/backdrop/api/backdrops) documents the source/consumer pairing used by the existing preview and live renderer. Context7 resolved the official Compose Multiplatform and Backdrop docs, but the available Compose snapshot did not include the repository's exact Compose Multiplatform `1.13.0-beta01` or Backdrop `2.0.1` versioned pages; no new API or dependency was introduced.
 - Source-level review only. No Gradle tasks, tests, compilation, builds, device/simulator checks or CI were run, as instructed. The regression test is committed but unexecuted; visual parity still needs device confirmation with and without a custom Cloud background.
+
+
+## 13 November 2026 — scope Library backdrop capture to active surfaces
+
+### Confirmed issue
+
+- The Library capture predicate previously returned true whenever any one of the seven Library Liquid Glass preferences was enabled. It did not consider the active Saved/Cloud/Servers tab, whether Saved controls were actually present, or whether the calendar popup was open.
+- As a result, enabling a Cloud-only card/search surface could keep the Library backdrop source recording while the user was on Saved, and enabling the calendar surface could record the backdrop while the calendar was closed. The Saved scrolling-content capture was also enabled by this broad predicate.
+
+### Changes
+
+- The capture decision now always accounts for the shared Library source-switch surface, then considers only the active mode's additional surfaces.
+- Saved type/sort capture is requested only when Saved controls are actually present. Cloud filters/search/cards are considered only in Cloud mode. The calendar surface is considered only while its popup is visible. Servers mode needs only the shared Library surface.
+- The master toggle and platform renderer support remain hard gates.
+- Replaced the previous broad capture test with cases for active/inactive tabs, empty Saved controls, visible/hidden calendar, the shared source switch, and the global/platform gates.
+
+### Evidence and trade-offs
+
+- Source inspection traced `anyLibraryGlassEnabled` to the root backdrop source, the Saved scrolling-content source and the composition-local backdrop provider. The predicate now gates all of those consumers with one active-mode decision; no backdrop rendering API, graphics layer implementation, or dependency changed.
+- The existing capture still remains enabled for every surface that can be visible in the active mode. Cloud search/card preferences are conservatively treated as active whenever Cloud mode is selected, even if the search field is currently collapsed or a card list is empty; further per-widget visibility gating was not introduced because it would add more state coupling for marginal savings.
+- Apple [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass) recommends avoiding excessive glass layers and crowding; the change applies that restraint to source recording without changing the user's selected appearance.
+- Kyant Backdrop's [layer backdrop API](https://kyant.gitbook.io/backdrop/api/backdrops) confirms the capture source is an explicit rendering resource, not a passive preference flag. Context7's available Backdrop docs were consulted; no API changes were required.
+
+### Verification boundary
+
+- The common regression test source was updated but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, per instruction.
+- This is a source-level capture-scope correction, not a measured frame-time or memory claim. Runtime profiling and Saved/Cloud/Servers tab-switch validation remain outstanding.

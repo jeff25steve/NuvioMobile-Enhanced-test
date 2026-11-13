@@ -43,20 +43,87 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun calendarBackdropCaptureRequiresAnEnabledSurfaceAndSupportedRenderer() {
+    fun libraryBackdropCaptureRequiresTheActiveSurfaceOrVisibleCalendar() {
         assertTrue(
-            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = true) {
-                it == LiquidGlassSurface.LIBRARY_CALENDAR
-            },
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Saved,
+                hasSavedControls = true,
+                showReleaseCalendar = true,
+            ) { it == LiquidGlassSurface.LIBRARY_CALENDAR },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = false, platformSupported = true) { true },
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Saved,
+                hasSavedControls = true,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_CALENDAR },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = false) { true },
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Saved,
+                hasSavedControls = true,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_CARDS },
         )
         assertFalse(
-            libraryBackdropCaptureRequired(masterEnabled = true, platformSupported = true) { false },
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Saved,
+                hasSavedControls = false,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Cloud,
+                hasSavedControls = false,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_CLOUD_CARDS },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Cloud,
+                hasSavedControls = false,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Servers,
+                hasSavedControls = false,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                masterEnabled = false,
+                platformSupported = true,
+                sourceMode = LibraryViewMode.Cloud,
+                hasSavedControls = false,
+                showReleaseCalendar = true,
+            ) { true },
+        )
+        assertFalse(
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = false,
+                sourceMode = LibraryViewMode.Cloud,
+                hasSavedControls = false,
+                showReleaseCalendar = true,
+            ) { true },
         )
     }
 

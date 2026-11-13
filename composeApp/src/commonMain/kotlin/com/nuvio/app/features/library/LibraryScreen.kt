@@ -278,13 +278,37 @@ internal fun librarySourceSwitchMinimumHeight(nativeSegmentedControlEnabled: Boo
 internal fun librarySavedHeaderScrimBottomInset(scrimEnabled: Boolean): Dp =
     if (scrimEnabled) NuvioTokens.Space.s4 else 0.dp
 
-/** Any enabled Library surface needs the capture layer, including the calendar popup. */
+/**
+ * Capture only for glass that can be visible in the active Library mode. The shared source switch
+ * is present in every mode; Saved controls, Cloud controls and the calendar are conditional.
+ */
 internal fun libraryBackdropCaptureRequired(
     masterEnabled: Boolean,
     platformSupported: Boolean,
+    sourceMode: LibraryViewMode,
+    hasSavedControls: Boolean,
+    showReleaseCalendar: Boolean,
     isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
-): Boolean = masterEnabled && platformSupported &&
-    LiquidGlassSurfaceGroup.LIBRARY.surfaces.any(isSurfacePreferenceEnabled)
+): Boolean {
+    if (!masterEnabled || !platformSupported) return false
+    if (isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)) return true
+    if (showReleaseCalendar && isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)) {
+        return true
+    }
+
+    return when (sourceMode) {
+        LibraryViewMode.Saved -> hasSavedControls && (
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) ||
+                isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
+            )
+        LibraryViewMode.Cloud -> (
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS) ||
+                isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) ||
+                isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
+            )
+        LibraryViewMode.Servers -> false
+    }
+}
 
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
 internal fun shouldUseLibraryContentBackdropForCalendar(
@@ -619,9 +643,14 @@ fun LibraryScreen(
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
     val calendarGlassEnabled = LiquidGlassSettings.enabled &&
         isLiquidGlassSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
+    val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
+        uiState.isLoaded && uiState.sections.isNotEmpty()
     val anyLibraryGlassEnabled = libraryBackdropCaptureRequired(
         masterEnabled = LiquidGlassSettings.enabled,
         platformSupported = isLiquidGlassAvailable(),
+        sourceMode = sourceMode,
+        hasSavedControls = hasSavedControls,
+        showReleaseCalendar = showReleaseCalendar,
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
     val cloudBackgroundActive = libraryHeaderUsesArtworkBackdrop(
@@ -664,8 +693,6 @@ fun LibraryScreen(
             },
         )
     }
-    val hasSavedControls = sourceMode == LibraryViewMode.Saved &&
-        uiState.isLoaded && uiState.sections.isNotEmpty()
     val savedControlsInset = 72.dp
     Box(modifier = modifier.fillMaxSize()) {
         // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
