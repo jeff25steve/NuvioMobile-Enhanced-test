@@ -552,9 +552,7 @@ class SettingsSearchAnchorTest {
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
         }
-        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "card-depth-edge", "Card depth edge", ""))
-        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "card-depth-sheen", "Card depth sheen", ""))
-        assertNull(settingsSearchAnchor(SettingsPage.TraktAuthentication, "trakt-more-like-this-source", "More Like This", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "poster-card-depth-edge", "Edge", ""))
     }
 
     @Test
@@ -883,6 +881,97 @@ class SettingsSearchAnchorTest {
             SettingsPage.PosterCustomization,
             (settingsSearchResults("card appearance", entries).first().target as SettingsSearchTarget.Page).page,
         )
+    }
+
+    @Test
+    fun continueWatchingSearchRowsHaveExactRenderedAnchors() {
+        val rows = listOf(
+            "continue-watching-show-continue-watching" to 0,
+            "continue-watching-style" to 1,
+            "continue-watching-episode-thumbnails" to 2,
+            "continue-watching-up-next" to 2,
+            "continue-watching-unaired-next-up" to 2,
+            "continue-watching-blur-next-up" to 2,
+            "continue-watching-resume-prompt" to 3,
+            "continue-watching-sort-mode" to 4,
+        )
+        rows.forEach { (key, expectedIndex) ->
+            assertEquals(
+                expectedIndex,
+                settingsSearchAnchor(
+                    SettingsPage.ContinueWatching,
+                    key,
+                    key,
+                    "",
+                    continueWatchingPosterStyle = false,
+                    continueWatchingEpisodeThumbnails = true,
+                )?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
+    @Test
+    fun continueWatchingConditionalRowsRespectVisibleConfiguration() {
+        assertNull(
+            settingsSearchAnchor(
+                SettingsPage.ContinueWatching,
+                "continue-watching-episode-thumbnails",
+                "Episode thumbnails",
+                "",
+                continueWatchingPosterStyle = true,
+            ),
+        )
+        assertNull(
+            settingsSearchAnchor(
+                SettingsPage.ContinueWatching,
+                "continue-watching-blur-next-up",
+                "Blur next up",
+                "",
+                continueWatchingPosterStyle = false,
+                continueWatchingEpisodeThumbnails = false,
+            ),
+        )
+    }
+
+    @Test
+    fun posterCustomizationSearchKeysMatchRenderedAnchors() {
+        val keys = listOf(
+            "poster-width",
+            "poster-radius",
+            "poster-landscape",
+            "poster-hide-labels",
+            "poster-always-show-landscape-clearlogo",
+            "card-depth-effect",
+            "card-depth-edge",
+            "card-depth-sheen",
+            "card-depth-edge-coverage",
+        )
+        keys.forEach { key ->
+            assertEquals(
+                key,
+                settingsSearchAnchor(SettingsPage.PosterCustomization, key, key, "")?.key,
+                key,
+            )
+        }
+        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "poster-poster-width", "Width", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "poster-card-depth-edge", "Edge", ""))
+    }
+
+    @Test
+    fun trackingFeatureSearchRowsHaveExactAnchors() {
+        val rows = listOf(
+            "trakt-more-like-this-source" to 2,
+            "trakt-continue-watching-window" to 4,
+            "trakt-comments" to 4,
+        )
+        rows.forEach { (key, expectedIndex) ->
+            assertEquals(
+                expectedIndex,
+                settingsSearchAnchor(SettingsPage.TraktAuthentication, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
     }
 
 }
