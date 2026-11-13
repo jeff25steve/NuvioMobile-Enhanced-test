@@ -41,7 +41,15 @@ internal class PluginProfileOperationGate(initialProfileId: Int = 1) {
         synchronized(lock) {
             accountCleanupDepth += 1
             generation += 1L
-            block()
+            try {
+                block()
+            } catch (error: Throwable) {
+                // A failed begin callback must not leave this gate permanently closed.
+                // Roll back only this acquisition so any outer cleanup lease stays active.
+                accountCleanupDepth -= 1
+                generation += 1L
+                throw error
+            }
         }
     }
 
