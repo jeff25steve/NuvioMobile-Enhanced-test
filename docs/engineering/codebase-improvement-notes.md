@@ -4463,3 +4463,11 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - XML resource updates are committed directly to `main-build-testing`; no tests, Gradle tasks, compilation, builds, benchmarks, workflow dispatches or CI runs were started. All resource commits use `[skip ci]`.
 - Next validation when authorised: run Compose resource generation/compilation, verify locale switching for the newly restored messages, and confirm formatted technical error codes remain intact on Android and iOS.
 
+### Post-integration review — remote resource consistency
+
+- Re-fetched all 22 changed resource files (the default catalogue and 21 localized catalogues) from `main-build-testing`. Static checks found no duplicate `<string name>` identifiers, confirmed the closing `</resources>` element, and confirmed all seven playback-error keys are present in every updated locale file.
+- The default catalogue now contains 3,124 unique string keys, including all ten restored upstream defaults. Re-read `PlaybackErrorMessages.kt`; all seven playback-error keys are referenced by the existing Android error mapper.
+- Compared the full branch change range from the previous checkpoint `2d589ba95936359dda1ebe9fa33dbea3619a2e70`: exactly 23 commits ahead, zero behind; the 23 changed paths are limited to the 22 resource files and this engineering note. No Kotlin source, workflows, build configuration or dependency files changed.
+- Rechecked the safety backup comparison: `main-build-testing` is 142 commits ahead and zero behind `backup/main-build-testing-pre-upstream-sync-20261113-0929`; no backup history was lost.
+- This is a source/resource review, not a full XML parser, Compose resource-generation run, translation QA review or runtime locale test. Builds and CI remain unexecuted and unauthorised.
+
