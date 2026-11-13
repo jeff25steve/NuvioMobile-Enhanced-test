@@ -880,6 +880,9 @@ private fun MobileSettingsScreen(
                                 continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                                 trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
                                 trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
+                                homeHeroSourcesAvailable = homescreenSettingsUiState.heroEnabled &&
+                                    homescreenSettingsUiState.items.any { !it.isCollection },
+                                homeCatalogsAvailable = homescreenSettingsUiState.items.isNotEmpty(),
                             )
                         },
                         isTablet = false,
@@ -1403,6 +1406,9 @@ private fun TabletSettingsScreen(
                                     continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                                     trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
                                     trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
+                                    homeHeroSourcesAvailable = homescreenSettingsUiState.heroEnabled &&
+                                        homescreenSettingsUiState.items.any { !it.isCollection },
+                                    homeCatalogsAvailable = homescreenSettingsUiState.items.isNotEmpty(),
                                 )
                             },
                             isTablet = true,
