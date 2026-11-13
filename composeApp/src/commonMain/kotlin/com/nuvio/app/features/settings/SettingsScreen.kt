@@ -855,6 +855,7 @@ private fun MobileSettingsScreen(
                         title = stringResource(page.titleRes),
                         onBack = previousPage?.let { { onNavigateBack() } },
                         useSettingsGlass = true,
+                        backgroundHorizontalInset = MaterialTheme.nuvio.spacing.screenHorizontal,
                     )
                 }
             } else {
