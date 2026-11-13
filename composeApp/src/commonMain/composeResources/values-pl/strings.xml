@@ -2582,4 +2582,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Karty wyników źródeł</string>
     <string name="settings_liquid_glass_surface_stream_selection">Wyszukiwanie i wznawianie źródeł</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Wzmacnia kolory widoczne przez szkło.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Link do streamu wygasł. Spróbuj innego źródła.</string>
+    <string name="player_error_stream_removed">Link do streamu wygasł lub został usunięty. Spróbuj innego źródła.</string>
+    <string name="player_error_stream_rate_limited">Zbyt wiele żądań do źródła streamu. Poczekaj chwilę i spróbuj ponownie.</string>
+    <string name="player_error_stream_unavailable">Serwer streamu jest obecnie niedostępny. Spróbuj innego źródła.</string>
+    <string name="player_error_stream_blocked">Źródło streamu jest zablokowane lub ograniczone. Spróbuj innego źródła.</string>
+    <string name="player_error_source_invalid_content">Błąd źródła: Źródło streamu zwróciło nieprawidłową lub nieodtwarzalną zawartość. Link mógł wygasnąć lub serwer zwrócił stronę błędu zamiast wideo.\n\nSpróbuj innego źródła. [%1$s]</string>
+    <string name="player_error_unsupported_format">Ten stream używa formatu, którego Twoje urządzenie może nie obsługiwać. Spróbuj innego źródła. [%1$s]</string>
 </resources>
