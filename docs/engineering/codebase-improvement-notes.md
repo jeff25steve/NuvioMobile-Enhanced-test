@@ -4625,3 +4625,6 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Research: Context7 resolved kotlinx.coroutines; project dependency is 1.10.2 while the nearest indexed version was 1.10.1. Exa independently checked the official Job API and cancellation guide. They confirm `Job.cancel()` requests cancellation, a cancelled Job may still be completing, and coroutine cancellation is cooperative.
 - Review boundary: inspected `search()`, `refreshDiscover()`, `selectDiscoverType()` and `loadDiscoverFeed()` to ensure the early exits invalidate stale publication before returning and do not affect normal refresh/pagination. No new API or dependency introduced.
 - Validation: remote source review only. **No tests, Gradle tasks, compilation, builds, benchmarks, or CI were run**, per instruction. Runtime cancellation remains unverified.
+
+- Follow-up review also found the second Search no-catalog early exit and repository `reset()` were retaining cancelled Job references. Both Search no-source exits now clear `activeJob`; `reset()` clears both Search and Discover job references after cancellation. This is reference/lifecycle cleanup only; it does not claim that cancellation has synchronously completed.
+- Source commits: `5944ddcc673c977ea2b816ea40229e64915ab1ff` and `f05ace490f4551f2d3d58f227627ca0f34aabddd`.
