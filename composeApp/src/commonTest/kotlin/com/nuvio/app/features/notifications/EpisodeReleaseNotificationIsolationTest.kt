@@ -1,6 +1,7 @@
 package com.nuvio.app.features.notifications
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -60,11 +61,7 @@ class EpisodeReleaseNotificationIsolationTest {
             releaseDateIso = "2026-11-13",
         )
 
-        assertFalse(identifier.contains("--"))
-        assertTrue(identifier.endsWith("-2147483648-2026-11-13").not())
-        assertTrue(identifier.endsWith("-2147483648-2026-11-13").not())
-        assertTrue(identifier.endsWith("-2147483648-2026-11-13").not())
-        assertTrue(identifier.contains("-2147483648"))
+        assertEquals("2147483648", identifier.split("-")[4])
     }
 
     @Test
