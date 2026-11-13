@@ -103,17 +103,6 @@ internal suspend fun runServerSwitchCleanup(
         throw cancellation
     }
 
-    try {
-        // NonCancellable may return inline when the dispatcher is unchanged. Explicitly
-        // restore the caller's cancellation boundary before deciding whether to wipe data.
-        currentCoroutineContext().ensureActive()
-    } catch (cancellation: CancellationException) {
-        credentialResults.mapNotNull { it.exceptionOrNull() }
-            .filter { it !== cancellation }
-            .forEach(cancellation::addSuppressed)
-        throw cancellation
-    }
-
     val credentialFailure = cleanupFailure(credentialResults)
     if (credentialFailure is CancellationException) throw credentialFailure
     if (credentialFailure != null) return Result.failure(credentialFailure)
