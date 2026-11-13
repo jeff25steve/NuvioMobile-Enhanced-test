@@ -333,6 +333,7 @@ object CloudLibraryRepository {
         synchronized(refreshLock) {
             refreshGeneration += 1
             loadedConnectionKeys = emptyList()
+            restoredConnectionKeys = emptyList()
             _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
         }
     }
@@ -359,6 +360,7 @@ object CloudLibraryRepository {
                     if (!cloudLibraryEnabled) {
                         refreshGeneration += 1
                         loadedConnectionKeys = emptyList()
+            restoredConnectionKeys = emptyList()
                         _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
                     } else {
                         _uiState.update { current ->
