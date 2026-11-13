@@ -86,15 +86,14 @@ internal suspend fun runServerSwitchCleanup(
     // Both credential stores must be attempted even if cancellation arrives while the
     // first suspending clear is in flight. Returning from this block still propagates
     // caller cancellation, so local account data is never wiped by a cancelled switch.
-    val (anonymousClear, remoteClear) = withContext(NonCancellable) {
-        runCatching { clearAnonymousUserId() } to
-            runCatching { clearRemoteSession() }
+    val credentialResults = withContext(NonCancellable) {
+        listOf(
+            runCatching { clearAnonymousUserId() },
+            runCatching { clearRemoteSession() },
+        )
     }
-    val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
-        ?: remoteClear.exceptionOrNull() as? CancellationException
-    if (cancellation != null) throw cancellation
-
-    val credentialFailure = anonymousClear.exceptionOrNull() ?: remoteClear.exceptionOrNull()
+    val credentialFailure = cleanupFailure(credentialResults)
+    if (credentialFailure is CancellationException) throw credentialFailure
     if (credentialFailure != null) return Result.failure(credentialFailure)
 
     return try {
