@@ -22,7 +22,7 @@ class AutoSyncSubtitleCueParserTest {
             append("</div></body></tt>")
         }
 
-        val cues = AutoSyncSubtitleCueParser.parse(ttml, "captions.ttml")
+        val cues = AutoSyncSubtitleCueParser.parse(ttml, "captions.txt")
 
         assertEquals(96, cues.size)
         assertEquals(0L, cues.first().startTimeMs)
@@ -32,4 +32,22 @@ class AutoSyncSubtitleCueParserTest {
         assertEquals(96_000L, cues.last().endTimeMs)
         assertEquals("Cue 95\nSecond line", cues.last().text)
     }
+    @Test
+    fun parsesTtmlFrameRateAttributesWithCachedAttributePatterns() {
+        val ttml = """
+            <tt ttp:frameRate="24" ttp:frameRateMultiplier="5 2">
+              <body><div>
+                <p begin="00:00:00:00" end="00:00:01:24">Frame-timed cue</p>
+              </div></body>
+            </tt>
+        """.trimIndent()
+
+        val cues = AutoSyncSubtitleCueParser.parse(ttml, "captions.txt")
+
+        assertEquals(1, cues.size)
+        assertEquals(0L, cues.single().startTimeMs)
+        assertEquals(1_400L, cues.single().endTimeMs)
+        assertEquals("Frame-timed cue", cues.single().text)
+    }
+
 }
