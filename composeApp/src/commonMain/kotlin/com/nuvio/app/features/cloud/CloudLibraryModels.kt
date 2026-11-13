@@ -96,6 +96,13 @@ data class CloudLibraryProviderState(
         get() = provider.displayName
 }
 
+internal fun effectiveCloudLibraryProviderId(
+    selectedProviderId: String?,
+    providers: List<CloudLibraryProviderState>,
+): String? = selectedProviderId?.takeIf { selected ->
+    providers.any { provider -> provider.providerId == selected }
+}
+
 data class CloudLibraryUiState(
     val isLoaded: Boolean = false,
     val isEnabled: Boolean = true,
