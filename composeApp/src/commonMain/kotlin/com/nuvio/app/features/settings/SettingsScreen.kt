@@ -1067,6 +1067,7 @@ private fun MobileSettingsScreen(
                 SettingsPage.LiveTv -> liveTvSettingsContent(
                     isTablet = false,
                     uiState = liveTvUiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.DiscordRpc -> discordRpcSettingsContent(
                     isTablet = false,
@@ -1569,6 +1570,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.LiveTv -> liveTvSettingsContent(
                         isTablet = true,
                         uiState = liveTvUiState,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.DiscordRpc -> discordRpcSettingsContent(
                         isTablet = true,
