@@ -280,12 +280,12 @@ object CloudLibraryRepository {
         if (!markRefreshStarted(requestGeneration)) return _uiState.value
         val previous = _uiState.value
         val refreshed = store.refresh().keepingItemsOnFailure(previous)
-        val applied = publishRefreshResult(
+        publishRefreshResult(
             requestGeneration = requestGeneration,
             requestedConnectionKeys = requestedConnectionKeys,
             refreshed = refreshed,
         )
-        return if (applied) refreshed else _uiState.value
+        return _uiState.value
     }
 
     private suspend fun restoreCachedState(keys: List<CloudConnectionKey>, requestGeneration: Long) {
@@ -356,11 +356,12 @@ object CloudLibraryRepository {
         requestGeneration: Long,
         requestedConnectionKeys: List<CloudConnectionKey>,
         refreshed: CloudLibraryUiState,
-    ): Boolean {
-        val currentConnectionKeys = connectedCloudConnectionKeys()
-        val cloudLibraryEnabled = DebridSettingsRepository.snapshot().cloudLibraryEnabled
+    ) {
+        var currentConnectionKeys: List<CloudConnectionKey> = emptyList()
         var shouldReloadForChangedConnections = false
         val applied = synchronized(refreshLock) {
+            currentConnectionKeys = connectedCloudConnectionKeys()
+            val cloudLibraryEnabled = DebridSettingsRepository.snapshot().cloudLibraryEnabled
             if (
                 !shouldApplyCloudLibraryRefresh(
                     requestGeneration = requestGeneration,
@@ -411,7 +412,6 @@ object CloudLibraryRepository {
                 cacheSaveMutex.unlock()
             }
         }
-        return applied
     }
 
     private fun List<CloudConnectionKey>.cacheSignature(): List<String> =
