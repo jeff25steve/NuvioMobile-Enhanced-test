@@ -98,6 +98,7 @@ internal fun settingsSearchAnchor(
     title: String,
     description: String,
     debridCanResolvePlayableLinks: Boolean? = null,
+    debridCanChooseResolverProvider: Boolean? = null,
     debridInstantPlaybackEnabled: Boolean? = null,
     liveTvHasPlaylist: Boolean? = null,
 ): SettingsSearchAnchor? {
@@ -139,6 +140,9 @@ internal fun settingsSearchAnchor(
         SettingsPage.Debrid -> when (key) {
             "debrid-cloud-library", "debrid-link-resolving" -> 0
             "debrid-provider-torbox", "debrid-provider-premiumize" -> 1
+            "debrid-resolve-provider" -> if (
+                debridCanResolvePlayableLinks == true && debridCanChooseResolverProvider == true
+            ) 0 else return null
             "debrid-instant-playback" -> if (debridCanResolvePlayableLinks == true) 2 else return null
             "debrid-instant-playback-count" -> if (
                 debridCanResolvePlayableLinks == true && debridInstantPlaybackEnabled == true
@@ -593,6 +597,8 @@ internal fun settingsSearchEntries(
                     title = title,
                     description = description,
                     debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                    debridCanChooseResolverProvider = debridSettings.canResolvePlayableLinks &&
+                        debridSettings.resolverServices.size > 1 && debridSettings.activeResolverCredential != null,
                     debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                     liveTvHasPlaylist = liveTvUiState.hasPlaylist,
                 ),
@@ -1121,11 +1127,13 @@ internal fun settingsSearchEntries(
         )
     }
 
+    val liveTvNavigationSection = stringResource(Res.string.live_tv_settings_section_navigation)
     val liveTvProvidersSection = stringResource(Res.string.live_tv_settings_section_providers)
     val liveTvPlaylistSection = stringResource(Res.string.live_tv_settings_section_playlist)
     val liveTvEpgSection = stringResource(Res.string.live_tv_settings_section_epg)
     val liveTvReloadSection = stringResource(Res.string.live_tv_settings_section_reload)
     listOf(
+        PlaybackSearchRow("navigation", stringResource(Res.string.live_tv_settings_navigation_title), stringResource(Res.string.live_tv_settings_navigation_description), liveTvNavigationSection),
         PlaybackSearchRow("playlist", stringResource(Res.string.live_tv_settings_playlist_label), stringResource(Res.string.live_tv_settings_description), liveTvPlaylistSection),
         PlaybackSearchRow("playlist-url", stringResource(Res.string.live_tv_settings_playlist_url_label), stringResource(Res.string.live_tv_settings_add_url_playlist), liveTvPlaylistSection),
         PlaybackSearchRow("local-playlist", stringResource(Res.string.live_tv_settings_add_local_playlist), stringResource(Res.string.live_tv_settings_playlist_source_local), liveTvPlaylistSection),
@@ -1133,6 +1141,7 @@ internal fun settingsSearchEntries(
         PlaybackSearchRow("epg-auto", stringResource(Res.string.live_tv_settings_epg_auto_title), stringResource(Res.string.live_tv_settings_epg_auto_description), liveTvEpgSection),
         PlaybackSearchRow("epg-url", stringResource(Res.string.live_tv_settings_epg_label), stringResource(Res.string.live_tv_settings_epg_description), liveTvEpgSection),
         PlaybackSearchRow("epg-add", stringResource(Res.string.live_tv_settings_epg_add), stringResource(Res.string.live_tv_settings_epg_url_placeholder), liveTvEpgSection),
+        PlaybackSearchRow("epg-refresh", stringResource(Res.string.live_tv_settings_epg_refresh), sectionOverride = liveTvEpgSection),
         PlaybackSearchRow("reload-channels", stringResource(Res.string.live_tv_settings_reload_channels), stringResource(Res.string.live_tv_settings_reload_description), liveTvReloadSection),
         PlaybackSearchRow("reload-epg", stringResource(Res.string.live_tv_settings_reload_epg), sectionOverride = liveTvReloadSection),
         PlaybackSearchRow("xtream-codes", stringResource(Res.string.live_tv_xtream_title), stringResource(Res.string.live_tv_xtream_description), liveTvProvidersSection),
