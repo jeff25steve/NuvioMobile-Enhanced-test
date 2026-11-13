@@ -1195,7 +1195,11 @@ private fun LazyListScope.cloudLibraryContent(
             val typeFilteredItems = providerItems
                 .filter { item -> effectiveSelectedType == null || item.type == effectiveSelectedType }
             val trimmedQuery = searchQuery.trim()
-            val hasActiveFilter = selectedProviderId != null || effectiveSelectedType != null || trimmedQuery.isNotEmpty()
+            val hasActiveFilter = cloudLibraryHasActiveFilters(
+                selectedProviderId = effectiveSelectedProviderId,
+                selectedType = effectiveSelectedType,
+                searchQuery = trimmedQuery,
+            )
             val filteredItems = if (trimmedQuery.isEmpty()) {
                 typeFilteredItems
             } else {
