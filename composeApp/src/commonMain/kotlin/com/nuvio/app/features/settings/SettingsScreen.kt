@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import com.nuvio.app.features.whatsnew.WhatsNewSettingsScreen
 import com.nuvio.app.navigation.LocalUseNativeNavigation
 import com.nuvio.app.core.build.AppFeaturePolicy
+import com.nuvio.app.core.build.TrailerPlaybackMode
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -880,9 +881,14 @@ private fun MobileSettingsScreen(
                                 continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                                 trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
                                 trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
-                                homeHeroSourcesAvailable = homescreenSettingsUiState.heroEnabled &&
-                                    homescreenSettingsUiState.items.any { !it.isCollection },
-                                homeCatalogsAvailable = homescreenSettingsUiState.items.isNotEmpty(),
+                                homeHeroSourcesAvailable = homescreenHeroEnabled &&
+                                    homescreenItems.any { !it.isCollection },
+                                homeCatalogsAvailable = homescreenItems.isNotEmpty(),
+                                homeHeroEnabled = homescreenHeroEnabled,
+                                homeHeroTrailerPlaybackSettingAvailable =
+                                    AppFeaturePolicy.heroTrailerPlaybackSupported &&
+                                        AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP,
+                                homeHeroTrailerPlaybackEnabled = homescreenHeroTrailerPlaybackEnabled,
                             )
                         },
                         isTablet = false,
@@ -1406,9 +1412,14 @@ private fun TabletSettingsScreen(
                                     continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                                     trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
                                     trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
-                                    homeHeroSourcesAvailable = homescreenSettingsUiState.heroEnabled &&
-                                        homescreenSettingsUiState.items.any { !it.isCollection },
-                                    homeCatalogsAvailable = homescreenSettingsUiState.items.isNotEmpty(),
+                                    homeHeroSourcesAvailable = homescreenHeroEnabled &&
+                                        homescreenItems.any { !it.isCollection },
+                                    homeCatalogsAvailable = homescreenItems.isNotEmpty(),
+                                    homeHeroEnabled = homescreenHeroEnabled,
+                                    homeHeroTrailerPlaybackSettingAvailable =
+                                        AppFeaturePolicy.heroTrailerPlaybackSupported &&
+                                            AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP,
+                                    homeHeroTrailerPlaybackEnabled = homescreenHeroTrailerPlaybackEnabled,
                                 )
                             },
                             isTablet = true,
