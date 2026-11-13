@@ -137,6 +137,14 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun savedContentBackdropCaptureIsEnabledOnlyForTheSavedViewport() {
+        assertTrue(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Saved, glassEnabled = true))
+        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Saved, glassEnabled = false))
+        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Cloud, glassEnabled = true))
+        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Servers, glassEnabled = true))
+    }
+
+    @Test
     fun liveCalendarUsesLibraryContentBackdropOnlyWhenGlassIsEnabledInSavedMode() {
         assertTrue(
             shouldUseLibraryContentBackdropForCalendar(
