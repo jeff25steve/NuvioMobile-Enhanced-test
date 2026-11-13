@@ -19,7 +19,6 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.sentry.android.gradle)
-    alias(libs.plugins.androidx.baselineprofile)
 }
 
 val localProps = Properties().apply {
@@ -130,12 +129,6 @@ android {
     }
 
     buildTypes {
-        create("benchmark") {
-            initWith(getByName("release"))
-            // Keep release optimization settings while allowing local/CI benchmark installs.
-            signingConfig = signingConfigs.getByName("debug")
-            matchingFallbacks += listOf("release")
-        }
         getByName("release") {
             val minifyRelease = providers.gradleProperty("releaseMinifyEnabled")
                 .map(String::toBooleanStrict)
@@ -254,16 +247,9 @@ sentry {
     }
 }
 
-baselineProfile {
-    mergeIntoMain = true
-    saveInSrc = true
-    automaticGenerationDuringBuild = false
-}
-
 dependencies {
     implementation(project(":composeApp"))
     implementation(libs.androidx.profileinstaller)
-    baselineProfile(project(":baselineprofile"))
     implementation(libs.androidx.appcompat)
     implementation(libs.compose.runtime)
     coreLibraryDesugaring(libs.desugar.jdk.libs)

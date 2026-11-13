@@ -4030,3 +4030,12 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 - Follow-up completeness check added exact Homescreen anchors and search entries for in-app hero trailer playback, start-unmuted and start-delay controls. Results are now filtered using the same hero-enabled, platform playback capability and trailer-enabled state as the page renderer; hero-source and catalog-section results are likewise emitted only when those sections exist.
 - Passed the live Homescreen state through both mobile and tablet search catalogue paths. The final helper review also confirmed generated playback/Continue Watching aliases are represented on `PlaybackSearchRow` and forwarded through both row builders.
+
+
+## 13 November 2026 — Android benchmark infrastructure removal
+
+- Removed the phone-only Macrobenchmark workflow and the dedicated `:baselineprofile` instrumentation module, including its startup benchmark and Baseline Profile generator sources.
+- Removed benchmark-only Gradle wiring: the `:baselineprofile` project include, benchmark build type, Baseline Profile Gradle plugin/configuration and producer dependency, plus unused Macrobenchmark/UIAutomator catalogue aliases and versions.
+- Preserved `androidApp/src/main/baseline-prof.txt` and the production `androidx.profileinstaller` dependency. These are app-side Baseline Profile delivery/performance support, not the benchmark runner or APK-generation infrastructure; deleting them would discard an existing production optimisation unrelated to running benchmarks.
+- Deleted the now-obsolete `phone-only-benchmark-checkpoint.md`. Historical notes above remain as an audit trail; this entry supersedes their paused-benchmark status.
+- No build, Gradle task, test, benchmark, workflow dispatch or CI run was started. Verification is limited to source/configuration review and remote GitHub tree/commit inspection.
