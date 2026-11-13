@@ -226,7 +226,7 @@ internal class WeTrakrProjection(val snapshot: WeTrakrSyncSnapshot) {
     }
 
     private fun buildContinueWatching(): List<WatchProgressEntry> {
-        val playback = mutableListOf<WatchProgressEntry>()
+        val playback = ArrayList<WatchProgressEntry>(snapshot.playback.size)
         val playingShows = mutableSetOf<String>()
         for (candidate in snapshot.playback) {
             val progress = candidate.toProgressEntry() ?: continue
