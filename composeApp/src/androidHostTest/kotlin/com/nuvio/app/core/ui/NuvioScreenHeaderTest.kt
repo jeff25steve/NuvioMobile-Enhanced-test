@@ -89,12 +89,12 @@ class NuvioScreenHeaderTest {
         }
 
         val pixels = compose.onNodeWithTag("settingsRoot").captureToImage().toPixelMap()
-        val insetPx = (16.dp * compose.density).roundToInt()
-        val outsidePx = (8.dp * compose.density).roundToInt()
-        val innerPx = (20.dp * compose.density).roundToInt()
-        val rightInnerPx = (300.dp * compose.density).roundToInt()
-        val rightOutsidePx = (312.dp * compose.density).roundToInt()
-        val sampleY = (4.dp * compose.density).roundToInt()
+        val insetPx = with(compose.density) { 16.dp.toPx().roundToInt() }
+        val outsidePx = with(compose.density) { 8.dp.toPx().roundToInt() }
+        val innerPx = with(compose.density) { 20.dp.toPx().roundToInt() }
+        val rightInnerPx = with(compose.density) { 300.dp.toPx().roundToInt() }
+        val rightOutsidePx = with(compose.density) { 312.dp.toPx().roundToInt() }
+        val sampleY = with(compose.density) { 4.dp.toPx().roundToInt() }
 
         assertEquals(Color.DarkGray, pixels[outsidePx, sampleY], "Background should not extend past the Settings content's leading inset")
         assertEquals(Color.Magenta, pixels[innerPx, sampleY], "Header background should begin at the Settings content edge")
