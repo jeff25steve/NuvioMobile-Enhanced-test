@@ -99,13 +99,13 @@ object SearchRepository {
             return
         }
 
-        val requestGeneration = searchGeneration.begin()
         val enabledAddons = addons.enabledAddons()
         val hasPendingAddonManifests = enabledAddons.hasPendingEnabledManifests()
         val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
         val activeAddons = enabledAddons.filter { it.manifest != null }
         val serverSearches = ServerCatalog.searchTargets()
         if (activeAddons.isEmpty() && serverSearches.isEmpty()) {
+            searchGeneration.begin()
             activeJob?.cancel()
             lastRequestKey = null
             _uiState.value = SearchUiState(
@@ -125,6 +125,7 @@ object SearchRepository {
             query = normalizedQuery,
         )
         if (requests.isEmpty() && serverSearches.isEmpty()) {
+            searchGeneration.begin()
             activeJob?.cancel()
             lastRequestKey = null
             _uiState.value = SearchUiState(
@@ -153,6 +154,7 @@ object SearchRepository {
                     }
                 }
         if (canReuseRequestState(forceRefresh, requestKey, lastRequestKey)) return
+        val requestGeneration = searchGeneration.begin()
         lastRequestKey = requestKey
 
         activeJob?.cancel()
@@ -254,7 +256,6 @@ object SearchRepository {
         addons: List<ManagedAddon>,
         forceRefresh: Boolean = false,
     ) {
-        discoverGeneration.invalidate()
         val enabledAddons = addons.enabledAddons()
         val hasPendingAddonManifests = enabledAddons.hasPendingEnabledManifests()
         val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
@@ -308,6 +309,7 @@ object SearchRepository {
             return
         }
 
+        discoverGeneration.invalidate()
         discoverSources = sources
         lastDiscoverRequestKey = requestKey
         if (sources.isEmpty()) {
