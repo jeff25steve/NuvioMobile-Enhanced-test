@@ -388,25 +388,30 @@ private fun CardDepthStyleControls(
                     )
                 }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { showFineTune = true },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(Res.string.settings_card_depth_fine_tune),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                )
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "card-depth-fine-tune",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Row(
+                    modifier = anchorModifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showFineTune = true },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_card_depth_fine_tune),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Text(
                 text = stringResource(Res.string.settings_card_depth_apply_to),
@@ -415,13 +420,27 @@ private fun CardDepthStyleControls(
                 fontWeight = FontWeight.SemiBold,
             )
             surfaceRows.forEach { (title, surface) ->
-                PosterToggleRow(
-                    title = title,
-                    checked = uiState.isSurfaceEnabled(surface),
-                    onCheckedChange = { enabled ->
-                        CardDepthStyleRepository.setSurfaceEnabled(surface, enabled)
-                    },
-                )
+                val searchKey = when (surface) {
+                    NuvioCardDepthSurface.Posters -> "card-depth-surface-posters"
+                    NuvioCardDepthSurface.ContinueWatching -> "card-depth-surface-continue-watching"
+                    NuvioCardDepthSurface.EpisodeCards -> "card-depth-surface-episode-cards"
+                    NuvioCardDepthSurface.Cast -> "card-depth-surface-cast"
+                    NuvioCardDepthSurface.Trailers -> "card-depth-surface-trailers"
+                }
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = searchKey,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        PosterToggleRow(
+                            title = title,
+                            checked = uiState.isSurfaceEnabled(surface),
+                            onCheckedChange = { enabled ->
+                                CardDepthStyleRepository.setSurfaceEnabled(surface, enabled)
+                            },
+                        )
+                    }
+                }
             }
         }
     }
