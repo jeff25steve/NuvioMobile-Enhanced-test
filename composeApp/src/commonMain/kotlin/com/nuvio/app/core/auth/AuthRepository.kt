@@ -12,6 +12,7 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.functions.functions
+import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
@@ -596,7 +597,7 @@ object AuthRepository {
         }
         return isInvalidRemoteSessionResponse(
             statusCode = restError?.statusCode,
-            errorCode = restError?.error,
+            errorCode = error.findCause<PostgrestRestException>()?.code ?: restError?.error,
             message = message,
         )
     }
