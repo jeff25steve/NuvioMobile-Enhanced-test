@@ -133,6 +133,7 @@ import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
 import com.nuvio.app.features.library.libraryCloudHeaderScrimColorStops
+import com.nuvio.app.features.library.libraryCloudPreviewViewportTopInset
 import com.nuvio.app.features.library.LibraryCalendarGlassPreview
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.features.library.LibraryViewMode
@@ -2700,6 +2701,7 @@ private fun LiquidGlassLibraryCloudBackdrop() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LiquidGlassLibraryPreview(
     settings: LiquidGlassSurfacesSettings,
@@ -2790,11 +2792,13 @@ private fun LiquidGlassLibraryPreview(
         ) {
             if (viewMode == LibraryViewMode.Cloud) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = headerHeight, bottom = 8.dp, start = 8.dp, end = 8.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = libraryCloudPreviewViewportTopInset(viewMode, headerHeight)),
+                    contentPadding = PaddingValues(bottom = 8.dp, start = 8.dp, end = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    item(key = "library-cloud-preview-controls") {
+                    stickyHeader(key = "library-cloud-preview-controls") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val allProvidersLabel = stringResource(Res.string.cloud_library_provider_all)
                             val providerOptions = remember(allProvidersLabel) {
