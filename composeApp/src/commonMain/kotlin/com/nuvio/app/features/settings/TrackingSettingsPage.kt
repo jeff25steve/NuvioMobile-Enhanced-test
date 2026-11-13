@@ -391,6 +391,8 @@ private fun TrackingDataSources(
                 value = moreLikeThisSourceLabel(effectiveRecommendationsSource),
                 supportingMessage = recommendationsFallback,
                 isTablet = isTablet,
+                searchAnchorKey = "trakt-more-like-this-source",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onClick = { activePickerName = TrackingDataPicker.MORE_LIKE_THIS.name },
             )
         }
@@ -468,6 +470,7 @@ private fun TrackingViewingAndDiscovery(
             value = continueWatchingDaysCapLabel(settingsUiState.continueWatchingDaysCap),
             enabled = traktProgressActive,
             isTablet = isTablet,
+            searchAnchorKey = "trakt-continue-watching-window",
             onClick = { activePickerName = TrackingViewingPicker.CONTINUE_WATCHING.name },
         )
         SettingsGroupDivider(isTablet = isTablet)
@@ -480,6 +483,7 @@ private fun TrackingViewingAndDiscovery(
             checked = commentsEnabled,
             enabled = traktConnected,
             isTablet = isTablet,
+            searchAnchorKey = "trakt-comments",
             onCheckedChange = onCommentsEnabledChange,
         )
     }
