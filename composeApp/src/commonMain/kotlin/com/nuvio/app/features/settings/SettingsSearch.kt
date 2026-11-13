@@ -673,6 +673,18 @@ internal fun settingsSearchEntries(
         ),
     )
     addPage(
+        page = SettingsPage.Profile,
+        key = "profile-insights",
+        title = pageTitles.getValue(SettingsPage.Profile),
+        description = "",
+        category = accountCategory,
+        searchTerms = listOf(
+            "profile insights", "watch statistics", "viewing statistics", "watch time",
+            "library stats", "completed episodes", "ongoing shows", "upcoming shows",
+            "profile analytics", "viewing activity",
+        ),
+    )
+    addPage(
         page = SettingsPage.TraktAuthentication,
         key = "tracking",
         title = trackingPage,
