@@ -86,9 +86,14 @@ internal class WeTrakrProjection(val snapshot: WeTrakrSyncSnapshot) {
         }
     }
 
-    private val episodesByShow: Map<String, List<WeTrakrWatchedEpisode>> = snapshot.watchedEpisodes
-        .mapNotNull { episode -> showContentId(episode)?.let { normalizeWeTrakrContentId(it) to episode } }
-        .groupBy({ it.first }, { it.second })
+    private val episodesByShow: Map<String, List<WeTrakrWatchedEpisode>> = run {
+        val grouped = linkedMapOf<String, MutableList<WeTrakrWatchedEpisode>>()
+        for (episode in snapshot.watchedEpisodes) {
+            val contentId = showContentId(episode) ?: continue
+            grouped.getOrPut(normalizeWeTrakrContentId(contentId)) { mutableListOf() }.add(episode)
+        }
+        grouped
+    }
 
     fun entriesFor(contentId: String, contentType: String? = null): List<WeTrakrListEntry> =
         aliasIndex[normalizeWeTrakrContentId(contentId)].orEmpty()
@@ -221,53 +226,76 @@ internal class WeTrakrProjection(val snapshot: WeTrakrSyncSnapshot) {
     }
 
     private fun buildContinueWatching(): List<WatchProgressEntry> {
-        val playback = snapshot.playback.mapNotNull { it.toProgressEntry() }
-        val playingShows = playback.filter { it.contentType == "series" }
-            .mapTo(mutableSetOf()) { normalizeWeTrakrContentId(it.parentMetaId) }
-        val seeds = listEntries
-            .filter { entry ->
-                !entry.media.isMovie && (
-                    entry.status.equals(WeTrakrStatus.WATCHING, ignoreCase = true) ||
-                        entry.status.equals(WeTrakrStatus.WAITING, ignoreCase = true)
-                    )
+        val playback = mutableListOf<WatchProgressEntry>()
+        val playingShows = mutableSetOf<String>()
+        for (candidate in snapshot.playback) {
+            val progress = candidate.toProgressEntry() ?: continue
+            if (progress.contentType == "series") {
+                playingShows.add(normalizeWeTrakrContentId(progress.parentMetaId))
             }
-            .mapNotNull { entry ->
-                val contentId = entry.media.ids.contentId() ?: return@mapNotNull null
-                val normalized = normalizeWeTrakrContentId(contentId)
-                if (normalized in playingShows) return@mapNotNull null
-                val episodes = entry.media.ids.aliases()
-                    .flatMap { alias -> episodesByShow[normalizeWeTrakrContentId(alias)].orEmpty() }
-                    .distinctBy { it.season to it.number }
-                val latest = (episodes.filter { it.season > 0 }.ifEmpty { episodes })
-                    .maxWithOrNull(
-                        compareBy<WeTrakrWatchedEpisode> { it.watchedAtEpochMs }
-                            .thenBy { it.season }
-                            .thenBy { it.number },
-                    ) ?: return@mapNotNull null
-                if (snapshot.dismissed[weTrakrShowKey(contentId)] == latest.watchedAtEpochMs) return@mapNotNull null
-                val runtimeMs = (entry.media.runtimeMinutes ?: 0).toLong() * 60_000L
-                WatchProgressEntry(
-                    contentType = "series",
-                    parentMetaId = contentId,
-                    parentMetaType = "series",
-                    videoId = buildPlaybackVideoId(contentId, latest.season, latest.number),
-                    title = entry.media.displayTitle(),
-                    poster = entry.media.posterUrl(),
-                    background = entry.media.backdropUrl(),
-                    seasonNumber = latest.season,
-                    episodeNumber = latest.number,
-                    lastPositionMs = runtimeMs,
-                    durationMs = runtimeMs,
-                    lastUpdatedEpochMs = latest.watchedAtEpochMs,
-                    isCompleted = true,
-                    progressPercent = 100f,
-                    source = WETRAKR_SOURCE_PROGRESS,
-                    trackingProviderId = TrackingProviderId.WETRAKR.storageId,
-                    trackingProviderItemId = entry.media.providerItemId(),
-                    trackingSourceUrl = WeTrakrConfig.WEBSITE_URL,
-                )
+            playback.add(progress)
+        }
+
+        val seeds = listEntries.mapNotNull { entry ->
+            if (entry.media.isMovie ||
+                (!entry.status.equals(WeTrakrStatus.WATCHING, ignoreCase = true) &&
+                    !entry.status.equals(WeTrakrStatus.WAITING, ignoreCase = true))
+            ) {
+                return@mapNotNull null
             }
+            val contentId = entry.media.ids.contentId() ?: return@mapNotNull null
+            val normalized = normalizeWeTrakrContentId(contentId)
+            if (normalized in playingShows) return@mapNotNull null
+            val latest = latestWatchedEpisode(entry.media.ids.aliases()) ?: return@mapNotNull null
+            if (snapshot.dismissed[weTrakrShowKey(contentId)] == latest.watchedAtEpochMs) return@mapNotNull null
+            val runtimeMs = (entry.media.runtimeMinutes ?: 0).toLong() * 60_000L
+            WatchProgressEntry(
+                contentType = "series",
+                parentMetaId = contentId,
+                parentMetaType = "series",
+                videoId = buildPlaybackVideoId(contentId, latest.season, latest.number),
+                title = entry.media.displayTitle(),
+                poster = entry.media.posterUrl(),
+                background = entry.media.backdropUrl(),
+                seasonNumber = latest.season,
+                episodeNumber = latest.number,
+                lastPositionMs = runtimeMs,
+                durationMs = runtimeMs,
+                lastUpdatedEpochMs = latest.watchedAtEpochMs,
+                isCompleted = true,
+                progressPercent = 100f,
+                source = WETRAKR_SOURCE_PROGRESS,
+                trackingProviderId = TrackingProviderId.WETRAKR.storageId,
+                trackingProviderItemId = entry.media.providerItemId(),
+                trackingSourceUrl = WeTrakrConfig.WEBSITE_URL,
+            )
+        }
         return (playback + seeds).sortedByDescending(WatchProgressEntry::lastUpdatedEpochMs)
+    }
+
+    private fun latestWatchedEpisode(aliases: List<String>): WeTrakrWatchedEpisode? {
+        val seenEpisodes = mutableSetOf<Pair<Int, Int>>()
+        var latestAny: WeTrakrWatchedEpisode? = null
+        var latestPositiveSeason: WeTrakrWatchedEpisode? = null
+
+        for (alias in aliases) {
+            val episodes = episodesByShow[normalizeWeTrakrContentId(alias)].orEmpty()
+            for (episode in episodes) {
+                if (!seenEpisodes.add(episode.season to episode.number)) continue
+                val previousAny = latestAny
+                if (previousAny == null || episode.isLaterThan(previousAny)) {
+                    latestAny = episode
+                }
+                val previousPositiveSeason = latestPositiveSeason
+                if (episode.season > 0 &&
+                    (previousPositiveSeason == null || episode.isLaterThan(previousPositiveSeason))
+                ) {
+                    latestPositiveSeason = episode
+                }
+            }
+        }
+
+        return latestPositiveSeason ?: latestAny
     }
 
     private fun WeTrakrPlayback.toProgressEntry(): WatchProgressEntry? {
@@ -326,4 +354,10 @@ internal class WeTrakrProjection(val snapshot: WeTrakrSyncSnapshot) {
     companion object {
         val Empty = WeTrakrProjection(WeTrakrSyncSnapshot(userId = 0L))
     }
+}
+
+private fun WeTrakrWatchedEpisode.isLaterThan(other: WeTrakrWatchedEpisode): Boolean {
+    if (watchedAtEpochMs != other.watchedAtEpochMs) return watchedAtEpochMs > other.watchedAtEpochMs
+    if (season != other.season) return season > other.season
+    return number > other.number
 }
