@@ -2679,10 +2679,10 @@ private fun settingsSearchTermScore(query: String, candidate: String): Int {
 internal fun boundedSettingsSearchEditDistance(
     left: String,
     right: String,
-    allowedDistance: Int,
+    maximumDistance: Int,
 ): Int? {
-    if (allowedDistance < 0) return null
-    val allowedDistance = minOf(allowedDistance, maxOf(left.length, right.length))
+    if (maximumDistance < 0) return null
+    val allowedDistance = minOf(maximumDistance, maxOf(left.length, right.length))
     if (kotlin.math.abs(left.length - right.length) > allowedDistance) return null
     if (left.isEmpty()) return right.length.takeIf { it <= allowedDistance }
     if (right.isEmpty()) return left.length.takeIf { it <= allowedDistance }
