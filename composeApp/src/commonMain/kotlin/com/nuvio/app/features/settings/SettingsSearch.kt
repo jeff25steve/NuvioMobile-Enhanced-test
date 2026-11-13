@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.network.DnsSettingsRepository
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
@@ -109,7 +111,7 @@ internal fun settingsSearchAnchor(
         SettingsPage.TraktAuthentication -> when (key) {
             "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
             "private-viewing" -> 1
-            "trakt-library-source", "trakt-watch-progress", "trakt-more-like-this-source" -> 2
+            "trakt-library-source", "trakt-watch-progress" -> 2
             else -> return null
         }
         SettingsPage.PlaybackPlayer ->
@@ -356,6 +358,7 @@ internal fun settingsSearchEntries(
     switchProfileAvailable: Boolean,
     checkForUpdatesAvailable: Boolean,
 ): List<SettingsSearchEntry> {
+    val authState by remember { AuthRepository.state }.collectAsStateWithLifecycle()
     val accountCategory = stringResource(SettingsCategory.You.labelRes)
     val generalCategory = stringResource(SettingsCategory.Look.labelRes)
     val aboutCategory = stringResource(SettingsCategory.System.labelRes)
@@ -1060,7 +1063,7 @@ internal fun settingsSearchEntries(
         section = accountPage,
         category = accountCategory,
     )
-    if (accountDeletionEnabled) {
+    if (accountDeletionEnabled && authState is AuthState.Authenticated) {
         addRow(
             page = SettingsPage.Account,
             key = "account-delete",
