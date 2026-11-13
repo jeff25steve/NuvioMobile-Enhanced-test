@@ -585,28 +585,20 @@ object AuthRepository {
 
     private fun isInvalidRemoteSessionError(error: Throwable): Boolean {
         val restError = error.findCause<RestException>()
-        if (restError?.statusCode == 401 || restError?.statusCode == 403) return true
-
         val message = buildString {
             append(error.message.orEmpty())
             if (restError != null) {
                 append(' ')
                 append(restError.error)
                 append(' ')
-                append(restError.description)
+                append(restError.description.orEmpty())
             }
-        }.lowercase()
-
-        return (
-            "jwt" in message &&
-                ("invalid" in message || "expired" in message || "malformed" in message)
-            ) || (
-            "user" in message &&
-                ("does not exist" in message || "not found" in message || "deleted" in message)
-            ) || (
-            "foreign key" in message &&
-                ("auth.users" in message || "user_id" in message)
-            )
+        }
+        return isInvalidRemoteSessionResponse(
+            statusCode = restError?.statusCode,
+            errorCode = restError?.error,
+            message = message,
+        )
     }
 
     private inline fun <reified T : Throwable> Throwable.findCause(): T? {
