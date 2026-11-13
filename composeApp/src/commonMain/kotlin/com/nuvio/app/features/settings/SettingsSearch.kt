@@ -295,12 +295,6 @@ private val StreamsSettingsSearchAnchorKeys = setOf(
     "stream-badge-urls",
 )
 
-private val HomescreenSettingsSearchAnchorKeys = setOf(
-    "home-hero",
-    "home-catalog-type",
-    "home-hide-unreleased",
-)
-
 private val DebugLogsSettingsSearchAnchorKeys = setOf(
     "debug-copy-logs",
     "debug-clear-logs",
@@ -317,8 +311,6 @@ private val MetaScreenSettingsSearchAnchorKeys = setOf(
     "meta-shuffle",
     "meta-blur-episodes",
 )
-
-private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
 
 // These indexes match the four LazyListScope items in layoutSettingsContent:
 // home controls, streams navigation, detail-page navigation, and navigation-bar controls.
