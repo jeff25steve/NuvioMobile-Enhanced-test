@@ -51,16 +51,39 @@ class InvalidSessionCleanupTest {
     }
 
     @Test
-    fun attemptsLocalCleanupEvenWhenRemoteSessionClearFails() = runTest {
-        var localCleanupStarted = false
+    fun preservesEveryCleanupFailureWhenReturningFailureResult() = runTest {
+        val anonymousFailure = IllegalStateException("Anonymous clear failed")
+        val remoteFailure = IllegalStateException("Remote clear failed")
+        val localFailure = IllegalStateException("Local cleanup failed")
 
         val result = runInvalidSessionCleanup(
-            clearAnonymousUserId = {},
-            clearRemoteSession = { error("Remote session clear failed") },
-            clearLocalAccountData = { localCleanupStarted = true },
+            clearAnonymousUserId = { throw anonymousFailure },
+            clearRemoteSession = { throw remoteFailure },
+            clearLocalAccountData = { throw localFailure },
         )
 
-        assertTrue(localCleanupStarted)
-        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() === anonymousFailure)
+        assertTrue(anonymousFailure.suppressedExceptions.contains(remoteFailure))
+        assertTrue(anonymousFailure.suppressedExceptions.contains(localFailure))
+    }
+
+    @Test
+    fun preservesCleanupFailuresWhenCallerCancellationWins() = runTest {
+        val remoteFailure = IllegalStateException("Remote clear failed")
+        val localFailure = IllegalStateException("Local cleanup failed")
+        val cleanup = launch {
+            runInvalidSessionCleanup(
+                clearAnonymousUserId = {},
+                clearRemoteSession = { throw remoteFailure },
+                clearLocalAccountData = { throw localFailure },
+            )
+        }
+
+        cleanup.cancelAndJoin()
+
+        assertTrue(cleanup.isCancelled)
+        val cancellation = cleanup.getCancellationException()
+        assertTrue(cancellation.suppressedExceptions.contains(remoteFailure))
+        assertTrue(cancellation.suppressedExceptions.contains(localFailure))
     }
 }
