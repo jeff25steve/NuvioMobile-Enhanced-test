@@ -2538,19 +2538,21 @@ internal fun settingsSearchResults(
 internal class SettingsSearchIndex(entries: List<SettingsSearchEntry>) {
     private val indexedEntries = entries.mapIndexed { sourceIndex, entry ->
         val normalizedTitle = normalizeSettingsSearchText(entry.title)
-        val normalizedAliases = normalizeSettingsSearchText(entry.searchTerms.joinToString(" "))
+        val normalizedAliases = entry.searchTerms
+            .map(::normalizeSettingsSearchText)
+            .filter(String::isNotBlank)
         val normalizedPage = normalizeSettingsSearchText(entry.page)
         val fields = listOf(
-            SettingsSearchIndexField(entry.title, weight = 12),
-            SettingsSearchIndexField(entry.searchTerms.joinToString(" "), weight = 10),
-            SettingsSearchIndexField(entry.section, weight = 6),
-            SettingsSearchIndexField(entry.page, weight = 4),
-            SettingsSearchIndexField(entry.description, weight = 3),
-            SettingsSearchIndexField(entry.key, weight = 2),
-            SettingsSearchIndexField(entry.category, weight = 1),
+            SettingsSearchIndexField(normalizedTitle, weight = 12),
+            SettingsSearchIndexField(normalizedAliases.joinToString(" "), weight = 10),
+            SettingsSearchIndexField(normalizeSettingsSearchText(entry.section), weight = 6),
+            SettingsSearchIndexField(normalizedPage, weight = 4),
+            SettingsSearchIndexField(normalizeSettingsSearchText(entry.description), weight = 3),
+            SettingsSearchIndexField(normalizeSettingsSearchText(entry.key), weight = 2),
+            SettingsSearchIndexField(normalizeSettingsSearchText(entry.category), weight = 1),
         ).map { field ->
             IndexedSettingsSearchField(
-                words = normalizeSettingsSearchText(field.value)
+                words = field.normalizedValue
                     .split(' ')
                     .filter(String::isNotBlank),
                 weight = field.weight,
@@ -2604,7 +2606,7 @@ private data class IndexedSettingsSearchField(
 )
 
 private data class SettingsSearchIndexField(
-    val value: String,
+    val normalizedValue: String,
     val weight: Int,
 )
 
@@ -2637,8 +2639,8 @@ private fun settingsSearchEntryScore(
     }
 
     when {
-        indexedEntry.normalizedAliases == normalizedQuery -> score += 750
-        indexedEntry.normalizedAliases.contains(normalizedQuery) -> score += 180
+        indexedEntry.normalizedAliases.any { it == normalizedQuery } -> score += 750
+        indexedEntry.normalizedAliases.any { it.contains(normalizedQuery) } -> score += 180
     }
 
     if (indexedEntry.normalizedPage == normalizedQuery) score += 350
