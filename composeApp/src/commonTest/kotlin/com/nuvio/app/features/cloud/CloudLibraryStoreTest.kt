@@ -4,6 +4,9 @@ import com.nuvio.app.features.debrid.DebridProvider
 import com.nuvio.app.features.debrid.DebridProviderCapability
 import com.nuvio.app.features.debrid.DebridServiceCredential
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -140,6 +143,54 @@ class CloudLibraryStoreTest {
 
         assertTrue(state.isLoaded)
         assertEquals(listOf("alpha", "beta"), state.providers.map { it.providerId })
+        assertEquals(listOf("one", "two"), state.items.map { it.id })
+    }
+
+    @Test
+    fun `refresh loads independent providers concurrently`() = runBlocking {
+        val firstProvider = cloudProvider(id = "alpha", name = "Alpha")
+        val secondProvider = cloudProvider(id = "beta", name = "Beta")
+        val startedProviders = mutableSetOf<String>()
+        val bothStarted = CompletableDeferred<Unit>()
+        val releaseRequests = CompletableDeferred<Unit>()
+        fun blockingApi(provider: DebridProvider, itemId: String) = object : CloudLibraryProviderApi {
+            override val provider = provider
+
+            override suspend fun listItems(apiKey: String): Result<List<CloudLibraryItem>> {
+                startedProviders += provider.id
+                if (startedProviders.size == 2) bothStarted.complete(Unit)
+                releaseRequests.await()
+                return Result.success(listOf(cloudItem(provider, itemId)))
+            }
+
+            override suspend fun resolvePlayback(
+                apiKey: String,
+                item: CloudLibraryItem,
+                file: CloudLibraryFile,
+            ): CloudLibraryPlaybackResult = CloudLibraryPlaybackResult.NotPlayable
+        }
+        val store = CloudLibraryStore(
+            credentialsProvider = {
+                listOf(
+                    DebridServiceCredential(firstProvider, "alpha-token"),
+                    DebridServiceCredential(secondProvider, "beta-token"),
+                )
+            },
+            providerApis = listOf(
+                blockingApi(firstProvider, "one"),
+                blockingApi(secondProvider, "two"),
+            ),
+        )
+
+        val refresh = async { store.refresh() }
+        try {
+            withTimeout(1_000) { bothStarted.await() }
+        } finally {
+            releaseRequests.complete(Unit)
+        }
+
+        val state = refresh.await()
+        assertEquals(setOf("alpha", "beta"), startedProviders)
         assertEquals(listOf("one", "two"), state.items.map { it.id })
     }
 
