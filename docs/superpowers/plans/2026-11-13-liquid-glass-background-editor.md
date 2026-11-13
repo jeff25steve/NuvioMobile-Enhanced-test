@@ -37,10 +37,10 @@
 - Produces LiquidGlassBackgroundImageTarget, liquidGlassBackgroundImageTarget(surface), and LiquidGlassBackgroundImageControls(surface).
 - Consumes existing ThemeSettingsRepository, ProfileRepository, and rememberSettingsBackgroundImagePicker.
 
-- [ ] Write target-routing tests for Settings, all three Cloud surfaces, and unrelated surfaces.
+- [x] Write target-routing tests for Settings, all three Cloud surfaces, and unrelated surfaces (added; execution pending).
 - [ ] Verify expected routing with the available test workflow when authorised; source-only review is not a passing test.
-- [ ] Implement the target-aware shared control, preserving the existing localized copy and profile-scoped save/clear calls.
-- [ ] Replace the duplicated Cloud-only block and enable the Settings target in both editor layout branches.
+- [x] Implement the target-aware shared control, preserving the existing localized copy and profile-scoped save/clear calls.
+- [x] Replace the duplicated Cloud-only block and enable the Settings target in both editor layout branches.
 - [ ] Review the diff for independent storage keys and cancellation propagation.
 
 ### Task 2: Isolated Linux validation and notes
@@ -49,7 +49,7 @@
 - Modify: .github/workflows/pr-full-debug-build.yml on the CI branch only.
 - Modify: docs/engineering/codebase-improvement-notes.md.
 
-- [ ] Add the dated CI branch to the workflow push trigger, following the previous branch-isolated fullDebug validation pattern.
-- [ ] Record both improvement cycles, the preserved native picker/storage behavior, and verification limits in the existing notes.
+- [x] Add the dated CI branch to the workflow push trigger, following the previous branch-isolated fullDebug validation pattern.
+- [x] Record both improvement cycles, the preserved native picker/storage behavior, and verification limits in the existing notes.
 - [ ] Push the CI branch and inspect the resulting Ubuntu workflow run and APK artifact.
 - [ ] Verify the branch head, changed paths, workflow result, and that main-build-testing remains unchanged.
