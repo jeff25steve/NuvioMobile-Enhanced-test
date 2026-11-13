@@ -673,3 +673,20 @@ internal fun AppLoadingProfileAvatar(
         }
     }
 }
+
+
+@Composable
+internal fun AppLaunchOverlay(
+    profile: NuvioProfile?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.zIndex(NuvioTokens.Z.dialog),
+    ) {
+        ProfileBackgroundBackdrop(
+            profile = profile,
+            modifier = Modifier.fillMaxSize(),
+        )
+        AppLoadingContent(modifier = Modifier.fillMaxSize(), profile = profile)
+    }
+}
