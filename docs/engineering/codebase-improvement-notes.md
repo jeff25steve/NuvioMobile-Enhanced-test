@@ -5073,3 +5073,29 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - The live Android implementation still rejects PixelCopy.SUCCESS when sampled bitmap pixels are all black. The Android PixelCopy API reference and AOSP implementation confirm that SUCCESS means the pixel copy request succeeded; source availability errors are represented separately by statuses such as ERROR_SOURCE_NO_DATA and ERROR_SOURCE_INVALID.
 - Context7 was queried against its Android Developer Reference index, but its returned snippet was not sufficiently specific to the PixelCopy contract. The direct Android Developers API reference and AOSP source are the authoritative evidence for this decision.
 - No test or production source was changed. TDD red/green verification cannot be honestly completed without executing the focused host test. Keep the fix pending; do not claim Player is fully fixed.
+
+
+## 13 November 2026 — Player black-frame regression implementation and Linux CI verification
+
+### Reproduction and source correction
+
+- The current main-build-testing checkpoint was re-resolved at 51c342772d37a3a19025820b90a0d5f1781a1002.
+- The Android Liquid Glass capture path had a concrete false-negative: it required both a successful PixelCopy callback and a sampled-pixel test that rejected fully black bitmaps. This incorrectly discarded legitimate black scenes and fades.
+- The regression test was added first on isolated branch ci/player-black-frame-fix-linux-20261113. It asserts that PixelCopy.SUCCESS is accepted and that ERROR_SOURCE_NO_DATA, ERROR_SOURCE_INVALID, and ERROR_TIMEOUT remain unavailable.
+- The implementation now uses PixelCopy's status as the sole success signal, removes the bitmap-colour heuristic, and preserves the existing three-buffer rotation, failure backoff, consumer lifecycle, surface selection and cancellation cleanup.
+- The stale policy comment was updated so black content is no longer described as an unavailable capture.
+
+### Evidence and build workflow
+
+- Android Developers' PixelCopy API reference and AOSP PixelCopy.java confirm that SUCCESS denotes a successful copy request and source/no-data/protected-source failures are represented by separate error statuses.
+- Context7 confirmed the project-appropriate KMP Android host test task is :composeApp:testAndroidHostTest; the repository uses the Android KMP library plugin and explicitly enables withHostTest.
+- The Linux workflow was copied from the previously proven player-logo-title-linux-build.yml CI workflow, retaining its Ubuntu runner, Java 17, Gradle setup, runtime configuration, Rust Android targets and Full Debug APK packaging. A focused Player host regression test step was added before APK packaging.
+- CI branch head after implementation/comment correction: b1d6a6e1966f4506ff4a980e6fda1b975d430189.
+- GitHub Actions run 43530874621 was created for that exact head. At the time of this note update, it is in progress; runner setup has reached the Rust toolchain step. The regression test and APK build have not yet reported results.
+
+### Integration and completion gate
+
+- The temporary CI branch is four commits ahead of main-build-testing and has not modified the target branch's production code.
+- Do not call the regression verified or Player fully fixed until the focused host test and Full Debug APK build both complete successfully on the exact final branch head.
+- After CI completes, re-check the run SHA, job steps, test result, build result and APK artifact. Then integrate only the verified source and test changes into main-build-testing; do not copy the temporary CI workflow into the main application branch.
+- A Linux APK build is compile/package evidence only. Full Player sign-off still requires runtime playback checks across ExoPlayer and libmpv, subtitles, gestures, overlays, engine switching and Liquid Glass on supported Android devices.
