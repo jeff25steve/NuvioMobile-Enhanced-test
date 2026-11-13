@@ -135,6 +135,25 @@ class AuthSessionOperationGateTest {
     }
 
     @Test
+    fun cancellingAResetAfterMutexHandoffReopensTheGate() = runTest {
+        val gate = AuthSessionOperationGate()
+        gate.beginReset()
+
+        val handedOffReset = launch {
+            gate.beginReset()
+            gate.endReset()
+        }
+        runCurrent()
+
+        // Unlock hands ownership to the queued waiter, but its continuation has not run yet.
+        gate.endReset()
+        handedOffReset.cancelAndJoin()
+
+        // The cancelled lock acquisition releases Mutex ownership; the gate must follow it.
+        assertNotNull(gate.beginOperation(Job()))
+    }
+
+    @Test
     fun cancellingAQueuedResetDoesNotReleaseTheCurrentReset() = runTest {
         val gate = AuthSessionOperationGate()
         gate.beginReset()
