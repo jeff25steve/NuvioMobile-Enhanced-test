@@ -4967,3 +4967,31 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Existing common regression coverage includes the static/content capture policies, Saved calendar source selection/readiness, Saved pinned controls, and Cloud preview viewport inset. The tests have not been executed.
 - Remote source inspection is not a substitute for visual/device validation. Saved poster visibility behind pinned controls while scrolling, Cloud custom-image rendering and sticky-toolbar touch behaviour, calendar blur/dismissal, and Android/iOS renderer parity remain to be checked in an authorised runtime session.
 - No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started.
+
+
+## 13 November 2026 — Library preview scope and separate-window backdrop risk review
+
+### Remote checkpoint
+
+- Re-resolved main-build-testing from GitHub before review. It is still exactly at 6fa8166195978414b2f495a8f70234212d701676; no branch movement occurred during this continuation.
+- The repository-wide latest commit search surfaced unrelated upstream work, but comparing the actual target branch ref confirms it is identical to the recorded checkpoint. No upstream commits were merged or copied.
+
+### Cloud preview scope finding
+
+- LiquidGlassLibraryPreview reads cloudBackgroundActive when choosing the Cloud sticky-toolbar background.
+- That preview composable has no parameter or local declaration with that name, and the settings file has no explicit import for it. The similarly named value in LibraryScreen is a local variable inside a different composable and is not in lexical scope here.
+- A package-level declaration in another settings source file has not been ruled out conclusively: the GitHub code-search endpoint searched the repository default branch rather than this feature branch, and the available GitHub file interface does not expose a recursive directory listing. SettingsScreen.kt also contains no such declaration.
+- Treat this as an unresolved compile-risk requiring package-wide symbol resolution. Do not claim a confirmed compiler error or patch by guessing. A focused compile would settle it, but compilation/builds remain unauthorised in this checkpoint.
+
+### Separate-window backdrop evidence
+
+- Exa found Kyant Backdrop issue #91, reporting incorrect backdrop sampling inside a Popup on Android/iOS with Backdrop 2.0.0-alpha03. The issue is open; the 2.0.1 release notes only mention a Compose update, so no fix is established by release notes.
+- The Library release calendar uses Compose Dialog, not Popup. Therefore issue #91 is a risk signal, not proof that the calendar is affected.
+- The app's NuvioBackdrop offset calculation first uses local coordinates for a shared root and falls back to positionOnScreen/positionInWindow for different roots. That is an intentional cross-root path, but without an authorised device reproduction there is no evidence to change it.
+- Context7 Backdrop docs were reviewed for layer ownership and exportedBackdrop loop prevention. Context7's Compose Multiplatform catalogue still does not list the repository's exact 1.13.0-beta01 pin. Exa also cross-checked the official Kotlin Multiplatform popup/dialog distinctions and Android Developers LazyColumn guidance.
+
+### Decision and verification boundary
+
+- No production change was made in this cycle because neither suspected issue has been reproduced or conclusively proven from the available branch-wide source view. This avoids introducing an unverified workaround into Library rendering.
+- Next authorised validation should resolve the Cloud preview identifier at compile time, then exercise the Library calendar Dialog and Cloud/Saved backdrops on Android and iOS. Do not substitute a Popup-only issue report for a Dialog reproduction.
+- No tests, Gradle tasks, compilation, builds, benchmarks, device/simulator runs or CI workflows were started.
