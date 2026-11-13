@@ -200,6 +200,42 @@ class LocalAccountDataCleanerTest {
         assertTrue(cleanup.isCancelled)
     }
 
+    @Test
+    fun failedPluginGateAcquisitionReleasesAlreadyAcquiredAddonGate() {
+        val events = mutableListOf<String>()
+        val failure = IllegalStateException("plugin gate acquisition failed")
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            acquireAccountCleanupGates(
+                beginAddon = { events += "begin-addon" },
+                endAddon = { events += "end-addon" },
+                beginPlugin = { events += "begin-plugin"; throw failure },
+                endPlugin = { events += "end-plugin" },
+            )
+        }
+
+        assertSame(failure, thrown)
+        assertEquals(listOf("begin-addon", "begin-plugin", "end-addon"), events)
+    }
+
+    @Test
+    fun acquiredAccountCleanupGatesReleaseInReverseOrder() {
+        val events = mutableListOf<String>()
+        val release = acquireAccountCleanupGates(
+            beginAddon = { events += "begin-addon" },
+            endAddon = { events += "end-addon" },
+            beginPlugin = { events += "begin-plugin" },
+            endPlugin = { events += "end-plugin" },
+        )
+
+        release()
+
+        assertEquals(
+            listOf("begin-addon", "begin-plugin", "end-plugin", "end-addon"),
+            events,
+        )
+    }
+
     private fun snapshots(): List<CachedNextUpItem> =
         ContinueWatchingEnrichmentCache.getNextUpSnapshot(1, WatchProgressSource.SIMKL)
 
