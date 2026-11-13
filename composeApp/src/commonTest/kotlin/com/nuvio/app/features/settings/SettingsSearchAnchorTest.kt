@@ -395,6 +395,9 @@ class SettingsSearchAnchorTest {
             SettingsPage.MetaScreen,
             SettingsPage.Notifications,
             SettingsPage.TraktAuthentication,
+            SettingsPage.TmdbEnrichment,
+            SettingsPage.MdbListRatings,
+            SettingsPage.Omdb,
         )
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
