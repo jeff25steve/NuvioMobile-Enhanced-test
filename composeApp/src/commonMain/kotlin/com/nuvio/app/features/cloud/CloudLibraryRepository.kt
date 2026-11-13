@@ -293,9 +293,23 @@ object CloudLibraryRepository {
         val cachedProviders = withContext(Dispatchers.Default) {
             CloudLibraryCacheStore.load(keys.cacheSignature())
         } ?: return
-        if (connectedCloudConnectionKeys() != keys) return
         synchronized(refreshLock) {
-            if (requestGeneration != refreshGeneration) return
+            if (
+                !shouldApplyCloudLibraryCacheRestore(
+                    requestGeneration = requestGeneration,
+                    latestRequestGeneration = refreshGeneration,
+                    requestedConnectionSignature = keys.cacheSignature(),
+                    currentConnectionSignature = connectedCloudConnectionKeys().cacheSignature(),
+                    loadedConnectionSignature = loadedConnectionKeys
+                        .takeIf { it.isNotEmpty() }
+                        ?.cacheSignature(),
+                    restoredConnectionSignature = restoredConnectionKeys
+                        .takeIf { it.isNotEmpty() }
+                        ?.cacheSignature(),
+                )
+            ) {
+                return
+            }
             restoredConnectionKeys = keys
             _uiState.update { current ->
                 current.copy(
