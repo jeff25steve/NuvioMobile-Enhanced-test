@@ -309,7 +309,7 @@ internal object AutoSyncSubtitleCueParser {
     ): List<SubtitleSyncCue> {
         val frameRate = parseTtmlFrameRate(text)
         var cancellationCounter = 0
-        val cues = Regex("""(?is)<p\b([^>]*)>(.*?)</p>""")
+        val cues = ttmlParagraphRegex
             .findAll(text)
             .mapNotNull { match ->
                 checkCancellation(cancellationCounter++, cancellationCheck)
@@ -333,7 +333,7 @@ internal object AutoSyncSubtitleCueParser {
     }
 
     private fun parseTtmlFrameRate(text: String): Double {
-        val rootAttributes = Regex("""(?is)<tt\b([^>]*)>""")
+        val rootAttributes = ttmlRootRegex
             .find(text)
             ?.groupValues
             ?.getOrNull(1)
