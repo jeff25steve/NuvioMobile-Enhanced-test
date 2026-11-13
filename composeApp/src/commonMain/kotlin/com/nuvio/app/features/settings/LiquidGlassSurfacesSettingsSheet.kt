@@ -103,6 +103,7 @@ import com.nuvio.app.core.ui.NuvioInputField
 import com.nuvio.app.core.ui.shouldDrawNuvioInputFieldOutline
 import com.nuvio.app.core.ui.LocalNuvioSheetBackdrop
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.core.ui.nuvioConsumePointerEvents
 import com.nuvio.app.core.ui.nuvioSheetSurface
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioSystemBackHandler
@@ -133,6 +134,7 @@ import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
 import com.nuvio.app.features.library.libraryCloudHeaderScrimColorStops
+import com.nuvio.app.features.library.libraryCloudToolbarBackgroundColor
 import com.nuvio.app.features.library.libraryCloudPreviewViewportTopInset
 import com.nuvio.app.features.library.LibraryCalendarGlassPreview
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
@@ -2796,10 +2798,16 @@ private fun LiquidGlassLibraryPreview(
                         .fillMaxSize()
                         .padding(top = libraryCloudPreviewViewportTopInset(viewMode, headerHeight)),
                     contentPadding = PaddingValues(bottom = 8.dp, start = 8.dp, end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.nuvio.spacing.listGap),
                 ) {
                     stickyHeader(key = "library-cloud-preview-controls") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(libraryCloudToolbarBackgroundColor(cloudBackgroundActive))
+                                .nuvioConsumePointerEvents(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             val allProvidersLabel = stringResource(Res.string.cloud_library_provider_all)
                             val providerOptions = remember(allProvidersLabel) {
                                 listOf(
