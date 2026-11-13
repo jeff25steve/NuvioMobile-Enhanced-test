@@ -1057,6 +1057,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.DiscordRpc -> discordRpcSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -1545,6 +1546,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.DiscordRpc -> discordRpcSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                 }
             }
