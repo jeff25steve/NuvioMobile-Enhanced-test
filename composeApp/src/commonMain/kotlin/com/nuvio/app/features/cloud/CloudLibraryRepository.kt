@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.cloud_library_playback_disabled
@@ -97,17 +101,128 @@ object CloudLibraryRepository {
         providerApis = CloudLibraryProviderApis.all(),
     )
     private val _uiState = MutableStateFlow(CloudLibraryUiState())
+    private val refreshLock = SynchronizedObject()
+    private val cacheSaveMutex = Mutex()
+    private var refreshGeneration = 0L
     private var loadedConnectionKeys: List<CloudConnectionKey> = emptyList()
     private var restoredConnectionKeys: List<CloudConnectionKey> = emptyList()
     val uiState = _uiState.asStateFlow()
 
     fun ensureLoaded() {
         DebridSettingsRepository.ensureLoaded()
-        if (!DebridSettingsRepository.snapshot().cloudLibraryEnabled) {
-            loadedConnectionKeys = emptyList()
-            _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
-            return
+package com.nuvio.app.features.cloud
+
+import com.nuvio.app.features.debrid.DebridProviderCapability
+import com.nuvio.app.features.debrid.DebridProviders
+import com.nuvio.app.features.debrid.DebridServiceCredential
+import com.nuvio.app.features.debrid.DebridSettingsRepository
+import com.nuvio.app.features.debrid.supports
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.withContext
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.cloud_library_playback_disabled
+import nuvio.composeapp.generated.resources.cloud_library_provider_unavailable
+import org.jetbrains.compose.resources.getString
+
+internal class CloudLibraryStore(
+    private val credentialsProvider: suspend () -> List<DebridServiceCredential>,
+    private val providerApis: List<CloudLibraryProviderApi>,
+) {
+    suspend fun refresh(): CloudLibraryUiState {
+        val credentials = credentialsProvider()
+            .filter { credential -> credential.provider.supports(DebridProviderCapability.CloudLibrary) }
+
+        val providerStates = credentials.map { credential ->
+            val api = providerApis.firstOrNull { it.provider.id == credential.provider.id }
+            if (api == null) {
+                return@map CloudLibraryProviderState(
+                    provider = credential.provider,
+                    errorMessage = getString(
+                        Res.string.cloud_library_provider_unavailable,
+                        credential.provider.displayName,
+                    ),
+                )
+            }
+
+            api.listItems(credential.apiKey)
+                .fold(
+                    onSuccess = { items ->
+                        CloudLibraryProviderState(
+                            provider = credential.provider,
+                            items = items,
+                        )
+                    },
+                    onFailure = { error ->
+                        CloudLibraryProviderState(
+                            provider = credential.provider,
+                            errorMessage = error.message,
+                        )
+                    },
+                )
         }
+
+        return CloudLibraryUiState(
+            isLoaded = true,
+            isRefreshing = false,
+            providers = providerStates,
+        )
+    }
+
+    suspend fun resolvePlayback(
+        item: CloudLibraryItem,
+        file: CloudLibraryFile,
+    ): CloudLibraryPlaybackResult {
+        if (!file.playable) return CloudLibraryPlaybackResult.NotPlayable
+        val credential = credentialsProvider()
+            .firstOrNull { credential -> credential.provider.id == item.providerId }
+            ?: return CloudLibraryPlaybackResult.MissingCredentials
+        val api = providerApis.firstOrNull { it.provider.id == item.providerId }
+            ?: return CloudLibraryPlaybackResult.Failed()
+        file.playbackUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            return CloudLibraryPlaybackResult.Success(
+                url = url,
+                filename = file.name.takeIf { it.isNotBlank() },
+                videoSizeBytes = file.sizeBytes,
+            )
+        }
+        return api.resolvePlayback(
+            apiKey = credential.apiKey,
+            item = item,
+            file = file,
+        )
+    }
+}
+
+object CloudLibraryRepository {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val store = CloudLibraryStore(
+        credentialsProvider = {
+            DebridSettingsRepository.ensureLoaded()
+            DebridProviders.configuredServices(DebridSettingsRepository.snapshot())
+        },
+        providerApis = CloudLibraryProviderApis.all(),
+    )
+    private val _uiState = MutableStateFlow(CloudLibraryUiState())
+    private val refreshLock = SynchronizedObject()
+    private val cacheSaveMutex = Mutex()
+    private var refreshGeneration = 0L
+    private var loadedConnectionKeys: List<CloudConnectionKey> = emptyList()
+    private var restoredConnectionKeys: List<CloudConnectionKey> = emptyList()
+    val uiState = _uiState.asStateFlow()
+
+    fun ensureLoaded() {
+        DebridSettingsRepository.ensureLoaded()
+
         val current = _uiState.value
         if (current.isRefreshing) return
         val connectedKeys = connectedCloudConnectionKeys()
@@ -122,11 +237,12 @@ object CloudLibraryRepository {
 
     private fun refreshInternal(cachedKeys: List<CloudConnectionKey>?) {
         DebridSettingsRepository.ensureLoaded()
+        val requestGeneration = beginRefreshGeneration()
         if (!DebridSettingsRepository.snapshot().cloudLibraryEnabled) {
-            loadedConnectionKeys = emptyList()
-            _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
+            invalidateRefreshesAndDisable()
             return
         }
+        val requestedConnectionKeys = connectedCloudConnectionKeys()
         _uiState.update { current ->
             current.copy(
                 isEnabled = true,
@@ -136,13 +252,16 @@ object CloudLibraryRepository {
         }
         scope.launch {
             if (cachedKeys != null) {
-                restoreCachedState(cachedKeys)
+                restoreCachedState(cachedKeys, requestGeneration)
             }
+            if (!isRefreshGenerationCurrent(requestGeneration)) return@launch
             val previous = _uiState.value
             val refreshed = store.refresh().keepingItemsOnFailure(previous)
-            loadedConnectionKeys = connectedCloudConnectionKeys()
-            _uiState.value = refreshed
-            CloudLibraryCacheStore.save(loadedConnectionKeys.cacheSignature(), refreshed.providers)
+            publishRefreshResult(
+                requestGeneration = requestGeneration,
+                requestedConnectionKeys = requestedConnectionKeys,
+                refreshed = refreshed,
+            )
         }
     }
 
@@ -164,8 +283,7 @@ object CloudLibraryRepository {
     ): CloudLibraryPlaybackTargetLookupResult {
         DebridSettingsRepository.ensureLoaded()
         if (!DebridSettingsRepository.snapshot().cloudLibraryEnabled) {
-            loadedConnectionKeys = emptyList()
-            _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
+            invalidateRefreshesAndDisable()
             return CloudLibraryPlaybackTargetLookupResult.Disabled
         }
 
@@ -254,6 +372,13 @@ object CloudLibraryRepository {
         }.sortedBy { it.providerId }
 
     private suspend fun refreshNow(): CloudLibraryUiState {
+        DebridSettingsRepository.ensureLoaded()
+        val requestGeneration = beginRefreshGeneration()
+        if (!DebridSettingsRepository.snapshot().cloudLibraryEnabled) {
+            invalidateRefreshesAndDisable()
+            return _uiState.value
+        }
+        val requestedConnectionKeys = connectedCloudConnectionKeys()
         _uiState.update { current ->
             current.copy(
                 isEnabled = true,
@@ -263,28 +388,107 @@ object CloudLibraryRepository {
         }
         val previous = _uiState.value
         val refreshed = store.refresh().keepingItemsOnFailure(previous)
-        loadedConnectionKeys = connectedCloudConnectionKeys()
-        _uiState.value = refreshed
-        CloudLibraryCacheStore.save(loadedConnectionKeys.cacheSignature(), refreshed.providers)
-        return refreshed
+        val applied = publishRefreshResult(
+            requestGeneration = requestGeneration,
+            requestedConnectionKeys = requestedConnectionKeys,
+            refreshed = refreshed,
+        )
+        return if (applied) refreshed else _uiState.value
     }
 
-    private suspend fun restoreCachedState(keys: List<CloudConnectionKey>) {
+    private suspend fun restoreCachedState(keys: List<CloudConnectionKey>, requestGeneration: Long) {
         if (keys.isEmpty()) return
         val cachedProviders = withContext(Dispatchers.Default) {
             CloudLibraryCacheStore.load(keys.cacheSignature())
         } ?: return
         if (connectedCloudConnectionKeys() != keys) return
-        restoredConnectionKeys = keys
-        _uiState.update { current ->
-            current.copy(
-                isLoaded = true,
-                isEnabled = true,
-                providers = cachedProviders.map { providerState ->
-                    providerState.copy(isLoading = current.isRefreshing)
-                },
-            )
+        synchronized(refreshLock) {
+            if (requestGeneration != refreshGeneration) return
+            restoredConnectionKeys = keys
+            _uiState.update { current ->
+                current.copy(
+                    isLoaded = true,
+                    isEnabled = true,
+                    providers = cachedProviders.map { providerState ->
+                        providerState.copy(isLoading = current.isRefreshing)
+                    },
+                )
+            }
         }
+    }
+
+    private fun beginRefreshGeneration(): Long = synchronized(refreshLock) {
+        refreshGeneration += 1
+        refreshGeneration
+    }
+
+    private fun isRefreshGenerationCurrent(requestGeneration: Long): Boolean =
+        synchronized(refreshLock) { requestGeneration == refreshGeneration }
+
+    private fun invalidateRefreshesAndDisable() {
+        synchronized(refreshLock) {
+            refreshGeneration += 1
+            loadedConnectionKeys = emptyList()
+            _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
+        }
+    }
+
+    private fun publishRefreshResult(
+        requestGeneration: Long,
+        requestedConnectionKeys: List<CloudConnectionKey>,
+        refreshed: CloudLibraryUiState,
+    ): Boolean {
+        val currentConnectionKeys = connectedCloudConnectionKeys()
+        val cloudLibraryEnabled = DebridSettingsRepository.snapshot().cloudLibraryEnabled
+        var shouldReloadForChangedConnections = false
+        val applied = synchronized(refreshLock) {
+            if (
+                !shouldApplyCloudLibraryRefresh(
+                    requestGeneration = requestGeneration,
+                    latestRequestGeneration = refreshGeneration,
+                    requestedConnectionSignature = requestedConnectionKeys.cacheSignature(),
+                    currentConnectionSignature = currentConnectionKeys.cacheSignature(),
+                    cloudLibraryEnabled = cloudLibraryEnabled,
+                )
+            ) {
+                if (requestGeneration == refreshGeneration) {
+                    if (!cloudLibraryEnabled) {
+                        refreshGeneration += 1
+                        loadedConnectionKeys = emptyList()
+                        _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
+                    } else {
+                        _uiState.update { current ->
+                            current.copy(
+                                isRefreshing = false,
+                                providers = current.providers.map { it.copy(isLoading = false) },
+                            )
+                        }
+                        shouldReloadForChangedConnections = true
+                    }
+                }
+                false
+            } else {
+                loadedConnectionKeys = currentConnectionKeys
+                _uiState.value = refreshed
+                true
+            }
+        }
+        if (shouldReloadForChangedConnections) {
+            scope.launch { ensureLoaded() }
+        }
+        if (applied) {
+            cacheSaveMutex.withLock {
+                val stillCurrent = synchronized(refreshLock) {
+                    requestGeneration == refreshGeneration &&
+                        connectedCloudConnectionKeys() == currentConnectionKeys &&
+                        DebridSettingsRepository.snapshot().cloudLibraryEnabled
+                }
+                if (stillCurrent) {
+                    CloudLibraryCacheStore.save(currentConnectionKeys.cacheSignature(), refreshed.providers)
+                }
+            }
+        }
+        return applied
     }
 
     private fun List<CloudConnectionKey>.cacheSignature(): List<String> =
