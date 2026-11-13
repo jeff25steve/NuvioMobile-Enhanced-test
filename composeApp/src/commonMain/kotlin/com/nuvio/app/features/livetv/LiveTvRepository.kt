@@ -33,8 +33,10 @@ object LiveTvRepository {
     private var channelsRequested = false
     private var channelsSignature: String? = null
     private var refreshJob: Job? = null
+    private val channelRefreshGeneration = LiveTvRequestGeneration()
     private var restoredEpg: LiveTvCachedEpg? = null
     private var epgJob: Job? = null
+    private val epgRefreshGeneration = LiveTvRequestGeneration()
     private var detectedEpgUrls: List<String> = emptyList()
     private val epgGuideCache = mutableMapOf<String, LiveTvCachedEpgGuide>()
 
@@ -80,7 +82,17 @@ object LiveTvRepository {
         activeJobs.joinAll()
     }
 
+    private fun cancelPendingRefreshJobs() {
+        refreshJob?.cancel()
+        refreshJob = null
+        epgRefreshGeneration.invalidate()
+        epgJob?.cancel()
+        epgJob = null
+    }
+
     private fun resetInMemoryState() {
+        channelRefreshGeneration.invalidate()
+        epgRefreshGeneration.invalidate()
         refreshJob?.cancel()
         refreshJob = null
         epgJob?.cancel()
@@ -142,9 +154,7 @@ object LiveTvRepository {
             errorMessage = null,
         )
         publishNavigationVisibility()
-        if (playlists.isNotEmpty()) {
-            refresh()
-        }
+        refresh()
     }
 
     fun addPlaylistUrl(url: String) {
@@ -253,9 +263,7 @@ object LiveTvRepository {
             errorMessage = null,
         )
         publishNavigationVisibility()
-        if (playlists.any { it.isEnabled }) {
-            refresh()
-        }
+        refresh()
     }
 
     fun setPlaylistEnabled(playlistId: String, isEnabled: Boolean) {
@@ -279,9 +287,7 @@ object LiveTvRepository {
             errorMessage = null,
         )
         publishNavigationVisibility()
-        if (playlists.any { it.isEnabled }) {
-            refresh()
-        }
+        refresh()
     }
 
     fun setNavigationEnabled(enabled: Boolean) {
@@ -337,15 +343,23 @@ object LiveTvRepository {
 
     fun refresh() {
         ensureLoaded()
+        val generation = channelRefreshGeneration.begin()
         val currentState = _uiState.value
         val playlists = currentState.playlists
         if (!currentState.hasPlaylist) {
+            cancelPendingRefreshJobs()
+            channelsSignature = null
+            restoredEpg = null
+            detectedEpgUrls = emptyList()
             _uiState.value = _uiState.value.copy(
                 playlistUrl = "",
                 playlists = emptyList(),
                 channels = emptyList(),
                 isLoading = false,
                 errorMessage = null,
+                epgPrograms = emptyMap(),
+                isEpgLoading = false,
+                epgErrorMessage = null,
             )
             publishNavigationVisibility()
             return
@@ -355,12 +369,19 @@ object LiveTvRepository {
         val hasEnabledPortal = (currentState.xtreamSettings.isConfigured && currentState.xtreamSettings.isEnabled) ||
             (currentState.stalkerSettings.isConfigured && currentState.stalkerSettings.isEnabled)
         if (enabledPlaylists.isEmpty() && !hasEnabledPortal) {
+            cancelPendingRefreshJobs()
+            channelsSignature = null
+            restoredEpg = null
+            detectedEpgUrls = emptyList()
             _uiState.value = _uiState.value.copy(
                 playlistUrl = "",
                 playlists = playlists,
                 channels = emptyList(),
                 isLoading = false,
                 errorMessage = null,
+                epgPrograms = emptyMap(),
+                isEpgLoading = false,
+                epgErrorMessage = null,
             )
             return
         }
@@ -430,6 +451,7 @@ object LiveTvRepository {
             )
 
             val fetchedChannels = withContext(Dispatchers.Default) { loadedChannels.distinctBy { it.streamUrl } }
+            if (!channelRefreshGeneration.isCurrent(generation)) return@launch
             val previousChannels = _uiState.value.channels
             val keepPrevious = fetchedChannels.isEmpty() &&
                 failedPlaylistNames.isNotEmpty() &&
@@ -462,7 +484,9 @@ object LiveTvRepository {
                     }
                 }
             }
-            refreshEpg(force = false)
+            if (channelRefreshGeneration.isCurrent(generation)) {
+                refreshEpg(force = false)
+            }
         }
     }
 
@@ -502,11 +526,13 @@ object LiveTvRepository {
 
     fun refreshEpg(force: Boolean = true) {
         ensureLoaded()
+        val generation = epgRefreshGeneration.begin()
         val state = _uiState.value
         val requests = buildEpgRequests(state)
         epgJob?.cancel()
         epgGuideCache.keys.retainAll(requests.map { it.cacheKey }.toSet())
         if (state.channels.isEmpty() || requests.isEmpty()) {
+            epgJob = null
             _uiState.value = state.copy(
                 epgPrograms = emptyMap(),
                 isEpgLoading = false,
@@ -532,6 +558,7 @@ object LiveTvRepository {
                     async { runCatching { withContext(Dispatchers.Default) { request.load(nowMillis) } } }
                 }
             }.awaitAll()
+            if (!epgRefreshGeneration.isCurrent(generation)) return@launch
             requests.zip(results).forEach { (request, result) ->
                 result.fold(
                     onSuccess = { guide ->
@@ -547,9 +574,17 @@ object LiveTvRepository {
                     },
                 )
             }
-            val channels = _uiState.value.channels
-            val programs = withContext(Dispatchers.Default) { matchEpgToChannels(channels, guides) }
-            _uiState.value = _uiState.value.copy(
+            val latestState = _uiState.value
+            val latestRequests = buildEpgRequests(latestState)
+            if (
+                !epgRefreshGeneration.isCurrent(generation) ||
+                liveTvEpgSignature(latestState, latestRequests) != epgSignature
+            ) return@launch
+            val programs = withContext(Dispatchers.Default) {
+                matchEpgToChannels(latestState.channels, guides)
+            }
+            if (!epgRefreshGeneration.isCurrent(generation)) return@launch
+            _uiState.value = latestState.copy(
                 epgPrograms = programs,
                 isEpgLoading = false,
                 epgErrorMessage = if (failedGuideNames.isNotEmpty()) {
@@ -696,6 +731,21 @@ object LiveTvRepository {
     private fun persistFavoriteChannelIds(channelIds: Set<String>) {
         LiveTvStorage.saveFavoriteChannelIdsBlob(channelIds.sorted().joinToString("\n"))
     }
+}
+
+internal class LiveTvRequestGeneration {
+    private var value: Long = 0L
+
+    fun begin(): Long {
+        value += 1L
+        return value
+    }
+
+    fun invalidate() {
+        value += 1L
+    }
+
+    fun isCurrent(expected: Long): Boolean = value == expected
 }
 
 private const val LIVE_TV_MAX_RECENT_CHANNELS = 30
