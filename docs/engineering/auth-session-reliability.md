@@ -154,3 +154,19 @@ Relevant files:
 - Code review checked each new commit diff and the final remote source/test files. No unrelated files were changed by these cycles.
 - No tests, Gradle tasks, builds, or CI workflows were run. The added regression tests remain unexecuted until explicitly authorised.
 - The branch was confirmed to be 0 commits behind enhanced (1,451 ahead) at this checkpoint; no upstream sync was required.
+
+## Latest continuation status (2026-11-13 16:20 UTC)
+
+- Two further reliability cycles were integrated:
+  - Cycle 9 — replace AuthSessionOperationGate's mirrored Boolean reconstructed from Mutex.isLocked with an explicit pending-reset reservation count. Each reset registers before waiting for the mutex and releases exactly its own reservation on cancellation, setup failure, or endReset. This removes the race where a new mutex owner could be invisible to a stale isLocked snapshot while the operation gate was being reopened.
+  - Cycle 10 — make cancelAndJoinNonCancellable observe caller cancellation even when given an empty job collection or a null job. The previous early returns skipped ensureActive, allowing an already-cancelled caller to cross a reset/cleanup boundary without observing cancellation.
+- Regression-test commits:
+  - 84f6f298d3067fe23184ab6b187f6826e8b35889 — cancelling one queued reset does not release another queued reset reservation.
+  - 452e50c1dc2fbed4deccb737a5ad30cf2b624a0a — empty and null cancel/join inputs still propagate caller cancellation.
+- Implementation commits:
+  - 0a577a877294b63572e11e71e0b29ad2ae9f966f — explicit pending reset reservation accounting.
+  - b212dfb2ee96a04e2f8a4607f5a03bd45c95871c — cancellation checks on empty join paths.
+- Evidence reviewed: Context7's closest indexed kotlinx-coroutines release is 1.10.1 (project pins 1.10.2); official Mutex API/source and Kotlin cancellation guidance were checked through Exa. Mutex lock is cancellable with prompt cancellation and releases a lock if acquired before cancellation is delivered; cancellation is cooperative on fast paths, and currentCoroutineContext().ensureActive() is the explicit check. AtomicFU synchronized-lock documentation was also consulted.
+- Manual review checked both test-first commit diffs and both implementation diffs. The pending reset counter is updated under the same AtomicFU lock as operation admission; mutex ownership remains the serializer, while the counter represents all queued and active reset reservations. Cancellation and failed post-acquisition setup each release only the reservation they acquired.
+- No tests, Gradle tasks, builds, or CI workflows were run. The new tests remain unexecuted until explicitly authorised; no RED/GREEN or passing-test claim is made.
+- Follow-up: when authorised, run focused AuthSessionOperationGateTest and CancelAndJoinNonCancellableTest first, then the previously listed auth/storage tests and full suite.
