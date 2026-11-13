@@ -980,6 +980,9 @@ class SettingsSearchAnchorTest {
             "home-hero" to 1,
             "home-catalog-type" to 1,
             "home-hide-unreleased" to 1,
+            "home-hero-trailer-playback" to 1,
+            "home-hero-trailer-start-unmuted" to 1,
+            "home-hero-trailer-start-delay" to 1,
             "home-hero-sources" to 2,
             "home-catalogs" to 3,
         )
