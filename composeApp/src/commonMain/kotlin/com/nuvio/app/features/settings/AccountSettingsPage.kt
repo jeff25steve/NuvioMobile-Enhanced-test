@@ -91,39 +91,40 @@ private fun AccountSettingsBody(
                 SettingsSurfaceCard(isTablet = isTablet) {
                     Text(
                         text = stringResource(Res.string.compose_settings_page_account),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-
-            when (val state = authState) {
-                is AuthState.Authenticated -> {
-                    AccountInfoRow(
-                        label = stringResource(Res.string.settings_account_status),
-                        value = if (state.isAnonymous) {
-                            stringResource(Res.string.settings_account_status_anonymous)
-                        } else {
-                            stringResource(Res.string.settings_account_status_signed_in)
-                        },
-                        valueColor = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                    state.email?.takeUnless { state.isAnonymous }?.let { email ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        AccountInfoRow(
-                            label = stringResource(Res.string.settings_account_email),
-                            value = email,
-                        )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    when (val state = authState) {
+                        is AuthState.Authenticated -> {
+                            AccountInfoRow(
+                                label = stringResource(Res.string.settings_account_status),
+                                value = if (state.isAnonymous) {
+                                    stringResource(Res.string.settings_account_status_anonymous)
+                                } else {
+                                    stringResource(Res.string.settings_account_status_signed_in)
+                                },
+                                valueColor = MaterialTheme.colorScheme.primary,
+                            )
+                            state.email?.takeUnless { state.isAnonymous }?.let { email ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                AccountInfoRow(
+                                    label = stringResource(Res.string.settings_account_email),
+                                    value = email,
+                                )
+                            }
+                        }
+                        else -> {
+                            Text(
+                                text = stringResource(Res.string.settings_account_not_signed_in),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
-                else -> {
-                    Text(
-                        text = stringResource(Res.string.settings_account_not_signed_in),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             }
         }
 
