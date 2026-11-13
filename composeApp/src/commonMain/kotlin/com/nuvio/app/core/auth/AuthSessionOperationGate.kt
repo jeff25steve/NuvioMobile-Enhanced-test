@@ -46,7 +46,16 @@ internal class AuthSessionOperationGate {
      * closed while ownership is handed to another queued reset.
      */
     suspend fun beginReset(): List<Job> {
-        resetMutex.lock()
+        try {
+            resetMutex.lock()
+        } catch (error: Throwable) {
+            // Mutex.lock can hand ownership to a waiter and then throw cancellation before
+            // that waiter's continuation runs. In that case the Mutex releases ownership
+            // itself, so reconcile the gate after the cancelled acquisition has unwound.
+            synchronized(lock) { resetting = resetMutex.isLocked }
+            throw error
+        }
+
         return try {
             synchronized(lock) {
                 resetting = true
