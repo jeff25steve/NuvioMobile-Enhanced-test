@@ -126,9 +126,12 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.ageRating(): String? {
         val appExtras = this["app_extras"] as? JsonObject
-        return string("ageRating")?.trim()?.takeIf(String::isNotBlank)
-            ?: appExtras?.string("certificationLocal")?.trim()?.takeIf(String::isNotBlank)
-            ?: appExtras?.string("certification")?.trim()?.takeIf(String::isNotBlank)
+        val primary = string("ageRating")
+        val localCertification = appExtras?.string("certificationLocal")
+        val fallbackCertification = appExtras?.string("certification")
+        return primary?.trim()?.takeIf(String::isNotBlank)
+            ?: localCertification?.trim()?.takeIf(String::isNotBlank)
+            ?: fallbackCertification?.trim()?.takeIf(String::isNotBlank)
     }
 
     private data class LinkCredits(
