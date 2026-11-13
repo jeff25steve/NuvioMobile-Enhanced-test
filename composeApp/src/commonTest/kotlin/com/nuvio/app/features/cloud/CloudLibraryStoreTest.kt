@@ -35,6 +35,39 @@ class CloudLibraryStoreTest {
     }
 
     @Test
+    fun `selected cloud item is cleared only after a completed refresh removes it`() {
+        val provider = cloudProvider(id = "alpha", name = "Alpha")
+        val item = cloudItem(provider, "one")
+        val selectedKey = item.stableKey
+
+        assertEquals(
+            selectedKey,
+            reconcileCloudLibrarySelectedItemKey(selectedKey, CloudLibraryUiState()),
+        )
+        assertEquals(
+            selectedKey,
+            reconcileCloudLibrarySelectedItemKey(
+                selectedKey,
+                CloudLibraryUiState(isLoaded = true, isRefreshing = true),
+            ),
+        )
+        assertEquals(
+            selectedKey,
+            reconcileCloudLibrarySelectedItemKey(
+                selectedKey,
+                CloudLibraryUiState(isLoaded = true, providers = listOf(CloudLibraryProviderState(provider, items = listOf(item)))),
+            ),
+        )
+        assertEquals(
+            null,
+            reconcileCloudLibrarySelectedItemKey(
+                selectedKey,
+                CloudLibraryUiState(isLoaded = true, providers = listOf(CloudLibraryProviderState(provider))),
+            ),
+        )
+    }
+
+    @Test
     fun `refresh aggregates multiple providers without provider-specific assumptions`() = runBlocking {
         val firstProvider = cloudProvider(id = "alpha", name = "Alpha")
         val secondProvider = cloudProvider(id = "beta", name = "Beta")
