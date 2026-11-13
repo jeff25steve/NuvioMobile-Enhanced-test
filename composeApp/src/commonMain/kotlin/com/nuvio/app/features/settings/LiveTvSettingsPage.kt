@@ -317,10 +317,10 @@ private fun LiveTvEpgSettingsRow(
                 ) {
                     Text(
                         text = stringResource(Res.string.live_tv_settings_epg_auto_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                )
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                    )
                     Text(
                         text = stringResource(Res.string.live_tv_settings_epg_auto_description),
                         style = MaterialTheme.typography.bodyMedium,
@@ -652,10 +652,10 @@ private fun LiveTvPlaylistSourcesRow(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = stringResource(Res.string.live_tv_settings_playlist_label),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium,
-            )
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium,
+                )
                 Text(
                     text = stringResource(Res.string.live_tv_settings_description),
                     style = MaterialTheme.typography.bodyMedium,
@@ -667,9 +667,9 @@ private fun LiveTvPlaylistSourcesRow(
         LiveTvSearchAnchor("live-tv-playlist-name", highlightedSearchAnchorKey) {
             OutlinedTextField(
                 value = draftName,
-            onValueChange = { draftName = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
+                onValueChange = { draftName = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 label = { Text(stringResource(Res.string.live_tv_settings_playlist_name_placeholder)) },
                 colors = liveTvOutlinedTextFieldColors(),
             )
@@ -678,9 +678,9 @@ private fun LiveTvPlaylistSourcesRow(
         LiveTvSearchAnchor("live-tv-playlist-url", highlightedSearchAnchorKey) {
             OutlinedTextField(
                 value = draftUrl,
-            onValueChange = { draftUrl = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
+                onValueChange = { draftUrl = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 label = { Text(stringResource(Res.string.live_tv_settings_playlist_placeholder)) },
                 colors = liveTvOutlinedTextFieldColors(),
             )
