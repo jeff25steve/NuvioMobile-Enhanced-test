@@ -310,11 +310,25 @@ internal fun libraryBackdropCaptureRequired(
     }
 }
 
-/** Only the Saved LazyColumn is a source for pinned Saved controls and calendar glass. */
-internal fun sourceModeUsesScrollableLibraryBackdrop(
+/** Capture scrolling content only for visible Saved controls or an open glass calendar. */
+internal fun libraryContentBackdropCaptureRequired(
+    masterEnabled: Boolean,
+    platformSupported: Boolean,
     sourceMode: LibraryViewMode,
-    glassEnabled: Boolean,
-): Boolean = sourceMode == LibraryViewMode.Saved && glassEnabled
+    hasSavedControls: Boolean,
+    showReleaseCalendar: Boolean,
+    isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
+): Boolean {
+    if (!masterEnabled || !platformSupported || sourceMode != LibraryViewMode.Saved) return false
+
+    val savedControlsNeedBackdrop = hasSavedControls && (
+        isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) ||
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
+        )
+    val calendarNeedsBackdrop = showReleaseCalendar &&
+        isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
+    return savedControlsNeedBackdrop || calendarNeedsBackdrop
+}
 
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
 internal fun shouldUseLibraryContentBackdropForCalendar(
@@ -659,6 +673,14 @@ fun LibraryScreen(
         showReleaseCalendar = showReleaseCalendar,
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
+    val shouldCaptureLibraryContentBackdrop = libraryContentBackdropCaptureRequired(
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = isLiquidGlassAvailable(),
+        sourceMode = sourceMode,
+        hasSavedControls = hasSavedControls,
+        showReleaseCalendar = showReleaseCalendar,
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
     val cloudBackgroundActive = libraryHeaderUsesArtworkBackdrop(
         sourceMode = sourceMode,
         artworkBackgroundActive = cloudBackgroundImageRequest != null,
@@ -729,7 +751,10 @@ fun LibraryScreen(
             // Saved pinned glass controls sample the scrolling content beneath them; other modes
             // retain the static screen backdrop. The release calendar uses its own scoped capture.
             LocalLiquidGlassBackdrop provides if (
-                libraryPinnedChromeUsesContentBackdrop(sourceMode, anyLibraryGlassEnabled)
+                libraryPinnedChromeUsesContentBackdrop(
+                    sourceMode,
+                    savedTypeGlassEnabled || savedSortGlassEnabled,
+                )
             ) libraryContentBackdrop else if (anyLibraryGlassEnabled) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
@@ -917,7 +942,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (sourceModeUsesScrollableLibraryBackdrop(sourceMode, anyLibraryGlassEnabled)) {
+                        if (shouldCaptureLibraryContentBackdrop) {
                             Modifier.nuvioBackdropSource(libraryContentBackdrop)
                         } else {
                             Modifier
