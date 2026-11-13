@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.mdbListSettingsContent(
     isTablet: Boolean,
     settings: MdbListSettings,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val providerControlsEnabled = settings.enabled
 
@@ -62,6 +64,8 @@ internal fun LazyListScope.mdbListSettingsContent(
                     description = stringResource(Res.string.settings_mdb_enable_ratings_description),
                     checked = settings.enabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "mdb-enable",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = MdbListSettingsRepository::setEnabled,
                 )
                 SettingsGroupDivider(isTablet = isTablet)
@@ -71,6 +75,8 @@ internal fun LazyListScope.mdbListSettingsContent(
                     checked = settings.showOnHero,
                     enabled = providerControlsEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "mdb-show-on-hero",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = MdbListSettingsRepository::setShowOnHero,
                 )
                 if (!settings.hasCredentials) {
@@ -90,12 +96,19 @@ internal fun LazyListScope.mdbListSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                MdbListApiKeyRow(
-                    isTablet = isTablet,
-                    value = settings.apiKey,
-                    usingConnectedAccount = settings.accountScope != null && !settings.hasApiKey,
-                    onApiKeyCommitted = MdbListSettingsRepository::setApiKey,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "mdb-api-key",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        MdbListApiKeyRow(
+                            isTablet = isTablet,
+                            value = settings.apiKey,
+                            usingConnectedAccount = settings.accountScope != null && !settings.hasApiKey,
+                            onApiKeyCommitted = MdbListSettingsRepository::setApiKey,
+                        )
+                    }
+                }
             }
         }
     }
@@ -110,6 +123,7 @@ internal fun LazyListScope.mdbListSettingsContent(
                     isTablet = isTablet,
                     settings = settings,
                     controlsEnabled = providerControlsEnabled,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -121,6 +135,7 @@ private fun ProviderRows(
     isTablet: Boolean,
     settings: MdbListSettings,
     controlsEnabled: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val providers = listOf(
         MdbListMetadataService.PROVIDER_IMDB to Res.string.source_imdb,
@@ -134,11 +149,23 @@ private fun ProviderRows(
     )
 
     providers.forEachIndexed { index, (providerId, providerLabelRes) ->
+        val searchAnchorKey = when (providerId) {
+            MdbListMetadataService.PROVIDER_IMDB -> "mdb-imdb"
+            MdbListMetadataService.PROVIDER_TMDB -> "mdb-tmdb"
+            MdbListMetadataService.PROVIDER_TOMATOES -> "mdb-tomatoes"
+            MdbListMetadataService.PROVIDER_METACRITIC -> "mdb-metacritic"
+            MdbListMetadataService.PROVIDER_TRAKT -> "mdb-trakt"
+            MdbListMetadataService.PROVIDER_LETTERBOXD -> "mdb-letterboxd"
+            MdbListMetadataService.PROVIDER_AUDIENCE -> "mdb-audience"
+            else -> null
+        }
         SettingsSwitchRow(
             title = stringResource(providerLabelRes),
             checked = settings.isProviderEnabled(providerId),
             enabled = controlsEnabled,
             isTablet = isTablet,
+            searchAnchorKey = searchAnchorKey,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             onCheckedChange = { checked ->
                 MdbListSettingsRepository.setProviderEnabled(providerId, checked)
             },
