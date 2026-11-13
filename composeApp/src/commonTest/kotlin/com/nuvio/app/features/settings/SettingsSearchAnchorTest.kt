@@ -1043,4 +1043,22 @@ class SettingsSearchAnchorTest {
         }
     }
 
+    @Test
+    fun allTrackingProviderCardsHaveExactAnchors() {
+        listOf(
+            "trakt-authentication",
+            "simkl-authentication",
+            "mdblist-authentication",
+            "anilist-authentication",
+            "wetrakr-authentication",
+            "publicmetadb-authentication",
+        ).forEach { key ->
+            assertEquals(
+                0,
+                settingsSearchAnchor(SettingsPage.TraktAuthentication, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
 }
