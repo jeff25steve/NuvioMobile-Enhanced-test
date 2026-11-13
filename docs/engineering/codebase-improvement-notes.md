@@ -4034,8 +4034,15 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 ## 13 November 2026 — Android benchmark infrastructure removal
 
+### Cycle 1 — Remove benchmark implementation
+
 - Removed the phone-only Macrobenchmark workflow and the dedicated `:baselineprofile` instrumentation module, including its startup benchmark and Baseline Profile generator sources.
-- Removed benchmark-only Gradle wiring: the `:baselineprofile` project include, benchmark build type, Baseline Profile Gradle plugin/configuration and producer dependency, plus unused Macrobenchmark/UIAutomator catalogue aliases and versions.
-- Preserved `androidApp/src/main/baseline-prof.txt` and the production `androidx.profileinstaller` dependency. These are app-side Baseline Profile delivery/performance support, not the benchmark runner or APK-generation infrastructure; deleting them would discard an existing production optimisation unrelated to running benchmarks.
-- Deleted the now-obsolete `phone-only-benchmark-checkpoint.md`. Historical notes above remain as an audit trail; this entry supersedes their paused-benchmark status.
+- Removed the benchmark build type, Baseline Profile Gradle plugin/configuration and producer dependency, and the `:baselineprofile` project include.
+- Removed now-unused Macrobenchmark, UIAutomator and Android test-module plugin aliases/versions from the version catalogue and root plugin declarations.
+
+### Cycle 2 — Remove stale benchmark support without regressing production
+
+- Deleted the obsolete `phone-only-benchmark-checkpoint.md`; earlier benchmark notes remain as historical audit context, while this entry supersedes the paused-benchmark status.
+- Preserved `androidApp/src/main/baseline-prof.txt` and the production `androidx.profileinstaller` dependency. These provide app-side Baseline Profile delivery/performance support and are distinct from the removed benchmark runner and APK-generation infrastructure.
+- Reviewed the remote commit diff and latest recursive Git tree: no Android benchmark workflow, `:baselineprofile` module, benchmark build type, or benchmark checkpoint remains. The production profile file retains its pre-change blob SHA.
 - No build, Gradle task, test, benchmark, workflow dispatch or CI run was started. Verification is limited to source/configuration review and remote GitHub tree/commit inspection.
