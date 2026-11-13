@@ -95,11 +95,18 @@ internal fun LazyListScope.appearanceSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                AppearanceThemeSelector(
-                    isTablet = isTablet,
-                    selectedTheme = selectedTheme,
-                    onThemeSelected = onThemeSelected,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "theme",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        AppearanceThemeSelector(
+                            isTablet = isTablet,
+                            selectedTheme = selectedTheme,
+                            onThemeSelected = onThemeSelected,
+                        )
+                    }
+                }
             }
         }
     }
