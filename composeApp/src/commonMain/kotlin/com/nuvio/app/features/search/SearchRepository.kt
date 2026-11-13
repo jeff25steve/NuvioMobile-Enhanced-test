@@ -199,8 +199,8 @@ object SearchRepository {
                     if (sections.isNotEmpty()) {
                         searchGeneration.ifCurrent(requestGeneration) {
                             _uiState.value = SearchUiState(
-                            isLoading = true,
-                            sections = sections,
+                                isLoading = true,
+                                sections = sections,
                             )
                         }
                     }
@@ -219,15 +219,15 @@ object SearchRepository {
 
             searchGeneration.ifCurrent(requestGeneration) {
                 _uiState.value = SearchUiState(
-                isLoading = sections.isEmpty() && hasPendingAddonManifests,
-                sections = sections,
-                emptyStateReason = when {
-                    sections.isNotEmpty() -> null
-                    hasPendingAddonManifests -> null
-                    allFailed -> SearchEmptyStateReason.RequestFailed
-                    else -> SearchEmptyStateReason.NoResults
-                },
-                errorMessage = if (allFailed) firstFailure else null,
+                    isLoading = sections.isEmpty() && hasPendingAddonManifests,
+                    sections = sections,
+                    emptyStateReason = when {
+                        sections.isNotEmpty() -> null
+                        hasPendingAddonManifests -> null
+                        allFailed -> SearchEmptyStateReason.RequestFailed
+                        else -> SearchEmptyStateReason.NoResults
+                    },
+                    errorMessage = if (allFailed) firstFailure else null,
                 )
             }
         }
@@ -617,12 +617,12 @@ object SearchRepository {
                     }
                     discoverGeneration.ifCurrent(requestGeneration) {
                         _discoverUiState.value = latest.copy(
-                        items = mergedItems,
-                        isLoading = false,
-                        nextSkip = paginationState.nextSkip,
-                        consecutiveDuplicatePages = paginationState.consecutiveDuplicatePages,
-                        emptyStateReason = if (mergedItems.isEmpty()) DiscoverEmptyStateReason.NoResults else null,
-                        errorMessage = null,
+                            items = mergedItems,
+                            isLoading = false,
+                            nextSkip = paginationState.nextSkip,
+                            consecutiveDuplicatePages = paginationState.consecutiveDuplicatePages,
+                            emptyStateReason = if (mergedItems.isEmpty()) DiscoverEmptyStateReason.NoResults else null,
+                            errorMessage = null,
                         )
                     }
                 },
@@ -647,11 +647,11 @@ object SearchRepository {
                     }
                     discoverGeneration.ifCurrent(requestGeneration) {
                         _discoverUiState.value = latest.copy(
-                        items = if (reset) emptyList() else latest.items,
-                        isLoading = false,
-                        nextSkip = null,
-                        emptyStateReason = DiscoverEmptyStateReason.RequestFailed,
-                        errorMessage = error.message ?: getString(Res.string.discover_empty_load_failed_message),
+                            items = if (reset) emptyList() else latest.items,
+                            isLoading = false,
+                            nextSkip = null,
+                            emptyStateReason = DiscoverEmptyStateReason.RequestFailed,
+                            errorMessage = error.message ?: getString(Res.string.discover_empty_load_failed_message),
                         )
                     }
                 },
