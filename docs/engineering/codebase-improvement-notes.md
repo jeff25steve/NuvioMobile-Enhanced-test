@@ -4123,3 +4123,30 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 - Manually reviewed the final source and test diff against the prior `main-build-testing` head. Search weights, normalization rules, fuzzy cutoffs, target values, result ordering, and route behavior remain unchanged; the change only reuses prepared search data and narrows bounded-distance work.
 - No new dependencies, platform-specific APIs, workflow edits, build invocations, test invocations, or CI runs were made in this improvement cycle.
+
+
+## 13 November 2026 — Settings Search phrase ranking and index preparation
+
+**Starting checkpoint:** `c300c43c8f8d56eaca6fcda41ec75ea709a0503b` on `main-build-testing`.
+
+### Cycle 1 — Preserve independent search-alias boundaries
+
+- Review found that `normalizedAliases` was built by normalizing `searchTerms.joinToString(" ")`. That made separate aliases such as `["Debrid", "Torbox"]` look like one multi-word alias, so a query spanning both aliases received the same exact-phrase boost as a genuine `"Debrid Torbox"` alias.
+- The index now stores normalized aliases individually. Phrase boosts (+750 exact / +180 contained) apply only when one alias itself contains the normalized query. The normal token matcher still combines alias tokens, so multi-term queries can match across independent aliases without receiving a false phrase boost.
+- Added `phraseBoostDoesNotJoinSeparateSearchAliases`: a genuine multi-word alias must rank above two separate aliases for the same multi-term query, while both remain searchable.
+
+### Cycle 2 — Reuse normalized index fields
+
+- The index now passes its already-normalized title, page and alias values into the weighted token fields instead of normalizing those same values a second time.
+- Section, description, stable key and category are normalized once when the index is built. Query-time scoring weights and matching tiers are unchanged.
+- This removes redundant normalization passes and temporary normalized-string allocations when the catalogue/index is rebuilt, without changing result membership or ranking semantics beyond the alias phrase-boundary correction.
+
+### Research, review and verification limits
+
+- Exa reviewed Algolia's engineering explanation of multi-word synonym and phrase handling: [Inside the Algolia Engine — Handling Synonyms the Right Way](https://www.algolia.com/blog/engineering/inside-the-engine-part-6-handling-synonyms-the-right-way). It supports preserving multi-word phrase structure instead of treating concatenated alternatives as one phrase.
+- Context7 checked official Kotlin Multiplatform string and collection documentation. The change uses only existing common-code APIs; no dependency or platform-specific API was introduced. The repository's exact Kotlin 2.4.10 version was not available as a versioned Context7 target.
+- The regression test was committed before the implementation. Because builds and CI were explicitly prohibited, the Kotlin test was **not executed** and no RED/GREEN test result is claimed.
+- A separate algorithm model-check confirmed the motivating ranking case: the previous logic tied both entries (2750 points each and retained the earlier, incorrect order); the corrected logic gives the genuine phrase alias the +750 boost (2750 vs. 2000). This is a model check, not Kotlin test execution.
+- Manually reviewed the changed source and regression test, then re-fetched both files from GitHub. Confirmed the alias list type, per-alias phrase checks, pre-normalized field use and test expectation agree. The remote diff from the starting checkpoint contains only `SettingsSearch.kt` and `SettingsSearchTest.kt`.
+- Inspected all 11 workflow definitions on `main-build-testing`: no push-triggered workflow targets this branch; the Full Debug workflow's automatic PR trigger is scoped to `enhanced`. No build, Gradle task, test task, benchmark, workflow dispatch or CI run was started.
+- The product changes are integrated directly into `main-build-testing`; no workflow or CI configuration was changed.
