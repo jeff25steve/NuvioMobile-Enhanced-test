@@ -152,6 +152,14 @@ class SettingsSearchTest {
         assertEquals(2, boundedSettingsSearchEditDistance("abcdefgh", "abxxefgh", 2))
     }
 
+    @Test
+    fun boundedEditDistanceHandlesEmptyInputsAndNegativeThresholds() {
+        assertEquals(0, boundedSettingsSearchEditDistance("", "", 0))
+        assertEquals(1, boundedSettingsSearchEditDistance("", "a", 1))
+        assertEquals(null, boundedSettingsSearchEditDistance("a", "", 0))
+        assertEquals(null, boundedSettingsSearchEditDistance("a", "a", -1))
+    }
+
     private fun allBinaryWords(maxLength: Int): List<String> = buildList {
         add("")
         var level = listOf("")
