@@ -55,9 +55,16 @@ internal fun isInvalidRemoteSessionResponse(
     errorCode: String? = null,
 ): Boolean {
     if (errorCode.equals("42501", ignoreCase = true)) return false
-    if (statusCode == 401) return true
 
     val messages = message.lowercase()
+    // A bad project key or missing API key is a backend configuration failure, not
+    // evidence that the end user's persisted Supabase session should be discarded.
+    if (
+        errorCode.equals("invalid_api_key", ignoreCase = true) ||
+        "invalid api key" in messages ||
+        "api key is required" in messages
+    ) return false
+
     val invalidJwt = "jwt" in messages &&
         ("invalid" in messages || "expired" in messages || "malformed" in messages || "bad_jwt" in messages)
     val invalidSession = invalidSessionMarkers.any(messages::contains)
@@ -66,7 +73,10 @@ internal fun isInvalidRemoteSessionResponse(
     val invalidForeignKey = "foreign key" in messages &&
         ("auth.users" in messages || "user_id" in messages)
 
-    return invalidJwt || invalidSession || deletedUser || invalidForeignKey
+    // HTTP 401 by itself is not enough: gateways and project-key failures also use it.
+    // Only explicit session/JWT evidence should invalidate the locally stored identity.
+    return statusCode in setOf(400, 401, 403, 404) &&
+        (invalidJwt || invalidSession || deletedUser || invalidForeignKey)
 }
 
 internal fun Throwable.isInvalidRefreshError(): Boolean {
