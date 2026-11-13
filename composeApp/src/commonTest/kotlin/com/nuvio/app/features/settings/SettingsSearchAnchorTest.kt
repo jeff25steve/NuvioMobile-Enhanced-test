@@ -500,27 +500,27 @@ class SettingsSearchAnchorTest {
 
     @Test
     fun allLiveTvSearchRowsHaveRenderedTargetsForBothPlaylistStates() {
-        val alwaysVisibleRows = listOf(
-            "live-tv-xtream-codes",
-            "live-tv-stalker-portal",
-            "live-tv-stalker-mac",
-            "live-tv-playlist",
-            "live-tv-playlist-url",
-            "live-tv-playlist-name",
-            "live-tv-local-playlist",
-            "live-tv-epg-auto",
-            "live-tv-epg-url",
-            "live-tv-epg-add",
+        val rows = listOf(
+            Triple("live-tv-xtream-codes", 0, 2),
+            Triple("live-tv-stalker-portal", 0, 2),
+            Triple("live-tv-stalker-mac", 0, 2),
+            Triple("live-tv-playlist", 1, 3),
+            Triple("live-tv-playlist-url", 1, 3),
+            Triple("live-tv-playlist-name", 1, 3),
+            Triple("live-tv-local-playlist", 1, 3),
+            Triple("live-tv-epg-auto", 2, 4),
+            Triple("live-tv-epg-url", 2, 4),
+            Triple("live-tv-epg-add", 2, 4),
         )
-        alwaysVisibleRows.forEach { key ->
-            assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = false)?.sectionItemIndex)
-            assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = true)?.sectionItemIndex?.let {
-                when (key) {
-                    "live-tv-xtream-codes", "live-tv-stalker-portal", "live-tv-stalker-mac" -> it - 2
-                    "live-tv-playlist", "live-tv-playlist-url", "live-tv-playlist-name", "live-tv-local-playlist" -> it - 3
-                    else -> it - 4
-                }
-            })
+        rows.forEach { (key, withoutPlaylistIndex, withPlaylistIndex) ->
+            assertEquals(
+                withoutPlaylistIndex,
+                settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = false)?.sectionItemIndex,
+            )
+            assertEquals(
+                withPlaylistIndex,
+                settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = true)?.sectionItemIndex,
+            )
         }
     }
 
