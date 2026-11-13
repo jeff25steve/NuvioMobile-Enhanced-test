@@ -29,13 +29,22 @@ import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
+private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
+    val failures = results.mapNotNull(Result<Unit>::exceptionOrNull)
+    val primary = failures.firstOrNull() ?: return null
+    failures.drop(1).forEach { failure ->
+        if (failure !== primary) primary.addSuppressed(failure)
+    }
+    return primary
+}
+
 internal suspend fun runInvalidSessionCleanup(
     clearAnonymousUserId: suspend () -> Unit,
     clearRemoteSession: suspend () -> Unit,
     clearLocalAccountData: suspend () -> Unit,
     shouldContinue: () -> Boolean = { true },
 ): Result<Unit> {
-    val (anonymousClear, remoteClear, localCleanup) = withContext(NonCancellable) {
+    val results = withContext(NonCancellable) {
         val anonymous = if (shouldContinue()) {
             runCatching { clearAnonymousUserId() }
         } else {
@@ -51,20 +60,21 @@ internal suspend fun runInvalidSessionCleanup(
         } else {
             Result.success(Unit)
         }
-        Triple(anonymous, remote, local)
+        listOf(anonymous, remote, local)
     }
 
-    // NonCancellable protects the cleanup sequence, not the caller: cancellation is
-    // rethrown after all still-current account cleanup steps have had a chance to finish.
-    currentCoroutineContext().ensureActive()
-    val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
-        ?: remoteClear.exceptionOrNull() as? CancellationException
-        ?: localCleanup.exceptionOrNull() as? CancellationException
-    if (cancellation != null) throw cancellation
+    val failure = cleanupFailure(results)
+    try {
+        // Cancellation of the caller takes precedence over ordinary cleanup failures.
+        currentCoroutineContext().ensureActive()
+    } catch (cancellation: CancellationException) {
+        results.mapNotNull(Result<Unit>::exceptionOrNull)
+            .filter { it !== cancellation }
+            .forEach(cancellation::addSuppressed)
+        throw cancellation
+    }
 
-    val failure = anonymousClear.exceptionOrNull()
-        ?: remoteClear.exceptionOrNull()
-        ?: localCleanup.exceptionOrNull()
+    if (failure is CancellationException) throw failure
     return if (failure == null) Result.success(Unit) else Result.failure(failure)
 }
 
