@@ -8,6 +8,7 @@ import com.nuvio.app.features.tracking.WatchProgressSource
 import com.nuvio.app.features.watchprogress.CachedNextUpItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentCache
 import com.nuvio.app.features.watchprogress.ContinueWatchingEnrichmentStorage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -151,6 +152,32 @@ class LocalAccountDataCleanerTest {
 
         assertEquals(listOf(1, 2, 3), attempts)
         assertEquals(2, failures.size)
+    }
+
+
+    @Test
+    fun accountCleanupRethrowsCancellationAfterAttemptingRemainingSteps() = runBlocking {
+        val cancellation = CancellationException("simulated cleanup cancellation")
+        val attempts = mutableListOf<Int>()
+        val failures = runAccountCleanupSteps(
+            listOf(
+                {
+                    attempts += 1
+                    throw cancellation
+                },
+                {
+                    attempts += 2
+                    error("later cleanup failure")
+                },
+            ),
+        )
+
+        assertEquals(listOf(1, 2), attempts)
+        val thrown = assertFailsWith<CancellationException> {
+            throwAccountCleanupFailures(failures)
+        }
+        assertSame(cancellation, thrown)
+        assertEquals(1, thrown.suppressed.size)
     }
 
     @Test
