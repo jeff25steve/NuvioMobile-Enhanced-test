@@ -297,6 +297,7 @@ internal fun LazyListScope.metaScreenSettingsContent(
                     items = uiState.items,
                     isTablet = isTablet,
                     tabLayout = uiState.tabLayout,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -308,6 +309,7 @@ private fun MetaSectionReorderableList(
     items: List<MetaScreenSectionItem>,
     isTablet: Boolean,
     tabLayout: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val lazyListState = rememberLazyListState()
@@ -345,6 +347,7 @@ private fun MetaSectionReorderableList(
                             isTablet = isTablet,
                             tabLayout = tabLayout,
                             groupCounts = groupCounts,
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             onEnabledChange = { MetaScreenSettingsRepository.setEnabled(item.key, it) },
                             onTabGroupChange = { MetaScreenSettingsRepository.setTabGroup(item.key, it) },
                             dragHandleScope = this@ReorderableItem,
@@ -363,6 +366,7 @@ private fun MetaSectionRow(
     isTablet: Boolean,
     tabLayout: Boolean,
     groupCounts: Map<Int, Int>,
+    highlightedSearchAnchorKey: String?,
     onEnabledChange: (Boolean) -> Unit,
     onTabGroupChange: (Int?) -> Unit,
     dragHandleScope: ReorderableCollectionItemScope,
@@ -371,11 +375,15 @@ private fun MetaSectionRow(
     val verticalPadding = if (isTablet) 18.dp else 16.dp
     val hapticFeedback = LocalHapticFeedback.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+    SettingsSearchAnchorContainer(
+        searchAnchorKey = "meta-${item.key.name.lowercase().replace('_', '-')}",
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+        ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -488,6 +496,7 @@ private fun MetaSectionRow(
                     )
                 }
             }
+        }
         }
     }
 }
