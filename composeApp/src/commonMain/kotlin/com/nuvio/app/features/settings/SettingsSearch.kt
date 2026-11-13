@@ -120,6 +120,8 @@ internal fun settingsSearchAnchor(
         }
         SettingsPage.Omdb ->
             if (key == "omdb-api-key") 0 else return null
+        SettingsPage.DebugLogs ->
+            if (key in DebugLogsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.DiscordRpc -> when (key) {
             "discord-login" -> 0
             "discord-enable", "discord-activity-type", "discord-status" -> 1
@@ -206,6 +208,12 @@ private val StreamsSettingsSearchAnchorKeys = setOf(
     "stream-size-badges",
     "stream-badge-position",
     "stream-badge-urls",
+)
+
+private val DebugLogsSettingsSearchAnchorKeys = setOf(
+    "debug-copy-logs",
+    "debug-clear-logs",
+    "debug-log-viewer",
 )
 
 private val MetaScreenSettingsSearchAnchorKeys = setOf(
