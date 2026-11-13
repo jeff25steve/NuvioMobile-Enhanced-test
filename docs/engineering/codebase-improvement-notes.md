@@ -4663,3 +4663,6 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Review: re-fetched the final classifier and test. Verified precedence is intentional: SQLSTATE 42501 and invalid API key remain hard negatives before code matching; only the explicit invalid-session allowlist short-circuits to true; existing message-based detection remains the fallback.
 - Validation boundary: no tests, compilation, Gradle tasks, builds or CI were run. New regression test source remains unexecuted; runtime/compile verification is not claimed.
 - Test commit: `410e9642972ae4062581d1a411a25f65cca85dbb`. Implementation commit: `fddc5bfb80af5639aad0626c96b35568825fd4ce`.
+
+
+- Review hardening: added a negative regression case for a 503 response carrying a known `session_expired` code. The first source review exposed that the new allowlist needed to remain behind the existing accepted-status boundary. Moved the 400/401/403/404 guard ahead of the allowlist so transient server failures cannot invalidate a local session. Test commit: `0ecb5737d3dfae61c3d3502af524d881f75f5d46`; correction commit: `4f94427626e4f412e1288c42307a034afeeed62c`. Test remains unexecuted.
