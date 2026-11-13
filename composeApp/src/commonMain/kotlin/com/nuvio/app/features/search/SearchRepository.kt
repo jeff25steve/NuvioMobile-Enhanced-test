@@ -107,6 +107,7 @@ object SearchRepository {
         if (activeAddons.isEmpty() && serverSearches.isEmpty()) {
             searchGeneration.begin()
             activeJob?.cancel()
+            activeJob = null
             lastRequestKey = null
             _uiState.value = SearchUiState(
                 isLoading = hasPendingAddonManifests,
@@ -270,6 +271,7 @@ object SearchRepository {
         if (activeAddons.isEmpty() && serverLibraries.isEmpty()) {
             discoverGeneration.invalidate()
             activeDiscoverJob?.cancel()
+            activeDiscoverJob = null
             discoverSources = emptyList()
             lastDiscoverRequestKey = null
             log.d { "Discover refresh aborted: no active addons" }
@@ -377,6 +379,8 @@ object SearchRepository {
 
         val catalogOptions = discoverSources.filter { it.type == type }
         val selectedCatalog = catalogOptions.firstOrNull() ?: run {
+            activeDiscoverJob?.cancel()
+            activeDiscoverJob = null
             _discoverUiState.value = current.copy(
                 selectedType = type,
                 catalogOptions = emptyList(),
