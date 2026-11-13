@@ -434,8 +434,11 @@ class SettingsSearchAnchorTest {
 
     @Test
     fun debridConditionalSearchAnchorsRequireTheirControlsToBeRendered() {
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-resolve-provider", "Resolve with", ""))
         assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback", "Instant playback", ""))
         assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-max-results", "Maximum results", "", debridCanResolvePlayableLinks = false))
+        assertEquals(0, settingsSearchAnchor(SettingsPage.Debrid, "debrid-resolve-provider", "Resolve with", "", debridCanResolvePlayableLinks = true, debridCanChooseResolverProvider = true)?.sectionItemIndex)
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-resolve-provider", "Resolve with", "", debridCanResolvePlayableLinks = true, debridCanChooseResolverProvider = false))
         assertEquals(2, settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback", "Instant playback", "", debridCanResolvePlayableLinks = true)?.sectionItemIndex)
         assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback-count", "Prepare count", "", debridCanResolvePlayableLinks = true, debridInstantPlaybackEnabled = false))
         assertEquals(2, settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback-count", "Prepare count", "", debridCanResolvePlayableLinks = true, debridInstantPlaybackEnabled = true)?.sectionItemIndex)
@@ -500,6 +503,8 @@ class SettingsSearchAnchorTest {
 
     @Test
     fun allLiveTvSearchRowsHaveRenderedTargetsForBothPlaylistStates() {
+        assertNull(settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-navigation", "Navigation", "", liveTvHasPlaylist = false))
+        assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-navigation", "Navigation", "", liveTvHasPlaylist = true)?.sectionItemIndex)
         val rows = listOf(
             Triple("live-tv-xtream-codes", 0, 2),
             Triple("live-tv-stalker-portal", 0, 2),
@@ -511,6 +516,7 @@ class SettingsSearchAnchorTest {
             Triple("live-tv-epg-auto", 2, 4),
             Triple("live-tv-epg-url", 2, 4),
             Triple("live-tv-epg-add", 2, 4),
+            Triple("live-tv-epg-refresh", 2, 4),
         )
         rows.forEach { (key, withoutPlaylistIndex, withPlaylistIndex) ->
             assertEquals(
