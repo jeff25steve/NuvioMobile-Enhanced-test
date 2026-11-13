@@ -1043,16 +1043,16 @@ fun LibraryScreen(
         }
     }
             if (hasSavedControls) {
-                    val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
-                    CompositionLocalProvider(
-                        LocalLiquidGlassBackdrop provides if (
-                            libraryPinnedChromeUsesContentBackdrop(
-                                sourceMode = sourceMode,
-                                glassEnabled = savedTypeGlassEnabled || savedSortGlassEnabled,
-                            )
-                        ) libraryContentBackdrop else libraryBackdrop,
-                    ) {
-                        LiquidGlassTextContrastScope(enabled = savedControlsGlassTextEnabled) {
+                val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides if (
+                        libraryPinnedChromeUsesContentBackdrop(
+                            sourceMode = sourceMode,
+                            glassEnabled = savedTypeGlassEnabled || savedSortGlassEnabled,
+                        )
+                    ) libraryContentBackdrop else libraryBackdrop,
+                ) {
+                    LiquidGlassTextContrastScope(enabled = savedControlsGlassTextEnabled) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
@@ -1083,9 +1083,9 @@ fun LibraryScreen(
                                     .padding(top = 8.dp, bottom = 14.dp),
                             )
                         }
-                        }
                     }
                 }
+            }
         }
     }
         }
