@@ -153,8 +153,8 @@ class CloudLibraryStoreTest {
         val startedProviders = mutableSetOf<String>()
         val bothStarted = CompletableDeferred<Unit>()
         val releaseRequests = CompletableDeferred<Unit>()
-        fun blockingApi(provider: DebridProvider, itemId: String) = object : CloudLibraryProviderApi {
-            override val provider = provider
+        fun blockingApi(debridProvider: DebridProvider, itemId: String) = object : CloudLibraryProviderApi {
+            override val provider = debridProvider
 
             override suspend fun listItems(apiKey: String): Result<List<CloudLibraryItem>> {
                 startedProviders += provider.id
