@@ -90,6 +90,60 @@ internal fun clearProfileBackgroundImages(
     return allRemoved
 }
 
+/**
+ * Acquires the add-on and plugin cleanup gates as one logical lease.
+ * If a later acquisition fails, every earlier successful acquisition is rolled back.
+ * The returned release action unwinds successful acquisitions in reverse order.
+ */
+internal fun acquireAccountCleanupGates(
+    beginAddon: () -> Unit,
+    endAddon: () -> Unit,
+    beginPlugin: () -> Unit,
+    endPlugin: () -> Unit,
+): () -> Unit {
+    var addonAcquired = false
+    var pluginAcquired = false
+    try {
+        beginAddon()
+        addonAcquired = true
+        beginPlugin()
+        pluginAcquired = true
+    } catch (error: Throwable) {
+        if (addonAcquired) {
+            try {
+                endAddon()
+            } catch (rollbackError: Throwable) {
+                error.addSuppressed(rollbackError)
+            }
+        }
+        throw error
+    }
+
+    return {
+        var releaseFailure: Throwable? = null
+        if (pluginAcquired) {
+            try {
+                endPlugin()
+            } catch (error: Throwable) {
+                releaseFailure = error
+            }
+        }
+        if (addonAcquired) {
+            try {
+                endAddon()
+            } catch (error: Throwable) {
+                val previousFailure = releaseFailure
+                if (previousFailure == null) {
+                    releaseFailure = error
+                } else {
+                    previousFailure.addSuppressed(error)
+                }
+            }
+        }
+        releaseFailure?.let { throw it }
+    }
+}
+
 internal suspend fun runAccountCleanupSteps(
     steps: List<suspend () -> Unit>,
 ): List<Exception> {
@@ -154,10 +208,16 @@ internal object LocalAccountDataCleaner {
     suspend fun wipe(accountUserId: String? = null) = runNonCancellableCleanup {
         // Fence outstanding profile RPCs before any account-scoped storage is cleared.
         ProfileRepository.invalidatePendingRemoteOperations()
-        AddonRepository.beginAccountCleanup()
-        if (AppFeaturePolicy.pluginsEnabled) {
-            PluginRepository.beginAccountCleanup()
-        }
+        val releaseAccountCleanupGates = acquireAccountCleanupGates(
+            beginAddon = { AddonRepository.beginAccountCleanup() },
+            endAddon = { AddonRepository.endAccountCleanup() },
+            beginPlugin = {
+                if (AppFeaturePolicy.pluginsEnabled) PluginRepository.beginAccountCleanup()
+            },
+            endPlugin = {
+                if (AppFeaturePolicy.pluginsEnabled) PluginRepository.endAccountCleanup()
+            },
+        )
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
@@ -271,8 +331,7 @@ internal object LocalAccountDataCleaner {
         } finally {
             allFailures += runAccountCleanupSteps(
                 listOf(
-                    { AddonRepository.endAccountCleanup() },
-                    { if (AppFeaturePolicy.pluginsEnabled) PluginRepository.endAccountCleanup() },
+                    { releaseAccountCleanupGates() },
                     { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
                     { MemberAccessRepository.onAccountCleanupFinished() },
                 ),
