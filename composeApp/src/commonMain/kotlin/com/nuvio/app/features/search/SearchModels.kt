@@ -1,6 +1,7 @@
 package com.nuvio.app.features.search
 
-import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 
 import com.nuvio.app.features.catalog.CatalogTarget
 import com.nuvio.app.features.home.MetaPreview
@@ -104,13 +105,26 @@ data class DiscoverUiState(
  * final state-publication guard for work that completes concurrently with cancellation.
  */
 internal class SearchRequestGeneration {
-    private val current = atomic(0)
+    private val lock = SynchronizedObject()
+    private var current = 0
 
-    fun begin(): Int = current.incrementAndGet()
-
-    fun invalidate() {
-        current.incrementAndGet()
+    fun begin(): Int = synchronized(lock) {
+        ++current
     }
 
-    fun isCurrent(generation: Int): Boolean = current.value == generation
+    fun invalidate() {
+        synchronized(lock) {
+            current++
+        }
+    }
+
+    fun isCurrent(generation: Int): Boolean = synchronized(lock) {
+        current == generation
+    }
+
+    fun ifCurrent(generation: Int, action: () -> Unit) {
+        synchronized(lock) {
+            if (current == generation) action()
+        }
+    }
 }
