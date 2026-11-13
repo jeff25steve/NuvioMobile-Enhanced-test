@@ -507,6 +507,8 @@ internal fun settingsSearchEntries(
     continueWatchingEpisodeThumbnails: Boolean,
     trackingTraktConnected: Boolean,
     trackingSimklConnected: Boolean,
+    homeHeroSourcesAvailable: Boolean,
+    homeCatalogsAvailable: Boolean,
 ): List<SettingsSearchEntry> {
     val authState by remember { AuthRepository.state }.collectAsStateWithLifecycle()
     val accountCategory = stringResource(SettingsCategory.You.labelRes)
@@ -1888,8 +1890,6 @@ internal fun settingsSearchEntries(
         PlaybackSearchRow("home-hero", stringResource(Res.string.settings_homescreen_show_hero), stringResource(Res.string.settings_homescreen_show_hero_description)),
         PlaybackSearchRow("home-catalog-type", stringResource(Res.string.layout_catalog_type), stringResource(Res.string.layout_catalog_type_sub)),
         PlaybackSearchRow("home-hide-unreleased", stringResource(Res.string.layout_hide_unreleased), stringResource(Res.string.layout_hide_unreleased_sub)),
-        PlaybackSearchRow("home-hero-sources", stringResource(Res.string.settings_homescreen_section_hero_sources)),
-        PlaybackSearchRow("home-catalogs", stringResource(Res.string.settings_homescreen_section_catalogs)),
     ).forEach { row ->
         addRow(
             page = SettingsPage.Homescreen,
@@ -1898,6 +1898,24 @@ internal fun settingsSearchEntries(
             description = row.description,
             pageLabel = homeLayoutPage,
             section = homeLayoutSection,
+        )
+    }
+    if (homeHeroSourcesAvailable) {
+        addRow(
+            page = SettingsPage.Homescreen,
+            key = "home-hero-sources",
+            title = stringResource(Res.string.settings_homescreen_section_hero_sources),
+            pageLabel = homeLayoutPage,
+            section = homeLayoutSection,
+        )
+    }
+    if (homeCatalogsAvailable) {
+        addRow(
+            page = SettingsPage.Homescreen,
+            key = "home-catalogs",
+            title = stringResource(Res.string.settings_homescreen_section_catalogs),
+            pageLabel = homeLayoutPage,
+            section = stringResource(Res.string.settings_homescreen_section_catalogs),
         )
     }
 
