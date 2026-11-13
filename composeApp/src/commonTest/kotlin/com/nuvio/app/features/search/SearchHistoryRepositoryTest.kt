@@ -16,6 +16,37 @@ class SearchHistoryRepositoryTest {
     }
 
     @Test
+    fun `applySearchHistoryEntry deduplicates existing query ignoring case`() {
+        val updated = applySearchHistoryEntry(
+            current = listOf("Dune", "Arrival"),
+            query = "dUnE",
+            limit = 10,
+        )
+
+        assertEquals(listOf("dUnE", "Arrival"), updated)
+    }
+
+    @Test
+    fun `normalizeSearchHistoryEntries removes case insensitive duplicates`() {
+        val normalized = normalizeSearchHistoryEntries(
+            entries = listOf(" Dune ", "dune", "Arrival", "ARRIVAL", " "),
+            limit = 10,
+        )
+
+        assertEquals(listOf("Dune", "Arrival"), normalized)
+    }
+
+    @Test
+    fun `normalizeSearchHistoryEntries applies limit after filtering`() {
+        val normalized = normalizeSearchHistoryEntries(
+            entries = listOf("A", "Dune", "dune", "Arrival", "Alien"),
+            limit = 2,
+        )
+
+        assertEquals(listOf("Dune", "Arrival"), normalized)
+    }
+
+    @Test
     fun `applySearchHistoryEntry respects max size`() {
         val updated = applySearchHistoryEntry(
             current = listOf("a", "b", "c"),
