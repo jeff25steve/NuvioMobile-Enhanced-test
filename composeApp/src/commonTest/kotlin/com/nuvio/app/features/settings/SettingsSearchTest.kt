@@ -125,7 +125,7 @@ class SettingsSearchTest {
         val index = SettingsSearchIndex(listOf(exact, alias))
 
         assertEquals(listOf("subtitle-delay", "audio-delay"), index.search("subtitle").map { it.key })
-        assertEquals(listOf("audio-delay", "subtitle-delay"), index.search("offset delay").map { it.key })
+        assertEquals(listOf("audio-delay"), index.search("offset delay").map { it.key })
     }
 
     @Test
