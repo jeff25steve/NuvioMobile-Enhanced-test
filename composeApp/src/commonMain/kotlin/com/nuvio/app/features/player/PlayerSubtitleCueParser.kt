@@ -235,7 +235,7 @@ object PlayerSubtitleCueParser {
     }
 
     private fun parseTtml(text: String): List<SubtitleSyncCue> =
-        Regex("""(?is)<p\b([^>]*)>(.*?)</p>""")
+        ttmlParagraphRegex
             .findAll(text)
             .mapNotNull { match ->
                 val attrs = match.groupValues[1]
