@@ -310,6 +310,26 @@ internal fun libraryBackdropCaptureRequired(
     }
 }
 
+/**
+ * Capture the static screen backdrop only for surfaces that actually sample it.
+ * Saved filters and the release calendar use the dedicated scrolling-content source instead.
+ */
+internal fun libraryStaticBackdropCaptureRequired(
+    masterEnabled: Boolean,
+    platformSupported: Boolean,
+    sourceMode: LibraryViewMode,
+    isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
+): Boolean {
+    if (!masterEnabled || !platformSupported) return false
+    if (isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)) return true
+
+    return sourceMode == LibraryViewMode.Cloud && (
+        isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS) ||
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) ||
+            isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_CARDS)
+        )
+}
+
 /** Capture scrolling content only for visible Saved controls or an open glass calendar. */
 internal fun libraryContentBackdropCaptureRequired(
     masterEnabled: Boolean,
@@ -681,6 +701,12 @@ fun LibraryScreen(
         showReleaseCalendar = showReleaseCalendar,
         isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
     )
+    val shouldCaptureLibraryBackdrop = libraryStaticBackdropCaptureRequired(
+        masterEnabled = LiquidGlassSettings.enabled,
+        platformSupported = isLiquidGlassAvailable(),
+        sourceMode = sourceMode,
+        isSurfacePreferenceEnabled = ::isLiquidGlassSurfacePreferenceEnabled,
+    )
     val cloudBackgroundActive = libraryHeaderUsesArtworkBackdrop(
         sourceMode = sourceMode,
         artworkBackgroundActive = cloudBackgroundImageRequest != null,
@@ -733,7 +759,7 @@ fun LibraryScreen(
                         if (sourceMode == LibraryViewMode.Cloud) Color.Black
                         else MaterialTheme.colorScheme.background,
                     )
-                    .then(if (anyLibraryGlassEnabled) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
+                    .then(if (shouldCaptureLibraryBackdrop) Modifier.nuvioBackdropSource(libraryBackdrop) else Modifier),
             ) {
                 if (cloudBackgroundActive) {
                     cloudBackgroundImageRequest?.let { request ->
@@ -755,7 +781,7 @@ fun LibraryScreen(
                     sourceMode,
                     savedTypeGlassEnabled || savedSortGlassEnabled,
                 )
-            ) libraryContentBackdrop else if (anyLibraryGlassEnabled) libraryBackdrop else null,
+            ) libraryContentBackdrop else if (shouldCaptureLibraryBackdrop) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
                 LocalDynamicArtworkBackgroundActive.current || cloudBackgroundActive
             ),
@@ -811,7 +837,7 @@ fun LibraryScreen(
                 // The source switch sits above the scrolling viewport; it samples the static
                 // screen backdrop, never the scrolling-content layer used by pinned Saved filters.
                 CompositionLocalProvider(
-                    LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
+                    LocalLiquidGlassBackdrop provides if (shouldCaptureLibraryBackdrop) libraryBackdrop else null,
                 ) {
                     LibrarySourceSwitch(
                         selectedMode = sourceMode,
