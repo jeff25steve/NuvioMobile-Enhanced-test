@@ -203,18 +203,26 @@ internal fun LazyListScope.homescreenSettingsContent(
                 title = stringResource(Res.string.settings_homescreen_section_hero_sources),
                 isTablet = isTablet,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HeroStyleOptions(
-                        isTablet = isTablet,
-                        selectedStyle = settingsUiState.heroStyle,
-                    )
-                    HeroSourcesDropdown(
-                        isTablet = isTablet,
-                        items = catalogOnlyItems,
-                        selectedHeroSourceCount = selectedHeroSourceCount,
-                        expanded = heroSourcesExpanded,
-                        onExpandedChange = { heroSourcesExpanded = it },
-                    )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "home-hero-sources",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Column(
+                        modifier = anchorModifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        HeroStyleOptions(
+                            isTablet = isTablet,
+                            selectedStyle = settingsUiState.heroStyle,
+                        )
+                        HeroSourcesDropdown(
+                            isTablet = isTablet,
+                            items = catalogOnlyItems,
+                            selectedHeroSourceCount = selectedHeroSourceCount,
+                            expanded = heroSourcesExpanded,
+                            onExpandedChange = { heroSourcesExpanded = it },
+                        )
+                    }
                 }
             }
         }
@@ -264,14 +272,21 @@ internal fun LazyListScope.homescreenSettingsContent(
                 val hapticFeedback = LocalHapticFeedback.current
                 val pinToMoveToast = stringResource(Res.string.settings_homescreen_pin_to_move_toast)
 
-                HomescreenCatalogList(
-                    isTablet = isTablet,
-                    items = items,
-                    onPinnedDragAttempt = {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                        NuvioToastController.show(pinToMoveToast)
-                    },
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "home-catalogs",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        HomescreenCatalogList(
+                            isTablet = isTablet,
+                            items = items,
+                            onPinnedDragAttempt = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                NuvioToastController.show(pinToMoveToast)
+                            },
+                        )
+                    }
+                }
             }
         }
     }
