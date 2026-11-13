@@ -26,6 +26,7 @@ internal fun LazyListScope.contentDiscoveryContent(
     onAddonsClick: () -> Unit,
     onPluginsClick: () -> Unit,
     onMediaServersClick: () -> Unit,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         val recentSearchesEnabled by remember {
@@ -43,6 +44,8 @@ internal fun LazyListScope.contentDiscoveryContent(
                     description = stringResource(Res.string.settings_content_discovery_recent_searches_description),
                     checked = recentSearchesEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "recent-searches",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = SearchHistoryRepository::setEnabled,
                 )
             }
