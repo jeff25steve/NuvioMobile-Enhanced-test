@@ -2283,6 +2283,7 @@ private fun addContinueWatchingRows(
         pageLabel: String,
         section: String,
         category: String,
+        searchTerms: List<String>,
     ) -> Unit,
     pageLabel: String,
     section: String,
