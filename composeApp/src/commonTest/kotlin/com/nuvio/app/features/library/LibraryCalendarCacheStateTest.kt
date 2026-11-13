@@ -40,7 +40,6 @@ class LibraryCalendarCacheStateTest {
             ),
         )
     }
-}
 
     @Test
     fun `persisted calendar snapshots are only reused for the matching profile cache key`() {
@@ -91,3 +90,4 @@ class LibraryCalendarCacheStateTest {
             ),
         )
     }
+}
