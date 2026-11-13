@@ -194,11 +194,13 @@ object SearchRepository {
                 for (result in resultChannel) {
                     results[result.index] = result
                     val sections = results.orderedSections()
-                    if (sections.isNotEmpty() && searchGeneration.isCurrent(requestGeneration)) {
-                        _uiState.value = SearchUiState(
+                    if (sections.isNotEmpty()) {
+                        searchGeneration.ifCurrent(requestGeneration) {
+                            _uiState.value = SearchUiState(
                             isLoading = true,
                             sections = sections,
-                        )
+                            )
+                        }
                     }
                 }
             } finally {
@@ -213,7 +215,8 @@ object SearchRepository {
             val firstFailure = completedResults.firstNotNullOfOrNull { result -> result.error?.let { it.serverMessage() ?: it.message } }
             val allFailed = completedResults.isNotEmpty() && completedResults.all { it.error != null }
 
-            _uiState.value = SearchUiState(
+            searchGeneration.ifCurrent(requestGeneration) {
+                _uiState.value = SearchUiState(
                 isLoading = sections.isEmpty() && hasPendingAddonManifests,
                 sections = sections,
                 emptyStateReason = when {
@@ -223,7 +226,8 @@ object SearchRepository {
                     else -> SearchEmptyStateReason.NoResults
                 },
                 errorMessage = if (allFailed) firstFailure else null,
-            )
+                )
+            }
         }
     }
 
@@ -250,6 +254,7 @@ object SearchRepository {
         addons: List<ManagedAddon>,
         forceRefresh: Boolean = false,
     ) {
+        discoverGeneration.invalidate()
         val enabledAddons = addons.enabledAddons()
         val hasPendingAddonManifests = enabledAddons.hasPendingEnabledManifests()
         val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
@@ -355,6 +360,7 @@ object SearchRepository {
     }
 
     fun selectDiscoverType(type: String) {
+        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         if (current.selectedType == type) return
 
@@ -393,6 +399,7 @@ object SearchRepository {
     }
 
     fun selectDiscoverCatalog(catalogKey: String) {
+        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         if (current.selectedCatalogKey == catalogKey) return
 
@@ -414,6 +421,7 @@ object SearchRepository {
     }
 
     fun selectDiscoverGenre(genre: String?) {
+        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         val selectedCatalog = current.selectedCatalog ?: return
         val normalizedGenre = selectedCatalog.resolveGenreSelection(genre)
@@ -576,7 +584,6 @@ object SearchRepository {
                 }.withUnreleasedFilter()
             }.fold(
                 onSuccess = { page ->
-                    if (!discoverGeneration.isCurrent(requestGeneration)) return@fold
                     val latest = _discoverUiState.value
                     if (latest.selectedCatalogKey != selectedCatalog.key || latest.selectedGenre != current.selectedGenre) {
                         return@fold
@@ -606,14 +613,16 @@ object SearchRepository {
                             "merged=${mergedItems.size} rawItemCount=${page.rawItemCount} nextSkip=${page.nextSkip} " +
                             "sample=${page.items.previewNames()}"
                     }
-                    _discoverUiState.value = latest.copy(
+                    discoverGeneration.ifCurrent(requestGeneration) {
+                        _discoverUiState.value = latest.copy(
                         items = mergedItems,
                         isLoading = false,
                         nextSkip = paginationState.nextSkip,
                         consecutiveDuplicatePages = paginationState.consecutiveDuplicatePages,
                         emptyStateReason = if (mergedItems.isEmpty()) DiscoverEmptyStateReason.NoResults else null,
                         errorMessage = null,
-                    )
+                        )
+                    }
                 },
                 onFailure = { error ->
                     if (error is CancellationException) {
@@ -625,7 +634,6 @@ object SearchRepository {
                         return@fold
                     }
 
-                    if (!discoverGeneration.isCurrent(requestGeneration)) return@fold
                     val latest = _discoverUiState.value
                     if (latest.selectedCatalogKey != selectedCatalog.key || latest.selectedGenre != current.selectedGenre) {
                         return@fold
@@ -635,13 +643,15 @@ object SearchRepository {
                             "type=${selectedCatalog.type} catalogId=${selectedCatalog.catalogId} " +
                             "genre=${current.selectedGenre ?: "<all>"} skip=$requestedSkip url=$requestUrl"
                     }
-                    _discoverUiState.value = latest.copy(
+                    discoverGeneration.ifCurrent(requestGeneration) {
+                        _discoverUiState.value = latest.copy(
                         items = if (reset) emptyList() else latest.items,
                         isLoading = false,
                         nextSkip = null,
                         emptyStateReason = DiscoverEmptyStateReason.RequestFailed,
                         errorMessage = error.message ?: getString(Res.string.discover_empty_load_failed_message),
-                    )
+                        )
+                    }
                 },
             )
         }
