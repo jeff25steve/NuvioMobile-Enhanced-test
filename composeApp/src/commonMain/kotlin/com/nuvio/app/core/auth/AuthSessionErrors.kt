@@ -1,6 +1,7 @@
 package com.nuvio.app.core.auth
 
 import io.github.jan.supabase.exceptions.RestException
+import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 
 private val invalidSessionMarkers = listOf(
     "session not found",
@@ -38,7 +39,7 @@ internal fun Throwable.isInvalidSessionError(): Boolean {
     val restError = findCause<RestException>()
     return isInvalidRemoteSessionResponse(
         statusCode = restError?.statusCode,
-        errorCode = restError?.error,
+        errorCode = findCause<PostgrestRestException>()?.code ?: restError?.error,
         message = authMessages(),
     )
 }
