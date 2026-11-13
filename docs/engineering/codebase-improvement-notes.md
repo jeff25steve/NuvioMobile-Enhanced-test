@@ -4150,3 +4150,42 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Manually reviewed the changed source and regression test, then re-fetched both files from GitHub. Confirmed the alias list type, per-alias phrase checks, pre-normalized field use and test expectation agree. The product implementation diff contains only `SettingsSearch.kt` and `SettingsSearchTest.kt`; this notes file is the only additional documentation change.
 - Inspected all 11 workflow definitions on `main-build-testing`: no push-triggered workflow targets this branch; the Full Debug workflow's automatic PR trigger is scoped to `enhanced`. No build, Gradle task, test task, benchmark, workflow dispatch or CI run was started.
 - The product changes are integrated directly into `main-build-testing`; no workflow or CI configuration was changed.
+
+
+## 13 November 2026 — Library Saved and Cloud viewport/layout repair
+
+**Starting checkpoint:** `ce48f8bdc07f0d01359cc77a13b9e13150f7d4cf` on `main-build-testing`.
+
+### Cycle 1 — Measure the actual remaining viewport
+
+#### Root cause
+
+- `LibraryScreen` places its fixed title/source toolbar as the first child of a full-size `Column`, then placed `BoxWithConstraints(Modifier.fillMaxSize())` as the next child. An unweighted child with `fillMaxSize` requests the full parent height instead of the remaining height after the toolbar; the parent therefore overflows/clips rather than giving Saved and Cloud a correctly sized scrolling viewport.
+- The implementation then compensated by measuring the toolbar and counting that same height again: Saved added it to `NuvioScreen` content padding and offset its pinned controls by it; Cloud added it as top padding inside a viewport that already began after the toolbar. The landscape grid calculation also subtracted the toolbar from the already-overstated viewport.
+- The fixed toolbar is already outside `NuvioScreen`. Its height must not be counted again inside the scrolling viewport. `NuvioScreen` forwards `topPadding` to `LazyColumn.contentPadding`, which pads list content, not the viewport itself.
+
+#### Integrated change
+
+- The Library content `BoxWithConstraints` is now a direct weighted child of the outer `Column` (`weight(1f).fillMaxWidth()`), so it receives only the height remaining below the fixed title/source toolbar.
+- Removed the redundant toolbar-height measurement and all second applications of that height. Cloud's sticky toolbar starts at the top of its correctly bounded content viewport; Saved reserves only the 72 dp pinned-controls region. The landscape/grid decision now uses the real viewport height.
+- Updated the common geometry regression test to require 72 dp of Saved content inset when controls are visible and 0 dp when they are absent, rather than adding the fixed toolbar height a second time.
+
+### Cycle 2 — Keep Saved filter/sort controls in one place
+
+- Saved filters were emitted twice: once as a `stickyHeader` inside the `NuvioScreen` lazy list, and again as the separately pinned overlay that provides the independently configured Saved type/sort Liquid Glass surfaces. The list copy also painted a full-width opaque background. This duplicated controls and added an unnecessary row/gap before poster content.
+- Removed the stale list-level Saved controls block. The existing pinned overlay is now the single source of Saved filter/sort controls, positioned at the top of the weighted content viewport. Its 72 dp region is reserved once in the LazyColumn content padding.
+- Kept the per-surface Liquid Glass settings, the overlay's scrolling-content backdrop capture, the Cloud toolbar's own sticky header/search behavior, and the separate Cloud artwork/black fallback unchanged.
+
+### Research and review
+
+- Context7 checked the official AndroidX Compose `ColumnScope.weight`, `LazyColumn.contentPadding`, and `LazyListScope.stickyHeader` references. The official contract says `weight` distributes the height remaining after unweighted Column children are measured, LazyColumn content padding applies to list content, and sticky headers remain pinned within their list viewport. Exa independently cross-checked the official Android Developer API references and list guidance.
+- The project pins Compose Multiplatform `1.13.0-beta01`, which is newer than the versions exposed by the Context7 Compose Multiplatform index. No new Compose API or dependency was introduced; the change uses the existing `ColumnScope.weight` and existing LazyColumn layout.
+- Manually reviewed the changed Library screen and test diff, then re-fetched the updated files from the remote branch. Source checks confirmed one Saved controls call in `LibraryScreen`, no stale list-level Saved controls key, no toolbar-height measurement/offset, and a weighted content viewport. The diff is limited to `LibraryScreen.kt` and `LibraryGlassLayoutTest.kt` plus this note.
+- The regression test source was updated before the implementation, but **was not executed**. No Gradle task, test, compilation, build, benchmark, emulator/simulator/device session, workflow dispatch, or CI run was started, as requested. Do not report the UI fix as runtime-verified until an authorized test/device validation pass.
+- Inspected all 11 workflow definitions on the current branch. There is no push-triggered build workflow for `main-build-testing`; the PR Full Debug build is scoped to the `enhanced` branch. No workflow was edited or triggered.
+
+### Device validation still required
+
+- Check Saved in horizontal and vertical layouts with no saved sections, with content, and while scrolling. Confirm there is one filter/sort row directly below the fixed toolbar, posters start immediately beneath it, and the row stays pinned without a duplicate or opaque full-width bar.
+- Check Cloud with no providers, loading, connected results, active search, selected file picker, and custom/no custom background. Confirm the list fills the remaining screen below the fixed title/source toolbar, Cloud's filter/search sticky header remains pinned within that viewport, and the black/artwork backdrop remains correct.
+- Compare small phones, tablets, portrait and landscape, and Liquid Glass on/off. Runtime layout and platform insets remain unverified until an authorized device/test session.
