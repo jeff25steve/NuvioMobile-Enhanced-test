@@ -1708,8 +1708,8 @@ internal fun MainAppContent(
                                 onSwitchProfile = onSwitchProfile,
                                 onEditProfile = pushEditProfile,
                                 onSettingsPageClick = if (useNativeNavigation && !isTabletLayout) {
-                                    { pageName, title ->
-                                        navController.navigate(SettingsPageRoute(pageName, title))
+                                    { pageName, title, settingKey ->
+                                        navController.navigate(SettingsPageRoute(pageName, title, settingKey))
                                     }
                                 } else {
                                     null
