@@ -28,6 +28,44 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse preserves metadata object source precedence`() {
+        val topLevelMeta = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {"id": "top-meta", "type": "movie", "name": "Top-level meta"},
+              "data": {
+                "meta": {"id": "nested-meta", "type": "movie", "name": "Nested meta"},
+                "id": "data-root",
+                "type": "movie",
+                "name": "Data root"
+              },
+              "id": "root",
+              "type": "movie",
+              "name": "Root object"
+            }
+            """.trimIndent(),
+        )
+        assertEquals("top-meta", topLevelMeta.id)
+        assertEquals("Top-level meta", topLevelMeta.name)
+
+        val nestedMeta = MetaDetailsParser.parse(
+            """
+            {
+              "meta": null,
+              "data": {
+                "meta": {"id": "nested-meta", "type": "movie", "name": "Nested meta"},
+                "id": "data-root",
+                "type": "movie",
+                "name": "Data root"
+              }
+            }
+            """.trimIndent(),
+        )
+        assertEquals("nested-meta", nestedMeta.id)
+        assertEquals("Nested meta", nestedMeta.name)
+    }
+
+    @Test
     fun `parse accepts bare meta object response`() {
         val result = MetaDetailsParser.parse(
             """
