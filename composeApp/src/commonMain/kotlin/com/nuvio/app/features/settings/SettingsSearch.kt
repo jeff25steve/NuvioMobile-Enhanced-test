@@ -1440,13 +1440,17 @@ internal fun settingsSearchEntries(
                 Res.string.settings_content_discovery_addons_description
             },
         ),
+        searchTerms = listOf("addons", "add-ons", "install providers", "catalog sources", "streaming providers", "stremio addons", "extensions"),
     )
     addPage(
         page = SettingsPage.MediaServers,
         key = "media-servers",
         title = stringResource(Res.string.compose_settings_page_media_servers),
         description = stringResource(Res.string.settings_content_discovery_media_servers_description),
-        searchTerms = listOf("plex", "jellyfin", "emby", "media server", "server connection", "network media"),
+        searchTerms = listOf(
+            "plex", "jellyfin", "emby", "media server", "server connection", "network media",
+            "server url", "server address", "api key", "access token", "base url", "connect media server",
+        ),
     )
     if (pluginsEnabled) {
         addPage(
@@ -1454,6 +1458,7 @@ internal fun settingsSearchEntries(
             key = "plugins",
             title = pluginsPage,
             description = stringResource(Res.string.settings_content_discovery_plugins_description),
+            searchTerms = listOf("plugins", "extensions", "provider plugins", "plugin integrations", "install plugin"),
         )
     }
     addPage(
