@@ -391,8 +391,6 @@ private fun TrackingDataSources(
                 value = moreLikeThisSourceLabel(effectiveRecommendationsSource),
                 supportingMessage = recommendationsFallback,
                 isTablet = isTablet,
-                searchAnchorKey = "trakt-more-like-this-source",
-                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onClick = { activePickerName = TrackingDataPicker.MORE_LIKE_THIS.name },
             )
         }
