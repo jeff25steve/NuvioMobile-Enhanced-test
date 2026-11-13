@@ -133,6 +133,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 internal fun LazyListScope.metaScreenSettingsContent(
     isTablet: Boolean,
     uiState: MetaScreenSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val showHeroTrailerPlaybackSetting = AppFeaturePolicy.heroTrailerPlaybackSupported &&
         AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP
@@ -163,6 +164,8 @@ internal fun LazyListScope.metaScreenSettingsContent(
                         description = stringResource(Res.string.settings_meta_poster_transition_description),
                         checked = uiState.posterTransitionEnabled,
                         isTablet = isTablet,
+                        searchAnchorKey = "meta-poster-transition",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onCheckedChange = MetaScreenSettingsRepository::setPosterTransitionEnabled,
                     )
                 }
