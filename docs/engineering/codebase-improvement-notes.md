@@ -4995,3 +4995,30 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - No production change was made in this cycle because neither suspected issue has been reproduced or conclusively proven from the available branch-wide source view. This avoids introducing an unverified workaround into Library rendering.
 - Next authorised validation should resolve the Cloud preview identifier at compile time, then exercise the Library calendar Dialog and Cloud/Saved backdrops on Android and iOS. Do not substitute a Popup-only issue report for a Dialog reproduction.
 - No tests, Gradle tasks, compilation, builds, benchmarks, device/simulator runs or CI workflows were started.
+
+
+
+## 13 November 2026 — Player video-frame capture: black-content false negatives
+
+### Confirmed defect
+
+- The Android Player Liquid Glass capture loop accepts a frame only when `PixelCopy.request(SurfaceView, ...)` succeeds **and** a sampled-pixel heuristic reports that the bitmap is not entirely black.
+- `Bitmap.isBlankCapture()` samples a sparse 8×8 grid and rejects the bitmap if all sampled RGB values are zero. This conflates a valid black/dark video frame (including fade-to-black shots) with an unavailable/protected surface. A legitimate black frame is still valid video content and should remain available as the glass backdrop.
+- Android's PixelCopy API already reports capture availability explicitly: `SUCCESS` means the copy succeeded; `ERROR_SOURCE_NO_DATA` means no source buffer has been queued; `ERROR_SOURCE_INVALID` can occur when the source is hardware-protected or destroyed. The heuristic therefore rejects valid visual content without being needed to identify the documented protected/destroyed-source cases.
+- Relevant authoritative references:
+  - Android Developers, [PixelCopy API](https://developer.android.com/reference/android/view/PixelCopy): documents the SurfaceView copy contract and result statuses.
+  - AOSP, [PixelCopy.java](https://android.googlesource.com/platform/frameworks/base/+/master/graphics/java/android/view/PixelCopy.java): documents `ERROR_SOURCE_NO_DATA`, `ERROR_SOURCE_INVALID`, and the completion callback.
+  - AndroidX Media3, [PlayerView.java](https://github.com/androidx/media/blob/release/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java): exposes the actual video surface through `getVideoSurfaceView()`; the existing player capture path already prefers this surface and falls back to the tagged-overlay-excluding libmpv SurfaceView search.
+
+### Proposed minimal correction
+
+- Treat `PixelCopy.SUCCESS` as the sole frame-validity signal and remove the sampled-black rejection. Continue counting non-success PixelCopy results as unavailable so the existing 15-failure slow retry remains intact.
+- Preserve the existing three-buffer rotation, sequential suspend/callback flow, consumer reference counting, surface selection and cancellation cleanup. No bitmap recycling or asynchronous capture redesign is justified by this finding.
+- Add focused Android host coverage for the PixelCopy result policy and the capture backoff reset after a successful copy. Keep protected/no-data error statuses on the unavailable path.
+
+### Verification and authorisation boundary
+
+- Source-level root cause is established; this is not yet an implemented or runtime-verified fix.
+- No production source or test file was changed in this pass. The required test-first red/green check needs a focused Android host test task, which compiles project/test code. No Gradle task, compilation, test, build, benchmark, device/simulator run or CI workflow was started because the standing instruction prohibits builds/CI without authorisation.
+- Next step: after explicit approval for one narrowly filtered Android host test task, add the regression test first, verify its expected failure, implement the status-only acceptance rule, then verify the focused test. Do not run app packaging or CI.
+- A black/near-black frame is a legitimate playback state, so the current heuristic is a concrete source-level defect. The entire Player still cannot be called fully fixed until the focused regression is verified and Android/iOS playback, engine switching, subtitles, gestures, overlays and Liquid Glass are exercised at runtime.
