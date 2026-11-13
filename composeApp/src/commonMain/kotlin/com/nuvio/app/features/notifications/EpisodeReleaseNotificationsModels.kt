@@ -102,8 +102,11 @@ internal fun buildEpisodeReleaseNotificationId(
     episodeId: String,
     releaseDateIso: String,
 ): String {
-    val contentHash = abs(buildTrackedShowKey(contentType, contentId).hashCode())
-    val episodeHash = abs(episodeId.trim().ifBlank { releaseDateIso }.hashCode())
+    // Widen before abs: abs(Int.MIN_VALUE) overflows and stays negative.
+    // Long can represent the magnitude of every Int hash, preserving existing IDs
+    // except for the single overflowing hash value.
+    val contentHash = abs(buildTrackedShowKey(contentType, contentId).hashCode().toLong())
+    val episodeHash = abs(episodeId.trim().ifBlank { releaseDateIso }.hashCode().toLong())
     return "$EpisodeReleaseNotificationIdentifierPrefix$profileId-$contentHash-$episodeHash-$releaseDateIso"
 }
 
