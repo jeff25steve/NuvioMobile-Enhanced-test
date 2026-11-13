@@ -158,22 +158,17 @@ class AuthSessionOperationGateTest {
         val gate = AuthSessionOperationGate()
         gate.beginReset()
 
-        val secondAcquired = CompletableDeferred<Unit>()
-        val releaseSecond = CompletableDeferred<Unit>()
         val secondReset = launch {
             gate.beginReset()
-            try {
-                secondAcquired.complete(Unit)
-                releaseSecond.await()
-            } finally {
-                gate.endReset()
-            }
+            gate.endReset()
         }
         val thirdAcquired = CompletableDeferred<Unit>()
+        val releaseThird = CompletableDeferred<Unit>()
         val thirdReset = launch {
             gate.beginReset()
             try {
                 thirdAcquired.complete(Unit)
+                releaseThird.await()
             } finally {
                 gate.endReset()
             }
@@ -188,7 +183,7 @@ class AuthSessionOperationGateTest {
         thirdAcquired.await()
         assertNull(gate.beginOperation(Job()))
 
-        releaseSecond.complete(Unit)
+        releaseThird.complete(Unit)
         thirdReset.join()
         assertNotNull(gate.beginOperation(Job()))
     }
