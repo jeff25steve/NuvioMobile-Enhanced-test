@@ -741,6 +741,8 @@ private fun MobileSettingsScreen(
             page,
             searchAnchorKey,
             debridSettings.canResolvePlayableLinks,
+            debridSettings.resolverServices.size,
+            debridSettings.activeResolverCredential != null,
             debridSettings.instantPlaybackPreparationLimit,
             liveTvUiState.hasPlaylist,
         ) {
@@ -751,6 +753,8 @@ private fun MobileSettingsScreen(
                     title = it,
                     description = "",
                     debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                    debridCanChooseResolverProvider = debridSettings.canResolvePlayableLinks &&
+                        debridSettings.resolverServices.size > 1 && debridSettings.activeResolverCredential != null,
                     debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                     liveTvHasPlaylist = liveTvUiState.hasPlaylist,
                 )
@@ -1284,6 +1288,8 @@ private fun TabletSettingsScreen(
                 page,
                 searchAnchorKey,
                 debridSettings.canResolvePlayableLinks,
+                debridSettings.resolverServices.size,
+                debridSettings.activeResolverCredential != null,
                 debridSettings.instantPlaybackPreparationLimit,
                 liveTvUiState.hasPlaylist,
             ) {
@@ -1294,6 +1300,8 @@ private fun TabletSettingsScreen(
                         title = it,
                         description = "",
                         debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                        debridCanChooseResolverProvider = debridSettings.canResolvePlayableLinks &&
+                            debridSettings.resolverServices.size > 1 && debridSettings.activeResolverCredential != null,
                         debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                         liveTvHasPlaylist = liveTvUiState.hasPlaylist,
                     )
