@@ -4561,3 +4561,32 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Follow-up review tightened the no-op paths: an identical in-flight search/discover request is reused without advancing its generation, and selecting an unchanged discover filter does not invalidate its active load. The regression test also asserts that `ifCurrent` refuses to execute a stale publication callback.
 
 - Final screen-level refinement: when a nonblank query changes, `SearchScreen` now calls `cancelPendingSearch()` before entering the 350 ms debounce wait. This cancels the previous request immediately instead of allowing it to consume the remainder of the debounce window; the next settled query still follows the existing debounce and provider flow.
+
+
+## 13 November 2026 — Search feedback and recent-history consistency
+
+### Cycle 3 — Remove stale results while a new query is debouncing
+
+- Root cause: the previous cycle cancelled the old request immediately on text change, but cancelPendingSearch() left the old SearchUiState.sections visible during the 350 ms debounce interval. Those results belonged to the previous query and could be mistaken for matches to the newly typed query.
+- Added SearchUiState.forPendingQuery() to produce a clean loading state with no previous sections, empty-state message or stale error. cancelPendingSearch() now publishes that state immediately after cancelling and invalidating the old request.
+- The existing debounce interval and subsequent provider requests remain unchanged.
+
+### Cycle 4 — Deduplicate recent searches case-insensitively
+
+- Root cause: recent-search insertion and persisted-history loading used case-sensitive distinct() / equality. Repeating a query with different capitalization (for example, Dune and dune) could create duplicate rows.
+- Added a shared history normalizer that trims entries, discards entries shorter than two characters, preserves the newest spelling, removes duplicates using Kotlin equals(ignoreCase = true), and applies the maximum after filtering.
+- Both disk loading and new history insertion now use the same normalization path, so legacy persisted duplicates are cleaned up on load as well as future writes.
+- No changes to the history limit, opt-out setting, persistence format, profile storage or display order.
+
+### Evidence and compatibility review
+
+- Context7 resolved Kotlin documentation and confirmed locale-independent case conversion guidance; the standard-library equals(ignoreCase = true) contract was also checked against the official Kotlin API via Exa. The repository uses Kotlin 2.4.10; Context7 did not provide an exact 2.4.10 versioned library snapshot, so the decision is based on the documented common standard-library API rather than a claim of exact-version compilation.
+- Exa returned the official Kotlin Core API definition: case-insensitive string equality compares corresponding characters using the documented uppercase/lowercase character mapping. This avoids locale-sensitive lowercasing as a deduplication key.
+- No new dependency or platform-specific API was introduced.
+
+### Review and verification boundary
+
+- Added tests for pending-query state reset, case-insensitive recent-query insertion, normalization of persisted case variants, and applying the history limit after invalid/duplicate filtering.
+- Re-fetched the final Search screen/repository/models, Search History repository, relevant tests and this note from GitHub. Source review confirmed immediate pending-state publication occurs after cancellation/invalidation; persisted loading and new insertion share the same normalizer; the normalizer preserves first occurrence and newest spelling.
+- **No tests, Gradle tasks, compilation, builds, benchmarks, workflow dispatches or CI runs were started**, as instructed. Regression tests are committed but unexecuted; compilation and runtime behavior remain unverified.
+- No PR, merge, release or dependency update was created.
