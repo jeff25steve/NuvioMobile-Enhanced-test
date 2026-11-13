@@ -3102,4 +3102,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Kartu hasil stream</string>
     <string name="settings_liquid_glass_surface_stream_selection">Pencarian dan lanjutkan stream</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Meningkatkan warna yang terlihat melalui kaca.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Tautan stream telah kedaluwarsa. Coba sumber lain.</string>
+    <string name="player_error_stream_removed">Tautan stream telah kedaluwarsa atau dihapus. Coba sumber lain.</string>
+    <string name="player_error_stream_rate_limited">Terlalu banyak permintaan ke sumber stream. Tunggu sebentar dan coba lagi.</string>
+    <string name="player_error_stream_unavailable">Server stream saat ini tidak tersedia. Coba sumber lain.</string>
+    <string name="player_error_stream_blocked">Sumber stream diblokir atau dibatasi. Coba sumber lain.</string>
+    <string name="player_error_source_invalid_content">Error sumber: Sumber stream menghasilkan konten tidak valid atau tidak dapat diputar. Tautan mungkin telah kedaluwarsa atau server menghasilkan halaman error, bukan video.\n\nCoba sumber lain. [%1$s]</string>
+    <string name="player_error_unsupported_format">Stream ini menggunakan format yang mungkin tidak didukung perangkat Anda. Coba sumber lain. [%1$s]</string>
 </resources>
