@@ -62,4 +62,15 @@ class AuthSessionErrorClassificationTest {
         }
     }
 
+    @Test
+    fun doesNotInvalidateSessionForServerErrorsEvenWithKnownSessionCode() {
+        assertFalse(
+            isInvalidRemoteSessionResponse(
+                statusCode = 503,
+                errorCode = "session_expired",
+                message = "Request rejected",
+            ),
+        )
+    }
+
 }
