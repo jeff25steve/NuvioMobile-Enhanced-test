@@ -94,6 +94,9 @@ internal fun settingsSearchAnchor(
     key: String,
     title: String,
     description: String,
+    debridCanResolvePlayableLinks: Boolean? = null,
+    debridInstantPlaybackEnabled: Boolean? = null,
+    liveTvHasPlaylist: Boolean? = null,
 ): SettingsSearchAnchor? {
     val sectionItemIndex = when (page) {
         SettingsPage.Appearance ->
@@ -128,6 +131,40 @@ internal fun settingsSearchAnchor(
         SettingsPage.PosterCustomization -> when (key) {
             "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels" -> 0
             "card-depth-effect" -> 2
+            else -> return null
+        }
+        SettingsPage.Debrid -> when (key) {
+            "debrid-cloud-library", "debrid-link-resolving" -> 0
+            "debrid-provider-torbox", "debrid-provider-premiumize" -> 1
+            "debrid-instant-playback" -> if (debridCanResolvePlayableLinks == true) 2 else return null
+            "debrid-instant-playback-count" -> if (
+                debridCanResolvePlayableLinks == true && debridInstantPlaybackEnabled == true
+            ) 2 else return null
+            "debrid-max-results", "debrid-sort-results", "debrid-resolution-limit",
+            "debrid-quality-limit", "debrid-size-range",
+            "debrid-preferred-resolutions", "debrid-required-resolutions", "debrid-excluded-resolutions",
+            "debrid-preferred-qualities", "debrid-required-qualities", "debrid-excluded-qualities",
+            "debrid-preferred-visual-tags", "debrid-required-visual-tags", "debrid-excluded-visual-tags",
+            "debrid-preferred-audio-tags", "debrid-required-audio-tags", "debrid-excluded-audio-tags",
+            "debrid-preferred-channels", "debrid-required-channels", "debrid-excluded-channels",
+            "debrid-preferred-encodes", "debrid-required-encodes", "debrid-excluded-encodes",
+            "debrid-preferred-languages", "debrid-required-languages", "debrid-excluded-languages",
+            "debrid-required-release-groups", "debrid-excluded-release-groups" ->
+                if (debridCanResolvePlayableLinks == true) 3 else return null
+            "debrid-name-template", "debrid-description-template" ->
+                if (debridCanResolvePlayableLinks == true) 4 else return null
+            else -> return null
+        }
+        SettingsPage.LiveTv -> when (key) {
+            "live-tv-navigation" -> if (liveTvHasPlaylist == true) 0 else return null
+            "live-tv-reload-channels", "live-tv-reload-epg" ->
+                if (liveTvHasPlaylist == true) 1 else return null
+            "live-tv-xtream-codes", "live-tv-stalker-portal", "live-tv-stalker-mac" ->
+                if (liveTvHasPlaylist == true) 2 else if (liveTvHasPlaylist == false) 0 else return null
+            "live-tv-playlist", "live-tv-playlist-url", "live-tv-local-playlist", "live-tv-playlist-name" ->
+                if (liveTvHasPlaylist == true) 3 else if (liveTvHasPlaylist == false) 1 else return null
+            "live-tv-epg-auto", "live-tv-epg-url", "live-tv-epg-add" ->
+                if (liveTvHasPlaylist == true) 4 else if (liveTvHasPlaylist == false) 2 else return null
             else -> return null
         }
         SettingsPage.DebugLogs ->
