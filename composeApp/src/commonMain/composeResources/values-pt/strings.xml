@@ -1967,4 +1967,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Cartões de resultados de streams</string>
     <string name="settings_liquid_glass_surface_stream_selection">Pesquisa e retoma de streams</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Realça as cores visíveis através do vidro.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">O link do stream expirou. Tenta uma fonte diferente.</string>
+    <string name="player_error_stream_removed">O link do stream expirou ou foi removido. Tenta uma fonte diferente.</string>
+    <string name="player_error_stream_rate_limited">Muitos pedidos enviados para a fonte do stream. Aguarda um momento e tenta novamente.</string>
+    <string name="player_error_stream_unavailable">O servidor do stream está indisponível de momento. Tenta uma fonte diferente.</string>
+    <string name="player_error_stream_blocked">A fonte do stream está bloqueada ou restrita. Tenta uma fonte diferente.</string>
+    <string name="player_error_source_invalid_content">Erro de fonte: A fonte do stream devolveu conteúdo inválido ou não reproduzível. O link pode ter expirado ou o servidor devolveu uma página de erro em vez do vídeo.\n\nTenta uma fonte diferente. [%1$s]</string>
+    <string name="player_error_unsupported_format">Este stream utiliza um formato que o teu dispositivo pode não suportar. Tenta uma fonte diferente. [%1$s]</string>
 </resources>
