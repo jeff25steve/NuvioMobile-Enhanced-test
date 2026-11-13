@@ -3983,3 +3983,46 @@ References checked:
 ### Remaining boundary
 
 - This pass completes the indexed Debrid and Live TV controls that are currently exposed by Settings Search. Existing provider credentials and playlist rows that are generated dynamically for each saved account/playlist are intentionally not emitted as separate search results; the stable provider/source configuration controls are searchable instead.
+
+
+## 13 November 2026 — Full Settings Search coverage continuation
+
+**Starting checkpoint:** `7c13bc1393cc699176e49832a72add8dffc826fb` on `main-build-testing`.
+
+This continuation supersedes the earlier page-only notes for the specific Home hero/catalog sections, card-depth child controls, Continue Watching controls, and conditional Tracking feature rows listed below.
+
+### Cycle 1 — Continue Watching and Poster Customization
+
+- Added exact Continue Watching anchors for visibility, card style, episode thumbnails, up-next source, unaired episodes, blur-next-up, resume prompt, and sort mode. Search entries now follow the current card style and thumbnail state, so hidden conditional controls are not offered as results.
+- Fixed the Poster Customization key mismatch: the catalogue previously prefixed already-prefixed poster keys, so results such as poster width/radius did not match the actual row anchor IDs. Search keys now use the rendered stable IDs.
+- Completed Poster Customization coverage for the landscape clear-logo option, card-depth edge/sheen/edge coverage, fine-tuning sheet, and each supported card-depth surface. Child controls are only added to the search index while the master card-depth feature is enabled.
+- Added regression cases for exact row IDs, conditional visibility and section indexes.
+
+### Cycle 2 — Home, Appearance, Advanced and Tracking
+
+- Added exact section anchors for Homescreen hero sources and the catalog list, with their actual lazy-item indexes.
+- Added search destinations for the Appearance theme selector and the global Liquid Glass enable/customize controls. Their catalogue entries and row anchors use the same platform-capability guard as the rendered controls.
+- Added Advanced cache-maintenance search entries and exact anchors for clearing Continue Watching and metadata caches. Their section index is derived from the optional DNS and Sentry sections rather than assuming a fixed page layout.
+- Added search coverage for AniList, WeTrakr and PublicMetaDB provider cards, completing the provider-card set alongside Trakt, Simkl and MDBList.
+- Added Profile Insights as a page-level search destination, and broadened task vocabulary for Addons, Plugins and dynamic Media Server configuration.
+- Tracking source results now follow provider connection state: More Like This appears only when Trakt or Simkl is connected; Trakt continue-watching window and comments appear only while Trakt is connected. Search context labels now reflect the actual Tracking sections.
+
+### Search indexing correctness
+
+- Fixed the shared playback and Continue Watching row helpers so `PlaybackSearchRow.searchTerms` are forwarded into the final catalogue entry instead of being silently discarded. This restores the intended aliases for generated settings rows without changing ranking weights.
+- Removed separate Next Up threshold percentage/minutes entries that had no independent rendered row. Their vocabulary is now attached to the visible threshold-mode control, avoiding phantom deep links.
+- Expanded Media Servers, Addons and Plugins discovery terms for common user language (server URL/address, API key, provider installation, extensions and related concepts).
+- Existing Debrid/Live TV dynamic state handling and both mobile/tablet navigation paths remain intact.
+
+### Regression coverage and review
+
+- Added source-level cases for Continue Watching row mappings and conditional controls, Poster Customization/card-depth surfaces, Homescreen section indexes, Appearance theme/Liquid Glass rows, Advanced cache section indexes, Tracking provider anchors, and threshold phantom-row rejection.
+- Performed a manual cross-check of the new search keys against rendered `SettingsSearchAnchorContainer`/row anchor IDs, the resolver's page/item mappings, and both SettingsScreen search call sites. The generated-row helper paths were checked to ensure aliases are preserved.
+- Followed the Superpowers workflow, used Context7 AndroidX Compose reference material for lazy-list keys and scroll APIs, and used Exa's independent official AndroidX lazy-list/bring-into-view references. The repository's Compose Multiplatform version remains `1.13.0-beta01`; Context7 did not list that exact version and the closest available Compose Multiplatform docs were `1.12.2`. No new Compose API or dependency was introduced.
+- A separate reviewer/subagent was not available, so review was manual. Regression tests were added but **not run**. No build, compilation, Gradle task, benchmark or CI was started, in accordance with the explicit restriction.
+
+### Remaining dynamic boundary
+
+- Individual saved Media Server records, installed Addon catalog items and provider-specific account instances are runtime data. Search now leads users to the relevant stable management page/section, but does not create a separate result for every runtime record.
+- Search results for the dynamic Home catalog/source sections lead to the exact section when it is rendered; individual catalog records are not indexed as independent settings.
+- Runtime validation and test execution remain pending explicit authorisation.
