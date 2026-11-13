@@ -4912,3 +4912,31 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - The regression test was committed before the production policy change (TDD ordering), but was not executed because builds/tests were not authorised.
 - The remote source, test and notes were re-fetched for source-level verification. No Gradle command, compilation, test, build, benchmark, device/simulator run or CI workflow was started.
 - This change removes unnecessary static capture for Saved-only surfaces by policy. No measured frame-time or memory improvement is claimed; runtime profiling and UI validation remain outstanding.
+
+
+## 13 November 2026 — keep the Cloud Studio preview toolbar pinned like production
+
+### Confirmed preview mismatch
+
+- The live Cloud Library renders its filters and optional search field inside a `stickyHeader` in the scrolling `NuvioScreen` list. The Liquid Glass Studio preview rendered the same controls as an ordinary first `item`, so scrolling the preview moved the controls out of view while production kept them pinned.
+- The preview also put its fixed title/source-switch header into `LazyColumn.contentPadding.top`. A sticky header would be pinned against the list viewport's top edge, not against the fixed header's lower edge, so simply changing `item` to `stickyHeader` would place it underneath/behind the fixed preview header.
+
+### Changes
+
+- Added `libraryCloudPreviewViewportTopInset` and common regression cases for Cloud versus Saved/Servers modes.
+- Moved the preview's 132 dp Cloud header inset from list content padding to the LazyColumn's own top layout padding. This makes the list viewport begin below the fixed header, matching the live screen's separate scrolling viewport.
+- Changed the Cloud preview controls block to `stickyHeader`, keeping filters and the search field pinned together while Cloud cards scroll, matching the live `cloudLibraryContent` hierarchy.
+- Added the required `ExperimentalFoundationApi` opt-in to the preview composable. No new dependencies or runtime Library behavior changed.
+
+### Evidence and review
+
+- Compared `LiquidGlassLibraryPreview` with the live `cloudLibraryContent`: production uses `stickyHeader(key = "cloud-library-search")` for the toolbar and animated search; preview previously used `item(key = "library-cloud-preview-controls")`.
+- Cross-checked Compose Foundation's upstream LazyList measure implementation. It computes sticky placement relative to the list viewport and tracks `beforeContentPadding`; the preview therefore needs a viewport inset, not only a content-padding offset, to pin below its fixed chrome.
+- Context7 was queried for Compose Multiplatform, but its available version catalogue did not include the repository's exact `1.13.0-beta01` pin. The implementation was checked against upstream AndroidX/JetBrains source through Exa instead; no API outside the existing `stickyHeader` usage was introduced.
+- Kyant Backdrop documentation was also rechecked for source/consumer draw-loop constraints; this preview change does not alter backdrop source ownership.
+
+### Verification boundary
+
+- The regression test was committed before the production helper and preview layout change (TDD ordering), but was not executed because builds/tests remain unauthorised.
+- The remote test, production helper, preview composable and notes were re-fetched for source-level verification. No Gradle task, compilation, test, build, benchmark, device/simulator run or CI workflow was started.
+- The change corrects the source-level hierarchy and viewport geometry. Actual scrolling, touch interaction, and visual parity still need a manual runtime check when builds/device testing are authorised.
