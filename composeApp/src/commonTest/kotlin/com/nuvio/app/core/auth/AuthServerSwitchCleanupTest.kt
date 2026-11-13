@@ -64,6 +64,21 @@ class AuthServerSwitchCleanupTest {
     }
 
     @Test
+    fun preservesBothCredentialClearFailuresWhenAbortingSwitch() = runTest {
+        val anonymousFailure = IllegalStateException("Anonymous clear failed")
+        val remoteFailure = IllegalStateException("Remote clear failed")
+
+        val result = runServerSwitchCleanup(
+            clearAnonymousUserId = { throw anonymousFailure },
+            clearRemoteSession = { throw remoteFailure },
+            clearLocalAccountData = { error("Local cleanup must not start") },
+        )
+
+        assertSame(anonymousFailure, result.exceptionOrNull())
+        assertTrue(anonymousFailure.suppressedExceptions.contains(remoteFailure))
+    }
+
+    @Test
     fun reportsLocalCleanupFailureSoTheBackendSwitchCanBeAborted() = runTest {
         val localFailure = IllegalStateException("A download could not be removed")
 
