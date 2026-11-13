@@ -4526,3 +4526,34 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - No auth credentials, account data, biometric data, profile access, Liquid Glass UI, custom settings/cloud backgrounds, build configuration, dependencies or workflows were changed.
 - After authorisation, run the focused `InvalidRemoteSessionResponseTest` and existing auth tests, then verify a real PostgREST 42501 denial does not clear an otherwise valid session while a genuine invalid JWT still does.
 
+
+
+## 13 November 2026 — Search request supersession and discover feed publication safety
+
+**Starting checkpoint:** `main-build-testing` at `b32a8c99f1e84d223d1cbf6a93dea1a1bdbc323f`.
+
+### Cycle 1 — Prevent superseded search queries from publishing results
+
+- Root cause: the Search screen's 350 ms delay reduces request frequency, but does not itself cancel an already-running request when the text changes. `SearchRepository.search()` cancels the previous job when the new debounced request starts, yet cancellation is cooperative. A previous job can be concurrently completing its result-channel loop and attempting a partial or final `SearchUiState` publication.
+- Added a monotonically increasing search request generation. Every nonblank search advances it; clear/reset invalidate it. Partial results and final state are published only while the request still owns the current generation.
+- The generation check and state publication are protected by one short AtomicFU `SynchronizedObject` critical section. This avoids a check-then-publish race in which a newer request could start between a separate generation check and the old request's state write.
+
+### Cycle 2 — Prevent same-selection discover refreshes from overwriting newer pages
+
+- Root cause: discover response validation previously compared only the selected catalogue key and genre. A refresh or page request for the same catalogue/genre could therefore be indistinguishable from an older in-flight request.
+- Added a separate discover generation. Every feed load receives a new token; refreshes, actual filter changes, empty-source transitions and repository reset invalidate older work. Success and failure state publication both require the token to remain current.
+- Unchanged filter selections return without invalidating the active request, preserving its loading/result lifecycle.
+- Cancellation remains in place to stop obsolete work where the underlying suspend calls cooperate; generation ownership is the final guard against stale state publication.
+
+### Evidence and compatibility review
+
+- Repository dependency catalog pins kotlinx-coroutines **1.10.2** and AtomicFU **0.32.1**. Context7 resolved kotlinx.coroutines (nearest indexed version 1.10.1; 1.10.2 was not in its version index) and AtomicFU. The documentation confirms cancellation is cooperative and that cancellation exceptions must propagate. AtomicFU's `SynchronizedObject`/`synchronized` documentation confirms a cross-platform monitor that holds a critical section for the compound check-and-publish operation.
+- Exa fetched the official Kotlin cancellation documentation and official `flatMapLatest` API contract. The former confirms a cancelled coroutine throws at a cancellation check and that cancellation must not be swallowed; the latter describes switching to and cancelling the previous flow. The current repository uses explicit Job/channel orchestration rather than a Flow pipeline, so the generation guard is applied at its actual state publication boundaries rather than rewriting the search architecture.
+- No new dependency, provider protocol, request signature, result ordering, cache policy, debounce interval, UI component, localization string or screen layout was changed.
+
+### Review and verification boundary
+
+- Added `SearchRequestGenerationTest` before the production implementation, covering newer-query supersession, clear invalidation and a refreshed discover page superseding an older page for the same selection.
+- Re-fetched the final `SearchModels.kt`, `SearchRepository.kt` and regression test from GitHub. Reviewed generation advancement/invalidation, both partial/final search publications, discover success/failure publications, reset and filter no-op paths. The generation guard's check and publication share the same monitor; the lock is not held across network work or suspension.
+- **No tests, Gradle tasks, compilation, builds, benchmarks, workflow dispatches or CI runs were started**, as instructed. The regression test source is committed but remains unexecuted; no runtime pass or build success is claimed.
+- No PR, merge, release, dependency update or workflow change was made. After authorisation, run the focused common Search generation tests and existing Search/catalog tests, then verify rapid typing, clearing during a slow response, retrying the same query, changing discover filters during a slow page, and refreshing the same discover selection while its previous page is in flight.
