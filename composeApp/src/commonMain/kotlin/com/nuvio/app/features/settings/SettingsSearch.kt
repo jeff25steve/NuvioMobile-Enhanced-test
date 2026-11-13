@@ -2645,6 +2645,7 @@ private fun settingsSearchEntryScore(
     return score
 }
 
+/** Common-source normalization: ignore case and punctuation, preserve letters and digits. */
 private fun normalizeSettingsSearchText(value: String): String = buildString(value.length) {
     var previousWasSeparator = true
     value.lowercase().forEach { character ->
