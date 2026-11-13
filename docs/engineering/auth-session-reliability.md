@@ -80,3 +80,17 @@ Relevant files:
 - Review callers of `beginServerSwitch` / `prepareForServerSwitch` to confirm every backend replacement holds the shared session-reset lease before old-client cleanup.
 - Review `AuthSessionOperationGate` handoff/cancellation behavior against its existing tests; do not change its mutex semantics without a dedicated reproducer.
 - Before authorising a build, run the focused common test target for `AuthServerSwitchCleanupTest` and `AuthSessionErrorClassificationTest`, then the project's full test suite. Do not start CI automatically.
+
+
+## Latest remote integration status
+
+- All changes in this checkpoint are committed on `main-build-testing`.
+- The branch comparison against `enhanced` reports **0 commits behind** (1,435 commits ahead at this checkpoint); no sync or merge was needed.
+- Latest implementation commits:
+  - `cf919b60c77b0e41156a6d92ee7dc4dbf81212ba` — shared cause-aware session classification.
+  - `df8d839f3f6d5cf61a5641481a9d26d6424ff29c` — cancellation-safe invalid-session cleanup.
+- Regression-test commits:
+  - `9c39e881f44b79b750bf9ce1dfbc48c6482173b4`
+  - `dc88688138a5526c0086cff5530a41a8e6017f5e`
+- This notes update is committed separately; remote file contents were fetched again after integration.
+- **Verification boundary:** source and test files were inspected remotely, but no test command, Gradle task, build, or CI workflow was run. Tests remain unverified until authorised.
