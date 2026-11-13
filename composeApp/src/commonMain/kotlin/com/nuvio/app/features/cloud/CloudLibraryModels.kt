@@ -103,6 +103,12 @@ internal fun effectiveCloudLibraryProviderId(
     providers.any { provider -> provider.providerId == selected }
 }
 
+internal fun cloudLibraryHasActiveFilters(
+    selectedProviderId: String?,
+    selectedType: CloudLibraryItemType?,
+    searchQuery: String,
+): Boolean = selectedProviderId != null || selectedType != null || searchQuery.isNotBlank()
+
 data class CloudLibraryUiState(
     val isLoaded: Boolean = false,
     val isEnabled: Boolean = true,
