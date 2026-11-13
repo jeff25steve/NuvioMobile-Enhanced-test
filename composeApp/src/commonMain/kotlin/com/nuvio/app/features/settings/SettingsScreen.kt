@@ -738,8 +738,17 @@ private fun MobileSettingsScreen(
         val listState = rememberLazyListState()
         var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
         LaunchedEffect(page, searchAnchorKey) {
-            val anchor = searchAnchorKey?.let { settingsSearchAnchor(page, it, it, "") }
-                ?: return@LaunchedEffect
+            val anchor = searchAnchorKey?.let {
+                settingsSearchAnchor(
+                    page = page,
+                    key = it,
+                    title = it,
+                    description = "",
+                    debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                    debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
+                    liveTvHasPlaylist = liveTvUiState.hasPlaylist,
+                )
+            } ?: return@LaunchedEffect
             listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, false, showInternalHeader))
             highlightedSearchAnchorKey = anchor.key
             delay(1_800)
@@ -1259,8 +1268,17 @@ private fun TabletSettingsScreen(
             val listState = rememberLazyListState()
             var highlightedSearchAnchorKey by remember(page) { mutableStateOf<String?>(null) }
             LaunchedEffect(page, searchAnchorKey) {
-                val anchor = searchAnchorKey?.let { settingsSearchAnchor(page, it, it, "") }
-                    ?: return@LaunchedEffect
+                val anchor = searchAnchorKey?.let {
+                    settingsSearchAnchor(
+                        page = page,
+                        key = it,
+                        title = it,
+                        description = "",
+                        debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                        debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
+                        liveTvHasPlaylist = liveTvUiState.hasPlaylist,
+                    )
+                } ?: return@LaunchedEffect
                 listState.animateScrollToItem(settingsSearchAnchorListIndex(anchor, true, showInternalHeader))
                 highlightedSearchAnchorKey = anchor.key
                 delay(1_800)
