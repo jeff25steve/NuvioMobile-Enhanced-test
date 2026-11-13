@@ -483,10 +483,6 @@ internal data class SettingsSearchEntry(
     val target: SettingsSearchTarget,
     val searchTerms: List<String> = emptyList(),
 ) {
-    val searchableText: String = (listOf(title, description, page, section, category, key) + searchTerms)
-        .joinToString(separator = " ")
-        .lowercase()
-
     val contextLabel: String = listOf(page, section)
         .filter { it.isNotBlank() }
         .distinct()
@@ -2364,10 +2360,9 @@ internal fun LazyListScope.settingsSearchRootContent(
     if (query.isBlank()) return
 
     item(key = "settings-search-results") {
-        val results = settingsSearchResults(
-            query = query,
-            entries = entries(),
-        )
+        val searchEntries = entries()
+        val searchIndex = remember(searchEntries) { SettingsSearchIndex(searchEntries) }
+        val results = remember(query, searchIndex) { searchIndex.search(query) }
         if (results.isEmpty()) {
             SettingsSearchEmptyState(isTablet = isTablet)
         } else {
@@ -2531,27 +2526,81 @@ private fun SettingsSearchEmptyState(isTablet: Boolean) {
 internal fun settingsSearchResults(
     query: String,
     entries: List<SettingsSearchEntry>,
-): List<SettingsSearchEntry> {
-    val normalizedQuery = normalizeSettingsSearchText(query)
-    val queryTerms = normalizedQuery.split(' ').filter(String::isNotBlank).distinct()
-    if (queryTerms.isEmpty()) return emptyList()
+): List<SettingsSearchEntry> = SettingsSearchIndex(entries).search(query)
 
-    return entries.mapIndexedNotNull { index, entry ->
-        val score = settingsSearchEntryScore(normalizedQuery, queryTerms, entry)
-            ?: return@mapIndexedNotNull null
-        RankedSettingsSearchEntry(entry = entry, score = score, sourceIndex = index)
-    }
-        .sortedWith(
-            compareByDescending<RankedSettingsSearchEntry> { it.score }
-                .thenBy { it.sourceIndex },
+/**
+ * Immutable, pre-normalized index for the Settings search catalogue.
+ *
+ * The catalogue is rebuilt by Compose when its localized labels or availability change.
+ * Remembering this index by the entry list lets successive keystrokes reuse normalized fields
+ * rather than tokenizing every setting again for each query.
+ */
+internal class SettingsSearchIndex(entries: List<SettingsSearchEntry>) {
+    private val indexedEntries = entries.mapIndexed { sourceIndex, entry ->
+        val normalizedTitle = normalizeSettingsSearchText(entry.title)
+        val normalizedAliases = normalizeSettingsSearchText(entry.searchTerms.joinToString(" "))
+        val normalizedPage = normalizeSettingsSearchText(entry.page)
+        val fields = listOf(
+            SettingsSearchIndexField(entry.title, weight = 12),
+            SettingsSearchIndexField(entry.searchTerms.joinToString(" "), weight = 10),
+            SettingsSearchIndexField(entry.section, weight = 6),
+            SettingsSearchIndexField(entry.page, weight = 4),
+            SettingsSearchIndexField(entry.description, weight = 3),
+            SettingsSearchIndexField(entry.key, weight = 2),
+            SettingsSearchIndexField(entry.category, weight = 1),
+        ).map { field ->
+            IndexedSettingsSearchField(
+                words = normalizeSettingsSearchText(field.value)
+                    .split(' ')
+                    .filter(String::isNotBlank),
+                weight = field.weight,
+            )
+        }.filter { it.words.isNotEmpty() }
+
+        IndexedSettingsSearchEntry(
+            entry = entry,
+            sourceIndex = sourceIndex,
+            fields = fields,
+            normalizedTitle = normalizedTitle,
+            normalizedAliases = normalizedAliases,
+            normalizedPage = normalizedPage,
         )
-        .map(RankedSettingsSearchEntry::entry)
+    }
+
+    fun search(query: String): List<SettingsSearchEntry> {
+        val normalizedQuery = normalizeSettingsSearchText(query)
+        val queryTerms = normalizedQuery.split(' ').filter(String::isNotBlank).distinct()
+        if (queryTerms.isEmpty()) return emptyList()
+
+        return indexedEntries.mapNotNull { indexedEntry ->
+            val score = settingsSearchEntryScore(normalizedQuery, queryTerms, indexedEntry)
+                ?: return@mapNotNull null
+            RankedSettingsSearchEntry(
+                entry = indexedEntry.entry,
+                score = score,
+                sourceIndex = indexedEntry.sourceIndex,
+            )
+        }
+            .sortedWith(
+                compareByDescending<RankedSettingsSearchEntry> { it.score }
+                    .thenBy { it.sourceIndex },
+            )
+            .map(RankedSettingsSearchEntry::entry)
+    }
 }
 
-private data class RankedSettingsSearchEntry(
+private data class IndexedSettingsSearchEntry(
     val entry: SettingsSearchEntry,
-    val score: Int,
     val sourceIndex: Int,
+    val fields: List<IndexedSettingsSearchField>,
+    val normalizedTitle: String,
+    val normalizedAliases: String,
+    val normalizedPage: String,
+)
+
+private data class IndexedSettingsSearchField(
+    val words: List<String>,
+    val weight: Int,
 )
 
 private data class SettingsSearchIndexField(
@@ -2559,59 +2608,43 @@ private data class SettingsSearchIndexField(
     val weight: Int,
 )
 
+private data class RankedSettingsSearchEntry(
+    val entry: SettingsSearchEntry,
+    val score: Int,
+    val sourceIndex: Int,
+)
+
 private fun settingsSearchEntryScore(
     normalizedQuery: String,
     queryTerms: List<String>,
-    entry: SettingsSearchEntry,
+    indexedEntry: IndexedSettingsSearchEntry,
 ): Int? {
-    val fields = listOf(
-        SettingsSearchIndexField(entry.title, weight = 12),
-        SettingsSearchIndexField(entry.searchTerms.joinToString(" "), weight = 10),
-        SettingsSearchIndexField(entry.section, weight = 6),
-        SettingsSearchIndexField(entry.page, weight = 4),
-        SettingsSearchIndexField(entry.description, weight = 3),
-        SettingsSearchIndexField(entry.key, weight = 2),
-        SettingsSearchIndexField(entry.category, weight = 1),
-    ).map { field ->
-        normalizeSettingsSearchText(field.value)
-            .split(' ')
-            .filter(String::isNotBlank) to field.weight
-    }.filter { (words, _) -> words.isNotEmpty() }
-
     var score = 0
     queryTerms.forEach { queryTerm ->
-        val bestTermScore = fields.maxOfOrNull { (words, weight) ->
-            (words.maxOfOrNull { candidate ->
+        val bestTermScore = indexedEntry.fields.maxOfOrNull { field ->
+            (field.words.maxOfOrNull { candidate ->
                 settingsSearchTermScore(queryTerm, candidate)
-            } ?: 0) * weight
+            } ?: 0) * field.weight
         } ?: 0
         if (bestTermScore == 0) return null
         score += bestTermScore
     }
 
-    val title = normalizeSettingsSearchText(entry.title)
-    if (title == normalizedQuery) {
-        score += 1_000
-    } else if (title.startsWith(normalizedQuery)) {
-        score += 500
-    } else if (title.contains(normalizedQuery)) {
-        score += 250
+    when {
+        indexedEntry.normalizedTitle == normalizedQuery -> score += 1_000
+        indexedEntry.normalizedTitle.startsWith(normalizedQuery) -> score += 500
+        indexedEntry.normalizedTitle.contains(normalizedQuery) -> score += 250
     }
 
-    val aliases = normalizeSettingsSearchText(entry.searchTerms.joinToString(" "))
-    if (aliases == normalizedQuery) {
-        score += 750
-    } else if (aliases.contains(normalizedQuery)) {
-        score += 180
+    when {
+        indexedEntry.normalizedAliases == normalizedQuery -> score += 750
+        indexedEntry.normalizedAliases.contains(normalizedQuery) -> score += 180
     }
 
-    val page = normalizeSettingsSearchText(entry.page)
-    if (page == normalizedQuery) score += 350
-
+    if (indexedEntry.normalizedPage == normalizedQuery) score += 350
     return score
 }
 
-/** Common-source normalization: ignore case and punctuation, preserve letters and digits. */
 private fun normalizeSettingsSearchText(value: String): String = buildString(value.length) {
     var previousWasSeparator = true
     value.lowercase().forEach { character ->
@@ -2643,36 +2676,57 @@ private fun settingsSearchTermScore(query: String, candidate: String): Int {
     return 36 - ((distance - 1) * 9)
 }
 
-private fun boundedSettingsSearchEditDistance(
+internal fun boundedSettingsSearchEditDistance(
     left: String,
     right: String,
     maximumDistance: Int,
 ): Int? {
+    if (maximumDistance < 0) return null
     if (kotlin.math.abs(left.length - right.length) > maximumDistance) return null
     if (left.isEmpty()) return right.length.takeIf { it <= maximumDistance }
     if (right.isEmpty()) return left.length.takeIf { it <= maximumDistance }
 
-    var previous = IntArray(right.length + 1) { it }
-    for (leftIndex in left.indices) {
-        val current = IntArray(right.length + 1)
-        current[0] = leftIndex + 1
-        var rowMinimum = current[0]
+    // Keep the shorter string on the array axis to minimize working memory.
+    val (source, target) = if (left.length >= right.length) left to right else right to left
+    val infinity = maximumDistance + 1
+    var previous = IntArray(target.length + 1) { infinity }
+    var current = IntArray(target.length + 1) { infinity }
+    for (column in 0..minOf(target.length, maximumDistance)) {
+        previous[column] = column
+    }
 
-        for (rightIndex in right.indices) {
-            val substitutionCost = if (left[leftIndex] == right[rightIndex]) 0 else 1
-            current[rightIndex + 1] = minOf(
-                previous[rightIndex + 1] + 1,
-                current[rightIndex] + 1,
-                previous[rightIndex] + substitutionCost,
+    for (sourceIndex in source.indices) {
+        val row = sourceIndex + 1
+        val firstColumn = maxOf(1, row - maximumDistance)
+        val lastColumn = minOf(target.length, row + maximumDistance)
+
+        // Reset only this row's active band and its boundary sentinels. Values outside the
+        // band must never leak in from the row two iterations earlier.
+        current.fill(
+            element = infinity,
+            fromIndex = firstColumn - 1,
+            toIndex = minOf(target.length + 1, lastColumn + 2),
+        )
+        if (row <= maximumDistance) current[0] = row
+
+        var rowMinimum = if (row <= maximumDistance) row else infinity
+        for (column in firstColumn..lastColumn) {
+            val substitutionCost = if (source[sourceIndex] == target[column - 1]) 0 else 1
+            current[column] = minOf(
+                previous[column] + 1,
+                current[column - 1] + 1,
+                previous[column - 1] + substitutionCost,
             )
-            rowMinimum = minOf(rowMinimum, current[rightIndex + 1])
+            rowMinimum = minOf(rowMinimum, current[column])
         }
 
         if (rowMinimum > maximumDistance) return null
+        val recycled = previous
         previous = current
+        current = recycled
     }
 
-    return previous[right.length].takeIf { it <= maximumDistance }
+    return previous[target.length].takeIf { it <= maximumDistance }
 }
 
 private fun SettingsSearchEntry.resultDescription(): String {
