@@ -54,6 +54,13 @@ data class SearchUiState(
     val errorMessage: String? = null,
 )
 
+internal fun SearchUiState.forPendingQuery(): SearchUiState = copy(
+    isLoading = true,
+    sections = emptyList(),
+    emptyStateReason = null,
+    errorMessage = null,
+)
+
 enum class DiscoverEmptyStateReason {
     NoActiveAddons,
     NoDiscoverCatalogs,
