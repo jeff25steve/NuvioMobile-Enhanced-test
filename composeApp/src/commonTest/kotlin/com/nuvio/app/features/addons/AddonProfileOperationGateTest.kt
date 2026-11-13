@@ -20,6 +20,39 @@ class AddonProfileOperationGateTest {
     }
 
 
+
+    @Test
+    fun failedCleanupStartRollsBackItsGateDepth() {
+        val gate = AddonProfileOperationGate(initialProfileId = 1)
+        val failure = IllegalStateException("simulated cancellation callback failure")
+
+        val thrown = kotlin.test.assertFailsWith<IllegalStateException> {
+            gate.beginAccountCleanup {
+                throw failure
+            }
+        }
+
+        kotlin.test.assertSame(failure, thrown)
+        assertNotNull(gate.current(1))
+    }
+
+    @Test
+    fun failedNestedCleanupStartPreservesTheExistingCleanupLease() {
+        val gate = AddonProfileOperationGate(initialProfileId = 1)
+        gate.beginAccountCleanup()
+        val failure = IllegalStateException("simulated nested cleanup failure")
+
+        kotlin.test.assertFailsWith<IllegalStateException> {
+            gate.beginAccountCleanup {
+                throw failure
+            }
+        }
+
+        assertTrue(gate.current(1) == null)
+        gate.endAccountCleanup()
+        assertNotNull(gate.current(1))
+    }
+
     @Test
     fun accountCleanupBlocksNewWorkUntilCleanupFinishes() {
         val gate = AddonProfileOperationGate(initialProfileId = 1)
