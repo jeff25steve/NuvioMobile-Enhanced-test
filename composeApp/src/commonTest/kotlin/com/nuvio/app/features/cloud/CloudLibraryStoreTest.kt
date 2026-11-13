@@ -95,6 +95,68 @@ class CloudLibraryStoreTest {
     }
 
     @Test
+    fun `cache restore cannot overwrite a completed network refresh for the same connections`() {
+        val connectionSignature = listOf("alpha:123")
+
+        assertFalse(
+            shouldApplyCloudLibraryCacheRestore(
+                requestGeneration = 9,
+                latestRequestGeneration = 9,
+                requestedConnectionSignature = connectionSignature,
+                currentConnectionSignature = connectionSignature,
+                loadedConnectionSignature = connectionSignature,
+                restoredConnectionSignature = null,
+            ),
+        )
+        assertFalse(
+            shouldApplyCloudLibraryCacheRestore(
+                requestGeneration = 9,
+                latestRequestGeneration = 9,
+                requestedConnectionSignature = connectionSignature,
+                currentConnectionSignature = connectionSignature,
+                loadedConnectionSignature = null,
+                restoredConnectionSignature = connectionSignature,
+            ),
+        )
+        assertTrue(
+            shouldApplyCloudLibraryCacheRestore(
+                requestGeneration = 9,
+                latestRequestGeneration = 9,
+                requestedConnectionSignature = connectionSignature,
+                currentConnectionSignature = connectionSignature,
+                loadedConnectionSignature = null,
+                restoredConnectionSignature = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `cache restore is rejected after a newer refresh or connection change`() {
+        val connectionSignature = listOf("alpha:123")
+
+        assertFalse(
+            shouldApplyCloudLibraryCacheRestore(
+                requestGeneration = 8,
+                latestRequestGeneration = 9,
+                requestedConnectionSignature = connectionSignature,
+                currentConnectionSignature = connectionSignature,
+                loadedConnectionSignature = null,
+                restoredConnectionSignature = null,
+            ),
+        )
+        assertFalse(
+            shouldApplyCloudLibraryCacheRestore(
+                requestGeneration = 9,
+                latestRequestGeneration = 9,
+                requestedConnectionSignature = connectionSignature,
+                currentConnectionSignature = listOf("alpha:999"),
+                loadedConnectionSignature = null,
+                restoredConnectionSignature = null,
+            ),
+        )
+    }
+
+    @Test
     fun `refresh result is rejected when provider connections change or library is disabled`() {
         assertFalse(
             shouldApplyCloudLibraryRefresh(
