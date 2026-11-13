@@ -127,7 +127,7 @@ internal fun settingsSearchAnchor(
             if (key in HomescreenSettingsSearchAnchorKeys) 1 else return null
         SettingsPage.PosterCustomization -> when (key) {
             "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels" -> 0
-            "card-depth-effect", "card-depth-edge", "card-depth-sheen" -> 2
+            "card-depth-effect" -> 2
             else -> return null
         }
         SettingsPage.DebugLogs ->
