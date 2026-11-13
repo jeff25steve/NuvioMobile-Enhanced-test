@@ -102,6 +102,7 @@ internal fun LazyListScope.homescreenSettingsContent(
     items: List<HomeCatalogSettingsItem>,
     isCatalogLoading: Boolean,
     catalogErrorMessage: String?,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val selectedHeroSourceCount = items.count { it.heroSourceEnabled }
     val enabledCatalogCount = items.count { it.enabled }
@@ -126,6 +127,8 @@ internal fun LazyListScope.homescreenSettingsContent(
                     description = stringResource(Res.string.settings_homescreen_show_hero_description),
                     checked = heroEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "home-hero",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = HomeCatalogSettingsRepository::setHeroEnabled,
                 )
                 if (heroEnabled && showHeroTrailerPlaybackSetting) {
@@ -172,6 +175,8 @@ internal fun LazyListScope.homescreenSettingsContent(
                     description = stringResource(Res.string.layout_catalog_type_sub),
                     checked = showCatalogType,
                     isTablet = isTablet,
+                    searchAnchorKey = "home-catalog-type",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = HomeCatalogSettingsRepository::setShowCatalogType,
                 )
                 SettingsGroupDivider(isTablet = isTablet)
@@ -180,6 +185,8 @@ internal fun LazyListScope.homescreenSettingsContent(
                     description = stringResource(Res.string.layout_hide_unreleased_sub),
                     checked = hideUnreleasedContent,
                     isTablet = isTablet,
+                    searchAnchorKey = "home-hide-unreleased",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = HomeCatalogSettingsRepository::setHideUnreleasedContent,
                 )
             }
