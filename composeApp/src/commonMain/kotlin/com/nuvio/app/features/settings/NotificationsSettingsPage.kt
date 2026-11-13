@@ -61,10 +61,17 @@ internal fun LazyListScope.notificationsSettingsContent(
             title = stringResource(Res.string.settings_notifications_section_test),
             isTablet = isTablet,
         ) {
-            NotificationTestCard(
-                isTablet = isTablet,
-                uiState = uiState,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "notification-test",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    NotificationTestCard(
+                        isTablet = isTablet,
+                        uiState = uiState,
+                    )
+                }
+            }
         }
     }
 }
