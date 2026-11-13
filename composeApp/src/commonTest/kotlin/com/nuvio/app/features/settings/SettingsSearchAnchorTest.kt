@@ -371,6 +371,13 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.MdbListRatings, "mdb-imdb", 2),
             Triple(SettingsPage.MdbListRatings, "mdb-audience", 2),
             Triple(SettingsPage.Omdb, "omdb-api-key", 0),
+            Triple(SettingsPage.PosterCustomization, "poster-width", 0),
+            Triple(SettingsPage.PosterCustomization, "poster-radius", 0),
+            Triple(SettingsPage.PosterCustomization, "poster-landscape", 0),
+            Triple(SettingsPage.PosterCustomization, "poster-hide-labels", 0),
+            Triple(SettingsPage.PosterCustomization, "card-depth-effect", 2),
+            Triple(SettingsPage.PosterCustomization, "card-depth-edge", 2),
+            Triple(SettingsPage.PosterCustomization, "card-depth-sheen", 2),
             Triple(SettingsPage.Homescreen, "home-hero", 1),
             Triple(SettingsPage.Homescreen, "home-catalog-type", 1),
             Triple(SettingsPage.Homescreen, "home-hide-unreleased", 1),
@@ -418,6 +425,7 @@ class SettingsSearchAnchorTest {
             SettingsPage.DiscordRpc,
             SettingsPage.DebugLogs,
             SettingsPage.Homescreen,
+            SettingsPage.PosterCustomization,
         )
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
