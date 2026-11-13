@@ -7,7 +7,7 @@ object PlayerSubtitleCueParser {
     private val ttmlDocumentRegex = Regex("""<tt[\s>]""", RegexOption.IGNORE_CASE)
     private val srtBlockSeparatorRegex = Regex("""\n\s*\n""")
     private val assOverrideBlockRegex = Regex("""\{[^}]*}""")
-    private val ttmlParagraphRegex = ttmlParagraphRegex
+    private val ttmlParagraphRegex = Regex("""(?is)<p\\b([^>]*)>(.*?)</p>""")
     private val ttmlBreakRegex = Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE)
     private val ttmlTimeOffsetRegex = Regex("""^([0-9]+(?:\.[0-9]+)?)(ms|h|m|s)$""", RegexOption.IGNORE_CASE)
     private val ttmlAttributeRegexes = mapOf(
