@@ -208,16 +208,7 @@ internal object LocalAccountDataCleaner {
     suspend fun wipe(accountUserId: String? = null) = runNonCancellableCleanup {
         // Fence outstanding profile RPCs before any account-scoped storage is cleared.
         ProfileRepository.invalidatePendingRemoteOperations()
-        val releaseAccountCleanupGates = acquireAccountCleanupGates(
-            beginAddon = { AddonRepository.beginAccountCleanup() },
-            endAddon = { AddonRepository.endAccountCleanup() },
-            beginPlugin = {
-                if (AppFeaturePolicy.pluginsEnabled) PluginRepository.beginAccountCleanup()
-            },
-            endPlugin = {
-                if (AppFeaturePolicy.pluginsEnabled) PluginRepository.endAccountCleanup()
-            },
-        )
+        var releaseAccountCleanupGates: (() -> Unit)? = null
         val cleanupUserId = accountUserId
             ?.takeIf { it.isNotBlank() }
             ?: (AuthRepository.state.value as? AuthState.Authenticated)?.userId
@@ -327,11 +318,21 @@ internal object LocalAccountDataCleaner {
 
         val allFailures = mutableListOf<Exception>()
         try {
+            releaseAccountCleanupGates = acquireAccountCleanupGates(
+                beginAddon = { AddonRepository.beginAccountCleanup() },
+                endAddon = { AddonRepository.endAccountCleanup() },
+                beginPlugin = {
+                    if (AppFeaturePolicy.pluginsEnabled) PluginRepository.beginAccountCleanup()
+                },
+                endPlugin = {
+                    if (AppFeaturePolicy.pluginsEnabled) PluginRepository.endAccountCleanup()
+                },
+            )
             allFailures += runAccountCleanupSteps(steps)
         } finally {
             allFailures += runAccountCleanupSteps(
                 listOf(
-                    { releaseAccountCleanupGates() },
+                    { releaseAccountCleanupGates?.invoke() },
                     { EpisodeReleaseNotificationsRepository.onAccountCleanupFinished() },
                     { MemberAccessRepository.onAccountCleanupFinished() },
                 ),
