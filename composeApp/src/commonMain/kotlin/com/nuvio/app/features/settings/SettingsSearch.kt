@@ -1093,6 +1093,7 @@ internal fun settingsSearchEntries(
         PlaybackSearchRow("excluded-channels", stringResource(Res.string.settings_debrid_rule_excluded_channels), stringResource(Res.string.settings_debrid_rule_excluded_channels_desc), debridResultsSection),
         PlaybackSearchRow("preferred-encodes", stringResource(Res.string.settings_debrid_rule_preferred_encodes), stringResource(Res.string.settings_debrid_rule_preferred_encodes_desc), debridResultsSection),
         PlaybackSearchRow("required-encodes", stringResource(Res.string.settings_debrid_rule_required_encodes), stringResource(Res.string.settings_debrid_rule_required_encodes_desc), debridResultsSection),
+        PlaybackSearchRow("excluded-encodes", stringResource(Res.string.settings_debrid_rule_excluded_encodes), stringResource(Res.string.settings_debrid_rule_excluded_encodes_desc), debridResultsSection),
         PlaybackSearchRow("preferred-languages", stringResource(Res.string.settings_debrid_rule_preferred_languages), stringResource(Res.string.settings_debrid_rule_preferred_languages_desc), debridResultsSection),
         PlaybackSearchRow("required-languages", stringResource(Res.string.settings_debrid_rule_required_languages), stringResource(Res.string.settings_debrid_rule_required_languages_desc), debridResultsSection),
         PlaybackSearchRow("excluded-languages", stringResource(Res.string.settings_debrid_rule_excluded_languages), stringResource(Res.string.settings_debrid_rule_excluded_languages_desc), debridResultsSection),
