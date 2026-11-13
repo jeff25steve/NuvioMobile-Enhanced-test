@@ -203,3 +203,17 @@ Relevant files:
 - Evidence: Context7 resolved the kotlinx.coroutines documentation and surfaced the precise `withContext` KDoc behavior; Exa returned official `withContext`, `NonCancellable`, and `ensureActive` documentation plus source-level explanation. The docs explicitly qualify the prompt-cancellation guarantee when no dispatch occurs. Project pins kotlinx-coroutines 1.10.2; Context7's indexed versions did not include 1.10.2, so this decision relies on the official API contract and source guidance, not a claimed exact-version test.
 - Source-level review: re-fetched `AuthRepository.kt`, `AuthServerSwitchCleanupTest.kt`, and `CleanupCancellationTest.kt`; verified the duplicate guard was removed and helper is reused at all four cleanup boundaries. The server-switch path now checks cancellation before local account wiping.
 - No tests, Gradle tasks, builds, or CI workflows were run. Regression tests are committed but compilation and execution remain unverified. No PR, merge, or release was created.
+
+## Latest continuation status (2026-11-13 16:47 UTC)
+
+- Two further cleanup-diagnostics cycles were integrated:
+  - Cycle 15 — make cleanup-failure aggregation cancellation-aware. An explicit cleanup `CancellationException` now remains the primary outcome even if an ordinary cleanup failure was recorded earlier; all other distinct failures are attached as suppressed exceptions. This prevents an ordinary exception from masking cancellation.
+  - Cycle 16 — apply the shared aggregation policy to sign-out and account deletion. Sign-out now retains secondary failures from credential clearing, fallback session clearing, and local cleanup. Account deletion retains local fallback failures when remote sign-out itself is cancelled, while preserving the existing behavior that an ordinary remote sign-out failure is not fatal if direct local session clearing succeeds.
+- Test-first commit:
+  - `ccfb6b78d3c7417dc01309f7d4a2e505c927e3d1` — tests cancellation precedence and preservation of secondary cleanup failures.
+- Implementation commits:
+  - `a415044363ec877648e2f4a7221f88e451c1c185` — cancellation-aware `cleanupFailure` aggregation and sign-out integration.
+  - `a16599caac8ca9614a2905b0dc6f4e9972979054` — retain account-deletion fallback diagnostics when remote sign-out cancellation is propagated.
+- Evidence: Context7 resolved kotlinx.coroutines and queried the closest indexed 1.10.1 documentation (repository pins 1.10.2; no exact 1.10.2 index was available). Exa independently surfaced the official Kotlin `withContext`, `NonCancellable`, and `ensureActive` documentation/source. These confirm the cancellation boundary assumptions used by the surrounding cleanup implementation. No dependency or platform API changes were made.
+- Source-level review: verified that cancellation is selected before ordinary failures, self-suppression is avoided, sign-out aggregates all cleanup results, and account deletion still treats a successful direct session-clear fallback as sufficient after an ordinary remote sign-out error. Regression test source was fetched after commit. The code-reviewer subagent dispatch capability was not available in this environment; review was performed directly against the remote source and test diff.
+- Verification boundary: no tests, Gradle tasks, builds, or CI workflows were run. The regression tests and source changes are committed, but compilation and execution remain unverified pending authorisation. No PR, merge, or release was created.
