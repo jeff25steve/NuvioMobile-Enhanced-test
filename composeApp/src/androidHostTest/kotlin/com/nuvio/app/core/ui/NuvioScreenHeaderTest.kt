@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -29,6 +30,32 @@ class NuvioScreenHeaderTest {
     @Test fun arabicTitleUsesAvailableWidth() = assertTitleWidth(LayoutDirection.Rtl, "بحث")
 
     @Test fun englishTitleUsesAvailableWidth() = assertTitleWidth(LayoutDirection.Ltr, "Search")
+
+    @Test fun edgeToEdgeHeaderExpandsBackgroundWithoutMovingContentToTheEdges() {
+        compose.setContent {
+            NuvioTheme {
+                Box(Modifier.size(320.dp, 100.dp)) {
+                    NuvioScreenHeader(
+                        title = "Search",
+                        modifier = Modifier.fillMaxWidth().testTag("header"),
+                        includeStatusBarPadding = false,
+                        contentHorizontalPadding = 16.dp,
+                        actions = { Box(Modifier.size(40.dp).testTag("headerAction")) },
+                    )
+                }
+            }
+        }
+
+        val headerBounds = compose.onNodeWithTag("header").fetchSemanticsNode().boundsInRoot
+        val titleBounds = compose.onNodeWithText("Search").fetchSemanticsNode().boundsInRoot
+        val actionBounds = compose.onNodeWithTag("headerAction").fetchSemanticsNode().boundsInRoot
+        val contentInsetPx = with(compose.density) { 16.dp.toPx() }
+        val parentWidthPx = with(compose.density) { 320.dp.toPx() }
+
+        assertTrue(abs(headerBounds.width - parentWidthPx) <= 1f, "Header background container should span the parent width")
+        assertTrue(abs(titleBounds.left - contentInsetPx) <= 1f, "Title should retain the search field's 16 dp inset")
+        assertTrue(abs(actionBounds.right - (parentWidthPx - contentInsetPx)) <= 1f, "Action should retain the matching trailing inset")
+    }
 
     @Test fun titleLeavesRoomForBackButtonAndAction() {
         compose.setContent {
