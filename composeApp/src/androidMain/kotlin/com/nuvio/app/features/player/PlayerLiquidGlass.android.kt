@@ -106,7 +106,7 @@ internal actual fun rememberVideoFrameBackdrop(enabled: Boolean): VideoFrameBack
                                 buffers[nextBuffer] = it
                             }
                             val copied = surfaceView.copyFrameInto(bitmap, handler)
-                            if (copied && !bitmap.isBlankCapture()) {
+                            if (copied) {
                                 // A usable frame restores the responsive capture cadence immediately.
                                 capturePolicy.recordUsableFrame()
                                 val location = IntArray(2)
@@ -122,7 +122,7 @@ internal actual fun rememberVideoFrameBackdrop(enabled: Boolean): VideoFrameBack
                                 )
                                 nextBuffer = (nextBuffer + 1) % buffers.size
                             } else {
-                                // PixelCopy errors and black/protected frames both count as unavailable.
+                                // Only failed PixelCopy requests are unavailable; a successful all-black frame is valid video.
                                 capturePolicy.recordUnavailableFrame()
                                 if (capturePolicy.shouldUseSlowRetry) backdrop.clearFrame()
                             }
@@ -184,21 +184,12 @@ private fun View.findVideoSurfaceView(): SurfaceView? {
     return fromPlayerView ?: best
 }
 
-/** True when every sampled pixel is pure black, i.e. the copy returned an empty/protected frame. */
-private fun Bitmap.isBlankCapture(): Boolean {
-    val stepX = (width / 8).coerceAtLeast(1)
-    val stepY = (height / 8).coerceAtLeast(1)
-    var y = stepY / 2
-    while (y < height) {
-        var x = stepX / 2
-        while (x < width) {
-            if (getPixel(x, y) and 0x00FFFFFF != 0) return false
-            x += stepX
-        }
-        y += stepY
-    }
-    return true
-}
+/**
+ * PixelCopy status is the success signal. Pixel values cannot distinguish an empty source from a
+ * legitimate black scene, fade, or intentionally dark frame.
+ */
+internal fun isSuccessfulVideoFrameCopy(copyResult: Int): Boolean =
+    copyResult == PixelCopy.SUCCESS
 
 private suspend fun SurfaceView.copyFrameInto(bitmap: Bitmap, handler: Handler): Boolean {
     if (width <= 0 || height <= 0 || holder.surface?.isValid != true) return false
@@ -208,7 +199,7 @@ private suspend fun SurfaceView.copyFrameInto(bitmap: Bitmap, handler: Handler):
                 this,
                 bitmap,
                 { result ->
-                    if (continuation.isActive) continuation.resume(result == PixelCopy.SUCCESS)
+                    if (continuation.isActive) continuation.resume(isSuccessfulVideoFrameCopy(result))
                 },
                 handler,
             )
