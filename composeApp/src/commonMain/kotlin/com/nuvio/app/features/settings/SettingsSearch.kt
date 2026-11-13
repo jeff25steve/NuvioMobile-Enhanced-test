@@ -66,6 +66,7 @@ import com.nuvio.app.features.player.PlayerSettingsRepository
 import com.nuvio.app.features.player.effectiveDownmixEnabled
 import com.nuvio.app.features.streams.StreamAutoPlayMode
 import com.nuvio.app.features.streams.StreamAutoPlaySource
+import com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle
 import com.nuvio.app.isIos
 import com.nuvio.app.supportsPosterNavigationMotion
 import nuvio.composeapp.generated.resources.*
@@ -101,6 +102,8 @@ internal fun settingsSearchAnchor(
     debridCanChooseResolverProvider: Boolean? = null,
     debridInstantPlaybackEnabled: Boolean? = null,
     liveTvHasPlaylist: Boolean? = null,
+    continueWatchingPosterStyle: Boolean? = null,
+    continueWatchingEpisodeThumbnails: Boolean? = null,
 ): SettingsSearchAnchor? {
     val sectionItemIndex = when (page) {
         SettingsPage.Appearance ->
@@ -133,8 +136,19 @@ internal fun settingsSearchAnchor(
         SettingsPage.Homescreen ->
             if (key in HomescreenSettingsSearchAnchorKeys) 1 else return null
         SettingsPage.PosterCustomization -> when (key) {
-            "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels" -> 0
-            "card-depth-effect" -> 2
+            "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels",
+            "poster-always-show-landscape-clearlogo" -> 0
+            "card-depth-effect", "card-depth-edge", "card-depth-sheen", "card-depth-edge-coverage" -> 2
+            else -> return null
+        }
+        SettingsPage.ContinueWatching -> when (key) {
+            "continue-watching-show-continue-watching" -> 0
+            "continue-watching-style" -> 1
+            "continue-watching-episode-thumbnails" -> if (continueWatchingPosterStyle == false) 2 else return null
+            "continue-watching-up-next", "continue-watching-unaired-next-up" -> 2
+            "continue-watching-blur-next-up" -> if (continueWatchingPosterStyle == false && continueWatchingEpisodeThumbnails == true) 2 else return null
+            "continue-watching-resume-prompt" -> 3
+            "continue-watching-sort-mode" -> 4
             else -> return null
         }
         SettingsPage.Debrid -> when (key) {
@@ -187,7 +201,8 @@ internal fun settingsSearchAnchor(
         SettingsPage.TraktAuthentication -> when (key) {
             "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
             "private-viewing" -> 1
-            "trakt-library-source", "trakt-watch-progress" -> 2
+            "trakt-library-source", "trakt-watch-progress", "trakt-more-like-this-source" -> 2
+            "trakt-continue-watching-window", "trakt-comments" -> 4
             else -> return null
         }
         SettingsPage.PlaybackPlayer ->
@@ -427,6 +442,8 @@ private val PlaybackUpNextSettingsSearchAnchorKeys = setOf(
     "playback-up-next-reuse-binge",
     "playback-up-next-preload",
     "playback-up-next-threshold-mode",
+    "playback-threshold-percent",
+    "playback-threshold-minutes",
 )
 
 internal fun settingsSearchAnchorListIndex(
@@ -480,6 +497,8 @@ internal fun settingsSearchEntries(
     checkForUpdatesAvailable: Boolean,
     debridSettings: DebridSettings,
     liveTvUiState: LiveTvUiState,
+    continueWatchingStyle: ContinueWatchingSectionStyle,
+    continueWatchingEpisodeThumbnails: Boolean,
 ): List<SettingsSearchEntry> {
     val authState by remember { AuthRepository.state }.collectAsStateWithLifecycle()
     val accountCategory = stringResource(SettingsCategory.You.labelRes)
@@ -601,6 +620,8 @@ internal fun settingsSearchEntries(
                         debridSettings.resolverServices.size > 1 && debridSettings.activeResolverCredential != null,
                     debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
                     liveTvHasPlaylist = liveTvUiState.hasPlaylist,
+                    continueWatchingPosterStyle = continueWatchingStyle == ContinueWatchingSectionStyle.Poster,
+                    continueWatchingEpisodeThumbnails = continueWatchingEpisodeThumbnails,
                 ),
             ),
             searchTerms = searchTerms,
@@ -1713,13 +1734,25 @@ internal fun settingsSearchEntries(
     addContinueWatchingRows(
         addRow = ::addRow,
         pageLabel = continueWatchingPage,
+        section = stringResource(Res.string.settings_continue_watching_section_card_style),
+        rows = listOf(PlaybackSearchRow("style", stringResource(Res.string.settings_continue_watching_section_card_style), searchTerms = listOf("continue watching card style", "poster style", "wide cards"))),
+    )
+    addContinueWatchingRows(
+        addRow = ::addRow,
+        pageLabel = continueWatchingPage,
         section = stringResource(Res.string.settings_continue_watching_section_up_next_behavior),
-        rows = listOf(
-            PlaybackSearchRow("episode-thumbnails", stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title), stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description)),
-            PlaybackSearchRow("up-next", stringResource(Res.string.settings_continue_watching_up_next_title), stringResource(Res.string.settings_continue_watching_up_next_description)),
-            PlaybackSearchRow("unaired-next-up", stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title), stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description)),
-            PlaybackSearchRow("blur-next-up", stringResource(Res.string.settings_continue_watching_blur_next_up_title), stringResource(Res.string.settings_continue_watching_blur_next_up_description)),
-        ),
+        rows = buildList {
+            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster) add(PlaybackSearchRow("episode-thumbnails", stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title), stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description)))
+            add(PlaybackSearchRow("up-next", stringResource(Res.string.settings_continue_watching_up_next_title), stringResource(Res.string.settings_continue_watching_up_next_description)))
+            add(PlaybackSearchRow("unaired-next-up", stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title), stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description)))
+            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster && continueWatchingEpisodeThumbnails) add(PlaybackSearchRow("blur-next-up", stringResource(Res.string.settings_continue_watching_blur_next_up_title), stringResource(Res.string.settings_continue_watching_blur_next_up_description)))
+        },
+    )
+    addContinueWatchingRows(
+        addRow = ::addRow,
+        pageLabel = continueWatchingPage,
+        section = stringResource(Res.string.settings_continue_watching_section_sort_order),
+        rows = listOf(PlaybackSearchRow("sort-mode", stringResource(Res.string.settings_continue_watching_sort_mode_title), searchTerms = listOf("continue watching order", "sort by release date", "streaming order"))),
     )
     addContinueWatchingRows(
         addRow = ::addRow,
@@ -1736,10 +1769,11 @@ internal fun settingsSearchEntries(
         PlaybackSearchRow("poster-radius", stringResource(Res.string.settings_poster_card_radius)),
         PlaybackSearchRow("poster-landscape", stringResource(Res.string.settings_poster_landscape_mode)),
         PlaybackSearchRow("poster-hide-labels", stringResource(Res.string.settings_poster_hide_labels)),
+        PlaybackSearchRow("poster-always-show-landscape-clearlogo", stringResource(Res.string.settings_poster_always_show_landscape_clearlogo)),
     ).forEach { row ->
         addRow(
             page = SettingsPage.PosterCustomization,
-            key = "poster-${row.key}",
+            key = row.key,
             title = row.title,
             description = row.description,
             pageLabel = posterStylePage,
@@ -1752,10 +1786,11 @@ internal fun settingsSearchEntries(
         PlaybackSearchRow("card-depth-effect", cardDepthSection, stringResource(Res.string.settings_card_depth_description)),
         PlaybackSearchRow("card-depth-edge", stringResource(Res.string.settings_card_depth_edge)),
         PlaybackSearchRow("card-depth-sheen", stringResource(Res.string.settings_card_depth_sheen)),
+        PlaybackSearchRow("card-depth-edge-coverage", stringResource(Res.string.settings_card_depth_edge_coverage)),
     ).forEach { row ->
         addRow(
             page = SettingsPage.PosterCustomization,
-            key = "poster-${row.key}",
+            key = row.key,
             title = row.title,
             description = row.description,
             pageLabel = posterStylePage,
