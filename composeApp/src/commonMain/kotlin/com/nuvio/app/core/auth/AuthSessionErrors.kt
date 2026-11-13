@@ -81,6 +81,7 @@ internal fun isInvalidRemoteSessionResponse(
         "api key is required" in messages
     ) return false
 
+    if (statusCode !in setOf(400, 401, 403, 404)) return false
     if (errorCode?.lowercase() in invalidSessionErrorCodes) return true
 
     val invalidJwt = "jwt" in messages &&
