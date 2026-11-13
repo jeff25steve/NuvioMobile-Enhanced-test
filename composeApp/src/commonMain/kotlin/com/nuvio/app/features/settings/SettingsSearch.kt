@@ -2679,26 +2679,27 @@ private fun settingsSearchTermScore(query: String, candidate: String): Int {
 internal fun boundedSettingsSearchEditDistance(
     left: String,
     right: String,
-    maximumDistance: Int,
+    allowedDistance: Int,
 ): Int? {
-    if (maximumDistance < 0) return null
-    if (kotlin.math.abs(left.length - right.length) > maximumDistance) return null
-    if (left.isEmpty()) return right.length.takeIf { it <= maximumDistance }
-    if (right.isEmpty()) return left.length.takeIf { it <= maximumDistance }
+    if (allowedDistance < 0) return null
+    val allowedDistance = minOf(allowedDistance, maxOf(left.length, right.length))
+    if (kotlin.math.abs(left.length - right.length) > allowedDistance) return null
+    if (left.isEmpty()) return right.length.takeIf { it <= allowedDistance }
+    if (right.isEmpty()) return left.length.takeIf { it <= allowedDistance }
 
     // Keep the shorter string on the array axis to minimize working memory.
     val (source, target) = if (left.length >= right.length) left to right else right to left
-    val infinity = maximumDistance + 1
+    val infinity = allowedDistance + 1
     var previous = IntArray(target.length + 1) { infinity }
     var current = IntArray(target.length + 1) { infinity }
-    for (column in 0..minOf(target.length, maximumDistance)) {
+    for (column in 0..minOf(target.length, allowedDistance)) {
         previous[column] = column
     }
 
     for (sourceIndex in source.indices) {
         val row = sourceIndex + 1
-        val firstColumn = maxOf(1, row - maximumDistance)
-        val lastColumn = minOf(target.length, row + maximumDistance)
+        val firstColumn = maxOf(1, row - allowedDistance)
+        val lastColumn = minOf(target.length, row + allowedDistance)
 
         // Reset only this row's active band and its boundary sentinels. Values outside the
         // band must never leak in from the row two iterations earlier.
@@ -2707,9 +2708,9 @@ internal fun boundedSettingsSearchEditDistance(
             fromIndex = firstColumn - 1,
             toIndex = minOf(target.length + 1, lastColumn + 2),
         )
-        if (row <= maximumDistance) current[0] = row
+        if (row <= allowedDistance) current[0] = row
 
-        var rowMinimum = if (row <= maximumDistance) row else infinity
+        var rowMinimum = if (row <= allowedDistance) row else infinity
         for (column in firstColumn..lastColumn) {
             val substitutionCost = if (source[sourceIndex] == target[column - 1]) 0 else 1
             current[column] = minOf(
@@ -2720,13 +2721,13 @@ internal fun boundedSettingsSearchEditDistance(
             rowMinimum = minOf(rowMinimum, current[column])
         }
 
-        if (rowMinimum > maximumDistance) return null
+        if (rowMinimum > allowedDistance) return null
         val recycled = previous
         previous = current
         current = recycled
     }
 
-    return previous[target.length].takeIf { it <= maximumDistance }
+    return previous[target.length].takeIf { it <= allowedDistance }
 }
 
 private fun SettingsSearchEntry.resultDescription(): String {
