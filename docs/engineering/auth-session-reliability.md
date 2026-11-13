@@ -137,3 +137,20 @@ Relevant files:
   - `25f989667ee00562554ec5857bfe8221ab4d7c79`
 - No tests, Gradle tasks, builds, or CI workflows were executed. The test-first ordering is present in the commit sequence, but RED/GREEN execution remains unverified under the no-build/CI constraint.
 - Exa research checked the official Kotlin cancellation guide and kotlinx.coroutines `NonCancellable` source; Context7's closest indexed coroutines documentation is 1.10.1 while this repository pins 1.10.2.
+
+## Latest continuation status (2026-11-13 16:12 UTC)
+
+- Two further cleanup-gate reliability cycles were integrated:
+  - Cycle 7 — make add-on/plugin cleanup gate acquisition exception-safe as one logical lease. If plugin acquisition fails after the add-on gate was acquired, the add-on lease is rolled back. Successful acquisitions are released in reverse order, and release failures are preserved rather than preventing the second release.
+  - Cycle 8 — make PluginProfileOperationGate.beginAccountCleanup roll back its own depth/generation acquisition when its callback throws, preserving any outer cleanup lease.
+- Regression tests were added first:
+  - 2616fb92683ca43973b3dff6762c42c25d4f628b — later plugin gate acquisition failure releases the already-acquired add-on gate; successful leases release in reverse order.
+  - 821e556c4154ef2c360e3fc0c86477dd4a26081e — plugin cleanup gate first-acquisition and nested-acquisition callback failures roll back only their own depth.
+- Implementations:
+  - 9febc6fd885069f678c666b98179296052cbf1b9 — add combined cleanup-gate acquisition/release helper.
+  - 1d0d1ecbe8632e846641a85e68d5c8c731a7b852 — rollback failed plugin cleanup gate acquisition.
+  - 9429b7d0a6488907957f3d6dd18c74ad368bc434 — place gate acquisition inside the cleanup finalization scope, so a failure after local setup still triggers the applicable finalizers.
+- Evidence reviewed: Kotlin coroutine resource/cancellation guidance and Kotlin try/finally semantics; Context7's closest indexed kotlinx-coroutines version is 1.10.1 (project pins 1.10.2), and AtomicFU lock documentation was checked against the project's 0.32.1 dependency. The implementation uses the repository's existing synchronous lock APIs and adds no dependencies.
+- Code review checked each new commit diff and the final remote source/test files. No unrelated files were changed by these cycles.
+- No tests, Gradle tasks, builds, or CI workflows were run. The added regression tests remain unexecuted until explicitly authorised.
+- The branch was confirmed to be 0 commits behind enhanced (1,451 ahead) at this checkpoint; no upstream sync was required.
