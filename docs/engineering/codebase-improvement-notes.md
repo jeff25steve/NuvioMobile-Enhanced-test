@@ -4496,7 +4496,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 ### Verification boundary and remaining work
 
-- Both regression tests were committed before the production fix was changed. Their scheduler choreography was manually reviewed against the exact 1.10.2 Mutex cancellation contract.
+- The primary handoff regression test was committed before the production fix. The queued-reset-chain regression was added afterward as a second-cycle guard. Both final test bodies were re-fetched and their scheduler choreography manually reviewed against the exact 1.10.2 Mutex cancellation contract.
 - **No Gradle task, test execution, compilation, build, benchmark, workflow dispatch or CI run was started**, in accordance with the no-build/no-CI restriction. The regression tests are committed but remain unexecuted; no runtime fix or test pass is claimed.
 - After authorisation, run the focused `AuthSessionOperationGateTest` suite first, then the common auth tests and platform compile checks. Also exercise rapid overlapping sign-out/server-switch cancellation on Android and iOS.
 - Scope is limited to `AuthSessionOperationGate.kt`, its common test file and this note. No Liquid Glass Editor, custom settings/cloud backgrounds, profile biometric implementation, dependency, build configuration or workflow files were changed.
