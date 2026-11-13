@@ -255,6 +255,16 @@ internal fun libraryCloudHeaderScrimColorStops(): List<Pair<Float, Color>> = lis
     1f to Color.Transparent,
 )
 
+/**
+ * The Studio Cloud preview keeps its header fixed while the list scrolls below it.
+ * Give the LazyColumn its own viewport inset so sticky headers pin below that header,
+ * matching the live Library where the list viewport starts after the fixed screen chrome.
+ */
+internal fun libraryCloudPreviewViewportTopInset(
+    sourceMode: LibraryViewMode,
+    headerHeight: Dp,
+): Dp = if (sourceMode == LibraryViewMode.Cloud) headerHeight else 0.dp
+
 /** Match the pinned Cloud toolbar to its dedicated black/artwork screen backdrop. */
 internal fun libraryCloudToolbarBackgroundColor(artworkBackgroundActive: Boolean): Color =
     if (artworkBackgroundActive) Color.Transparent else Color.Black
