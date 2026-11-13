@@ -142,7 +142,6 @@ internal fun settingsSearchAnchor(
             "card-depth-effect", "card-depth-edge", "card-depth-sheen", "card-depth-edge-coverage",
             "card-depth-fine-tune" -> 2
             else -> if (key.startsWith("card-depth-surface-")) 2 else return null
-            else -> return null
         }
         SettingsPage.ContinueWatching -> when (key) {
             "continue-watching-show-continue-watching" -> 0
