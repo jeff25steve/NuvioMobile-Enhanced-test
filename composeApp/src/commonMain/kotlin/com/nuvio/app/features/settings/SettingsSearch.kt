@@ -98,6 +98,20 @@ internal fun settingsSearchAnchor(
             if (key in AppearanceSettingsSearchAnchorKeys) 1 else return null
         SettingsPage.Layout ->
             LayoutSettingsSearchAnchorItemIndexes[key] ?: return null
+        SettingsPage.Account ->
+            if (key in AccountSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.ContentDiscovery ->
+            if (key == "recent-searches") 0 else return null
+        SettingsPage.Streams ->
+            if (key in StreamsSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.MetaScreen ->
+            if (key == "meta-poster-transition") 0 else return null
+        SettingsPage.TraktAuthentication -> when (key) {
+            "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
+            "private-viewing" -> 1
+            "trakt-library-source", "trakt-watch-progress", "trakt-more-like-this-source" -> 2
+            else -> return null
+        }
         SettingsPage.PlaybackPlayer ->
             if (key in PlaybackPlayerSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.PlaybackStreamSelection ->
@@ -120,8 +134,11 @@ internal fun settingsSearchAnchor(
             if (key in PlaybackP2pSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.Downloads ->
             if (key in DownloadsSettingsSearchAnchorKeys) 0 else return null
-        SettingsPage.Notifications ->
-            if (key in NotificationsSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.Notifications -> when (key) {
+            "episode-release-alerts" -> 0
+            "notification-test" -> 1
+            else -> return null
+        }
         SettingsPage.Advanced -> when (key) {
             "advanced-remember-last-profile" -> 0
             "advanced-dns-provider" -> if (DnsSettingsRepository.isSupported) 1 else return null
@@ -134,6 +151,16 @@ internal fun settingsSearchAnchor(
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
 }
+
+private val AccountSettingsSearchAnchorKeys = setOf("account-status", "account-sign-out", "account-delete")
+
+private val StreamsSettingsSearchAnchorKeys = setOf(
+    "stream-addon-logo",
+    "stream-background",
+    "stream-size-badges",
+    "stream-badge-position",
+    "stream-badge-urls",
+)
 
 private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
 
