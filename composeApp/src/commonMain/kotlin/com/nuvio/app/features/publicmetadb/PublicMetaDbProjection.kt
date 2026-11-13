@@ -244,26 +244,50 @@ internal class PublicMetaDbProjection(val snapshot: PublicMetaDbSyncSnapshot) {
         }).sortedByDescending(WatchProgressEntry::lastUpdatedEpochMs)
     }
 
+    private data class WatchedEpisodeCandidates(
+        var latestAny: PublicMetaDbWatchedEntry,
+        var latestPositiveSeason: PublicMetaDbWatchedEntry?,
+    )
+
     private fun buildContinueWatching(): List<WatchProgressEntry> {
-        val playback = snapshot.resume.mapNotNull { it.toProgressEntry() }
-        val playingShows = snapshot.resume
-            .filterNot { isPublicMetaDbMovieType(it.mediaType) }
-            .mapTo(mutableSetOf()) { it.tmdbId }
-        val seeds = snapshot.watched
-            .filterNot { isPublicMetaDbMovieType(it.mediaType) }
-            .filter { it.season != null && it.episode != null }
-            .groupBy(PublicMetaDbWatchedEntry::tmdbId)
-            .mapNotNull { (tmdbId, episodes) ->
-                if (tmdbId in playingShows) return@mapNotNull null
-                val latest = (episodes.filter { (it.season ?: 0) > 0 }.ifEmpty { episodes })
-                    .maxWithOrNull(
-                        compareBy<PublicMetaDbWatchedEntry> { it.watchedAtEpochMs }
-                            .thenBy { it.season ?: 0 }
-                            .thenBy { it.episode ?: 0 },
-                    ) ?: return@mapNotNull null
-                if (snapshot.dismissed[publicMetaDbShowKey(tmdbId)] == latest.watchedAtEpochMs) return@mapNotNull null
-                latest
+        val playback = mutableListOf<WatchProgressEntry>()
+        val playingShows = mutableSetOf<Long>()
+        for (point in snapshot.resume) {
+            if (!isPublicMetaDbMovieType(point.mediaType)) {
+                playingShows.add(point.tmdbId)
             }
+            point.toProgressEntry()?.let(playback::add)
+        }
+
+        val latestEpisodesByShow = linkedMapOf<Long, WatchedEpisodeCandidates>()
+        for (entry in snapshot.watched) {
+            if (isPublicMetaDbMovieType(entry.mediaType)) continue
+            val season = entry.season ?: continue
+            if (entry.episode == null) continue
+
+            val candidates = latestEpisodesByShow[entry.tmdbId]
+            if (candidates == null) {
+                latestEpisodesByShow[entry.tmdbId] = WatchedEpisodeCandidates(
+                    latestAny = entry,
+                    latestPositiveSeason = entry.takeIf { season > 0 },
+                )
+            } else {
+                if (entry.isLaterThan(candidates.latestAny)) {
+                    candidates.latestAny = entry
+                }
+                val latestPositiveSeason = candidates.latestPositiveSeason
+                if (season > 0 && (latestPositiveSeason == null || entry.isLaterThan(latestPositiveSeason))) {
+                    candidates.latestPositiveSeason = entry
+                }
+            }
+        }
+
+        val seeds = latestEpisodesByShow.mapNotNull { (tmdbId, candidates) ->
+            if (tmdbId in playingShows) return@mapNotNull null
+            val latest = candidates.latestPositiveSeason ?: candidates.latestAny
+            if (snapshot.dismissed[publicMetaDbShowKey(tmdbId)] == latest.watchedAtEpochMs) return@mapNotNull null
+            latest
+        }
             .sortedByDescending(PublicMetaDbWatchedEntry::watchedAtEpochMs)
             .take(PUBLICMETADB_MAX_NEXT_UP_SEEDS)
             .mapNotNull { latest ->
@@ -363,4 +387,12 @@ internal class PublicMetaDbProjection(val snapshot: PublicMetaDbSyncSnapshot) {
     companion object {
         val Empty = PublicMetaDbProjection(PublicMetaDbSyncSnapshot())
     }
+}
+
+private fun PublicMetaDbWatchedEntry.isLaterThan(other: PublicMetaDbWatchedEntry): Boolean {
+    if (watchedAtEpochMs != other.watchedAtEpochMs) return watchedAtEpochMs > other.watchedAtEpochMs
+    val seasonNumber = season ?: 0
+    val otherSeasonNumber = other.season ?: 0
+    if (seasonNumber != otherSeasonNumber) return seasonNumber > otherSeasonNumber
+    return (episode ?: 0) > (other.episode ?: 0)
 }
