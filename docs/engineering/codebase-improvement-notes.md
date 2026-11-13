@@ -5052,3 +5052,24 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Media3 is pinned at `1.8.0`. Context7's indexed Media3 source does not list that exact version; the returned PlayerView API documentation confirms the relevant surface-selection contract (`getVideoSurfaceView()`, default SurfaceView, TextureView selected via layout attribute). No Media3 API change is needed for this fix.
 - Official Android PixelCopy documentation and AOSP source confirm the API result codes already distinguish successful copies from no-data and invalid/protected/destroyed sources. A successful copy may legitimately contain black pixels.
 - The production fix has deliberately not been committed without the required failing-test execution. Do not mark Player fixed or the regression verified until the focused task can actually run.
+
+
+## 13 November 2026 — Player test-run authorisation and Actions dispatch capability check
+
+### Updated authorisation
+
+- The user has now explicitly approved one GitHub Actions run restricted to the Android host regression test only. This supersedes the earlier statement that CI remained unauthorised.
+- The approved scope excludes APK packaging, release builds and unrelated CI jobs.
+
+### Execution capability check
+
+- Rechecked the installed GitHub connector actions available in this session. It exposes workflow-run/job/artifact inspection and rerun operations, but no workflow-dispatch action or generic authenticated GitHub Actions API request.
+- The repository file interface can read and write source files, but cannot execute Gradle. The local container still has no checkout and previously failed to resolve github.com, so it cannot host the focused Gradle task either.
+- No workflow was dispatched and no test/build/CI command was run. Do not attempt to trigger CI indirectly by pushing code or changing workflow files; that would not guarantee the requested single-job scope.
+- This is an execution-tool limitation, not a refusal of the user's authorisation. The narrow test run remains approved and pending an environment with an Actions-dispatch capability or a local checkout.
+
+### PixelCopy defect remains unchanged
+
+- The live Android implementation still rejects PixelCopy.SUCCESS when sampled bitmap pixels are all black. The Android PixelCopy API reference and AOSP implementation confirm that SUCCESS means the pixel copy request succeeded; source availability errors are represented separately by statuses such as ERROR_SOURCE_NO_DATA and ERROR_SOURCE_INVALID.
+- Context7 was queried against its Android Developer Reference index, but its returned snippet was not sufficiently specific to the PixelCopy contract. The direct Android Developers API reference and AOSP source are the authoritative evidence for this decision.
+- No test or production source was changed. TDD red/green verification cannot be honestly completed without executing the focused host test. Keep the fix pending; do not claim Player is fully fixed.
