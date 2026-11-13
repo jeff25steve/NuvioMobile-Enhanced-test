@@ -4836,3 +4836,30 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Added explicit positive coverage that an enabled Saved sort surface requests capture when Saved controls are present.
 - Review was performed as an author self-review because no independent reviewer/subagent execution tool is available in this session. This is weaker than a fresh independent review.
 - The remote regression tests remain unexecuted. No Gradle task, test, compilation, build, benchmark, simulator/device run or CI workflow was started. Source inspection cannot establish compilation, rendered pixel parity, accessibility contrast on real artwork, or actual frame-time/memory gains.
+
+
+## 13 November 2026 — isolate Saved Library backdrop sampling
+
+### Confirmed rendering defects
+
+- The Saved scrolling-content backdrop modifier was attached to a Box that contained both the NuvioScreen LazyColumn and the pinned Saved-controls overlay. NuvioBackdropSourceNode.draw() first draws its children and then records contentScope.drawContent() into the backdrop graphics layer. Because the pinned controls consume that same backdrop, they were included in the layer they read, creating a self-sampling feedback path and risking stale/recursive glass output.
+- The outer Library composition-local selected the scrolling-content backdrop for the entire Saved screen whenever any Library glass surface was enabled. That also made the shared Saved/Cloud/Servers source-switch pill sample the list layer even though it sits above the scrolling viewport and should use the static screen backdrop.
+
+### Changes
+
+- Moved the Saved content source modifier from the wrapper Box directly onto NuvioScreen's LazyColumn modifier. The pinned controls remain a sibling overlay and are now excluded from the recorded source.
+- Scoped the source-switch pill in its own CompositionLocalProvider to the static libraryBackdrop, while retaining the scrolling-content backdrop for pinned Saved filters and the Saved release calendar.
+- Added common regression coverage for the Saved-only scrolling-source activation policy, including Cloud and Servers exclusions.
+
+### Evidence and review
+
+- Verified the concrete hierarchy in LibraryScreen.kt: NuvioScreen is implemented as a LazyColumn in core/ui/Components.kt, and the pinned controls are emitted after the NuvioScreen call as a sibling in the containing Box.
+- Verified NuvioBackdropSourceNode.draw() records its modifier's full child content after drawing it. The previous modifier placement therefore captured both the list and the pinned controls.
+- Kyant Backdrop's official Layer backdrop documentation (https://kyant.gitbook.io/backdrop/api/backdrops) and bottom-sheet tutorial (https://kyant.gitbook.io/backdrop/tutorials/glass-bottom-sheet) warn that a backdrop must not draw content that consumes the same layer; exportedBackdrop exists to break that rendering loop. The repository uses a custom source recorder, so the safe correction is to exclude the consuming overlay from its source subtree.
+- The repository pins Compose Multiplatform 1.13.0-beta01 and Kyant Backdrop 2.0.1. Context7's available docs did not provide an exact versioned snapshot for either pin; no new API or dependency was introduced.
+
+### Verification boundary
+
+- Remote source and test files were reviewed and updated on main-build-testing; source-level structural checks and fresh GitHub re-fetches are required before reporting integration.
+- Regression tests were added but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, in accordance with the standing authorisation boundary.
+- Runtime verification remains required for Saved pinned controls while scrolling, the source-switch pill, calendar popup, Saved/Cloud/Servers switching, and glass enabled/disabled states. This change addresses a confirmed source-scope defect but does not claim the entire Library has been runtime-validated.
