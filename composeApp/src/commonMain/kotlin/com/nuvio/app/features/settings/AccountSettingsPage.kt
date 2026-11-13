@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,15 +57,20 @@ import org.jetbrains.compose.resources.stringResource
 
 internal fun LazyListScope.accountSettingsContent(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
-        AccountSettingsBody(isTablet = isTablet)
+        AccountSettingsBody(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
 }
 
 @Composable
 private fun AccountSettingsBody(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val authState by AuthRepository.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -77,9 +83,14 @@ private fun AccountSettingsBody(
     val isAnonymousGuest = (authState as? AuthState.Authenticated)?.isAnonymous == true
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsSurfaceCard(isTablet = isTablet) {
-            Text(
-                text = stringResource(Res.string.compose_settings_page_account),
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "account-status",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                SettingsSurfaceCard(isTablet = isTablet) {
+                    Text(
+                        text = stringResource(Res.string.compose_settings_page_account),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
@@ -113,26 +124,41 @@ private fun AccountSettingsBody(
                     )
                 }
             }
+            }
         }
 
-        NuvioPrimaryButton(
-            text = if (isAnonymousGuest) {
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "account-sign-out",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                NuvioPrimaryButton(
+                    text = if (isAnonymousGuest) {
                 stringResource(Res.string.settings_account_sign_in_with_account)
             } else {
                 stringResource(Res.string.settings_account_sign_out)
             },
-            onClick = { showSignOutConfirm = true },
-        )
+                    onClick = { showSignOutConfirm = true },
+                )
+            }
+        }
 
         if (canDeleteAccount) {
-            DeleteAccountCard(
-                isTablet = isTablet,
-                errorMessage = deleteErrorMessage,
-                onDeleteClick = {
-                    deleteErrorMessage = null
-                    showDeleteConfirm = true
-                },
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "account-delete",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    DeleteAccountCard(
+                        isTablet = isTablet,
+                        errorMessage = deleteErrorMessage,
+                        onDeleteClick = {
+                            deleteErrorMessage = null
+                            showDeleteConfirm = true
+                        },
+                    )
+                }
+            }
         }
     }
 
