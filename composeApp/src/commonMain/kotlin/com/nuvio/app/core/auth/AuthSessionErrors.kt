@@ -1,5 +1,6 @@
 package com.nuvio.app.core.auth
 
+import io.github.jan.supabase.auth.exception.AuthErrorCode
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 
@@ -104,19 +105,9 @@ internal fun isInvalidRefreshResponse(
     if (statusCode !in setOf(400, 401, 403)) return false
     val normalizedCode = errorCode?.lowercase()
     if (normalizedCode in invalidRefreshErrorCodes) return true
-    // Unknown codes remain message-classified for forward compatibility, but known
-    // unrelated Auth codes never invalidate a refresh session merely by status.
-    if (normalizedCode != null && normalizedCode !in invalidRefreshErrorCodes) {
-        val knownNonSessionFailure = normalizedCode in setOf(
-            "invalid_credentials",
-            "over_request_rate_limit",
-            "provider_disabled",
-            "invalid_api_key",
-            "insufficient_aal",
-            "weak_password",
-        )
-        if (knownNonSessionFailure) return false
-    }
+    // A recognized Auth API code is authoritative: unrelated known failures must
+    // not clear a valid session just because their message happens to mention a token.
+    if (normalizedCode != null && AuthErrorCode.fromValue(normalizedCode) != null) return false
     val messages = message.lowercase()
     return invalidRefreshMarkers.any(messages::contains)
 }
