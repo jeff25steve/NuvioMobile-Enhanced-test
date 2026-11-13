@@ -58,6 +58,7 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSurfaceEffectivelyEnabled
 import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
+import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.player.PlayerSettingsRepository
 import com.nuvio.app.features.player.effectiveDownmixEnabled
@@ -1087,6 +1088,24 @@ internal fun settingsSearchEntries(
             description = row.description,
             pageLabel = debridPage,
             section = row.sectionOverride ?: debridResultsSection,
+        )
+    }
+
+    DebridProviders.visible().forEach { provider ->
+        addRow(
+            page = SettingsPage.Debrid,
+            key = "debrid-provider-${provider.id}",
+            title = provider.displayName,
+            description = stringResource(
+                if (provider.authMethod == com.nuvio.app.features.debrid.DebridProviderAuthMethod.DeviceCode) {
+                    Res.string.settings_debrid_provider_device_description
+                } else {
+                    Res.string.settings_debrid_provider_description
+                },
+                provider.displayName,
+            ),
+            pageLabel = debridPage,
+            section = debridMainSection,
         )
     }
 
