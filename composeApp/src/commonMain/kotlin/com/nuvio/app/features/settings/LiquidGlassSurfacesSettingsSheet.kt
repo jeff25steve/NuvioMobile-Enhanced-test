@@ -146,7 +146,6 @@ import com.nuvio.app.features.player.PlayerControlsShell
 import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
-import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.streams.StreamSearchField
 import com.nuvio.app.features.streams.ProviderFilterRow
 import com.nuvio.app.features.streams.AddonStreamGroup
@@ -179,7 +178,6 @@ import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassStandaloneSurfaces
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
