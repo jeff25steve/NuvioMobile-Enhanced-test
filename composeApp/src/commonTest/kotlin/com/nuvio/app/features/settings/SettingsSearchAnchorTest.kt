@@ -473,6 +473,8 @@ class SettingsSearchAnchorTest {
             SettingsPage.DebugLogs,
             SettingsPage.Homescreen,
             SettingsPage.PosterCustomization,
+            SettingsPage.Debrid,
+            SettingsPage.LiveTv,
         )
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
