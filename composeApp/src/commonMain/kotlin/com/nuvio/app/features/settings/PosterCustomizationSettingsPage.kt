@@ -144,6 +144,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.posterCustomizationSettingsContent(
     isTablet: Boolean,
     uiState: PosterCardStyleUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -164,6 +165,7 @@ internal fun LazyListScope.posterCustomizationSettingsContent(
                     catalogLandscapeModeEnabled = uiState.catalogLandscapeModeEnabled,
                     hideLabelsEnabled = uiState.hideLabelsEnabled,
                     alwaysShowLandscapeClearlogo = uiState.alwaysShowLandscapeClearlogo,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onWidthSelected = PosterCardStyleRepository::setWidthDp,
                     onCornerRadiusSelected = PosterCardStyleRepository::setCornerRadiusDp,
                     onCatalogLandscapeModeChange = PosterCardStyleRepository::setCatalogLandscapeModeEnabled,
@@ -285,6 +287,7 @@ internal fun LazyListScope.posterCustomizationSettingsContent(
                 CardDepthStyleControls(
                     isTablet = isTablet,
                     uiState = cardDepthState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -296,6 +299,7 @@ internal fun LazyListScope.posterCustomizationSettingsContent(
 private fun CardDepthStyleControls(
     isTablet: Boolean,
     uiState: CardDepthStyleUiState,
+    highlightedSearchAnchorKey: String?,
 ) {
     var showFineTune by remember { mutableStateOf(false) }
     val edgeOptions = listOf(
@@ -332,24 +336,45 @@ private fun CardDepthStyleControls(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PosterToggleRow(
-            title = stringResource(Res.string.settings_card_depth_enabled),
-            checked = uiState.enabled,
-            onCheckedChange = CardDepthStyleRepository::setEnabled,
-        )
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "card-depth-effect",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterToggleRow(
+                    title = stringResource(Res.string.settings_card_depth_enabled),
+                    checked = uiState.enabled,
+                    onCheckedChange = CardDepthStyleRepository::setEnabled,
+                )
+            }
+        }
         if (uiState.enabled) {
-            PosterStyleOptionRow(
-                title = stringResource(Res.string.settings_card_depth_edge),
-                selectedValue = uiState.edgeStrength,
-                options = edgeOptions,
-                onSelected = CardDepthStyleRepository::setEdgeStrength,
-            )
-            PosterStyleOptionRow(
-                title = stringResource(Res.string.settings_card_depth_sheen),
-                selectedValue = uiState.sheenStrength,
-                options = sheenOptions,
-                onSelected = CardDepthStyleRepository::setSheenStrength,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "card-depth-edge",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    PosterStyleOptionRow(
+                        title = stringResource(Res.string.settings_card_depth_edge),
+                        selectedValue = uiState.edgeStrength,
+                        options = edgeOptions,
+                        onSelected = CardDepthStyleRepository::setEdgeStrength,
+                    )
+                }
+            }
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "card-depth-sheen",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    PosterStyleOptionRow(
+                        title = stringResource(Res.string.settings_card_depth_sheen),
+                        selectedValue = uiState.sheenStrength,
+                        options = sheenOptions,
+                        onSelected = CardDepthStyleRepository::setSheenStrength,
+                    )
+                }
+            }
             PosterStyleOptionRow(
                 title = stringResource(Res.string.settings_card_depth_edge_coverage),
                 selectedValue = uiState.edgeCoverage,
@@ -726,6 +751,7 @@ private fun PosterCardStyleControls(
     onCatalogLandscapeModeChange: (Boolean) -> Unit,
     onHideLabelsChange: (Boolean) -> Unit,
     onAlwaysShowLandscapeClearlogoChange: (Boolean) -> Unit,
+    highlightedSearchAnchorKey: String?,
 ) {
     val widthOptions = listOf(
         PresetOption(stringResource(Res.string.settings_poster_width_compact), 104),
@@ -758,27 +784,55 @@ private fun PosterCardStyleControls(
             widthDp = widthDp,
             cornerRadiusDp = cornerRadiusDp,
         )
-        PosterStyleOptionRow(
-            title = stringResource(Res.string.settings_poster_card_width),
-            selectedValue = widthDp,
-            options = widthOptions,
-            onSelected = onWidthSelected,
-        )
-        PosterStyleOptionRow(
-            title = stringResource(Res.string.settings_poster_card_radius),
-            selectedValue = cornerRadiusDp,
-            options = radiusOptions,
-            onSelected = onCornerRadiusSelected,
-        )
-        PosterLandscapeModeToggleRow(
-            checked = catalogLandscapeModeEnabled,
-            onCheckedChange = onCatalogLandscapeModeChange,
-        )
-        PosterToggleRow(
-            title = stringResource(Res.string.settings_poster_hide_labels),
-            checked = hideLabelsEnabled,
-            onCheckedChange = onHideLabelsChange,
-        )
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "poster-width",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterStyleOptionRow(
+                    title = stringResource(Res.string.settings_poster_card_width),
+                    selectedValue = widthDp,
+                    options = widthOptions,
+                    onSelected = onWidthSelected,
+                )
+            }
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "poster-radius",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterStyleOptionRow(
+                    title = stringResource(Res.string.settings_poster_card_radius),
+                    selectedValue = cornerRadiusDp,
+                    options = radiusOptions,
+                    onSelected = onCornerRadiusSelected,
+                )
+            }
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "poster-landscape",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterLandscapeModeToggleRow(
+                    checked = catalogLandscapeModeEnabled,
+                    onCheckedChange = onCatalogLandscapeModeChange,
+                )
+            }
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "poster-hide-labels",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterToggleRow(
+                    title = stringResource(Res.string.settings_poster_hide_labels),
+                    checked = hideLabelsEnabled,
+                    onCheckedChange = onHideLabelsChange,
+                )
+            }
+        }
         PosterToggleRow(
             title = stringResource(Res.string.settings_poster_always_show_landscape_clearlogo),
             checked = alwaysShowLandscapeClearlogo,
