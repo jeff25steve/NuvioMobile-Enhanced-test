@@ -272,6 +272,31 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun cloudPreviewPlacesItsPinnedToolbarBelowTheFixedHeader() {
+        assertEquals(
+            132.dp,
+            libraryCloudPreviewViewportTopInset(
+                sourceMode = LibraryViewMode.Cloud,
+                headerHeight = 132.dp,
+            ),
+        )
+        assertEquals(
+            0.dp,
+            libraryCloudPreviewViewportTopInset(
+                sourceMode = LibraryViewMode.Saved,
+                headerHeight = 132.dp,
+            ),
+        )
+        assertEquals(
+            0.dp,
+            libraryCloudPreviewViewportTopInset(
+                sourceMode = LibraryViewMode.Servers,
+                headerHeight = 132.dp,
+            ),
+        )
+    }
+
+    @Test
     fun savedHeaderScrimStopsBeforeTheTitleHeadersBottomSpacing() {
         assertEquals(4.dp, librarySavedHeaderScrimBottomInset(scrimEnabled = true))
         assertEquals(0.dp, librarySavedHeaderScrimBottomInset(scrimEnabled = false))
