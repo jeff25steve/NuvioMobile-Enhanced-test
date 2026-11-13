@@ -143,18 +143,25 @@ internal fun LazyListScope.metaScreenSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                SettingsChipRow(
-                    title = stringResource(Res.string.settings_meta_background_mode),
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "meta-background-mode",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsChipRow(
+                            title = stringResource(Res.string.settings_meta_background_mode),
                     description = stringResource(Res.string.settings_meta_background_mode_description),
                     isTablet = isTablet,
                     footer = stringResource(uiState.backgroundMode.descriptionRes),
                 ) {
-                    MetaScreenBackgroundMode.entries.forEach { mode ->
-                        Chip(
-                            label = stringResource(mode.labelRes),
-                            selected = uiState.backgroundMode == mode,
-                            onClick = { MetaScreenSettingsRepository.setBackgroundMode(mode) },
-                        )
+                            MetaScreenBackgroundMode.entries.forEach { mode ->
+                                Chip(
+                                    label = stringResource(mode.labelRes),
+                                    selected = uiState.backgroundMode == mode,
+                                    onClick = { MetaScreenSettingsRepository.setBackgroundMode(mode) },
+                                )
+                            }
+                        }
                     }
                 }
                 if (supportsPosterNavigationMotion) {
@@ -221,10 +228,16 @@ internal fun LazyListScope.metaScreenSettingsContent(
                     description = stringResource(Res.string.settings_meta_tab_layout_description),
                     checked = uiState.tabLayout,
                     isTablet = isTablet,
+                    searchAnchorKey = "meta-tabs",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = { MetaScreenSettingsRepository.setTabLayout(it) },
                 )
                 SettingsGroupDivider(isTablet = isTablet)
-                RatingsSettings(isTablet = isTablet, uiState = uiState)
+                RatingsSettings(
+                    isTablet = isTablet,
+                    uiState = uiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                )
                 SettingsGroupDivider(isTablet = isTablet)
                 val shuffleProfile by remember {
                     EpisodeShuffleRepository.ensureLoaded()
@@ -236,22 +249,33 @@ internal fun LazyListScope.metaScreenSettingsContent(
                     description = stringResource(Res.string.layout_random_episode_sub),
                     checked = shuffleProfile.available,
                     isTablet = isTablet,
+                    searchAnchorKey = "meta-shuffle",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = {
                         if (!EpisodeShuffleRepository.setAvailable(it)) NuvioToastController.show(shuffleSaveFailed)
                     },
                 )
                 SettingsGroupDivider(isTablet = isTablet)
-                MetaEpisodeCardStyleSelector(
-                    isTablet = isTablet,
-                    selectedStyle = uiState.episodeCardStyle,
-                    onStyleSelected = MetaScreenSettingsRepository::setEpisodeCardStyle,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "meta-episode-cards",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        MetaEpisodeCardStyleSelector(
+                            isTablet = isTablet,
+                            selectedStyle = uiState.episodeCardStyle,
+                            onStyleSelected = MetaScreenSettingsRepository::setEpisodeCardStyle,
+                        )
+                    }
+                }
                 SettingsGroupDivider(isTablet = isTablet)
                 SettingsSwitchRow(
                     title = stringResource(Res.string.settings_meta_blur_unwatched_episodes),
                     description = stringResource(Res.string.settings_meta_blur_unwatched_episodes_description),
                     checked = uiState.blurUnwatchedEpisodes,
                     isTablet = isTablet,
+                    searchAnchorKey = "meta-blur-episodes",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = { MetaScreenSettingsRepository.setBlurUnwatchedEpisodes(it) },
                 )
             }
