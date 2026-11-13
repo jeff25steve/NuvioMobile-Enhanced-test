@@ -55,14 +55,21 @@ private const val MAX_DISPLAYED_LOG_LINES = 500
 
 internal fun LazyListScope.debugLogsSettingsContent(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
-        DebugLogsSection(isTablet = isTablet)
+        DebugLogsSection(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
 }
 
 @Composable
-private fun DebugLogsSection(isTablet: Boolean) {
+private fun DebugLogsSection(
+    isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
+) {
     val clipboardManager = LocalClipboardManager.current
     val logEntries by InAppLogger.entries.collectAsState()
     var selectedCategory by rememberSaveable { mutableStateOf(ALL_FILTER_VALUE) }
@@ -114,6 +121,8 @@ private fun DebugLogsSection(isTablet: Boolean) {
                 ),
                 enabled = displayedEntries.isNotEmpty(),
                 isTablet = isTablet,
+                searchAnchorKey = "debug-copy-logs",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onClick = {
                     clipboardManager.setText(AnnotatedString(logText))
                 },
@@ -124,18 +133,27 @@ private fun DebugLogsSection(isTablet: Boolean) {
                 description = stringResource(Res.string.settings_advanced_debugging_clear_logs_description),
                 enabled = logEntries.isNotEmpty(),
                 isTablet = isTablet,
+                searchAnchorKey = "debug-clear-logs",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onClick = InAppLogger::clear,
             )
             SettingsGroupDivider(isTablet = isTablet)
-            DebugLogTextPanel(
-                text = viewerText,
-                isEmpty = logEntries.isEmpty() || filteredEntries.isEmpty(),
-                displayedCount = displayedEntries.size,
-                filteredCount = filteredEntries.size,
-                retainedCount = logEntries.size,
-                retainedLimit = InAppLogger.maxRetainedEntries,
-                isTablet = isTablet,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "debug-log-viewer",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    DebugLogTextPanel(
+                        text = viewerText,
+                        isEmpty = logEntries.isEmpty() || filteredEntries.isEmpty(),
+                        displayedCount = displayedEntries.size,
+                        filteredCount = filteredEntries.size,
+                        retainedCount = logEntries.size,
+                        retainedLimit = InAppLogger.maxRetainedEntries,
+                        isTablet = isTablet,
+                    )
+                }
+            }
         }
     }
 }
