@@ -2495,4 +2495,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Карти с резултати от потоци</string>
     <string name="settings_liquid_glass_surface_stream_selection">Търсене и продължаване на потоци</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Подсилва цветовете, видими през стъклото.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Връзката към стрийма е изтекла. Опитайте с друг източник.</string>
+    <string name="player_error_stream_removed">Връзката към стрийма е изтекла или е премахната. Опитайте с друг източник.</string>
+    <string name="player_error_stream_rate_limited">Твърде много заявки към източника на източника. Изчакайте малко и опитайте отново.</string>
+    <string name="player_error_stream_unavailable">Стрийм сървърът в момента не е наличен. Опитайте с друг източник.</string>
+    <string name="player_error_stream_blocked">Източникът на източника е блокиран или ограничен. Опитайте с друг източник.</string>
+    <string name="player_error_source_invalid_content">Грешка в източника: Източникът на източника върна невалидно или невъзпроизводимо съдържание. Връзката може да е изтекла или сървърът да е върнал страница за грешка вместо видео.\n\nОпитайте с друг източник. [%1$s]</string>
+    <string name="player_error_unsupported_format">Този източник използва формат, който вашето устройство може да не поддържа. Опитайте с друг източник. [%1$s]</string>
 </resources>
