@@ -1021,4 +1021,26 @@ class SettingsSearchAnchorTest {
         assertNull(settingsSearchAnchor(SettingsPage.PlaybackUpNext, "playback-threshold-minutes", "Minutes before end", ""))
     }
 
+    @Test
+    fun appearanceThemeSelectorHasExactAnchor() {
+        assertEquals(
+            0,
+            settingsSearchAnchor(SettingsPage.Appearance, "theme", "Theme", "")?.sectionItemIndex,
+        )
+    }
+
+    @Test
+    fun advancedCacheActionsFollowOptionalDiagnosticSections() {
+        val expectedIndex = 2 +
+            (if (DnsSettingsRepository.isSupported) 1 else 0) +
+            (if (SentrySettingsRepository.isSupported) 1 else 0)
+        listOf("advanced-clear-cw-cache", "advanced-clear-metadata-cache").forEach { key ->
+            assertEquals(
+                expectedIndex,
+                settingsSearchAnchor(SettingsPage.Advanced, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
 }
