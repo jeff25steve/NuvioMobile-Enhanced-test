@@ -1906,7 +1906,7 @@ internal fun settingsSearchEntries(
             key = "home-hero-sources",
             title = stringResource(Res.string.settings_homescreen_section_hero_sources),
             pageLabel = homeLayoutPage,
-            section = homeLayoutSection,
+            section = stringResource(Res.string.settings_homescreen_section_hero_sources),
         )
     }
     if (homeCatalogsAvailable) {
