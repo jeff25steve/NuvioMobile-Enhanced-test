@@ -2346,4 +2346,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Карточки результатов потоков</string>
     <string name="settings_liquid_glass_surface_stream_selection">Поиск и продолжение потоков</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Усиливает цвета, видимые сквозь стекло.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Ссылка на поток истекла. Попробуйте другой источник.</string>
+    <string name="player_error_stream_removed">Ссылка на поток устарела или удалена. Попробуйте другой источник.</string>
+    <string name="player_error_stream_rate_limited">Слишком много запросов к источнику. Подождите немного и попробуйте снова.</string>
+    <string name="player_error_stream_unavailable">Сервер потока временно недоступен. Попробуйте другой источник.</string>
+    <string name="player_error_stream_blocked">Источник потока заблокирован или ограничен. Попробуйте другой источник.</string>
+    <string name="player_error_source_invalid_content">Ошибка источника: источник вернул неверный или невоспроизводимый контент. Ссылка могла устареть или сервер вернул страницу ошибки вместо видео.\n\nПопробуйте другой источник. [%1$s]</string>
+    <string name="player_error_unsupported_format">Поток использует формат, который ваше устройство может не поддерживать. Попробуйте другой источник. [%1$s]</string>
 </resources>
