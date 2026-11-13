@@ -374,6 +374,15 @@ fun LibraryScreen(
         selectedTypeName?.let { runCatching { CloudLibraryItemType.valueOf(it) }.getOrNull() }
     }
     var selectedCloudItemKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val effectiveSelectedCloudItemKey = reconcileCloudLibrarySelectedItemKey(
+        selectedItemKey = selectedCloudItemKey,
+        uiState = cloudUiState,
+    )
+    LaunchedEffect(effectiveSelectedCloudItemKey, selectedCloudItemKey) {
+        if (effectiveSelectedCloudItemKey != selectedCloudItemKey) {
+            selectedCloudItemKey = effectiveSelectedCloudItemKey
+        }
+    }
     var showTorboxConnectDialog by rememberSaveable { mutableStateOf(false) }
     val torboxConnected = cloudSettings.apiKeyFor(DebridProviders.TORBOX_ID).isNotBlank()
     var selectedLibrarySectionKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -888,7 +897,7 @@ fun LibraryScreen(
                     cloudCardsGlassEnabled = cloudCardsGlassEnabled,
                     selectedProviderId = selectedProviderId,
                     selectedType = selectedType,
-                    selectedCloudItemKey = selectedCloudItemKey,
+                    selectedCloudItemKey = effectiveSelectedCloudItemKey,
                     searchQuery = cloudSearchQuery,
                     searchVisible = cloudSearchVisible,
                     onSearchQueryChange = {
