@@ -258,14 +258,16 @@ internal fun LazyListScope.debridSettingsContent(
                 }
                 if (settings.canResolvePlayableLinks && resolverProviders.size > 1 && activeResolverProvider != null) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    DebridPreferenceRow(
-                        isTablet = isTablet,
-                        title = stringResource(Res.string.settings_debrid_resolve_with),
-                        description = stringResource(Res.string.settings_debrid_resolve_with_description),
-                        value = activeResolverProvider.displayName,
-                        enabled = true,
-                        onClick = { showResolverProviderDialog = true },
-                    )
+                    DebridSearchAnchor("debrid-resolve-provider", highlightedSearchAnchorKey) {
+                        DebridPreferenceRow(
+                            isTablet = isTablet,
+                            title = stringResource(Res.string.settings_debrid_resolve_with),
+                            description = stringResource(Res.string.settings_debrid_resolve_with_description),
+                            value = activeResolverProvider.displayName,
+                            enabled = true,
+                            onClick = { showResolverProviderDialog = true },
+                        )
+                    }
                 }
                 if (!settings.hasResolverProvider) {
                     SettingsGroupDivider(isTablet = isTablet)
