@@ -250,7 +250,7 @@ internal class PublicMetaDbProjection(val snapshot: PublicMetaDbSyncSnapshot) {
     )
 
     private fun buildContinueWatching(): List<WatchProgressEntry> {
-        val playback = ArrayList<WatchProgressEntry>(snapshot.resume.size)
+        val playback = ArrayList<WatchProgressEntry>()
         val playingShows = mutableSetOf<Long>()
         for (point in snapshot.resume) {
             if (!isPublicMetaDbMovieType(point.mediaType)) {
