@@ -71,16 +71,25 @@ class InvalidSessionCleanupTest {
     fun preservesCleanupFailuresWhenCallerCancellationWins() = runTest {
         val remoteFailure = IllegalStateException("Remote clear failed")
         val localFailure = IllegalStateException("Local cleanup failed")
+        val remoteClearStarted = CompletableDeferred<Unit>()
+        val finishRemoteClear = CompletableDeferred<Unit>()
         var completionFailure: Throwable? = null
         val cleanup = launch {
             runInvalidSessionCleanup(
                 clearAnonymousUserId = {},
-                clearRemoteSession = { throw remoteFailure },
+                clearRemoteSession = {
+                    remoteClearStarted.complete(Unit)
+                    finishRemoteClear.await()
+                    throw remoteFailure
+                },
                 clearLocalAccountData = { throw localFailure },
             )
         }
         cleanup.invokeOnCompletion { completionFailure = it }
 
+        remoteClearStarted.await()
+        cleanup.cancel()
+        finishRemoteClear.complete(Unit)
         cleanup.cancelAndJoin()
 
         assertTrue(cleanup.isCancelled)
