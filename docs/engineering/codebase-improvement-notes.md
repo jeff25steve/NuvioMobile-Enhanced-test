@@ -4615,3 +4615,13 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Validation boundary: remote source inspection only. No tests, builds, Gradle tasks, or CI were run, as explicitly instructed. Runtime cancellation behavior remains unexecuted.
 - Commit: `645f373a01bdf9f51da77c1afc8bcf3c69acf3c3`.
 
+
+
+## 2026-11-13 — Search request job-reference cleanup
+
+### Improvement cycle — Release obsolete Search and Discover job references on early exits
+- Root cause: Search early-exit paths cancelled `activeJob` but retained the completed/cancelling Job reference. The Discover no-active-addon path did the same, and switching to a media type with no compatible catalog invalidated the request generation without cancelling the active feed job at all.
+- Updated the two Search no-source early exits and the Discover no-active-addon/empty-compatible-type exits to cancel obsolete work where needed and clear the corresponding active-job reference. The existing generation invalidation and empty-state publication remain intact. The change does not wait for cancellation to finish; Kotlin cancellation is cooperative, and clearing the reference only prevents retaining an obsolete handle.
+- Research: Context7 resolved kotlinx.coroutines; project dependency is 1.10.2 while the nearest indexed version was 1.10.1. Exa independently checked the official Job API and cancellation guide. They confirm `Job.cancel()` requests cancellation, a cancelled Job may still be completing, and coroutine cancellation is cooperative.
+- Review boundary: inspected `search()`, `refreshDiscover()`, `selectDiscoverType()` and `loadDiscoverFeed()` to ensure the early exits invalidate stale publication before returning and do not affect normal refresh/pagination. No new API or dependency introduced.
+- Validation: remote source review only. **No tests, Gradle tasks, compilation, builds, benchmarks, or CI were run**, per instruction. Runtime cancellation remains unverified.
