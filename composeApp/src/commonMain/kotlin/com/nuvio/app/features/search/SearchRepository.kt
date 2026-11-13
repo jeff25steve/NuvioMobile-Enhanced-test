@@ -238,6 +238,7 @@ object SearchRepository {
         activeJob?.cancel()
         activeJob = null
         lastRequestKey = null
+        _uiState.value = _uiState.value.forPendingQuery()
     }
 
     fun clear() {
