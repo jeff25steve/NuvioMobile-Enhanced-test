@@ -228,6 +228,10 @@ object CloudLibraryRepository {
 
     fun ensureLoaded() {
         DebridSettingsRepository.ensureLoaded()
+        if (!DebridSettingsRepository.snapshot().cloudLibraryEnabled) {
+            invalidateRefreshesAndDisable()
+            return
+        }
 
         val current = _uiState.value
         if (current.isRefreshing) return
