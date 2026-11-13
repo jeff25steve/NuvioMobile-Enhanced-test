@@ -205,6 +205,8 @@ fun NuvioScreenHeader(
     backgroundBrushOverride: Brush? = null,
     /** Bottom inset for a custom background that should stop before the header's trailing spacing. */
     backgroundBrushBottomInset: Dp = 0.dp,
+    /** Insets the background and Liquid Glass layers without moving the header's text or actions. */
+    backgroundHorizontalInset: Dp = 0.dp,
     /** Horizontal inset for header content when its background intentionally spans edge-to-edge. */
     contentHorizontalPadding: Dp = 0.dp,
     actions: @Composable RowScope.() -> Unit = {},
@@ -257,6 +259,11 @@ fun NuvioScreenHeader(
         }
     }
     val sideBleed = screenMetrics?.horizontalPadding ?: NuvioTokens.Space.none
+    val backgroundInsetModifier = if (backgroundHorizontalInset > NuvioTokens.Space.none) {
+        Modifier.padding(horizontal = backgroundHorizontalInset)
+    } else {
+        Modifier
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -267,18 +274,21 @@ fun NuvioScreenHeader(
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .then(headerBackgroundModifier)
-                .nuvioConsumePointerEvents(),
+                .nuvioConsumePointerEvents()
+                .then(backgroundInsetModifier)
+                .then(headerBackgroundModifier),
         ) {}
         if (settingsGlassEnabled) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
+                    .then(backgroundInsetModifier)
                     .liquidGlassBackdropUnderlay(settingsBackdrop),
             )
             Box(
                 modifier = Modifier
                     .matchParentSize()
+                    .then(backgroundInsetModifier)
                     .liquidGlassForSurface(
                         surface = headerGlassSurface ?: LiquidGlassSurface.SETTINGS,
                         shape = headerShape,
