@@ -386,8 +386,6 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.PosterCustomization, "poster-landscape", 0),
             Triple(SettingsPage.PosterCustomization, "poster-hide-labels", 0),
             Triple(SettingsPage.PosterCustomization, "card-depth-effect", 2),
-            Triple(SettingsPage.PosterCustomization, "card-depth-edge", 2),
-            Triple(SettingsPage.PosterCustomization, "card-depth-sheen", 2),
             Triple(SettingsPage.Homescreen, "home-hero", 1),
             Triple(SettingsPage.Homescreen, "home-catalog-type", 1),
             Triple(SettingsPage.Homescreen, "home-hide-unreleased", 1),
