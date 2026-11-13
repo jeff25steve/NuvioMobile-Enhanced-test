@@ -2540,4 +2540,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Kartice rezultata streamova</string>
     <string name="settings_liquid_glass_surface_stream_selection">Pretraživanje i nastavak streama</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Pojačava boje vidljive kroz staklo.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Poveznica streama je istekla. Isprobaj drugi izvor.</string>
+    <string name="player_error_stream_removed">Poveznica streama je istekla ili je uklonjena. Isprobaj drugi izvor.</string>
+    <string name="player_error_stream_rate_limited">Previše zahtjeva prema izvoru streama. Pričekaj trenutak i pokušaj ponovno.</string>
+    <string name="player_error_stream_unavailable">Poslužitelj streama trenutno nije dostupan. Isprobaj drugi izvor.</string>
+    <string name="player_error_stream_blocked">Izvor streama je blokiran ili ograničen. Isprobaj drugi izvor.</string>
+    <string name="player_error_source_invalid_content">Pogreška izvora: izvor streama vratio je neispravan sadržaj ili sadržaj koji se ne može reproducirati. Poveznica je možda istekla ili je poslužitelj umjesto videa vratio stranicu s pogreškom.\n\nIsprobaj drugi izvor. [%1$s]</string>
+    <string name="player_error_unsupported_format">Ovaj stream koristi format koji tvoj uređaj možda ne podržava. Isprobaj drugi izvor. [%1$s]</string>
 </resources>
