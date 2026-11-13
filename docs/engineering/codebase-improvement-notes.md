@@ -4385,7 +4385,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Live \`main-build-testing\` head before integration: \`051572548871e2854c529aa5b33801bde16b0dc9\`; direct-parent \`enhanced\` head: \`0ce28ba7e64b887f1666196490be4cad14d58462\`; common merge base: \`89f7ae19a15640937eafd7f72293b90e70351f09\`.
 - GitHub compare confirms **114 commits behind upstream** and **1,380 fork-only commits ahead** (the ahead/behind values are from the fork's perspective). This is the direct-parent sync, not the separate official NuvioMedia rewrite.
 - Created safety ref \`backup/main-build-testing-pre-upstream-sync-20261113-0929\` at the exact pre-merge head. No reset, rebase or force update is used.
-- The remote tree comparison found 254 upstream-changed blob paths. The merge keeps all fork-only paths and adds upstream-only files/changes; the 62 overlapping paths were treated individually rather than selecting an entire branch side.
+- The remote tree comparison found 254 upstream-changed blob paths: 183 changed paths only upstream and 71 changed on both sides. The merge keeps all fork-only paths and adds the upstream-only changes; the 71 overlapping paths were treated individually rather than selecting an entire branch side.
 
 ### Conflict resolutions and integration choices
 
