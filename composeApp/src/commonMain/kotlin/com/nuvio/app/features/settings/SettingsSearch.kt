@@ -1824,12 +1824,16 @@ internal fun settingsSearchEntries(
         addRow = ::addRow,
         pageLabel = continueWatchingPage,
         section = stringResource(Res.string.settings_continue_watching_section_up_next_behavior),
-        rows = buildList {
-            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster) add(PlaybackSearchRow("episode-thumbnails", stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title), stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description)))
-            add(PlaybackSearchRow("up-next", stringResource(Res.string.settings_continue_watching_up_next_title), stringResource(Res.string.settings_continue_watching_up_next_description)))
-            add(PlaybackSearchRow("unaired-next-up", stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title), stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description)))
-            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster && continueWatchingEpisodeThumbnails) add(PlaybackSearchRow("blur-next-up", stringResource(Res.string.settings_continue_watching_blur_next_up_title), stringResource(Res.string.settings_continue_watching_blur_next_up_description)))
-        },
+        rows = listOfNotNull(
+            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster) {
+                PlaybackSearchRow("episode-thumbnails", stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title), stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description))
+            } else null,
+            PlaybackSearchRow("up-next", stringResource(Res.string.settings_continue_watching_up_next_title), stringResource(Res.string.settings_continue_watching_up_next_description)),
+            PlaybackSearchRow("unaired-next-up", stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title), stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description)),
+            if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster && continueWatchingEpisodeThumbnails) {
+                PlaybackSearchRow("blur-next-up", stringResource(Res.string.settings_continue_watching_blur_next_up_title), stringResource(Res.string.settings_continue_watching_blur_next_up_description))
+            } else null,
+        ),
     )
     addContinueWatchingRows(
         addRow = ::addRow,
@@ -1865,20 +1869,18 @@ internal fun settingsSearchEntries(
     }
 
     val cardDepthSection = stringResource(Res.string.settings_card_depth_title)
-    buildList {
-        add(PlaybackSearchRow("card-depth-effect", cardDepthSection, stringResource(Res.string.settings_card_depth_description)))
-        if (cardDepthStyleUiState.enabled) {
-            add(PlaybackSearchRow("card-depth-edge", stringResource(Res.string.settings_card_depth_edge)))
-            add(PlaybackSearchRow("card-depth-sheen", stringResource(Res.string.settings_card_depth_sheen)))
-            add(PlaybackSearchRow("card-depth-edge-coverage", stringResource(Res.string.settings_card_depth_edge_coverage)))
-            add(PlaybackSearchRow("card-depth-fine-tune", stringResource(Res.string.settings_card_depth_fine_tune)))
-            add(PlaybackSearchRow("card-depth-surface-posters", stringResource(Res.string.settings_card_depth_surface_posters)))
-            add(PlaybackSearchRow("card-depth-surface-continue-watching", stringResource(Res.string.settings_card_depth_surface_continue_watching)))
-            add(PlaybackSearchRow("card-depth-surface-episode-cards", stringResource(Res.string.settings_card_depth_surface_episodes)))
-            add(PlaybackSearchRow("card-depth-surface-cast", stringResource(Res.string.settings_card_depth_surface_cast)))
-            add(PlaybackSearchRow("card-depth-surface-trailers", stringResource(Res.string.settings_card_depth_surface_trailers)))
-        }
-    }.forEach { row ->
+    listOf(
+        PlaybackSearchRow("card-depth-effect", cardDepthSection, stringResource(Res.string.settings_card_depth_description)),
+        PlaybackSearchRow("card-depth-edge", stringResource(Res.string.settings_card_depth_edge)),
+        PlaybackSearchRow("card-depth-sheen", stringResource(Res.string.settings_card_depth_sheen)),
+        PlaybackSearchRow("card-depth-edge-coverage", stringResource(Res.string.settings_card_depth_edge_coverage)),
+        PlaybackSearchRow("card-depth-fine-tune", stringResource(Res.string.settings_card_depth_fine_tune)),
+        PlaybackSearchRow("card-depth-surface-posters", stringResource(Res.string.settings_card_depth_surface_posters)),
+        PlaybackSearchRow("card-depth-surface-continue-watching", stringResource(Res.string.settings_card_depth_surface_continue_watching)),
+        PlaybackSearchRow("card-depth-surface-episode-cards", stringResource(Res.string.settings_card_depth_surface_episodes)),
+        PlaybackSearchRow("card-depth-surface-cast", stringResource(Res.string.settings_card_depth_surface_cast)),
+        PlaybackSearchRow("card-depth-surface-trailers", stringResource(Res.string.settings_card_depth_surface_trailers)),
+    ).filter { it.key == "card-depth-effect" || cardDepthStyleUiState.enabled }.forEach { row ->
         addRow(
             page = SettingsPage.PosterCustomization,
             key = row.key,
