@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.network.DnsSettingsRepository
+import com.nuvio.app.core.ui.CardDepthStyleRepository
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
@@ -138,7 +139,9 @@ internal fun settingsSearchAnchor(
         SettingsPage.PosterCustomization -> when (key) {
             "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels",
             "poster-always-show-landscape-clearlogo" -> 0
-            "card-depth-effect", "card-depth-edge", "card-depth-sheen", "card-depth-edge-coverage" -> 2
+            "card-depth-effect", "card-depth-edge", "card-depth-sheen", "card-depth-edge-coverage",
+            "card-depth-fine-tune" -> 2
+            else -> if (key.startsWith("card-depth-surface-")) 2 else return null
             else -> return null
         }
         SettingsPage.ContinueWatching -> when (key) {
@@ -538,6 +541,10 @@ internal fun settingsSearchEntries(
     val playerSettings by remember {
         PlayerSettingsRepository.ensureLoaded()
         PlayerSettingsRepository.uiState
+    }.collectAsStateWithLifecycle()
+    val cardDepthStyleUiState by remember {
+        CardDepthStyleRepository.ensureLoaded()
+        CardDepthStyleRepository.uiState
     }.collectAsStateWithLifecycle()
     val tabBarBehavior by remember {
         ThemeSettingsRepository.ensureLoaded()
@@ -1785,12 +1792,20 @@ internal fun settingsSearchEntries(
     }
 
     val cardDepthSection = stringResource(Res.string.settings_card_depth_title)
-    listOf(
-        PlaybackSearchRow("card-depth-effect", cardDepthSection, stringResource(Res.string.settings_card_depth_description)),
-        PlaybackSearchRow("card-depth-edge", stringResource(Res.string.settings_card_depth_edge)),
-        PlaybackSearchRow("card-depth-sheen", stringResource(Res.string.settings_card_depth_sheen)),
-        PlaybackSearchRow("card-depth-edge-coverage", stringResource(Res.string.settings_card_depth_edge_coverage)),
-    ).forEach { row ->
+    buildList {
+        add(PlaybackSearchRow("card-depth-effect", cardDepthSection, stringResource(Res.string.settings_card_depth_description)))
+        if (cardDepthStyleUiState.enabled) {
+            add(PlaybackSearchRow("card-depth-edge", stringResource(Res.string.settings_card_depth_edge)))
+            add(PlaybackSearchRow("card-depth-sheen", stringResource(Res.string.settings_card_depth_sheen)))
+            add(PlaybackSearchRow("card-depth-edge-coverage", stringResource(Res.string.settings_card_depth_edge_coverage)))
+            add(PlaybackSearchRow("card-depth-fine-tune", stringResource(Res.string.settings_card_depth_fine_tune)))
+            add(PlaybackSearchRow("card-depth-surface-posters", stringResource(Res.string.settings_card_depth_surface_posters)))
+            add(PlaybackSearchRow("card-depth-surface-continue-watching", stringResource(Res.string.settings_card_depth_surface_continue_watching)))
+            add(PlaybackSearchRow("card-depth-surface-episode-cards", stringResource(Res.string.settings_card_depth_surface_episodes)))
+            add(PlaybackSearchRow("card-depth-surface-cast", stringResource(Res.string.settings_card_depth_surface_cast)))
+            add(PlaybackSearchRow("card-depth-surface-trailers", stringResource(Res.string.settings_card_depth_surface_trailers)))
+        }
+    }.forEach { row ->
         addRow(
             page = SettingsPage.PosterCustomization,
             key = row.key,
