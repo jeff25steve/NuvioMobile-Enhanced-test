@@ -2354,4 +2354,13 @@
     <string name="settings_liquid_glass_surface_stream_results">Karty výsledků streamů</string>
     <string name="settings_liquid_glass_surface_stream_selection">Vyhledávání a pokračování streamu</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Zvýrazňuje barvy viditelné skrz sklo.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Platnost odkazu na stream vypršela. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_removed">Platnost odkazu na stream vypršela nebo byl odstraněn. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_rate_limited">Příliš mnoho požadavků na zdroj streamu. Chvíli počkejte a zkuste to znovu.</string>
+    <string name="player_error_stream_unavailable">Server streamu je momentálně nedostupný. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_blocked">Zdroj streamu je blokovaný nebo omezený. Zkuste jiný zdroj.</string>
+    <string name="player_error_source_invalid_content">Chyba zdroje: Zdroj streamu vrátil neplatný nebo nepřehratelný obsah. Platnost odkazu mohla vypršet, nebo server vrátil chybovou stránku místo videa.\n\nZkuste jiný zdroj. [%1$s]</string>
+    <string name="player_error_unsupported_format">Tento stream používá formát, který vaše zařízení možná nepodporuje. Zkuste jiný zdroj. [%1$s]</string>
 </resources>
