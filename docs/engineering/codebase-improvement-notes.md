@@ -3891,3 +3891,52 @@ References checked:
 
 
 - Follow-up source review aligned the Navigation bar style search result's visibility with the rendered control: it is now omitted on iOS and when the native tab bar behavior hides that row. This avoids deep-linking to an empty section.
+
+
+## 12 November 2026 — Settings Search deep-link completion pass
+
+**Starting checkpoint:** `04de3c40cf77381b15842e15730bbf9c118a600f` on `main-build-testing`.
+
+### Cycle 1 — Core Settings pages
+
+- Added exact search anchors for Account status, sign-in/sign-out action, and account deletion; Recent searches; all five indexed Stream controls; Meta-screen poster transition; Notifications test action; and Tracking provider cards, Private viewing, and the two always-visible tracking source pickers.
+- Wired the active highlight through both mobile and tablet page renderers.
+- Account deletion search is now offered only when account deletion is enabled and the current auth state is authenticated. Conditional More Like This source remains page-level because the rendered row is only present after a provider is connected.
+
+### Cycle 2 — Meta-screen settings
+
+- Added anchors for background mode, tab layout, overall ratings, episode rating visibility, episode card style, random episode, and blur-unwatched controls.
+- Added exact anchors for all ten reorderable detail sections using their stable enum keys inside the nested lazy list. These anchors use the existing bring-into-view mechanism so a search result can reach an item inside the nested list rather than merely opening its parent page.
+- Preserved the existing platform capability guard for poster transition.
+
+### Cycle 3 — Metadata integrations
+
+- Added exact row anchors for TMDB enablement, API key, language, and every indexed metadata module.
+- Added MDBList enablement, hero visibility, API key, and each searchable rating-provider toggle.
+- Added the OMDb API-key editor anchor.
+- Mapped each anchor to the corresponding real page item index; no new navigation targets or dependency APIs were introduced.
+
+### Cycle 4 — Diagnostics and Discord RPC
+
+- Added row anchors for the Discord account, presence, activity type, status, six display preferences, and application ID.
+- Added anchors for copy logs, clear logs, and the log viewer.
+- Kept each destination's existing four-section Discord structure and one-item diagnostics structure.
+
+### Cycle 5 — Homescreen and poster customization
+
+- Added exact anchors for Homescreen hero, catalog type, and hide-unreleased controls. The hero sources and catalog list remain page-level because their availability depends on the active catalog data and hero state.
+- Added exact anchors for poster width, radius, landscape mode, hide labels, and the card-depth master toggle.
+- Deliberately left card-depth edge/sheen sub-controls page-level: those controls are not rendered until the master effect is enabled, so registering unconditional row anchors would create false destinations.
+
+### Search destination integrity
+
+- Retained page-level fallback for complex/conditional results whose target control is not guaranteed to exist at search time, including conditional Tracking feature rows, Home hero sources/catalog list, and remaining dynamic Debrid/Live TV settings. This is intentional rather than fabricating a row destination.
+- Added regression assertions for all newly registered page/key/item-index mappings and unknown-key rejection. These source tests have not been executed.
+- Existing query-token de-duplication and prior Appearance/Layout/Account vocabulary changes remain intact.
+
+### Research, review and verification boundary
+
+- Followed the installed Superpowers workflow, used Context7 for Compose Multiplatform and Exa for independent AndroidX/Compose bring-into-view and lazy-list references, and inspected the live GitHub source and commit diffs.
+- Context7 did not expose the repository's exact Compose Multiplatform `1.13.0-beta01`; the closest available reference was `1.12.2`. Changes reuse existing project APIs and components; no library or dependency was added.
+- Performed manual source/diff review. An independent reviewer/subagent was not available.
+- Tests were added but **not run**. No build, compilation, Gradle task, benchmark or CI was started, in accordance with the explicit restriction.
