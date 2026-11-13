@@ -3469,6 +3469,13 @@ private data class LibraryCalendarMonth(
         if (month == 12) LibraryCalendarMonth(year + 1, 1) else copy(month = month + 1)
 }
 
+internal fun shouldClearLibraryCalendarWarmingState(
+    currentCacheKey: String?,
+    requestedCacheKey: String,
+    isWarming: Boolean,
+    fullWarmInProgress: Boolean,
+): Boolean = currentCacheKey == requestedCacheKey && isWarming && !fullWarmInProgress
+
 private data class LibraryReleaseCalendarCacheState(
     val cacheKey: String? = null,
     val events: List<LibraryCalendarEvent> = emptyList(),
@@ -3524,6 +3531,8 @@ private object LibraryReleaseCalendarCache {
         val now = WatchedClock.nowEpochMs()
         if (now - lastForcedRefreshAtEpochMs < LIBRARY_CALENDAR_FORCE_REFRESH_COOLDOWN_MS) return
         lastForcedRefreshAtEpochMs = now
+        monthJob?.cancel()
+        monthJob = null
         resetRetry()
         val cacheKey = cacheKeyFor(items)
         warmJobKey = cacheKey
@@ -3577,7 +3586,9 @@ private object LibraryReleaseCalendarCache {
         if (current.cacheKey != cacheKey || monthKey in current.loadedMonthKeys) return
         if (warmJob?.isActive == true || monthJob?.isActive == true) return
         val job = scope.launch {
-            _state.value = _state.value.copy(isWarming = true)
+            val initial = _state.value
+            if (initial.cacheKey != cacheKey) return@launch
+            _state.value = initial.copy(isWarming = true)
             try {
                 val result = buildLibraryReleaseCalendarEvents(items, setOf(monthKey))
                 val latest = _state.value
@@ -3593,7 +3604,17 @@ private object LibraryReleaseCalendarCache {
                     persist(_state.value)
                 }
             } finally {
-                if (_state.value.isWarming) _state.value = _state.value.copy(isWarming = false)
+                val latest = _state.value
+                if (
+                    shouldClearLibraryCalendarWarmingState(
+                        currentCacheKey = latest.cacheKey,
+                        requestedCacheKey = cacheKey,
+                        isWarming = latest.isWarming,
+                        fullWarmInProgress = warmJob?.isActive == true,
+                    )
+                ) {
+                    _state.value = latest.copy(isWarming = false)
+                }
             }
         }
         monthJob = job
@@ -3612,6 +3633,8 @@ private object LibraryReleaseCalendarCache {
         if (isFresh(_state.value, cacheKey, currentLibraryAddonSignature(AddonRepository.uiState.value))) return null
         warmJob?.takeIf { job -> job.isActive && warmJobKey == cacheKey }?.let { return it }
         warmJob?.cancel()
+        monthJob?.cancel()
+        monthJob = null
         warmJobKey = cacheKey
         return scope.launch { runWarm(items, cacheKey) }.also { warmJob = it }
     }
