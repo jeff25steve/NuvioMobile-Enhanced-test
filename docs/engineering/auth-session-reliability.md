@@ -67,6 +67,34 @@ Relevant files:
 - `composeApp/src/commonMain/kotlin/com/nuvio/app/core/auth/AuthRepository.kt`
 - `composeApp/src/commonTest/kotlin/com/nuvio/app/core/auth/InvalidSessionCleanupTest.kt`
 
+
+
+### 5. Preserve cancellation while aggregating local account cleanup failures
+
+Root cause: `runAccountCleanupSteps` deliberately catches each `Exception` so later cleanup steps still run. Kotlin's `CancellationException` is also an `Exception`, so the final aggregation previously wrapped an explicit cancellation signal in an ordinary `IllegalStateException`. That breaks the coroutine cancellation contract even though the remaining cleanup steps were attempted.
+
+Change:
+- Added `throwAccountCleanupFailures` to rethrow the first captured `CancellationException` after all eligible steps and finalizers have been attempted.
+- Ordinary cleanup failures are attached as suppressed exceptions to that cancellation; without cancellation, the existing aggregate `IllegalStateException` behavior is preserved.
+- Added a regression test that verifies later cleanup still runs and the original cancellation is propagated with the later failure retained.
+
+Relevant files:
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/storage/LocalAccountDataCleaner.kt`
+- `composeApp/src/androidHostTest/kotlin/com/nuvio/app/core/storage/LocalAccountDataCleanerTest.kt`
+
+### 6. Roll back add-on cleanup gate acquisition when its callback fails
+
+Root cause: `AddonProfileOperationGate.beginAccountCleanup` increments `accountCleanupDepth` before invoking the supplied invalidation/cancellation callback. If that callback throws, the depth was never decremented, permanently preventing future profile-scoped add-on operations from acquiring a current operation.
+
+Change:
+- Roll back the depth and advance the generation again if the begin callback throws.
+- Preserve any outer/nested cleanup lease by decrementing only the acquisition that failed.
+- Added regression coverage for both a failed first acquisition and a failed nested acquisition.
+
+Relevant files:
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/features/addons/AddonProfileOperationGate.kt`
+- `composeApp/src/commonTest/kotlin/com/nuvio/app/features/addons/AddonProfileOperationGateTest.kt`
+
 ## Evidence and implementation constraints
 
 - Supabase dependency in `gradle/libs.versions.toml`: `3.4.1`; Ktor: `3.4.1`; kotlinx-coroutines: `1.10.2`.
