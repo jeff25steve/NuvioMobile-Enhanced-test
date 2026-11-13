@@ -4329,3 +4329,40 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - A conservative capacity experiment was reverted: pre-sizing result lists to the full raw resume/playback count could over-allocate when many records are rejected by playback thresholds. The final code uses default `ArrayList` capacity rather than retaining that potential memory regression.
 - The only production files changed are `PublicMetaDbProjection.kt` and `WeTrakrProjection.kt`; new test files cover both providers. No network requests, persistence formats, provider models, dependencies, sync cadence, UI or workflow configuration changed.
 - Regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Actual Nuvio runtime performance and test results remain unverified until separately authorised.
+
+
+## 13 November 2026 — upstream fork synchronisation investigation
+
+### Remote state and correct upstream
+
+- Repository: `jeff25steve/NuvioMobile-Enhanced-test`.
+- Integration branch: `main-build-testing`, observed at `fcb5737729186337dd29be2b5cab778ee1350b2e` before this note update.
+- The repository's GitHub parent is `luqmanfadlli/NuvioMobile-Enhanced`; its `enhanced` branch is the correct direct-parent source for syncing this fork. The official `NuvioMedia/NuvioMobile` repository is an ancestor/source repository in the wider fork network, not the direct parent to merge into this branch.
+- Direct-parent `enhanced` was observed at `0ce28ba7e64b887f1666196490be4cad14d58462`.
+- GitHub's compare endpoint confirms a shared merge base of `89f7ae19a15640937eafd7f72293b90e70351f09`, with the fork branch **1,377 commits ahead and 114 commits behind** the direct-parent `enhanced` branch.
+
+### Integration checkpoint
+
+- Opened draft PR [#7 — Sync upstream enhanced into main-build-testing](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/pull/7), from `luqmanfadlli:enhanced` into `main-build-testing`. It exposes the upstream change set for review without rewriting either branch or discarding fork-only commits.
+- The PR contains 114 upstream commits, 249 changed files, 13,985 additions and 1,588 deletions.
+- GitHub's raw pull-request API reports `mergeable=false` and `mergeable_state=dirty`. Automatic merge is therefore blocked by conflicts. The PR is intentionally left open as a draft; it has **not** been merged.
+- Comparing the upstream changed-file set with the first 300 files returned for the fork-side merge-base comparison found at least 67 paths changed on both sides. These are overlap candidates, not a proven exact list of Git's unmerged conflict stages. The fork-side comparison hit the API's 300-file response cap, so the overlap count is a lower bound.
+- Overlap candidates include player engine/playback networking, AutoSync, account cleanup/authentication, Live TV, Liquid Glass/backdrop, home hero, and localized strings. Each needs a three-way review against the merge base before choosing a resolution. Do not blanket-select ours/theirs.
+- The upstream PR includes 182 paths not present in the returned fork-side changed-file sample; these must also be reviewed as upstream-only additions/changes and not silently omitted.
+
+### Safe continuation procedure
+
+1. Obtain a complete local checkout with both remotes and fetch the exact observed heads above. Preserve a backup ref of `main-build-testing` before merging.
+2. Re-run `git merge-base`, `git rev-list --left-right --count`, and a full `git diff --name-status <merge-base>..<each-head>` locally; the GitHub compare response is capped and cannot establish a complete overlap inventory.
+3. Perform a normal merge of the direct-parent `enhanced` head into a temporary integration branch based on `main-build-testing`. Do not rebase the long-lived fork branch, reset it, or force-push it.
+4. Resolve each actual unmerged path with the merge base, upstream implementation and fork implementation visible together. Preserve fork-specific behavior while incorporating compatible upstream fixes; add regression tests for behavioral seams.
+5. Review submodules, build/workflow configuration, release metadata, platform-specific code and translation files separately. Do not accept upstream workflow changes as permission to run CI.
+6. Only after complete source review and authorised non-build verification should the integration be committed and proposed for the target branch. Recheck the remote branch head before updating it, using a compare-and-swap/expected-SHA guard.
+7. Keep builds and CI disabled until the user explicitly authorises them.
+
+### Verification boundary and limitation
+
+- Verified the fork relationship, branch heads, common ancestor, ahead/behind counts, PR file totals and GitHub's dirty mergeability state through live GitHub reads.
+- Exa research checked GitHub's official fork-sync and merge-conflict guidance. The documented safe strategy is fetch plus merge, preserving divergent history; GitHub's sync workflow itself prompts for conflict resolution rather than silently replacing conflicting work.
+- No source code was changed and no conflict resolution is claimed. This execution environment has no mounted repository checkout, so it cannot run a local three-way merge or inspect Git's exact unmerged index stages. The PR patch is not a substitute for that evidence.
+- No build, test task, compilation, workflow dispatch or CI run was started. The draft PR remains open pending a real conflict-resolution pass.
