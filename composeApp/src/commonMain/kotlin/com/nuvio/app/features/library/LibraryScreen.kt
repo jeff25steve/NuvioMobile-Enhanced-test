@@ -310,6 +310,12 @@ internal fun libraryBackdropCaptureRequired(
     }
 }
 
+/** Only the Saved LazyColumn is a source for pinned Saved controls and calendar glass. */
+internal fun sourceModeUsesScrollableLibraryBackdrop(
+    sourceMode: LibraryViewMode,
+    glassEnabled: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Saved && glassEnabled
+
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
 internal fun shouldUseLibraryContentBackdropForCalendar(
     sourceMode: LibraryViewMode,
@@ -777,6 +783,11 @@ fun LibraryScreen(
                 )
                 // Keep the source pill close to the Library title.
                 Spacer(modifier = Modifier.height(4.dp))
+                // The source switch sits above the scrolling viewport; it samples the static
+                // screen backdrop, never the scrolling-content layer used by pinned Saved filters.
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
+                ) {
                 LibrarySourceSwitch(
                     selectedMode = sourceMode,
                     showServers = hasServers,
@@ -880,6 +891,7 @@ fun LibraryScreen(
                     }
                     },
                 )
+                }
                 Spacer(modifier = Modifier.height(14.dp))
             }
         }
@@ -898,7 +910,10 @@ fun LibraryScreen(
                 )
             }
 
-            Box(
+            // Capture only the scrolling list. The pinned controls are a sibling overlay and
+            // must never be recorded into the same backdrop they consume.
+            Box(modifier = Modifier.fillMaxSize()) {
+            NuvioScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
@@ -908,9 +923,6 @@ fun LibraryScreen(
                             Modifier
                         },
                     ),
-            ) {
-            NuvioScreen(
-                modifier = Modifier.fillMaxSize(),
                 horizontalPadding = 0.dp,
                 // Saved filters are pinned outside the scrolling content. Always reserve their
                 // space initially so the first section heading stays visible regardless of material;
