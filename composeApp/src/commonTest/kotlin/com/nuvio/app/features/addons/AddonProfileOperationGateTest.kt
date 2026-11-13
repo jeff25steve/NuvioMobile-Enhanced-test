@@ -1,8 +1,10 @@
 package com.nuvio.app.features.addons
 
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class AddonProfileOperationGateTest {
@@ -19,20 +21,18 @@ class AddonProfileOperationGateTest {
         assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
     }
 
-
-
     @Test
     fun failedCleanupStartRollsBackItsGateDepth() {
         val gate = AddonProfileOperationGate(initialProfileId = 1)
         val failure = IllegalStateException("simulated cancellation callback failure")
 
-        val thrown = kotlin.test.assertFailsWith<IllegalStateException> {
+        val thrown = assertFailsWith<IllegalStateException> {
             gate.beginAccountCleanup {
                 throw failure
             }
         }
 
-        kotlin.test.assertSame(failure, thrown)
+        assertSame(failure, thrown)
         assertNotNull(gate.current(1))
     }
 
