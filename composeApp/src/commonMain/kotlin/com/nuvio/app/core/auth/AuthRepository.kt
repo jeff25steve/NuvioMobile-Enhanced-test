@@ -29,6 +29,45 @@ import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
+internal suspend fun runInvalidSessionCleanup(
+    clearAnonymousUserId: suspend () -> Unit,
+    clearRemoteSession: suspend () -> Unit,
+    clearLocalAccountData: suspend () -> Unit,
+    shouldContinue: () -> Boolean = { true },
+): Result<Unit> {
+    val (anonymousClear, remoteClear, localCleanup) = withContext(NonCancellable) {
+        val anonymous = if (shouldContinue()) {
+            runCatching { clearAnonymousUserId() }
+        } else {
+            Result.success(Unit)
+        }
+        val remote = if (shouldContinue()) {
+            runCatching { clearRemoteSession() }
+        } else {
+            Result.success(Unit)
+        }
+        val local = if (shouldContinue()) {
+            runCatching { clearLocalAccountData() }
+        } else {
+            Result.success(Unit)
+        }
+        Triple(anonymous, remote, local)
+    }
+
+    // NonCancellable protects the cleanup sequence, not the caller: cancellation is
+    // rethrown after all still-current account cleanup steps have had a chance to finish.
+    currentCoroutineContext().ensureActive()
+    val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
+        ?: remoteClear.exceptionOrNull() as? CancellationException
+        ?: localCleanup.exceptionOrNull() as? CancellationException
+    if (cancellation != null) throw cancellation
+
+    val failure = anonymousClear.exceptionOrNull()
+        ?: remoteClear.exceptionOrNull()
+        ?: localCleanup.exceptionOrNull()
+    return if (failure == null) Result.success(Unit) else Result.failure(failure)
+}
+
 internal suspend fun runServerSwitchCleanup(
     clearAnonymousUserId: suspend () -> Unit,
     clearRemoteSession: suspend () -> Unit,
@@ -499,31 +538,19 @@ object AuthRepository {
             return
         }
         _error.value = null
-        val anonymousClear = runCatching { AuthStorage.clearAnonymousUserId() }
-            .onFailure { error ->
-                log.w(error) { "Failed to clear anonymous auth storage after remote invalidation" }
-            }
         validatedRemoteUserId = null
-        val sessionClear = runCatching {
-            clearSession()
-        }.onFailure { error ->
-            log.w(error) { "Failed to clear Supabase session after remote invalidation; continuing local reset" }
+        val cleanup = runInvalidSessionCleanup(
+            clearAnonymousUserId = { AuthStorage.clearAnonymousUserId() },
+            clearRemoteSession = clearSession,
+            clearLocalAccountData = {
+                _state.value = AuthState.Unauthenticated
+                LocalAccountDataCleaner.wipe(accountUserId)
+            },
+            shouldContinue = shouldContinue,
+        )
+        cleanup.onFailure { error ->
+            log.w(error) { "Invalid-session cleanup completed with one or more failures" }
         }
-        if (!shouldContinue()) {
-            currentCoroutineContext().ensureActive()
-            return
-        }
-
-        _state.value = AuthState.Unauthenticated
-        val localCleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
-        localCleanup.onFailure { error ->
-            log.e(error) { "Local account cleanup failed after remote session invalidation" }
-        }
-        currentCoroutineContext().ensureActive()
-        val cancellation = anonymousClear.exceptionOrNull() as? CancellationException
-            ?: sessionClear.exceptionOrNull() as? CancellationException
-            ?: localCleanup.exceptionOrNull() as? CancellationException
-        if (cancellation != null) throw cancellation
     }
 
     suspend fun deleteAccount(): Result<Unit> {
