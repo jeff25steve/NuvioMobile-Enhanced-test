@@ -21,6 +21,33 @@ class PluginProfileOperationGateTest {
 
 
     @Test
+    fun failedCleanupStartRollsBackItsGateDepth() {
+        val gate = PluginProfileOperationGate(initialProfileId = 1)
+        val failure = IllegalStateException("simulated plugin cleanup start failure")
+
+        val thrown = kotlin.test.assertFailsWith<IllegalStateException> {
+            gate.beginAccountCleanup { throw failure }
+        }
+
+        kotlin.test.assertSame(failure, thrown)
+        assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
+    }
+
+    @Test
+    fun failedNestedCleanupStartPreservesTheExistingCleanupLease() {
+        val gate = PluginProfileOperationGate(initialProfileId = 1)
+        gate.beginAccountCleanup()
+
+        kotlin.test.assertFailsWith<IllegalStateException> {
+            gate.beginAccountCleanup { error("simulated nested cleanup start failure") }
+        }
+
+        assertTrue(gate.current(1) == null)
+        gate.endAccountCleanup()
+        assertTrue(gate.isCurrent(assertNotNull(gate.current(1))))
+    }
+
+    @Test
     fun accountCleanupBlocksNewPluginWorkUntilCleanupFinishes() {
         val gate = PluginProfileOperationGate(initialProfileId = 1)
         val old = assertNotNull(gate.current(1))
