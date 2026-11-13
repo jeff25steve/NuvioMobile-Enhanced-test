@@ -83,13 +83,12 @@ object SearchHistoryRepository {
         recentSearches = if (payload.isEmpty()) {
             emptyList()
         } else {
-            runCatching {
-                json.decodeFromString<List<String>>(payload)
-            }.getOrDefault(emptyList())
-                .map { it.trim() }
-                .filter { it.length >= 2 }
-                .distinct()
-                .take(MAX_RECENT_SEARCHES)
+            normalizeSearchHistoryEntries(
+                entries = runCatching {
+                    json.decodeFromString<List<String>>(payload)
+                }.getOrDefault(emptyList()),
+                limit = MAX_RECENT_SEARCHES,
+            )
         }
         publish()
     }
@@ -103,16 +102,31 @@ object SearchHistoryRepository {
     }
 }
 
+internal fun normalizeSearchHistoryEntries(
+    entries: List<String>,
+    limit: Int,
+): List<String> {
+    if (limit <= 0) return emptyList()
+
+    return buildList {
+        entries.forEach { entry ->
+            val normalized = entry.trim()
+            if (
+                normalized.length >= 2 &&
+                size < limit &&
+                none { existing -> existing.equals(normalized, ignoreCase = true) }
+            ) {
+                add(normalized)
+            }
+        }
+    }
+}
+
 internal fun applySearchHistoryEntry(
     current: List<String>,
     query: String,
     limit: Int,
-): List<String> =
-    buildList {
-        add(query)
-        current.forEach { existing ->
-            if (existing != query && size < limit) {
-                add(existing)
-            }
-        }
-    }
+): List<String> = normalizeSearchHistoryEntries(
+    entries = listOf(query) + current,
+    limit = limit,
+)
