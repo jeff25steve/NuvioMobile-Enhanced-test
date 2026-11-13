@@ -4210,3 +4210,26 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Exa independently found the official JetBrains Compose Multiplatform modifier guide and Android Developers modifier-order/constraints guides. They confirm modifier order determines measurement/drawing bounds, supporting moving the inset from the root modifier to the header's inner content.
 - Manually reviewed the complete SearchScreen call site and regression test. No dependency, shared component implementation, platform-specific code, or workflow configuration was changed. No build, Gradle task, test, benchmark, emulator/device session, workflow dispatch, or CI run was started.
 - Runtime visual validation remains pending: compare the Search title background against the screen edges with Liquid Glass enabled and disabled, and confirm the title/action still align with the search field on narrow and wide screens.
+
+
+
+## 13 November 2026 — Align Settings title header width with Settings content
+
+**Starting checkpoint:** `504e87fc75907e4ebe84495625d8ccc1170f178c` on `main-build-testing`.
+
+### Cycle 1 — Inset only the header's visual layers
+
+- The supplied video shows the Settings title's dark band and outline bleeding to the screen edges, while the Settings cards and search field begin/end at the standard horizontal content inset.
+- Root cause: `NuvioScreenHeader` uses `nuvioScreenSideBleed()` to expand its visual container across `NuvioScreen`'s horizontal content padding. That is correct for existing edge-to-edge header surfaces, but makes the Settings background 16 dp wider on both sides than Settings content.
+- Added the optional `backgroundHorizontalInset` parameter to `NuvioScreenHeader`. It is applied only to the background underlay and both Liquid Glass layers/border; the header's title, back button, actions and pointer-interception area retain their previous geometry.
+- The default is 0 dp, so other screens—including the recently corrected Search header—keep their existing full-width background.
+- Settings now sets this value from `MaterialTheme.nuvio.spacing.screenHorizontal`, the same token used by the enclosing `NuvioScreen` content padding. This keeps the background edges tied to the Settings cards across token/theme changes rather than hardcoding a second independent margin.
+
+### Cycle 2 — Add visual-boundary regression coverage
+
+- Added an Android host UI test that renders a contrasting header background inside a simulated 16 dp `NuvioScreen` content inset. It samples both sides of the captured image to ensure the header color starts and ends at the content edges, and separately checks that the Settings title remains aligned at the leading content inset.
+- The test was committed before the production change. It has **not been executed** because builds and CI are prohibited for this session; no RED/GREEN or runtime result is claimed.
+- Context7 checked official AndroidX Compose `BoxScope.matchParentSize` and Modifier padding semantics. The project pins Compose Multiplatform `1.13.0-beta01`, which is newer than the versions in the Context7 Compose Multiplatform index. The available AndroidX reference confirms match-parent sizing is resolved from the parent Box and padding can inset a child without changing the parent container's bounds. No new API or dependency was introduced.
+- Exa independently cross-checked the official Android Developers guidance for `matchParentSize`, Modifier order, padding and drawing bounds. The implementation keeps pointer interception on the full original header bounds while insetting only visual layers.
+- Manually reviewed the component changes and Settings call site. Verified the new parameter defaults to zero and is only opted into by the Settings internal header; the Search call site remains edge-to-edge. No build, Gradle task, test, compilation, benchmark, emulator/device session, workflow dispatch, or CI run was started.
+- Device validation remains pending: confirm the title background/border edges align with cards and search field on phone and tablet widths, with Liquid Glass both enabled and disabled, while the title and back/action controls stay at their prior positions.
