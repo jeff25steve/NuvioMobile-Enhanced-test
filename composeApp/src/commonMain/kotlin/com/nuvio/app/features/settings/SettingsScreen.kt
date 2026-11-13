@@ -873,6 +873,7 @@ private fun MobileSettingsScreen(
                 }
                 SettingsPage.Account -> accountSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Profile -> profileInsightsContent(
                     isTablet = false,
@@ -908,6 +909,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.Streams -> streamsSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Appearance -> appearanceSettingsContent(
                     isTablet = false,
@@ -978,6 +980,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.ContentDiscovery -> contentDiscoveryContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     showPluginsEntry = AppFeaturePolicy.pluginsEnabled,
                     onAddonsClick = onAddonsClick,
                     onPluginsClick = onPluginsClick,
@@ -1008,6 +1011,7 @@ private fun MobileSettingsScreen(
                 SettingsPage.MetaScreen -> metaScreenSettingsContent(
                     isTablet = false,
                     uiState = metaScreenSettingsUiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Integrations -> integrationsContent(
                     isTablet = false,
@@ -1024,6 +1028,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.TraktAuthentication -> trackingSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     traktUiState = traktAuthUiState,
                     simklUiState = simklAuthUiState,
                     settingsUiState = trackingSettingsUiState,
@@ -1354,6 +1359,7 @@ private fun TabletSettingsScreen(
                     }
                     SettingsPage.Account -> accountSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Profile -> profileInsightsContent(
                         isTablet = true,
@@ -1388,6 +1394,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.Streams -> streamsSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Appearance -> appearanceSettingsContent(
                         isTablet = true,
@@ -1458,6 +1465,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.ContentDiscovery -> contentDiscoveryContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         showPluginsEntry = AppFeaturePolicy.pluginsEnabled,
                         onAddonsClick = { openInlinePage(SettingsPage.Addons) },
                         onPluginsClick = { openInlinePage(SettingsPage.Plugins) },
@@ -1488,6 +1496,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.MetaScreen -> metaScreenSettingsContent(
                         isTablet = true,
                         uiState = metaScreenSettingsUiState,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Integrations -> integrationsContent(
                         isTablet = true,
@@ -1504,6 +1513,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.TraktAuthentication -> trackingSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         traktUiState = traktAuthUiState,
                         simklUiState = simklAuthUiState,
                         settingsUiState = trackingSettingsUiState,
