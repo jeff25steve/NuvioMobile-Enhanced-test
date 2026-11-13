@@ -4,6 +4,14 @@ import io.github.jan.supabase.auth.exception.AuthErrorCode
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 
+private val invalidSessionErrorCodes = setOf(
+    "bad_jwt",
+    "session_not_found",
+    "session_expired",
+    "user_not_found",
+    "user_banned",
+)
+
 private val invalidSessionMarkers = listOf(
     "session not found",
     "session_not_found",
@@ -72,6 +80,8 @@ internal fun isInvalidRemoteSessionResponse(
         "invalid api key" in messages ||
         "api key is required" in messages
     ) return false
+
+    if (errorCode?.lowercase() in invalidSessionErrorCodes) return true
 
     val invalidJwt = "jwt" in messages &&
         ("invalid" in messages || "expired" in messages || "malformed" in messages || "bad_jwt" in messages)
