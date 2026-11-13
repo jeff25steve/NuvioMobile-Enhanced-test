@@ -606,12 +606,17 @@ object AuthRepository {
             }
             ensureCleanupCallerActive(listOf(remoteSignOut, localSessionClear, localCleanup))
 
-            val cancellation = remoteSignOut.exceptionOrNull() as? CancellationException
-                ?: localSessionClear.exceptionOrNull() as? CancellationException
-                ?: localCleanup.exceptionOrNull() as? CancellationException
-            if (cancellation != null) throw cancellation
+            val remoteCancellation = remoteSignOut.exceptionOrNull() as? CancellationException
+            if (remoteCancellation != null) {
+                // The account is already deleted remotely; retain local fallback failures
+                // on cancellation without treating an ordinary sign-out failure as fatal
+                // when direct session clearing succeeds.
+                cleanupFailure(listOf(remoteSignOut, localSessionClear, localCleanup))
+                throw remoteCancellation
+            }
 
             val failure = cleanupFailure(listOf(localSessionClear, localCleanup))
+            if (failure is CancellationException) throw failure
             return if (failure == null) {
                 Result.success(Unit)
             } else {
