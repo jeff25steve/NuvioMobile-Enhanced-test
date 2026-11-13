@@ -1179,8 +1179,14 @@ private fun LazyListScope.cloudLibraryContent(
         }
 
         else -> {
+            // Provider credentials can be removed while this screen remains composed. A stale
+            // saved selection must not leave the user trapped in an empty filtered view.
+            val effectiveSelectedProviderId = effectiveCloudLibraryProviderId(
+                selectedProviderId = selectedProviderId,
+                providers = uiState.providers,
+            )
             val providerItems = uiState.items
-                .filter { item -> selectedProviderId == null || item.providerId == selectedProviderId }
+                .filter { item -> effectiveSelectedProviderId == null || item.providerId == effectiveSelectedProviderId }
             val availableTypes = providerItems
                 .map { item -> item.type }
                 .distinct()
@@ -1221,7 +1227,7 @@ private fun LazyListScope.cloudLibraryContent(
                     ) {
                         CloudLibraryToolbar(
                             uiState = uiState,
-                            selectedProviderId = selectedProviderId,
+                            selectedProviderId = effectiveSelectedProviderId,
                             selectedType = effectiveSelectedType,
                             availableTypes = availableTypes,
                             onProviderSelected = onProviderSelected,
@@ -1288,7 +1294,7 @@ private fun LazyListScope.cloudLibraryContent(
                 }
 
                 val visibleProviderStates = uiState.providers.filter { providerState ->
-                    selectedProviderId == null || providerState.providerId == selectedProviderId
+                    effectiveSelectedProviderId == null || providerState.providerId == effectiveSelectedProviderId
                 }
                 val failedProviderStates = visibleProviderStates.filter { providerState ->
                     !providerState.errorMessage.isNullOrBlank() && providerState.items.isEmpty()
