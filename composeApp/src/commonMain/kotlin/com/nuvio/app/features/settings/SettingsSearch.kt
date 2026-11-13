@@ -2066,8 +2066,8 @@ internal fun settingsSearchEntries(
     addRow(
         page = SettingsPage.TraktAuthentication,
         key = "anilist-authentication",
-        title = stringResource(Res.string.tracking_source_anilist),
-        description = stringResource(Res.string.settings_anilist_sign_in_description),
+        title = "AniList",
+        description = "Anime tracking and account connection.",
         pageLabel = trackingPage,
         section = stringResource(Res.string.settings_tracking_services),
         category = accountCategory,
@@ -2076,8 +2076,8 @@ internal fun settingsSearchEntries(
     addRow(
         page = SettingsPage.TraktAuthentication,
         key = "wetrakr-authentication",
-        title = stringResource(Res.string.tracking_source_wetrakr),
-        description = stringResource(Res.string.settings_wetrakr_sign_in_description),
+        title = "WeTrakr",
+        description = "Tracking provider account connection.",
         pageLabel = trackingPage,
         section = stringResource(Res.string.settings_tracking_services),
         category = accountCategory,
@@ -2086,8 +2086,8 @@ internal fun settingsSearchEntries(
     addRow(
         page = SettingsPage.TraktAuthentication,
         key = "publicmetadb-authentication",
-        title = stringResource(Res.string.tracking_source_publicmetadb),
-        description = stringResource(Res.string.settings_publicmetadb_sign_in_description),
+        title = "PublicMetaDB",
+        description = "Public metadata provider connection.",
         pageLabel = trackingPage,
         section = stringResource(Res.string.settings_tracking_services),
         category = accountCategory,
