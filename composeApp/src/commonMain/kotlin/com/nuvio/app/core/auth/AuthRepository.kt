@@ -38,6 +38,17 @@ private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
     return primary
 }
 
+internal suspend fun ensureCleanupCallerActive(results: List<Result<Unit>>) {
+    try {
+        currentCoroutineContext().ensureActive()
+    } catch (cancellation: CancellationException) {
+        results.mapNotNull { it.exceptionOrNull() }
+            .filter { it !== cancellation }
+            .forEach(cancellation::addSuppressed)
+        throw cancellation
+    }
+}
+
 internal suspend fun runInvalidSessionCleanup(
     clearAnonymousUserId: suspend () -> Unit,
     clearRemoteSession: suspend () -> Unit,
@@ -64,15 +75,8 @@ internal suspend fun runInvalidSessionCleanup(
     }
 
     val failure = cleanupFailure(results)
-    try {
-        // Cancellation of the caller takes precedence over ordinary cleanup failures.
-        currentCoroutineContext().ensureActive()
-    } catch (cancellation: CancellationException) {
-        results.mapNotNull { it.exceptionOrNull() }
-            .filter { it !== cancellation }
-            .forEach(cancellation::addSuppressed)
-        throw cancellation
-    }
+    // Caller cancellation takes precedence without discarding cleanup diagnostics.
+    ensureCleanupCallerActive(results)
 
     if (failure is CancellationException) throw failure
     return if (failure == null) Result.success(Unit) else Result.failure(failure)
@@ -92,16 +96,8 @@ internal suspend fun runServerSwitchCleanup(
             runCatching { clearRemoteSession() },
         )
     }
-    try {
-        // NonCancellable may return inline when the dispatcher is unchanged. Explicitly
-        // restore the caller's cancellation boundary before deciding whether to wipe data.
-        currentCoroutineContext().ensureActive()
-    } catch (cancellation: CancellationException) {
-        credentialResults.mapNotNull { it.exceptionOrNull() }
-            .filter { it !== cancellation }
-            .forEach(cancellation::addSuppressed)
-        throw cancellation
-    }
+    // NonCancellable may return inline without a dispatcher handoff.
+    ensureCleanupCallerActive(credentialResults)
 
     val credentialFailure = cleanupFailure(credentialResults)
     if (credentialFailure is CancellationException) throw credentialFailure
