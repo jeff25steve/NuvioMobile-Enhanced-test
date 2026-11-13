@@ -1061,4 +1061,15 @@ class SettingsSearchAnchorTest {
         }
     }
 
+    @Test
+    fun liquidGlassAppearanceControlsHaveExactAnchors() {
+        listOf("liquid-glass-effects", "liquid-glass-customize").forEach { key ->
+            assertEquals(
+                1,
+                settingsSearchAnchor(SettingsPage.Appearance, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
 }
