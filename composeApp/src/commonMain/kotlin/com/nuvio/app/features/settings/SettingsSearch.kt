@@ -134,8 +134,12 @@ internal fun settingsSearchAnchor(
         }
         SettingsPage.Omdb ->
             if (key == "omdb-api-key") 0 else return null
-        SettingsPage.Homescreen ->
-            if (key in HomescreenSettingsSearchAnchorKeys) 1 else return null
+        SettingsPage.Homescreen -> when (key) {
+            "home-hero", "home-catalog-type", "home-hide-unreleased" -> 1
+            "home-hero-sources" -> 2
+            "home-catalogs" -> 3
+            else -> return null
+        }
         SettingsPage.PosterCustomization -> when (key) {
             "poster-width", "poster-radius", "poster-landscape", "poster-hide-labels",
             "poster-always-show-landscape-clearlogo" -> 0
