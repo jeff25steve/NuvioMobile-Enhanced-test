@@ -30,7 +30,7 @@ import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
 private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
-    val failures = results.mapNotNull(Result<Unit>::exceptionOrNull)
+    val failures = results.mapNotNull { it.exceptionOrNull() }
     val primary = failures.firstOrNull() ?: return null
     failures.drop(1).forEach { failure ->
         if (failure !== primary) primary.addSuppressed(failure)
@@ -68,7 +68,7 @@ internal suspend fun runInvalidSessionCleanup(
         // Cancellation of the caller takes precedence over ordinary cleanup failures.
         currentCoroutineContext().ensureActive()
     } catch (cancellation: CancellationException) {
-        results.mapNotNull(Result<Unit>::exceptionOrNull)
+        results.mapNotNull { it.exceptionOrNull() }
             .filter { it !== cancellation }
             .forEach(cancellation::addSuppressed)
         throw cancellation
