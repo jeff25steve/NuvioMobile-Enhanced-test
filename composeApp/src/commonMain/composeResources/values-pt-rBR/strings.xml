@@ -3020,4 +3020,13 @@
     <string name="settings_playback_page_up_next">A seguir</string>
     <string name="compose_settings_page_layout">Layout</string>
     <string name="settings_group_you">Você</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">O link expirou. Tente outra fonte.</string>
+    <string name="player_error_stream_removed">O link expirou ou foi removido. Tente outra fonte.</string>
+    <string name="player_error_stream_rate_limited">Muitos acessos simultâneos a esta fonte. Aguarde um instante e tente novamente.</string>
+    <string name="player_error_stream_unavailable">Servidor indisponível. Tente outra fonte.</string>
+    <string name="player_error_stream_blocked">A fonte de vídeo está bloqueada ou restrita. Tente outra opção.</string>
+    <string name="player_error_source_invalid_content">Erro de fonte: conteúdo inválido ou não reproduzível. O link pode ter expirado ou o servidor retornou uma página de erro.\n\nTente outra fonte. [%1$s]</string>
+    <string name="player_error_unsupported_format">Formato não suportado pelo dispositivo. Tente outra fonte. [%1$s]</string>
 </resources>
