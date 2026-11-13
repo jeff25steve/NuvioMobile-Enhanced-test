@@ -85,8 +85,8 @@ internal fun PlayerScreenRuntime.attachSelectedAddonSubtitleWithAutoSync(url: St
 }
 
 /**
- * A subtitle restored from another episode is checked first; AutoSync can search another
- * same-language add-on subtitle if the restored file no longer fits this source.
+ * The user's own pick for this content: try it first and keep it if it fits; only when it does
+ * not, look for another same-language subtitle that does.
  */
 internal fun PlayerScreenRuntime.maybeAutoSyncRestoredSubtitleAtStart(url: String): Boolean {
     val controller = playerController ?: return false

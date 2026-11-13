@@ -113,6 +113,19 @@ class PlayerNowPlayingServiceTest {
         }
     }
 
+    @Test
+    fun blockedBackgroundStartFallsBackToForegroundStart() {
+        context.blockBackgroundStart = true
+        try {
+            PlayerNowPlayingService.publish(context, notification("Background"))
+            context.takeCall("foreground-start")
+        } finally {
+            context.blockBackgroundStart = false
+            PlayerNowPlayingService.hide(context)
+            context.takeCall("stop")
+        }
+    }
+
     private fun startThenHide(title: String): Intent {
         PlayerNowPlayingService.publish(context, notification(title))
         val request = context.takeCall("start")

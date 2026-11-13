@@ -4376,3 +4376,28 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - The direct-parent `luqmanfadlli/NuvioMobile-Enhanced:enhanced` and official `NuvioMedia/NuvioMobile:cmp-rewrite` are themselves substantially divergent: comparing the official head against the parent head reports 5 commits ahead and 800 behind. The direct parent contains its own substantial history, so neither source can be treated as a simple alias of the other.
 - **Decision:** keep `main-build-testing` unchanged apart from this documentation record. Do not merge either upstream head by selecting a whole-branch side, and do not assume that merging the 114 parent commits alone makes the branch current against the official rewrite. A complete local graph and source-level integration review is required to determine whether both lines contain distinct required work and in what order they can safely be merged.
 - No code merge, conflict resolution, build, test, compilation or CI run occurred. The branch still needs a local Git checkout to inspect exact merge stages and resolve the actual conflicting hunks.
+
+
+## 13 November 2026 — Direct-parent upstream merge checkpoint
+
+### Verified graph and safety
+
+- Live \`main-build-testing\` head before integration: \`051572548871e2854c529aa5b33801bde16b0dc9\`; direct-parent \`enhanced\` head: \`0ce28ba7e64b887f1666196490be4cad14d58462\`; common merge base: \`89f7ae19a15640937eafd7f72293b90e70351f09\`.
+- GitHub compare confirms **114 commits behind upstream** and **1,380 fork-only commits ahead** (the ahead/behind values are from the fork's perspective). This is the direct-parent sync, not the separate official NuvioMedia rewrite.
+- Created safety ref \`backup/main-build-testing-pre-upstream-sync-20261113-0929\` at the exact pre-merge head. No reset, rebase or force update is used.
+- The remote tree comparison found 254 upstream-changed blob paths. The merge keeps all fork-only paths and adds upstream-only files/changes; the 62 overlapping paths were treated individually rather than selecting an entire branch side.
+
+### Conflict resolutions and integration choices
+
+- Adopted the upstream shared AutoSync coordinator/platform implementation and its matching contracts, run policy, player runtime and settings files as one coherent refactor. This carries the Android/iOS platform abstraction and common AutoSync implementation together rather than mixing incompatible generations of the Android-only coordinator.
+- Preserved fork-side authentication/session-generation protections and the expanded account-data cleanup in overlapping files. The upstream auth recovery changes remain in upstream history but are not copied over the fork's stronger session-operation/reset guards in this merge.
+- Preserved the fork's Liquid Glass, background, backdrop-focus, profile-bound Live TV and other existing custom UI/data behaviour in overlapping files unless a specific compatible merge was prepared.
+- Merged the non-overlapping edits in the player-now-playing test, application bootstrap, add-on platform, player playback networking and notification platform. The notification HTTP client retains bounded image reads and now also installs the upstream network-error interceptor.
+- Combined upstream structured MPV error explanations with the fork's existing URL/credential redaction and bounded recent-log collection. Sanitisation is applied before diagnostic log ingestion, and the file error passed to the user-facing message is the sanitised value.
+- Overlapping locale strings.xml files retain the fork's existing entries; upstream-only locale/resource files are included. New upstream translation entries inside those same overlapping files are not all ported in this pass and are a documented follow-up rather than silently replacing Liquid Glass strings.
+
+### Verification boundary
+
+- Static Git tree comparison and remote source inspection only. The merge commit records both parents so the 114 upstream commits become ancestors without rewriting the fork's 1,380 fork-only commits.
+- No Gradle task, test, compilation, build, benchmark, workflow dispatch or CI was run or triggered by this task. The commit message uses [skip ci]; source-level integration is not represented as build-verified.
+- Recheck the remote branch head and compare counts after the merge. Builds/CI remain blocked until explicit authorisation.

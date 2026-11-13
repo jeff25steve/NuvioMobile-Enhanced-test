@@ -175,17 +175,11 @@ internal class AutoSyncPlayerCoordinator(
                         onAnalysisOutcome = { outcome = it },
                     )
                 var resolved = search(candidateScope)
+                // The restored subtitle does not fit: look for another one that does.
                 if (
-                    resolved == null &&
-                    token == operationToken &&
-                    candidateScope.shouldSearchAfterSelectedFailure(
-                        hasUsableReference =
-                            outcome != AutoSyncAnalysisOutcome.NO_SUBTITLE_TRACKS &&
-                                outcome != AutoSyncAnalysisOutcome.NO_USABLE_REFERENCE,
-                    )
+                    resolved == null && token == operationToken &&
+                    candidateScope.searchAfterSelectedFailed(outcome)
                 ) {
-                    currentCoroutineContext().ensureActive()
-                    if (token != operationToken) return@launch
                     resolved = search(AutoSyncCandidateScope.STARTUP_SEARCH)
                 }
                 currentCoroutineContext().ensureActive()
@@ -286,17 +280,11 @@ internal class AutoSyncPlayerCoordinator(
                     )
                 }
                 var resolved = search(ass = true)
+                // The restored subtitle does not fit: look for another one that does.
                 if (
-                    resolved == null &&
-                    token == operationToken &&
-                    candidateScope.shouldSearchAfterSelectedFailure(
-                        hasUsableReference =
-                            outcome != AutoSyncAnalysisOutcome.NO_SUBTITLE_TRACKS &&
-                                outcome != AutoSyncAnalysisOutcome.NO_USABLE_REFERENCE,
-                    )
+                    resolved == null && token == operationToken &&
+                    candidateScope.searchAfterSelectedFailed(outcome)
                 ) {
-                    currentCoroutineContext().ensureActive()
-                    if (token != operationToken) return@launch
                     searchScope = AutoSyncCandidateScope.STARTUP_SEARCH
                     resolved = search(ass = true)
                 }

@@ -5,7 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.features.autosync.AutoSyncPreferencesRepository
-import com.nuvio.app.isIos
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_playback_auto_sync_mode_aggressive
 import nuvio.composeapp.generated.resources.settings_playback_auto_sync_mode_aggressive_description
@@ -36,7 +35,6 @@ internal fun AutoSyncPlaybackSettingsRows(
         AutoSyncPreferencesRepository.ensureLoaded()
         AutoSyncPreferencesRepository.syncToleranceMs
     }.collectAsStateWithLifecycle()
-    if (isIos) return
 
     SettingsSwitchRow(
         title = stringResource(Res.string.settings_playback_subtitle_auto_sync),

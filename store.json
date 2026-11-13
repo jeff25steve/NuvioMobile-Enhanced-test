@@ -20,6 +20,36 @@
       "category": "entertainment",
       "versions": [
         {
+          "version": "0.6.12",
+          "buildVersion": "155",
+          "date": "2026-11-13T01:28:27Z",
+          "localizedDescription": "- fix(subtitles): config export/import and profile removal for device subtitle prefs @luqmanfadlli\r\n- feat(player): restore HLS quality chooser for Live TV @luqmanfadlli\r\n- Significantly increase anime line sharpener strength (#375) @chrisk325\r\n- fix imdb button not appearing on discord rpc (#373) @chrisk325\r\n- feat(player): isolate subtitle preferences per device (#369) @3l-franco\r\n- fix live tv buffering endlessly and black screen on some streams (#366) @chrisk325\r\n- raw bluray files compatibility for exoplayer (#362) @chrisk325\r\n- migrate simkl oauth v1 to v2 (#359) @chrisk325\r\n- feat(player): chapters setting for every engine, chapters on iOS and a chapter title toggle (#2609) @skoruppa\r\n- fix(collections): respect \"Show catalog type\" in folders (#2608) @skoruppa\r\n- fix(player): show the real cause of playback errors, like NuvioTV (#2607) @skoruppa\r\n- fix(player): use the audio clock when mpv video time drops to 0 (#2605) @skoruppa\r\n- fix(player): add an SPS/PPS init segment to HLS streams that lack them (#2606) @skoruppa\r\n- fix(player): decode DASH MIME query hints before detection (#2600) @retrocodes12\r\n- i18n(vi): update latest Vietnamese strings (#2601) @blueocean2308\r\n- fix(streams): keep tokenized links for reuse and refresh expired saved links (#2598) @skoruppa\r\n- i18n: add French string for signed-out notice (#2593) @SK-Gits\r\n- Update Dutch (nl) strings and reorder Dutch in Settings (#2592) @mronion212",
+          "downloadURL": "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/download/0.6.12-beta/nuvio-0.6.12-enhanced-release.ipa",
+          "size": 75542331,
+          "sha256": "174609f8dd7ace88851755a1a37f48f1fd151620de9af462de01139db63a9cf9",
+          "minOSVersion": "16.1"
+        },
+        {
+          "version": "0.6.11",
+          "buildVersion": "154",
+          "date": "2026-11-10T08:54:47Z",
+          "localizedDescription": "- feature/subtitle shadow outline blur (#356) @3l-franco\r\n- perf(ios): free more app memory before playback on iPhones @luqmanfadlli\r\n- perf(ios): lighter mpv setup under the iPhone jetsam limit @luqmanfadlli\r\n- fix(mdblist): reuse progress and watched lists until a remap changes them @tapframe\r\n- fix(auth): stay signed in when session refresh fails @tapframe\r\n- fix(player): center opening overlay backdrop on tall screens (#2585) @yvngjoon\r\n- fix(player): show mpv error details on the error screen @tapframe\r\n- fix(autosync): allow AutoSync without a preferred language, enable forced subs and AutoSync by default (#2578) @skoruppa\r\n- feat(hero): smart horizontal framing for cropped backdrops (#2538) @skoruppa\r\n- Add and update Bulgarian strings in strings.xml (#2576) @viiktr\r\n- i18n: harmonize French wording with Nuvio TV (#2575) @SK-Gits\r\n- fix(autosync): search further when a restored subtitle does not fit (#2537) @skoruppa",
+          "downloadURL": "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/download/0.6.11-beta/nuvio-0.6.11-enhanced-release.ipa",
+          "size": 75396411,
+          "sha256": "dd1fae561b4862a40534fd2ad97c8a461986b27b8a4f2e58eac0bb8208bfc188",
+          "minOSVersion": "16.1"
+        },
+        {
+          "version": "0.6.10",
+          "buildVersion": "153",
+          "date": "2026-11-09T07:10:24Z",
+          "localizedDescription": "- perf(ios): memory optimization long sessions and 4K HDR/DV playback @luqmanfadlli\r\n- feat(player): add Anime4K 2x upscaler and line sharpener for ExoPlayer and mpv (#337) @chrisk325\r\n- fix(ios): detach the mpv metal layer before destroying mpv (#336) @luqmanfadlli\r\n- fix(player): start playback service as a normal service first (NUVIO-MOBILE-D9 NUVIO-MOBILE-9E NUVIO-MOBILE-9M NUVIO-MOBILE-PC) @tapframe\r\n- fix(player): cap buffer start times at the min buffer (NUVIO-MOBILE-1VH) @tapframe\r\n- fix(player): guard caption setting reads (NUVIO-MOBILE-25M) @tapframe\r\n- fix(network): treat SSL setup errors as failed requests (NUVIO-MOBILE-254 NUVIO-MOBILE-3N) @tapframe\r\n- fix(watched): copy unsynced keys before saving (NUVIO-MOBILE-260) @tapframe\r\n- i18n: add French translation for ratings strings (#2562) @SK-Gits\r\n- i18n(el): sync the Greek locale with 0.6.9 (playback audio, downmix, ratings) (#2561) @nosvasedis\r\n- i18n(he): translate party strings into Hebrew (#2557) @haveAnIssue\r\n- i18n(he): translate servers strings into Hebrew (#2556) @haveAnIssue\r\n- i18n(he): translate pip strings into Hebrew (#2555) @haveAnIssue\r\n- i18n(he): translate autosync strings into Hebrew (#2553) @haveAnIssue\r\n- i18n(he): translate mdblist strings into Hebrew (#2552) @haveAnIssue\r\n- i18n(he): translate ratings strings into Hebrew (#2551) @haveAnIssue\r\n- Update Japanese translation (#2559) @Joe00011\r\n- i18n(vi): translate ratings strings into Vietnamese (#2550) @blueocean2308\r\n- fix(player): reset addon subtitles only when the source changes @tapframe\r\n- feat(autosync): shared engine, enable on iOS (#2535) @skoruppa\r\n- fix(mdblist): remap anime episodes between addon and TMDB numbering (TV parity) (#2516) @kernexshadow",
+          "downloadURL": "https://github.com/luqmanfadlli/NuvioMobile-Enhanced/releases/download/0.6.10-beta/nuvio-0.6.10-enhanced-release.ipa",
+          "size": 75374093,
+          "sha256": "a0fa29df60d0c7112c341c94293181ce81764b0e6a9da15e4006748a50797196",
+          "minOSVersion": "16.1"
+        },
+        {
           "version": "0.6.9",
           "buildVersion": "152",
           "date": "2026-11-06T23:21:17Z",
