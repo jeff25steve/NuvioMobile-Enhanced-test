@@ -71,6 +71,7 @@ class InvalidSessionCleanupTest {
     fun preservesCleanupFailuresWhenCallerCancellationWins() = runTest {
         val remoteFailure = IllegalStateException("Remote clear failed")
         val localFailure = IllegalStateException("Local cleanup failed")
+        var completionFailure: Throwable? = null
         val cleanup = launch {
             runInvalidSessionCleanup(
                 clearAnonymousUserId = {},
@@ -78,12 +79,13 @@ class InvalidSessionCleanupTest {
                 clearLocalAccountData = { throw localFailure },
             )
         }
+        cleanup.invokeOnCompletion { completionFailure = it }
 
         cleanup.cancelAndJoin()
 
         assertTrue(cleanup.isCancelled)
-        val cancellation = cleanup.getCancellationException()
-        assertTrue(cancellation.suppressedExceptions.contains(remoteFailure))
-        assertTrue(cancellation.suppressedExceptions.contains(localFailure))
+        assertTrue(completionFailure is kotlinx.coroutines.CancellationException)
+        assertTrue(completionFailure!!.suppressedExceptions.contains(remoteFailure))
+        assertTrue(completionFailure!!.suppressedExceptions.contains(localFailure))
     }
 }
