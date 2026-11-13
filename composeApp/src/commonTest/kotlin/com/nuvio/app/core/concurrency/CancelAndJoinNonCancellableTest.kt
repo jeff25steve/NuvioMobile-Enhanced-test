@@ -1,10 +1,10 @@
 package com.nuvio.app.core.concurrency
 
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -101,5 +101,4 @@ class CancelAndJoinNonCancellableTest {
         assertFalse(continued)
         assertTrue(caller.isCancelled)
     }
-
 }
