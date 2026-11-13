@@ -37,13 +37,43 @@ Relevant files:
 - `composeApp/src/commonMain/kotlin/com/nuvio/app/core/auth/AuthSessionErrors.kt`
 - `composeApp/src/commonTest/kotlin/com/nuvio/app/core/auth/AuthSessionErrorClassificationTest.kt`
 
+
+
+### 3. Use one cause-aware invalid-session classifier
+
+Root cause: `AuthRepository` duplicated the classifier already provided by `AuthSessionErrors.kt`. The duplicate only assembled the outer exception message and a discovered REST exception's fields; the shared helper traverses the complete cause chain. Wrapped SDK/network errors could therefore be classified differently depending on the call path.
+
+Change:
+- Replaced the repository-local classifier with `Throwable.isInvalidSessionError()`.
+- Exposed the existing cause-chain message collector internally and added a focused test proving nested causes are retained.
+- Removed obsolete REST exception imports and duplicate classification code.
+
+Relevant files:
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/auth/AuthRepository.kt`
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/auth/AuthSessionErrors.kt`
+- `composeApp/src/commonTest/kotlin/com/nuvio/app/core/auth/AuthSessionErrorsTest.kt`
+
+### 4. Finish invalid-session cleanup after caller cancellation
+
+Root cause: `clearLocalSessionAfterRemoteInvalidation` used `runCatching` around suspending remote-session clearing and local account cleanup. If its caller was cancelled during the remote clear, the following suspending local wipe could immediately throw cancellation and be swallowed, leaving account-scoped data behind after a confirmed invalid session.
+
+Change:
+- Added `runInvalidSessionCleanup`, which attempts anonymous identity removal, remote session clearing, and local cleanup in a `NonCancellable` section.
+- It still checks the originating session generation before each step, so a replacement identity is not wiped.
+- Ordinary cleanup failures are returned for logging; caller cancellation and explicit cancellation failures are propagated after the eligible cleanup sequence finishes.
+- Added regression coverage for cancellation during remote clear, identity replacement, and local cleanup despite an ordinary remote-clear failure.
+
+Relevant files:
+- `composeApp/src/commonMain/kotlin/com/nuvio/app/core/auth/AuthRepository.kt`
+- `composeApp/src/commonTest/kotlin/com/nuvio/app/core/auth/InvalidSessionCleanupTest.kt`
+
 ## Evidence and implementation constraints
 
 - Supabase dependency in `gradle/libs.versions.toml`: `3.4.1`; Ktor: `3.4.1`; kotlinx-coroutines: `1.10.2`.
 - Supabase Kotlin 3.4.1 release notes and SDK documentation were consulted. The SDK distinguishes terminal auth refresh errors from network/internal-server refresh failures; network/5xx refresh failures are retried rather than automatically clearing the stored session.
 - The Supabase Kotlin docs index did not provide a pinned 3.4.1 documentation snapshot; the exact release tag and upstream source references were checked separately.
 - Coroutines guidance confirms that suspending cleanup in a cancelled coroutine requires `withContext(NonCancellable)`; cancellation is still observed when leaving that context.
-- Regression tests were added/updated remotely but were **not executed**, because builds and CI were explicitly not authorised. No passing-test or build claim is made.
+- Regression tests were added/updated remotely but were **not executed**, because builds and CI were explicitly not authorised. No passing-test or build claim is made. Context7 documentation for kotlinx-coroutines 1.10.1 (closest indexed release; project pins 1.10.2) confirms that suspending cleanup in a cancelled coroutine should use `withContext(NonCancellable)`. Context7's Supabase Kotlin 3.4.1 index did not contain a directly matching exception-hierarchy page; upstream SDK and Supabase error-handling references were checked through Exa.
 
 ## Follow-up review
 
