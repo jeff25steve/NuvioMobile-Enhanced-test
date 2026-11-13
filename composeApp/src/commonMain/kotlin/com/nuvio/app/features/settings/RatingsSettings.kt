@@ -1,5 +1,7 @@
 package com.nuvio.app.features.settings
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import com.nuvio.app.core.ui.Chip
 import com.nuvio.app.features.details.EpisodeRatingsVisibility
@@ -22,6 +24,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun RatingsSettings(
     isTablet: Boolean,
     uiState: MetaScreenSettingsUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     SettingsSwitchRow(
         title = stringResource(Res.string.layout_overall_ratings),
@@ -31,26 +34,35 @@ internal fun RatingsSettings(
         ),
         checked = uiState.showOverallRatings,
         isTablet = isTablet,
+        searchAnchorKey = "meta-overall-ratings",
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
         onCheckedChange = MetaScreenSettingsRepository::setShowOverallRatings,
     )
     SettingsGroupDivider(isTablet = isTablet)
-    SettingsChipRow(
-        title = stringResource(Res.string.layout_episode_ratings),
-        description = stringResource(Res.string.layout_episode_ratings_sub),
-        isTablet = isTablet,
-    ) {
-        EpisodeRatingsVisibility.entries.forEach { visibility ->
-            Chip(
-                label = stringResource(
-                    when (visibility) {
-                        EpisodeRatingsVisibility.SHOW_ALL -> Res.string.layout_ratings_show
-                        EpisodeRatingsVisibility.HIDE_EPISODES -> Res.string.layout_ratings_hide
-                        EpisodeRatingsVisibility.HIDE_UNWATCHED_EPISODES -> Res.string.layout_ratings_hide_unwatched
-                    },
-                ),
-                selected = uiState.episodeRatingsVisibility == visibility,
-                onClick = { MetaScreenSettingsRepository.setEpisodeRatingsVisibility(visibility) },
-            )
+    SettingsSearchAnchorContainer(
+        searchAnchorKey = "meta-episode-ratings",
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+    ) { anchorModifier ->
+        Box(modifier = anchorModifier.fillMaxWidth()) {
+            SettingsChipRow(
+                title = stringResource(Res.string.layout_episode_ratings),
+                description = stringResource(Res.string.layout_episode_ratings_sub),
+                isTablet = isTablet,
+            ) {
+                EpisodeRatingsVisibility.entries.forEach { visibility ->
+                    Chip(
+                        label = stringResource(
+                            when (visibility) {
+                                EpisodeRatingsVisibility.SHOW_ALL -> Res.string.layout_ratings_show
+                                EpisodeRatingsVisibility.HIDE_EPISODES -> Res.string.layout_ratings_hide
+                                EpisodeRatingsVisibility.HIDE_UNWATCHED_EPISODES -> Res.string.layout_ratings_hide_unwatched
+                            },
+                        ),
+                        selected = uiState.episodeRatingsVisibility == visibility,
+                        onClick = { MetaScreenSettingsRepository.setEpisodeRatingsVisibility(visibility) },
+                    )
+                }
+            }
         }
     }
     SettingsGroupDivider(isTablet = isTablet)
