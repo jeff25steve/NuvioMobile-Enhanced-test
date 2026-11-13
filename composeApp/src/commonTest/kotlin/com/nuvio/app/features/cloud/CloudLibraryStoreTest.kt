@@ -68,6 +68,52 @@ class CloudLibraryStoreTest {
     }
 
     @Test
+    fun `only the latest refresh for unchanged enabled connections can publish`() {
+        val connectionKeys = listOf("alpha:123", "beta:456")
+
+        assertTrue(
+            shouldApplyCloudLibraryRefresh(
+                requestGeneration = 4,
+                latestRequestGeneration = 4,
+                requestedConnectionSignature = connectionKeys,
+                currentConnectionSignature = connectionKeys,
+                cloudLibraryEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldApplyCloudLibraryRefresh(
+                requestGeneration = 3,
+                latestRequestGeneration = 4,
+                requestedConnectionSignature = connectionKeys,
+                currentConnectionSignature = connectionKeys,
+                cloudLibraryEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `refresh result is rejected when provider connections change or library is disabled`() {
+        assertFalse(
+            shouldApplyCloudLibraryRefresh(
+                requestGeneration = 7,
+                latestRequestGeneration = 7,
+                requestedConnectionSignature = listOf("alpha:123"),
+                currentConnectionSignature = listOf("alpha:999"),
+                cloudLibraryEnabled = true,
+            ),
+        )
+        assertFalse(
+            shouldApplyCloudLibraryRefresh(
+                requestGeneration = 7,
+                latestRequestGeneration = 7,
+                requestedConnectionSignature = listOf("alpha:123"),
+                currentConnectionSignature = listOf("alpha:123"),
+                cloudLibraryEnabled = false,
+            ),
+        )
+    }
+
+    @Test
     fun `refresh aggregates multiple providers without provider-specific assumptions`() = runBlocking {
         val firstProvider = cloudProvider(id = "alpha", name = "Alpha")
         val secondProvider = cloudProvider(id = "beta", name = "Beta")
