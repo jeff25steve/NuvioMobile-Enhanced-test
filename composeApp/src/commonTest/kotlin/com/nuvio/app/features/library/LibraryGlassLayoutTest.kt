@@ -166,6 +166,46 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun libraryStaticBackdropCaptureRunsOnlyForStaticBackdropConsumers() {
+        fun capture(
+            sourceMode: LibraryViewMode,
+            enabledSurface: LiquidGlassSurface,
+            masterEnabled: Boolean = true,
+            platformSupported: Boolean = true,
+        ) = libraryStaticBackdropCaptureRequired(
+            masterEnabled = masterEnabled,
+            platformSupported = platformSupported,
+            sourceMode = sourceMode,
+        ) { it == enabledSurface }
+
+        assertTrue(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY))
+        assertTrue(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY))
+        assertTrue(capture(LibraryViewMode.Servers, LiquidGlassSurface.LIBRARY))
+        assertFalse(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
+        assertFalse(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER))
+        assertFalse(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY_CALENDAR))
+        assertTrue(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY_CLOUD_FILTERS))
+        assertTrue(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY_CLOUD_SEARCH))
+        assertTrue(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY_CLOUD_CARDS))
+        assertFalse(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER))
+        assertFalse(capture(LibraryViewMode.Servers, LiquidGlassSurface.LIBRARY_CLOUD_CARDS))
+        assertFalse(
+            capture(
+                LibraryViewMode.Cloud,
+                LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                masterEnabled = false,
+            ),
+        )
+        assertFalse(
+            capture(
+                LibraryViewMode.Cloud,
+                LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
+                platformSupported = false,
+            ),
+        )
+    }
+
+    @Test
     fun liveCalendarUsesLibraryContentBackdropOnlyWhenGlassIsEnabledInSavedMode() {
         assertTrue(
             shouldUseLibraryContentBackdropForCalendar(
