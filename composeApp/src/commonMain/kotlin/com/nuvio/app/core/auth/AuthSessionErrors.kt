@@ -13,12 +13,19 @@ private val invalidSessionMarkers = listOf(
     "user does not exist",
 )
 
+private val invalidRefreshErrorCodes = setOf(
+    "refresh_token_not_found",
+    "refresh_token_already_used",
+    "session_not_found",
+    "session_expired",
+    "user_banned",
+)
+
 private val invalidRefreshMarkers = listOf(
     "invalid refresh token",
     "refresh token is not valid",
     "refresh token not found",
     "refresh_token_not_found",
-    "invalid_grant",
     "session not found",
     "session_not_found",
     "invalid session",
@@ -80,9 +87,37 @@ internal fun isInvalidRemoteSessionResponse(
 }
 
 internal fun Throwable.isInvalidRefreshError(): Boolean {
-    val statusCode = findCause<RestException>()?.statusCode ?: return false
+    val restError = findCause<RestException>() ?: return false
+    val errorCode = restError.error
+    return isInvalidRefreshResponse(
+        statusCode = restError.statusCode,
+        errorCode = errorCode,
+        message = authMessages(),
+    )
+}
+
+internal fun isInvalidRefreshResponse(
+    statusCode: Int?,
+    errorCode: String?,
+    message: String,
+): Boolean {
     if (statusCode !in setOf(400, 401, 403)) return false
-    val messages = authMessages()
+    val normalizedCode = errorCode?.lowercase()
+    if (normalizedCode in invalidRefreshErrorCodes) return true
+    // Unknown codes remain message-classified for forward compatibility, but known
+    // unrelated Auth codes never invalidate a refresh session merely by status.
+    if (normalizedCode != null && normalizedCode !in invalidRefreshErrorCodes) {
+        val knownNonSessionFailure = normalizedCode in setOf(
+            "invalid_credentials",
+            "over_request_rate_limit",
+            "provider_disabled",
+            "invalid_api_key",
+            "insufficient_aal",
+            "weak_password",
+        )
+        if (knownNonSessionFailure) return false
+    }
+    val messages = message.lowercase()
     return invalidRefreshMarkers.any(messages::contains)
 }
 
