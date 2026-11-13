@@ -154,7 +154,6 @@ class LocalAccountDataCleanerTest {
         assertEquals(2, failures.size)
     }
 
-
     @Test
     fun accountCleanupRethrowsCancellationAfterAttemptingRemainingSteps() = runBlocking {
         val cancellation = CancellationException("simulated cleanup cancellation")
