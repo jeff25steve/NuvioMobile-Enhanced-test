@@ -248,6 +248,13 @@ internal fun libraryHeaderUsesArtworkBackdrop(
     artworkBackgroundActive: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Cloud && artworkBackgroundActive
 
+/** Match the Cloud header's artwork dimming in the live screen and Studio preview. */
+internal fun libraryCloudHeaderScrimColorStops(): List<Pair<Float, Color>> = listOf(
+    0f to Color.Black.copy(alpha = 0.38f),
+    0.58f to Color.Black.copy(alpha = 0.18f),
+    1f to Color.Transparent,
+)
+
 /** Match the pinned Cloud toolbar to its dedicated black/artwork screen backdrop. */
 internal fun libraryCloudToolbarBackgroundColor(artworkBackgroundActive: Boolean): Color =
     if (artworkBackgroundActive) Color.Transparent else Color.Black
@@ -628,11 +635,7 @@ fun LibraryScreen(
     val cloudHeaderBackgroundBrush = remember(cloudHeaderBackdropActive) {
         if (cloudHeaderBackdropActive) {
             Brush.verticalGradient(
-                colorStops = arrayOf(
-                    0f to Color.Black.copy(alpha = 0.38f),
-                    0.58f to Color.Black.copy(alpha = 0.18f),
-                    1f to Color.Transparent,
-                ),
+                colorStops = libraryCloudHeaderScrimColorStops().toTypedArray(),
             )
         } else {
             null

@@ -4778,3 +4778,26 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 ### Additional profile-switch review correction
 - A final lifecycle pass found that the warm effect was keyed only by `uiState.items`. Two profiles can have identical Library item lists, so a profile switch could leave the old calendar cache key active without causing the effect to run. The screen now observes `ProfileRepository.state` and keys the warm effect on both profile state and Library items, ensuring the cache is reconciled even when the item list compares equal.
 - The profile switch path in `ProfileRepository.selectProfile` updates profile state and then synchronously calls `LibraryRepository.onProfileChanged(profileIndex)`. The screen's observed profile state therefore provides a recomposition trigger while the calendar's cache key and generation checks prevent stale work from being accepted.
+
+
+## 13 November 2026 — align Cloud Library Liquid Glass header preview with live rendering
+
+### Confirmed discrepancy
+
+- The live Cloud Library title header uses a black artwork scrim with stops at 0% (38% opacity), 58% (18% opacity), and 100% (transparent).
+- The Liquid Glass Studio preview instead used the current theme background at 28% and 12% opacity for every mode. On custom Library Cloud artwork this produced a different tint and fade from the actual screen, so changing a surface recipe could be previewed against the wrong background treatment.
+- The Cloud default background remains black in both live and preview paths; applying the shared black scrim to black is visually neutral, while custom artwork now receives the same dimming as the live title header.
+
+### Changes
+
+- Extracted the live Cloud header gradient stops into `libraryCloudHeaderScrimColorStops()`.
+- Reused that exact recipe in the live Library header and Liquid Glass Studio's Cloud preview.
+- Kept the Saved preview's theme-background fade unchanged.
+- Added a common regression test pinning all three stop positions and opacity values.
+
+### Evidence and review
+
+- The mismatch was confirmed by comparing `LibraryScreen.kt`'s `cloudHeaderBackgroundBrush` with `LiquidGlassSurfacesSettingsSheet.kt`'s fixed preview overlay.
+- Apple Human Interface Guidelines, [Materials](https://developer.apple.com/design/human-interface-guidelines/materials), describe Liquid Glass as a distinct functional layer that preserves visibility of underlying content while maintaining legibility; the separate [Adopting Liquid Glass](https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass) overview advises against obscuring controls or overusing custom materials.
+- Kyant Backdrop's [official backdrop API](https://kyant.gitbook.io/backdrop/api/backdrops) documents the source/consumer pairing used by the existing preview and live renderer. Context7 resolved the official Compose Multiplatform and Backdrop docs, but the available Compose snapshot did not include the repository's exact Compose Multiplatform `1.13.0-beta01` or Backdrop `2.0.1` versioned pages; no new API or dependency was introduced.
+- Source-level review only. No Gradle tasks, tests, compilation, builds, device/simulator checks or CI were run, as instructed. The regression test is committed but unexecuted; visual parity still needs device confirmation with and without a custom Cloud background.

@@ -155,6 +155,18 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun cloudHeaderScrimUsesTheSameDarkArtworkFadeAsTheLiveLibrary() {
+        assertEquals(
+            listOf(
+                0f to Color.Black.copy(alpha = 0.38f),
+                0.58f to Color.Black.copy(alpha = 0.18f),
+                1f to Color.Transparent,
+            ),
+            libraryCloudHeaderScrimColorStops(),
+        )
+    }
+
+    @Test
     fun savedTitleHeaderKeepsItsOpaqueBackingScopedToTheTitle() {
         assertTrue(libraryTitleHeaderNeedsOpaqueBackground(LibraryViewMode.Saved))
         assertFalse(libraryTitleHeaderNeedsOpaqueBackground(LibraryViewMode.Cloud))

@@ -132,6 +132,7 @@ import com.nuvio.app.features.library.CloudLibrarySearchField
 import com.nuvio.app.features.library.CloudLibraryToolbar
 import com.nuvio.app.features.library.LibrarySavedControls
 import com.nuvio.app.features.library.LibrarySourceSwitch
+import com.nuvio.app.features.library.libraryCloudHeaderScrimColorStops
 import com.nuvio.app.features.library.LibraryCalendarGlassPreview
 import com.nuvio.app.core.ui.glass.LiquidGlassTextContrastScope
 import com.nuvio.app.features.library.LibraryViewMode
@@ -3004,13 +3005,19 @@ private fun LiquidGlassLibraryPreview(
                     .height(headerHeight + 8.dp)
                     .align(Alignment.TopCenter)
                     .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                baseBackground.copy(alpha = 0.28f),
-                                baseBackground.copy(alpha = 0.12f),
-                                Color.Transparent,
-                            ),
-                        ),
+                        if (viewMode == LibraryViewMode.Cloud) {
+                            Brush.verticalGradient(
+                                colorStops = libraryCloudHeaderScrimColorStops().toTypedArray(),
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                listOf(
+                                    baseBackground.copy(alpha = 0.28f),
+                                    baseBackground.copy(alpha = 0.12f),
+                                    Color.Transparent,
+                                ),
+                            )
+                        },
                     ),
             )
 
