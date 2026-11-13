@@ -462,7 +462,8 @@ fun SearchScreen(
                 ) {
                     NuvioScreenHeader(
                         title = headerTitle,
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        contentHorizontalPadding = 16.dp,
                         actions = {
                             NuvioIconActionButton(
                                 icon = if (searchShown) Icons.Rounded.Close else Icons.Rounded.Search,
