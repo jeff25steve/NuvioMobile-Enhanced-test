@@ -122,6 +122,15 @@ data class CloudLibraryUiState(
         get() = providers.isNotEmpty()
 }
 
+internal fun reconcileCloudLibrarySelectedItemKey(
+    selectedItemKey: String?,
+    uiState: CloudLibraryUiState,
+): String? {
+    if (selectedItemKey == null || !uiState.isLoaded || uiState.isRefreshing) return selectedItemKey
+    return selectedItemKey.takeIf { key -> uiState.items.any { item -> item.stableKey == key } }
+}
+
+
 sealed interface CloudLibraryPlaybackResult {
     data class Success(
         val url: String,
