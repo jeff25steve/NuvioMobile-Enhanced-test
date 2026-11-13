@@ -97,7 +97,7 @@ internal fun Throwable.isDeletedAccountError(): Boolean {
         )
 }
 
-private fun Throwable.authMessages(): String = buildString {
+internal fun Throwable.authMessages(): String = buildString {
     var current: Throwable? = this@authMessages
     while (current != null) {
         append(current.message.orEmpty())
