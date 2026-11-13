@@ -442,8 +442,6 @@ private val PlaybackUpNextSettingsSearchAnchorKeys = setOf(
     "playback-up-next-reuse-binge",
     "playback-up-next-preload",
     "playback-up-next-threshold-mode",
-    "playback-threshold-percent",
-    "playback-threshold-minutes",
 )
 
 internal fun settingsSearchAnchorListIndex(
@@ -1713,9 +1711,14 @@ internal fun settingsSearchEntries(
         rows = listOf(
             PlaybackSearchRow("auto-play-next", stringResource(Res.string.settings_playback_auto_play_next_episode), stringResource(Res.string.settings_playback_auto_play_next_episode_description)),
             PlaybackSearchRow("prefer-binge", stringResource(Res.string.settings_playback_prefer_binge_group), stringResource(Res.string.settings_playback_prefer_binge_group_description)),
-            PlaybackSearchRow("threshold-mode", stringResource(Res.string.settings_playback_threshold_mode)),
-            PlaybackSearchRow("threshold-percent", stringResource(Res.string.settings_playback_threshold_percentage), stringResource(Res.string.settings_playback_threshold_percentage_description)),
-            PlaybackSearchRow("threshold-minutes", stringResource(Res.string.settings_playback_minutes_before_end), stringResource(Res.string.settings_playback_minutes_before_end_description)),
+            PlaybackSearchRow(
+                "threshold-mode",
+                stringResource(Res.string.settings_playback_threshold_mode),
+                searchTerms = listOf(
+                    "threshold percentage", "percentage before end", "minutes before end",
+                    "when to show next episode", "next episode countdown",
+                ),
+            ),
         ),
     )
 
