@@ -621,7 +621,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        showLibraryCloudBackgroundControls = selectedSurface in liquidGlassLibraryCloudBackgroundSurfaces,
                         onChanged = { onSurfaceChanged(selectedSurface, it) },
                     )
                 }
@@ -2622,12 +2621,6 @@ private fun LiquidGlassSettingsSurfacePreview(
     }
 }
 
-
-private val liquidGlassLibraryCloudBackgroundSurfaces = setOf(
-    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-)
 
 private data class LiquidGlassCloudPreviewItem(
     val matchText: String,
