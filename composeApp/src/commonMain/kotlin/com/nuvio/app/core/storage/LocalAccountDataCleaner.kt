@@ -105,6 +105,27 @@ internal suspend fun runAccountCleanupSteps(
 }
 
 /**
+ * Preserves cancellation as control flow after every eligible cleanup step has been attempted.
+ * Ordinary failures are aggregated only when no cleanup step reported cancellation.
+ */
+internal fun throwAccountCleanupFailures(failures: List<Exception>) {
+    if (failures.isEmpty()) return
+
+    val cancellation = failures.firstOrNull { it is CancellationException } as? CancellationException
+    if (cancellation != null) {
+        failures.filterNot { it === cancellation }.forEach(cancellation::addSuppressed)
+        throw cancellation
+    }
+
+    val primaryFailure = failures.first()
+    failures.drop(1).forEach(primaryFailure::addSuppressed)
+    throw IllegalStateException(
+        "Local account cleanup was incomplete (${failures.size} steps failed)",
+        primaryFailure,
+    )
+}
+
+/**
  * Runs required local cleanup to completion, then restores normal cancellation semantics.
  *
  * The cleanup block must contain local operations only. Network requests must remain
@@ -258,14 +279,7 @@ internal object LocalAccountDataCleaner {
             )
         }
 
-        if (allFailures.isNotEmpty()) {
-            val primaryFailure = allFailures.first()
-            allFailures.drop(1).forEach(primaryFailure::addSuppressed)
-            throw IllegalStateException(
-                "Local account cleanup was incomplete (${allFailures.size} steps failed)",
-                primaryFailure,
-            )
-        }
+        throwAccountCleanupFailures(allFailures)
     }
 
     internal fun wipePlatformStorage(wipeStorage: () -> Unit = PlatformLocalAccountDataCleaner::wipe) {
