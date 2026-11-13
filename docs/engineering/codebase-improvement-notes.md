@@ -4828,3 +4828,11 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 - The common regression test source was updated but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, per instruction.
 - This is a source-level capture-scope correction, not a measured frame-time or memory claim. Runtime profiling and Saved/Cloud/Servers tab-switch validation remain outstanding.
+
+
+### Final source review for the 13 November Library cycles
+
+- Reviewed both commit diffs and re-fetched the four changed remote files from `main-build-testing`. The shared Cloud scrim is used by both runtime and Studio preview; the Saved preview branch is unchanged. The active-mode capture predicate has one production call site, preserves the global/platform gates, and includes the shared Library switch and visible calendar.
+- Added explicit positive coverage that an enabled Saved sort surface requests capture when Saved controls are present.
+- Review was performed as an author self-review because no independent reviewer/subagent execution tool is available in this session. This is weaker than a fresh independent review.
+- The remote regression tests remain unexecuted. No Gradle task, test, compilation, build, benchmark, simulator/device run or CI workflow was started. Source inspection cannot establish compilation, rendered pixel parity, accessibility contrast on real artwork, or actual frame-time/memory gains.

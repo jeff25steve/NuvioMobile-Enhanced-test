@@ -84,6 +84,15 @@ class LibraryGlassLayoutTest {
             libraryBackdropCaptureRequired(
                 masterEnabled = true,
                 platformSupported = true,
+                sourceMode = LibraryViewMode.Saved,
+                hasSavedControls = true,
+                showReleaseCalendar = false,
+            ) { it == LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER },
+        )
+        assertTrue(
+            libraryBackdropCaptureRequired(
+                masterEnabled = true,
+                platformSupported = true,
                 sourceMode = LibraryViewMode.Cloud,
                 hasSavedControls = false,
                 showReleaseCalendar = false,
