@@ -4401,3 +4401,35 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Static Git tree comparison and remote source inspection only. The merge commit records both parents so the 114 upstream commits become ancestors without rewriting the fork's 1,380 fork-only commits.
 - No Gradle task, test, compilation, build, benchmark, workflow dispatch or CI was run or triggered by this task. The commit message uses [skip ci]; source-level integration is not represented as build-verified.
 - Recheck the remote branch head and compare counts after the merge. Builds/CI remain blocked until explicit authorisation.
+
+## 13 November 2026 — Live TV refresh supersession and empty-source cleanup
+
+**Starting checkpoint:** remote `main-build-testing` after the upstream integration checkpoint. The branch is 116 commits ahead of `backup/main-build-testing-pre-upstream-sync-20261113-0929`; the backup is not behind the current branch.
+
+### Cycle 1 — Stop channel requests when the last source is removed or disabled
+
+- Root cause: `removePlaylist()` and `setPlaylistEnabled()` only called `refresh()` when at least one playlist remained enabled. Removing the last playlist or disabling the last enabled playlist therefore cleared the visible channel list but left the previous `refreshJob` running. That request could finish later and repopulate the channel list with content from a source the user had just removed or disabled.
+- The empty-source branches in `refresh()` now cancel both channel and EPG jobs, clear their job references, clear channel/EPG signatures and restored guide state, and publish an empty non-loading state.
+- Playlist removal, enable/disable and the legacy single-URL save path now always call `refresh()`; the central no-source path decides whether work should run. This keeps cancellation behavior consistent for every way the last source can disappear.
+
+### Cycle 2 — Reject superseded channel and EPG results
+
+- Added a small common-code `LiveTvRequestGeneration` counter. Each new channel or guide refresh gets a unique generation; profile/account reset invalidates both generations.
+- Channel refresh checks its captured generation after asynchronous provider loading and before publishing results or starting the next EPG refresh. An older request cannot overwrite a newer request's state.
+- EPG refresh checks its generation after guide requests complete, then recomputes the current request signature from the latest state before matching guide data to channels. It checks the generation again after matching and before publishing. This prevents a response for old channels or old EPG sources from replacing current guide state.
+- Added `LiveTvRequestGenerationTest` for newer-request supersession and profile-reset invalidation. The tests were committed before the production change.
+
+### Research and review
+
+- Context7 resolved `kotlinx.coroutines` 1.10.1 as the closest versioned documentation to the project's pinned 1.10.2. Its structured-concurrency documentation confirms cancellation propagates through child `async` jobs and their awaiting parent. The explicit generation guard is an additional stale-result check at the repository state-commit boundary; no new coroutine API or dependency was introduced.
+- Exa research compared independent implementations using monotonically increasing session/cache epochs to reject late asynchronous results after sign-out, account changes or cache invalidation. These are supporting implementation patterns, not direct evidence about Nuvio runtime behavior.
+- Re-fetched the final Live TV repository and common test from GitHub. Source review confirmed both generation guards, both no-source cancellation paths, unconditional refresh calls after playlist removal/disable, and the test cases are present. The production file's final blob is `2157687ae7ef240b1976b37c52478434d575692a`; the test file's final blob is `b13539fc8bbc4e201adfa4b1992ac35e17bd9354`.
+- The test source was added first (commit `981f135ed0e73312e348ff1937c426428ddc2696`), followed by the implementation (commit `4a2e5a282b292d002d248422ed98bb1469837871`). Both commit messages use `[skip ci]`.
+- **No tests, compilation, Gradle tasks, builds, benchmarks, workflow dispatches or CI runs were started.** The new regression tests are present but unexecuted; no runtime pass or performance improvement is claimed.
+- No authentication, Liquid Glass Editor, locale resource, dependency, build configuration or workflow file was changed in this Live TV-specific batch. Existing authentication session-generation/operation-gate protections were left intact.
+
+### Remaining validation
+
+- After explicit authorisation, run the focused Live TV common tests and the appropriate Android/iOS compile/build checks.
+- On device, remove the last playlist while a refresh is in flight, disable the last enabled playlist, switch profiles during channel and EPG loading, and rapidly replace EPG sources. Confirm old results never reappear and loading indicators settle correctly.
+
