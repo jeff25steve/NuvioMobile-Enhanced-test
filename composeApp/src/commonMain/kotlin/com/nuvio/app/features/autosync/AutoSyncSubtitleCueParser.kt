@@ -14,6 +14,25 @@ internal object AutoSyncSubtitleCueParser {
     private val assOverrideBlockRegex = Regex("""\{[^}]*\}""")
     private val assEventsHeaderRegex =
         Regex("""^[ \t]*\[Events\][ \t]*$""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+    private val ttmlDocumentRegex = Regex("""<tt[\s>]""", RegexOption.IGNORE_CASE)
+    private val srtBlockSeparatorRegex = Regex("""\n\s*\n""")
+    private val ttmlParagraphRegex = ttmlParagraphRegex
+    private val ttmlBreakRegex = Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE)
+    private val ttmlRootRegex = ttmlRootRegex
+    private val ttmlFrameRateMultiplierSeparatorRegex = Regex("""\s+""")
+    private val ttmlTimeOffsetRegex = Regex("""^([0-9]+(?:\.[0-9]+)?)(ms|h|m|s)$""", RegexOption.IGNORE_CASE)
+    private val ttmlAttributeRegexes = mapOf(
+        "begin" to Regex("""\bbegin\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "start" to Regex("""\bstart\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "end" to Regex("""\bend\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "ttp:frameRate" to Regex("""\bttp:frameRate\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "frameRate" to Regex("""\bframeRate\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "ttp:frameRateMultiplier" to Regex("""\bttp:frameRateMultiplier\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+        "frameRateMultiplier" to Regex("""\bframeRateMultiplier\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+    )
+    private val subtitleTimestampTagRegex = Regex("""<(?:\d+:)?\d{1,2}:\d{2}(?:[.,]\d+)?>""")
+    private val subtitleMarkupTagRegex = Regex("""</?[a-zA-Z0-9._-]+(?: [^>]*)?>""")
+    private val subtitleWhitespaceRegex = Regex("""[ \t]+""")
 
     fun parse(text: String, sourceUrl: String? = null): List<SubtitleSyncCue> =
         parse(
@@ -65,7 +84,7 @@ internal object AutoSyncSubtitleCueParser {
                 assEventsHeaderRegex.containsMatchIn(text) ->
                 SubtitleFormatHint.Ass
             sourcePath.endsWith(".ttml") || sourcePath.endsWith(".dfxp") || sourcePath.endsWith(".xml") ||
-                Regex("""<tt[\s>]""", RegexOption.IGNORE_CASE).containsMatchIn(text.take(512)) ->
+                ttmlDocumentRegex.containsMatchIn(text.take(512)) ->
                 SubtitleFormatHint.Ttml
             else -> SubtitleFormatHint.Srt
         }
@@ -75,7 +94,7 @@ internal object AutoSyncSubtitleCueParser {
         text: String,
         cancellationCheck: (() -> Unit)? = null,
     ): List<SubtitleSyncCue> {
-        val blocks = text.split(Regex("""\n\s*\n"""))
+        val blocks = text.split(srtBlockSeparatorRegex)
         val cues = mutableListOf<SubtitleSyncCue>()
         var cancellationCounter = 0
         for (block in blocks) {
@@ -304,7 +323,7 @@ internal object AutoSyncSubtitleCueParser {
                 if (end - start <= 0) return@mapNotNull null
                 val body = normalizeCueText(
                     match.groupValues[2]
-                        .replace(Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE), "\n")
+                        .replace(ttmlBreakRegex, "\n")
                 )
                 if (body.isBlank()) null else SubtitleSyncCue(startTimeMs = start, endTimeMs = end, text = body)
             }
@@ -328,7 +347,7 @@ internal object AutoSyncSubtitleCueParser {
                 ?: rootAttributes.attributeValue("frameRateMultiplier")
         val multiplier = multiplierRaw
             ?.trim()
-            ?.split(Regex("""\s+"""))
+            ?.split(ttmlFrameRateMultiplierSeparatorRegex)
             ?.takeIf { it.size == 2 }
             ?.let { parts ->
                 val numerator = parts[0].toDoubleOrNull()
@@ -351,8 +370,7 @@ internal object AutoSyncSubtitleCueParser {
         parseClockTimeWithFrames(cleaned, frameRate)?.let { return it }
         parseTimestampMs(cleaned)?.let { return it }
 
-        val match = Regex("""^([0-9]+(?:\.[0-9]+)?)(ms|h|m|s)$""", RegexOption.IGNORE_CASE)
-            .matchEntire(cleaned)
+        val match = ttmlTimeOffsetRegex.matchEntire(cleaned)
             ?: return null
         val value = match.groupValues[1].toDoubleOrNull() ?: return null
         val multiplier = when (match.groupValues[2].lowercase()) {
@@ -436,23 +454,23 @@ internal object AutoSyncSubtitleCueParser {
         indexOfFirst { it.equals(name, ignoreCase = true) }
 
     private fun String.attributeValue(name: String): String? =
-        Regex("""\b${Regex.escape(name)}\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-            .find(this)
+        ttmlAttributeRegexes[name]
+            ?.find(this)
             ?.groupValues
             ?.getOrNull(1)
             ?.takeIf { it.isNotBlank() }
 
     private fun normalizeCueText(text: String): String {
         return text
-            .replace(Regex("""<(?:\d+:)?\d{1,2}:\d{2}(?:[.,]\d+)?>"""), "")
-            .replace(Regex("""</?[a-zA-Z0-9._-]+(?: [^>]*)?>"""), "")
+            .replace(subtitleTimestampTagRegex, "")
+            .replace(subtitleMarkupTagRegex, "")
             .replace("&nbsp;", " ")
             .replace("&amp;", "&")
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             .replace("&quot;", "\"")
             .lines()
-            .map { it.replace(Regex("""[ \t]+"""), " ").trim() }
+            .map { it.replace(subtitleWhitespaceRegex, " ").trim() }
             .filter { it.isNotBlank() }
             .joinToString("\n")
     }
