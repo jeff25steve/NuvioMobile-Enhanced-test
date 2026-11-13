@@ -2242,6 +2242,7 @@ private data class PlaybackSearchRow(
     val description: String = "",
     val sectionOverride: String? = null,
     val page: SettingsPage? = null,
+    val searchTerms: List<String> = emptyList(),
 )
 
 private fun addPlaybackRows(
