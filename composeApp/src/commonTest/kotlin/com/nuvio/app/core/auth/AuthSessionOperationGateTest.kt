@@ -154,6 +154,46 @@ class AuthSessionOperationGateTest {
     }
 
     @Test
+    fun cancelledHandoffKeepsGateClosedForTheNextQueuedReset() = runTest {
+        val gate = AuthSessionOperationGate()
+        gate.beginReset()
+
+        val secondAcquired = CompletableDeferred<Unit>()
+        val releaseSecond = CompletableDeferred<Unit>()
+        val secondReset = launch {
+            gate.beginReset()
+            try {
+                secondAcquired.complete(Unit)
+                releaseSecond.await()
+            } finally {
+                gate.endReset()
+            }
+        }
+        val thirdAcquired = CompletableDeferred<Unit>()
+        val thirdReset = launch {
+            gate.beginReset()
+            try {
+                thirdAcquired.complete(Unit)
+            } finally {
+                gate.endReset()
+            }
+        }
+        runCurrent()
+
+        // The first reset hands ownership to the second waiter; cancel it before it resumes.
+        gate.endReset()
+        secondReset.cancelAndJoin()
+
+        // The third waiter must inherit the reset lease without opening an operation window.
+        thirdAcquired.await()
+        assertNull(gate.beginOperation(Job()))
+
+        releaseSecond.complete(Unit)
+        thirdReset.join()
+        assertNotNull(gate.beginOperation(Job()))
+    }
+
+    @Test
     fun cancellingAQueuedResetDoesNotReleaseTheCurrentReset() = runTest {
         val gate = AuthSessionOperationGate()
         gate.beginReset()
