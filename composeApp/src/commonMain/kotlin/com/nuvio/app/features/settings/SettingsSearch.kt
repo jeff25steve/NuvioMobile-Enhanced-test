@@ -107,8 +107,11 @@ internal fun settingsSearchAnchor(
     continueWatchingEpisodeThumbnails: Boolean? = null,
 ): SettingsSearchAnchor? {
     val sectionItemIndex = when (page) {
-        SettingsPage.Appearance ->
-            if (key in AppearanceSettingsSearchAnchorKeys) 1 else return null
+        SettingsPage.Appearance -> when (key) {
+            "theme" -> 0
+            "amoled", "app-icon", "app-language" -> 1
+            else -> return null
+        }
         SettingsPage.Layout ->
             LayoutSettingsSearchAnchorItemIndexes[key] ?: return null
         SettingsPage.Account ->
@@ -244,6 +247,9 @@ internal fun settingsSearchAnchor(
             "advanced-sentry-reports" -> if (SentrySettingsRepository.isSupported) {
                 1 + if (DnsSettingsRepository.isSupported) 1 else 0
             } else return null
+            "advanced-clear-cw-cache", "advanced-clear-metadata-cache" ->
+                2 + (if (DnsSettingsRepository.isSupported) 1 else 0) +
+                    (if (SentrySettingsRepository.isSupported) 1 else 0)
             else -> return null
         }
         else -> return null
@@ -1355,6 +1361,27 @@ internal fun settingsSearchEntries(
             category = advancedCategory,
         )
     }
+    val advancedCacheSection = stringResource(Res.string.settings_advanced_section_cache)
+    addRow(
+        page = SettingsPage.Advanced,
+        key = "advanced-clear-cw-cache",
+        title = stringResource(Res.string.settings_advanced_clear_cw_cache),
+        description = stringResource(Res.string.settings_advanced_clear_cw_cache_subtitle),
+        pageLabel = advancedPage,
+        section = advancedCacheSection,
+        category = advancedCategory,
+        searchTerms = listOf("clear continue watching cache", "resume cache", "watch progress cache"),
+    )
+    addRow(
+        page = SettingsPage.Advanced,
+        key = "advanced-clear-metadata-cache",
+        title = stringResource(Res.string.settings_advanced_clear_metadata_cache),
+        description = stringResource(Res.string.settings_advanced_clear_metadata_cache_subtitle),
+        pageLabel = advancedPage,
+        section = advancedCacheSection,
+        category = advancedCategory,
+        searchTerms = listOf("clear artwork cache", "clear tmdb cache", "refresh metadata"),
+    )
     addPage(
         page = SettingsPage.ContinueWatching,
         key = "continue-watching",
