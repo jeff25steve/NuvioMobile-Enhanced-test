@@ -2588,4 +2588,13 @@ Bu özelliği tamamen kendi sorumluluğunuzda kullanırsınız. P2P istediğiniz
     <string name="settings_liquid_glass_surface_stream_results">Akış sonuç kartları</string>
     <string name="settings_liquid_glass_surface_stream_selection">Akışlarda arama ve devam etme</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Camın içinden görünen renkleri canlandırır.</string>
+
+    <!-- Upstream playback error translations. -->
+    <string name="player_error_stream_expired">Yayın bağlantısının süresi doldu. Farklı bir kaynak deneyin.</string>
+    <string name="player_error_stream_removed">Yayın bağlantısının süresi doldu veya kaldırıldı. Farklı bir kaynak deneyin.</string>
+    <string name="player_error_stream_rate_limited">Yayın kaynağına çok fazla istek yapıldı. Biraz bekleyip tekrar deneyin.</string>
+    <string name="player_error_stream_unavailable">Yayın sunucusu şu an kullanılamıyor. Farklı bir kaynak deneyin.</string>
+    <string name="player_error_stream_blocked">Yayın kaynağı engellendi veya kısıtlandı. Farklı bir kaynak deneyin.</string>
+    <string name="player_error_source_invalid_content">Kaynak hatası: Yayın kaynağı geçersiz veya oynatılamaz içerik döndürdü. Bağlantının süresi dolmuş olabilir veya sunucu video yerine hata sayfası döndürmüş olabilir.\n\nFarklı bir kaynak deneyin. [%1$s]</string>
+    <string name="player_error_unsupported_format">Bu yayın cihazınızın desteklemeyebileceği bir format kullanıyor. Farklı bir kaynak deneyin. [%1$s]</string>
 </resources>
