@@ -953,6 +953,7 @@ private fun MobileSettingsScreen(
                 )
                 SettingsPage.DebugLogs -> debugLogsSettingsContent(
                     isTablet = false,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Notifications -> notificationsSettingsContent(
                     isTablet = false,
@@ -1442,6 +1443,7 @@ private fun TabletSettingsScreen(
                     )
                     SettingsPage.DebugLogs -> debugLogsSettingsContent(
                         isTablet = true,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Notifications -> notificationsSettingsContent(
                         isTablet = true,
