@@ -254,9 +254,24 @@ internal fun TrackingProviderCards(
         ) { anchorModifier ->
             MdbListProviderCard(anchorModifier.fillMaxWidth())
         }
-        AniListProviderCard(Modifier.fillMaxWidth())
-        WeTrakrProviderCard(Modifier.fillMaxWidth())
-        PublicMetaDbProviderCard(Modifier.fillMaxWidth())
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "anilist-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            AniListProviderCard(anchorModifier.fillMaxWidth())
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "wetrakr-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            WeTrakrProviderCard(anchorModifier.fillMaxWidth())
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "publicmetadb-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            PublicMetaDbProviderCard(anchorModifier.fillMaxWidth())
+        }
     }
 
     deviceCodeBrand?.let { brand ->
