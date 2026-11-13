@@ -41,7 +41,16 @@ internal class AddonProfileOperationGate(initialProfileId: Int = 1) {
         synchronized(lock) {
             accountCleanupDepth += 1
             generation += 1L
-            block()
+            try {
+                block()
+            } catch (error: Throwable) {
+                // The gate depth is acquired before the callback runs. Roll it back if
+                // cancellation/job invalidation fails, otherwise every later profile
+                // operation remains blocked even though account cleanup never started.
+                accountCleanupDepth -= 1
+                generation += 1L
+                throw error
+            }
         }
     }
 
