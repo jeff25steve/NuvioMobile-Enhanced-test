@@ -188,6 +188,7 @@ internal fun TrackingProviderCards(
     isTablet: Boolean,
     traktUiState: TraktAuthUiState,
     simklUiState: SimklAuthUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val syncState by remember {
         SimklSyncRepository.ensureLoaded()
@@ -223,21 +224,36 @@ internal fun TrackingProviderCards(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(if (isTablet) 16.dp else 12.dp),
     ) {
-        TraktProviderCard(
-            uiState = traktUiState,
-            onConnectWithCodeRequested = onTraktConnectWithCode,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        SimklProviderCard(
-            uiState = simklUiState,
-            isSyncing = syncState.isLoading,
-            syncErrorMessage = syncState.errorMessage,
-            onSyncRequested = onSimklSyncRequested,
-            onInfoRequested = { showSyncInfo = true },
-            onConnectWithCodeRequested = onSimklConnectWithCode,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        MdbListProviderCard(Modifier.fillMaxWidth())
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "trakt-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            TraktProviderCard(
+                uiState = traktUiState,
+                onConnectWithCodeRequested = onTraktConnectWithCode,
+                modifier = anchorModifier.fillMaxWidth(),
+            )
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "simkl-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            SimklProviderCard(
+                uiState = simklUiState,
+                isSyncing = syncState.isLoading,
+                syncErrorMessage = syncState.errorMessage,
+                onSyncRequested = onSimklSyncRequested,
+                onInfoRequested = { showSyncInfo = true },
+                onConnectWithCodeRequested = onSimklConnectWithCode,
+                modifier = anchorModifier.fillMaxWidth(),
+            )
+        }
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "mdblist-authentication",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            MdbListProviderCard(anchorModifier.fillMaxWidth())
+        }
         AniListProviderCard(Modifier.fillMaxWidth())
         WeTrakrProviderCard(Modifier.fillMaxWidth())
         PublicMetaDbProviderCard(Modifier.fillMaxWidth())
