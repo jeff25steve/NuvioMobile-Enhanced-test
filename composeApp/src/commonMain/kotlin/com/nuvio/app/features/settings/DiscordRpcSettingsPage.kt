@@ -101,18 +101,31 @@ import org.jetbrains.compose.resources.stringResource
 
 internal fun LazyListScope.discordRpcSettingsContent(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
-        DiscordRpcAccountSection(isTablet = isTablet)
+        DiscordRpcAccountSection(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
     item {
-        DiscordRpcPresenceSection(isTablet = isTablet)
+        DiscordRpcPresenceSection(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
     item {
-        DiscordRpcDisplaySection(isTablet = isTablet)
+        DiscordRpcDisplaySection(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
     item {
-        DiscordRpcAdvancedSection(isTablet = isTablet)
+        DiscordRpcAdvancedSection(
+            isTablet = isTablet,
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        )
     }
 }
 
@@ -126,6 +139,7 @@ private fun rememberDiscordRpcUiState(): DiscordRpcUiState {
 @Composable
 private fun DiscordRpcAccountSection(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val uiState = rememberDiscordRpcUiState()
     var showLogin by rememberSaveable { mutableStateOf(false) }
@@ -135,12 +149,19 @@ private fun DiscordRpcAccountSection(
         isTablet = isTablet,
     ) {
         SettingsGroup(isTablet = isTablet) {
-            DiscordAccountRow(
-                isTablet = isTablet,
-                uiState = uiState,
-                onLoginClick = { showLogin = true },
-                onLogoutClick = DiscordRpcRepository::logout,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "discord-login",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    DiscordAccountRow(
+                        isTablet = isTablet,
+                        uiState = uiState,
+                        onLoginClick = { showLogin = true },
+                        onLogoutClick = DiscordRpcRepository::logout,
+                    )
+                }
+            }
         }
     }
 
@@ -158,6 +179,7 @@ private fun DiscordRpcAccountSection(
 @Composable
 private fun DiscordRpcPresenceSection(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val uiState = rememberDiscordRpcUiState()
     val playerSettings by PlayerSettingsRepository.uiState.collectAsStateWithLifecycle()
@@ -178,36 +200,52 @@ private fun DiscordRpcPresenceSection(
                 checked = settings.enabled,
                 enabled = uiState.isLoggedIn,
                 isTablet = isTablet,
+                searchAnchorKey = "discord-enable",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onCheckedChange = DiscordRpcRepository::setEnabled,
             )
             SettingsGroupDivider(isTablet = isTablet)
-            SettingsChipRow(
-                title = stringResource(Res.string.discord_rpc_activity_type_title),
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "discord-activity-type",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    SettingsChipRow(
+                        title = stringResource(Res.string.discord_rpc_activity_type_title),
                 description = stringResource(Res.string.discord_rpc_activity_type_description),
                 isTablet = isTablet,
             ) {
                 val selectedType = DiscordRpcActivityType.fromValue(settings.activityType)
-                DiscordRpcActivityType.entries.forEach { type ->
-                    Chip(
-                        label = stringResource(type.labelRes),
-                        selected = selectedType == type,
-                        onClick = { DiscordRpcRepository.setActivityType(type) },
-                    )
+                        DiscordRpcActivityType.entries.forEach { type ->
+                            Chip(
+                                label = stringResource(type.labelRes),
+                                selected = selectedType == type,
+                                onClick = { DiscordRpcRepository.setActivityType(type) },
+                            )
+                        }
+                    }
                 }
             }
             SettingsGroupDivider(isTablet = isTablet)
-            SettingsChipRow(
-                title = stringResource(Res.string.discord_rpc_status_title),
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "discord-status",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    SettingsChipRow(
+                        title = stringResource(Res.string.discord_rpc_status_title),
                 description = stringResource(Res.string.discord_rpc_status_description),
                 isTablet = isTablet,
             ) {
                 val selectedStatus = DiscordRpcStatus.fromValue(settings.status)
-                DiscordRpcStatus.entries.forEach { status ->
-                    Chip(
-                        label = stringResource(status.labelRes),
-                        selected = selectedStatus == status,
-                        onClick = { DiscordRpcRepository.setStatus(status) },
-                    )
+                        DiscordRpcStatus.entries.forEach { status ->
+                            Chip(
+                                label = stringResource(status.labelRes),
+                                selected = selectedStatus == status,
+                                onClick = { DiscordRpcRepository.setStatus(status) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -217,6 +255,7 @@ private fun DiscordRpcPresenceSection(
 @Composable
 private fun DiscordRpcDisplaySection(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val settings = rememberDiscordRpcUiState().settings
 
@@ -227,6 +266,8 @@ private fun DiscordRpcDisplaySection(
         SettingsGroup(isTablet = isTablet) {
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_show_title_as_name_title),
+                searchAnchorKey = "discord-show-title-as-name",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_show_title_as_name_description),
                 checked = settings.showTitleAsName,
                 isTablet = isTablet,
@@ -235,6 +276,8 @@ private fun DiscordRpcDisplaySection(
             SettingsGroupDivider(isTablet = isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_show_poster_title),
+                searchAnchorKey = "discord-show-poster",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_show_poster_description),
                 checked = settings.showPoster,
                 isTablet = isTablet,
@@ -243,6 +286,8 @@ private fun DiscordRpcDisplaySection(
             SettingsGroupDivider(isTablet = isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_show_playback_state_title),
+                searchAnchorKey = "discord-show-playback-state",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_show_playback_state_description),
                 checked = settings.showPlaybackState,
                 isTablet = isTablet,
@@ -251,6 +296,8 @@ private fun DiscordRpcDisplaySection(
             SettingsGroupDivider(isTablet = isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_show_timestamps_title),
+                searchAnchorKey = "discord-show-timestamps",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_show_timestamps_description),
                 checked = settings.showTimestamps,
                 isTablet = isTablet,
@@ -259,6 +306,8 @@ private fun DiscordRpcDisplaySection(
             SettingsGroupDivider(isTablet = isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_hide_on_pause_title),
+                searchAnchorKey = "discord-hide-on-pause",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_hide_on_pause_description),
                 checked = settings.hideOnPause,
                 isTablet = isTablet,
@@ -267,6 +316,8 @@ private fun DiscordRpcDisplaySection(
             SettingsGroupDivider(isTablet = isTablet)
             SettingsSwitchRow(
                 title = stringResource(Res.string.discord_rpc_show_imdb_button_title),
+                searchAnchorKey = "discord-show-imdb-button",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 description = stringResource(Res.string.discord_rpc_show_imdb_button_description),
                 checked = settings.showImdbButton,
                 isTablet = isTablet,
@@ -279,6 +330,7 @@ private fun DiscordRpcDisplaySection(
 @Composable
 private fun DiscordRpcAdvancedSection(
     isTablet: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     val settings = rememberDiscordRpcUiState().settings
 
@@ -287,11 +339,18 @@ private fun DiscordRpcAdvancedSection(
         isTablet = isTablet,
     ) {
         SettingsGroup(isTablet = isTablet) {
-            DiscordApplicationIdRow(
-                isTablet = isTablet,
-                value = settings.applicationId,
-                onCommitted = DiscordRpcRepository::setApplicationId,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "discord-application-id",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    DiscordApplicationIdRow(
+                        isTablet = isTablet,
+                        value = settings.applicationId,
+                        onCommitted = DiscordRpcRepository::setApplicationId,
+                    )
+                }
+            }
         }
     }
 }
