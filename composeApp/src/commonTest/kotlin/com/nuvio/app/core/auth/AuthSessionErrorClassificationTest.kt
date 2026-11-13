@@ -48,4 +48,18 @@ class AuthSessionErrorClassificationTest {
             ),
         )
     }
+    @Test
+    fun recognizesAuthoritativeInvalidSessionCodesWithoutMessageHeuristics() {
+        listOf("bad_jwt", "session_not_found", "session_expired", "user_not_found").forEach { errorCode ->
+            assertTrue(
+                isInvalidRemoteSessionResponse(
+                    statusCode = 400,
+                    errorCode = errorCode,
+                    message = "Request rejected",
+                ),
+                errorCode,
+            )
+        }
+    }
+
 }
