@@ -2,8 +2,15 @@ package com.nuvio.app.features.library
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import androidx.compose.ui.unit.dp
 
 class LibraryDisplaySettingsTest {
+
+    @Test
+    fun `saved controls reserve space only when the pinned controls are visible`() {
+        assertEquals(72.dp, libraryContentTopPadding(hasSavedControls = true, savedControlsInset = 72.dp))
+        assertEquals(0.dp, libraryContentTopPadding(hasSavedControls = false, savedControlsInset = 72.dp))
+    }
 
     @Test
     fun `local default resolves to recently added while remote trackers preserve provider order`() {
