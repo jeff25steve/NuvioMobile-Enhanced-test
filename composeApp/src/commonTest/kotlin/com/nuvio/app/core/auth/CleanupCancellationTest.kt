@@ -45,4 +45,30 @@ class CleanupCancellationTest {
         assertSame(cancellation, thrown)
         assertTrue(cancellation.suppressedExceptions.isEmpty())
     }
+
+    @Test
+    fun cleanupCancellationRemainsPrimaryAndRetainsOtherFailures() {
+        val cancellation = CancellationException("Cleanup operation cancelled")
+        val ordinary = IllegalStateException("Local cleanup failed")
+
+        val failure = cleanupFailure(
+            listOf(Result.failure(ordinary), Result.failure(cancellation)),
+        )
+
+        assertSame(cancellation, failure)
+        assertTrue(cancellation.suppressedExceptions.contains(ordinary))
+    }
+
+    @Test
+    fun cleanupFailureRetainsEveryOrdinaryFailure() {
+        val first = IllegalStateException("First cleanup failed")
+        val second = IllegalStateException("Second cleanup failed")
+
+        val failure = cleanupFailure(
+            listOf(Result.failure(first), Result.failure(second)),
+        )
+
+        assertSame(first, failure)
+        assertTrue(first.suppressedExceptions.contains(second))
+    }
 }
