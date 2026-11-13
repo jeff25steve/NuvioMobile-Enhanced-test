@@ -184,6 +184,22 @@ internal fun LazyListScope.liveTvSettingsContent(
 }
 
 @Composable
+private fun LiveTvSearchAnchor(
+    searchAnchorKey: String,
+    highlightedSearchAnchorKey: String?,
+    content: @Composable () -> Unit,
+) {
+    SettingsSearchAnchorContainer(
+        searchAnchorKey = searchAnchorKey,
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+    ) { anchorModifier ->
+        Box(modifier = anchorModifier.fillMaxWidth()) {
+            content()
+        }
+    }
+}
+
+@Composable
 private fun LiveTvManualReloadRow(
     isTablet: Boolean,
     uiState: LiveTvUiState,
@@ -289,47 +305,51 @@ private fun LiveTvEpgSettingsRow(
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+        LiveTvSearchAnchor("live-tv-epg-auto", highlightedSearchAnchorKey) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(Res.string.live_tv_settings_epg_auto_title),
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.live_tv_settings_epg_auto_title),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium,
                 )
-                Text(
-                    text = stringResource(Res.string.live_tv_settings_epg_auto_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Text(
+                        text = stringResource(Res.string.live_tv_settings_epg_auto_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = uiState.isEpgAutoDetectEnabled,
+                    onCheckedChange = LiveTvRepository::setEpgAutoDetectEnabled,
                 )
             }
-            Switch(
-                checked = uiState.isEpgAutoDetectEnabled,
-                onCheckedChange = LiveTvRepository::setEpgAutoDetectEnabled,
-            )
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(Res.string.live_tv_settings_epg_label),
+        LiveTvSearchAnchor("live-tv-epg-url", highlightedSearchAnchorKey) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(Res.string.live_tv_settings_epg_label),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium,
             )
-            Text(
-                text = stringResource(Res.string.live_tv_settings_epg_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    text = stringResource(Res.string.live_tv_settings_epg_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         OutlinedTextField(
@@ -354,15 +374,17 @@ private fun LiveTvEpgSettingsRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
-                onClick = {
-                    LiveTvRepository.addEpgSource(normalizedName.takeIf(String::isNotBlank), normalizedUrl)
-                    draftName = ""
-                    draftUrl = ""
-                },
-                enabled = normalizedUrl.isNotBlank(),
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_epg_add))
+            LiveTvSearchAnchor("live-tv-epg-add", highlightedSearchAnchorKey) {
+                Button(
+                    onClick = {
+                        LiveTvRepository.addEpgSource(normalizedName.takeIf(String::isNotBlank), normalizedUrl)
+                        draftName = ""
+                        draftUrl = ""
+                    },
+                    enabled = normalizedUrl.isNotBlank(),
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_epg_add))
+                }
             }
             OutlinedButton(
                 onClick = { LiveTvRepository.refreshEpg() },
@@ -626,57 +648,67 @@ private fun LiveTvPlaylistSourcesRow(
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(Res.string.live_tv_settings_playlist_label),
+        LiveTvSearchAnchor("live-tv-playlist", highlightedSearchAnchorKey) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(Res.string.live_tv_settings_playlist_label),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium,
             )
-            Text(
-                text = stringResource(Res.string.live_tv_settings_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(
+                    text = stringResource(Res.string.live_tv_settings_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
-        OutlinedTextField(
-            value = draftName,
+        LiveTvSearchAnchor("live-tv-playlist-name", highlightedSearchAnchorKey) {
+            OutlinedTextField(
+                value = draftName,
             onValueChange = { draftName = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text(stringResource(Res.string.live_tv_settings_playlist_name_placeholder)) },
-            colors = liveTvOutlinedTextFieldColors(),
-        )
+                label = { Text(stringResource(Res.string.live_tv_settings_playlist_name_placeholder)) },
+                colors = liveTvOutlinedTextFieldColors(),
+            )
+        }
 
-        OutlinedTextField(
-            value = draftUrl,
+        LiveTvSearchAnchor("live-tv-playlist-url", highlightedSearchAnchorKey) {
+            OutlinedTextField(
+                value = draftUrl,
             onValueChange = { draftUrl = it },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text(stringResource(Res.string.live_tv_settings_playlist_placeholder)) },
-            colors = liveTvOutlinedTextFieldColors(),
-        )
+                label = { Text(stringResource(Res.string.live_tv_settings_playlist_placeholder)) },
+                colors = liveTvOutlinedTextFieldColors(),
+            )
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
-                onClick = {
-                    onUrlAdded(normalizedName.takeIf(String::isNotBlank), normalizedUrl)
+            LiveTvSearchAnchor("live-tv-playlist-url", highlightedSearchAnchorKey) {
+                Button(
+                    onClick = {
+                        onUrlAdded(normalizedName.takeIf(String::isNotBlank), normalizedUrl)
                     draftName = ""
                     draftUrl = ""
                 },
-                enabled = normalizedUrl.isNotBlank(),
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_add_url_playlist))
+                    enabled = normalizedUrl.isNotBlank(),
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_add_url_playlist))
+                }
             }
-            OutlinedButton(
-                onClick = filePicker::launch,
-                enabled = filePicker.canPickFiles,
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_add_local_playlist))
+            LiveTvSearchAnchor("live-tv-local-playlist", highlightedSearchAnchorKey) {
+                OutlinedButton(
+                    onClick = filePicker::launch,
+                    enabled = filePicker.canPickFiles,
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_add_local_playlist))
+                }
             }
         }
 
