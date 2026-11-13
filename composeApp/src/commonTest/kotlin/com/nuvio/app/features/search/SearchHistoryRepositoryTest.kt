@@ -71,4 +71,26 @@ class SearchHistoryRepositoryTest {
 
         assertEquals(listOf("d", "a", "b"), updated)
     }
+    @Test
+    fun `removeSearchHistoryEntry removes a match ignoring case`() {
+        assertEquals(
+            listOf("Arrival"),
+            removeSearchHistoryEntry(
+                current = listOf("Dune", "Arrival"),
+                query = "dUnE",
+            ),
+        )
+    }
+
+    @Test
+    fun `removeSearchHistoryEntry trims the requested query`() {
+        assertEquals(
+            listOf("Arrival"),
+            removeSearchHistoryEntry(
+                current = listOf("Dune", "Arrival"),
+                query = "  Dune  ",
+            ),
+        )
+    }
+
 }
