@@ -5,6 +5,21 @@ import kotlin.test.assertEquals
 
 class SearchHistoryRepositoryTest {
     @Test
+    fun `pending query state hides results from the previous query`() {
+        val pending = SearchUiState(
+            isLoading = false,
+            sections = emptyList(),
+            emptyStateReason = SearchEmptyStateReason.NoResults,
+            errorMessage = "old error",
+        ).forPendingQuery()
+
+        assertEquals(true, pending.isLoading)
+        assertEquals(emptyList(), pending.sections)
+        assertEquals(null, pending.emptyStateReason)
+        assertEquals(null, pending.errorMessage)
+    }
+
+    @Test
     fun `applySearchHistoryEntry moves existing query to front`() {
         val updated = applySearchHistoryEntry(
             current = listOf("batman", "dune", "silo"),
