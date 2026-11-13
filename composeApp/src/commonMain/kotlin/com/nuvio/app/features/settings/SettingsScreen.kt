@@ -1039,14 +1039,17 @@ private fun MobileSettingsScreen(
                 SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                     isTablet = false,
                     settings = tmdbSettings,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.MdbListRatings -> mdbListSettingsContent(
                     isTablet = false,
                     settings = mdbListSettings,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.Omdb -> omdbSettingsContent(
                     isTablet = false,
                     apiKey = omdbApiKey,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.LiveTv -> liveTvSettingsContent(
                     isTablet = false,
@@ -1524,14 +1527,17 @@ private fun TabletSettingsScreen(
                     SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                         isTablet = true,
                         settings = tmdbSettings,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.MdbListRatings -> mdbListSettingsContent(
                         isTablet = true,
                         settings = mdbListSettings,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.Omdb -> omdbSettingsContent(
                         isTablet = true,
                         apiKey = omdbApiKey,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.LiveTv -> liveTvSettingsContent(
                         isTablet = true,
