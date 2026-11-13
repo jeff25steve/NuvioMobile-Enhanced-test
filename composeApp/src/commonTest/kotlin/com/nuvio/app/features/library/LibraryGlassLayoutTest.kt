@@ -137,11 +137,32 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun savedContentBackdropCaptureIsEnabledOnlyForTheSavedViewport() {
-        assertTrue(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Saved, glassEnabled = true))
-        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Saved, glassEnabled = false))
-        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Cloud, glassEnabled = true))
-        assertFalse(sourceModeUsesScrollableLibraryBackdrop(LibraryViewMode.Servers, glassEnabled = true))
+    fun savedContentBackdropCaptureRequiresVisibleSavedGlassConsumers() {
+        fun capture(
+            sourceMode: LibraryViewMode = LibraryViewMode.Saved,
+            hasSavedControls: Boolean = true,
+            showReleaseCalendar: Boolean = false,
+            masterEnabled: Boolean = true,
+            platformSupported: Boolean = true,
+            enabledSurface: LiquidGlassSurface,
+        ) = libraryContentBackdropCaptureRequired(
+            masterEnabled = masterEnabled,
+            platformSupported = platformSupported,
+            sourceMode = sourceMode,
+            hasSavedControls = hasSavedControls,
+            showReleaseCalendar = showReleaseCalendar,
+        ) { it == enabledSurface }
+
+        assertTrue(capture(enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
+        assertTrue(capture(enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER))
+        assertFalse(capture(hasSavedControls = false, enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
+        assertTrue(capture(showReleaseCalendar = true, enabledSurface = LiquidGlassSurface.LIBRARY_CALENDAR))
+        assertFalse(capture(showReleaseCalendar = false, enabledSurface = LiquidGlassSurface.LIBRARY_CALENDAR))
+        assertFalse(capture(enabledSurface = LiquidGlassSurface.LIBRARY))
+        assertFalse(capture(sourceMode = LibraryViewMode.Cloud, enabledSurface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS))
+        assertFalse(capture(sourceMode = LibraryViewMode.Servers, enabledSurface = LiquidGlassSurface.LIBRARY))
+        assertFalse(capture(masterEnabled = false, enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
+        assertFalse(capture(platformSupported = false, enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
     }
 
     @Test
