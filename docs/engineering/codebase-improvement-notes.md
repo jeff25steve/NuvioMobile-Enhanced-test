@@ -3940,3 +3940,46 @@ References checked:
 - Context7 did not expose the repository's exact Compose Multiplatform `1.13.0-beta01`; the closest available reference was `1.12.2`. Changes reuse existing project APIs and components; no library or dependency was added.
 - Performed manual source/diff review. An independent reviewer/subagent was not available.
 - Tests were added but **not run**. No build, compilation, Gradle task, benchmark or CI was started, in accordance with the explicit restriction.
+
+
+## 13 November 2026 — Dynamic Debrid and Live TV Settings Search completion
+
+**Starting checkpoint:** `b69ddc1983d7a6c6f64496a306559df33efb4876` on `main-build-testing`.
+
+### Cycle 1 — Debrid destinations
+
+- Added exact row anchors for Cloud Library, link resolving, conditional resolver selection, each visible provider (Torbox and Premiumize), instant-playback preparation/count, result limits/sorting/size range, every stream-filter row, and both stream-format templates.
+- Added provider-specific search results for the visible Debrid providers. Added the previously unindexed Excluded Encodes filter so the rendered row is discoverable.
+- Added a single key mapper from `DebridStreamPicker` to the stable search-row key. Reviewed it against the complete enum: all 28 picker values have one mapping.
+- Resolver-selection and instant-playback-count destinations are registered only while their corresponding controls are actually rendered. Disabled link-resolving hides all dependent destinations rather than scrolling to a missing section.
+
+### Cycle 2 — Live TV destinations
+
+- Added exact anchors for the navigation visibility toggle, channel/EPG reload actions, Xtream Codes provider group, Stalker portal and MAC settings, playlist description/name/URL/local-file action, EPG auto-detection, EPG URL/add/refresh actions.
+- Added search entries for navigation visibility and EPG refresh, which were previously rendered controls without dedicated search rows.
+- Search destinations account for the two actual page layouts: with a configured playlist the navigation and reload sections precede providers; without one they are absent and the provider/playlist/EPG indexes shift upward.
+- Kept navigation and reload results page-only when no playlist exists. The search index and destination page now receive the same live Debrid/Live TV state, avoiding mismatched static indexes.
+
+### Dynamic destination correctness
+
+- `settingsSearchEntries` now receives current Debrid and Live TV state and resolves anchors against the state used to render search results.
+- Mobile and tablet destination effects revalidate the same state, include the relevant availability fields as effect keys, and consume a pending anchor if its target is no longer available.
+- This closes a subtle gap in the earlier implementation: a key could have a valid row mapping in the destination screen but still be created as a page-only search result because the root search index had no provider-state context.
+
+### Regression coverage and source audit
+
+- Added tests for provider-specific Debrid anchors, all 23 Debrid filter rows, resolver selection availability, instant-playback count availability, all indexed Live TV rows with and without a playlist, unknown-key rejection, and exact dynamic section indexes.
+- Performed a GitHub source audit comparing every Debrid and Live TV search-row key with its renderer anchor and mapping. The structural audit found no missing indexed row anchors, no duplicate Live TV anchor keys, and confirmed both mobile/tablet paths receive live state.
+- These checks inspect repository source and test definitions only. They are **not a substitute for executing the Kotlin test suite or compiling**.
+
+### Research and review
+
+- Followed the installed Superpowers workflow and TDD ordering by adding regression specifications before production changes. Tests were not executed because the explicit no-build/no-CI restriction remains in force.
+- Context7 resolved Compose Multiplatform but did not provide the repository's exact `1.13.0-beta01` documentation; the available version was `1.12.2`. The implementation reuses the existing project `SettingsSearchAnchorContainer` and Compose relocation APIs; no new dependency or API was introduced.
+- Exa reviewed official AndroidX lazy-list and relocation guidance, including stable lazy-item identity, list scroll APIs, and bring-into-view behavior. The existing destination flow scrolls to the section item first; the existing anchor container then brings the nested row into view and highlights it.
+- Manually reviewed the changed resolver, search-entry construction, page renderers, row wrappers, and regression cases. A separate reviewer/subagent was not available in this environment.
+- No build, Gradle task, test task, benchmark or CI was started.
+
+### Remaining boundary
+
+- This pass completes the indexed Debrid and Live TV controls that are currently exposed by Settings Search. Existing provider credentials and playlist rows that are generated dynamically for each saved account/playlist are intentionally not emitted as separate search results; the stable provider/source configuration controls are searchable instead.
