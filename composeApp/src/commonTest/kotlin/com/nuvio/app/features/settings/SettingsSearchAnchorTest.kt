@@ -371,6 +371,9 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.MdbListRatings, "mdb-imdb", 2),
             Triple(SettingsPage.MdbListRatings, "mdb-audience", 2),
             Triple(SettingsPage.Omdb, "omdb-api-key", 0),
+            Triple(SettingsPage.Homescreen, "home-hero", 1),
+            Triple(SettingsPage.Homescreen, "home-catalog-type", 1),
+            Triple(SettingsPage.Homescreen, "home-hide-unreleased", 1),
             Triple(SettingsPage.DebugLogs, "debug-copy-logs", 0),
             Triple(SettingsPage.DebugLogs, "debug-clear-logs", 0),
             Triple(SettingsPage.DebugLogs, "debug-log-viewer", 0),
@@ -414,6 +417,7 @@ class SettingsSearchAnchorTest {
             SettingsPage.Omdb,
             SettingsPage.DiscordRpc,
             SettingsPage.DebugLogs,
+            SettingsPage.Homescreen,
         )
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
