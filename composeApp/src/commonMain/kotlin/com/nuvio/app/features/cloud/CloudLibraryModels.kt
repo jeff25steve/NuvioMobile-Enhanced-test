@@ -109,6 +109,16 @@ internal fun cloudLibraryHasActiveFilters(
     searchQuery: String,
 ): Boolean = selectedProviderId != null || selectedType != null || searchQuery.isNotBlank()
 
+internal fun shouldApplyCloudLibraryRefresh(
+    requestGeneration: Long,
+    latestRequestGeneration: Long,
+    requestedConnectionSignature: List<String>,
+    currentConnectionSignature: List<String>,
+    cloudLibraryEnabled: Boolean,
+): Boolean = cloudLibraryEnabled &&
+    requestGeneration == latestRequestGeneration &&
+    requestedConnectionSignature == currentConnectionSignature
+
 data class CloudLibraryUiState(
     val isLoaded: Boolean = false,
     val isEnabled: Boolean = true,
