@@ -218,6 +218,7 @@ internal fun LazyListScope.trackingSettingsContent(
                     traktConnected = true,
                     commentsEnabled = commentsEnabled,
                     onCommentsEnabledChange = onCommentsEnabledChange,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -451,6 +452,7 @@ private fun TrackingViewingAndDiscovery(
     traktConnected: Boolean,
     commentsEnabled: Boolean,
     onCommentsEnabledChange: (Boolean) -> Unit,
+    highlightedSearchAnchorKey: String?,
 ) {
     var activePickerName by rememberSaveable { mutableStateOf<String?>(null) }
     val activePicker = activePickerName?.let(TrackingViewingPicker::valueOf)
@@ -471,6 +473,7 @@ private fun TrackingViewingAndDiscovery(
             enabled = traktProgressActive,
             isTablet = isTablet,
             searchAnchorKey = "trakt-continue-watching-window",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             onClick = { activePickerName = TrackingViewingPicker.CONTINUE_WATCHING.name },
         )
         SettingsGroupDivider(isTablet = isTablet)
@@ -484,6 +487,7 @@ private fun TrackingViewingAndDiscovery(
             enabled = traktConnected,
             isTablet = isTablet,
             searchAnchorKey = "trakt-comments",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             onCheckedChange = onCommentsEnabledChange,
         )
     }
