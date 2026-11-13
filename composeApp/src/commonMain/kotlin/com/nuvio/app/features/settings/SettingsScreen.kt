@@ -978,6 +978,7 @@ private fun MobileSettingsScreen(
                 SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(
                     isTablet = false,
                     uiState = posterCardStyleUiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.ContentDiscovery -> contentDiscoveryContent(
                     isTablet = false,
@@ -1469,6 +1470,7 @@ private fun TabletSettingsScreen(
                     SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(
                         isTablet = true,
                         uiState = posterCardStyleUiState,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.ContentDiscovery -> contentDiscoveryContent(
                         isTablet = true,
