@@ -917,7 +917,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (sourceMode == LibraryViewMode.Saved && anyLibraryGlassEnabled) {
+                        if (sourceModeUsesScrollableLibraryBackdrop(sourceMode, anyLibraryGlassEnabled)) {
                             Modifier.nuvioBackdropSource(libraryContentBackdrop)
                         } else {
                             Modifier
