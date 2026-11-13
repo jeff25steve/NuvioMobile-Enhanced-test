@@ -1,6 +1,10 @@
 package com.nuvio.app.core.auth
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -69,6 +73,36 @@ class AuthServerSwitchCleanupTest {
         )
 
         assertSame(localFailure, result.exceptionOrNull())
+    }
+
+    @Test
+    fun cancellationDuringAnonymousClearStillFinishesRemoteCredentialClear() = runTest {
+        val anonymousClearStarted = CompletableDeferred<Unit>()
+        val finishAnonymousClear = CompletableDeferred<Unit>()
+        val remoteClearFinished = CompletableDeferred<Unit>()
+        var localCleanupStarted = false
+
+        val cleanup = launch {
+            runServerSwitchCleanup(
+                clearAnonymousUserId = {
+                    anonymousClearStarted.complete(Unit)
+                    finishAnonymousClear.await()
+                },
+                clearRemoteSession = {
+                    delay(1)
+                    remoteClearFinished.complete(Unit)
+                },
+                clearLocalAccountData = { localCleanupStarted = true },
+            )
+        }
+
+        anonymousClearStarted.await()
+        cleanup.cancel()
+        finishAnonymousClear.complete(Unit)
+        cleanup.cancelAndJoin()
+
+        assertTrue(remoteClearFinished.isCompleted)
+        assertFalse(localCleanupStarted)
     }
 
     @Test
