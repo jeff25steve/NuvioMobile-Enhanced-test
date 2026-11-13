@@ -138,6 +138,8 @@ internal fun LazyListScope.homescreenSettingsContent(
                         description = stringResource(Res.string.settings_homescreen_hero_trailer_playback_description),
                         checked = heroTrailerPlaybackEnabled,
                         isTablet = isTablet,
+                        searchAnchorKey = "home-hero-trailer-playback",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onCheckedChange = HomeCatalogSettingsRepository::setHeroTrailerPlaybackEnabled,
                     )
                     if (heroTrailerPlaybackEnabled) {
@@ -147,26 +149,35 @@ internal fun LazyListScope.homescreenSettingsContent(
                             description = stringResource(Res.string.settings_hero_trailer_start_unmuted_description),
                             checked = heroTrailerStartUnmuted,
                             isTablet = isTablet,
+                            searchAnchorKey = "home-hero-trailer-start-unmuted",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                             onCheckedChange = HomeCatalogSettingsRepository::setHeroTrailerStartUnmuted,
                         )
                         SettingsGroupDivider(isTablet = isTablet)
-                        SettingsSliderRow(
-                            title = stringResource(Res.string.settings_hero_trailer_start_delay),
-                            description = stringResource(Res.string.settings_hero_trailer_start_delay_description),
-                            value = heroTrailerStartDelaySeconds,
-                            formatValue = { seconds ->
-                                if (seconds <= 0) {
-                                    stringResource(Res.string.settings_hero_trailer_start_delay_instant)
-                                } else {
-                                    stringResource(Res.string.settings_hero_trailer_start_delay_value, seconds)
-                                }
-                            },
-                            valueRange = HomeCatalogSettingsRepository.MIN_HERO_TRAILER_START_DELAY_SECONDS..
-                                HomeCatalogSettingsRepository.MAX_HERO_TRAILER_START_DELAY_SECONDS,
-                            step = 1,
-                            isTablet = isTablet,
-                            onValueChange = HomeCatalogSettingsRepository::setHeroTrailerStartDelaySeconds,
-                        )
+                        SettingsSearchAnchorContainer(
+                            searchAnchorKey = "home-hero-trailer-start-delay",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                        ) { anchorModifier ->
+                            Box(modifier = anchorModifier.fillMaxWidth()) {
+                                SettingsSliderRow(
+                                    title = stringResource(Res.string.settings_hero_trailer_start_delay),
+                                    description = stringResource(Res.string.settings_hero_trailer_start_delay_description),
+                                    value = heroTrailerStartDelaySeconds,
+                                    formatValue = { seconds ->
+                                        if (seconds <= 0) {
+                                            stringResource(Res.string.settings_hero_trailer_start_delay_instant)
+                                        } else {
+                                            stringResource(Res.string.settings_hero_trailer_start_delay_value, seconds)
+                                        }
+                                    },
+                                    valueRange = HomeCatalogSettingsRepository.MIN_HERO_TRAILER_START_DELAY_SECONDS..
+                                        HomeCatalogSettingsRepository.MAX_HERO_TRAILER_START_DELAY_SECONDS,
+                                    step = 1,
+                                    isTablet = isTablet,
+                                    onValueChange = HomeCatalogSettingsRepository::setHeroTrailerStartDelaySeconds,
+                                )
+                            }
+                        }
                     }
                 }
                 SettingsGroupDivider(isTablet = isTablet)
