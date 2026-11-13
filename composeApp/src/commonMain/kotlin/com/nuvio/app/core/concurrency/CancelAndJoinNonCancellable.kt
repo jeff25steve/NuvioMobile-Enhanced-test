@@ -14,15 +14,20 @@ import kotlinx.coroutines.withContext
  * before clearing or replacing state that the cancelled operations may still mutate.
  */
 internal suspend fun cancelAndJoinNonCancellable(jobs: Collection<Job>) {
-    if (jobs.isEmpty()) return
-    jobs.forEach { it.cancel() }
-    withContext(NonCancellable) {
-        jobs.joinAll()
+    if (jobs.isNotEmpty()) {
+        jobs.forEach { it.cancel() }
+        withContext(NonCancellable) {
+            jobs.joinAll()
+        }
     }
+    // An empty collection is still a cancellation boundary for the caller.
     currentCoroutineContext().ensureActive()
 }
 
 internal suspend fun cancelAndJoinNonCancellable(job: Job?) {
-    if (job == null) return
-    cancelAndJoinNonCancellable(listOf(job))
+    if (job != null) {
+        cancelAndJoinNonCancellable(listOf(job))
+    } else {
+        currentCoroutineContext().ensureActive()
+    }
 }
