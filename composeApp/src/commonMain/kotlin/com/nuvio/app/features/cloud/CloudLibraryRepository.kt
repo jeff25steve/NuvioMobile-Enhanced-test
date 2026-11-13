@@ -352,7 +352,7 @@ object CloudLibraryRepository {
         }
     }
 
-    private fun publishRefreshResult(
+    private suspend fun publishRefreshResult(
         requestGeneration: Long,
         requestedConnectionKeys: List<CloudConnectionKey>,
         refreshed: CloudLibraryUiState,
