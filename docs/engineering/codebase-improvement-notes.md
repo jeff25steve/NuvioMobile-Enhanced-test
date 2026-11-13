@@ -4026,3 +4026,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Individual saved Media Server records, installed Addon catalog items and provider-specific account instances are runtime data. Search now leads users to the relevant stable management page/section, but does not create a separate result for every runtime record.
 - Search results for the dynamic Home catalog/source sections lead to the exact section when it is rendered; individual catalog records are not indexed as independent settings.
 - Runtime validation and test execution remain pending explicit authorisation.
+
+
+- Follow-up completeness check added exact Homescreen anchors and search entries for in-app hero trailer playback, start-unmuted and start-delay controls. Results are now filtered using the same hero-enabled, platform playback capability and trailer-enabled state as the page renderer; hero-source and catalog-section results are likewise emitted only when those sections exist.
+- Passed the live Homescreen state through both mobile and tablet search catalogue paths. The final helper review also confirmed generated playback/Continue Watching aliases are represented on `PlaybackSearchRow` and forwarded through both row builders.
