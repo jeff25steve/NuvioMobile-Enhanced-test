@@ -3,7 +3,6 @@ package com.nuvio.app.core.auth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -105,7 +104,6 @@ class AuthServerSwitchCleanupTest {
                     finishAnonymousClear.await()
                 },
                 clearRemoteSession = {
-                    delay(1)
                     remoteClearFinished.complete(Unit)
                 },
                 clearLocalAccountData = { localCleanupStarted = true },
@@ -119,6 +117,38 @@ class AuthServerSwitchCleanupTest {
 
         assertTrue(remoteClearFinished.isCompleted)
         assertFalse(localCleanupStarted)
+    }
+
+    @Test
+    fun cancellationAfterCredentialCleanupPreservesFailuresAndSkipsLocalCleanup() = runTest {
+        val remoteClearStarted = CompletableDeferred<Unit>()
+        val finishRemoteClear = CompletableDeferred<Unit>()
+        val remoteFailure = IllegalStateException("Remote clear failed")
+        val localFailure = IllegalStateException("Anonymous clear failed")
+        var completionFailure: Throwable? = null
+        var localCleanupStarted = false
+        val cleanup = launch {
+            runServerSwitchCleanup(
+                clearAnonymousUserId = { throw localFailure },
+                clearRemoteSession = {
+                    remoteClearStarted.complete(Unit)
+                    finishRemoteClear.await()
+                    throw remoteFailure
+                },
+                clearLocalAccountData = { localCleanupStarted = true },
+            )
+        }
+        cleanup.invokeOnCompletion { completionFailure = it }
+
+        remoteClearStarted.await()
+        cleanup.cancel()
+        finishRemoteClear.complete(Unit)
+        cleanup.cancelAndJoin()
+
+        assertFalse(localCleanupStarted)
+        assertTrue(completionFailure is CancellationException)
+        assertTrue(completionFailure!!.suppressedExceptions.contains(localFailure))
+        assertTrue(completionFailure!!.suppressedExceptions.contains(remoteFailure))
     }
 
     @Test
