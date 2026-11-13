@@ -182,6 +182,8 @@ internal fun LazyListScope.advancedSettingsContent(
                 var cleared by rememberSaveable { mutableStateOf(false) }
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_advanced_clear_cw_cache),
+                    searchAnchorKey = "advanced-clear-cw-cache",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = if (cleared) {
                         stringResource(Res.string.settings_advanced_clear_cw_cache_done)
                     } else {
@@ -203,6 +205,8 @@ internal fun LazyListScope.advancedSettingsContent(
                 var metadataCleared by rememberSaveable { mutableStateOf(MetadataCacheClearer.recentlyCleared()) }
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_advanced_clear_metadata_cache),
+                    searchAnchorKey = "advanced-clear-metadata-cache",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = if (metadataCleared) {
                         stringResource(Res.string.settings_advanced_clear_metadata_cache_done)
                     } else {
