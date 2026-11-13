@@ -4603,3 +4603,15 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Review boundary: source and tests were inspected through GitHub. Per the standing instruction, no tests, builds, Gradle tasks, or CI were run, so runtime/test execution remains unverified.
 - Commits: test-first `d3ddd94beeb036b7dc148b3e34122bc93702c9b3`; implementation `d6322f6d02160bb87f3c1216f1daa3daae234f30`.
 
+
+
+## 2026-11-13 — Discover feed lifecycle cleanup
+
+### Improvement cycle — Cancel obsolete feed work when compatible sources disappear
+- Root cause: `refreshDiscover()` correctly invalidated the discover generation when the current source list was empty, and published the no-compatible-catalogs state, but did not cancel `activeDiscoverJob` in this branch. The generation guard prevented stale UI publication, but the previous feed request could continue consuming network and coroutine resources until it completed.
+- Updated the empty-compatible-sources branch to cancel the active discover job and clear its reference before publishing the empty-catalog state. This is deliberately scoped to the early-return branch; normal pagination, selection, cache behavior, and result merging are unchanged.
+- Evidence/research: Context7 resolved kotlinx.coroutines and queried the nearest indexed 1.10.1 documentation; the repository pins 1.10.2, which was not available as an exact Context7 version. Exa independently surfaced the official Kotlin Job/cancellation documentation and Kotlin cancellation guide. They confirm that cancelling a Job requests cancellation and propagates to its children, subject to cooperative cancellation. No new coroutine API or dependency was introduced.
+- Review: inspected the full `refreshDiscover()` and `loadDiscoverFeed()` control flow, confirming that the normal non-empty-source refresh already replaces/cancels the previous job in `loadDiscoverFeed()`, while this empty-source early return did not.
+- Validation boundary: remote source inspection only. No tests, builds, Gradle tasks, or CI were run, as explicitly instructed. Runtime cancellation behavior remains unexecuted.
+- Commit: `645f373a01bdf9f51da77c1afc8bcf3c69acf3c3`.
+
