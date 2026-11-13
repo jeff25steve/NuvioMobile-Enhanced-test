@@ -319,7 +319,10 @@ object SearchRepository {
         discoverSources = sources
         lastDiscoverRequestKey = requestKey
         if (sources.isEmpty()) {
+            // No discover source can satisfy the current selection; stop any previous
+            // feed request instead of letting an obsolete network load run to completion.
             activeDiscoverJob?.cancel()
+            activeDiscoverJob = null
             log.d { "Discover refresh found no compatible discover catalogs" }
             _discoverUiState.value = DiscoverUiState(
                 isLoading = hasPendingAddonManifests,
