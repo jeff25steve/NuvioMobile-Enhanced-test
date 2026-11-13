@@ -1,12 +1,11 @@
 package com.nuvio.app.features.search
 
+import com.nuvio.app.features.catalog.CatalogTarget
+import com.nuvio.app.features.home.HomeCatalogSection
+import com.nuvio.app.features.home.MetaPreview
+import com.nuvio.app.features.servers.ServerSearchRequestSignature
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
-
-import com.nuvio.app.features.catalog.CatalogTarget
-import com.nuvio.app.features.home.MetaPreview
-import com.nuvio.app.features.home.HomeCatalogSection
-import com.nuvio.app.features.servers.ServerSearchRequestSignature
 
 internal data class AddonSearchRequestSignature(
     val manifestUrl: String,
