@@ -170,3 +170,19 @@ Relevant files:
 - Manual review checked both test-first commit diffs and both implementation diffs. The pending reset counter is updated under the same AtomicFU lock as operation admission; mutex ownership remains the serializer, while the counter represents all queued and active reset reservations. Cancellation and failed post-acquisition setup each release only the reservation they acquired.
 - No tests, Gradle tasks, builds, or CI workflows were run. The new tests remain unexecuted until explicitly authorised; no RED/GREEN or passing-test claim is made.
 - Follow-up: when authorised, run focused AuthSessionOperationGateTest and CancelAndJoinNonCancellableTest first, then the previously listed auth/storage tests and full suite.
+
+## Latest continuation status (2026-11-13 16:31 UTC)
+
+- Two related cleanup-diagnostics improvement cycles were integrated:
+  - Cycle 11 — invalid-session cleanup now retains every cleanup-step failure. The first failure remains the returned primary failure and subsequent failures are attached as suppressed exceptions. If the caller is cancelled while the non-cancellable cleanup sequence runs, cancellation remains primary and cleanup failures are attached to it rather than lost.
+  - Cycle 12 — server-switch credential cleanup now preserves both anonymous-identity and remote-session clear failures. The first failure remains primary, the second is suppressed, and local account data cleanup remains blocked whenever either credential clear fails.
+- Regression tests were committed before the production changes:
+  - 1ae3b08845f9fa803f3b465a4cef7666750482c1 and fd91eaa3f32d309b539a047c5a57a2c4e836f0e5 — verify all invalid-session cleanup failures remain observable.
+  - 996dc24d49875ec90f7d159bdd246ef0c54e94f8 — verify both server-switch credential failures are retained and local cleanup does not begin.
+  - c2dcfdf2cd0e83ed3e60d6c40e752fa37dda2df7 — make the cancellation regression exercise cancellation during the protected cleanup sequence.
+- Implementation commits:
+  - bc550a58dc82c4421872ba589d7bc5f1ce2680ab and 56e9978b49426ac10f29968ceeac3726e216d20d — aggregate invalid-session cleanup failures and preserve cancellation.
+  - 57588653b0e4fa18c0005c925bab74a93d843a71 — aggregate server-switch credential cleanup failures.
+- Evidence: Context7 resolved Kotlin documentation and confirmed common Throwable.addSuppressed support; Exa results included the official Kotlin addSuppressed API and coroutine exception/cancellation guidance. No dependencies or platform APIs were changed.
+- Review boundary: the latest remote AuthRepository.kt and both affected test files were fetched again and inspected. This is a source-level review only; tests were not executed, so RED/GREEN behavior and compilation remain unverified.
+- No Gradle tasks, tests, builds, CI workflows, release, PR, or merge were run. This preserves the explicit no-build/no-CI constraint; test execution remains pending authorisation.
