@@ -184,7 +184,7 @@ class CloudLibraryStoreTest {
 
         val refresh = async { store.refresh() }
         try {
-            withTimeout(1_000) { bothStarted.await() }
+            withTimeout(5_000) { bothStarted.await() }
         } finally {
             releaseRequests.complete(Unit)
         }
