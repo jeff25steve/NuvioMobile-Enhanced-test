@@ -233,10 +233,15 @@ object SearchRepository {
         }
     }
 
-    fun clear() {
+    fun cancelPendingSearch() {
         searchGeneration.invalidate()
         activeJob?.cancel()
+        activeJob = null
         lastRequestKey = null
+    }
+
+    fun clear() {
+        cancelPendingSearch()
         _uiState.value = SearchUiState()
     }
 
