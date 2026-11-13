@@ -83,6 +83,48 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse preserves credit category precedence and link order`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "movie",
+                "type": "movie",
+                "name": "Movie",
+                "director": "Lead Director, Shared",
+                "writer": "Lead Writer",
+                "cast": "Lead Cast, Shared",
+                "links": [
+                  {"name": "Linked Director", "category": "DiReCtOr", "url": "https://example.com/director-1"},
+                  {"name": "Linked Actor", "category": "Actor", "url": "https://example.com/actor-1"},
+                  {"name": "Linked Writer", "category": "SCREENPLAY", "url": "https://example.com/writer-1"},
+                  {"name": "Second Linked Director", "category": "DIRECTORS", "url": "https://example.com/director-2"},
+                  {"name": "Linked Cast", "category": "CAST", "url": "https://example.com/actor-2"},
+                  {"name": "Second Linked Writer", "category": "writers", "url": "https://example.com/writer-2"},
+                  {"name": "Second Linked Actor", "category": "actors", "url": "https://example.com/actor-3"},
+                  {"name": "Unrelated", "category": "studio", "url": "https://example.com/studio"}
+                ]
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("Lead Director", "Shared", "Linked Director", "Second Linked Director"),
+            result.director,
+        )
+        assertEquals(
+            listOf("Lead Writer", "Linked Writer", "Second Linked Writer"),
+            result.writer,
+        )
+        assertEquals(
+            listOf("Lead Cast", "Shared", "Linked Actor", "Linked Cast", "Second Linked Actor"),
+            result.cast.map(MetaPerson::name),
+        )
+        assertEquals(8, result.links.size)
+    }
+
+    @Test
     fun `parse preserves explicit video availability`() {
         val result = MetaDetailsParser.parse(
             """
