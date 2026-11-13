@@ -4926,6 +4926,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Added `libraryCloudPreviewViewportTopInset` and common regression cases for Cloud versus Saved/Servers modes.
 - Moved the preview's 132 dp Cloud header inset from list content padding to the LazyColumn's own top layout padding. This makes the list viewport begin below the fixed header, matching the live screen's separate scrolling viewport.
 - Changed the Cloud preview controls block to `stickyHeader`, keeping filters and the search field pinned together while Cloud cards scroll, matching the live `cloudLibraryContent` hierarchy.
+- Matched the live sticky-header chrome as well: the same black-versus-transparent artwork background, pointer-event consumption, and `MaterialTheme.nuvio.spacing.listGap` between list content.
 - Added the required `ExperimentalFoundationApi` opt-in to the preview composable. No new dependencies or runtime Library behavior changed.
 
 ### Evidence and review
