@@ -2587,4 +2587,13 @@
     <string name="settings_liquid_glass_surface_stream_results">بطاقات نتائج المصادر</string>
     <string name="settings_liquid_glass_surface_stream_selection">بحث المصادر والاستئناف</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">يعزز الألوان الظاهرة عبر الزجاج.</string>
+
+    <!-- Upstream playback and session messages; translations are included where verified. -->
+    <string name="player_error_stream_expired">انتهت صلاحية رابط البث. يرجى اختيار مصدر آخر.</string>
+    <string name="player_error_stream_removed">رابط البث منتهي الصلاحية أو تم حذفه. يرجى اختيار مصدر آخر.</string>
+    <string name="player_error_stream_rate_limited">طلبات كثيرة جداً لمصدر البث. انتظر لحظة ثم حاول مجدداً.</string>
+    <string name="player_error_stream_unavailable">خادم البث غير متوفر حالياً. يرجى اختيار مصدر آخر.</string>
+    <string name="player_error_stream_blocked">مصدر البث محجوب أو مقيد. يرجى اختيار مصدر آخر.</string>
+    <string name="player_error_source_invalid_content">خطأ في المصدر: أرجع مصدر البث محتوى غير صالح أو غير قابل للتشغيل. قد يكون الرابط قد انتهت صلاحيته أو أرجع الخادم صفحة خطأ بدلاً من الفيديو.\n\nيرجى اختيار مصدر آخر. [%1$s]</string>
+    <string name="player_error_unsupported_format">يستخدم هذا البث تنسيقاً قد لا يدعمه جهازك. يرجى اختيار مصدر آخر. [%1$s]</string>
 </resources>
