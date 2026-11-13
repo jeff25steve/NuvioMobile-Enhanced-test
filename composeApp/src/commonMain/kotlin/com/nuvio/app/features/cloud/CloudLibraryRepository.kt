@@ -140,13 +140,7 @@ object CloudLibraryRepository {
             return
         }
         val requestedConnectionKeys = connectedCloudConnectionKeys()
-        _uiState.update { current ->
-            current.copy(
-                isEnabled = true,
-                isRefreshing = true,
-                providers = current.providers.map { it.copy(isLoading = true, errorMessage = null) },
-            )
-        }
+        if (!markRefreshStarted(requestGeneration)) return
         scope.launch {
             if (cachedKeys != null) {
                 restoreCachedState(cachedKeys, requestGeneration)
@@ -276,13 +270,7 @@ object CloudLibraryRepository {
             return _uiState.value
         }
         val requestedConnectionKeys = connectedCloudConnectionKeys()
-        _uiState.update { current ->
-            current.copy(
-                isEnabled = true,
-                isRefreshing = true,
-                providers = current.providers.map { it.copy(isLoading = true, errorMessage = null) },
-            )
-        }
+        if (!markRefreshStarted(requestGeneration)) return _uiState.value
         val previous = _uiState.value
         val refreshed = store.refresh().keepingItemsOnFailure(previous)
         val applied = publishRefreshResult(
@@ -317,6 +305,18 @@ object CloudLibraryRepository {
     private fun beginRefreshGeneration(): Long = synchronized(refreshLock) {
         refreshGeneration += 1
         refreshGeneration
+    }
+
+    private fun markRefreshStarted(requestGeneration: Long): Boolean = synchronized(refreshLock) {
+        if (requestGeneration != refreshGeneration) return@synchronized false
+        _uiState.update { current ->
+            current.copy(
+                isEnabled = true,
+                isRefreshing = true,
+                providers = current.providers.map { it.copy(isLoading = true, errorMessage = null) },
+            )
+        }
+        true
     }
 
     private fun isRefreshGenerationCurrent(requestGeneration: Long): Boolean =
