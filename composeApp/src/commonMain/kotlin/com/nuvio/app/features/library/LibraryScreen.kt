@@ -201,6 +201,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -3503,6 +3504,7 @@ private object LibraryReleaseCalendarCache {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _state = MutableStateFlow(LibraryReleaseCalendarCacheState())
+    private val persistenceMutex = Mutex()
     val state: StateFlow<LibraryReleaseCalendarCacheState> = _state.asStateFlow()
 
     private var lastItems: List<LibraryItem> = emptyList()
@@ -3629,7 +3631,10 @@ private object LibraryReleaseCalendarCache {
                             latest.loadedMonthKeys
                         },
                     )
-                    persist(_state.value)
+                    val snapshot = _state.value
+                    persist(snapshot) {
+                        _state.value == snapshot && cacheKeyFor(items) == cacheKey
+                    }
                 }
             } finally {
                 val latest = _state.value
@@ -3789,7 +3794,9 @@ private object LibraryReleaseCalendarCache {
 
             if (!isCurrentWarm(items, cacheKey, generation)) return
             _state.value = next
-            if (isCurrentWarm(items, cacheKey, generation)) persist(next)
+            persist(next) {
+                isCurrentWarm(items, cacheKey, generation) && _state.value == next
+            }
             if (next.failedSeriesKeys.isEmpty()) resetRetry() else scheduleRetry()
         } finally {
             if (
@@ -3813,8 +3820,17 @@ private object LibraryReleaseCalendarCache {
         currentGeneration = warmGeneration,
     )
 
-    private suspend fun persist(snapshot: LibraryReleaseCalendarCacheState) {
-        withContext(Dispatchers.Default) { LibraryReleaseSchedulePersistence.save(snapshot) }
+    private suspend fun persist(
+        snapshot: LibraryReleaseCalendarCacheState,
+        shouldPersist: () -> Boolean = { true },
+    ) {
+        persistenceMutex.lock()
+        try {
+            if (!shouldPersist()) return
+            withContext(Dispatchers.Default) { LibraryReleaseSchedulePersistence.save(snapshot) }
+        } finally {
+            persistenceMutex.unlock()
+        }
     }
 
     private fun scheduleRetry() {
