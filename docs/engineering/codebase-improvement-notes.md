@@ -4292,3 +4292,40 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - The regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Runtime performance remains unmeasured; do not present an app-level percentage improvement until an authorised benchmark/profile is collected.
 - No changes were made to network behavior, metadata fields, provider requests, dependency versions, parser formats, UI state, or workflow configuration.
 
+
+
+
+## 13 November 2026 — Reduce temporary collections in provider Continue Watching projections
+
+**Starting checkpoint:** `b3c1ba3b8cf4fec9dacc20f89019c446b1801423` on `main-build-testing`.
+
+### Cycle 1 — PublicMetaDB next-up aggregation
+
+- `PublicMetaDbProjection.buildContinueWatching()` previously transformed resume points twice: once into playback entries and again into a set of active show IDs. It now traverses resume points once, adding every non-movie show ID to the suppression set (including resume records below the display threshold) while appending only valid playback entries to the playback output.
+- Watched history previously flowed through movie filtering, episode filtering, `groupBy(tmdbId)`, a second positive-season filter for each group, and `maxWithOrNull`. Those operations retained full per-show episode lists even though Continue Watching only needs two candidates per show.
+- Replaced the full grouped lists with a single pass and two references per eligible show: the latest episode overall and the latest episode whose season is positive. Selection remains positive-season-first, falling back to the latest overall entry only when no positive season exists.
+- Preserved the original timestamp, season and episode tie-break order. Comparisons are strict, so exact ties keep the first source occurrence as the old `maxWithOrNull` implementation did. A `linkedMapOf` retains the original first-seen show order before the existing timestamp sort and 120-item limit.
+- Added three regression cases: newer specials must not override a positive-season episode; specials-only shows must fall back to the newest entry; and even a resume record too early to display as playback must still suppress a duplicate Next Up seed.
+
+### Cycle 2 — WeTrakr next-up aggregation
+
+- `episodesByShow` previously created a temporary list of key/episode pairs with `mapNotNull` and then grouped that list. It now creates the same insertion-ordered key-to-list index directly in one traversal. Per-alias episode order and the first-seen order of show keys remain intact.
+- `buildContinueWatching()` previously built playback entries, then filtered those entries into a separate playing-show set, and separately filtered list entries before resolving Next Up. Playback conversion and playing-show collection now share one pass; the eligibility and status checks for seeds are performed in the mapping pass.
+- For each candidate show, the old alias `flatMap`, `distinctBy(season, episode)`, positive-season filter/fallback and max operation built several temporary collections. `latestWatchedEpisode()` now walks aliases in their original order and keeps only the first occurrence of each season/episode pair plus the latest overall and latest positive-season candidates.
+- The first-alias duplicate rule is intentional: the old `distinctBy` retained the first occurrence after flattening aliases. A new regression test gives the same episode to two aliases with different timestamps and verifies that the earlier alias occurrence still wins. Additional tests cover positive-season preference and the no-positive-season fallback.
+- Preserved timestamp/season/episode tie-breaks, active playback suppression, dismissed-show checks, status eligibility, output fields and final timestamp ordering.
+
+### Evidence and research
+
+- Kotlin's [official collection-grouping documentation](https://kotlinlang.org/docs/collection-grouping.html) specifies that `groupBy()` returns a map whose values are lists of all members in each group. It describes `groupingBy()` plus `aggregate()`/`fold()` as the alternative when only per-group aggregates are needed. The implementation here uses explicit accumulators because each provider needs custom positive-season fallback and tie-breaking semantics.
+- The current [JetBrains Kotlin standard-library `Grouping.aggregateTo` source](https://github.com/JetBrains/kotlin/blob/master/libraries/stdlib/src/kotlin/collections/Grouping.kt) confirms that grouped aggregation can be performed by iterating the original source once and retaining one accumulator per key. The current common collection source also confirms `mapNotNull` constructs an `ArrayList` result and `maxWithOrNull` keeps the first element on comparator ties.
+- Independent measured evidence: Jake Wharton's [Intermediate collection avoidance](https://jakewharton.com/intermediate-collection-avoidance/) reports JMH results for a small collection pipeline: `map { ... }.joinToString()` measured 126.582 ± 38.237 ns/op and 232 B/op, compared with 73.586 ± 1.960 ns/op and 168 B/op when the transform was fused into `joinToString(transform)`. This is evidence that intermediate collection/iterator work can be measurable, not a benchmark of these Nuvio projections and not a forecast of their speed-up.
+- Android's [memory-management guidance](https://developer.android.com/topic/performance/memory/manage-app-memory) explains that memory churn from temporary objects can contribute to frequent garbage collection, and recommends profiling allocations to locate actual churn. No Nuvio allocation trace or device timing has been collected in this session, so no app-level latency, memory or battery percentage improvement is claimed.
+- Context7 checked Kotlin's common collection transformation/grouping APIs and accumulator semantics. The project pins Kotlin `2.4.10`; Context7 did not expose that exact version (the Kotlin website result was unversioned and the versioned Kotlin library result only exposed `1.9.0`). The changes use existing common collection APIs only and add no API or dependency.
+
+### Review, validation and limits
+
+- Manually compared the old and new provider logic and inspected JetBrains' standard-library source for exact aggregation and tie behavior. Fresh GitHub reads confirmed the old per-show `groupBy`, WeTrakr `flatMap`/`distinctBy` chain, and duplicated resume/playback passes are removed from these hot paths.
+- A conservative capacity experiment was reverted: pre-sizing result lists to the full raw resume/playback count could over-allocate when many records are rejected by playback thresholds. The final code uses default `ArrayList` capacity rather than retaining that potential memory regression.
+- The only production files changed are `PublicMetaDbProjection.kt` and `WeTrakrProjection.kt`; new test files cover both providers. No network requests, persistence formats, provider models, dependencies, sync cadence, UI or workflow configuration changed.
+- Regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Actual Nuvio runtime performance and test results remain unverified until separately authorised.
