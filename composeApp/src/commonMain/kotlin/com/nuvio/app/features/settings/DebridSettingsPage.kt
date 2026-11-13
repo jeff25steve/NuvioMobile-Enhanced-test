@@ -219,6 +219,7 @@ private val DEVICE_AUTH_MAX_POLL_DURATION = 15.minutes
 internal fun LazyListScope.debridSettingsContent(
     isTablet: Boolean,
     settings: DebridSettings,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         var showResolverProviderDialog by rememberSaveable { mutableStateOf(false) }
@@ -234,23 +235,27 @@ internal fun LazyListScope.debridSettingsContent(
                     text = stringResource(Res.string.settings_debrid_experimental_notice),
                 )
                 SettingsGroupDivider(isTablet = isTablet)
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_debrid_cloud_library),
-                    description = stringResource(Res.string.settings_debrid_cloud_library_description),
-                    checked = settings.canUseCloudLibrary,
-                    enabled = settings.hasCloudLibraryProvider,
-                    isTablet = isTablet,
-                    onCheckedChange = DebridSettingsRepository::setCloudLibraryEnabled,
-                )
+                DebridSearchAnchor("debrid-cloud-library", highlightedSearchAnchorKey) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_debrid_cloud_library),
+                        description = stringResource(Res.string.settings_debrid_cloud_library_description),
+                        checked = settings.canUseCloudLibrary,
+                        enabled = settings.hasCloudLibraryProvider,
+                        isTablet = isTablet,
+                        onCheckedChange = DebridSettingsRepository::setCloudLibraryEnabled,
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_debrid_enable),
-                    description = stringResource(Res.string.settings_debrid_enable_description),
-                    checked = settings.canResolvePlayableLinks,
-                    enabled = settings.hasResolverProvider,
-                    isTablet = isTablet,
-                    onCheckedChange = DebridSettingsRepository::setLinkResolvingEnabled,
-                )
+                DebridSearchAnchor("debrid-link-resolving", highlightedSearchAnchorKey) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_debrid_enable),
+                        description = stringResource(Res.string.settings_debrid_enable_description),
+                        checked = settings.canResolvePlayableLinks,
+                        enabled = settings.hasResolverProvider,
+                        isTablet = isTablet,
+                        onCheckedChange = DebridSettingsRepository::setLinkResolvingEnabled,
+                    )
+                }
                 if (settings.canResolvePlayableLinks && resolverProviders.size > 1 && activeResolverProvider != null) {
                     SettingsGroupDivider(isTablet = isTablet)
                     DebridPreferenceRow(
@@ -300,9 +305,10 @@ internal fun LazyListScope.debridSettingsContent(
                     if (index > 0) {
                         SettingsGroupDivider(isTablet = isTablet)
                     }
-                    DebridPreferenceRow(
-                        isTablet = isTablet,
-                        title = provider.displayName,
+                    DebridSearchAnchor("debrid-provider-${provider.id}", highlightedSearchAnchorKey) {
+                        DebridPreferenceRow(
+                            isTablet = isTablet,
+                            title = provider.displayName,
                         description = if (provider.authMethod == DebridProviderAuthMethod.DeviceCode) {
                             stringResource(Res.string.settings_debrid_provider_device_description, provider.displayName)
                         } else {
@@ -315,13 +321,14 @@ internal fun LazyListScope.debridSettingsContent(
                             connectedLabel = connectedLabel,
                         ),
                         enabled = true,
-                        onClick = {
-                            when (provider.authMethod) {
-                                DebridProviderAuthMethod.DeviceCode -> activeDeviceAuthProviderId = provider.id
-                                DebridProviderAuthMethod.ApiKey -> activeApiKeyProviderId = provider.id
-                            }
-                        },
-                    )
+                            onClick = {
+                                when (provider.authMethod) {
+                                    DebridProviderAuthMethod.DeviceCode -> activeDeviceAuthProviderId = provider.id
+                                    DebridProviderAuthMethod.ApiKey -> activeApiKeyProviderId = provider.id
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -376,26 +383,30 @@ internal fun LazyListScope.debridSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_debrid_prepare_instant_playback),
-                    description = stringResource(Res.string.settings_debrid_prepare_instant_playback_description),
-                    checked = prepareEnabled,
-                    enabled = settings.canResolvePlayableLinks,
-                    isTablet = isTablet,
-                    onCheckedChange = { enabled ->
-                        DebridSettingsRepository.setInstantPlaybackPreparationLimit(
-                            if (enabled) DEBRID_PREPARE_INSTANT_PLAYBACK_DEFAULT_LIMIT else 0,
-                        )
-                    },
-                )
+                DebridSearchAnchor("debrid-instant-playback", highlightedSearchAnchorKey) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_debrid_prepare_instant_playback),
+                        description = stringResource(Res.string.settings_debrid_prepare_instant_playback_description),
+                        checked = prepareEnabled,
+                        enabled = settings.canResolvePlayableLinks,
+                        isTablet = isTablet,
+                        onCheckedChange = { enabled ->
+                            DebridSettingsRepository.setInstantPlaybackPreparationLimit(
+                                if (enabled) DEBRID_PREPARE_INSTANT_PLAYBACK_DEFAULT_LIMIT else 0,
+                            )
+                        },
+                    )
+                }
                 if (prepareEnabled) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    SettingsNavigationRow(
-                        title = stringResource(Res.string.settings_debrid_prepare_stream_count),
-                        description = prepareCountLabel(prepareLimit),
-                        isTablet = isTablet,
-                        onClick = { showPrepareCountDialog = true },
-                    )
+                    DebridSearchAnchor("debrid-instant-playback-count", highlightedSearchAnchorKey) {
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_debrid_prepare_stream_count),
+                            description = prepareCountLabel(prepareLimit),
+                            isTablet = isTablet,
+                            onClick = { showPrepareCountDialog = true },
+                        )
+                    }
                 }
             }
         }
@@ -422,60 +433,72 @@ internal fun LazyListScope.debridSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_max_results),
+                DebridSearchAnchor("debrid-max-results", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_max_results),
                     description = stringResource(Res.string.settings_debrid_max_results_desc),
                     value = streamMaxResultsLabel(preferences.maxResults),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeStreamPicker = DebridStreamPicker.MAX_RESULTS },
-                )
+                        onClick = { activeStreamPicker = DebridStreamPicker.MAX_RESULTS },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_sort_results),
+                DebridSearchAnchor("debrid-sort-results", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_sort_results),
                     description = stringResource(Res.string.settings_debrid_sort_results_desc),
                     value = sortProfileLabel(preferences.sortCriteria),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeStreamPicker = DebridStreamPicker.SORT_MODE },
-                )
+                        onClick = { activeStreamPicker = DebridStreamPicker.SORT_MODE },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_per_resolution_limit),
+                DebridSearchAnchor("debrid-resolution-limit", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_per_resolution_limit),
                     description = stringResource(Res.string.settings_debrid_per_resolution_limit_desc),
                     value = streamMaxResultsLabel(preferences.maxPerResolution),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_RESOLUTION },
-                )
+                        onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_RESOLUTION },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_per_quality_limit),
+                DebridSearchAnchor("debrid-quality-limit", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_per_quality_limit),
                     description = stringResource(Res.string.settings_debrid_per_quality_limit_desc),
                     value = streamMaxResultsLabel(preferences.maxPerQuality),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_QUALITY },
-                )
+                        onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_QUALITY },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_size_range),
+                DebridSearchAnchor("debrid-size-range", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_size_range),
                     description = stringResource(Res.string.settings_debrid_size_range_desc),
                     value = sizeRangeLabel(preferences),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeStreamPicker = DebridStreamPicker.SIZE_RANGE },
-                )
+                        onClick = { activeStreamPicker = DebridStreamPicker.SIZE_RANGE },
+                    )
+                }
                 rows.forEach { row ->
                     SettingsGroupDivider(isTablet = isTablet)
-                    DebridPreferenceRow(
-                        isTablet = isTablet,
-                        title = row.title,
-                        description = row.description,
-                        value = row.value,
-                        enabled = settings.canResolvePlayableLinks,
-                        onClick = { activeStreamPicker = row.picker },
-                    )
+                    DebridSearchAnchor("debrid-${debridRuleSearchKey(row.picker)}", highlightedSearchAnchorKey) {
+                        DebridPreferenceRow(
+                            isTablet = isTablet,
+                            title = row.title,
+                            description = row.description,
+                            value = row.value,
+                            enabled = settings.canResolvePlayableLinks,
+                            onClick = { activeStreamPicker = row.picker },
+                        )
+                    }
                 }
             }
         }
@@ -498,29 +521,33 @@ internal fun LazyListScope.debridSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_name_template),
+                DebridSearchAnchor("debrid-name-template", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_name_template),
                     description = stringResource(Res.string.settings_debrid_name_template_description),
                     value = templatePreview(
                         value = settings.streamNameTemplate,
                         defaultValue = DebridStreamFormatterDefaults.NAME_TEMPLATE,
                     ),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeTemplateField = DebridTemplateField.NAME },
-                )
+                        onClick = { activeTemplateField = DebridTemplateField.NAME },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                DebridPreferenceRow(
-                    isTablet = isTablet,
-                    title = stringResource(Res.string.settings_debrid_description_template),
+                DebridSearchAnchor("debrid-description-template", highlightedSearchAnchorKey) {
+                    DebridPreferenceRow(
+                        isTablet = isTablet,
+                        title = stringResource(Res.string.settings_debrid_description_template),
                     description = stringResource(Res.string.settings_debrid_description_template_description),
                     value = templatePreview(
                         value = settings.streamDescriptionTemplate,
                         defaultValue = DebridStreamFormatterDefaults.DESCRIPTION_TEMPLATE,
                     ),
                     enabled = settings.canResolvePlayableLinks,
-                    onClick = { activeTemplateField = DebridTemplateField.DESCRIPTION },
-                )
+                        onClick = { activeTemplateField = DebridTemplateField.DESCRIPTION },
+                    )
+                }
                 SettingsGroupDivider(isTablet = isTablet)
                 DebridPreferenceRow(
                     isTablet = isTablet,
@@ -556,6 +583,53 @@ internal fun LazyListScope.debridSettingsContent(
     }
 
     debridLearnMoreFooterItem(isTablet)
+}
+
+@Composable
+private fun DebridSearchAnchor(
+    searchAnchorKey: String,
+    highlightedSearchAnchorKey: String?,
+    content: @Composable () -> Unit,
+) {
+    SettingsSearchAnchorContainer(
+        searchAnchorKey = searchAnchorKey,
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+    ) { anchorModifier ->
+        Box(modifier = anchorModifier.fillMaxWidth()) {
+            content()
+        }
+    }
+}
+
+private fun debridRuleSearchKey(picker: DebridStreamPicker): String = when (picker) {
+    DebridStreamPicker.MAX_RESULTS -> "max-results"
+    DebridStreamPicker.MAX_PER_RESOLUTION -> "resolution-limit"
+    DebridStreamPicker.MAX_PER_QUALITY -> "quality-limit"
+    DebridStreamPicker.SORT_MODE -> "sort-results"
+    DebridStreamPicker.SIZE_RANGE -> "size-range"
+    DebridStreamPicker.PREFERRED_AUDIO_CHANNELS -> "preferred-channels"
+    DebridStreamPicker.REQUIRED_AUDIO_CHANNELS -> "required-channels"
+    DebridStreamPicker.EXCLUDED_AUDIO_CHANNELS -> "excluded-channels"
+    DebridStreamPicker.PREFERRED_RESOLUTIONS -> "preferred-resolutions"
+    DebridStreamPicker.REQUIRED_RESOLUTIONS -> "required-resolutions"
+    DebridStreamPicker.EXCLUDED_RESOLUTIONS -> "excluded-resolutions"
+    DebridStreamPicker.PREFERRED_QUALITIES -> "preferred-qualities"
+    DebridStreamPicker.REQUIRED_QUALITIES -> "required-qualities"
+    DebridStreamPicker.EXCLUDED_QUALITIES -> "excluded-qualities"
+    DebridStreamPicker.PREFERRED_VISUAL_TAGS -> "preferred-visual-tags"
+    DebridStreamPicker.REQUIRED_VISUAL_TAGS -> "required-visual-tags"
+    DebridStreamPicker.EXCLUDED_VISUAL_TAGS -> "excluded-visual-tags"
+    DebridStreamPicker.PREFERRED_AUDIO_TAGS -> "preferred-audio-tags"
+    DebridStreamPicker.REQUIRED_AUDIO_TAGS -> "required-audio-tags"
+    DebridStreamPicker.EXCLUDED_AUDIO_TAGS -> "excluded-audio-tags"
+    DebridStreamPicker.PREFERRED_ENCODES -> "preferred-encodes"
+    DebridStreamPicker.REQUIRED_ENCODES -> "required-encodes"
+    DebridStreamPicker.EXCLUDED_ENCODES -> "excluded-encodes"
+    DebridStreamPicker.PREFERRED_LANGUAGES -> "preferred-languages"
+    DebridStreamPicker.REQUIRED_LANGUAGES -> "required-languages"
+    DebridStreamPicker.EXCLUDED_LANGUAGES -> "excluded-languages"
+    DebridStreamPicker.REQUIRED_RELEASE_GROUPS -> "required-release-groups"
+    DebridStreamPicker.EXCLUDED_RELEASE_GROUPS -> "excluded-release-groups"
 }
 
 private fun LazyListScope.debridLearnMoreFooterItem(isTablet: Boolean) {
