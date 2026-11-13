@@ -85,7 +85,7 @@ Relevant files:
 ## Latest remote integration status
 
 - All changes in this checkpoint are committed on `main-build-testing`.
-- The branch comparison against `enhanced` reports **0 commits behind** (1,435 commits ahead at this checkpoint); no sync or merge was needed.
+- The branch comparison against `enhanced` reports **0 commits behind** (1,436 commits ahead at this checkpoint); no sync or merge was needed.
 - Latest implementation commits:
   - `cf919b60c77b0e41156a6d92ee7dc4dbf81212ba` — shared cause-aware session classification.
   - `df8d839f3f6d5cf61a5641481a9d26d6424ff29c` — cancellation-safe invalid-session cleanup.
