@@ -26,6 +26,17 @@ class InvalidRemoteSessionResponseTest {
     }
 
     @Test
+    fun insufficientPrivilegesSqlStateDoesNotInvalidateEvenWhenReportedAsUnauthorized() {
+        assertFalse(
+            isInvalidRemoteSessionResponse(
+                statusCode = 401,
+                errorCode = "42501",
+                message = "permission denied for table watch_progress",
+            ),
+        )
+    }
+
+    @Test
     fun unauthorizedResponseStillInvalidatesTheSession() {
         assertTrue(
             isInvalidRemoteSessionResponse(
