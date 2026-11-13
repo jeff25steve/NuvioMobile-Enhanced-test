@@ -79,6 +79,7 @@ internal fun LazyListScope.continueWatchingSettingsContent(
     blurNextUp: Boolean,
     showResumePromptOnLaunch: Boolean,
     sortMode: ContinueWatchingSortMode,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -86,13 +87,20 @@ internal fun LazyListScope.continueWatchingSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_continue_watching_show_title),
-                    description = stringResource(Res.string.settings_continue_watching_show_description),
-                    checked = isVisible,
-                    isTablet = isTablet,
-                    onCheckedChange = ContinueWatchingPreferencesRepository::setVisible,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "continue-watching-show-continue-watching",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_continue_watching_show_title),
+                            description = stringResource(Res.string.settings_continue_watching_show_description),
+                            checked = isVisible,
+                            isTablet = isTablet,
+                            onCheckedChange = ContinueWatchingPreferencesRepository::setVisible,
+                        )
+                    }
+                }
             }
         }
     }
@@ -101,11 +109,18 @@ internal fun LazyListScope.continueWatchingSettingsContent(
             title = stringResource(Res.string.settings_continue_watching_section_card_style),
             isTablet = isTablet,
         ) {
-            ContinueWatchingStyleSelector(
-                isTablet = isTablet,
-                selectedStyle = style,
-                onStyleSelected = ContinueWatchingPreferencesRepository::setStyle,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "continue-watching-style",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    ContinueWatchingStyleSelector(
+                        isTablet = isTablet,
+                        selectedStyle = style,
+                        onStyleSelected = ContinueWatchingPreferencesRepository::setStyle,
+                    )
+                }
+            }
         }
     }
     item {
@@ -115,39 +130,67 @@ internal fun LazyListScope.continueWatchingSettingsContent(
         ) {
             SettingsGroup(isTablet = isTablet) {
                 if (style != ContinueWatchingSectionStyle.Poster) {
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title),
-                        description = stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description),
-                        checked = useEpisodeThumbnails,
-                        isTablet = isTablet,
-                        onCheckedChange = ContinueWatchingPreferencesRepository::setUseEpisodeThumbnails,
-                    )
+                    SettingsSearchAnchorContainer(
+                        searchAnchorKey = "continue-watching-episode-thumbnails",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                    ) { anchorModifier ->
+                        Box(modifier = anchorModifier.fillMaxWidth()) {
+                            SettingsSwitchRow(
+                                title = stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_title),
+                                description = stringResource(Res.string.settings_continue_watching_use_episode_thumbnails_description),
+                                checked = useEpisodeThumbnails,
+                                isTablet = isTablet,
+                                onCheckedChange = ContinueWatchingPreferencesRepository::setUseEpisodeThumbnails,
+                            )
+                        }
+                    }
                     SettingsGroupDivider(isTablet = isTablet)
                 }
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_continue_watching_up_next_title),
-                    description = stringResource(Res.string.settings_continue_watching_up_next_description),
-                    checked = upNextFromFurthestEpisode,
-                    isTablet = isTablet,
-                    onCheckedChange = ContinueWatchingPreferencesRepository::setUpNextFromFurthestEpisode,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "continue-watching-up-next",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_continue_watching_up_next_title),
+                            description = stringResource(Res.string.settings_continue_watching_up_next_description),
+                            checked = upNextFromFurthestEpisode,
+                            isTablet = isTablet,
+                            onCheckedChange = ContinueWatchingPreferencesRepository::setUpNextFromFurthestEpisode,
+                        )
+                    }
+                }
                 SettingsGroupDivider(isTablet = isTablet)
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title),
-                    description = stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description),
-                    checked = showUnairedNextUp,
-                    isTablet = isTablet,
-                    onCheckedChange = ContinueWatchingPreferencesRepository::setShowUnairedNextUp,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "continue-watching-unaired-next-up",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_continue_watching_show_unaired_next_up_title),
+                            description = stringResource(Res.string.settings_continue_watching_show_unaired_next_up_description),
+                            checked = showUnairedNextUp,
+                            isTablet = isTablet,
+                            onCheckedChange = ContinueWatchingPreferencesRepository::setShowUnairedNextUp,
+                        )
+                    }
+                }
                 if (style != ContinueWatchingSectionStyle.Poster && useEpisodeThumbnails) {
                     SettingsGroupDivider(isTablet = isTablet)
-                    SettingsSwitchRow(
-                        title = stringResource(Res.string.settings_continue_watching_blur_next_up_title),
-                        description = stringResource(Res.string.settings_continue_watching_blur_next_up_description),
-                        checked = blurNextUp,
-                        isTablet = isTablet,
-                        onCheckedChange = ContinueWatchingPreferencesRepository::setBlurNextUp,
-                    )
+                    SettingsSearchAnchorContainer(
+                        searchAnchorKey = "continue-watching-blur-next-up",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                    ) { anchorModifier ->
+                        Box(modifier = anchorModifier.fillMaxWidth()) {
+                            SettingsSwitchRow(
+                                title = stringResource(Res.string.settings_continue_watching_blur_next_up_title),
+                                description = stringResource(Res.string.settings_continue_watching_blur_next_up_description),
+                                checked = blurNextUp,
+                                isTablet = isTablet,
+                                onCheckedChange = ContinueWatchingPreferencesRepository::setBlurNextUp,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -158,13 +201,20 @@ internal fun LazyListScope.continueWatchingSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                SettingsSwitchRow(
-                    title = stringResource(Res.string.settings_continue_watching_resume_prompt_title),
-                    description = stringResource(Res.string.settings_continue_watching_resume_prompt_description),
-                    checked = showResumePromptOnLaunch,
-                    isTablet = isTablet,
-                    onCheckedChange = ContinueWatchingPreferencesRepository::setShowResumePromptOnLaunch,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "continue-watching-resume-prompt",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_continue_watching_resume_prompt_title),
+                            description = stringResource(Res.string.settings_continue_watching_resume_prompt_description),
+                            checked = showResumePromptOnLaunch,
+                            isTablet = isTablet,
+                            onCheckedChange = ContinueWatchingPreferencesRepository::setShowResumePromptOnLaunch,
+                        )
+                    }
+                }
             }
         }
     }
@@ -182,12 +232,19 @@ internal fun LazyListScope.continueWatchingSettingsContent(
                         ContinueWatchingSortMode.SPLIT_UPCOMING -> Res.string.settings_continue_watching_sort_mode_split_upcoming
                     }
                 )
-                SettingsNavigationRow(
-                    title = stringResource(Res.string.settings_continue_watching_sort_mode_title),
-                    description = currentModeLabel,
-                    isTablet = isTablet,
-                    onClick = { showSortModeSheet = true },
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "continue-watching-sort-mode",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_continue_watching_sort_mode_title),
+                            description = currentModeLabel,
+                            isTablet = isTablet,
+                            onClick = { showSortModeSheet = true },
+                        )
+                    }
+                }
             }
         }
 
