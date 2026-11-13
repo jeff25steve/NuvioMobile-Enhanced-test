@@ -100,14 +100,14 @@ Relevant files:
 - Supabase dependency in `gradle/libs.versions.toml`: `3.4.1`; Ktor: `3.4.1`; kotlinx-coroutines: `1.10.2`.
 - Supabase Kotlin 3.4.1 release notes and SDK documentation were consulted. The SDK distinguishes terminal auth refresh errors from network/internal-server refresh failures; network/5xx refresh failures are retried rather than automatically clearing the stored session.
 - The Supabase Kotlin docs index did not provide a pinned 3.4.1 documentation snapshot; the exact release tag and upstream source references were checked separately.
-- Coroutines guidance confirms that suspending cleanup in a cancelled coroutine requires `withContext(NonCancellable)`; cancellation is still observed when leaving that context.
+- Coroutines guidance confirms that suspending cleanup in a cancelled coroutine requires `withContext(NonCancellable)`; cancellation is still observed when leaving that context. Kotlin's official cancellation guidance also explicitly warns that catching `CancellationException` without rethrowing it breaks cancellation propagation, supporting cycle 5's aggregate-then-rethrow behavior.
 - Regression tests were added/updated remotely but were **not executed**, because builds and CI were explicitly not authorised. No passing-test or build claim is made. Context7 documentation for kotlinx-coroutines 1.10.1 (closest indexed release; project pins 1.10.2) confirms that suspending cleanup in a cancelled coroutine should use `withContext(NonCancellable)`. Context7's Supabase Kotlin 3.4.1 index did not contain a directly matching exception-hierarchy page; upstream SDK and Supabase error-handling references were checked through Exa.
 
 ## Follow-up review
 
 - Review callers of `beginServerSwitch` / `prepareForServerSwitch` to confirm every backend replacement holds the shared session-reset lease before old-client cleanup.
 - Review `AuthSessionOperationGate` handoff/cancellation behavior against its existing tests; do not change its mutex semantics without a dedicated reproducer.
-- Before authorising a build, run the focused common test target for `AuthServerSwitchCleanupTest` and `AuthSessionErrorClassificationTest`, then the project's full test suite. Do not start CI automatically.
+- Before authorising a build, run the focused auth tests (`AuthServerSwitchCleanupTest`, `AuthSessionErrorClassificationTest`, `AuthSessionErrorsTest`, and `InvalidSessionCleanupTest`), then the focused storage/add-on tests (`LocalAccountDataCleanerTest` and `AddonProfileOperationGateTest`), followed by the project's full test suite. Do not start CI automatically.
 
 
 ## Latest remote integration status
@@ -122,3 +122,18 @@ Relevant files:
   - `dc88688138a5526c0086cff5530a41a8e6017f5e`
 - This notes update is committed separately; remote file contents were fetched again after integration.
 - **Verification boundary:** source and test files were inspected remotely, but no test command, Gradle task, build, or CI workflow was run. Tests remain unverified until authorised.
+
+
+## Latest continuation status (2026-11-13 16:00 UTC)
+
+- Cycles 5 and 6 were committed on `main-build-testing`:
+  - `1fe6524313f7d4bcdacba5e397a2f06c453b2fc4` — preserve cancellation after account cleanup steps.
+  - `83ead13bd6d6d3b5b885b78311047d2e71020fbc` — roll back failed add-on cleanup gate acquisition.
+- Test-first commits:
+  - `5ebd6bf2fd964a641b922a9a17bf0b72d8e71c75` — account-cleanup cancellation propagation.
+  - `c420ef4603d0cac88cac91978effdaf00efc9868` — failed add-on gate acquisition and nested lease preservation.
+- Test formatting-only follow-ups:
+  - `d58bafd3b4394bd328b370ca077c72bb7a32f212`
+  - `25f989667ee00562554ec5857bfe8221ab4d7c79`
+- No tests, Gradle tasks, builds, or CI workflows were executed. The test-first ordering is present in the commit sequence, but RED/GREEN execution remains unverified under the no-build/CI constraint.
+- Exa research checked the official Kotlin cancellation guide and kotlinx.coroutines `NonCancellable` source; Context7's closest indexed coroutines documentation is 1.10.1 while this repository pins 1.10.2.
