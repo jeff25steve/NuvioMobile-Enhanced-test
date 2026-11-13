@@ -119,6 +119,18 @@ internal fun shouldApplyCloudLibraryRefresh(
     requestGeneration == latestRequestGeneration &&
     requestedConnectionSignature == currentConnectionSignature
 
+internal fun shouldApplyCloudLibraryCacheRestore(
+    requestGeneration: Long,
+    latestRequestGeneration: Long,
+    requestedConnectionSignature: List<String>,
+    currentConnectionSignature: List<String>,
+    loadedConnectionSignature: List<String>?,
+    restoredConnectionSignature: List<String>?,
+): Boolean = requestGeneration == latestRequestGeneration &&
+    requestedConnectionSignature == currentConnectionSignature &&
+    requestedConnectionSignature != loadedConnectionSignature &&
+    requestedConnectionSignature != restoredConnectionSignature
+
 data class CloudLibraryUiState(
     val isLoaded: Boolean = false,
     val isEnabled: Boolean = true,
