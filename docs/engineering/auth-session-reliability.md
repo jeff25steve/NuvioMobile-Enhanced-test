@@ -186,3 +186,20 @@ Relevant files:
 - Evidence: Context7 resolved Kotlin documentation and confirmed common Throwable.addSuppressed support; Exa results included the official Kotlin addSuppressed API and coroutine exception/cancellation guidance. No dependencies or platform APIs were changed.
 - Review boundary: the latest remote AuthRepository.kt and both affected test files were fetched again and inspected. This is a source-level review only; tests were not executed, so RED/GREEN behavior and compilation remain unverified.
 - No Gradle tasks, tests, builds, CI workflows, release, PR, or merge were run. This preserves the explicit no-build/no-CI constraint; test execution remains pending authorisation.
+
+## Latest continuation status (2026-11-13 16:34 UTC)
+
+- Two additional cancellation-safety cycles were integrated:
+  - Cycle 13 — explicitly recheck caller cancellation immediately after server-switch credential cleanup. Kotlin's `withContext(NonCancellable)` documentation states that when the dispatcher is unchanged and no child wait requires dispatch, cancellation may not prevent a value from being returned. The previous implementation could therefore proceed to local account-data deletion after the caller was cancelled. `ensureCleanupCallerActive` now gates that destructive step and attaches credential-clear failures to the caller's cancellation exception.
+  - Cycle 14 — centralize cancellation-boundary handling in `ensureCleanupCallerActive` and use it for invalid-session cleanup, server-switch cleanup, sign-out, and account deletion. This preserves diagnostics from completed cleanup steps when caller cancellation wins instead of discarding them at the cancellation check.
+- Test-first commits:
+  - `22edc5db38f7bc72a582ba68f6b42e143a9b532f` — cancellation during server-switch credential cleanup must skip local cleanup and retain both credential failures.
+  - `92eb97d8b8a2f402cb3ca6e013314e215e9b940c` — shared cleanup cancellation propagation, active-caller behavior, and no self-suppression.
+- Implementation commits:
+  - `16ab865c4682eac4fa2a534d68c49c14618eb9f1` — explicit cancellation check after server-switch credential cleanup.
+  - `3e7b99eee4117f9f3ba427d73feb86eafce6f2fe` — remove a duplicate guard introduced during remote update sequencing; final source contains one guard.
+  - `c1544c4a2cb162f6c09767011815eb1e1a69278d` — shared cancellation-preservation helper and reuse in both protected cleanup flows.
+  - `2a6f11c7156424d192d76cf3d6361ac3344f8a93` — apply cancellation-preserving diagnostics to sign-out and account deletion.
+- Evidence: Context7 resolved the kotlinx.coroutines documentation and surfaced the precise `withContext` KDoc behavior; Exa returned official `withContext`, `NonCancellable`, and `ensureActive` documentation plus source-level explanation. The docs explicitly qualify the prompt-cancellation guarantee when no dispatch occurs. Project pins kotlinx-coroutines 1.10.2; Context7's indexed versions did not include 1.10.2, so this decision relies on the official API contract and source guidance, not a claimed exact-version test.
+- Source-level review: re-fetched `AuthRepository.kt`, `AuthServerSwitchCleanupTest.kt`, and `CleanupCancellationTest.kt`; verified the duplicate guard was removed and helper is reused at all four cleanup boundaries. The server-switch path now checks cancellation before local account wiping.
+- No tests, Gradle tasks, builds, or CI workflows were run. Regression tests are committed but compilation and execution remain unverified. No PR, merge, or release was created.
