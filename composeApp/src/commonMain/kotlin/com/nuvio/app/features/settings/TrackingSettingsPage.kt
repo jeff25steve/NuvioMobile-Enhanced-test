@@ -143,6 +143,7 @@ internal fun LazyListScope.trackingSettingsContent(
     commentsEnabled: Boolean,
     onCommentsEnabledChange: (Boolean) -> Unit,
     mdbListConnected: Boolean,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -153,6 +154,7 @@ internal fun LazyListScope.trackingSettingsContent(
                 isTablet = isTablet,
                 traktUiState = traktUiState,
                 simklUiState = simklUiState,
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             )
         }
     }
@@ -172,6 +174,8 @@ internal fun LazyListScope.trackingSettingsContent(
                     description = stringResource(Res.string.settings_playback_private_viewing_description),
                     checked = playerSettings.privateViewingEnabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "private-viewing",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = PlayerSettingsRepository::setPrivateViewingEnabled,
                 )
             }
@@ -188,6 +192,7 @@ internal fun LazyListScope.trackingSettingsContent(
                 settingsUiState = settingsUiState,
                 traktConnected = traktUiState.mode == TraktConnectionMode.CONNECTED,
                 simklConnected = simklUiState.mode == SimklConnectionMode.CONNECTED,
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             )
         }
     }
@@ -284,6 +289,7 @@ private fun TrackingDataSources(
     settingsUiState: TrackingSettingsUiState,
     traktConnected: Boolean,
     simklConnected: Boolean,
+    highlightedSearchAnchorKey: String?,
 ) {
     var activePickerName by rememberSaveable { mutableStateOf<String?>(null) }
     val activePicker = activePickerName?.let(TrackingDataPicker::valueOf)
@@ -336,6 +342,8 @@ private fun TrackingDataSources(
             value = librarySourceModeLabel(effectiveLibrarySource),
             supportingMessage = libraryFallback,
             isTablet = isTablet,
+            searchAnchorKey = "trakt-library-source",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             onClick = { activePickerName = TrackingDataPicker.LIBRARY.name },
         )
         SettingsGroupDivider(isTablet = isTablet)
@@ -346,6 +354,8 @@ private fun TrackingDataSources(
             supportingMessage = progressFallback,
             isLoading = transitionState.isRefreshing,
             isTablet = isTablet,
+            searchAnchorKey = "trakt-watch-progress",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
             onClick = { activePickerName = TrackingDataPicker.WATCH_PROGRESS.name },
         )
         if (transitionState.lastRefreshSucceeded == false && !transitionState.isRefreshing) {
@@ -381,6 +391,8 @@ private fun TrackingDataSources(
                 value = moreLikeThisSourceLabel(effectiveRecommendationsSource),
                 supportingMessage = recommendationsFallback,
                 isTablet = isTablet,
+                searchAnchorKey = "trakt-more-like-this-source",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 onClick = { activePickerName = TrackingDataPicker.MORE_LIKE_THIS.name },
             )
         }
@@ -498,6 +510,8 @@ private fun TrackingPreferenceActionRow(
     supportingMessage: String? = null,
     isLoading: Boolean = false,
     enabled: Boolean = true,
+    searchAnchorKey: String? = null,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     SettingsNavigationRow(
@@ -508,6 +522,8 @@ private fun TrackingPreferenceActionRow(
         ).joinToString("\n"),
         enabled = enabled,
         isTablet = isTablet,
+        searchAnchorKey = searchAnchorKey,
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
         trailingContent = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
