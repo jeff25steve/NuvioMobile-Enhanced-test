@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.withContext
@@ -484,7 +483,8 @@ object CloudLibraryRepository {
             scope.launch { ensureLoaded() }
         }
         if (applied) {
-            cacheSaveMutex.withLock {
+            cacheSaveMutex.lock()
+            try {
                 val stillCurrent = synchronized(refreshLock) {
                     requestGeneration == refreshGeneration &&
                         connectedCloudConnectionKeys() == currentConnectionKeys &&
@@ -493,6 +493,8 @@ object CloudLibraryRepository {
                 if (stillCurrent) {
                     CloudLibraryCacheStore.save(currentConnectionKeys.cacheSignature(), refreshed.providers)
                 }
+            } finally {
+                cacheSaveMutex.unlock()
             }
         }
         return applied
