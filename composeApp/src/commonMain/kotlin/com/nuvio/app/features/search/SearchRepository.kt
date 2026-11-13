@@ -128,6 +128,7 @@ object SearchRepository {
         if (requests.isEmpty() && serverSearches.isEmpty()) {
             searchGeneration.begin()
             activeJob?.cancel()
+            activeJob = null
             lastRequestKey = null
             _uiState.value = SearchUiState(
                 isLoading = hasPendingAddonManifests,
@@ -251,7 +252,9 @@ object SearchRepository {
         searchGeneration.invalidate()
         discoverGeneration.invalidate()
         activeJob?.cancel()
+        activeJob = null
         activeDiscoverJob?.cancel()
+        activeDiscoverJob = null
         lastRequestKey = null
         discoverSources = emptyList()
         lastDiscoverRequestKey = null
