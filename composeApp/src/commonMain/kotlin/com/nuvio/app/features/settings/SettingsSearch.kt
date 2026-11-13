@@ -208,7 +208,8 @@ internal fun settingsSearchAnchor(
             else -> return null
         }
         SettingsPage.TraktAuthentication -> when (key) {
-            "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
+            "trakt-authentication", "simkl-authentication", "mdblist-authentication",
+            "anilist-authentication", "wetrakr-authentication", "publicmetadb-authentication" -> 0
             "private-viewing" -> 1
             "trakt-library-source", "trakt-watch-progress", "trakt-more-like-this-source" -> 2
             "trakt-continue-watching-window", "trakt-comments" -> 4
@@ -2061,6 +2062,36 @@ internal fun settingsSearchEntries(
         pageLabel = trackingPage,
         section = stringResource(Res.string.settings_tracking_services),
         category = accountCategory,
+    )
+    addRow(
+        page = SettingsPage.TraktAuthentication,
+        key = "anilist-authentication",
+        title = stringResource(Res.string.tracking_source_anilist),
+        description = stringResource(Res.string.settings_anilist_sign_in_description),
+        pageLabel = trackingPage,
+        section = stringResource(Res.string.settings_tracking_services),
+        category = accountCategory,
+        searchTerms = listOf("anime tracking", "anilist account"),
+    )
+    addRow(
+        page = SettingsPage.TraktAuthentication,
+        key = "wetrakr-authentication",
+        title = stringResource(Res.string.tracking_source_wetrakr),
+        description = stringResource(Res.string.settings_wetrakr_sign_in_description),
+        pageLabel = trackingPage,
+        section = stringResource(Res.string.settings_tracking_services),
+        category = accountCategory,
+        searchTerms = listOf("anime tracking", "wetrakr account"),
+    )
+    addRow(
+        page = SettingsPage.TraktAuthentication,
+        key = "publicmetadb-authentication",
+        title = stringResource(Res.string.tracking_source_publicmetadb),
+        description = stringResource(Res.string.settings_publicmetadb_sign_in_description),
+        pageLabel = trackingPage,
+        section = stringResource(Res.string.settings_tracking_services),
+        category = accountCategory,
+        searchTerms = listOf("public metadata database", "publicmetadb account"),
     )
     listOf(
         PlaybackSearchRow("trakt-library-source", stringResource(Res.string.trakt_library_source_title), stringResource(Res.string.trakt_library_source_subtitle)),
