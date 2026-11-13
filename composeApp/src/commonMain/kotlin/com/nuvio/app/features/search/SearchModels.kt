@@ -1,5 +1,7 @@
 package com.nuvio.app.features.search
 
+import kotlinx.atomicfu.atomic
+
 import com.nuvio.app.features.catalog.CatalogTarget
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.home.HomeCatalogSection
@@ -93,4 +95,22 @@ data class DiscoverUiState(
 
     val canLoadMore: Boolean
         get() = nextSkip != null
+}
+
+
+/**
+ * Prevents cancelled or superseded search/discover jobs from publishing stale state.
+ * Cancellation remains the primary resource-saving mechanism; this token is the
+ * final state-publication guard for work that completes concurrently with cancellation.
+ */
+internal class SearchRequestGeneration {
+    private val current = atomic(0)
+
+    fun begin(): Int = current.incrementAndGet()
+
+    fun invalidate() {
+        current.incrementAndGet()
+    }
+
+    fun isCurrent(generation: Int): Boolean = current.value == generation
 }
