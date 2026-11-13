@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -97,6 +98,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.liveTvSettingsContent(
     isTablet: Boolean,
     uiState: LiveTvUiState,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     if (uiState.hasPlaylist) {
         item {
@@ -105,11 +107,13 @@ internal fun LazyListScope.liveTvSettingsContent(
                 isTablet = isTablet,
             ) {
                 SettingsGroup(isTablet = isTablet) {
-                    LiveTvNavigationVisibilityRow(
-                        isTablet = isTablet,
-                        enabled = uiState.isNavigationEnabled,
-                        onEnabledChanged = LiveTvRepository::setNavigationEnabled,
-                    )
+                    LiveTvSearchAnchor("live-tv-navigation", highlightedSearchAnchorKey) {
+                        LiveTvNavigationVisibilityRow(
+                            isTablet = isTablet,
+                            enabled = uiState.isNavigationEnabled,
+                            onEnabledChanged = LiveTvRepository::setNavigationEnabled,
+                        )
+                    }
                 }
             }
         }
@@ -125,6 +129,7 @@ internal fun LazyListScope.liveTvSettingsContent(
                     LiveTvManualReloadRow(
                         isTablet = isTablet,
                         uiState = uiState,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                 }
             }
@@ -137,7 +142,7 @@ internal fun LazyListScope.liveTvSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                LiveTvProviderSettingsRow(isTablet, uiState)
+                LiveTvProviderSettingsRow(isTablet, uiState, highlightedSearchAnchorKey)
             }
         }
     }
@@ -151,6 +156,7 @@ internal fun LazyListScope.liveTvSettingsContent(
                 LiveTvPlaylistSourcesRow(
                     isTablet = isTablet,
                     uiState = uiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onUrlAdded = LiveTvRepository::addPlaylistUrl,
                     onLocalPlaylistAdded = LiveTvRepository::addLocalPlaylist,
                     onPlaylistUpdated = LiveTvRepository::updatePlaylist,
@@ -170,6 +176,7 @@ internal fun LazyListScope.liveTvSettingsContent(
                 LiveTvEpgSettingsRow(
                     isTablet = isTablet,
                     uiState = uiState,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
             }
         }
@@ -180,6 +187,7 @@ internal fun LazyListScope.liveTvSettingsContent(
 private fun LiveTvManualReloadRow(
     isTablet: Boolean,
     uiState: LiveTvUiState,
+    highlightedSearchAnchorKey: String?,
 ) {
     LaunchedEffect(Unit) {
         LiveTvRepository.ensureChannelsLoaded()
@@ -204,17 +212,21 @@ private fun LiveTvManualReloadRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
-                onClick = LiveTvRepository::reloadChannels,
-                enabled = !uiState.isLoading,
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_reload_channels))
+            LiveTvSearchAnchor("live-tv-reload-channels", highlightedSearchAnchorKey) {
+                Button(
+                    onClick = LiveTvRepository::reloadChannels,
+                    enabled = !uiState.isLoading,
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_reload_channels))
+                }
             }
-            OutlinedButton(
-                onClick = LiveTvRepository::reloadEpg,
-                enabled = uiState.channels.isNotEmpty() && !uiState.isLoading && !uiState.isEpgLoading,
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_reload_epg))
+            LiveTvSearchAnchor("live-tv-reload-epg", highlightedSearchAnchorKey) {
+                OutlinedButton(
+                    onClick = LiveTvRepository::reloadEpg,
+                    enabled = uiState.channels.isNotEmpty() && !uiState.isLoading && !uiState.isEpgLoading,
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_reload_epg))
+                }
             }
         }
 
@@ -258,6 +270,7 @@ private fun LiveTvManualReloadRow(
 private fun LiveTvEpgSettingsRow(
     isTablet: Boolean,
     uiState: LiveTvUiState,
+    highlightedSearchAnchorKey: String?,
 ) {
     LaunchedEffect(Unit) {
         LiveTvRepository.ensureChannelsLoaded()
@@ -481,7 +494,11 @@ private fun LiveTvEpgSourceRow(
 }
 
 @Composable
-private fun LiveTvProviderSettingsRow(isTablet: Boolean, uiState: LiveTvUiState) {
+private fun LiveTvProviderSettingsRow(
+    isTablet: Boolean,
+    uiState: LiveTvUiState,
+    highlightedSearchAnchorKey: String?,
+) {
     val padding = if (isTablet) 20.dp else 16.dp
     var xtreamServer by rememberSaveable(uiState.xtreamSettings.serverUrl) { mutableStateOf(uiState.xtreamSettings.serverUrl) }
     var xtreamUser by rememberSaveable(uiState.xtreamSettings.username) { mutableStateOf(uiState.xtreamSettings.username) }
@@ -565,6 +582,7 @@ private fun LiveTvNavigationVisibilityRow(
 private fun LiveTvPlaylistSourcesRow(
     isTablet: Boolean,
     uiState: LiveTvUiState,
+    highlightedSearchAnchorKey: String?,
     onUrlAdded: (String?, String) -> Unit,
     onLocalPlaylistAdded: (String?, String?, String) -> Unit,
     onPlaylistUpdated: (playlistId: String, name: String, source: String) -> Unit,
