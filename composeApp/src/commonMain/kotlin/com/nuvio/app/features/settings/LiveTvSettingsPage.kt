@@ -509,32 +509,44 @@ private fun LiveTvProviderSettingsRow(
     var stalkerPassword by rememberSaveable(uiState.stalkerSettings.password) { mutableStateOf(uiState.stalkerSettings.password) }
 
     Column(Modifier.fillMaxWidth().padding(padding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(Res.string.live_tv_xtream_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(stringResource(Res.string.live_tv_xtream_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(xtreamServer, { xtreamServer = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_xtream_server)) })
-        OutlinedTextField(xtreamUser, { xtreamUser = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_username)) })
-        OutlinedTextField(xtreamPassword, { xtreamPassword = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text(stringResource(Res.string.live_tv_password)) })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { LiveTvRepository.saveXtreamSettings(LiveTvXtreamSettings(xtreamServer, xtreamUser, xtreamPassword)) },
-                enabled = xtreamServer.isNotBlank() && xtreamUser.isNotBlank() && xtreamPassword.isNotBlank(),
-            ) { Text(stringResource(Res.string.live_tv_connect)) }
-            if (uiState.xtreamSettings.isConfigured) OutlinedButton(onClick = LiveTvRepository::removeXtream) { Text(stringResource(Res.string.live_tv_disconnect)) }
+        LiveTvSearchAnchor("live-tv-xtream-codes", highlightedSearchAnchorKey) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(Res.string.live_tv_xtream_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.live_tv_xtream_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(xtreamServer, { xtreamServer = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_xtream_server)) })
+                OutlinedTextField(xtreamUser, { xtreamUser = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_username)) })
+                OutlinedTextField(xtreamPassword, { xtreamPassword = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text(stringResource(Res.string.live_tv_password)) })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { LiveTvRepository.saveXtreamSettings(LiveTvXtreamSettings(xtreamServer, xtreamUser, xtreamPassword)) },
+                        enabled = xtreamServer.isNotBlank() && xtreamUser.isNotBlank() && xtreamPassword.isNotBlank(),
+                    ) { Text(stringResource(Res.string.live_tv_connect)) }
+                    if (uiState.xtreamSettings.isConfigured) OutlinedButton(onClick = LiveTvRepository::removeXtream) { Text(stringResource(Res.string.live_tv_disconnect)) }
+                }
+            }
         }
 
         HorizontalDivider()
-        Text(stringResource(Res.string.live_tv_stalker_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(stringResource(Res.string.live_tv_stalker_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(stalkerPortal, { stalkerPortal = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_stalker_portal)) })
-        OutlinedTextField(stalkerMac, { stalkerMac = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_stalker_mac)) })
-        OutlinedTextField(stalkerUser, { stalkerUser = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_username)) })
-        OutlinedTextField(stalkerPassword, { stalkerPassword = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text(stringResource(Res.string.live_tv_password)) })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { LiveTvRepository.saveStalkerSettings(LiveTvStalkerSettings(stalkerPortal, stalkerMac, stalkerUser, stalkerPassword)) },
-                enabled = stalkerPortal.isNotBlank() && stalkerMac.isNotBlank(),
-            ) { Text(stringResource(Res.string.live_tv_connect)) }
-            if (uiState.stalkerSettings.isConfigured) OutlinedButton(onClick = LiveTvRepository::removeStalker) { Text(stringResource(Res.string.live_tv_disconnect)) }
+        LiveTvSearchAnchor("live-tv-stalker-portal", highlightedSearchAnchorKey) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(Res.string.live_tv_stalker_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.live_tv_stalker_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(stalkerPortal, { stalkerPortal = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_stalker_portal)) })
+            }
+        }
+        LiveTvSearchAnchor("live-tv-stalker-mac", highlightedSearchAnchorKey) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(stalkerMac, { stalkerMac = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_stalker_mac)) })
+                OutlinedTextField(stalkerUser, { stalkerUser = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(Res.string.live_tv_username)) })
+                OutlinedTextField(stalkerPassword, { stalkerPassword = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text(stringResource(Res.string.live_tv_password)) })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { LiveTvRepository.saveStalkerSettings(LiveTvStalkerSettings(stalkerPortal, stalkerMac, stalkerUser, stalkerPassword)) },
+                        enabled = stalkerPortal.isNotBlank() && stalkerMac.isNotBlank(),
+                    ) { Text(stringResource(Res.string.live_tv_connect)) }
+                    if (uiState.stalkerSettings.isConfigured) OutlinedButton(onClick = LiveTvRepository::removeStalker) { Text(stringResource(Res.string.live_tv_disconnect)) }
+                }
+            }
         }
     }
 }
