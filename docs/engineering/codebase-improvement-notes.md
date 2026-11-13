@@ -4262,3 +4262,33 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Player and AutoSync regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Test and runtime equivalence remain pending authorisation.
 - No changes were made to parser formats, cue data models, cancellation behaviour, network requests, image handling, playback state, dependencies or workflow configuration.
 
+
+
+
+## 13 November 2026 — Reduce redundant work in MetaDetails parsing
+
+**Starting checkpoint:** `9535a970f4a8609d756943db31ca1764f086ea48` on `main-build-testing`.
+
+### Cycle 1 — Remove temporary metadata-selection and fallback collections
+
+- `extractMetaObject()` previously created a `listOfNotNull` from up to four possible metadata locations, evaluating all candidate expressions before calling `firstOrNull()`. The parser now checks the same precedence in order and returns the first object directly: top-level `meta`, nested `data.meta`, a meta-shaped `data` object, then a meta-shaped root object.
+- The new selection path avoids the temporary candidate list and stops inspecting lower-priority candidates once the winner is known. This also avoids touching malformed, unused fallback branches when a higher-priority metadata object is already available; normal candidate precedence is unchanged.
+- `ageRating()` previously created a three-element temporary list before choosing the first nonblank value. The three values are now read into locals in the original order, then selected with the same trim/nonblank precedence. This removes the temporary list while preserving the previous evaluation order for malformed alternate certification fields.
+- The parser previously requested `behaviorHints()` twice while constructing one `MetaDetails`; it now retains one local reference and reads both fields from it. Missing hints still produce the same empty-object defaults.
+- Added source-precedence regression coverage for top-level `meta` and nested `data.meta`.
+
+### Cycle 2 — Classify metadata credits in a single ordered pass
+
+- The director, cast/actor and writer/screenplay extraction paths each traversed `links` independently using `filter { ... }.map { ... }`. That meant three complete scans and temporary filtered/mapped collections.
+- Added one `toCreditGroups()` pass that routes each parsed link into the same director, cast or writer group using the existing case-insensitive category names. It preserves the original relative order within every group and creates the same `MetaPerson` representation for linked cast entries.
+- The final merge rules are unchanged: directors and writers still append top-level values, then app-extras values, then links before trimming, blank filtering and stable de-duplication; cast still merges app-extras first, top-level cast second and linked cast last using the existing case-insensitive person de-duplication. The public `MetaDetails.links` list is unchanged.
+- Added regression coverage for mixed-case categories, all existing category synonyms, unrelated link categories, and the resulting order of directors, writers and cast.
+
+### Research and review
+
+- Context7 consulted Kotlin's official collection documentation: `filter()` returns a new collection, and `map()` builds a new list while preserving the source order. Those API contracts substantiate the avoidable intermediate collections and the need to preserve order in the single-pass grouping. Context7 also checked the `JsonElement`/ `JsonObject`/ `JsonArray` tree model. The project pins Kotlin `2.4.10` and kotlinx.serialization `1.10.0`; Context7 did not expose those exact versions (its Kotlin site entry is unversioned, while the serialization index exposed `1.11.0` and `1.9.0`). No new API or dependency was introduced; the existing `JsonObject`, `JsonArray`, primitive and common collection APIs remain in use.
+- The official [kotlinx.serialization tree-decoder performance investigation](https://github.com/Kotlin/kotlinx.serialization/issues/3220), opened 13 July 2026 and updated through 2 September 2026, reports substantial throughput gains after eliminating redundant reverse lookups in JSON tree decoding (around 2× in a baseline case and up to 10× in its alternate-name cases). That is related evidence that repeated work over JSON trees can be costly; it is **not** a benchmark of Nuvio or a prediction of this parser's speedup.
+- Manually compared the old and new metadata candidate precedence, certification evaluation order, behavior-hints defaults, credit category predicates, case-insensitive matching, source ordering, trim/filter/distinct steps, and cast merge order. Fresh GitHub reads confirmed there is one traversal in `toCreditGroups()`, the former three `links.filter/map` pipelines are gone, and the new regression cases are present. The diff is limited to `MetaDetailsParser.kt`, `MetaDetailsParserTest.kt`, and this engineering note.
+- The regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Runtime performance remains unmeasured; do not present an app-level percentage improvement until an authorised benchmark/profile is collected.
+- No changes were made to network behavior, metadata fields, provider requests, dependency versions, parser formats, UI state, or workflow configuration.
+
