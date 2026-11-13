@@ -5,6 +5,9 @@ import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.debrid.DebridServiceCredential
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.debrid.supports
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,33 +33,37 @@ internal class CloudLibraryStore(
         val credentials = credentialsProvider()
             .filter { credential -> credential.provider.supports(DebridProviderCapability.CloudLibrary) }
 
-        val providerStates = credentials.map { credential ->
-            val api = providerApis.firstOrNull { it.provider.id == credential.provider.id }
-            if (api == null) {
-                return@map CloudLibraryProviderState(
-                    provider = credential.provider,
-                    errorMessage = getString(
-                        Res.string.cloud_library_provider_unavailable,
-                        credential.provider.displayName,
-                    ),
-                )
-            }
+        val providerStates = coroutineScope {
+            credentials.map { credential ->
+                async {
+                    val api = providerApis.firstOrNull { it.provider.id == credential.provider.id }
+                    if (api == null) {
+                        return@async CloudLibraryProviderState(
+                            provider = credential.provider,
+                            errorMessage = getString(
+                                Res.string.cloud_library_provider_unavailable,
+                                credential.provider.displayName,
+                            ),
+                        )
+                    }
 
-            api.listItems(credential.apiKey)
-                .fold(
-                    onSuccess = { items ->
-                        CloudLibraryProviderState(
-                            provider = credential.provider,
-                            items = items,
+                    api.listItems(credential.apiKey)
+                        .fold(
+                            onSuccess = { items ->
+                                CloudLibraryProviderState(
+                                    provider = credential.provider,
+                                    items = items,
+                                )
+                            },
+                            onFailure = { error ->
+                                CloudLibraryProviderState(
+                                    provider = credential.provider,
+                                    errorMessage = error.message,
+                                )
+                            },
                         )
-                    },
-                    onFailure = { error ->
-                        CloudLibraryProviderState(
-                            provider = credential.provider,
-                            errorMessage = error.message,
-                        )
-                    },
-                )
+                }
+            }.awaitAll()
         }
 
         return CloudLibraryUiState(
