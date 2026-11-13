@@ -454,7 +454,9 @@ object AuthRepository {
                 val cleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
                 fallback to cleanup
             }
-            currentCoroutineContext().ensureActive()
+            ensureCleanupCallerActive(
+                listOf(anonymousRead, anonymousClear, remoteSignOut, fallbackSessionClear, localCleanup),
+            )
 
             val failure = anonymousRead.exceptionOrNull()
                 ?: anonymousClear.exceptionOrNull()
@@ -600,7 +602,7 @@ object AuthRepository {
                 val cleanup = runCatching { LocalAccountDataCleaner.wipe(accountUserId) }
                 clear to cleanup
             }
-            currentCoroutineContext().ensureActive()
+            ensureCleanupCallerActive(listOf(remoteSignOut, localSessionClear, localCleanup))
 
             val cancellation = remoteSignOut.exceptionOrNull() as? CancellationException
                 ?: localSessionClear.exceptionOrNull() as? CancellationException
