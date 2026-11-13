@@ -4863,3 +4863,24 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Remote source and test files were reviewed and updated on main-build-testing; source-level structural checks and fresh GitHub re-fetches are required before reporting integration.
 - Regression tests were added but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, in accordance with the standing authorisation boundary.
 - Runtime verification remains required for Saved pinned controls while scrolling, the source-switch pill, calendar popup, Saved/Cloud/Servers switching, and glass enabled/disabled states. This change addresses a confirmed source-scope defect but does not claim the entire Library has been runtime-validated.
+
+
+## 13 November 2026 — avoid unnecessary Saved content-layer capture
+
+### Confirmed inefficiency
+
+- The shared Library source-switch preference was included in the broad active-surface capture flag. That flag was also used to decide whether to record the Saved scrolling-content backdrop, even though the source switch sits above the scrolling viewport and now correctly uses the static screen backdrop.
+- This meant enabling only the shared source-switch glass still recorded the full Saved LazyColumn into a second graphics layer with no visible consumer. The root screen backdrop is still required for the switch, but the scrolling-content capture is not.
+
+### Changes
+
+- Added a separate libraryContentBackdropCaptureRequired policy. It requests the Saved LazyColumn source only when Saved type/sort glass controls are present or the release calendar is open with calendar glass enabled.
+- Kept master-toggle and platform-support gates in the new policy. Cloud and Servers never request this Saved-only source.
+- Changed the screen-level composition-local to select the scrolling backdrop only when Saved type/sort glass is enabled. The calendar retains its own scoped content-backdrop provider, and the source switch retains its explicit static-backdrop provider.
+- Expanded common regression coverage for visible/invisible controls, visible/hidden calendar, shared Library-only glass, Cloud/Servers, and master/platform gates.
+
+### Review and verification boundary
+
+- Source inspection confirms the two capture resources now have separate responsibilities: libraryBackdrop serves the static screen and source-switch pill; libraryContentBackdrop serves only pinned Saved filters and an open Saved calendar.
+- The common regression test was added but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, per instruction.
+- This removes an unnecessary full-viewport source recording when only the shared source switch is glass-enabled. No measured frame-time or memory improvement is claimed; runtime profiling remains unauthorised.
