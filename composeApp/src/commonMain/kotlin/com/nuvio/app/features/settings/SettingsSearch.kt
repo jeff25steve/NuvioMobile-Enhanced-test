@@ -141,7 +141,9 @@ internal fun settingsSearchAnchor(
         SettingsPage.Omdb ->
             if (key == "omdb-api-key") 0 else return null
         SettingsPage.Homescreen -> when (key) {
-            "home-hero", "home-catalog-type", "home-hide-unreleased" -> 1
+            "home-hero", "home-catalog-type", "home-hide-unreleased",
+            "home-hero-trailer-playback", "home-hero-trailer-start-unmuted",
+            "home-hero-trailer-start-delay" -> 1
             "home-hero-sources" -> 2
             "home-catalogs" -> 3
             else -> return null
@@ -509,6 +511,9 @@ internal fun settingsSearchEntries(
     trackingSimklConnected: Boolean,
     homeHeroSourcesAvailable: Boolean,
     homeCatalogsAvailable: Boolean,
+    homeHeroEnabled: Boolean,
+    homeHeroTrailerPlaybackSettingAvailable: Boolean,
+    homeHeroTrailerPlaybackEnabled: Boolean,
 ): List<SettingsSearchEntry> {
     val authState by remember { AuthRepository.state }.collectAsStateWithLifecycle()
     val accountCategory = stringResource(SettingsCategory.You.labelRes)
@@ -1899,6 +1904,37 @@ internal fun settingsSearchEntries(
             pageLabel = homeLayoutPage,
             section = homeLayoutSection,
         )
+    }
+    if (homeHeroEnabled && homeHeroTrailerPlaybackSettingAvailable) {
+        addRow(
+            page = SettingsPage.Homescreen,
+            key = "home-hero-trailer-playback",
+            title = stringResource(Res.string.settings_homescreen_hero_trailer_playback),
+            description = stringResource(Res.string.settings_homescreen_hero_trailer_playback_description),
+            pageLabel = homeLayoutPage,
+            section = homeLayoutSection,
+            searchTerms = listOf("hero autoplay", "trailer playback", "automatic hero videos"),
+        )
+        if (homeHeroTrailerPlaybackEnabled) {
+            addRow(
+                page = SettingsPage.Homescreen,
+                key = "home-hero-trailer-start-unmuted",
+                title = stringResource(Res.string.settings_hero_trailer_start_unmuted),
+                description = stringResource(Res.string.settings_hero_trailer_start_unmuted_description),
+                pageLabel = homeLayoutPage,
+                section = homeLayoutSection,
+                searchTerms = listOf("unmute hero trailers", "trailer sound", "start videos with sound"),
+            )
+            addRow(
+                page = SettingsPage.Homescreen,
+                key = "home-hero-trailer-start-delay",
+                title = stringResource(Res.string.settings_hero_trailer_start_delay),
+                description = stringResource(Res.string.settings_hero_trailer_start_delay_description),
+                pageLabel = homeLayoutPage,
+                section = homeLayoutSection,
+                searchTerms = listOf("trailer delay", "autoplay delay", "video start delay"),
+            )
+        }
     }
     if (homeHeroSourcesAvailable) {
         addRow(
