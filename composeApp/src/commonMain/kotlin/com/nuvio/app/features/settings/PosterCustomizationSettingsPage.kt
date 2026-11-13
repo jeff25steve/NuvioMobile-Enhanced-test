@@ -375,12 +375,19 @@ private fun CardDepthStyleControls(
                     )
                 }
             }
-            PosterStyleOptionRow(
-                title = stringResource(Res.string.settings_card_depth_edge_coverage),
-                selectedValue = uiState.edgeCoverage,
-                options = coverageOptions,
-                onSelected = CardDepthStyleRepository::setEdgeCoverage,
-            )
+            SettingsSearchAnchorContainer(
+                searchAnchorKey = "card-depth-edge-coverage",
+                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+            ) { anchorModifier ->
+                Box(modifier = anchorModifier.fillMaxWidth()) {
+                    PosterStyleOptionRow(
+                        title = stringResource(Res.string.settings_card_depth_edge_coverage),
+                        selectedValue = uiState.edgeCoverage,
+                        options = coverageOptions,
+                        onSelected = CardDepthStyleRepository::setEdgeCoverage,
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -833,11 +840,18 @@ private fun PosterCardStyleControls(
                 )
             }
         }
-        PosterToggleRow(
-            title = stringResource(Res.string.settings_poster_always_show_landscape_clearlogo),
-            checked = alwaysShowLandscapeClearlogo,
-            onCheckedChange = onAlwaysShowLandscapeClearlogoChange,
-        )
+        SettingsSearchAnchorContainer(
+            searchAnchorKey = "poster-always-show-landscape-clearlogo",
+            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+        ) { anchorModifier ->
+            Box(modifier = anchorModifier.fillMaxWidth()) {
+                PosterToggleRow(
+                    title = stringResource(Res.string.settings_poster_always_show_landscape_clearlogo),
+                    checked = alwaysShowLandscapeClearlogo,
+                    onCheckedChange = onAlwaysShowLandscapeClearlogoChange,
+                )
+            }
+        }
     }
 }
 
