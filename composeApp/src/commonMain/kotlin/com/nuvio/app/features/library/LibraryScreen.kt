@@ -367,6 +367,12 @@ fun LibraryScreen(
     var serverShelves by remember { mutableStateOf<List<LibraryServerShelf>?>(null) }
     var serverShelvesRequest by remember { mutableStateOf(0) }
     var selectedProviderId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(cloudUiState.isLoaded, cloudUiState.isRefreshing, cloudUiState.providers, selectedProviderId) {
+        if (cloudUiState.isLoaded && !cloudUiState.isRefreshing) {
+            val effectiveProviderId = effectiveCloudLibraryProviderId(selectedProviderId, cloudUiState.providers)
+            if (effectiveProviderId != selectedProviderId) selectedProviderId = effectiveProviderId
+        }
+    }
     var selectedTypeName by rememberSaveable { mutableStateOf<String?>(null) }
     var cloudSearchQuery by rememberSaveable { mutableStateOf("") }
     var cloudSearchVisible by rememberSaveable { mutableStateOf(false) }
