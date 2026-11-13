@@ -309,18 +309,18 @@ internal fun LazyListScope.debridSettingsContent(
                         DebridPreferenceRow(
                             isTablet = isTablet,
                             title = provider.displayName,
-                        description = if (provider.authMethod == DebridProviderAuthMethod.DeviceCode) {
-                            stringResource(Res.string.settings_debrid_provider_device_description, provider.displayName)
-                        } else {
-                            stringResource(Res.string.settings_debrid_provider_description, provider.displayName)
-                        },
-                        value = providerCredentialStatus(
-                            provider = provider,
-                            credential = settings.apiKeyFor(provider.id),
-                            notSetLabel = notSetLabel,
-                            connectedLabel = connectedLabel,
-                        ),
-                        enabled = true,
+                            description = if (provider.authMethod == DebridProviderAuthMethod.DeviceCode) {
+                                stringResource(Res.string.settings_debrid_provider_device_description, provider.displayName)
+                            } else {
+                                stringResource(Res.string.settings_debrid_provider_description, provider.displayName)
+                            },
+                            value = providerCredentialStatus(
+                                provider = provider,
+                                credential = settings.apiKeyFor(provider.id),
+                                notSetLabel = notSetLabel,
+                                connectedLabel = connectedLabel,
+                            ),
+                            enabled = true,
                             onClick = {
                                 when (provider.authMethod) {
                                     DebridProviderAuthMethod.DeviceCode -> activeDeviceAuthProviderId = provider.id
@@ -437,9 +437,9 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_max_results),
-                    description = stringResource(Res.string.settings_debrid_max_results_desc),
-                    value = streamMaxResultsLabel(preferences.maxResults),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_max_results_desc),
+                        value = streamMaxResultsLabel(preferences.maxResults),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeStreamPicker = DebridStreamPicker.MAX_RESULTS },
                     )
                 }
@@ -448,9 +448,9 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_sort_results),
-                    description = stringResource(Res.string.settings_debrid_sort_results_desc),
-                    value = sortProfileLabel(preferences.sortCriteria),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_sort_results_desc),
+                        value = sortProfileLabel(preferences.sortCriteria),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeStreamPicker = DebridStreamPicker.SORT_MODE },
                     )
                 }
@@ -459,9 +459,9 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_per_resolution_limit),
-                    description = stringResource(Res.string.settings_debrid_per_resolution_limit_desc),
-                    value = streamMaxResultsLabel(preferences.maxPerResolution),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_per_resolution_limit_desc),
+                        value = streamMaxResultsLabel(preferences.maxPerResolution),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_RESOLUTION },
                     )
                 }
@@ -470,9 +470,9 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_per_quality_limit),
-                    description = stringResource(Res.string.settings_debrid_per_quality_limit_desc),
-                    value = streamMaxResultsLabel(preferences.maxPerQuality),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_per_quality_limit_desc),
+                        value = streamMaxResultsLabel(preferences.maxPerQuality),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeStreamPicker = DebridStreamPicker.MAX_PER_QUALITY },
                     )
                 }
@@ -481,9 +481,9 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_size_range),
-                    description = stringResource(Res.string.settings_debrid_size_range_desc),
-                    value = sizeRangeLabel(preferences),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_size_range_desc),
+                        value = sizeRangeLabel(preferences),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeStreamPicker = DebridStreamPicker.SIZE_RANGE },
                     )
                 }
@@ -525,12 +525,12 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_name_template),
-                    description = stringResource(Res.string.settings_debrid_name_template_description),
-                    value = templatePreview(
-                        value = settings.streamNameTemplate,
-                        defaultValue = DebridStreamFormatterDefaults.NAME_TEMPLATE,
-                    ),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_name_template_description),
+                        value = templatePreview(
+                            value = settings.streamNameTemplate,
+                            defaultValue = DebridStreamFormatterDefaults.NAME_TEMPLATE,
+                        ),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeTemplateField = DebridTemplateField.NAME },
                     )
                 }
@@ -539,12 +539,12 @@ internal fun LazyListScope.debridSettingsContent(
                     DebridPreferenceRow(
                         isTablet = isTablet,
                         title = stringResource(Res.string.settings_debrid_description_template),
-                    description = stringResource(Res.string.settings_debrid_description_template_description),
-                    value = templatePreview(
-                        value = settings.streamDescriptionTemplate,
-                        defaultValue = DebridStreamFormatterDefaults.DESCRIPTION_TEMPLATE,
-                    ),
-                    enabled = settings.canResolvePlayableLinks,
+                        description = stringResource(Res.string.settings_debrid_description_template_description),
+                        value = templatePreview(
+                            value = settings.streamDescriptionTemplate,
+                            defaultValue = DebridStreamFormatterDefaults.DESCRIPTION_TEMPLATE,
+                        ),
+                        enabled = settings.canResolvePlayableLinks,
                         onClick = { activeTemplateField = DebridTemplateField.DESCRIPTION },
                     )
                 }
