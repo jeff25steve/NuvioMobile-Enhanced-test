@@ -108,6 +108,18 @@ internal fun settingsSearchAnchor(
             if (key in StreamsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.MetaScreen ->
             if (key in MetaScreenSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.TmdbEnrichment -> when (key) {
+            "tmdb-enable", "tmdb-api-key" -> 0
+            "tmdb-language" -> 1
+            else -> if (key in TmdbModuleSettingsSearchAnchorKeys) 2 else return null
+        }
+        SettingsPage.MdbListRatings -> when (key) {
+            "mdb-enable", "mdb-show-on-hero" -> 0
+            "mdb-api-key" -> 1
+            else -> if (key in MdbListProviderSettingsSearchAnchorKeys) 2 else return null
+        }
+        SettingsPage.Omdb ->
+            if (key == "omdb-api-key") 0 else return null
         SettingsPage.TraktAuthentication -> when (key) {
             "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
             "private-viewing" -> 1
@@ -153,6 +165,30 @@ internal fun settingsSearchAnchor(
     }
     return SettingsSearchAnchor(page, key, title, description, sectionItemIndex)
 }
+
+private val TmdbModuleSettingsSearchAnchorKeys = setOf(
+    "tmdb-trailers",
+    "tmdb-artwork",
+    "tmdb-basic-info",
+    "tmdb-details",
+    "tmdb-credits",
+    "tmdb-companies",
+    "tmdb-networks",
+    "tmdb-episodes",
+    "tmdb-season-posters",
+    "tmdb-more-like-this",
+    "tmdb-collections",
+)
+
+private val MdbListProviderSettingsSearchAnchorKeys = setOf(
+    "mdb-imdb",
+    "mdb-tmdb",
+    "mdb-tomatoes",
+    "mdb-metacritic",
+    "mdb-trakt",
+    "mdb-letterboxd",
+    "mdb-audience",
+)
 
 private val AccountSettingsSearchAnchorKeys = setOf("account-status", "account-sign-out", "account-delete")
 
