@@ -4559,3 +4559,5 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - No PR, merge, release, dependency update or workflow change was made. After authorisation, run the focused common Search generation tests and existing Search/catalog tests, then verify rapid typing, clearing during a slow response, retrying the same query, changing discover filters during a slow page, and refreshing the same discover selection while its previous page is in flight.
 
 - Follow-up review tightened the no-op paths: an identical in-flight search/discover request is reused without advancing its generation, and selecting an unchanged discover filter does not invalidate its active load. The regression test also asserts that `ifCurrent` refuses to execute a stale publication callback.
+
+- Final screen-level refinement: when a nonblank query changes, `SearchScreen` now calls `cancelPendingSearch()` before entering the 350 ms debounce wait. This cancels the previous request immediately instead of allowing it to consume the remainder of the debounce window; the next settled query still follows the existing debounce and provider flow.
