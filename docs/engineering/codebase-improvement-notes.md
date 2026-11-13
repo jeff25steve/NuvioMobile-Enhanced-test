@@ -4189,3 +4189,24 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Check Saved in horizontal and vertical layouts with no saved sections, with content, and while scrolling. Confirm there is one filter/sort row directly below the fixed toolbar, posters start immediately beneath it, and the row stays pinned without a duplicate or opaque full-width bar.
 - Check Cloud with no providers, loading, connected results, active search, selected file picker, and custom/no custom background. Confirm the list fills the remaining screen below the fixed title/source toolbar, Cloud's filter/search sticky header remains pinned within that viewport, and the black/artwork backdrop remains correct.
 - Compare small phones, tablets, portrait and landscape, and Liquid Glass on/off. Runtime layout and platform insets remain unverified until an authorized device/test session.
+
+
+
+## 13 November 2026 — Expand Search title header background edge-to-edge
+
+**Starting checkpoint:** `19acaeb8a1996461ee455620a049e1f84500042f` on `main-build-testing`.
+
+### Cycle 1 — Separate the header background bounds from its content inset
+
+- The video shows the Search title header's dark/black underlay ending too early at both horizontal edges. In `SearchScreen`, the `NuvioScreenHeader` root was given `Modifier.padding(horizontal = 16.dp)`, so the header's own background/underlay was measured inside that inset. The search field below independently uses a 16 dp inset.
+- Changed the header root to `Modifier.fillMaxWidth()` and moved the same 16 dp inset to the existing `NuvioScreenHeader(contentHorizontalPadding)` parameter. The background/underlay now spans the full available width while the title and trailing action remain aligned with the search field's left/right edges.
+- No global header behavior, status-bar spacing, search-field sizing, search state, or Liquid Glass surface configuration changed.
+
+### Cycle 2 — Add a reusable header geometry regression check and review platform scope
+
+- Added an Android host test for an edge-to-edge `NuvioScreenHeader`: the header container must occupy the full parent width, the title must retain a 16 dp leading inset, and the action must retain the matching 16 dp trailing inset.
+- The test source was committed before the SearchScreen implementation. It was not executed because this session explicitly prohibits builds and CI; no RED/GREEN runtime result is claimed.
+- Context7 checked the official Compose Modifier padding/fillMaxWidth semantics. The project pins Compose Multiplatform `1.13.0-beta01`, which was not available in Context7's version list; the AndroidX reference confirms that padding constrains the measured child, while fillMaxWidth fills the constraints it receives. The change uses existing APIs only.
+- Exa independently found the official JetBrains Compose Multiplatform modifier guide and Android Developers modifier-order/constraints guides. They confirm modifier order determines measurement/drawing bounds, supporting moving the inset from the root modifier to the header's inner content.
+- Manually reviewed the complete SearchScreen call site and regression test. No dependency, shared component implementation, platform-specific code, or workflow configuration was changed. No build, Gradle task, test, benchmark, emulator/device session, workflow dispatch, or CI run was started.
+- Runtime visual validation remains pending: compare the Search title background against the screen edges with Liquid Glass enabled and disabled, and confirm the title/action still align with the search field on narrow and wide screens.
