@@ -4046,3 +4046,33 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Preserved `androidApp/src/main/baseline-prof.txt` and the production `androidx.profileinstaller` dependency. These provide app-side Baseline Profile delivery/performance support and are distinct from the removed benchmark runner and APK-generation infrastructure.
 - Reviewed the remote commit diff and latest recursive Git tree: no Android benchmark workflow, `:baselineprofile` module, benchmark build type, or benchmark checkpoint remains. The production profile file retains its pre-change blob SHA.
 - No build, Gradle task, test, benchmark, workflow dispatch or CI run was started. Verification is limited to source/configuration review and remote GitHub tree/commit inspection.
+
+
+## 13 November 2026 — Liquid Glass Editor background image controls
+
+### Cycle 1 — Make both custom backdrops editable from the Liquid Glass Editor
+
+- Audited the existing Liquid Glass Editor, Settings screen, Cloud Library, theme repository/storage, native picker actuals and the earlier Liquid Glass Editor PR implementation.
+- Added a shared target-aware background control to the editor. Selecting the Settings surface now exposes Choose/Clear controls for the Settings wallpaper; the three Cloud surfaces continue to expose the Cloud-only wallpaper controls.
+- Both targets reuse the existing Android Photo Picker / iOS PHPicker and existing profile-scoped repository save/clear functions. The two images remain separate, local to the device/profile, bounded by the existing image-size validation, and are not uploaded or synced.
+- Kept the existing preview rendering and revision-based Coil cache keys. Saving or clearing uses the same StateFlows observed by the editor preview and live Settings/Cloud screens, so the preview reflects the applied image without a separate draft image path.
+- Added common tests for surface-to-background-target routing, including unrelated surfaces. The tests were added but have not been executed; the fullDebug CI workflow does not run the common test suite.
+
+### Cycle 2 — Integrate and validate on an isolated Linux CI branch
+
+- Created ci/nuvio-main-build-testing-settings-cloud-background-20261113 from the verified main-build-testing head without modifying main-build-testing.
+- Removed the duplicated Cloud-only editor control block and routed Settings and Cloud through one shared composable, preserving cancellation propagation and profile-switch guards.
+- Added the branch-specific push trigger to the existing PR Full Debug Build workflow, following the previous CI-branch pattern. This triggers the existing Ubuntu fullDebug APK build on the CI branch only.
+- Context7 was consulted for Compose Multiplatform compatibility patterns. The exact repository version (1.13.0-beta01) was not listed; the available documentation covered 1.12.2 and the implementation uses existing APIs already present in this codebase. Exa research confirmed the existing native photo-picker approach is privacy-preserving and does not require broad media permissions.
+- No changes to the main-build-testing branch, no new dependencies, and no changes to the navigation-bar Liquid Glass subsystem.
+- Validation is pending the new workflow run. Source review caught and corrected the second editor call-site flag and added the required dp import before CI was triggered.
+
+
+### Cycle 3 — Integrate the actual feature implementation into main-build-testing
+
+- Transferred the real commonMain implementation, editor sheet call-site wiring, and commonTest routing tests from the reviewed CI branch onto `main-build-testing`. This is executable Kotlin UI code, not a logic-only note or proposal.
+- The editor now shows the correct Choose/Clear controls for the Settings surface and for the three Cloud surfaces. Settings and Cloud map to separate profile-local repository keys and reuse the existing Android Photo Picker / iOS PHPicker.
+- Confirmed the existing Studio Settings preview already subscribes to `customSettingsBackgroundImageUri` and its revision, while the Cloud preview already uses `customLibraryCloudBackgroundImageUri` and its revision. Therefore saved images appear in the same preview and live screen paths without introducing a second image-loading/cache mechanism.
+- Manually reviewed the full changed Kotlin files, routing, storage calls, cancellation handling, profile-switch guards, localization keys, and the existing repository's profile-isolation tests. The added common routing tests are committed but not executed.
+- Kept the CI-only push trigger and all workflow changes on the isolated CI branch. Inspected the main branch workflow triggers: none of the configured workflows automatically builds or runs CI on a push to `main-build-testing`.
+- No build, test, workflow dispatch, or new CI run was started during this integration cycle, in accordance with the latest instruction. The earlier isolated run `43343105125` was started under the previous explicit authorisation; it was not restarted here.

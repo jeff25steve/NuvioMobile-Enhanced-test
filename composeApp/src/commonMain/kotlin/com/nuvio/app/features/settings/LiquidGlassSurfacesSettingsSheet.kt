@@ -146,7 +146,6 @@ import com.nuvio.app.features.player.PlayerControlsShell
 import com.nuvio.app.features.player.PlayerLayoutMetrics
 import com.nuvio.app.features.player.PlayerPlaybackSnapshot
 import com.nuvio.app.features.player.PlayerResizeMode
-import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.streams.StreamSearchField
 import com.nuvio.app.features.streams.ProviderFilterRow
 import com.nuvio.app.features.streams.AddonStreamGroup
@@ -179,7 +178,6 @@ import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.core.ui.glass.liquidGlassStandaloneSurfaces
 import com.nuvio.app.core.ui.glass.nuvioBackdropSource
 import com.nuvio.app.core.ui.glass.rememberNuvioBackdrop
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_play
@@ -577,7 +575,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        showLibraryCloudBackgroundControls = selectedSurface in liquidGlassLibraryCloudBackgroundSurfaces,
                         linkGlassEffects = linkGlassEffects,
                         onLinkGlassEffectsChanged = { link ->
                             if (link) {
@@ -622,7 +619,6 @@ internal fun LiquidGlassSurfacesSettingsSheet(
                         surface = selectedSurface,
                         overrides = settings.forSurface(selectedSurface),
                         isTablet = isTablet,
-                        showLibraryCloudBackgroundControls = selectedSurface in liquidGlassLibraryCloudBackgroundSurfaces,
                         onChanged = { onSurfaceChanged(selectedSurface, it) },
                     )
                 }
@@ -1739,7 +1735,6 @@ private fun LiquidGlassSurfaceEditorControls(
     surface: LiquidGlassSurface,
     overrides: LiquidGlassSurfaceOverrides,
     isTablet: Boolean,
-    showLibraryCloudBackgroundControls: Boolean = false,
     linkGlassEffects: Boolean = false,
     onLinkGlassEffectsChanged: ((Boolean) -> Unit)? = null,
     onChanged: (LiquidGlassSurfaceOverrides) -> Unit,
@@ -1750,96 +1745,8 @@ private fun LiquidGlassSurfaceEditorControls(
     val refractionSupported = isLiquidRefractionSupported()
     val recipe = remember(surface, overrides) { liquidGlassSurfaceRecipe(surface, overrides) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (showLibraryCloudBackgroundControls) {
-            // Keep the profile image subscription and native picker out of unrelated surface editors.
-            val cloudBackgroundImageUri by remember {
-                ThemeSettingsRepository.ensureLoaded()
-                ThemeSettingsRepository.customLibraryCloudBackgroundImageUri
-            }.collectAsStateWithLifecycle()
-            var cloudBackgroundImageError by rememberSaveable(surface.name) { mutableStateOf(false) }
-            // Saving is transient; don't restore a stale disabled state after process recreation.
-            var isSavingCloudBackground by remember(surface.name) { mutableStateOf(false) }
-            val cloudBackgroundScope = rememberCoroutineScope()
-            val cloudBackgroundImagePicker = rememberSettingsBackgroundImagePicker(
-                onImageSelected = { bytes ->
-                    val targetProfileId = ProfileRepository.activeProfileId
-                    cloudBackgroundImageError = false
-                    isSavingCloudBackground = true
-                    cloudBackgroundScope.launch {
-                        val saved = try {
-                            ThemeSettingsRepository.saveCustomLibraryCloudBackgroundImageForStudio(bytes, targetProfileId)
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (_: Exception) {
-                            false
-                        }
-                        isSavingCloudBackground = false
-                        if (ProfileRepository.activeProfileId == targetProfileId) {
-                            cloudBackgroundImageError = !saved
-                        }
-                    }
-                },
-                onError = { cloudBackgroundImageError = true },
-            )
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = stringResource(Res.string.settings_liquid_glass_library_background_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = stringResource(Res.string.settings_liquid_glass_library_background_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(
-                        enabled = !isSavingCloudBackground,
-                        onClick = { cloudBackgroundImagePicker.launch() },
-                    ) {
-                        Text(stringResource(Res.string.settings_liquid_glass_library_background_choose))
-                    }
-                    if (cloudBackgroundImageUri != null) {
-                        TextButton(
-                            enabled = !isSavingCloudBackground,
-                            onClick = {
-                                val targetProfileId = ProfileRepository.activeProfileId
-                                cloudBackgroundImageError = false
-                                isSavingCloudBackground = true
-                                cloudBackgroundScope.launch {
-                                    val cleared = try {
-                                        ThemeSettingsRepository.clearCustomLibraryCloudBackgroundImageForStudio(targetProfileId)
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        false
-                                    }
-                                    isSavingCloudBackground = false
-                                    if (ProfileRepository.activeProfileId == targetProfileId) {
-                                        cloudBackgroundImageError = !cleared
-                                    }
-                                }
-                            },
-                        ) {
-                            Text(stringResource(Res.string.settings_liquid_glass_library_background_remove))
-                        }
-                    }
-                }
-                if (cloudBackgroundImageError) {
-                    Text(
-                        text = stringResource(Res.string.settings_liquid_glass_library_background_error),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
+        if (liquidGlassBackgroundImageTarget(surface) != null) {
+            LiquidGlassBackgroundImageControls(surface)
             NuvioBottomSheetDivider()
         }
         if (!nativeControlsAvailable) {
@@ -2712,12 +2619,6 @@ private fun LiquidGlassSettingsSurfacePreview(
     }
 }
 
-
-private val liquidGlassLibraryCloudBackgroundSurfaces = setOf(
-    LiquidGlassSurface.LIBRARY_CLOUD_FILTERS,
-    LiquidGlassSurface.LIBRARY_CLOUD_SEARCH,
-    LiquidGlassSurface.LIBRARY_CLOUD_CARDS,
-)
 
 private data class LiquidGlassCloudPreviewItem(
     val matchText: String,
