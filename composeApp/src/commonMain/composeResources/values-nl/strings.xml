@@ -2359,4 +2359,14 @@
     <string name="settings_liquid_glass_surface_stream_results">Streamresultaatkaarten</string>
     <string name="settings_liquid_glass_surface_stream_selection">Stream zoeken en hervatten</string>
     <string name="settings_liquid_glass_surface_vibrancy_description">Versterkt de kleuren die door het glas zichtbaar zijn.</string>
+
+    <!-- Upstream playback and session translations. -->
+    <string name="auth_notice_signed_out">Je bent uitgelogd bij Nuvio. Log opnieuw in.</string>
+    <string name="player_error_stream_expired">De streamlink is verlopen. Probeer een andere bron.</string>
+    <string name="player_error_stream_removed">De streamlink is verlopen of verwijderd. Probeer een andere bron.</string>
+    <string name="player_error_stream_rate_limited">Te veel verzoeken aan de streambron. Wacht even en probeer het opnieuw.</string>
+    <string name="player_error_stream_unavailable">De streamserver is momenteel niet beschikbaar. Probeer een andere bron.</string>
+    <string name="player_error_stream_blocked">De streambron is geblokkeerd of beperkt. Probeer een andere bron.</string>
+    <string name="player_error_source_invalid_content">Bronfout: de streambron gaf ongeldige of onafspeelbare inhoud terug. De link is mogelijk verlopen of de server gaf een foutpagina terug in plaats van video.\n\nProbeer een andere bron. [%1$s]</string>
+    <string name="player_error_unsupported_format">Deze stream gebruikt een formaat dat je apparaat mogelijk niet ondersteunt. Probeer een andere bron. [%1$s]</string>
 </resources>
