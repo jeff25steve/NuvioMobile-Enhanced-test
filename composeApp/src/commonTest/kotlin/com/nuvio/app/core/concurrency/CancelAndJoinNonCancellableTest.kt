@@ -1,6 +1,8 @@
 package com.nuvio.app.core.concurrency
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -69,4 +71,35 @@ class CancelAndJoinNonCancellableTest {
         assertTrue(operation.isCompleted)
         assertTrue(waiter.isCancelled)
     }
+
+    @Test
+    fun cancelledCallerStillObservesCancellationWhenThereAreNoJobs() = runBlocking {
+        var continued = false
+        val caller = launch {
+            currentCoroutineContext().cancel()
+            cancelAndJoinNonCancellable(emptyList())
+            continued = true
+        }
+
+        caller.join()
+
+        assertFalse(continued)
+        assertTrue(caller.isCancelled)
+    }
+
+    @Test
+    fun cancelledCallerStillObservesCancellationWhenThereIsNoSingleJob() = runBlocking {
+        var continued = false
+        val caller = launch {
+            currentCoroutineContext().cancel()
+            cancelAndJoinNonCancellable(null)
+            continued = true
+        }
+
+        caller.join()
+
+        assertFalse(continued)
+        assertTrue(caller.isCancelled)
+    }
+
 }
