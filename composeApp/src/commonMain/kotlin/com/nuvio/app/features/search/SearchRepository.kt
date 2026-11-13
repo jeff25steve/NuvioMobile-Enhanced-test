@@ -360,9 +360,9 @@ object SearchRepository {
     }
 
     fun selectDiscoverType(type: String) {
-        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         if (current.selectedType == type) return
+        discoverGeneration.invalidate()
 
         val catalogOptions = discoverSources.filter { it.type == type }
         val selectedCatalog = catalogOptions.firstOrNull() ?: run {
@@ -399,11 +399,11 @@ object SearchRepository {
     }
 
     fun selectDiscoverCatalog(catalogKey: String) {
-        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         if (current.selectedCatalogKey == catalogKey) return
 
         val selectedCatalog = current.catalogOptions.firstOrNull { it.key == catalogKey } ?: return
+        discoverGeneration.invalidate()
         _discoverUiState.value = current.copy(
             selectedCatalogKey = selectedCatalog.key,
             selectedGenre = selectedCatalog.resolveGenreSelection(null),
@@ -421,11 +421,11 @@ object SearchRepository {
     }
 
     fun selectDiscoverGenre(genre: String?) {
-        discoverGeneration.invalidate()
         val current = _discoverUiState.value
         val selectedCatalog = current.selectedCatalog ?: return
         val normalizedGenre = selectedCatalog.resolveGenreSelection(genre)
         if (current.selectedGenre == normalizedGenre) return
+        discoverGeneration.invalidate()
 
         _discoverUiState.value = current.copy(
             selectedGenre = normalizedGenre,
