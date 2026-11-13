@@ -108,8 +108,10 @@ import com.nuvio.app.features.notifications.EpisodeReleaseNotificationsUiState
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.simkl.SimklAuthRepository
 import com.nuvio.app.features.simkl.SimklAuthUiState
+import com.nuvio.app.features.simkl.SimklConnectionMode
 import com.nuvio.app.features.trakt.TraktAuthUiState
 import com.nuvio.app.features.trakt.TraktAuthRepository
+import com.nuvio.app.features.trakt.TraktConnectionMode
 import com.nuvio.app.features.trakt.TraktCommentsSettings
 import com.nuvio.app.features.tracking.TrackingSettingsRepository
 import com.nuvio.app.features.tracking.TrackingSettingsUiState
@@ -876,6 +878,8 @@ private fun MobileSettingsScreen(
                                 liveTvUiState = liveTvUiState,
                                 continueWatchingStyle = continueWatchingPreferencesUiState.style,
                                 continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
+                                trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
+                                trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
                             )
                         },
                         isTablet = false,
@@ -1397,6 +1401,8 @@ private fun TabletSettingsScreen(
                                     liveTvUiState = liveTvUiState,
                                     continueWatchingStyle = continueWatchingPreferencesUiState.style,
                                     continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
+                                    trackingTraktConnected = traktAuthUiState.mode == TraktConnectionMode.CONNECTED,
+                                    trackingSimklConnected = simklAuthUiState.mode == SimklConnectionMode.CONNECTED,
                                 )
                             },
                             isTablet = true,
