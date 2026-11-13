@@ -29,6 +29,7 @@ internal object MetaDetailsParser {
             ?: error("Response did not contain a valid meta object")
         val links = meta.links()
         val videos = meta.videos()
+        val behaviorHints = meta.behaviorHints()
 
         return MetaDetails(
             id = meta.requiredString("id"),
@@ -56,8 +57,8 @@ internal object MetaDetailsParser {
             awards = meta.string("awards"),
             language = meta.string("language"),
             website = meta.string("website"),
-            hasScheduledVideos = meta.behaviorHints().boolean("hasScheduledVideos") == true,
-            defaultVideoId = meta.behaviorHints().string("defaultVideoId"),
+            hasScheduledVideos = behaviorHints.boolean("hasScheduledVideos") == true,
+            defaultVideoId = behaviorHints.string("defaultVideoId"),
             trailers = meta.trailers(),
             links = links,
             seasonPosters = meta.seasonPosters(videos),
@@ -113,13 +114,10 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.extractMetaObject(): JsonObject? {
         val data = this["data"].asJsonObjectOrNull()
-        val candidates = listOfNotNull(
-            this["meta"].asJsonObjectOrNull(),
-            data?.get("meta").asJsonObjectOrNull(),
-            data?.takeIf { it.looksLikeMetaObject() },
-            this.takeIf { it.looksLikeMetaObject() },
-        )
-        return candidates.firstOrNull()
+        this["meta"].asJsonObjectOrNull()?.let { return it }
+        data?.get("meta").asJsonObjectOrNull()?.let { return it }
+        data?.takeIf { it.looksLikeMetaObject() }?.let { return it }
+        return this.takeIf { it.looksLikeMetaObject() }
     }
 
     private fun JsonObject.looksLikeMetaObject(): Boolean =
@@ -127,13 +125,9 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.ageRating(): String? {
         val appExtras = this["app_extras"] as? JsonObject
-        return listOf(
-            string("ageRating"),
-            appExtras?.string("certificationLocal"),
-            appExtras?.string("certification"),
-        ).firstNotNullOfOrNull { value ->
-            value?.trim()?.takeIf(String::isNotBlank)
-        }
+        return string("ageRating")?.trim()?.takeIf(String::isNotBlank)
+            ?: appExtras?.string("certificationLocal")?.trim()?.takeIf(String::isNotBlank)
+            ?: appExtras?.string("certification")?.trim()?.takeIf(String::isNotBlank)
     }
 
     private fun JsonObject.directors(links: List<MetaLink>): List<String> {
