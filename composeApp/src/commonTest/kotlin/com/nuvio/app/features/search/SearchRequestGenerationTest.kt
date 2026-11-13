@@ -28,6 +28,20 @@ class SearchRequestGenerationTest {
     }
 
     @Test
+    fun staleGenerationCannotPublishState() {
+        val generation = SearchRequestGeneration()
+        val stale = generation.begin()
+        generation.begin()
+        var published = false
+
+        generation.ifCurrent(stale) {
+            published = true
+        }
+
+        assertFalse(published)
+    }
+
+    @Test
     fun newerDiscoverPageSupersedesAnOlderPageForSameSelection() {
         val generation = SearchRequestGeneration()
 
