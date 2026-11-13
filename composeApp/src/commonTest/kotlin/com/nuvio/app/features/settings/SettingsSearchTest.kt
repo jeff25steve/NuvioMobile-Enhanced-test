@@ -160,6 +160,28 @@ class SettingsSearchTest {
         assertEquals(null, boundedSettingsSearchEditDistance("a", "a", -1))
     }
 
+    @Test
+    fun phraseBoostDoesNotJoinSeparateSearchAliases() {
+        val separateAliases = entry(
+            key = "separate-provider-aliases",
+            title = "Provider settings",
+            searchTerms = listOf("Debrid", "Torbox"),
+        )
+        val phraseAlias = entry(
+            key = "combined-provider-alias",
+            title = "Provider settings",
+            searchTerms = listOf("Debrid Torbox"),
+        )
+
+        assertEquals(
+            listOf("combined-provider-alias", "separate-provider-aliases"),
+            settingsSearchResults(
+                "debrid torbox",
+                listOf(separateAliases, phraseAlias),
+            ).map { it.key },
+        )
+    }
+
     private fun allBinaryWords(maxLength: Int): List<String> = buildList {
         add("")
         var level = listOf("")
