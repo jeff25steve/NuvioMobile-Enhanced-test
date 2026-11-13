@@ -458,6 +458,73 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun allDebridFilterSearchRowsResolveToTheResultManagementSection() {
+        val keys = listOf(
+            "debrid-preferred-resolutions",
+            "debrid-required-resolutions",
+            "debrid-excluded-resolutions",
+            "debrid-preferred-qualities",
+            "debrid-required-qualities",
+            "debrid-excluded-qualities",
+            "debrid-preferred-visual-tags",
+            "debrid-required-visual-tags",
+            "debrid-excluded-visual-tags",
+            "debrid-preferred-audio-tags",
+            "debrid-required-audio-tags",
+            "debrid-excluded-audio-tags",
+            "debrid-preferred-channels",
+            "debrid-required-channels",
+            "debrid-excluded-channels",
+            "debrid-preferred-encodes",
+            "debrid-required-encodes",
+            "debrid-excluded-encodes",
+            "debrid-preferred-languages",
+            "debrid-required-languages",
+            "debrid-excluded-languages",
+            "debrid-required-release-groups",
+            "debrid-excluded-release-groups",
+        )
+        keys.forEach { key ->
+            assertEquals(
+                3,
+                settingsSearchAnchor(
+                    SettingsPage.Debrid,
+                    key,
+                    key,
+                    "",
+                    debridCanResolvePlayableLinks = true,
+                )?.sectionItemIndex,
+            )
+        }
+    }
+
+    @Test
+    fun allLiveTvSearchRowsHaveRenderedTargetsForBothPlaylistStates() {
+        val alwaysVisibleRows = listOf(
+            "live-tv-xtream-codes",
+            "live-tv-stalker-portal",
+            "live-tv-stalker-mac",
+            "live-tv-playlist",
+            "live-tv-playlist-url",
+            "live-tv-playlist-name",
+            "live-tv-local-playlist",
+            "live-tv-epg-auto",
+            "live-tv-epg-url",
+            "live-tv-epg-add",
+        )
+        alwaysVisibleRows.forEach { key ->
+            assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = false)?.sectionItemIndex)
+            assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, key, key, "", liveTvHasPlaylist = true)?.sectionItemIndex?.let {
+                when (key) {
+                    "live-tv-xtream-codes", "live-tv-stalker-portal", "live-tv-stalker-mac" -> it - 2
+                    "live-tv-playlist", "live-tv-playlist-url", "live-tv-playlist-name", "live-tv-local-playlist" -> it - 3
+                    else -> it - 4
+                }
+            })
+        }
+    }
+
+    @Test
     fun remainingSettingsPagesRejectUnknownSearchAnchorKeys() {
         val pages = listOf(
             SettingsPage.Account,
