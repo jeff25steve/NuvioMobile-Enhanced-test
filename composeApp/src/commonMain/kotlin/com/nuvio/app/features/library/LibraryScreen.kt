@@ -311,6 +311,7 @@ fun LibraryScreen(
         LibraryRepository.ensureLoaded()
         LibraryRepository.uiState
     }.collectAsStateWithLifecycle()
+    val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
     val libraryPosterPattern by remember {
         CustomPosterUrlRepository.ensureLoaded()
         CustomPosterUrlRepository.pattern
@@ -551,7 +552,7 @@ fun LibraryScreen(
         }
     }
 
-    LaunchedEffect(uiState.items) {
+    LaunchedEffect(uiState.items, profileState) {
         LibraryReleaseCalendarCache.warm(uiState.items)
     }
 
