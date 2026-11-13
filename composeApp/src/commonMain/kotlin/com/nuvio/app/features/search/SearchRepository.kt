@@ -82,6 +82,8 @@ object SearchRepository {
 
     private var activeJob: Job? = null
     private var activeDiscoverJob: Job? = null
+    private val searchGeneration = SearchRequestGeneration()
+    private val discoverGeneration = SearchRequestGeneration()
     private var lastRequestKey: SearchRequestSignature? = null
     private var discoverSources: List<DiscoverCatalogOption> = emptyList()
     private var lastDiscoverRequestKey: DiscoverRequestKey? = null
@@ -97,6 +99,7 @@ object SearchRepository {
             return
         }
 
+        val requestGeneration = searchGeneration.begin()
         val enabledAddons = addons.enabledAddons()
         val hasPendingAddonManifests = enabledAddons.hasPendingEnabledManifests()
         val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
@@ -191,7 +194,7 @@ object SearchRepository {
                 for (result in resultChannel) {
                     results[result.index] = result
                     val sections = results.orderedSections()
-                    if (sections.isNotEmpty()) {
+                    if (sections.isNotEmpty() && searchGeneration.isCurrent(requestGeneration)) {
                         _uiState.value = SearchUiState(
                             isLoading = true,
                             sections = sections,
@@ -202,6 +205,8 @@ object SearchRepository {
                 closeChannelJob.cancel()
                 resultChannel.close()
             }
+
+            if (!searchGeneration.isCurrent(requestGeneration)) return@launch
 
             val completedResults = results.filterNotNull()
             val sections = results.orderedSections()
@@ -223,12 +228,15 @@ object SearchRepository {
     }
 
     fun clear() {
+        searchGeneration.invalidate()
         activeJob?.cancel()
         lastRequestKey = null
         _uiState.value = SearchUiState()
     }
 
     fun reset() {
+        searchGeneration.invalidate()
+        discoverGeneration.invalidate()
         activeJob?.cancel()
         activeDiscoverJob?.cancel()
         lastRequestKey = null
@@ -248,6 +256,7 @@ object SearchRepository {
         val activeAddons = enabledAddons.filter { it.manifest != null }
         val serverLibraries = ServerCatalog.titleLibraries()
         if (activeAddons.isEmpty() && serverLibraries.isEmpty()) {
+            discoverGeneration.invalidate()
             activeDiscoverJob?.cancel()
             discoverSources = emptyList()
             lastDiscoverRequestKey = null
@@ -521,6 +530,7 @@ object SearchRepository {
         val current = _discoverUiState.value
         val selectedCatalog = current.selectedCatalog ?: return
         val requestedSkip = if (reset) 0 else current.nextSkip ?: return
+        val requestGeneration = discoverGeneration.begin()
         val requestUrl = if (selectedCatalog.server != null) {
             selectedCatalog.key
         } else {
@@ -566,6 +576,7 @@ object SearchRepository {
                 }.withUnreleasedFilter()
             }.fold(
                 onSuccess = { page ->
+                    if (!discoverGeneration.isCurrent(requestGeneration)) return@fold
                     val latest = _discoverUiState.value
                     if (latest.selectedCatalogKey != selectedCatalog.key || latest.selectedGenre != current.selectedGenre) {
                         return@fold
@@ -614,6 +625,7 @@ object SearchRepository {
                         return@fold
                     }
 
+                    if (!discoverGeneration.isCurrent(requestGeneration)) return@fold
                     val latest = _discoverUiState.value
                     if (latest.selectedCatalogKey != selectedCatalog.key || latest.selectedGenre != current.selectedGenre) {
                         return@fold
