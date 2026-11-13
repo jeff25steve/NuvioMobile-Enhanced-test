@@ -4628,3 +4628,15 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 - Follow-up review also found the second Search no-catalog early exit and repository `reset()` were retaining cancelled Job references. Both Search no-source exits now clear `activeJob`; `reset()` clears both Search and Discover job references after cancellation. This is reference/lifecycle cleanup only; it does not claim that cancellation has synchronously completed.
 - Source commits: `5944ddcc673c977ea2b816ea40229e64915ab1ff` and `f05ace490f4551f2d3d58f227627ca0f34aabddd`.
+
+## 2026-11-13 — Episode-release notification identifier overflow
+
+### Improvement cycle — Preserve non-negative identifier hash components at Int.MIN_VALUE
+- Root cause: `buildEpisodeReleaseNotificationId()` applied `kotlin.math.abs` directly to two `String.hashCode()` Int values. Kotlin's documented behavior is that `abs(Int.MIN_VALUE)` remains negative because the positive magnitude cannot fit in an Int. A valid episode/show identifier whose hash is `-2147483648` therefore produced a negative component and an inconsistent identifier shape.
+- Widened each hash to Long before applying `abs`. This safely represents every possible Int hash magnitude and preserves existing identifier strings for all hash values except the single overflowing Int.MIN_VALUE case. No hash algorithm, scheduling namespace, profile scoping, notification payload, or dependency changed.
+- Added a common regression test using `polygenelubricants`, whose Kotlin/JVM-compatible String hash is Int.MIN_VALUE, and asserting that the episode hash component is rendered as `2147483648`.
+- Evidence: Context7 resolved Kotlin documentation (the available indexed version was 1.9.0, not the project's pinned 2.4.10). Exa independently retrieved the official Kotlin Core API documentation, which explicitly states that `abs(Int.MIN_VALUE)` remains `Int.MIN_VALUE` due to overflow, and official unsigned/integer documentation. The selected Long-widening approach avoids introducing unsigned public or serialized types and is compatible with the existing Long-based standard-library overload.
+- Review: inspected the notification ID call site and existing common notification tests. The test is committed before the implementation. The source change widens both show and episode hashes consistently.
+- Validation boundary: per instruction, no tests, Gradle tasks, compilation, builds, benchmarks, or CI were run. The regression test is present but unexecuted; compilation/runtime behavior is not claimed as verified.
+- Test commit: `847e0c1461e837ae166762b83fd1e126b0ee3826` (initial test draft `b51198ac6bf074f2ae70011df0936d4f4575138f` was immediately corrected in the following test commit).
+- Source commit: `b1481edcabe9040155b5a10fa82eba3768cde2d6`.
