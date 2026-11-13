@@ -340,6 +340,50 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun remainingSettingsPagesExposeExactRenderedSearchAnchors() {
+        val expected = listOf(
+            Triple(SettingsPage.Account, "account-status", 0),
+            Triple(SettingsPage.Account, "account-sign-out", 0),
+            Triple(SettingsPage.Account, "account-delete", 0),
+            Triple(SettingsPage.ContentDiscovery, "recent-searches", 0),
+            Triple(SettingsPage.Streams, "stream-addon-logo", 0),
+            Triple(SettingsPage.Streams, "stream-background", 0),
+            Triple(SettingsPage.Streams, "stream-size-badges", 0),
+            Triple(SettingsPage.Streams, "stream-badge-position", 0),
+            Triple(SettingsPage.Streams, "stream-badge-urls", 0),
+            Triple(SettingsPage.MetaScreen, "meta-poster-transition", 0),
+            Triple(SettingsPage.Notifications, "notification-test", 1),
+            Triple(SettingsPage.TraktAuthentication, "trakt-authentication", 0),
+            Triple(SettingsPage.TraktAuthentication, "simkl-authentication", 0),
+            Triple(SettingsPage.TraktAuthentication, "mdblist-authentication", 0),
+            Triple(SettingsPage.TraktAuthentication, "private-viewing", 1),
+            Triple(SettingsPage.TraktAuthentication, "trakt-library-source", 2),
+            Triple(SettingsPage.TraktAuthentication, "trakt-watch-progress", 2),
+        )
+        expected.forEach { (page, key, sectionItemIndex) ->
+            val anchor = settingsSearchAnchor(page, key, key, "")
+            assertEquals(key, anchor?.key)
+            assertEquals(page, anchor?.page)
+            assertEquals(sectionItemIndex, anchor?.sectionItemIndex)
+        }
+    }
+
+    @Test
+    fun remainingSettingsPagesRejectUnknownSearchAnchorKeys() {
+        val pages = listOf(
+            SettingsPage.Account,
+            SettingsPage.ContentDiscovery,
+            SettingsPage.Streams,
+            SettingsPage.MetaScreen,
+            SettingsPage.Notifications,
+            SettingsPage.TraktAuthentication,
+        )
+        pages.forEach { page ->
+            assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
+        }
+    }
+
+    @Test
     fun playbackPlayerSearchResultsHaveExactRowAnchors() {
         val keys = listOf(
             "playback-player-preference",
