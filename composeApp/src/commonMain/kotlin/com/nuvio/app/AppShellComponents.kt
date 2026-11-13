@@ -160,7 +160,7 @@ internal data class AppTabActions(
     val onLiveTvVodClick: (LiveTvVodPlayback) -> Unit = {},
     val onSwitchProfile: (() -> Unit)? = null,
     val onEditProfile: (() -> Unit)? = null,
-    val onSettingsPageClick: ((pageName: String, title: String) -> Unit)? = null,
+    val onSettingsPageClick: ((pageName: String, title: String, settingKey: String?) -> Unit)? = null,
     val onHomescreenSettingsClick: () -> Unit = {},
     val onMetaScreenSettingsClick: () -> Unit = {},
     val onContinueWatchingSettingsClick: () -> Unit = {},
@@ -671,21 +671,5 @@ internal fun AppLoadingProfileAvatar(
                 modifier = Modifier.size(40.dp),
             )
         }
-    }
-}
-
-@Composable
-internal fun AppLaunchOverlay(
-    profile: NuvioProfile?,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier.zIndex(NuvioTokens.Z.dialog),
-    ) {
-        ProfileBackgroundBackdrop(
-            profile = profile,
-            modifier = Modifier.fillMaxSize(),
-        )
-        AppLoadingContent(modifier = Modifier.fillMaxSize(), profile = profile)
     }
 }
