@@ -6,6 +6,7 @@ import com.nuvio.app.features.debrid.DebridServiceCredential
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -24,6 +25,15 @@ class CloudLibraryStoreTest {
         assertEquals(null, effectiveCloudLibraryProviderId("removed", providers))
         assertEquals(null, effectiveCloudLibraryProviderId(null, providers))
     }
+    @Test
+    fun `stale provider selection is not reported as an active cloud filter`() {
+        assertFalse(cloudLibraryHasActiveFilters(null, null, ""))
+        assertFalse(cloudLibraryHasActiveFilters(null, null, "   "))
+        assertTrue(cloudLibraryHasActiveFilters("alpha", null, ""))
+        assertTrue(cloudLibraryHasActiveFilters(null, CloudLibraryItemType.Torrent, ""))
+        assertTrue(cloudLibraryHasActiveFilters(null, null, "movie"))
+    }
+
     @Test
     fun `refresh aggregates multiple providers without provider-specific assumptions`() = runBlocking {
         val firstProvider = cloudProvider(id = "alpha", name = "Alpha")
