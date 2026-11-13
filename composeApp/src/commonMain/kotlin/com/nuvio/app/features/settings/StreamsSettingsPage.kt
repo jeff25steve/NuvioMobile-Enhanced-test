@@ -106,7 +106,10 @@ import nuvio.composeapp.generated.resources.settings_meta_background_mode_cinema
 import nuvio.composeapp.generated.resources.settings_meta_background_mode_normal
 import org.jetbrains.compose.resources.stringResource
 
-internal fun LazyListScope.streamsSettingsContent(isTablet: Boolean) {
+internal fun LazyListScope.streamsSettingsContent(
+    isTablet: Boolean,
+    highlightedSearchAnchorKey: String? = null,
+) {
     item {
         val currentSettings by remember {
             StreamBadgeSettingsRepository.ensureLoaded()
@@ -129,18 +132,24 @@ internal fun LazyListScope.streamsSettingsContent(isTablet: Boolean) {
                     description = stringResource(Res.string.settings_stream_size_badges_description),
                     checked = currentSettings.showFileSizeBadges,
                     isTablet = isTablet,
+                    searchAnchorKey = "stream-size-badges",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = StreamBadgeSettingsRepository::setShowFileSizeBadges,
                 )
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_stream_badge_position_title),
                     description = badgePlacementLabel,
                     isTablet = isTablet,
+                    searchAnchorKey = "stream-badge-position",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onClick = { showBadgePositionDialog = true },
                 )
                 SettingsNavigationRow(
                     title = stringResource(Res.string.settings_stream_badge_urls_title),
                     description = badgeRulesPreview(currentRules),
                     isTablet = isTablet,
+                    searchAnchorKey = "stream-badge-urls",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onClick = { showBadgeImportDialog = true },
                 )
                 SettingsSwitchRow(
@@ -178,6 +187,8 @@ internal fun LazyListScope.streamsSettingsContent(isTablet: Boolean) {
                         title = stringResource(Res.string.settings_stream_background_title),
                         description = streamBackgroundModeLabel(currentSettings.backgroundMode),
                         isTablet = false,
+                        searchAnchorKey = "stream-background",
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                         onClick = { showBackgroundDialog = true },
                     )
                 }
@@ -186,6 +197,8 @@ internal fun LazyListScope.streamsSettingsContent(isTablet: Boolean) {
                     description = stringResource(Res.string.settings_stream_addon_logo_description),
                     checked = currentSettings.showAddonLogo,
                     isTablet = isTablet,
+                    searchAnchorKey = "stream-addon-logo",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = StreamBadgeSettingsRepository::setShowAddonLogo,
                 )
                 SettingsSwitchRow(
