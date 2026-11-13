@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.omdbSettingsContent(
     isTablet: Boolean,
     apiKey: String,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     item {
         SettingsSection(
@@ -36,11 +38,18 @@ internal fun LazyListScope.omdbSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                OmdbApiKeyRow(
-                    isTablet = isTablet,
-                    value = apiKey,
-                    onApiKeyCommitted = OmdbSettingsRepository::setApiKey,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "omdb-api-key",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        OmdbApiKeyRow(
+                            isTablet = isTablet,
+                            value = apiKey,
+                            onApiKeyCommitted = OmdbSettingsRepository::setApiKey,
+                        )
+                    }
+                }
             }
         }
     }
