@@ -12,6 +12,19 @@ import kotlin.test.assertTrue
 
 class CloudLibraryStoreTest {
     @Test
+    fun `stale selected provider falls back to all currently connected providers`() {
+        val alpha = cloudProvider(id = "alpha", name = "Alpha")
+        val beta = cloudProvider(id = "beta", name = "Beta")
+        val providers = listOf(
+            CloudLibraryProviderState(provider = alpha),
+            CloudLibraryProviderState(provider = beta),
+        )
+
+        assertEquals("alpha", effectiveCloudLibraryProviderId("alpha", providers))
+        assertEquals(null, effectiveCloudLibraryProviderId("removed", providers))
+        assertEquals(null, effectiveCloudLibraryProviderId(null, providers))
+    }
+    @Test
     fun `refresh aggregates multiple providers without provider-specific assumptions`() = runBlocking {
         val firstProvider = cloudProvider(id = "alpha", name = "Alpha")
         val secondProvider = cloudProvider(id = "beta", name = "Beta")
