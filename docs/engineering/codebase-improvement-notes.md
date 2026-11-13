@@ -4590,3 +4590,16 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Re-fetched the final Search screen/repository/models, Search History repository, relevant tests and this note from GitHub. Source review confirmed immediate pending-state publication occurs after cancellation/invalidation; persisted loading and new insertion share the same normalizer; the normalizer preserves first occurrence and newest spelling.
 - **No tests, Gradle tasks, compilation, builds, benchmarks, workflow dispatches or CI runs were started**, as instructed. Regression tests are committed but unexecuted; compilation and runtime behavior remain unverified.
 - No PR, merge, release or dependency update was created.
+
+
+## 2026-11-13 — Search history removal consistency
+
+### Improvement cycle — Case-insensitive recent-search removal
+- Root cause: recent-search insertion and disk normalization already deduplicate entries with Kotlin's case-insensitive string comparison, but `SearchHistoryRepository.removeSearch()` used exact case-sensitive equality. A caller supplying different capitalization could fail to remove the visible entry, leaving the user unable to reliably clear it through a differently-cased query.
+- Added the pure `removeSearchHistoryEntry(current, query)` helper. It trims the requested query, treats blank input as a no-op, and removes matching entries with `equals(ignoreCase = true)`. The repository now uses the helper and persists/publishes only when the list actually changes.
+- Added common tests for case-insensitive removal and surrounding whitespace.
+- Scope is limited to search-history deletion; profile storage, opt-out behavior, ordering, and history limits are unchanged.
+- Research: Context7 resolved Kotlin's official documentation. The exact project Kotlin compiler version was not revalidated in this focused change; the API is longstanding Kotlin standard-library functionality. Exa independently surfaced the official Kotlin Core API definition: case-insensitive equality compares corresponding characters using Kotlin's uppercase/lowercase character mapping. This comparison is not locale-tailored and should not be described as full Unicode case folding.
+- Review boundary: source and tests were inspected through GitHub. Per the standing instruction, no tests, builds, Gradle tasks, or CI were run, so runtime/test execution remains unverified.
+- Commits: test-first `d3ddd94beeb036b7dc148b3e34122bc93702c9b3`; implementation `d6322f6d02160bb87f3c1216f1daa3daae234f30`.
+
