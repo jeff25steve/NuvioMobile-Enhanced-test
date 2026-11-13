@@ -27,7 +27,7 @@ class AuthRefreshErrorClassificationTest {
 
     @Test
     fun doesNotTreatUnrelatedAuthFailuresAsRevokedRefreshTokens() {
-        listOf("invalid_credentials", "over_request_rate_limit", "provider_disabled").forEach { errorCode ->
+        listOf("invalid_credentials", "over_request_rate_limit", "provider_disabled", "email_exists").forEach { errorCode ->
             assertFalse(
                 isInvalidRefreshResponse(
                     statusCode = 400,
