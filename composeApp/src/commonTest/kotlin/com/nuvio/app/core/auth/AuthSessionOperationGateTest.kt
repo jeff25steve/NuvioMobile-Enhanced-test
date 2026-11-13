@@ -205,4 +205,39 @@ class AuthSessionOperationGateTest {
         gate.endReset()
         assertNotNull(gate.beginOperation(Job()))
     }
+
+    @Test
+    fun cancellingOneQueuedResetDoesNotReleaseAnotherQueuedResetReservation() = runTest {
+        val gate = AuthSessionOperationGate()
+        gate.beginReset()
+
+        val cancelledWaiter = launch {
+            gate.beginReset()
+            gate.endReset()
+        }
+        val nextAcquired = CompletableDeferred<Unit>()
+        val releaseNext = CompletableDeferred<Unit>()
+        val nextWaiter = launch {
+            gate.beginReset()
+            try {
+                nextAcquired.complete(Unit)
+                releaseNext.await()
+            } finally {
+                gate.endReset()
+            }
+        }
+        runCurrent()
+
+        cancelledWaiter.cancelAndJoin()
+        assertNull(gate.beginOperation(Job()))
+
+        gate.endReset()
+        nextAcquired.await()
+        assertNull(gate.beginOperation(Job()))
+
+        releaseNext.complete(Unit)
+        nextWaiter.join()
+        assertNotNull(gate.beginOperation(Job()))
+    }
+
 }
