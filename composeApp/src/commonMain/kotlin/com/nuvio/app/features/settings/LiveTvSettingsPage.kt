@@ -386,11 +386,13 @@ private fun LiveTvEpgSettingsRow(
                     Text(stringResource(Res.string.live_tv_settings_epg_add))
                 }
             }
-            OutlinedButton(
-                onClick = { LiveTvRepository.refreshEpg() },
-                enabled = uiState.channels.isNotEmpty() && !uiState.isEpgLoading,
-            ) {
-                Text(stringResource(Res.string.live_tv_settings_epg_refresh))
+            LiveTvSearchAnchor("live-tv-epg-refresh", highlightedSearchAnchorKey) {
+                OutlinedButton(
+                    onClick = { LiveTvRepository.refreshEpg() },
+                    enabled = uiState.channels.isNotEmpty() && !uiState.isEpgLoading,
+                ) {
+                    Text(stringResource(Res.string.live_tv_settings_epg_refresh))
+                }
             }
         }
 
