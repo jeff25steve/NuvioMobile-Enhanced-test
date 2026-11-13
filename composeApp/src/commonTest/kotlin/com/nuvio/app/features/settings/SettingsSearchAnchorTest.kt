@@ -359,6 +359,7 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.TraktAuthentication, "private-viewing", 1),
             Triple(SettingsPage.TraktAuthentication, "trakt-library-source", 2),
             Triple(SettingsPage.TraktAuthentication, "trakt-watch-progress", 2),
+            Triple(SettingsPage.TraktAuthentication, "trakt-more-like-this-source", 2),
         )
         expected.forEach { (page, key, sectionItemIndex) ->
             val anchor = settingsSearchAnchor(page, key, key, "")
