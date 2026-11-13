@@ -4471,3 +4471,33 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Rechecked the safety backup comparison: `main-build-testing` is 142 commits ahead and zero behind `backup/main-build-testing-pre-upstream-sync-20261113-0929`; no backup history was lost.
 - This is a source/resource review, not a full XML parser, Compose resource-generation run, translation QA review or runtime locale test. Builds and CI remain unexecuted and unauthorised.
 
+## 13 November 2026 — Authentication reset-gate cancellation handoff
+
+**Starting checkpoint:** `main-build-testing` at `d48d60bac4fead9c6a86cd0ac923ef921074a5ae`.
+
+### Cycle 1 — Reconcile the gate after a cancelled Mutex handoff
+
+- Root cause: `AuthSessionOperationGate.endReset()` unlocks the reset mutex and immediately mirrors `resetMutex.isLocked` into `resetting`. When a queued reset has already been selected as the next mutex owner, `isLocked` remains true. If that waiter is cancelled before its continuation executes, kotlinx.coroutines releases the handed-off mutex ownership itself, but the gate had no callback to reconcile its separate `resetting` flag. With no other reset queued, the flag could remain true indefinitely and reject all future session operations.
+- Added a regression test first in `AuthSessionOperationGateTest.kt`: release the active reset, cancel the waiter after ownership handoff but before it resumes, then assert a new session operation can register.
+- Minimal production fix: wrap the suspending `resetMutex.lock()` acquisition in its own `try/catch`. If acquisition throws (including prompt cancellation after handoff), synchronize the gate state with the mutex's actual `isLocked` state before rethrowing. The existing post-acquisition failure cleanup and normal reset ownership behavior remain unchanged.
+- No change to credential storage, Supabase operations, auth-state generation, biometric APIs, profile permissions or session reset ordering.
+
+### Cycle 2 — Preserve exclusion across a queued reset chain
+
+- Added a second regression case for three reset callers: an active reset, a queued reset cancelled during handoff, and a third queued reset waiting behind it.
+- The test holds the third reset after it acquires ownership, asserts new session operations remain blocked during that lease, then releases it and asserts operations can resume. This guards against over-correcting the first race by opening the gate while a later reset is still queued/active.
+- Re-read the complete gate implementation and the full operation-gate test file after both changes. The new cancellation catch only reconciles the boolean from the Mutex's authoritative lock state; it does not unlock a lease that the cancelled caller never successfully returned with.
+
+### Research and compatibility review
+
+- The version catalog pins `kotlinx-coroutines` at **1.10.2**. Context7 resolved the official Kotlinx Coroutines library, but its indexed version list did not expose 1.10.2 (1.10.1 was the nearest indexed version). To avoid relying on that older indexed snapshot, fetched the exact `1.10.2` tagged `Mutex.kt` source from the official Kotlin repository and confirmed its documented prompt-cancellation guarantee: a cancelled suspended `lock()` throws even if ready to return and releases the lock if it had already been acquired.
+- Exa independently surfaced the official Mutex API contract and kotlinx.coroutines cancellation/handoff issue discussion. The implementation change relies only on the already-used `Mutex.lock()` and `Mutex.isLocked` API; no new library API or dependency was introduced.
+- A full independent subagent review could not be dispatched through the available connected tools. A read-only source review was performed against the complete changed production and test files.
+
+### Verification boundary and remaining work
+
+- Both regression tests were committed before the production fix was changed. Their scheduler choreography was manually reviewed against the exact 1.10.2 Mutex cancellation contract.
+- **No Gradle task, test execution, compilation, build, benchmark, workflow dispatch or CI run was started**, in accordance with the no-build/no-CI restriction. The regression tests are committed but remain unexecuted; no runtime fix or test pass is claimed.
+- After authorisation, run the focused `AuthSessionOperationGateTest` suite first, then the common auth tests and platform compile checks. Also exercise rapid overlapping sign-out/server-switch cancellation on Android and iOS.
+- Scope is limited to `AuthSessionOperationGate.kt`, its common test file and this note. No Liquid Glass Editor, custom settings/cloud backgrounds, profile biometric implementation, dependency, build configuration or workflow files were changed.
+
