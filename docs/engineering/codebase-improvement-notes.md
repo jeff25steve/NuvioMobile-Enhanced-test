@@ -5095,7 +5095,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 
 ### Integration and completion gate
 
-- The temporary CI branch is four commits ahead of main-build-testing and has not modified the target branch's production code.
+- At the time the CI branch was created, it was four commits ahead of main-build-testing. This note was then committed to main-build-testing, so the current comparison is four commits ahead and one behind; the single base-only commit is this documentation update. The CI branch has not modified the target branch's production code.
 - Do not call the regression verified or Player fully fixed until the focused host test and Full Debug APK build both complete successfully on the exact final branch head.
 - After CI completes, re-check the run SHA, job steps, test result, build result and APK artifact. Then integrate only the verified source and test changes into main-build-testing; do not copy the temporary CI workflow into the main application branch.
 - A Linux APK build is compile/package evidence only. Full Player sign-off still requires runtime playback checks across ExoPlayer and libmpv, subtitles, gestures, overlays, engine switching and Liquid Glass on supported Android devices.
