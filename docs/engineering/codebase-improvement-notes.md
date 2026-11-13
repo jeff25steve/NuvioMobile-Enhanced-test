@@ -4884,3 +4884,31 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Source inspection confirms the two capture resources now have separate responsibilities: libraryBackdrop serves the static screen and source-switch pill; libraryContentBackdrop serves only pinned Saved filters and an open Saved calendar.
 - The common regression test was added but not executed. No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started, per instruction.
 - This removes an unnecessary full-viewport source recording when only the shared source switch is glass-enabled. No measured frame-time or memory improvement is claimed; runtime profiling remains unauthorised.
+
+
+## 13 November 2026 — separate static and scrolling Library backdrop capture
+
+### Root cause
+
+- The Library used one broad `anyLibraryGlassEnabled` flag to decide whether to record the static screen backdrop. That flag intentionally includes Saved type/sort controls and the Saved release calendar, but those surfaces consume `libraryContentBackdrop`, not `libraryBackdrop`.
+- As a result, Saved-only glass configurations recorded two graphics layers: the scrolling Saved `LazyColumn` and the static screen background. The static layer had no consumer unless the shared Library source switch was enabled.
+- The root composition-local and source-switch provider also exposed the static backdrop whenever any Library surface was enabled, even in configurations where no static source was recorded. This could hand a surface an unready source instead of accurately representing which backdrop is available.
+
+### Changes
+
+- Added `libraryStaticBackdropCaptureRequired`, which enables static capture only for the shared `LIBRARY` source switch in any mode, or Cloud filters/search/cards while Cloud is active.
+- Kept Saved type/sort controls and the release calendar on their dedicated scrolling-content capture path.
+- Applied the static-capture policy consistently to the static source modifier, the root backdrop provider fallback, and the source-switch provider. The source switch is therefore given a static backdrop only when that source is actually recorded.
+- Added regression cases covering Saved-only surfaces, Cloud consumers, the shared switch across all modes, inactive-mode surfaces, and master/platform gates.
+
+### Evidence and review
+
+- Traced every Library source consumer in `LibraryScreen.kt`: the shared source switch samples `libraryBackdrop`; Cloud filter/search/card surfaces sample the static screen background; pinned Saved filters and the calendar explicitly sample `libraryContentBackdrop`.
+- Confirmed the source modifier uses `NuvioBackdropSourceNode.draw()` to record its child drawing commands into a `GraphicsLayer`. AndroidX documentation describes `GraphicsLayer.record` as recording drawing commands and `drawLayer` as replaying them; avoiding an unused source therefore avoids a second recording pass for that layer.
+- Context7 documentation for Jetpack Compose was consulted for `GraphicsLayer.record`, `drawLayer`, `drawWithContent`, and modifier draw invalidation. Exa research cross-checked the upstream AndroidX LazyList implementation and drawing behavior. No new framework API or dependency was introduced.
+
+### Verification boundary
+
+- The regression test was committed before the production policy change (TDD ordering), but was not executed because builds/tests were not authorised.
+- The remote source, test and notes were re-fetched for source-level verification. No Gradle command, compilation, test, build, benchmark, device/simulator run or CI workflow was started.
+- This change removes unnecessary static capture for Saved-only surfaces by policy. No measured frame-time or memory improvement is claimed; runtime profiling and UI validation remain outstanding.
