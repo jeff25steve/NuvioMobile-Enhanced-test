@@ -813,109 +813,109 @@ fun LibraryScreen(
                 CompositionLocalProvider(
                     LocalLiquidGlassBackdrop provides if (anyLibraryGlassEnabled) libraryBackdrop else null,
                 ) {
-                LibrarySourceSwitch(
-                    selectedMode = sourceMode,
-                    showServers = hasServers,
-                    onModeSelected = { mode ->
-                        sourceModeName = mode.name
-                    },
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .then(
-                            if (libraryGlassEnabled) {
-                                val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(50.dp))
-                                Modifier.liquidGlassForSurface(
-                                    surface = LiquidGlassSurface.LIBRARY,
-                                    shape = shape,
-                                    // Apple-like capsule material: show the wallpaper while keeping
-                                    // a restrained tint, soft edge and legible selected segment.
-                                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
-                                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                    blurRadius = 12.dp,
-                                    refractionHeight = 6.dp,
-                                    refractionAmount = 9.dp,
-                                ).border(
-                                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)),
-                                    shape,
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-                    trailingActions = {
-                    if (sourceMode == LibraryViewMode.Saved) {
-                        LibraryListManagementButton()
-                        val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
-                            LibraryLayoutMode.VERTICAL
-                        } else {
-                            LibraryLayoutMode.HORIZONTAL
+                    LibrarySourceSwitch(
+                        selectedMode = sourceMode,
+                        showServers = hasServers,
+                        onModeSelected = { mode ->
+                            sourceModeName = mode.name
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .then(
+                                if (libraryGlassEnabled) {
+                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(50.dp))
+                                    Modifier.liquidGlassForSurface(
+                                        surface = LiquidGlassSurface.LIBRARY,
+                                        shape = shape,
+                                        // Apple-like capsule material: show the wallpaper while keeping
+                                        // a restrained tint, soft edge and legible selected segment.
+                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                                        blurRadius = 12.dp,
+                                        refractionHeight = 6.dp,
+                                        refractionAmount = 9.dp,
+                                    ).border(
+                                        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)),
+                                        shape,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        trailingActions = {
+                            if (sourceMode == LibraryViewMode.Saved) {
+                                LibraryListManagementButton()
+                                val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
+                                    LibraryLayoutMode.VERTICAL
+                                } else {
+                                    LibraryLayoutMode.HORIZONTAL
+                                }
+                                IconButton(
+                                    onClick = {
+                                        LibraryDisplaySettingsRepository.setLayoutMode(targetLayout)
+                                },
+                            ) {
+                                Crossfade(
+                                    targetState = targetLayout,
+                                    animationSpec = tween(durationMillis = 140),
+                                    label = "libraryLayoutAction",
+                                ) { animatedTargetLayout ->
+                                    Icon(
+                                        imageVector = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
+                                            Icons.Rounded.GridView
+                                        } else {
+                                            Icons.Rounded.ViewAgenda
+                                        },
+                                        contentDescription = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
+                                            stringResource(Res.string.library_layout_show_vertical)
+                                        } else {
+                                            stringResource(Res.string.library_layout_show_horizontal)
+                                        },
+                                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                                    )
+                                }
+                            }
                         }
-                        IconButton(
-                            onClick = {
-                                LibraryDisplaySettingsRepository.setLayoutMode(targetLayout)
-                            },
-                        ) {
-                            Crossfade(
-                                targetState = targetLayout,
-                                animationSpec = tween(durationMillis = 140),
-                                label = "libraryLayoutAction",
-                            ) { animatedTargetLayout ->
+                        if (sourceMode == LibraryViewMode.Saved) {
+                            val openCalendarLabel = stringResource(Res.string.library_calendar_open)
+                            IconButton(
+                                onClick = { showReleaseCalendar = true },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .semantics { contentDescription = openCalendarLabel },
+                            ) {
                                 Icon(
-                                    imageVector = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
-                                        Icons.Rounded.GridView
-                                    } else {
-                                        Icons.Rounded.ViewAgenda
-                                    },
-                                    contentDescription = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
-                                        stringResource(Res.string.library_layout_show_vertical)
-                                    } else {
-                                        stringResource(Res.string.library_layout_show_horizontal)
-                                    },
+                                    imageVector = Icons.Rounded.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
                                     tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
                                 )
                             }
                         }
-                    }
-                    if (sourceMode == LibraryViewMode.Saved) {
-                        val openCalendarLabel = stringResource(Res.string.library_calendar_open)
-                        IconButton(
-                            onClick = { showReleaseCalendar = true },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .semantics { contentDescription = openCalendarLabel },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CalendarMonth,
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp),
-                                tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
-                            )
+                        if (sourceMode == LibraryViewMode.Cloud) {
+                            val cloudSearchLabel = stringResource(Res.string.cloud_library_search_label)
+                            IconButton(
+                                onClick = {
+                                    if (cloudSearchVisible) cloudSearchQuery = ""
+                                    cloudSearchVisible = !cloudSearchVisible
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .semantics { contentDescription = cloudSearchLabel },
+                            ) {
+                                Icon(
+                                    imageVector = if (cloudSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
-                    }
-                    if (sourceMode == LibraryViewMode.Cloud) {
-                        val cloudSearchLabel = stringResource(Res.string.cloud_library_search_label)
-                        IconButton(
-                            onClick = {
-                                if (cloudSearchVisible) cloudSearchQuery = ""
-                                cloudSearchVisible = !cloudSearchVisible
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .semantics { contentDescription = cloudSearchLabel },
-                        ) {
-                            Icon(
-                                imageVector = if (cloudSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        if (onDownloadsClick != null) {
+                            LibraryDownloadsButton(onClick = onDownloadsClick)
                         }
-                    }
-                    if (onDownloadsClick != null) {
-                        LibraryDownloadsButton(onClick = onDownloadsClick)
-                    }
-                    },
-                )
+                        },
+                    )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
             }
