@@ -438,6 +438,9 @@ class SettingsSearchAnchorTest {
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
         }
+        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "card-depth-edge", "Card depth edge", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PosterCustomization, "card-depth-sheen", "Card depth sheen", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.TraktAuthentication, "trakt-more-like-this-source", "More Like This", ""))
     }
 
     @Test
