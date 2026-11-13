@@ -4088,6 +4088,8 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Context7 Kotlin language documentation confirmed that Kotlin function types encode their full parameter list/arity. Exa search was attempted but the connected Exa service rejected the request with HTTP 401, so no Exa findings are claimed.
 - The fix was committed directly to `main-build-testing` in two source commits. No new dependency or framework API was introduced.
 
+- A full-file source replacement was caught during diff review because it had omitted the unrelated `AppLaunchOverlay` helper. Restored the helper verbatim on `main-build-testing` and copied the corrected complete source file to the CI branch before the final validation attempt. The earlier CI attempt is not treated as authoritative; the latest runs use corrected commit `eb265fcabd022047deb2fcf7e4aa42d717ab27d1`.
+
 ### Cycle 2 — Remote source and build-workflow preparation
 
 - Re-read the current branch head and fetched both changed source files after the writes. Confirmed the app-shell callback type and the native navigation lambda now agree and the `settingKey` is forwarded into `SettingsPageRoute`.
