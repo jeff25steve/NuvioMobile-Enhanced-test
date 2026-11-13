@@ -35,9 +35,37 @@ internal inline fun <reified T : Throwable> Throwable.findCause(): T? {
 internal fun Throwable.isJwtExpiredError(): Boolean = "jwt expired" in authMessages()
 
 internal fun Throwable.isInvalidSessionError(): Boolean {
-    if (findCause<RestException>()?.statusCode == 401) return true
-    val messages = authMessages()
-    return invalidSessionMarkers.any(messages::contains) || isDeletedAccountError()
+    val restError = findCause<RestException>()
+    return isInvalidRemoteSessionResponse(
+        statusCode = restError?.statusCode,
+        errorCode = restError?.error,
+        message = authMessages(),
+    )
+}
+
+/**
+ * Distinguishes an invalid remote session from a request that the current role is not
+ * permitted to perform. PostgREST SQLSTATE 42501 can be surfaced as either 401 or 403;
+ * neither status alone means the user's Supabase session is invalid.
+ */
+internal fun isInvalidRemoteSessionResponse(
+    statusCode: Int?,
+    message: String,
+    errorCode: String? = null,
+): Boolean {
+    if (errorCode.equals("42501", ignoreCase = true)) return false
+    if (statusCode == 401) return true
+
+    val messages = message.lowercase()
+    val invalidJwt = "jwt" in messages &&
+        ("invalid" in messages || "expired" in messages || "malformed" in messages || "bad_jwt" in messages)
+    val invalidSession = invalidSessionMarkers.any(messages::contains)
+    val deletedUser = "user" in messages &&
+        ("does not exist" in messages || "not found" in messages || "deleted" in messages)
+    val invalidForeignKey = "foreign key" in messages &&
+        ("auth.users" in messages || "user_id" in messages)
+
+    return invalidJwt || invalidSession || deletedUser || invalidForeignKey
 }
 
 internal fun Throwable.isInvalidRefreshError(): Boolean {
