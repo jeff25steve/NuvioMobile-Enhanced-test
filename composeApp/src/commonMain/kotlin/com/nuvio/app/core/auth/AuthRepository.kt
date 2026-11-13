@@ -241,7 +241,7 @@ object AuthRepository {
                 }
             },
             onFailure = { error ->
-                if (isInvalidRemoteSessionError(error)) {
+                if (error.isInvalidSessionError()) {
                     log.w(error) { "Stored Supabase session no longer belongs to an active account; clearing local auth" }
                     clearLocalSessionAfterRemoteInvalidation(
                         accountUserId = userId,
@@ -587,24 +587,6 @@ object AuthRepository {
 
     fun clearError() {
         _error.value = null
-    }
-
-    private fun isInvalidRemoteSessionError(error: Throwable): Boolean {
-        val restError = error.findCause<RestException>()
-        val message = buildString {
-            append(error.message.orEmpty())
-            if (restError != null) {
-                append(' ')
-                append(restError.error)
-                append(' ')
-                append(restError.description.orEmpty())
-            }
-        }
-        return isInvalidRemoteSessionResponse(
-            statusCode = restError?.statusCode,
-            errorCode = error.findCause<PostgrestRestException>()?.code ?: restError?.error,
-            message = message,
-        )
     }
 
     private inline fun <reified T : Throwable> Throwable.findCause(): T? {
