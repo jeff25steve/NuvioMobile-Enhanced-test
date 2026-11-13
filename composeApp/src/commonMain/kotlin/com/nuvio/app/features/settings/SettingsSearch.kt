@@ -107,7 +107,7 @@ internal fun settingsSearchAnchor(
         SettingsPage.Streams ->
             if (key in StreamsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.MetaScreen ->
-            if (key == "meta-poster-transition") 0 else return null
+            if (key in MetaScreenSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.TraktAuthentication -> when (key) {
             "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
             "private-viewing" -> 1
@@ -164,6 +164,17 @@ private val StreamsSettingsSearchAnchorKeys = setOf(
     "stream-badge-urls",
 )
 
+private val MetaScreenSettingsSearchAnchorKeys = setOf(
+    "meta-background-mode",
+    "meta-poster-transition",
+    "meta-tabs",
+    "meta-overall-ratings",
+    "meta-episode-ratings",
+    "meta-episode-cards",
+    "meta-shuffle",
+    "meta-blur-episodes",
+)
+
 private val AppearanceSettingsSearchAnchorKeys = setOf("amoled", "app-icon", "app-language")
 
 // These indexes match the four LazyListScope items in layoutSettingsContent:
@@ -180,8 +191,6 @@ private val DownloadsSettingsSearchAnchorKeys = setOf(
     "downloads-show-download-button",
     "download-location",
 )
-
-private val NotificationsSettingsSearchAnchorKeys = setOf("episode-release-alerts")
 
 private val AdvancedSettingsSearchAnchorKeys = setOf(
     "advanced-remember-last-profile",
