@@ -68,7 +68,7 @@ object SearchHistoryRepository {
 
     fun removeSearch(query: String) {
         ensureLoaded()
-        val updatedSearches = recentSearches.filterNot { it == query }
+        val updatedSearches = removeSearchHistoryEntry(recentSearches, query)
         if (updatedSearches == recentSearches) return
 
         recentSearches = updatedSearches
@@ -130,3 +130,14 @@ internal fun applySearchHistoryEntry(
     entries = listOf(query) + current,
     limit = limit,
 )
+
+internal fun removeSearchHistoryEntry(
+    current: List<String>,
+    query: String,
+): List<String> {
+    val normalizedQuery = query.trim()
+    if (normalizedQuery.isEmpty()) return current
+    return current.filterNot { existing ->
+        existing.equals(normalizedQuery, ignoreCase = true)
+    }
+}
