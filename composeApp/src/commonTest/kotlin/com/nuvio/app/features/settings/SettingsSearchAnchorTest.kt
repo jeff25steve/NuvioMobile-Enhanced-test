@@ -371,6 +371,9 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.MdbListRatings, "mdb-imdb", 2),
             Triple(SettingsPage.MdbListRatings, "mdb-audience", 2),
             Triple(SettingsPage.Omdb, "omdb-api-key", 0),
+            Triple(SettingsPage.DebugLogs, "debug-copy-logs", 0),
+            Triple(SettingsPage.DebugLogs, "debug-clear-logs", 0),
+            Triple(SettingsPage.DebugLogs, "debug-log-viewer", 0),
             Triple(SettingsPage.DiscordRpc, "discord-login", 0),
             Triple(SettingsPage.DiscordRpc, "discord-enable", 1),
             Triple(SettingsPage.DiscordRpc, "discord-activity-type", 1),
@@ -409,6 +412,8 @@ class SettingsSearchAnchorTest {
             SettingsPage.TmdbEnrichment,
             SettingsPage.MdbListRatings,
             SettingsPage.Omdb,
+            SettingsPage.DiscordRpc,
+            SettingsPage.DebugLogs,
         )
         pages.forEach { page ->
             assertNull(settingsSearchAnchor(page, "not-a-rendered-setting", "Unknown", ""))
