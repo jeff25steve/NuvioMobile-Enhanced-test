@@ -974,4 +974,51 @@ class SettingsSearchAnchorTest {
         }
     }
 
+    @Test
+    fun homescreenSectionSearchResultsHaveExactSectionAnchors() {
+        val rows = listOf(
+            "home-hero" to 1,
+            "home-catalog-type" to 1,
+            "home-hide-unreleased" to 1,
+            "home-hero-sources" to 2,
+            "home-catalogs" to 3,
+        )
+        rows.forEach { (key, expectedIndex) ->
+            assertEquals(
+                expectedIndex,
+                settingsSearchAnchor(SettingsPage.Homescreen, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
+    @Test
+    fun cardDepthSearchResultsMatchAllVisibleControls() {
+        val keys = listOf(
+            "card-depth-effect",
+            "card-depth-edge",
+            "card-depth-sheen",
+            "card-depth-edge-coverage",
+            "card-depth-fine-tune",
+            "card-depth-surface-posters",
+            "card-depth-surface-continue-watching",
+            "card-depth-surface-episode-cards",
+            "card-depth-surface-cast",
+            "card-depth-surface-trailers",
+        )
+        keys.forEach { key ->
+            assertEquals(
+                2,
+                settingsSearchAnchor(SettingsPage.PosterCustomization, key, key, "")?.sectionItemIndex,
+                key,
+            )
+        }
+    }
+
+    @Test
+    fun thresholdDetailSearchTermsDoNotCreatePhantomRows() {
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackUpNext, "playback-threshold-percent", "Threshold percentage", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.PlaybackUpNext, "playback-threshold-minutes", "Minutes before end", ""))
+    }
+
 }
