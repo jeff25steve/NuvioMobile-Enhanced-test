@@ -4065,7 +4065,7 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Added the branch-specific push trigger to the existing PR Full Debug Build workflow, following the previous CI-branch pattern. This triggers the existing Ubuntu fullDebug APK build on the CI branch only.
 - Context7 was consulted for Compose Multiplatform compatibility patterns. The exact repository version (1.13.0-beta01) was not listed; the available documentation covered 1.12.2 and the implementation uses existing APIs already present in this codebase. Exa research confirmed the existing native photo-picker approach is privacy-preserving and does not require broad media permissions.
 - No changes to the main-build-testing branch, no new dependencies, and no changes to the navigation-bar Liquid Glass subsystem.
-- Validation is pending the new workflow run. Source review caught and corrected the second editor call-site flag and added the required dp import before CI was triggered.
+- The isolated workflow completed successfully on corrected source commit `eb265fcabd022047deb2fcf7e4aa42d717ab27d1`; the final successful Linux and iOS run outcomes and artifact names are recorded below. Source review caught and corrected the second editor call-site flag and added the required dp import before CI was triggered.
 
 
 ### Cycle 3 — Integrate the actual feature implementation into main-build-testing
@@ -4096,4 +4096,30 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Confirmed `SettingsPageRoute.settingKey` already exists and `SettingsDestination` already forwards it to `SettingsScreen.initialSearchAnchorKey`; no route schema change is needed.
 - The failed run was executed against the isolated background-editor CI branch at source commit `3635e9392b6de6e710190c10f194ac289e86c547`. The same incompatible callback contract was present on `main-build-testing`, so the repair was applied to the actual working branch before preparing fresh validation.
 - Linux and iOS build validation is authorised for this continuation. Results will be recorded after the new branch-triggered runs finish; no passing status is assumed before the workflows report completion.
-- Fresh validation on the corrected CI branch is running both the Linux fullDebug APK workflow (`43345532908`) and the unsigned iOS Debug IPA workflow (`43345532999`), both from source commit `eb265fcabd022047deb2fcf7e4aa42d717ab27d1`. Their final results are not yet available; do not treat the in-progress runs as passing.
+- Fresh validation completed successfully on the corrected CI branch at source commit `eb265fcabd022047deb2fcf7e4aa42d717ab27d1`: Linux fullDebug APK run `43345532908` and unsigned iOS Debug IPA run `43345532999` both concluded `success`. GitHub reports non-expired artifacts `androidApp-full-debug.apk` and `nuvio-test-Debug-ipa-eb265fcabd022047deb2fcf7e4aa42d717ab27d1`.
+
+
+## 13 November 2026 — Improve Settings Search responsiveness and bounded matching
+
+### Cycle 1 — Reuse a normalized search index across keystrokes
+
+- Replaced per-query reconstruction of every entry's normalized title, aliases, page, section, description, key, and category tokens with an immutable `SettingsSearchIndex`.
+- The search results item now remembers the index by the entries list and remembers ranked results by query plus index. Repeated keystrokes reuse pre-normalized tokens; a changed localized catalogue or feature-availability set naturally produces a different entries list and rebuilds the index.
+- Preserved the existing field weights, exact-title/alias/page boosts, all-query-terms requirement, fuzzy score, and stable source-order tie-break.
+- Removed the unused `SettingsSearchEntry.searchableText` allocation; it was not referenced by the repository's search implementation.
+- Added coverage for reusing one index across multiple queries while retaining result ordering.
+
+### Cycle 2 — Bound typo-distance work to the viable diagonal
+
+- Replaced the full-width row calculation in `boundedSettingsSearchEditDistance` with a Ukkonen-style diagonal band. With threshold `k`, only cells within `|row - column| <= k` are visited; row buffers are reused and only the active band plus sentinel cells is reset.
+- Kept the shorter input on the array axis, limiting working memory to the shorter token length. Explicitly reset band boundaries so stale values cannot leak into the recurrence; retain the existing length-difference and row-minimum early exits.
+- Added exhaustive reference-comparison coverage for all 31 binary strings of length 0–4, every pair, and thresholds 0–2, plus out-of-band, empty-input, and negative-threshold cases.
+- Context7 resolved the official Kotlin documentation. The exact project Kotlin version (`2.4.10`) was not listed as a versioned Context7 target; the official Kotlin arrays documentation confirms common Kotlin `IntArray.fill(element, fromIndex, toIndex)` semantics used by the band reset. No dependency or framework API changed.
+- Exa research compared the original Ukkonen paper record/PDF with a mature Rust bioinformatics implementation documenting bounded Ukkonen DP and distance-sensitive complexity. This supports the diagonal-band approach; no external algorithm dependency was added.
+- Independently model-checked the band recurrence against a full-matrix Levenshtein reference for the same 31-string corpus and thresholds 0–2: 2,883 pair/threshold combinations matched. This was a Python algorithm check, not execution of the Kotlin tests.
+- The Kotlin common tests were added but deliberately not run: the current instruction prohibits builds and CI, and the Gradle test task would invoke the build system. Do not report the new tests as passing until authorised test execution.
+
+### Review and scope
+
+- Manually reviewed the final source and test diff against the prior `main-build-testing` head. Search weights, normalization rules, fuzzy cutoffs, target values, result ordering, and route behavior remain unchanged; the change only reuses prepared search data and narrows bounded-distance work.
+- No new dependencies, platform-specific APIs, workflow edits, build invocations, test invocations, or CI runs were made in this improvement cycle.
