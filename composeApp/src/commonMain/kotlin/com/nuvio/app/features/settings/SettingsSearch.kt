@@ -59,6 +59,8 @@ import com.nuvio.app.core.ui.glass.isLiquidGlassSupported
 import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.debrid.DebridProviders
+import com.nuvio.app.features.debrid.DebridSettings
+import com.nuvio.app.features.livetv.LiveTvUiState
 import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.player.PlayerSettingsRepository
 import com.nuvio.app.features.player.effectiveDownmixEnabled
@@ -472,6 +474,8 @@ internal fun settingsSearchEntries(
     liquidGlassNativeTabBarSupported: Boolean,
     switchProfileAvailable: Boolean,
     checkForUpdatesAvailable: Boolean,
+    debridSettings: DebridSettings,
+    liveTvUiState: LiveTvUiState,
 ): List<SettingsSearchEntry> {
     val authState by remember { AuthRepository.state }.collectAsStateWithLifecycle()
     val accountCategory = stringResource(SettingsCategory.You.labelRes)
@@ -583,7 +587,15 @@ internal fun settingsSearchEntries(
             category = category,
             target = SettingsSearchTarget.Page(
                 page = page,
-                anchor = settingsSearchAnchor(page, key, title, description),
+                anchor = settingsSearchAnchor(
+                    page = page,
+                    key = key,
+                    title = title,
+                    description = description,
+                    debridCanResolvePlayableLinks = debridSettings.canResolvePlayableLinks,
+                    debridInstantPlaybackEnabled = debridSettings.instantPlaybackPreparationLimit > 0,
+                    liveTvHasPlaylist = liveTvUiState.hasPlaylist,
+                ),
             ),
             searchTerms = searchTerms,
         )
