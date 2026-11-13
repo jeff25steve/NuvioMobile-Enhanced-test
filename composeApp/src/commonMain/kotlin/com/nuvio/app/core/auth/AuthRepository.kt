@@ -31,9 +31,11 @@ import org.jetbrains.compose.resources.getString
 
 private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
     val failures = results.mapNotNull { it.exceptionOrNull() }
-    val primary = failures.firstOrNull() ?: return null
-    failures.drop(1).forEach { failure ->
-        if (failure !== primary) primary.addSuppressed(failure)
+    val primary = failures.firstOrNull { it is CancellationException }
+        ?: failures.firstOrNull()
+        ?: return null
+    failures.filter { it !== primary }.forEach { failure ->
+        primary.addSuppressed(failure)
     }
     return primary
 }
@@ -458,15 +460,15 @@ object AuthRepository {
                 listOf(anonymousRead, anonymousClear, remoteSignOut, fallbackSessionClear, localCleanup),
             )
 
-            val failure = anonymousRead.exceptionOrNull()
-                ?: anonymousClear.exceptionOrNull()
-                ?: remoteSignOut.exceptionOrNull()
-                ?: fallbackSessionClear.exceptionOrNull()
-                ?: localCleanup.exceptionOrNull()
-            val cancellation = remoteSignOut.exceptionOrNull() as? CancellationException
-                ?: fallbackSessionClear.exceptionOrNull() as? CancellationException
-                ?: localCleanup.exceptionOrNull() as? CancellationException
-            if (cancellation != null) throw cancellation
+            val cleanupResults = listOf(
+                anonymousRead,
+                anonymousClear,
+                remoteSignOut,
+                fallbackSessionClear,
+                localCleanup,
+            )
+            val failure = cleanupFailure(cleanupResults)
+            if (failure is CancellationException) throw failure
             return if (failure == null) {
                 Result.success(Unit)
             } else {
@@ -609,7 +611,7 @@ object AuthRepository {
                 ?: localCleanup.exceptionOrNull() as? CancellationException
             if (cancellation != null) throw cancellation
 
-            val failure = localSessionClear.exceptionOrNull() ?: localCleanup.exceptionOrNull()
+            val failure = cleanupFailure(listOf(localSessionClear, localCleanup))
             return if (failure == null) {
                 Result.success(Unit)
             } else {
