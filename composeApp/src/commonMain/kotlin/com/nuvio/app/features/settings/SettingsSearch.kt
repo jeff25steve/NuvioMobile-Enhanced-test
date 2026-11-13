@@ -120,6 +120,8 @@ internal fun settingsSearchAnchor(
         }
         SettingsPage.Omdb ->
             if (key == "omdb-api-key") 0 else return null
+        SettingsPage.Homescreen ->
+            if (key in HomescreenSettingsSearchAnchorKeys) 1 else return null
         SettingsPage.DebugLogs ->
             if (key in DebugLogsSettingsSearchAnchorKeys) 0 else return null
         SettingsPage.DiscordRpc -> when (key) {
@@ -208,6 +210,12 @@ private val StreamsSettingsSearchAnchorKeys = setOf(
     "stream-size-badges",
     "stream-badge-position",
     "stream-badge-urls",
+)
+
+private val HomescreenSettingsSearchAnchorKeys = setOf(
+    "home-hero",
+    "home-catalog-type",
+    "home-hide-unreleased",
 )
 
 private val DebugLogsSettingsSearchAnchorKeys = setOf(
