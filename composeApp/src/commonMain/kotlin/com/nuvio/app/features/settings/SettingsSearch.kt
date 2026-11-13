@@ -2201,6 +2201,7 @@ private fun addPlaybackRows(
         pageLabel: String,
         section: String,
         category: String,
+        searchTerms: List<String>,
     ) -> Unit,
     page: SettingsPage,
     pageLabel: String,
@@ -2216,6 +2217,7 @@ private fun addPlaybackRows(
             pageLabel,
             row.sectionOverride ?: section,
             "",
+            row.searchTerms,
         )
     }
 }
@@ -2243,6 +2245,7 @@ private fun addContinueWatchingRows(
             pageLabel,
             section,
             "",
+            row.searchTerms,
         )
     }
 }
