@@ -360,7 +360,7 @@ object CloudLibraryRepository {
                     if (!cloudLibraryEnabled) {
                         refreshGeneration += 1
                         loadedConnectionKeys = emptyList()
-            restoredConnectionKeys = emptyList()
+                        restoredConnectionKeys = emptyList()
                         _uiState.value = CloudLibraryUiState(isLoaded = true, isEnabled = false)
                     } else {
                         _uiState.update { current ->
