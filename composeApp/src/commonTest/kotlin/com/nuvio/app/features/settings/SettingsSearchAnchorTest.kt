@@ -419,6 +419,45 @@ class SettingsSearchAnchorTest {
     }
 
     @Test
+    fun debridSearchAnchorsMatchVisibleSectionsAndProviderRows() {
+        val alwaysVisible = listOf(
+            "debrid-cloud-library" to 0,
+            "debrid-link-resolving" to 0,
+            "debrid-provider-torbox" to 1,
+            "debrid-provider-premiumize" to 1,
+        )
+        alwaysVisible.forEach { (key, expectedIndex) ->
+            assertEquals(expectedIndex, settingsSearchAnchor(SettingsPage.Debrid, key, key, "")?.sectionItemIndex)
+        }
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-provider-realdebrid", "Real-Debrid", ""))
+    }
+
+    @Test
+    fun debridConditionalSearchAnchorsRequireTheirControlsToBeRendered() {
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback", "Instant playback", ""))
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-max-results", "Maximum results", "", debridCanResolvePlayableLinks = false))
+        assertEquals(2, settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback", "Instant playback", "", debridCanResolvePlayableLinks = true)?.sectionItemIndex)
+        assertNull(settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback-count", "Prepare count", "", debridCanResolvePlayableLinks = true, debridInstantPlaybackEnabled = false))
+        assertEquals(2, settingsSearchAnchor(SettingsPage.Debrid, "debrid-instant-playback-count", "Prepare count", "", debridCanResolvePlayableLinks = true, debridInstantPlaybackEnabled = true)?.sectionItemIndex)
+        assertEquals(3, settingsSearchAnchor(SettingsPage.Debrid, "debrid-max-results", "Maximum results", "", debridCanResolvePlayableLinks = true)?.sectionItemIndex)
+        assertEquals(3, settingsSearchAnchor(SettingsPage.Debrid, "debrid-preferred-languages", "Preferred languages", "", debridCanResolvePlayableLinks = true)?.sectionItemIndex)
+        assertEquals(4, settingsSearchAnchor(SettingsPage.Debrid, "debrid-name-template", "Name template", "", debridCanResolvePlayableLinks = true)?.sectionItemIndex)
+    }
+
+    @Test
+    fun liveTvSearchAnchorsFollowPlaylistDependentSectionIndexes() {
+        assertNull(settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-navigation", "Navigation", ""))
+        assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-xtream-codes", "Xtream", "", liveTvHasPlaylist = false)?.sectionItemIndex)
+        assertEquals(1, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-playlist-url", "Playlist URL", "", liveTvHasPlaylist = false)?.sectionItemIndex)
+        assertEquals(2, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-epg-auto", "Automatic EPG", "", liveTvHasPlaylist = false)?.sectionItemIndex)
+        assertEquals(0, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-navigation", "Navigation", "", liveTvHasPlaylist = true)?.sectionItemIndex)
+        assertEquals(1, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-reload-channels", "Reload channels", "", liveTvHasPlaylist = true)?.sectionItemIndex)
+        assertEquals(2, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-xtream-codes", "Xtream", "", liveTvHasPlaylist = true)?.sectionItemIndex)
+        assertEquals(3, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-playlist-url", "Playlist URL", "", liveTvHasPlaylist = true)?.sectionItemIndex)
+        assertEquals(4, settingsSearchAnchor(SettingsPage.LiveTv, "live-tv-epg-auto", "Automatic EPG", "", liveTvHasPlaylist = true)?.sectionItemIndex)
+    }
+
+    @Test
     fun remainingSettingsPagesRejectUnknownSearchAnchorKeys() {
         val pages = listOf(
             SettingsPage.Account,
