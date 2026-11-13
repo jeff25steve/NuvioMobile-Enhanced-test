@@ -120,6 +120,14 @@ internal fun settingsSearchAnchor(
         }
         SettingsPage.Omdb ->
             if (key == "omdb-api-key") 0 else return null
+        SettingsPage.DiscordRpc -> when (key) {
+            "discord-login" -> 0
+            "discord-enable", "discord-activity-type", "discord-status" -> 1
+            "discord-show-title-as-name", "discord-show-poster", "discord-show-playback-state",
+            "discord-show-timestamps", "discord-hide-on-pause", "discord-show-imdb-button" -> 2
+            "discord-application-id" -> 3
+            else -> return null
+        }
         SettingsPage.TraktAuthentication -> when (key) {
             "trakt-authentication", "simkl-authentication", "mdblist-authentication" -> 0
             "private-viewing" -> 1
