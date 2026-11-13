@@ -15,20 +15,20 @@ internal class AuthSessionOperationGate {
     private val lock = SynchronizedObject()
     private val resetMutex = Mutex()
     private var nextOperationId = 0L
-    private var resetting = false
+    private var pendingResets = 0
     private val operations = mutableMapOf<Long, Job>()
 
     fun beginOperation(job: Job): Long? = synchronized(lock) {
-        if (resetting) return@synchronized null
+        if (pendingResets > 0) return@synchronized null
         (++nextOperationId).also { operations[it] = job }
     }
 
     fun isCurrent(operation: Long): Boolean = synchronized(lock) {
-        !resetting && operation in operations
+        pendingResets == 0 && operation in operations
     }
 
     fun runIfOpen(block: () -> Unit): Boolean = synchronized(lock) {
-        if (resetting) return@synchronized false
+        if (pendingResets > 0) return@synchronized false
         block()
         true
     }
@@ -46,24 +46,31 @@ internal class AuthSessionOperationGate {
      * closed while ownership is handed to another queued reset.
      */
     suspend fun beginReset(): List<Job> {
+        // Register the reset request before suspending on the mutex. This reservation is
+        // the source of truth for the operation gate; Mutex.isLocked is only a snapshot and
+        // cannot safely reconstruct gate state across a concurrent unlock/lock handoff.
+        synchronized(lock) {
+            pendingResets += 1
+        }
+
         try {
             resetMutex.lock()
         } catch (error: Throwable) {
-            // Mutex.lock can hand ownership to a waiter and then throw cancellation before
-            // that waiter's continuation runs. In that case the Mutex releases ownership
-            // itself, so reconcile the gate after the cancelled acquisition has unwound.
-            synchronized(lock) { resetting = resetMutex.isLocked }
+            synchronized(lock) {
+                pendingResets -= 1
+            }
             throw error
         }
 
         return try {
             synchronized(lock) {
-                resetting = true
                 operations.values.distinct()
             }
         } catch (error: Throwable) {
             resetMutex.unlock()
-            synchronized(lock) { resetting = resetMutex.isLocked }
+            synchronized(lock) {
+                pendingResets -= 1
+            }
             throw error
         }
     }
@@ -71,7 +78,7 @@ internal class AuthSessionOperationGate {
     fun endReset() {
         resetMutex.unlock()
         synchronized(lock) {
-            resetting = resetMutex.isLocked
+            pendingResets -= 1
         }
     }
 }
