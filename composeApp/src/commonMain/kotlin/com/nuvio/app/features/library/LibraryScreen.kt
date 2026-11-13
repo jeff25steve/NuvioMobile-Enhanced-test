@@ -192,6 +192,7 @@ import com.nuvio.app.features.addons.enabledAddons
 import com.nuvio.app.features.addons.hasPendingEnabledManifests
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -550,9 +551,7 @@ fun LibraryScreen(
     }
 
     LaunchedEffect(uiState.items) {
-        if (uiState.items.isNotEmpty()) {
-            LibraryReleaseCalendarCache.warm(uiState.items)
-        }
+        LibraryReleaseCalendarCache.warm(uiState.items)
     }
 
     val disintegration = remember { LibraryDisintegrationHolder() }
@@ -3476,6 +3475,18 @@ internal fun shouldClearLibraryCalendarWarmingState(
     fullWarmInProgress: Boolean,
 ): Boolean = currentCacheKey == requestedCacheKey && isWarming && !fullWarmInProgress
 
+internal fun shouldUseLibraryReleaseCalendarSnapshot(
+    requestedCacheKey: String,
+    snapshotCacheKey: String?,
+): Boolean = snapshotCacheKey == requestedCacheKey
+
+internal fun shouldApplyLibraryCalendarWarmResult(
+    requestedCacheKey: String,
+    currentCacheKey: String,
+    requestedGeneration: Long,
+    currentGeneration: Long,
+): Boolean = requestedCacheKey == currentCacheKey && requestedGeneration == currentGeneration
+
 private data class LibraryReleaseCalendarCacheState(
     val cacheKey: String? = null,
     val events: List<LibraryCalendarEvent> = emptyList(),
@@ -3495,6 +3506,7 @@ private object LibraryReleaseCalendarCache {
     val state: StateFlow<LibraryReleaseCalendarCacheState> = _state.asStateFlow()
 
     private var lastItems: List<LibraryItem> = emptyList()
+    private var warmGeneration = 0L
     private var warmJob: Job? = null
     private var warmJobKey: String? = null
     private var monthJob: Job? = null
@@ -3514,7 +3526,18 @@ private object LibraryReleaseCalendarCache {
     }
 
     suspend fun warm(items: List<LibraryItem>) {
-        if (items.isEmpty()) return
+        if (items.isEmpty()) {
+            lastItems = emptyList()
+            warmGeneration += 1
+            warmJob?.cancelAndJoin()
+            warmJob = null
+            warmJobKey = null
+            monthJob?.cancelAndJoin()
+            monthJob = null
+            resetRetry()
+            _state.value = LibraryReleaseCalendarCacheState()
+            return
+        }
         lastItems = items
         ensureAddonWatcher()
         requestWarm(items)?.join()
@@ -3535,15 +3558,20 @@ private object LibraryReleaseCalendarCache {
         monthJob = null
         resetRetry()
         val cacheKey = cacheKeyFor(items)
+        val generation = ++warmGeneration
         warmJobKey = cacheKey
-        val job = scope.launch { runWarm(items, cacheKey, forceFull = true) }
+        val job = scope.launch { runWarm(items, cacheKey, generation, forceFull = true) }
         warmJob = job
         job.join()
     }
 
     suspend fun clearAndRebuild() {
-        warmJob?.cancel()
-        monthJob?.cancel()
+        warmGeneration += 1
+        warmJob?.cancelAndJoin()
+        warmJob = null
+        warmJobKey = null
+        monthJob?.cancelAndJoin()
+        monthJob = null
         resetRetry()
         seriesRefetchedAtEpochMs.clear()
         lastForcedRefreshAtEpochMs = 0L
@@ -3635,24 +3663,23 @@ private object LibraryReleaseCalendarCache {
         warmJob?.cancel()
         monthJob?.cancel()
         monthJob = null
+        val generation = ++warmGeneration
         warmJobKey = cacheKey
-        return scope.launch { runWarm(items, cacheKey) }.also { warmJob = it }
+        return scope.launch { runWarm(items, cacheKey, generation) }.also { warmJob = it }
     }
 
-    private suspend fun runWarm(items: List<LibraryItem>, cacheKey: String, forceFull: Boolean = false) {
+    private suspend fun runWarm(
+        items: List<LibraryItem>,
+        cacheKey: String,
+        generation: Long,
+        forceFull: Boolean = false,
+    ) {
         val today = CurrentDateProvider.todayIsoDate()
         val targetMonthKeys = libraryCalendarWarmMonthKeys()
         val inMemory = _state.value.takeIf { it.cacheKey == cacheKey }
-        val persisted = if (inMemory == null) {
-            withContext(Dispatchers.Default) { LibraryReleaseSchedulePersistence.load(items) }
-        } else {
-            null
-        }
-
-        val previousEvents = inMemory?.events ?: persisted?.events ?: _state.value.events
         _state.value = LibraryReleaseCalendarCacheState(
             cacheKey = cacheKey,
-            events = (previousEvents.filter { event -> event.key.startsWith("episode:") } +
+            events = (inMemory?.events.orEmpty().filter { event -> event.key.startsWith("episode:") } +
                 buildLibraryReleaseCalendarFallbackEvents(items)).sortedLibraryCalendarEvents(),
             isWarming = true,
             loadedMonthKeys = inMemory?.loadedMonthKeys.orEmpty(),
@@ -3663,10 +3690,27 @@ private object LibraryReleaseCalendarCache {
         )
 
         try {
+            val persisted = if (inMemory == null) {
+                withContext(Dispatchers.Default) { LibraryReleaseSchedulePersistence.load(items) }
+            } else {
+                null
+            }
+            if (!isCurrentWarm(items, cacheKey, generation)) return
+            val matchingPersisted = persisted?.takeIf { restored ->
+                shouldUseLibraryReleaseCalendarSnapshot(cacheKey, restored.cacheKey)
+            }
+            val previousEvents = inMemory?.events ?: matchingPersisted?.events
+                ?: buildLibraryReleaseCalendarFallbackEvents(items)
+            _state.value = _state.value.copy(
+                events = (previousEvents.filter { event -> event.key.startsWith("episode:") } +
+                    buildLibraryReleaseCalendarFallbackEvents(items)).sortedLibraryCalendarEvents(),
+            )
+
             awaitLibraryAddonsSettled()
+            if (!isCurrentWarm(items, cacheKey, generation)) return
             val signature = currentLibraryAddonSignature(AddonRepository.uiState.value)
             val previousBuild = inMemory?.takeIf { it.isReady }
-                ?: persisted?.takeIf { it.cacheKey == cacheKey }?.let { restored ->
+                ?: matchingPersisted?.let { restored ->
                     LibraryReleaseCalendarCacheState(
                         cacheKey = cacheKey,
                         events = restored.events,
@@ -3743,16 +3787,31 @@ private object LibraryReleaseCalendarCache {
                 )
             }
 
-            if (_state.value.cacheKey != cacheKey) return
+            if (!isCurrentWarm(items, cacheKey, generation)) return
             _state.value = next
-            persist(next)
+            if (isCurrentWarm(items, cacheKey, generation)) persist(next)
             if (next.failedSeriesKeys.isEmpty()) resetRetry() else scheduleRetry()
         } finally {
-            if (_state.value.cacheKey == cacheKey && _state.value.isWarming) {
+            if (
+                isCurrentWarm(items, cacheKey, generation) &&
+                _state.value.cacheKey == cacheKey &&
+                _state.value.isWarming
+            ) {
                 _state.value = _state.value.copy(isWarming = false)
             }
         }
     }
+
+    private fun isCurrentWarm(
+        items: List<LibraryItem>,
+        cacheKey: String,
+        generation: Long,
+    ): Boolean = shouldApplyLibraryCalendarWarmResult(
+        requestedCacheKey = cacheKey,
+        currentCacheKey = cacheKeyFor(items),
+        requestedGeneration = generation,
+        currentGeneration = warmGeneration,
+    )
 
     private suspend fun persist(snapshot: LibraryReleaseCalendarCacheState) {
         withContext(Dispatchers.Default) { LibraryReleaseSchedulePersistence.save(snapshot) }
@@ -4172,7 +4231,7 @@ internal data class LibraryUpcomingEpisode(
 )
 
 internal suspend fun warmLibraryReleaseSchedule(items: List<LibraryItem>) {
-    if (items.isNotEmpty()) LibraryReleaseCalendarCache.warm(items)
+    LibraryReleaseCalendarCache.warm(items)
 }
 
 internal fun libraryUpcomingEpisodesFlow(days: Int = 7): Flow<List<LibraryUpcomingEpisode>> =
