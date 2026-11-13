@@ -106,8 +106,11 @@ internal fun settingsSearchAnchor(
             if (key == "recent-searches") 0 else return null
         SettingsPage.Streams ->
             if (key in StreamsSettingsSearchAnchorKeys) 0 else return null
-        SettingsPage.MetaScreen ->
-            if (key in MetaScreenSettingsSearchAnchorKeys) 0 else return null
+        SettingsPage.MetaScreen -> when (key) {
+            "meta-overview", "meta-actions", "meta-details", "meta-trailers", "meta-cast",
+            "meta-episodes", "meta-production", "meta-more-like-this", "meta-collection", "meta-comments" -> 1
+            else -> if (key in MetaScreenSettingsSearchAnchorKeys) 0 else return null
+        }
         SettingsPage.TmdbEnrichment -> when (key) {
             "tmdb-enable", "tmdb-api-key" -> 0
             "tmdb-language" -> 1
