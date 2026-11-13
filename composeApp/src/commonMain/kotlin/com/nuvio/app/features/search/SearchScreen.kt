@@ -222,6 +222,7 @@ fun SearchScreen(
             lastRequestedQuery = null
             SearchRepository.clear()
         } else {
+            SearchRepository.cancelPendingSearch()
             delay(350)
             lastRequestedQuery = normalizedQuery
             SearchRepository.search(
