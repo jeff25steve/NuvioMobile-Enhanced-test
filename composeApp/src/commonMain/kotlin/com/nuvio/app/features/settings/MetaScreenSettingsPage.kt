@@ -378,9 +378,9 @@ private fun MetaSectionRow(
     SettingsSearchAnchorContainer(
         searchAnchorKey = "meta-${item.key.name.lowercase().replace('_', '-')}",
         highlightedSearchAnchorKey = highlightedSearchAnchorKey,
-    ) {
+    ) { anchorModifier ->
         Column(
-            modifier = Modifier
+            modifier = anchorModifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         ) {
