@@ -859,6 +859,8 @@ private fun MobileSettingsScreen(
                                 liquidGlassNativeTabBarSupported = liquidGlassNativeTabBarSupported,
                                 switchProfileAvailable = onSwitchProfile != null,
                                 checkForUpdatesAvailable = onCheckForUpdatesClick != null,
+                                debridSettings = debridSettings,
+                                liveTvUiState = liveTvUiState,
                             )
                         },
                         isTablet = false,
@@ -1362,6 +1364,8 @@ private fun TabletSettingsScreen(
                                     liquidGlassNativeTabBarSupported = liquidGlassNativeTabBarSupported,
                                     switchProfileAvailable = onSwitchProfile != null,
                                     checkForUpdatesAvailable = onCheckForUpdatesClick != null,
+                                    debridSettings = debridSettings,
+                                    liveTvUiState = liveTvUiState,
                                 )
                             },
                             isTablet = true,
