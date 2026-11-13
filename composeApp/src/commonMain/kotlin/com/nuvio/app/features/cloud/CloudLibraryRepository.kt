@@ -123,7 +123,10 @@ object CloudLibraryRepository {
         val current = _uiState.value
         if (current.isRefreshing) return
         val connectedKeys = connectedCloudConnectionKeys()
-        if (!current.isLoaded || connectedKeys != loadedConnectionKeys) {
+        val needsRefresh = synchronized(refreshLock) {
+            !current.isLoaded || connectedKeys != loadedConnectionKeys
+        }
+        if (needsRefresh) {
             refreshInternal(cachedKeys = connectedKeys)
         }
     }
@@ -196,8 +199,12 @@ object CloudLibraryRepository {
         }
 
         val connectedKeys = connectedCloudConnectionKeys()
-        if (connectedKeys != loadedConnectionKeys && connectedKeys != restoredConnectionKeys) {
-            restoreCachedState(connectedKeys)
+        val shouldRestoreCache = synchronized(refreshLock) {
+            connectedKeys != loadedConnectionKeys && connectedKeys != restoredConnectionKeys
+        }
+        if (shouldRestoreCache) {
+            val restoreGeneration = synchronized(refreshLock) { refreshGeneration }
+            restoreCachedState(connectedKeys, restoreGeneration)
         }
 
         _uiState.value.findPlaybackTargetForProgress(
