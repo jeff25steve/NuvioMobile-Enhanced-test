@@ -35,7 +35,7 @@ private const val VideoFrameBufferCount = 3
 /** After repeated unavailable captures, retry slowly so protected/unsupported video costs less CPU. */
 private const val VideoFrameUnavailableFrameLimit = 15
 
-/** Decides when repeated missing/black/failed frames should switch capture to a low-rate retry. */
+/** Decides when repeated failed or unavailable captures should switch to a low-rate retry. */
 internal class VideoFrameCapturePolicy(
     private val unavailableFrameLimit: Int = VideoFrameUnavailableFrameLimit,
 ) {
