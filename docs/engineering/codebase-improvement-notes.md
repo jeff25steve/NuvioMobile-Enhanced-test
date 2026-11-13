@@ -4941,3 +4941,29 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - The regression test was committed before the production helper and preview layout change (TDD ordering), but was not executed because builds/tests remain unauthorised.
 - The remote test, production helper, preview composable and notes were re-fetched for source-level verification. No Gradle task, compilation, test, build, benchmark, device/simulator run or CI workflow was started.
 - The change corrects the source-level hierarchy and viewport geometry. Actual scrolling, touch interaction, and visual parity still need a manual runtime check when builds/device testing are authorised.
+
+
+## 13 November 2026 — end-to-end source ownership audit for Library Liquid Glass
+
+### Audit scope and confirmed data flow
+
+- Re-traced the live Saved, Cloud and calendar paths after the static/scrolling backdrop split and the Cloud Studio sticky-header correction.
+- Saved filters are rendered as a sibling overlay above the NuvioScreen list. Their glass receives libraryContentBackdrop; the list itself is the recorded source, so the overlay is not included in the pixels it samples.
+- The release-calendar dialog is outside the Library's root composition-local provider and explicitly receives libraryContentBackdrop only in Saved mode when calendar glass is enabled. LibraryCalendarGlassSurface also requires a ready backdrop before applying translucent glass, retaining a solid fallback during source initialisation or when no source is available.
+- The shared Library source-switch pill receives libraryBackdrop, which is recorded only for the shared Library surface preference. Cloud filter/search/card consumers use that same static screen source while Cloud is active.
+- The live Cloud toolbar and optional search remain one stickyHeader. The Studio preview now uses the same sticky-header structure and its own list viewport inset below the fixed title/source-switch chrome.
+- NuvioScreen was inspected directly: its topPadding is mapped to LazyColumn.contentPadding.top. The Saved 72 dp reservation is therefore scrollable content-space that keeps the initial section heading clear of the pinned controls; it is not a viewport inset. The Cloud preview uses Modifier.padding(top = ...) on the LazyColumn itself because its sticky header must pin below fixed preview chrome. These two insets serve different layout contracts and should not be unified.
+
+### Framework and rendering evidence
+
+- The project's actual Compose Multiplatform pin remains 1.13.0-beta01. Context7's available Compose Multiplatform version catalogue does not list that exact beta, so no claim is made that its indexed snippets are version-exact. The current project source and upstream AndroidX/JetBrains LazyList implementation were used to check the relevant behavior.
+- Context7 Backdrop documentation describes exportedBackdrop as the mechanism for deriving a nested layer backdrop while skipping content that would otherwise create a rendering loop. The Library source/consumer paths reviewed here use separate NuvioBackdrop instances and do not introduce a nested drawBackdrop/same-layer cycle.
+- The app's NuvioBackdropSourceNode records the source's child drawing commands into its GraphicsLayer, publishes source coordinates when attached, and clears them on detach. This is consistent with the reviewed source/consumer ownership: Saved controls and the calendar consume the scrolling source, while the static pill and Cloud glass consume the static source.
+- Official AndroidX LazyList source and Android Developers lazy-list guidance were cross-checked through Exa for the distinction between content padding and the list's measured viewport. Kyant's Backdrop documentation was cross-checked through Context7 for nested backdrop loop avoidance.
+
+### Outcome and remaining verification
+
+- No additional production-code defect was established by this source-only audit. No speculative layout or backdrop changes were made.
+- Existing common regression coverage includes the static/content capture policies, Saved calendar source selection/readiness, Saved pinned controls, and Cloud preview viewport inset. The tests have not been executed.
+- Remote source inspection is not a substitute for visual/device validation. Saved poster visibility behind pinned controls while scrolling, Cloud custom-image rendering and sticky-toolbar touch behaviour, calendar blur/dismissal, and Android/iOS renderer parity remain to be checked in an authorised runtime session.
+- No Gradle task, test, compilation, build, benchmark, device/simulator run or CI workflow was started.
