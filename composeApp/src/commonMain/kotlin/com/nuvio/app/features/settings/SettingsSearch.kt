@@ -52,6 +52,9 @@ import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.network.DnsSettingsRepository
 import com.nuvio.app.core.ui.CardDepthStyleRepository
+import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
+import com.nuvio.app.core.ui.shouldExposeLiquidGlassSettings
+import com.nuvio.app.core.ui.glass.isLiquidGlassAvailable
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.glass.LiquidGlassSurface
@@ -109,7 +112,7 @@ internal fun settingsSearchAnchor(
     val sectionItemIndex = when (page) {
         SettingsPage.Appearance -> when (key) {
             "theme" -> 0
-            "amoled", "app-icon", "app-language" -> 1
+            "amoled", "app-icon", "app-language", "liquid-glass-effects", "liquid-glass-customize" -> 1
             else -> return null
         }
         SettingsPage.Layout ->
@@ -1275,6 +1278,26 @@ internal fun settingsSearchEntries(
         pageLabel = appearancePage,
         section = stringResource(Res.string.settings_appearance_section_theme),
     )
+    if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
+        addRow(
+            page = SettingsPage.Appearance,
+            key = "liquid-glass-effects",
+            title = stringResource(Res.string.settings_appearance_liquid_glass_effects),
+            description = stringResource(Res.string.settings_appearance_liquid_glass_effects_description),
+            pageLabel = appearancePage,
+            section = stringResource(Res.string.settings_appearance_section_display),
+            searchTerms = listOf("glass effect", "translucency", "blur", "liquid glass appearance"),
+        )
+        addRow(
+            page = SettingsPage.Appearance,
+            key = "liquid-glass-customize",
+            title = stringResource(Res.string.settings_liquid_glass_customize),
+            description = stringResource(Res.string.settings_liquid_glass_customize_description),
+            pageLabel = appearancePage,
+            section = stringResource(Res.string.settings_appearance_section_display),
+            searchTerms = listOf("customize glass", "glass surfaces", "glass editor"),
+        )
+    }
     addRow(
         page = SettingsPage.Appearance,
         key = "amoled",
