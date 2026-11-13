@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -67,6 +68,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun LazyListScope.tmdbSettingsContent(
     isTablet: Boolean,
     settings: TmdbSettings,
+    highlightedSearchAnchorKey: String? = null,
 ) {
     val enrichmentControlsEnabled = settings.enabled
 
@@ -81,14 +83,23 @@ internal fun LazyListScope.tmdbSettingsContent(
                     description = stringResource(Res.string.settings_tmdb_enable_enrichment_description),
                     checked = settings.enabled,
                     isTablet = isTablet,
+                    searchAnchorKey = "tmdb-enable",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = TmdbSettingsRepository::setEnabled,
                 )
                 SettingsGroupDivider(isTablet = isTablet)
-                TmdbApiKeyRow(
-                    isTablet = isTablet,
-                    value = settings.apiKey,
-                    onApiKeyCommitted = TmdbSettingsRepository::setApiKey,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "tmdb-api-key",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        TmdbApiKeyRow(
+                            isTablet = isTablet,
+                            value = settings.apiKey,
+                            onApiKeyCommitted = TmdbSettingsRepository::setApiKey,
+                        )
+                    }
+                }
             }
         }
     }
@@ -99,12 +110,19 @@ internal fun LazyListScope.tmdbSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
-                TmdbLanguageRow(
-                    isTablet = isTablet,
-                    value = settings.language,
-                    enabled = true,
-                    onLanguageCommitted = TmdbSettingsRepository::setLanguage,
-                )
+                SettingsSearchAnchorContainer(
+                    searchAnchorKey = "tmdb-language",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                ) { anchorModifier ->
+                    Box(modifier = anchorModifier.fillMaxWidth()) {
+                        TmdbLanguageRow(
+                            isTablet = isTablet,
+                            value = settings.language,
+                            enabled = true,
+                            onLanguageCommitted = TmdbSettingsRepository::setLanguage,
+                        )
+                    }
+                }
                 SettingsGroupDivider(isTablet = isTablet)
                 TmdbToggleRow(
                     isTablet = isTablet,
@@ -131,6 +149,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_trailers),
+                    searchAnchorKey = "tmdb-trailers",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_trailers_description),
                     checked = settings.useTrailers,
                     enabled = enrichmentControlsEnabled,
@@ -140,6 +160,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_artwork),
+                    searchAnchorKey = "tmdb-artwork",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_artwork_description),
                     checked = settings.useArtwork,
                     enabled = enrichmentControlsEnabled,
@@ -149,6 +171,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_basic_info),
+                    searchAnchorKey = "tmdb-basic-info",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_basic_info_description),
                     checked = settings.useBasicInfo,
                     enabled = enrichmentControlsEnabled,
@@ -158,6 +182,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_details),
+                    searchAnchorKey = "tmdb-details",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_details_description),
                     checked = settings.useDetails,
                     enabled = enrichmentControlsEnabled,
@@ -167,6 +193,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_credits),
+                    searchAnchorKey = "tmdb-credits",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_credits_description),
                     checked = settings.useCredits,
                     enabled = enrichmentControlsEnabled,
@@ -176,6 +204,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_production_companies),
+                    searchAnchorKey = "tmdb-companies",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_production_companies_description),
                     checked = settings.useProductions,
                     enabled = enrichmentControlsEnabled,
@@ -185,6 +215,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_networks),
+                    searchAnchorKey = "tmdb-networks",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_networks_description),
                     checked = settings.useNetworks,
                     enabled = enrichmentControlsEnabled,
@@ -194,6 +226,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_episodes),
+                    searchAnchorKey = "tmdb-episodes",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_episodes_description),
                     checked = settings.useEpisodes,
                     enabled = enrichmentControlsEnabled,
@@ -212,6 +246,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_season_posters),
+                    searchAnchorKey = "tmdb-season-posters",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_season_posters_description),
                     checked = settings.useSeasonPosters,
                     enabled = enrichmentControlsEnabled,
@@ -221,6 +257,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_more_like_this),
+                    searchAnchorKey = "tmdb-more-like-this",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_more_like_this_description),
                     checked = settings.useMoreLikeThis,
                     enabled = enrichmentControlsEnabled,
@@ -230,6 +268,8 @@ internal fun LazyListScope.tmdbSettingsContent(
                 TmdbToggleRow(
                     isTablet = isTablet,
                     title = stringResource(Res.string.settings_tmdb_module_collections),
+                    searchAnchorKey = "tmdb-collections",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     description = stringResource(Res.string.settings_tmdb_module_collections_description),
                     checked = settings.useCollections,
                     enabled = enrichmentControlsEnabled,
@@ -357,6 +397,8 @@ private fun TmdbToggleRow(
     description: String,
     checked: Boolean,
     enabled: Boolean,
+    searchAnchorKey: String? = null,
+    highlightedSearchAnchorKey: String? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     SettingsSwitchRow(
@@ -365,6 +407,8 @@ private fun TmdbToggleRow(
         checked = checked,
         enabled = enabled,
         isTablet = isTablet,
+        searchAnchorKey = searchAnchorKey,
+        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
         onCheckedChange = onCheckedChange,
     )
 }
