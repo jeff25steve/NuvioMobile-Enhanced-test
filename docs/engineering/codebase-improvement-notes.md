@@ -4076,3 +4076,21 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Manually reviewed the full changed Kotlin files, routing, storage calls, cancellation handling, profile-switch guards, localization keys, and the existing repository's profile-isolation tests. The added common routing tests are committed but not executed.
 - Kept the CI-only push trigger and all workflow changes on the isolated CI branch. Inspected the main branch workflow triggers: none of the configured workflows automatically builds or runs CI on a push to `main-build-testing`.
 - No build, test, workflow dispatch, or new CI run was started during this integration cycle, in accordance with the latest instruction. The earlier isolated run `43343105125` was started under the previous explicit authorisation; it was not restarted here.
+
+
+## 13 November 2026 — Repair Settings Search navigation callback build regression
+
+### Cycle 1 — Trace and fix the Kotlin compile failure
+
+- Inspected failed Linux workflow run `43343105125` and downloaded the failed job log. The failing task was `:composeApp:compileAndroidMain`; the compiler reported `AppShellComponents.kt:260` passed a nullable `(String, String) -> Unit` where `(String, String, String?) -> Unit` was required.
+- Traced the callback contract from `SettingsScreen.onNavigatePage` through `AppTabHost` / `AppTabActions` into `MainAppContent`. The third nullable `settingKey` parameter is required by `SettingsPageRoute` and is consumed as `initialSearchAnchorKey` by `SettingsDestination`; dropping it would have fixed compilation while breaking exact Settings Search navigation.
+- Updated `AppTabActions.onSettingsPageClick` to the three-parameter callback and updated the native navigation lambda to construct `SettingsPageRoute(pageName, title, settingKey)`. This keeps the search anchor intact end-to-end.
+- Context7 Kotlin language documentation confirmed that Kotlin function types encode their full parameter list/arity. Exa search was attempted but the connected Exa service rejected the request with HTTP 401, so no Exa findings are claimed.
+- The fix was committed directly to `main-build-testing` in two source commits. No new dependency or framework API was introduced.
+
+### Cycle 2 — Remote source and build-workflow preparation
+
+- Re-read the current branch head and fetched both changed source files after the writes. Confirmed the app-shell callback type and the native navigation lambda now agree and the `settingKey` is forwarded into `SettingsPageRoute`.
+- Confirmed `SettingsPageRoute.settingKey` already exists and `SettingsDestination` already forwards it to `SettingsScreen.initialSearchAnchorKey`; no route schema change is needed.
+- The failed run was executed against the isolated background-editor CI branch at source commit `3635e9392b6de6e710190c10f194ac289e86c547`. The same incompatible callback contract was present on `main-build-testing`, so the repair was applied to the actual working branch before preparing fresh validation.
+- Linux and iOS build validation is authorised for this continuation. Results will be recorded after the new branch-triggered runs finish; no passing status is assumed before the workflows report completion.
