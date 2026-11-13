@@ -228,19 +228,17 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun savedScrollBackdropReservesToolbarAndPinnedControlsBeforeFirstPoster() {
+    fun savedScrollViewportReservesOnlyPinnedControlsBelowTheFixedToolbar() {
         assertEquals(
-            120.dp,
+            72.dp,
             libraryContentTopPadding(
-                headerHeight = 48.dp,
                 hasSavedControls = true,
                 savedControlsInset = 72.dp,
             ),
         )
         assertEquals(
-            48.dp,
+            0.dp,
             libraryContentTopPadding(
-                headerHeight = 48.dp,
                 hasSavedControls = false,
                 savedControlsInset = 72.dp,
             ),
