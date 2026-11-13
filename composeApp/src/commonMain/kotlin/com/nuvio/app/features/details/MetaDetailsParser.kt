@@ -28,6 +28,7 @@ internal object MetaDetailsParser {
         val meta = root.extractMetaObject()
             ?: error("Response did not contain a valid meta object")
         val links = meta.links()
+        val linkCredits = links.toCreditGroups()
         val videos = meta.videos()
         val behaviorHints = meta.behaviorHints()
 
@@ -50,9 +51,9 @@ internal object MetaDetailsParser {
             ageRating = meta.ageRating(),
             runtime = meta.string("runtime"),
             genres = meta.stringList("genres"),
-            director = meta.directors(links),
-            writer = meta.writers(links),
-            cast = meta.cast(links),
+            director = meta.directors(linkCredits.directors),
+            writer = meta.writers(linkCredits.writers),
+            cast = meta.cast(linkCredits.cast),
             country = meta.string("country"),
             awards = meta.string("awards"),
             language = meta.string("language"),
@@ -130,14 +131,39 @@ internal object MetaDetailsParser {
             ?: appExtras?.string("certification")?.trim()?.takeIf(String::isNotBlank)
     }
 
-    private fun JsonObject.directors(links: List<MetaLink>): List<String> {
+    private data class LinkCredits(
+        val directors: List<String>,
+        val cast: List<MetaPerson>,
+        val writers: List<String>,
+    )
+
+    private fun List<MetaLink>.toCreditGroups(): LinkCredits {
+        val directors = mutableListOf<String>()
+        val cast = mutableListOf<MetaPerson>()
+        val writers = mutableListOf<String>()
+
+        for (link in this) {
+            when {
+                link.category.equals("director", ignoreCase = true) ||
+                    link.category.equals("directors", ignoreCase = true) -> directors.add(link.name)
+
+                link.category.equals("cast", ignoreCase = true) ||
+                    link.category.equals("actor", ignoreCase = true) ||
+                    link.category.equals("actors", ignoreCase = true) -> cast.add(MetaPerson(name = link.name))
+
+                link.category.equals("writer", ignoreCase = true) ||
+                    link.category.equals("writers", ignoreCase = true) ||
+                    link.category.equals("screenplay", ignoreCase = true) -> writers.add(link.name)
+            }
+        }
+
+        return LinkCredits(directors = directors, cast = cast, writers = writers)
+    }
+
+    private fun JsonObject.directors(linkDirectors: List<String>): List<String> {
         val appExtras = this["app_extras"] as? JsonObject
         val topLevel = stringListOrCsv("director")
         val extraDirectors = appExtras.personNameList("directors")
-        val linkDirectors = links.filter { link ->
-            link.category.equals("director", ignoreCase = true) ||
-                link.category.equals("directors", ignoreCase = true)
-        }.map(MetaLink::name)
 
         return (topLevel + extraDirectors + linkDirectors)
             .map(String::trim)
@@ -145,32 +171,20 @@ internal object MetaDetailsParser {
             .distinct()
     }
 
-    private fun JsonObject.cast(links: List<MetaLink>): List<MetaPerson> {
+    private fun JsonObject.cast(linkedCast: List<MetaPerson>): List<MetaPerson> {
         val appExtras = this["app_extras"] as? JsonObject
         val appExtraCast = appExtras.people("cast")
         val topLevelCast = stringListOrCsv("cast").map { name ->
             MetaPerson(name = name)
         }
-        val linkedCast = links.filter { link ->
-            link.category.equals("cast", ignoreCase = true) ||
-                link.category.equals("actor", ignoreCase = true) ||
-                link.category.equals("actors", ignoreCase = true)
-        }.map { link ->
-            MetaPerson(name = link.name)
-        }
 
         return mergePeople(appExtraCast, topLevelCast, linkedCast)
     }
 
-    private fun JsonObject.writers(links: List<MetaLink>): List<String> {
+    private fun JsonObject.writers(linkWriters: List<String>): List<String> {
         val appExtras = this["app_extras"] as? JsonObject
         val topLevel = stringListOrCsv("writer")
         val extraWriters = appExtras.personNameList("writers")
-        val linkWriters = links.filter { link ->
-            link.category.equals("writer", ignoreCase = true) ||
-                link.category.equals("writers", ignoreCase = true) ||
-                link.category.equals("screenplay", ignoreCase = true)
-        }.map(MetaLink::name)
 
         return (topLevel + extraWriters + linkWriters)
             .map(String::trim)
