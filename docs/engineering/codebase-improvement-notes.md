@@ -4233,3 +4233,32 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Exa independently cross-checked the official Android Developers guidance for `matchParentSize`, Modifier order, padding and drawing bounds. The implementation keeps pointer interception on the full original header bounds while insetting only visual layers.
 - Manually reviewed the component changes and Settings call site. Verified the new parameter defaults to zero and is only opted into by the Settings internal header; the Search call site remains edge-to-edge. No build, Gradle task, test, compilation, benchmark, emulator/device session, workflow dispatch, or CI run was started.
 - Device validation remains pending: confirm the title background/border edges align with cards and search field on phone and tablet widths, with Liquid Glass both enabled and disabled, while the title and back/action controls stay at their prior positions.
+
+
+
+## 13 November 2026 — Reduce repeated Regex compilation in subtitle parsing
+
+**Starting checkpoint:** `34382c3eb966e2d5b652d70f593616f6d22112a7` on `main-build-testing`.
+
+### Cycle 1 — Player subtitle parser
+
+- Audited the SRT, WebVTT, ASS and TTML parser paths. `normalizeCueText` constructed three fixed Regex instances on every cue (timestamp-tag removal, markup removal and whitespace collapse). ASS override removal, SRT block splitting, TTML document/paragraph/break detection, attribute extraction and unit-suffix parsing also constructed fixed patterns during parse operations.
+- Hoisted those immutable patterns into `PlayerSubtitleCueParser` object properties. TTML attribute patterns are now a small fixed map for the only requested names (`begin`, `start`, `end`) instead of interpolating a pattern and compiling it for every attribute lookup.
+- All expressions, options, capture groups, replacement order, time conversion, cue ordering and malformed-input handling remain unchanged. Only pattern construction moved out of repeated parsing paths.
+- Added a 96-cue TTML regression case that checks first/last timing and normalized multiline text, and uses a generic `.txt` source name so format detection must still identify TTML from content.
+
+### Cycle 2 — AutoSync subtitle parser
+
+- Applied the same allocation reduction to AutoSync's independent parser, preserving its additional cancellation checks and frame-rate-aware TTML support.
+- Hoisted SRT separators, TTML document/root/paragraph/break patterns, unit suffix and frame-rate multiplier separators, all seven fixed TTML attribute patterns, and the three cue-normalization patterns. The existing ASS override and events-header patterns remain object-scoped.
+- Added repeated 96-cue TTML coverage plus a frame-rate/multiplier regression case: 24 fps multiplied by 5/2 yields an effective 60 fps, so a one-second cue ending at frame 24 must end at 1,400 ms. The test also checks TTML detection from content when the filename is generic.
+
+### Evidence, review and limits
+
+- Kotlin's [official Regex API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.text/-regex/) describes Regex as a compiled regular expression and exposes its constructors and matching operations in the common API. The project pins Kotlin `2.4.10`; Context7's Kotlin index only exposed a `1.9.0` versioned entry, so the versioned Context7 result is not represented as an exact-version check. No new API or dependency was added.
+- The [JetBrains Kotlin/JVM implementation](https://github.com/JetBrains/kotlin/blob/master/libraries/stdlib/jvm/src/kotlin/text/regex/Regex.kt) constructs `Regex(pattern)` through `Pattern.compile(pattern)`. Independent [JMH benchmark evidence](https://www.baeldung.com/java-regex-pre-compile) over five million values measured the precompiled Pattern + per-value Matcher case at about 500 ms/op versus about 1,774 ms/op when compiling a Pattern for each value (roughly 3.5× faster in that benchmark). This supports the mechanism, but is **not** a Nuvio device benchmark or a prediction of app-level speedup.
+- The avoidable work is concrete in this source: three normalization regexes are now initialized once per parser object rather than constructed three times for every cue. TTML no longer constructs its fixed attribute, line-break and timestamp-suffix patterns inside cue processing. The same applies to AutoSync. Regex matchers/MatchResults and normal text-processing allocations still occur; this change does not claim zero-allocation parsing.
+- Manually compared the old and new expressions, options, named attribute keys, capture groups and replacement ordering, and re-fetched the changed files from the remote branch. Final source inspection confirmed the TTML paragraph/root patterns have the intended single word-boundary escape, the fixed Regex declarations are object-scoped, and there are no self-referencing Regex initializers.
+- Player and AutoSync regression tests are committed but **were not executed**. No RED/GREEN runtime result, build, Gradle task, test task, compilation, benchmark, emulator/device session, workflow dispatch or CI run is claimed or was started, as requested. Test and runtime equivalence remain pending authorisation.
+- No changes were made to parser formats, cue data models, cancellation behaviour, network requests, image handling, playback state, dependencies or workflow configuration.
+
