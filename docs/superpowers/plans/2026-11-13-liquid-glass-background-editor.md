@@ -1,6 +1,6 @@
 # Liquid Glass Background Editor Implementation Plan
 
-> **For agentic workers:** Implement the tasks in order with test-first changes. The implementation is isolated on a dated CI branch; do not update main-build-testing.
+> **For agentic workers:** Implement the tasks in order with test-first changes. The CI validation copy is isolated on a dated branch; the reviewed product code and tests are integrated into main-build-testing. Keep the CI-only workflow trigger out of the product branch.
 
 **Goal:** Add Settings-page custom background image controls to the Liquid Glass Editor while retaining and unifying the existing Cloud Library controls.
 
