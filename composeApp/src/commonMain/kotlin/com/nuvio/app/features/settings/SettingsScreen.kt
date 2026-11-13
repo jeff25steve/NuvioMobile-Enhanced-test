@@ -874,6 +874,8 @@ private fun MobileSettingsScreen(
                                 checkForUpdatesAvailable = onCheckForUpdatesClick != null,
                                 debridSettings = debridSettings,
                                 liveTvUiState = liveTvUiState,
+                                continueWatchingStyle = continueWatchingPreferencesUiState.style,
+                                continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                             )
                         },
                         isTablet = false,
@@ -998,6 +1000,7 @@ private fun MobileSettingsScreen(
                     blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
                     showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
                     sortMode = continueWatchingPreferencesUiState.sortMode,
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(
                     isTablet = false,
@@ -1392,6 +1395,8 @@ private fun TabletSettingsScreen(
                                     checkForUpdatesAvailable = onCheckForUpdatesClick != null,
                                     debridSettings = debridSettings,
                                     liveTvUiState = liveTvUiState,
+                                    continueWatchingStyle = continueWatchingPreferencesUiState.style,
+                                    continueWatchingEpisodeThumbnails = continueWatchingPreferencesUiState.useEpisodeThumbnails,
                                 )
                             },
                             isTablet = true,
@@ -1516,6 +1521,7 @@ private fun TabletSettingsScreen(
                         blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
                         showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
                         sortMode = continueWatchingPreferencesUiState.sortMode,
+                        highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(
                         isTablet = true,
