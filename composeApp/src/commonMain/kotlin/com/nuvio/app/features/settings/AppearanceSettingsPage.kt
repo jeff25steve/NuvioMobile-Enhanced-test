@@ -1,5 +1,6 @@
 package com.nuvio.app.features.settings
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize_description
 import nuvio.composeapp.generated.resources.settings_liquid_glass_customize
