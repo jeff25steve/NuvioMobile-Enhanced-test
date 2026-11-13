@@ -4501,3 +4501,28 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - After authorisation, run the focused `AuthSessionOperationGateTest` suite first, then the common auth tests and platform compile checks. Also exercise rapid overlapping sign-out/server-switch cancellation on Android and iOS.
 - Scope is limited to `AuthSessionOperationGate.kt`, its common test file and this note. No Liquid Glass Editor, custom settings/cloud backgrounds, profile biometric implementation, dependency, build configuration or workflow files were changed.
 
+## 13 November 2026 — Distinguish forbidden resources from invalid sessions
+
+**Starting checkpoint:** `main-build-testing` at `3c98d1a3f9168f5ba03a8d86ed26f3fad68645db`.
+
+### Cycle 1 — Stop treating every HTTP 403 as an invalid login
+
+- Root cause: `AuthRepository.isInvalidRemoteSessionError` returned true immediately for either HTTP 401 or 403. Supabase Auth documents 403 as a feature/precondition restriction, not a general invalid-session signal. PostgREST also returns 403 for authenticated insufficient-privilege failures. Clearing the local session for a resource permission denial needlessly signs a valid user out and triggers account cleanup.
+- Added common regression cases first for a 403 permission-denied response (must preserve the session), a 403 invalid-JWT response (must still invalidate), and a generic 401 response (existing invalid-session behavior retained).
+- Replaced status-only 403 handling with explicit session/JWT/account-invalid message classification. HTTP 401 retains the existing invalid-session fallback unless the typed PostgREST error identifies SQLSTATE 42501.
+
+### Cycle 2 — Respect PostgREST SQLSTATE 42501 even when status is 401
+
+- Supabase's PostgREST error reference documents SQLSTATE 42501 as insufficient privileges and explicitly allows it to surface as either 401 or 403 depending on the request role. HTTP status alone therefore cannot safely identify this failure.
+- Added a regression case for 42501 returned with HTTP 401. The classifier gives this specific permission error precedence over the generic 401 fallback.
+- Read the pinned dependency catalog: Supabase Kotlin is **3.4.1**. Context7 resolved Supabase Kotlin but did not expose a version-specific 3.4.1 result. Its current docs and the official supabase-kt merged PR #789 confirm that `PostgrestRestException` exposes the PostgREST `code` field and has been part of the client since 3.1.0. The implementation therefore reads `PostgrestRestException.code` rather than incorrectly assuming the generic `RestException.error` field contains the SQLSTATE.
+- Exa cross-checked the official Supabase PostgREST error-code guide, API/RLS guidance, Auth error-code guide, and the Kotlin client's typed PostgREST exception implementation. No dependency or new API was introduced.
+
+### Review and verification boundary
+
+- Re-fetched the complete changed auth source and test files after integration. The classifier's precedence is: typed SQLSTATE 42501 is permission-denied (not invalid session); otherwise 401 remains invalid-session; 403 and other statuses require explicit JWT/session/deleted-account evidence.
+- Regression tests were committed before the production changes. **They were not executed**: the no-build/no-CI instruction also prevents running Gradle test tasks, so no red/green result or runtime pass is claimed.
+- No independent reviewer subagent was available through the connected tools. A separate read-only review was performed against the final source and tests.
+- No auth credentials, account data, biometric data, profile access, Liquid Glass UI, custom settings/cloud backgrounds, build configuration, dependencies or workflows were changed.
+- After authorisation, run the focused `InvalidRemoteSessionResponseTest` and existing auth tests, then verify a real PostgREST 42501 denial does not clear an otherwise valid session while a genuine invalid JWT still does.
+
