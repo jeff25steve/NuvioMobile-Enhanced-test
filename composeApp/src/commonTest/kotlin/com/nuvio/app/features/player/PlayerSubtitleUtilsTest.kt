@@ -89,7 +89,7 @@ class PlayerSubtitleUtilsTest {
             append("</div></body></tt>")
         }
 
-        val cues = PlayerSubtitleCueParser.parse(ttml, "captions.ttml")
+        val cues = PlayerSubtitleCueParser.parse(ttml, "captions.txt")
 
         assertEquals(96, cues.size)
         assertEquals(0L, cues.first().startTimeMs)
