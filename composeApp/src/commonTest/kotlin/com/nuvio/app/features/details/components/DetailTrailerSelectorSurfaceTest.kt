@@ -71,4 +71,10 @@ class DetailTrailerSelectorSurfaceTest {
             ),
         )
     }
+
+    @Test
+    fun previewSelectorTapDoesNotOpenTheCategoryMenu() {
+        assertFalse(shouldOpenDetailTrailerCategoryMenu(preview = true))
+        assertTrue(shouldOpenDetailTrailerCategoryMenu(preview = false))
+    }
 }
