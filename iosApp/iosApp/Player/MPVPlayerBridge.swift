@@ -1529,7 +1529,7 @@ final class MPVPlayerViewController: UIViewController {
             DispatchQueue.main.async { [weak self] in self?.retryPlayback() }
             return
         }
-        guard mpv != nil, let request = lastLoadRequest else { return }
+        guard mpv != nil, pendingLoadRequest == nil, let request = lastLoadRequest else { return }
         let coreGeneration = mpvGeneration
         let requestGeneration = loadRequestGeneration
         mpvQueue.async { [weak self] in
