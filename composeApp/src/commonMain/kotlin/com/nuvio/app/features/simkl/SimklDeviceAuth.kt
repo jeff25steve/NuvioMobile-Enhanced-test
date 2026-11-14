@@ -35,7 +35,7 @@ internal fun buildSimklPinPollingSchedule(
     startedAtEpochMs: Long,
 ): SimklPinPollingSchedule {
     val interval = (intervalSeconds ?: SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
-        .coerceAtLeast(SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
+        .coerceAtLeast(1)
     val lifetime = (expiresInSeconds ?: SIMKL_DEFAULT_PIN_EXPIRES_IN_SECONDS)
         .coerceAtLeast(interval)
     return SimklPinPollingSchedule(
