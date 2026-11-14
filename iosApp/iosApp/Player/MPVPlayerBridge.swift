@@ -14,6 +14,13 @@ func mpvRetryStartPositionSeconds(_ seconds: Double) -> String? {
     return String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), arguments: [seconds])
 }
 
+func mpvTrackArrayIndex(_ index: Int32, count: Int) -> Int? {
+    guard index >= 0 else { return nil }
+    let arrayIndex = Int(index)
+    guard arrayIndex < count else { return nil }
+    return arrayIndex
+}
+
 internal struct MpvDemuxerMemorySettings: Equatable {
     static let constrainedThresholdBytes = 2 * 1024 * 1024 * 1024
 
@@ -180,47 +187,47 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
     // Audio tracks
     func getAudioTrackCount() -> Int32 { Int32(playerVC?.audioTracks.count ?? 0) }
     func getAudioTrackIndex(at: Int32) -> Int32 {
-        guard let t = playerVC?.audioTracks, Int(at) < t.count else { return 0 }
-        return Int32(t[Int(at)].index)
+        guard let t = playerVC?.audioTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return 0 }
+        return Int32(t[index].index)
     }
     func getAudioTrackId(at: Int32) -> String {
-        guard let t = playerVC?.audioTracks, Int(at) < t.count else { return "0" }
-        return "\(t[Int(at)].id)"
+        guard let t = playerVC?.audioTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "0" }
+        return "\(t[index].id)"
     }
     func getAudioTrackLabel(at: Int32) -> String {
-        guard let t = playerVC?.audioTracks, Int(at) < t.count else { return "" }
-        return t[Int(at)].title
+        guard let t = playerVC?.audioTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "" }
+        return t[index].title
     }
     func getAudioTrackLang(at: Int32) -> String {
-        guard let t = playerVC?.audioTracks, Int(at) < t.count else { return "" }
-        return t[Int(at)].lang
+        guard let t = playerVC?.audioTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "" }
+        return t[index].lang
     }
     func isAudioTrackSelected(at: Int32) -> Bool {
-        guard let t = playerVC?.audioTracks, Int(at) < t.count else { return false }
-        return t[Int(at)].selected
+        guard let t = playerVC?.audioTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return false }
+        return t[index].selected
     }
 
     // Subtitle tracks
     func getSubtitleTrackCount() -> Int32 { Int32(playerVC?.subtitleTracks.count ?? 0) }
     func getSubtitleTrackIndex(at: Int32) -> Int32 {
-        guard let t = playerVC?.subtitleTracks, Int(at) < t.count else { return 0 }
-        return Int32(t[Int(at)].index)
+        guard let t = playerVC?.subtitleTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return 0 }
+        return Int32(t[index].index)
     }
     func getSubtitleTrackId(at: Int32) -> String {
-        guard let t = playerVC?.subtitleTracks, Int(at) < t.count else { return "0" }
-        return "\(t[Int(at)].id)"
+        guard let t = playerVC?.subtitleTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "0" }
+        return "\(t[index].id)"
     }
     func getSubtitleTrackLabel(at: Int32) -> String {
-        guard let t = playerVC?.subtitleTracks, Int(at) < t.count else { return "" }
-        return t[Int(at)].title
+        guard let t = playerVC?.subtitleTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "" }
+        return t[index].title
     }
     func getSubtitleTrackLang(at: Int32) -> String {
-        guard let t = playerVC?.subtitleTracks, Int(at) < t.count else { return "" }
-        return t[Int(at)].lang
+        guard let t = playerVC?.subtitleTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return "" }
+        return t[index].lang
     }
     func isSubtitleTrackSelected(at: Int32) -> Bool {
-        guard let t = playerVC?.subtitleTracks, Int(at) < t.count else { return false }
-        return t[Int(at)].selected
+        guard let t = playerVC?.subtitleTracks, let index = mpvTrackArrayIndex(at, count: t.count) else { return false }
+        return t[index].selected
     }
 
     func selectAudioTrack(trackId: Int32) { playerVC?.selectAudio(Int(trackId)) }
