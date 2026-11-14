@@ -104,3 +104,11 @@ internal fun simklAuthStateAfterProfileReload(
 /** A PKCE verifier is valid only while its browser authorization state is persisted. */
 internal fun shouldClearOrphanedSimklCodeVerifier(state: SimklStoredAuthState): Boolean =
     state.pendingAuthorizationState.isNullOrBlank()
+
+internal fun isSimklAuthProfileGenerationCurrent(
+    expectedGeneration: Long,
+    currentGeneration: Long,
+    loadedProfileId: Int?,
+    activeProfileId: Int,
+): Boolean =
+    expectedGeneration == currentGeneration && loadedProfileId == activeProfileId
