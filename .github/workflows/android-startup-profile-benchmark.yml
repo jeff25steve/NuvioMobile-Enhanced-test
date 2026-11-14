@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: android-startup-profile-benchmark-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -142,7 +142,7 @@ jobs:
           - resource shrinking enabled
           - non-debuggable
           - profileable for Macrobenchmark
-          - signed by the local Android debug key created by AndroidX
+          - signed with the GitHub runner's local Android debug key
           Production release signing keys are not included in this repository.
 
           INSTALL / SIGN-IN
