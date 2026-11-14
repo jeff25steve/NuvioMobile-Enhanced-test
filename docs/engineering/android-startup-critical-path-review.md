@@ -170,3 +170,25 @@ Validation boundary:
 - No profile file has been generated or packaged yet. No Nuvio performance result or speedup is claimed.
 - The benchmark harness is added but not executed; its build compatibility and task wiring must be validated in an authorized Gradle/device session.
 - Context7 resolution for the exact AndroidX Macrobenchmark 1.5.0 documentation again returned the service monthly-quota error. The official Android Developers API/reference pages, AndroidX source/API signatures, AndroidX release notes and the pinned repository versions were consulted instead.
+
+
+### Improvement cycle 42 — Connect real Compose readiness to Android TTFD
+
+Integrated:
+- MainActivity now passes App's existing onAppReady callback into remembered Compose state and uses ReportDrawnWhen. The Activity reports fully drawn only after AppGate's existing main-content-ready condition becomes true; no timer, fake delay, network shortcut or changed startup order was added.
+- A Compose semantics test tag, nuvio_startup_ready, is exposed as a resource ID only when that same state is true. It is test infrastructure, not visible UI or an accessibility announcement.
+- The marker is attached to the existing full-size root wrapper rather than adding an extra nested layout wrapper.
+- StartupBenchmark waits for the marker after startActivityAndWait(), allowing StartupTimingMetric to capture TTFD as well as TTID. A 30-second condition-based timeout fails clearly when the signed-in Home journey is not ready.
+- This benchmark must use a preconfigured signed-in test install. Logged-out/onboarding states do not satisfy the Home readiness marker and are deliberately not counted as successful Home startup.
+
+Evidence:
+- Android StartupTimingMetric defines TTFD as the interval until the app reports fully drawn: https://developer.android.com/topic/performance/benchmarking-macrobenchmark-metrics.
+- Android's Macrobenchmark codelab explicitly requires the benchmark measure block to wait for the content-ready UI element after startActivityAndWait(), otherwise it may finish before TTFD is recorded: https://developer.android.com/codelabs/android-macrobenchmark-inspect.
+- Compose ReportDrawnWhen is the recommended state-driven API: https://developer.android.com/reference/kotlin/androidx/activity/compose/ReportDrawnWhen.composable.
+- Compose-to-UIAutomator testTag resource-ID mapping is documented here: https://developer.android.com/develop/ui/compose/testing/interoperability.
+- UI Automator stable release 2.4.1 (4 November 2026) is pinned for the marker wait: https://developer.android.com/jetpack/androidx/releases/test-uiautomator.
+
+Validation boundary:
+- Static remote source and API review only. No build, Gradle configuration, compile, test, profile generation, Macrobenchmark, device operation or CI was run.
+- Context7 was attempted for AndroidX Activity Compose and UI Automator but its monthly quota was exhausted. Exa research of Android Developers API/codelab docs and AndroidX official release references was used instead.
+- The TTFD path is wired in source but remains unverified at runtime until an authorized physical-device benchmark. No speedup is claimed.
