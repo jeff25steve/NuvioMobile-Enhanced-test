@@ -5221,3 +5221,34 @@ The PixelCopy callback/executor rewrite remains deferred. The current callback o
 ### Verification boundary
 
 No Gradle command, test, build, CI dispatch, or APK task was run for this update, in accordance with the user's instruction. The changes were checked by remote source inspection, exact NDK-version cross-reference to the successful run, API/documentation review, and Git tree/diff review only. The added host tests and NDK pin therefore remain **unverified by execution** until a future explicit build/test authorization. No workflow files were changed.
+
+
+## 14 November 2026 — Simkl request boundary hardening
+
+**Base checkpoint:** `781937f9c8e5f9897ce6e229dde50b27ffac848b`  
+**Implementation commits:** `16a92d5681c29808762b4d46edef45dd93538497`, `284128e617a7815c54665fa0decb331833e5fd8f`, `85ea7ff46f01ba90606d5d4e18841bbdbc28c1a7`, `42dd13b2d292d35ae97db0f9d350ccba78c6ae19`.
+
+### Improvement cycle 1 — Overflow-safe Retry-After handling
+
+The existing Simkl retry helper parsed numeric `Retry-After` seconds and multiplied by 1,000 before applying its 60-second cap. A large but valid `Long` value could overflow during multiplication, become negative, and fall back to a much shorter delay.
+
+- Added a regression using `Long.MAX_VALUE` and jitter to pin the 60,000 ms cap.
+- Clamp parsed non-negative seconds to `SIMKL_MAX_RETRY_DELAY_MS / 1_000L` before multiplication.
+- Keep the final cap after jitter so the returned delay never exceeds 60 seconds.
+- Exponential backoff, attempt count, and existing retry policy are unchanged.
+
+### Improvement cycle 2 — PIN user-code path-segment encoding
+
+The legacy PIN polling URL previously interpolated a server-provided `user_code` directly into `/oauth/pin/{user_code}`. The common API URL builder preserves the supplied path and encodes query parameters separately; delimiter characters in a returned code could therefore alter the path/query/fragment boundary.
+
+- Added a URL-builder regression for a PIN code containing `/`, `?`, `#`, and `%`.
+- Added `buildSimklPinPollPath(userCode)`, which uses Ktor 3.4.1's `io.ktor.http.encodeURLPathPart` to encode the code as one path segment.
+- Changed only the legacy PIN polling call site to use the encoded path helper. Fixed route components and query parameters are unchanged.
+
+**References:** [RFC 9110 §10.2.3 Retry-After](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3); [Ktor 3.4.x encodeURLPathPart API](https://api.ktor.io/3.4.x/ktor-http/io.ktor.http/encode-u-r-l-path-part.html).
+
+**Known scope boundary:** RFC 9110 permits both `delay-seconds` and `HTTP-date` forms for Retry-After. This change prevents overflow in the existing numeric-seconds handling; it does not add HTTP-date parsing or change the current fallback policy for non-numeric values.
+
+### Verification boundary
+
+No Gradle test, build, CI dispatch, or APK task was run because the user prohibited builds and CI. Review was static: exact source diffs, Ktor 3.4.1 API lookup, RFC grammar review, and reasoning through the `Long.MAX_VALUE * 1,000` overflow path. The new regression tests are committed but **not executed**. No workflow file was changed.
