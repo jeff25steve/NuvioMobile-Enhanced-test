@@ -15,6 +15,8 @@ internal interface DownloadsTaskHandle {
 internal expect object DownloadsPlatformDownloader {
     suspend fun prepareForStartup()
 
+    suspend fun preloadTransferStore()
+
     fun start(
         request: DownloadPlatformRequest,
         onProgress: (downloadedBytes: Long, totalBytes: Long?) -> Unit,
