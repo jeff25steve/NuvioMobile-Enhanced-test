@@ -5133,3 +5133,18 @@ The same :composeApp:compileAndroidMain pass also reported errors in BackdropFoc
 - Add focused tests for toolbar-layout persistence/visibility and the missing runtime state lifecycle before implementation.
 - The user has explicitly prohibited further builds and CI without authorisation. No rerun, local Gradle test, APK build, workflow dispatch, or CI-triggering push was started during this investigation.
 - Do not merge the PixelCopy candidate or claim Player fixed until the user authorises verification and the corrected candidate passes the focused regression tests plus the Full Debug APK build. The project-wide baseline compile errors above must also be resolved before those tasks can complete.
+
+## 14 November 2026 — Repairs for failed Linux compile (CI branch)
+
+**Source branch:** `main-build-testing` at `6841d97cf1f1441019b3c3b2f7018c91565a3ebc`  
+**Repair branch:** `ci/player-and-build-repairs-20261114`  
+**Scope:** source-level fixes for the compile diagnostics from failed run `43530874621`; no merge to `main-build-testing` is included.
+
+- **Player runtime and actions:** restored `showDiscTitlesPanel` state and overlay aggregation; aligned the error-refresh call with the existing credentialed-source refresh implementation; wired the Disc Titles action into the modern toolbar, fold controls, legacy bottom actions and their settings labels. Added coverage for overlay state and migration of older persisted toolbar layouts.
+- **Player Liquid Glass capture:** removed the pixel-colour heuristic that discarded valid black scenes. A successful PixelCopy status is now authoritative; unavailable/failed requests still use the existing backoff. Preserved the prior lifecycle tests and added black-frame, PixelCopy-error and ARGB-downsample coverage.
+- **Backdrop focus:** implemented the missing Android ARGB downsampler and completed the shared image-resolution/failure/reveal contract used by `DetailHero`.
+- **Authentication:** removed the duplicate networking import; widened cleanup result aggregation to heterogeneous `Result` values; reused the existing invalid-session classifier and imported the Supabase base REST exception for its description fallback.
+- **Search and Liquid Glass settings:** moved localized fallback lookup out of the non-suspending `Result.fold` callback and derived the Cloud toolbar backdrop flag from the active Cloud preview mode.
+- **Simkl:** removed duplicate token request/response declarations in favour of the shared models; added the documented legacy V1 PIN response models and explicit pending/authorized/replaced-code outcomes. Tests cover the poll outcomes.
+
+**Verification plan:** the branch workflow runs the Android host regression tests covering Player state, toolbar migration, Liquid Glass capture/downsampling and Simkl PIN outcomes, followed by `assembleFullDebug`. At this note's commit the workflow run is pending; its result must be read before considering the branch verified or opening a merge.
