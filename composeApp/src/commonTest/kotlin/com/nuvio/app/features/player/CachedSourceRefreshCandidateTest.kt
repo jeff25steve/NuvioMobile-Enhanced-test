@@ -10,76 +10,88 @@ class CachedSourceRefreshCandidateTest {
     private val failedUrl = "https://cdn.example.com/dld/old?token=expired"
 
     @Test
-    fun unresolvedDebridStreamOfTheSameAddonIsACandidate() {
-        val debrid = StreamItem(name = "4K", infoHash = "abc", addonName = "Torrents", addonId = "addon:torrents")
+    fun sameProviderWithNewPlayableDirectUrlIsACandidate() {
+        val refreshed = stream(url = "https://cdn.example.com/dld/new?token=current")
 
-        val candidate = find(listOf(debrid), canResolveDebrid = { it === debrid })
-
-        assertEquals(debrid, candidate)
+        assertEquals(refreshed, find(listOf(refreshed)))
     }
 
     @Test
-    fun streamWithoutUrlThatCannotBeResolvedIsSkipped() {
-        val torrent = StreamItem(name = "4K", infoHash = "abc", addonName = "Torrents", addonId = "addon:torrents")
+    fun failedUrlIsNeverReturnedAsItsOwnRefreshCandidate() {
+        val unchanged = stream(url = failedUrl)
 
-        assertNull(find(listOf(torrent), canResolveDebrid = { false }))
+        assertNull(find(listOf(unchanged)))
     }
 
     @Test
-    fun preparedDebridStreamWithTheFailedUrlIsStillACandidate() {
-        val prepared = StreamItem(
+    fun unresolvedOrNonPlayableMagnetStreamIsSkipped() {
+        val unresolved = stream(url = null)
+        val magnet = stream(url = "magnet:?xt=urn:btih:abc")
+
+        assertNull(find(listOf(unresolved)))
+        assertNull(find(listOf(magnet)))
+    }
+
+    @Test
+    fun anotherAddonIsNeverACandidate() {
+        val other = StreamItem(
             name = "4K",
-            url = failedUrl,
-            addonName = "Torrents",
-            addonId = "addon:torrents",
-            debridResolved = true,
+            url = "https://other.example/new.mkv",
+            addonName = "Other",
+            addonId = "addon:other",
         )
 
-        assertEquals(prepared, find(listOf(prepared), canResolveDebrid = { false }))
+        assertNull(find(listOf(other)))
     }
 
     @Test
-    fun sameTorrentWinsOverAnotherStreamWithTheSameName() {
-        val other = StreamItem(name = "4K", infoHash = "other", addonName = "Torrents", addonId = "addon:torrents")
-        val same = StreamItem(
-            name = "4K HDR",
-            infoHash = "abc",
-            addonName = "Torrents",
-            addonId = "addon:torrents",
-            behaviorHints = StreamBehaviorHints(filename = "Movie.mkv"),
+    fun expectedTitleAndBingeGroupDetermineTheBestMatchingCandidate() {
+        val sameProviderWrongTitle = stream(
+            url = "https://cdn.example.com/other.mkv",
+            name = "1080p",
+            bingeGroup = "season-1",
+        )
+        val expectedTitleWrongGroup = stream(
+            url = "https://cdn.example.com/title.mkv",
+            name = "4K",
+            bingeGroup = "season-2",
+        )
+        val expectedTitleAndGroup = stream(
+            url = "https://cdn.example.com/match.mkv",
+            name = "4K",
+            bingeGroup = "season-1",
         )
 
-        val candidate = find(
-            listOf(other, same),
-            canResolveDebrid = { true },
-            expectedInfoHash = "abc",
-            expectedFilename = "Movie.mkv",
+        assertEquals(
+            expectedTitleAndGroup,
+            find(
+                listOf(sameProviderWrongTitle, expectedTitleWrongGroup, expectedTitleAndGroup),
+                expectedBingeGroup = "season-1",
+            ),
         )
-
-        assertEquals(same, candidate)
-    }
-
-    @Test
-    fun otherAddonIsNeverACandidate() {
-        val other = StreamItem(name = "4K", url = "https://other.example/new.mkv", addonName = "Other", addonId = "addon:other")
-
-        assertNull(find(listOf(other), canResolveDebrid = { true }))
     }
 
     private fun find(
         streams: List<StreamItem>,
-        canResolveDebrid: (StreamItem) -> Boolean,
-        expectedInfoHash: String? = null,
-        expectedFilename: String? = null,
-    ) = findCredentialRefreshCandidate(
+        expectedBingeGroup: String? = null,
+    ): StreamItem? = findCredentialRefreshCandidate(
         streams = streams,
         failedUrl = failedUrl,
         expectedProviderAddonId = "addon:torrents",
         expectedProviderName = "Torrents",
         expectedStreamTitle = "4K",
-        expectedBingeGroup = null,
-        expectedInfoHash = expectedInfoHash,
-        expectedFilename = expectedFilename,
-        canResolveDebrid = canResolveDebrid,
+        expectedBingeGroup = expectedBingeGroup,
+    )
+
+    private fun stream(
+        url: String?,
+        name: String = "4K",
+        bingeGroup: String? = null,
+    ) = StreamItem(
+        name = name,
+        url = url,
+        addonName = "Torrents",
+        addonId = "addon:torrents",
+        behaviorHints = StreamBehaviorHints(bingeGroup = bingeGroup),
     )
 }

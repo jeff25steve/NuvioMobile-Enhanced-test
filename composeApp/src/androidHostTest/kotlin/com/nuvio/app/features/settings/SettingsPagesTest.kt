@@ -143,7 +143,7 @@ class SettingsPagesTest {
                             Button(onClick = { page.value = page.value.previousPage()!! }) { Text("Back") }
                         }
                     }
-                    playbackSettingsContent(false, page.value) { page.value = it }
+                    playbackSettingsContent(isTablet = false, page = page.value, onPageChange = { page.value = it })
                 }
             }
         }
@@ -179,7 +179,7 @@ class SettingsPagesTest {
         compose.setContent {
             NuvioTheme {
                 LazyColumn(Modifier.fillMaxSize()) {
-                    playbackSettingsContent(false, SettingsPage.PlaybackSubtitles) {}
+                    playbackSettingsContent(isTablet = false, page = SettingsPage.PlaybackSubtitles, onPageChange = {})
                 }
             }
         }
@@ -220,6 +220,17 @@ class SettingsPagesTest {
                     liquidGlassNativeTabBarSupported = true,
                     switchProfileAvailable = true,
                     checkForUpdatesAvailable = true,
+                    debridSettings = com.nuvio.app.features.debrid.DebridSettings(),
+                    liveTvUiState = com.nuvio.app.features.livetv.LiveTvUiState(),
+                    continueWatchingStyle = com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle.Card,
+                    continueWatchingEpisodeThumbnails = true,
+                    trackingTraktConnected = false,
+                    trackingSimklConnected = false,
+                    homeHeroSourcesAvailable = false,
+                    homeCatalogsAvailable = false,
+                    homeHeroEnabled = false,
+                    homeHeroTrailerPlaybackSettingAvailable = false,
+                    homeHeroTrailerPlaybackEnabled = false,
                 )
             }
         }

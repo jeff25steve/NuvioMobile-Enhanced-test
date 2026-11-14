@@ -5150,3 +5150,24 @@ The same :composeApp:compileAndroidMain pass also reported errors in BackdropFoc
 **Verification plan:** the branch workflow runs Android host regression tests covering Player state, toolbar migration, Liquid Glass capture/downsampling and Simkl PIN outcomes, followed by `assembleFullDebug`. The initial push created workflow run `43535683569`, but its malformed multi-line YAML `run:` scalar caused GitHub to reject it before jobs were created; no Gradle command ran. The scalar has been changed to a literal block and the next push will trigger the actual build. A green run is still required before the branch is considered verified or opened for merge.
 
 **Follow-up compile finding (14 November 2026):** The corrected workflow reached `:composeApp:compileAndroidMain`, where the sole reported diagnostic was an `@Composable` invocation inside the non-composable `graphicsLayer` lambda in `DetailHero`. The reveal animation is now read into a local composable value before the `AsyncImage` modifier chain. The final Player lifecycle pass also closes Disc Titles alongside sibling panels and during the playback/source reset effect. A final run on this exact revision is required; the earlier run did not reach host tests or APK packaging.
+
+
+## 14 November 2026 — Android host-test compile repairs and Player regression gate
+
+**Branch:** `ci/player-and-build-repairs-20261114`  
+**Base:** `main-build-testing` at `6841d97cf1f1441019b3c3b2f7018c91565a3ebc`  
+**Checkpoint before this repair:** `c4d2f45b4d73a7b0c2f07b8138d05b51d9a45517`
+
+The latest authorised Linux run (`43536617022`) successfully compiled Android production sources but failed at `:composeApp:compileAndroidHostTest`, before the selected host regression methods could run. The following compile-only/test-contract defects were traced to unchanged test sources on the base branch, alongside one missing import in the newly added PixelCopy lifecycle test:
+
+- Imported the Android backdrop sampler in the Player capture lifecycle test; the Android-specific helper remains in `androidMain`.
+- Fixed the invalid Compose brush constructor in the header test and removed a duplicated now-playing service test method.
+- Updated playback settings test calls to use the current named `onPageChange` argument and supplied the current explicit settings-search state inputs.
+- Aligned coroutine tests with `awaitCancellation(): Nothing`; made the cleanup aggregation helper internal so its failure/suppression semantics can be tested, and made failure result types explicit.
+- Updated AutoSync policy tests to use `searchAfterSelectedFailed(AutoSyncAnalysisOutcome)`, preserving the distinction between an actual no-fit and absence of usable reference evidence.
+- Updated artwork/settings test imports and aligned the cached-source refresh selector test with the current direct-playable-URL, same-provider, title and binge-group selection contract. The pure selector is now internal solely for common-test visibility.
+- Updated Simkl fixtures to provide the current generation-tagged `SimklApiAccessToken` rather than a raw string.
+
+No application playback engine, stream-resolution, subtitle-selection, or settings behavior was changed by these fixture repairs. The PixelCopy correction remains based on the PixelCopy result status (success accepts legitimate black frames); failure statuses continue to follow the existing capture-backoff path.
+
+**Verification gate:** the workflow on this branch runs the Player PixelCopy lifecycle, Player runtime state, toolbar migration, and Simkl PKCE host regressions before assembling the fullDebug APK. A single Linux workflow run is initiated by the combined repair commit; its result is pending at the time of this notes update. Device-level playback, engine-switching, subtitle, gesture and Liquid Glass QA still require a real Android playback session and are not claimed as completed by host compilation alone.

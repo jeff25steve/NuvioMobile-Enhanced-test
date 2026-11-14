@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import com.nuvio.app.core.network.DnsSettingsRepository
+import androidx.compose.material.icons.rounded.Search
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

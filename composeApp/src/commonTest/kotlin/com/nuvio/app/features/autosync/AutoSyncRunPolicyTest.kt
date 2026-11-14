@@ -18,15 +18,29 @@ class AutoSyncRunPolicyTest {
     }
 
     @Test
-    fun restoredSelectionCanSearchAlternativesOnlyWithUsableReference() {
+    fun restoredSelectionSearchesAlternativesAfterAConfirmedNoFit() {
         assertTrue(
-            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.shouldSearchAfterSelectedFailure(
-                hasUsableReference = true,
+            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.NO_FIT,
+            ),
+        )
+        assertTrue(
+            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.INCONCLUSIVE,
+            ),
+        )
+    }
+
+    @Test
+    fun missingReferenceEvidenceDoesNotTriggerAlternativeSearch() {
+        assertFalse(
+            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.NO_USABLE_REFERENCE,
             ),
         )
         assertFalse(
-            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.shouldSearchAfterSelectedFailure(
-                hasUsableReference = false,
+            AutoSyncCandidateScope.SELECTED_THEN_SEARCH.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.NO_SUBTITLE_TRACKS,
             ),
         )
     }
@@ -37,8 +51,8 @@ class AutoSyncRunPolicyTest {
 
         assertEquals(emptyList(), AutoSyncCandidateScope.SELECTED_ONLY.alternativeCandidates(candidates))
         assertFalse(
-            AutoSyncCandidateScope.SELECTED_ONLY.shouldSearchAfterSelectedFailure(
-                hasUsableReference = true,
+            AutoSyncCandidateScope.SELECTED_ONLY.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.NO_FIT,
             ),
         )
     }
@@ -50,8 +64,8 @@ class AutoSyncRunPolicyTest {
         assertEquals(listOf(candidate), AutoSyncCandidateScope.STARTUP_SEARCH.alternativeCandidates(listOf(candidate)))
         assertTrue(AutoSyncCandidateScope.STARTUP_SEARCH.usesAlternativeProvider)
         assertFalse(
-            AutoSyncCandidateScope.STARTUP_SEARCH.shouldSearchAfterSelectedFailure(
-                hasUsableReference = true,
+            AutoSyncCandidateScope.STARTUP_SEARCH.searchAfterSelectedFailed(
+                AutoSyncAnalysisOutcome.NO_FIT,
             ),
         )
     }

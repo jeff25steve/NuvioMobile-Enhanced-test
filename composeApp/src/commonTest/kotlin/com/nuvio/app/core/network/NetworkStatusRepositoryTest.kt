@@ -37,7 +37,7 @@ class NetworkStatusRepositoryTest {
     @Test
     fun probeOwnTimeoutMeansEndpointIsNotReachable() = runTest {
         val reachable = probeHttpReachability(timeoutMillis = 1L) {
-            awaitCancellation<Int>()
+            awaitCancellation()
         }
 
         assertFalse(reachable)
@@ -50,7 +50,7 @@ class NetworkStatusRepositoryTest {
         val request = async {
             probeHttpReachability(timeoutMillis = 1_000L) {
                 started.complete(Unit)
-                awaitCancellation<Int>()
+                awaitCancellation()
             }
         }
 

@@ -1108,7 +1108,7 @@ private fun PlayerScreenRuntime.retryServerSourceAfterError(message: String?): B
     return true
 }
 
-private fun findCredentialRefreshCandidate(
+internal fun findCredentialRefreshCandidate(
     streams: List<StreamItem>,
     failedUrl: String,
     expectedProviderAddonId: String?,

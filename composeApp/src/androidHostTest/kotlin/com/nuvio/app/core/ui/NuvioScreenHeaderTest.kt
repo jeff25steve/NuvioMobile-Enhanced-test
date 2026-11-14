@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -80,7 +80,7 @@ class NuvioScreenHeaderTest {
                                 title = "Settings",
                                 modifier = Modifier.fillMaxWidth(),
                                 includeStatusBarPadding = false,
-                                backgroundBrushOverride = Brush.solidColor(Color.Magenta),
+                                backgroundBrushOverride = SolidColor(Color.Magenta),
                                 backgroundHorizontalInset = 16.dp,
                             )
                         }
