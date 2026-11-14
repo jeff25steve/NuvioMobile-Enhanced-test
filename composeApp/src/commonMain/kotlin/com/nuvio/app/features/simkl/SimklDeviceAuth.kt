@@ -1,5 +1,6 @@
 package com.nuvio.app.features.simkl
 
+import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -32,6 +33,10 @@ internal fun buildPendingPinState(userCode: String): String = "$SIMKL_PIN_STATE_
 
 internal fun pendingPinUserCode(state: String?): String? =
     state?.takeIf { it.startsWith(SIMKL_PIN_STATE_PREFIX) }?.removePrefix(SIMKL_PIN_STATE_PREFIX)
+
+/** Keeps a server-provided PIN code inside a single URL path segment. */
+internal fun buildSimklPinPollPath(userCode: String): String =
+    "/oauth/pin/${userCode.encodeURLPathPart()}"
 
 /** V1 PIN initialization response from GET /oauth/pin. */
 @Serializable

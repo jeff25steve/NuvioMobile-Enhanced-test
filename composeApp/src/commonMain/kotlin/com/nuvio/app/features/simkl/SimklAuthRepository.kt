@@ -269,7 +269,7 @@ object SimklAuthRepository : TrackingAuthProvider {
             SimklApi.client.execute(
                 SimklApiRequest(
                     method = SimklHttpMethod.GET,
-                    path = "/oauth/pin/$userCode",
+                    path = buildSimklPinPollPath(userCode),
                     query = mapOf("client_id" to SimklConfig.CLIENT_ID),
                     requiresAuthentication = false,
                     retryPolicy = SimklRetryPolicy.NEVER,
