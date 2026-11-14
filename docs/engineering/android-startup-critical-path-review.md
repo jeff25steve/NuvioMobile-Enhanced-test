@@ -192,3 +192,18 @@ Validation boundary:
 - Static remote source and API review only. No build, Gradle configuration, compile, test, profile generation, Macrobenchmark, device operation or CI was run.
 - Context7 was attempted for AndroidX Activity Compose and UI Automator but its monthly quota was exhausted. Exa research of Android Developers API/codelab docs and AndroidX official release references was used instead.
 - The TTFD path is wired in source but remains unverified at runtime until an authorized physical-device benchmark. No speedup is claimed.
+
+
+### Improvement cycle 43 — Do not mark Home fully drawn underneath an exiting launch overlay
+
+Root-cause review found that MainAppContent's prior onRootContentReady callback forwarded initialHomeReady immediately. The launch overlay is driven by a separate MutableTransitionState and can still be in its exit animation after the underlying Home data is ready. That made the newly added TTFD signal potentially early by the remaining overlay animation duration.
+
+Integrated:
+- The readiness effect now observes launchOverlayState.currentState and launchOverlayState.isIdle in addition to rootContentReady.
+- It reports true only when the Home root is ready AND the launch overlay is fully idle and no longer visible. It reports false for loading and while the exit transition is running.
+- This changes only the readiness callback's meaning to match the visible, interactive app; it does not delay rendering, alter the overlay animation, or change navigation.
+- MainActivity's ReportDrawnWhen and UI Automator marker now inherit this stricter visible-ready condition without another timer or sleep.
+
+Validation boundary:
+- Static source inspection only; no Compose test, build, Gradle configuration, Macrobenchmark, device operation or CI was run.
+- This corrects a measurement semantic gap. It is not a claim that app startup itself is faster.
