@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Build
@@ -169,6 +170,7 @@ internal fun PlayerControlsShell(
     onEpisodesClick: (() -> Unit)? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onChaptersClick: (() -> Unit)? = null,
+    onDiscTitlesClick: (() -> Unit)? = null,
     onLiveChannelsClick: (() -> Unit)? = null,
     qualityLabel: String? = null,
     onQualityClick: (() -> Unit)? = null,
@@ -208,6 +210,7 @@ internal fun PlayerControlsShell(
             onLockToggle = onLockToggle,
             onPartyClick = onPartyClick,
             partyActive = partyActive,
+            onDiscTitlesClick = onDiscTitlesClick,
             onNextEpisodeClick = onNextEpisodeClick,
             onTogglePlayback = onTogglePlayback,
             onSeekBack = onSeekBack,
@@ -408,6 +411,7 @@ internal fun PlayerControlsShell(
                     onEpisodesClick = onEpisodesClick,
                     chapters = chapters,
                     onChaptersClick = onChaptersClick,
+                    onDiscTitlesClick = onDiscTitlesClick,
                     onLiveChannelsClick = onLiveChannelsClick,
                     qualityLabel = qualityLabel,
                     onQualityClick = onQualityClick,
@@ -495,6 +499,7 @@ internal fun PlayerControlsShell(
                         onSourcesClick = onSourcesClick,
                         onEpisodesClick = onEpisodesClick,
                         onChaptersClick = onChaptersClick,
+                        onDiscTitlesClick = onDiscTitlesClick,
                         onNextEpisodeClick = onNextEpisodeClick,
                         onSpeedClick = { onSpeedClick?.invoke() },
                         speedPickerVisible = speedPickerVisible,
@@ -983,6 +988,7 @@ private fun ProgressControls(
     onEpisodesClick: (() -> Unit)? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onChaptersClick: (() -> Unit)? = null,
+    onDiscTitlesClick: (() -> Unit)? = null,
     onLiveChannelsClick: (() -> Unit)? = null,
     qualityLabel: String? = null,
     onQualityClick: (() -> Unit)? = null,
@@ -1145,6 +1151,15 @@ private fun ProgressControls(
                                                 label = stringResource(Res.string.player_chapters),
                                                 icon = Icons.AutoMirrored.Rounded.ListAlt,
                                                 onClick = onChaptersClick,
+                                            )
+                                        }
+                                    }
+                                    LegacyBottomButton.DISC_TITLES -> {
+                                        if (onDiscTitlesClick != null) {
+                                            PlayerActionPillButton(
+                                                label = stringResource(Res.string.player_disc_titles),
+                                                icon = Icons.Rounded.Album,
+                                                onClick = onDiscTitlesClick,
                                             )
                                         }
                                     }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Toc
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.Flag
@@ -167,6 +168,7 @@ internal fun PlayerControlActions(
     onSourcesClick: (() -> Unit)?,
     onEpisodesClick: (() -> Unit)?,
     onChaptersClick: (() -> Unit)? = null,
+    onDiscTitlesClick: (() -> Unit)? = null,
     onNextEpisodeClick: (() -> Unit)?,
     onSpeedClick: () -> Unit,
     speedPickerVisible: Boolean = false,
@@ -218,6 +220,12 @@ internal fun PlayerControlActions(
             this[PlayerToolbarButton.CHAPTERS] = PlayerControlAction(
                 stringResource(Res.string.player_chapters), it,
                 icon = Icons.AutoMirrored.Rounded.ListAlt,
+            )
+        }
+        onDiscTitlesClick?.let {
+            this[PlayerToolbarButton.DISC_TITLES] = PlayerControlAction(
+                stringResource(Res.string.player_disc_titles), it,
+                icon = Icons.Rounded.Album,
             )
         }
         this[PlayerToolbarButton.AUDIO] = PlayerControlAction(
