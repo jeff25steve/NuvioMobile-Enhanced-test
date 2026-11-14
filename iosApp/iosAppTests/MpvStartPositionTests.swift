@@ -124,3 +124,119 @@ final class MpvPendingSubtitleRequestTests: XCTestCase {
         )
     }
 }
+
+
+final class MpvExternalSubtitleReplacementPlanTests: XCTestCase {
+    func testPlanPreservesSourceMetadataAndRemovesOnlyItsPreviousAutoSyncCopies() {
+        let tracks = [
+            MpvExternalSubtitleTrackSnapshot(
+                id: 2,
+                externalFilename: nil,
+                title: "Embedded",
+                language: "en",
+                isExternal: false
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 7,
+                externalFilename: "https://subs.example/english.srt",
+                title: "English Forced",
+                language: "en",
+                isExternal: true
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 8,
+                externalFilename: "/Caches/subtitles/autosync_old.srt",
+                title: "English",
+                language: "en",
+                isExternal: true
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 9,
+                externalFilename: "/Caches/subtitles/autosync_stale.srt",
+                title: "English",
+                language: "en",
+                isExternal: true
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 10,
+                externalFilename: "https://subs.example/french.srt",
+                title: "French",
+                language: "fr",
+                isExternal: true
+            ),
+        ]
+
+        let plan = makeMpvExternalSubtitleReplacementPlan(
+            tracks: tracks,
+            replacedUrl: "https://subs.example/english.srt",
+            resolvedOriginalPath: nil,
+            replacementPath: "/Caches/subtitles/autosync_new.srt"
+        )
+
+        XCTAssertEqual(plan?.sourceTrackId, 7)
+        XCTAssertNil(plan?.existingReplacementTrackId)
+        XCTAssertEqual(plan?.title, "English Forced")
+        XCTAssertEqual(plan?.language, "en")
+        XCTAssertEqual(plan?.trackIdsToRemove, [7, 8, 9])
+    }
+
+    func testPlanMatchesRtlPreparedPathAndReusesAlreadyLoadedReplacement() {
+        let tracks = [
+            MpvExternalSubtitleTrackSnapshot(
+                id: 11,
+                externalFilename: "/Caches/rtl-subtitles/english-fixed.srt",
+                title: "English SDH",
+                language: "en",
+                isExternal: true
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 12,
+                externalFilename: "/Caches/subtitles/autosync_current.srt",
+                title: "English SDH",
+                language: "en",
+                isExternal: true
+            ),
+            MpvExternalSubtitleTrackSnapshot(
+                id: 13,
+                externalFilename: "/Caches/subtitles/autosync_old.srt",
+                title: "English SDH",
+                language: "en",
+                isExternal: true
+            ),
+        ]
+
+        let plan = makeMpvExternalSubtitleReplacementPlan(
+            tracks: tracks,
+            replacedUrl: "https://subs.example/english.srt",
+            resolvedOriginalPath: "/Caches/rtl-subtitles/english-fixed.srt",
+            replacementPath: "/Caches/subtitles/autosync_current.srt"
+        )
+
+        XCTAssertEqual(plan?.sourceTrackId, 11)
+        XCTAssertEqual(plan?.existingReplacementTrackId, 12)
+        XCTAssertEqual(plan?.title, "English SDH")
+        XCTAssertEqual(plan?.language, "en")
+        XCTAssertEqual(plan?.trackIdsToRemove, [11, 13])
+    }
+
+    func testPlanDoesNotReplaceAnUnmatchedExternalSubtitle() {
+        let tracks = [
+            MpvExternalSubtitleTrackSnapshot(
+                id: 4,
+                externalFilename: "https://subs.example/other.srt",
+                title: "Other",
+                language: "fr",
+                isExternal: true
+            ),
+        ]
+
+        XCTAssertNil(
+            makeMpvExternalSubtitleReplacementPlan(
+                tracks: tracks,
+                replacedUrl: "https://subs.example/missing.srt",
+                resolvedOriginalPath: nil,
+                replacementPath: "/Caches/subtitles/autosync_new.srt"
+            )
+        )
+    }
+}
