@@ -5433,3 +5433,17 @@ Reviewing the actual Android and iOS player entry points exposed a platform pari
 - Context7 resolved the mpv manual library, but its documentation query was blocked by the monthly quota. The AndroidX Media3 version resolver also did not index the repository's pinned 1.8.0 (closest indexed 1.9.3); no Media3 API changes were made.
 - The common regression test was added before the formatter implementation. **No Gradle tests, builds, Xcode builds, or CI were run** under the explicit authorization restriction. Static verification is limited to remote source/diff review; Kotlin/Native-to-Swift interop and actual seek-on-load behavior remain uncompiled and unexecuted.
 - No Android player implementation, dependencies, build configuration, workflows, or CI settings were changed.
+### Improvement cycle 12 — Remove the delayed seek race from iOS playback retry
+
+A second pass through the native MPV recovery path found that `retryPlayback()` reloaded the current path from the beginning and scheduled an absolute seek 500 ms later. That delay was not tied to MPV's file-loading lifecycle, so slow network starts or delayed viewport setup could make the seek run before the new file was ready and lose the retry position.
+
+- Retry now formats the captured current position using a POSIX-locale, finite-positive seconds formatter and supplies it as the same MPV per-file `start` option used by the normal initial-load path.
+- The arbitrary 500 ms delayed seek was removed. A zero, negative, NaN, or infinite position intentionally falls back to a normal beginning-of-file load.
+- Added iOS XCTest coverage for millisecond rounding, decimal separator stability, and invalid/zero values.
+
+### Evidence and verification boundary for cycle 12
+
+- The prior retry implementation was read directly from `MPVPlayerBridge.swift`: it called `loadfile <path> replace`, then issued `seek <position> absolute` after a fixed 0.5-second delay.
+- The replacement uses the official mpv `loadfile` fourth-argument per-file options syntax already researched for cycle 11, with `-1` in the third argument as required since mpv 0.38.
+- The XCTest was committed before the Swift implementation. **No XCTest, Xcode build, Gradle task, or CI run was started** because explicit authorization remains absent. Static source/diff checks do not establish Swift compilation or runtime recovery behavior.
+- No Android code, dependencies, build configuration, workflows, or CI settings changed.
