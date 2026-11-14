@@ -8,6 +8,7 @@ import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.exception.AuthRestException
+import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.functions.functions
@@ -29,7 +30,7 @@ import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
-private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
+private fun cleanupFailure(results: List<Result<*>>): Throwable? {
     val failures = results.mapNotNull { it.exceptionOrNull() }
     val primary = failures.firstOrNull { it is CancellationException }
         ?: failures.firstOrNull()
@@ -40,7 +41,7 @@ private fun cleanupFailure(results: List<Result<Unit>>): Throwable? {
     return primary
 }
 
-internal suspend fun ensureCleanupCallerActive(results: List<Result<Unit>>) {
+internal suspend fun ensureCleanupCallerActive(results: List<Result<*>>) {
     try {
         currentCoroutineContext().ensureActive()
     } catch (cancellation: CancellationException) {
@@ -525,7 +526,7 @@ object AuthRepository {
         source: String,
         expectedIdentity: AuthSessionIdentity,
     ): Boolean {
-        if (!isInvalidRemoteSessionError(error)) return false
+        if (!error.isInvalidSessionError()) return false
 
         // A delayed error from an old request must never clear a replacement account/backend.
         if (!beginSessionReset(expectedIdentity)) return false
