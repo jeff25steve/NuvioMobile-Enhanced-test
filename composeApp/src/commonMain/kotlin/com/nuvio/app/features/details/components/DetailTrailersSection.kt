@@ -197,8 +197,12 @@ fun DetailTrailersSection(
                                 .clip(selectorShape)
                                 .then(selectorBorder)
                                 .clickable {
-                                    onPreviewSurfaceSelected?.invoke(selectorSurface)
-                                    menuExpanded = true
+                                    if (selectorPreview) {
+                                        onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                    }
+                                    if (shouldOpenDetailTrailerCategoryMenu(selectorPreview)) {
+                                        menuExpanded = true
+                                    }
                                 },
                         ) {
                             LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
@@ -383,6 +387,8 @@ internal fun shouldUseNativeDetailTrailerSelector(
         (!preview || selectedPreviewSurface == null ||
             selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_SELECTOR) &&
         !previewMenuInitiallyExpanded
+
+internal fun shouldOpenDetailTrailerCategoryMenu(preview: Boolean): Boolean = !preview
 
 private data class TrailerSectionSizing(
     val cardWidth: androidx.compose.ui.unit.Dp,
