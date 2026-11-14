@@ -5880,8 +5880,8 @@ Making the store lazy exposed an important follow-up: the post-frame `DownloadsR
 
 Integrated:
 - Added the multiplatform suspend hook `DownloadsPlatformDownloader.preloadTransferStore()`; Android forces the transfer StateFlow to load, while iOS implements a no-op.
-- Removed Android platform preparation from the critical startup phase.
-- The post-frame download warm-up now calls platform preparation and transfer-store preload together on `Dispatchers.IO`, then runs the existing common `DownloadsRepository.ensureLoaded()` on its prior Main-thread path.
+- Kept lightweight Android scheduler construction in the critical phase; because the store is lazy, this no longer scans transfer files.
+- The post-frame download warm-up preloads the transfer store on `Dispatchers.IO`, then runs the existing common `DownloadsRepository.ensureLoaded()` on its prior Main-thread path.
 - This preserves ordering: scheduler and transfer records are ready before common manifest restoration calls Android `restoreItem()`. It also preserves the existing offline launch gate on `DownloadsUiState.isLoaded`; offline fallback still waits for the active profile's manifest.
 - No changes were made to download persistence, scheduling, notification behavior, profile ownership, iOS URLSession, or the common repository's state mutation/threading model.
 
