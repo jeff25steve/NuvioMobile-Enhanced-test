@@ -1,6 +1,5 @@
 package com.nuvio.app.features.simkl
 
-import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.tracking.TrackingEpisode
 import com.nuvio.app.features.tracking.TrackingExternalIds
 import com.nuvio.app.features.tracking.TrackingHistoryItem
@@ -27,7 +26,7 @@ import kotlin.math.round
 
 internal class SimklMutationService(
     private val client: SimklApiClient,
-    private val onMutationCommitted: suspend (SimklMutationReceipt) -> Unit = {},
+    private val onMutationCommitted: suspend (SimklSyncProfileScope, SimklMutationReceipt) -> Unit = { _, _ -> },
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -36,6 +35,7 @@ internal class SimklMutationService(
     }
 
     suspend fun moveToList(
+        profileScope: SimklSyncProfileScope,
         items: Collection<TrackingMediaReference>,
         destination: TrackingListStatus,
     ): TrackingMutationResult {
@@ -50,14 +50,19 @@ internal class SimklMutationService(
             ),
         )
         val receipt = response.toListMutationReceipt(candidates, json)
-        onMutationCommitted(receipt)
+        onMutationCommitted(profileScope, receipt)
         return receipt.result
     }
 
-    suspend fun removeFromList(items: Collection<TrackingMediaReference>): TrackingMutationResult =
-        removeFromHistory(items)
+    suspend fun removeFromList(
+        profileScope: SimklSyncProfileScope,
+        items: Collection<TrackingMediaReference>,
+    ): TrackingMutationResult = removeFromHistory(profileScope, items)
 
-    suspend fun addToHistory(items: Collection<TrackingHistoryItem>): TrackingMutationResult {
+    suspend fun addToHistory(
+        profileScope: SimklSyncProfileScope,
+        items: Collection<TrackingHistoryItem>,
+    ): TrackingMutationResult {
         val candidates = items.toList().also { historyItems ->
             require(historyItems.all { item -> item.media.hasResolvableIdentity }) {
                 "Simkl mutation requires a media ID or title for every item"
@@ -78,7 +83,10 @@ internal class SimklMutationService(
         return receipt.result
     }
 
-    suspend fun removeFromHistory(items: Collection<TrackingMediaReference>): TrackingMutationResult {
+    suspend fun removeFromHistory(
+        profileScope: SimklSyncProfileScope,
+        items: Collection<TrackingMediaReference>,
+    ): TrackingMutationResult {
         val candidates = items.validated()
         if (candidates.isEmpty()) return TrackingMutationResult(attemptedCount = 0)
         val response = client.execute(
@@ -128,9 +136,9 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
     private val service by lazy {
         SimklMutationService(
             client = SimklApi.client,
-            onMutationCommitted = { receipt ->
-                SimklSyncRepository.commitMutation(receipt)
-                if (receipt.requiresReconciliation) {
+            onMutationCommitted = { profileScope, receipt ->
+                val committed = SimklSyncRepository.commitMutation(receipt, profileScope)
+                if (committed && receipt.requiresReconciliation) {
                     SimklSyncRepository.refreshAsync(
                         intent = TrackingRefreshIntent.INVALIDATED,
                         origin = SimklRefreshOrigin.MUTATION,
@@ -153,38 +161,45 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
         items: Collection<TrackingMediaReference>,
         destination: TrackingListStatus,
     ): TrackingMutationResult {
-        if (!isActiveProfile(profileId)) return TrackingMutationResult(attemptedCount = 0)
-        return service.moveToList(items, destination)
+        val profileScope = SimklSyncRepository.captureProfileScope(profileId)
+            ?: return TrackingMutationResult(attemptedCount = 0)
+        return service.moveToList(profileScope, items, destination)
     }
 
     override suspend fun removeFromList(
         profileId: Int,
         items: Collection<TrackingMediaReference>,
     ): TrackingMutationResult {
-        if (!isActiveProfile(profileId)) return TrackingMutationResult(attemptedCount = 0)
-        return service.removeFromList(items)
+        val profileScope = SimklSyncRepository.captureProfileScope(profileId)
+            ?: return TrackingMutationResult(attemptedCount = 0)
+        return service.removeFromList(profileScope, items)
     }
 
     override suspend fun addToHistory(
         profileId: Int,
         items: Collection<TrackingHistoryItem>,
     ): TrackingMutationResult {
-        if (!isActiveProfile(profileId)) return TrackingMutationResult(attemptedCount = 0)
+        val profileScope = SimklSyncRepository.captureProfileScope(profileId)
+            ?: return TrackingMutationResult(attemptedCount = 0)
         SimklSyncRepository.ensureLoaded()
+        if (!SimklSyncRepository.isProfileScopeCurrent(profileScope)) {
+            return TrackingMutationResult(attemptedCount = 0)
+        }
         val snapshot = SimklSyncRepository.state.value.snapshot
         val resolved = items.map { item ->
             val enriched = snapshot.enrichMediaReference(item.media)
             item.copy(media = enriched.resolveAnimeEpisodeForSimkl())
         }
-        return service.addToHistory(resolved)
+        return service.addToHistory(profileScope, resolved)
     }
 
     override suspend fun removeFromHistory(
         profileId: Int,
         items: Collection<TrackingMediaReference>,
     ): TrackingMutationResult {
-        if (!isActiveProfile(profileId)) return TrackingMutationResult(attemptedCount = 0)
-        return service.removeFromHistory(items)
+        val profileScope = SimklSyncRepository.captureProfileScope(profileId)
+            ?: return TrackingMutationResult(attemptedCount = 0)
+        return service.removeFromHistory(profileScope, items)
     }
 
     override suspend fun scrobble(
@@ -192,8 +207,9 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
         action: TrackingScrobbleAction,
         event: TrackingScrobbleEvent,
     ) {
-        if (!isActiveProfile(profileId)) return
+        val profileScope = SimklSyncRepository.captureProfileScope(profileId) ?: return
         SimklSyncRepository.ensureLoaded()
+        if (!SimklSyncRepository.isProfileScopeCurrent(profileScope)) return
         val enriched = SimklSyncRepository.state.value.snapshot.enrichMediaReference(event.media)
         val result = service.scrobble(
             action = action,
@@ -202,11 +218,10 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
             ),
         )
         if (action != TrackingScrobbleAction.START) {
-            SimklSyncRepository.commitScrobble(result)
+            SimklSyncRepository.commitScrobble(result, profileScope)
         }
     }
 
-    private fun isActiveProfile(profileId: Int): Boolean = ProfileRepository.activeProfileId == profileId
 }
 
 internal fun buildSimklListMutationBody(
