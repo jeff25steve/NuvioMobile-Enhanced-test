@@ -679,14 +679,14 @@ object SimklAuthRepository : TrackingAuthProvider {
             ) {
                 invalidatedForActiveProfile = true
                 pinAuthorizationJob?.cancel()
-            pinAuthorizationJob = null
-            pinPollingJob?.cancel()
-            pinPollingJob = null
-            accessToken = null
-            SimklAuthStorage.saveAccessToken(null)
-            clearPendingAuthorization()
-            storedState = SimklStoredAuthState()
-            persistMetadata()
+                pinAuthorizationJob = null
+                pinPollingJob?.cancel()
+                pinPollingJob = null
+                accessToken = null
+                SimklAuthStorage.saveAccessToken(null)
+                clearPendingAuthorization()
+                storedState = SimklStoredAuthState()
+                persistMetadata()
                 publish(isLoading = false, error = error)
             }
         }
