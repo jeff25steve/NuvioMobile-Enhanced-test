@@ -81,7 +81,7 @@ run_gradle_step "02-generate-playstore-release-profile" \
 for flavor in full playstore; do
   profile_dir="androidApp/src/${flavor}Release/generated/baselineProfiles"
   [[ -d "$profile_dir" ]] || fail "Missing generated profile directory: $profile_dir"
-  find "$profile_dir" -maxdepth 1 -type f \\( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \\) -print -exec wc -c {} \\; | tee "$OUTPUT_DIR/$flavor-generated-profiles.txt"
+  find "$profile_dir" -maxdepth 1 -type f \( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \) -print -exec wc -c {} \; | tee "$OUTPUT_DIR/$flavor-generated-profiles.txt"
   grep -q 'baseline-prof.txt' "$OUTPUT_DIR/$flavor-generated-profiles.txt" || fail "No baseline-prof.txt for $flavor."
 done
 
