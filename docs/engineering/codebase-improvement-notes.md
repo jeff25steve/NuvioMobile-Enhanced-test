@@ -5982,3 +5982,24 @@ Verification and limitations:
 - The benchmark test source was checked against the current AndroidX 1.5.0 API documentation/source for MacrobenchmarkRule.measureRepeated, CompilationMode.None, CompilationMode.Partial, BaselineProfileMode.Require, StartupMode.COLD, StartupTimingMetric and Java Function1 lambda signatures, but compile compatibility remains unverified pending authorization.
 - Context7 was attempted for the exact AndroidX documentation but monthly quota was exhausted. Official Android Developers docs, AndroidX API/source and release notes were used.
 - No Nuvio startup speedup is claimed. The current remote source has a stricter generator and an A/B measurement harness, not a generated or measured profile.
+
+
+### Improvement cycle 42 — Make startup readiness measurable without changing user UI
+
+Integrated:
+- Wired App's existing onAppReady callback to Compose ReportDrawnWhen in Android MainActivity. This gives Android's fully-drawn reporter a real app-ready condition rather than a guessed delay.
+- Added the Compose test tag nuvio_startup_ready, mapped to a UI Automator resource ID. It is present only after the existing AppGate readiness callback becomes true.
+- Kept the marker on the existing root wrapper, avoiding an extra nested layout layer.
+- Updated StartupBenchmark to wait for that marker with UI Automator after first-frame launch. StartupTimingMetric can now collect both TTID and TTFD.
+- Pinned UI Automator 2.4.1, the current stable release as of 14 November 2026, only in the isolated baseline-profile test module.
+- The benchmark intentionally requires a preconfigured signed-in test installation; auth/onboarding is not mislabeled as Home readiness.
+
+Evidence and safety:
+- Android's own Macrobenchmark codelab says the measure block must wait for content readiness or it can finish before TTFD is recorded.
+- The marker is semantics/test infrastructure only; it does not alter user-facing labels, accessibility announcements, navigation, data loading or app readiness itself.
+- This is a measurement-quality improvement, not a production startup optimization. It makes future profile A/B evidence more representative but does not itself make the app launch faster.
+
+Verification:
+- Remote static inspection only. No Gradle configuration, build, compilation, test, profile generation, Macrobenchmark, device/emulator operation or CI was run.
+- Context7 quota was exhausted; official Android Developers docs and AndroidX release notes/API references were used.
+- No performance result or speedup is claimed.
