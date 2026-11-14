@@ -387,6 +387,54 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
+    fun savedRootBackdropProviderUsesScrollingContentWhenOnlyLibraryPillGlassIsEnabled() {
+        assertTrue(
+            libraryRootPinnedChromeUsesContentBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = true,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+            ),
+        )
+    }
+
+    @Test
+    fun savedRootBackdropProviderAlsoSupportsFilterGlassAndIgnoresInactiveModes() {
+        assertTrue(
+            libraryRootPinnedChromeUsesContentBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertTrue(
+            libraryRootPinnedChromeUsesContentBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = true,
+            ),
+        )
+        assertFalse(
+            libraryRootPinnedChromeUsesContentBackdrop(
+                sourceMode = LibraryViewMode.Saved,
+                librarySurfaceGlassEnabled = false,
+                savedTypeGlassEnabled = false,
+                savedSortGlassEnabled = false,
+            ),
+        )
+        assertFalse(
+            libraryRootPinnedChromeUsesContentBackdrop(
+                sourceMode = LibraryViewMode.Cloud,
+                librarySurfaceGlassEnabled = true,
+                savedTypeGlassEnabled = true,
+                savedSortGlassEnabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun savedFilterOverlayReservesInitialListSpaceWheneverControlsAreVisible() {
         assertFalse(
             librarySavedControlsNeedContentInset(
