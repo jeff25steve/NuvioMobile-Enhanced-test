@@ -303,3 +303,26 @@ References:
 - Android instrumentation target context: https://developer.android.com/reference/android/app/Instrumentation#getTargetContext()
 - Android build variants and application ID suffix: https://developer.android.com/build/build-variants
 - LADB pairing procedure and implementation: https://github.com/tytydraco/LADB
+
+
+## Benchmark runner follow-up review — 14 November 2026
+
+The first two phone-bundle workflow dispatches failed before Gradle compilation:
+
+- Run [43651971737](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43651971737) stopped at `bash -n` because the desktop runner's `find` expression had doubled escapes around its parentheses and semicolon. This was repaired on `main-build-testing` in `ef269d2e31c8b4f32bf391aa6c1bb8cbbf45a831`.
+- Run [43652152841](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652152841) passed the desktop syntax check but the mocked phone-runner test resolved its script from the wrong directory. This was repaired on `main-build-testing` in `d0d6017cae697ae4c87940000d631e9be7db123f`.
+- Run [43652201558](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652201558) passed the pre-build validation and Rust target setup, then entered the full non-minified profile-capture APK task. Its last observed status was `in_progress` at 23:14:13 UTC. It was already active when this review began; this review did not dispatch or rerun it.
+
+A further static audit found two desktop-runner issues and fixed them on the isolated review branch:
+
+1. All six ADB output cleanup commands now use `tr -d '\\r'` rather than `tr -d '\\\\r'`. GNU `tr` previously received a literal backslash plus the letter `r`, leaving carriage-return bytes in API level, model, hardware, emulator and root-check strings.
+2. The desktop runner now collects profiles through `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`, and inspects `src/<flavor>NonMinifiedRelease/generated/baselineProfiles`. Its prior `generate*ReleaseBaselineProfile` tasks and `src/<flavor>Release` path selected the production release build type instead of the isolated `.benchmark` profile-capture build type. This aligns the desktop runner with the APK pairs used by the phone-only workflow and leaves production `com.nuvio.media` isolated.
+
+The mocked runner test now asserts the CR escape, both non-minified task names and the correct generated source-set path. The new checks were exercised with a focused local fixture: they rejected the old task/path and accepted the corrected variant. The CR-removal behavior was confirmed with a literal CR byte; representative updated shell fragments passed `bash -n`. The complete repository mock suite has not been rerun locally after these new assertions were added.
+
+The corrections are committed on `fix/android-startup-profile-shell-validation` pending final review and fast-forward integration. No build or CI was started by this follow-up. Context7 lookup for AndroidX Baseline Profile 1.5.0 hit the monthly quota; Android Developers' official Baseline Profile variant documentation and AndroidX plugin source were used through Exa instead. No device performance result or startup speedup is claimed.
+
+References:
+- https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+- https://developer.android.com/topic/performance/baselineprofiles/create-baselineprofile
+- https://www.gnu.org/software/bash/manual/bash.html#Quoting
