@@ -5295,6 +5295,7 @@ Static lifecycle tracing found that `loadFromDisk()` cancelled the previous prof
 - The disk reload path now publishes that projection directly and synchronizes `isAuthenticated` with the restored state.
 - Explicitly reset loading/error state on `clearLocalState()` and user disconnect as well, so terminal auth transitions cannot inherit a previous operation's spinner.
 - Added common regression coverage for clean disconnected and authenticated profile snapshots.
+- Added a focused common test for explicit profile-scoped credential/removal keys; Android SharedPreferences and iOS Keychain/NSUserDefaults implementations were inspected and both use `ProfileScopedKey`.
 
 ### Improvement cycle 2 — Remove orphaned PKCE verifier material
 
