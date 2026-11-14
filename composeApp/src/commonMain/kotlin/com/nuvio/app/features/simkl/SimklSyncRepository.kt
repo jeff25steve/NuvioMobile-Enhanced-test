@@ -295,7 +295,7 @@ object SimklSyncRepository : TrackingProfileStore {
                 receipt = receipt,
                 committedAtEpochMs = SimklPlatformClock.nowEpochMs(),
             )
-            if (snapshot == current.snapshot) return@withLock false
+            if (snapshot == current.snapshot) return@withLock true
             val committed = synchronized(profileStateLock) {
                 if (!isProfileScopeCurrentLocked(profileScope)) {
                     false
