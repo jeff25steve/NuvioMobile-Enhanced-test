@@ -77,3 +77,31 @@ final class MpvAudioLanguagePreferenceStateTests: XCTestCase {
         XCTAssertEqual(state.optionValue, "")
     }
 }
+
+final class MpvPendingSubtitleRequestTests: XCTestCase {
+    func testQueuedSubtitleDoesNotLeakIntoReplacementSource() {
+        var request = MpvPendingSubtitleRequest()
+        request.enqueue("https://media.example/old-source.srt")
+        request.clearForNewSource()
+
+        XCTAssertNil(request.takeAfterFileLoaded())
+
+        request.enqueue("https://media.example/new-source.srt")
+        XCTAssertEqual(
+            request.takeAfterFileLoaded(),
+            "https://media.example/new-source.srt"
+        )
+        XCTAssertNil(request.takeAfterFileLoaded())
+    }
+
+    func testLatestSubtitleChoiceReplacesEarlierPendingChoice() {
+        var request = MpvPendingSubtitleRequest()
+        request.enqueue("https://media.example/first.srt")
+        request.enqueue("https://media.example/second.srt")
+
+        XCTAssertEqual(
+            request.takeAfterFileLoaded(),
+            "https://media.example/second.srt"
+        )
+    }
+}
