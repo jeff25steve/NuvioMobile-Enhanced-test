@@ -127,6 +127,7 @@ fun DetailHero(
                     val imageUrl = meta.background ?: meta.poster
                     if (imageUrl != null) {
                         val backdropFocus = rememberBackdropFocusState(imageUrl)
+                        val backdropRevealAlpha = backdropFocus.revealAlpha()
                         AsyncImage(
                             model = imageUrl,
                             contentDescription = meta.name,
@@ -136,7 +137,7 @@ fun DetailHero(
                                 .height(heroHeight)
                                 .heroStretchZoom(stretchPx)
                                 .graphicsLayer {
-                                    alpha = backdropFocus.revealAlpha()
+                                    alpha = backdropRevealAlpha
                                     translationY = scrollOffset() * 0.5f
                                     scaleX = 1.08f
                                     scaleY = 1.08f
