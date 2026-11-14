@@ -136,7 +136,7 @@ fun DetailHero(
                                 .height(heroHeight)
                                 .heroStretchZoom(stretchPx)
                                 .graphicsLayer {
-                                    alpha = backdropFocus.revealAlpha
+                                    alpha = backdropFocus.revealAlpha()
                                     translationY = scrollOffset() * 0.5f
                                     scaleX = 1.08f
                                     scaleY = 1.08f
