@@ -262,6 +262,7 @@ object SimklAuthRepository : TrackingAuthProvider {
             ) {
                 delay(schedule.intervalSeconds * 1_000L)
                 if (!authOperationGeneration.isCurrent(generation)) return@launch
+                if (SimklPlatformClock.nowEpochMs() >= schedule.expiresAtEpochMs) break
                 if (pollPin(userCode, generation)) return@launch
             }
 
