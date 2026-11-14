@@ -77,3 +77,30 @@ internal sealed interface SimklAuthCallback {
     data object Invalid : SimklAuthCallback
     data object NotSimkl : SimklAuthCallback
 }
+
+/** Builds a clean UI snapshot when switching to a profile loaded from persistent storage. */
+internal fun simklAuthStateAfterProfileReload(
+    storedState: SimklStoredAuthState,
+    accessToken: String?,
+    credentialsConfigured: Boolean,
+): SimklAuthUiState {
+    val authenticated = !accessToken.isNullOrBlank()
+    return SimklAuthUiState(
+        mode = when {
+            authenticated -> SimklConnectionMode.CONNECTED
+            storedState.hasPendingAuthorization -> SimklConnectionMode.AWAITING_APPROVAL
+            else -> SimklConnectionMode.DISCONNECTED
+        },
+        credentialsConfigured = credentialsConfigured,
+        isLoading = false,
+        username = storedState.username,
+        accountId = storedState.accountId,
+        tokenExpiresAtEpochMs = storedState.tokenExpiresAtEpochMs,
+        pendingAuthorizationStartedAtEpochMs = storedState.pendingAuthorizationStartedAtEpochMs,
+        error = null,
+    )
+}
+
+/** A PKCE verifier is valid only while its browser authorization state is persisted. */
+internal fun shouldClearOrphanedSimklCodeVerifier(state: SimklStoredAuthState): Boolean =
+    state.pendingAuthorizationState.isNullOrBlank()
