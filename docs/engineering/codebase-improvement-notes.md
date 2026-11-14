@@ -5268,6 +5268,7 @@ Remote source inspection confirmed that `loadFromDisk()` cancelled the active PI
 - On profile reload, restore the PIN polling job using the persisted interval and expiry. Legacy pending PIN records migrate from their existing authorization start timestamp using the documented defaults.
 - PIN expiry now uses its own absolute expiry check; browser PKCE authorization continues to use its separate five-minute timeout.
 - Respect a non-default positive interval returned by the server rather than silently replacing it with the default.
+- Re-check the absolute expiry after each cancellable delay so a long server interval cannot cause a final poll to be sent after the code has expired.
 
 ### Improvement cycle 2 — Cancel superseded PIN initialization requests
 
