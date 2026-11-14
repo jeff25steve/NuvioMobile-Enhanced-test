@@ -583,6 +583,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             onResizeModeClick = { cycleResizeMode() },
             onSpeedClick = if (!isLiveTvPlayback) {
                 {
+                    showDiscTitlesPanel = false
                     showSpeedPanel = !showSpeedPanel
                     controlsActivityTick += 1
                 }
@@ -689,6 +690,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             } else null,
             onLiveChannelsClick = if (isLiveTvPlayback) {
                 {
+                    showDiscTitlesPanel = false
                     showLiveChannelsPanel = true
                 }
             } else null,
@@ -950,6 +952,7 @@ private fun PlayerScreenRuntime.openQualityPanel() {
             "variants=${playerQualityState.variants.size} loading=${playerQualityState.isLoading} " +
             "actual=${playbackSnapshot.videoWidth ?: 0}x${playbackSnapshot.videoHeight ?: 0}",
     )
+    showDiscTitlesPanel = false
     showQualityPanel = true
     showSourcesPanel = false
     showEpisodesPanel = false

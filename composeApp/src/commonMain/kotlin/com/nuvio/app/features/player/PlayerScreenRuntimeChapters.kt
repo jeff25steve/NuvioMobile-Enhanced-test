@@ -26,6 +26,7 @@ internal fun PlayerScreenRuntime.clearChaptersIfDisabled() {
 internal fun PlayerScreenRuntime.openChaptersPanel() {
     if (chapters.isEmpty()) return
     showChaptersPanel = true
+    showDiscTitlesPanel = false
     showSourcesPanel = false
     showEpisodesPanel = false
     showQualityPanel = false

@@ -149,6 +149,7 @@ internal fun PlayerScreenRuntime.BindPlayerRuntimeEffects() {
         selectedAddonSubtitleId = null
         useCustomSubtitles = false
         showSourcesPanel = false
+        showDiscTitlesPanel = false
         showEpisodesPanel = false
         showChaptersPanel = false
         chapters = emptyList()

@@ -119,6 +119,7 @@ internal fun PlayerScreenRuntime.openExternalSourceUrl(stream: StreamItem): Bool
     )
     openExternalUrl(url)
     showSourcesPanel = false
+    showDiscTitlesPanel = false
     showEpisodesPanel = false
     showChaptersPanel = false
     controlsVisible = true
@@ -679,6 +680,7 @@ internal fun PlayerScreenRuntime.openSourcesPanel() {
         season = activeSeasonNumber,
         episode = activeEpisodeNumber,
     )
+    showDiscTitlesPanel = false
     showSourcesPanel = true
     showEpisodesPanel = false
     showLiveChannelsPanel = false
@@ -700,6 +702,7 @@ internal fun PlayerScreenRuntime.openEpisodesPanel() {
             )
         }
     }
+    showDiscTitlesPanel = false
     showEpisodesPanel = true
     showSourcesPanel = false
     showLiveChannelsPanel = false
@@ -711,6 +714,7 @@ private data class EpisodeResume(val positionMs: Long, val fraction: Float?)
 
 private fun PlayerScreenRuntime.resetEpisodePanelAndNextEpisodeState() {
     showNextEpisodeCard = false
+    showDiscTitlesPanel = false
     showSourcesPanel = false
     showEpisodesPanel = false
     showLiveChannelsPanel = false
