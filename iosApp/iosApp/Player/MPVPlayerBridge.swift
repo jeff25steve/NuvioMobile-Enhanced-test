@@ -450,6 +450,8 @@ func makeMpvExternalSubtitleReplacementPlan(
 }
 
 private struct PendingMpvExternalSubtitleReplacement {
+    let coreGeneration: UInt64
+    let requestGeneration: UInt64
     let path: String
     let trackIdsToRemove: [Int]
 }
@@ -1585,6 +1587,8 @@ final class MPVPlayerViewController: UIViewController {
 
         mpvQueue.async { [weak self, eventQueue, metalLayer] in
             eventQueue.sync {}
+            self?.externalSubtitlePathsBySourceUrl.removeAll()
+            self?.pendingExternalSubtitleReplacement = nil
             mpv_terminate_destroy(ctx)
             withExtendedLifetime(metalLayer) {}
             eventQueue.async { self?.sawDeviceLossInLog = false }
@@ -1985,6 +1989,8 @@ final class MPVPlayerViewController: UIViewController {
                 // Keep the original track until MPV confirms that the retimed file has appeared.
                 // The track-list/count observer completes the swap and removes stale AutoSync copies.
                 self.pendingExternalSubtitleReplacement = PendingMpvExternalSubtitleReplacement(
+                    coreGeneration: coreGeneration,
+                    requestGeneration: requestGeneration,
                     path: path,
                     trackIdsToRemove: plan.trackIdsToRemove
                 )
@@ -2000,6 +2006,13 @@ final class MPVPlayerViewController: UIViewController {
 
     private func completePendingExternalSubtitleReplacementIfAvailable() {
         guard let pending = pendingExternalSubtitleReplacement, mpv != nil else { return }
+        guard
+            pending.coreGeneration == mpvGeneration,
+            pending.requestGeneration == loadRequestGeneration
+        else {
+            pendingExternalSubtitleReplacement = nil
+            return
+        }
         let count = getInt("track-list/count")
         let replacementId = (0..<count).first(where: { index in
             getString("track-list/\(index)/type") == "sub" &&
