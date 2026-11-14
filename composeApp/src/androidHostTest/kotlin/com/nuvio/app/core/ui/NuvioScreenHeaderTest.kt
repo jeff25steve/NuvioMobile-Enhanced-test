@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -104,6 +105,33 @@ class NuvioScreenHeaderTest {
 
         val titleBounds = compose.onNodeWithText("Settings").fetchSemanticsNode().boundsInRoot
         assertTrue(abs(titleBounds.left - insetPx) <= 1f, "Settings title should remain aligned with the content inset")
+    }
+
+    @Test fun compactLibraryHeaderCanStopItsBackgroundBeforeThePinnedSourcePill() {
+        val bottomPadding = mutableStateOf(16.dp)
+        compose.setContent {
+            NuvioTheme {
+                Box(Modifier.size(320.dp, 180.dp)) {
+                    NuvioScreenHeader(
+                        title = "Library",
+                        modifier = Modifier.fillMaxWidth().testTag("libraryHeader"),
+                        includeStatusBarPadding = false,
+                        bottomContentPadding = bottomPadding.value,
+                    )
+                }
+            }
+        }
+
+        val originalHeight = compose.onNodeWithTag("libraryHeader").fetchSemanticsNode().boundsInRoot.height
+        compose.runOnIdle { bottomPadding.value = 0.dp }
+        compose.waitForIdle()
+        val compactHeight = compose.onNodeWithTag("libraryHeader").fetchSemanticsNode().boundsInRoot.height
+        val expectedReduction = with(compose.density) { 16.dp.toPx() }
+
+        assertTrue(
+            abs((originalHeight - compactHeight) - expectedReduction) <= 1f,
+            "Library header backing should stop at its content instead of extending through the pill gap",
+        )
     }
 
     @Test fun titleLeavesRoomForBackButtonAndAction() {
