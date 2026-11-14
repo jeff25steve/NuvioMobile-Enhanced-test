@@ -334,7 +334,7 @@ class SimklMutationRepositoryTest {
                 sleep = {},
                 retryJitterMs = { 0L },
             ),
-            onMutationCommitted = { committed += 1 },
+            onMutationCommitted = { _, _ -> committed += 1 },
         )
 
         val result = service.scrobble(
