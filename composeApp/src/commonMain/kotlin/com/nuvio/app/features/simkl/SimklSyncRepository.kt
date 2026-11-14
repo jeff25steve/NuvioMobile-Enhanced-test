@@ -7,6 +7,8 @@ import com.nuvio.app.features.tracking.TrackingProviderId
 import com.nuvio.app.features.tracking.TrackingProviderRegistry
 import com.nuvio.app.features.tracking.TrackingRefreshIntent
 import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +35,7 @@ object SimklSyncRepository : TrackingProfileStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val refreshGate = SimklRefreshGate()
     private val snapshotMutex = Mutex()
+    private val profileStateLock = SynchronizedObject()
     private val refreshRequestSequence = atomic(0L)
     private val engine = SimklSyncEngine(
         remote = SimklApiSyncRemote(),
@@ -49,10 +52,37 @@ object SimklSyncRepository : TrackingProfileStore {
         TrackingProviderRegistry.registerProfileStore(this)
     }
 
+    internal fun captureProfileScope(expectedProfileId: Int? = null): SimklSyncProfileScope? =
+        synchronized(profileStateLock) {
+            val profileId = ProfileRepository.activeProfileId
+            if (expectedProfileId != null && expectedProfileId != profileId) {
+                return@synchronized null
+            }
+            SimklSyncProfileScope(profileId = profileId, generation = profileGeneration)
+        }
+
+    internal fun isProfileScopeCurrent(profileScope: SimklSyncProfileScope): Boolean =
+        synchronized(profileStateLock) {
+            isProfileScopeCurrentLocked(profileScope)
+        }
+
+    private fun isProfileScopeCurrentLocked(profileScope: SimklSyncProfileScope): Boolean =
+        isSimklSyncProfileScopeCurrent(
+            scope = profileScope,
+            currentGeneration = profileGeneration,
+            activeProfileId = ProfileRepository.activeProfileId,
+        )
+
     fun ensureLoaded() {
-        if (hasLoaded) return
-        hasLoaded = true
-        val snapshot = SimklSyncStorage.loadPayload()
+        val profileScope = synchronized(profileStateLock) {
+            if (hasLoaded) return
+            hasLoaded = true
+            SimklSyncProfileScope(
+                profileId = ProfileRepository.activeProfileId,
+                generation = profileGeneration,
+            )
+        }
+        val snapshot = SimklSyncStorage.loadPayload(profileScope.profileId)
             ?.trim()
             ?.takeIf(String::isNotEmpty)
             ?.let { payload ->
@@ -62,8 +92,15 @@ object SimklSyncRepository : TrackingProfileStore {
             }
             ?.withoutLocalPlaceholders()
             ?: SimklSyncSnapshot()
-        _state.value = SimklSyncUiState(snapshot = snapshot, hasLoaded = true)
-        SimklWatchDiagnostics.logSnapshot(stage = "cache-load", snapshot = snapshot)
+        val committed = synchronized(profileStateLock) {
+            if (!isProfileScopeCurrentLocked(profileScope)) {
+                false
+            } else {
+                _state.value = SimklSyncUiState(snapshot = snapshot, hasLoaded = true)
+                true
+            }
+        }
+        if (committed) SimklWatchDiagnostics.logSnapshot(stage = "cache-load", snapshot = snapshot)
     }
 
     fun refreshAsync(intent: TrackingRefreshIntent) {
@@ -85,27 +122,26 @@ object SimklSyncRepository : TrackingProfileStore {
         origin: SimklRefreshOrigin,
     ): Boolean {
         ensureLoaded()
+        val profileScope = captureProfileScope() ?: return false
         val requestId = refreshRequestSequence.incrementAndGet()
-        val requestedGeneration = profileGeneration
-        val requestedProfileId = ProfileRepository.activeProfileId
         val before = _state.value
         SimklWatchDiagnostics.logRefreshRequest(
             requestId = requestId,
             origin = origin,
             intent = intent,
-            profileId = requestedProfileId,
-            profileGeneration = requestedGeneration,
+            profileId = profileScope.profileId,
+            profileGeneration = profileScope.generation,
             authenticated = SimklAuthRepository.isAuthenticated.value,
             snapshot = before.snapshot,
             errorMessage = before.errorMessage,
         )
         val outcome = refreshGate.runIfNeeded(
-            profileGeneration = requestedGeneration,
+            profileGeneration = profileScope.generation,
             shouldRun = {
                 val current = _state.value
                 val authenticated = SimklAuthRepository.isAuthenticated.value
                 val nowEpochMs = SimklPlatformClock.nowEpochMs()
-                val eligible = requestedGeneration == profileGeneration &&
+                val eligible = isProfileScopeCurrent(profileScope) &&
                     authenticated &&
                     shouldRunSimklRefresh(
                         intent = intent,
@@ -126,7 +162,7 @@ object SimklSyncRepository : TrackingProfileStore {
                 eligible
             },
         ) {
-            refreshSnapshot(requestedGeneration)
+            refreshSnapshot(profileScope)
         }
         SimklWatchDiagnostics.logRefreshCompletion(
             requestId = requestId,
@@ -137,17 +173,22 @@ object SimklSyncRepository : TrackingProfileStore {
             after = _state.value,
         )
         val completed = _state.value
-        return requestedGeneration == profileGeneration &&
-            requestedProfileId == ProfileRepository.activeProfileId &&
+        return isProfileScopeCurrent(profileScope) &&
             SimklAuthRepository.isAuthenticated.value &&
             completed.hasLoaded &&
             completed.errorMessage == null
     }
 
-    private suspend fun refreshSnapshot(generation: Long) = snapshotMutex.withLock {
-        val profileId = ProfileRepository.activeProfileId
-        val previous = _state.value
-        _state.value = previous.copy(isLoading = true, errorMessage = null)
+    private suspend fun refreshSnapshot(profileScope: SimklSyncProfileScope) = snapshotMutex.withLock {
+        val previous = synchronized(profileStateLock) {
+            if (!isProfileScopeCurrentLocked(profileScope)) {
+                null
+            } else {
+                _state.value.also { current ->
+                    _state.value = current.copy(isLoading = true, errorMessage = null)
+                }
+            }
+        } ?: return@withLock
 
         val result = try {
             engine.synchronize(previous.snapshot)
@@ -155,88 +196,120 @@ object SimklSyncRepository : TrackingProfileStore {
             throw error
         } catch (error: Throwable) {
             log.w { "Simkl sync failed: ${error.message}" }
-            if (generation == profileGeneration && profileId == ProfileRepository.activeProfileId) {
-                _state.value = previous.copy(
-                    isLoading = false,
-                    hasLoaded = true,
-                    errorMessage = error.message ?: "Unable to sync Simkl",
-                )
+            synchronized(profileStateLock) {
+                if (isProfileScopeCurrentLocked(profileScope)) {
+                    _state.value = previous.copy(
+                        isLoading = false,
+                        hasLoaded = true,
+                        errorMessage = error.message ?: "Unable to sync Simkl",
+                    )
+                }
             }
             return@withLock
         }
 
-        if (generation != profileGeneration || profileId != ProfileRepository.activeProfileId) {
-            return@withLock
-        }
+        if (!isProfileScopeCurrent(profileScope)) return@withLock
         SimklAuthRepository.synchronizeUserSettings(result.activities?.settings?.all)
-        if (generation != profileGeneration || profileId != ProfileRepository.activeProfileId) {
-            return@withLock
+        val committed = synchronized(profileStateLock) {
+            if (!isProfileScopeCurrentLocked(profileScope)) {
+                false
+            } else {
+                SimklSyncStorage.savePayload(profileScope.profileId, json.encodeToString(result))
+                _state.value = SimklSyncUiState(
+                    snapshot = result,
+                    hasLoaded = true,
+                )
+                true
+            }
         }
-        SimklSyncStorage.savePayload(json.encodeToString(result))
-        _state.value = SimklSyncUiState(
-            snapshot = result,
-            hasLoaded = true,
-        )
-        SimklWatchDiagnostics.logSnapshot(stage = "network-commit", snapshot = result)
+        if (committed) SimklWatchDiagnostics.logSnapshot(stage = "network-commit", snapshot = result)
     }
 
-    internal suspend fun commitPlaybackRemoval(sessionIds: Set<Long>) {
+    internal suspend fun commitPlaybackRemoval(
+        sessionIds: Set<Long>,
+        profileScope: SimklSyncProfileScope,
+    ) {
         if (sessionIds.isEmpty()) return
         ensureLoaded()
         snapshotMutex.withLock {
-            val current = _state.value
+            val current = synchronized(profileStateLock) {
+                if (isProfileScopeCurrentLocked(profileScope)) _state.value else null
+            } ?: return@withLock
             val updatedPlayback = current.snapshot.playback.filterNot { session -> session.id in sessionIds }
             if (updatedPlayback.size == current.snapshot.playback.size) return@withLock
             val updatedSnapshot = current.snapshot.copy(playback = updatedPlayback)
-            SimklSyncStorage.savePayload(json.encodeToString(updatedSnapshot))
-            _state.value = current.copy(snapshot = updatedSnapshot)
-            SimklWatchDiagnostics.logSnapshot(stage = "playback-removal", snapshot = updatedSnapshot)
+            val committed = synchronized(profileStateLock) {
+                if (!isProfileScopeCurrentLocked(profileScope)) {
+                    false
+                } else {
+                    SimklSyncStorage.savePayload(profileScope.profileId, json.encodeToString(updatedSnapshot))
+                    _state.value = current.copy(snapshot = updatedSnapshot)
+                    true
+                }
+            }
+            if (committed) SimklWatchDiagnostics.logSnapshot(stage = "playback-removal", snapshot = updatedSnapshot)
         }
     }
 
-    internal suspend fun commitScrobble(result: SimklScrobbleResult) {
+    internal suspend fun commitScrobble(
+        result: SimklScrobbleResult,
+        profileScope: SimklSyncProfileScope,
+    ): Boolean {
         ensureLoaded()
-        val generation = profileGeneration
-        val profileId = ProfileRepository.activeProfileId
         snapshotMutex.withLock {
-            if (generation != profileGeneration || profileId != ProfileRepository.activeProfileId) {
-                return@withLock
-            }
-            val current = _state.value
+            val current = synchronized(profileStateLock) {
+                if (isProfileScopeCurrentLocked(profileScope)) _state.value else null
+            } ?: return@withLock false
             val snapshot = current.snapshot.applyScrobbleResult(
                 result = result,
                 committedAtEpochMs = SimklPlatformClock.nowEpochMs(),
             )
-            if (snapshot == current.snapshot) return@withLock
-            SimklSyncStorage.savePayload(json.encodeToString(snapshot))
-            if (generation == profileGeneration && profileId == ProfileRepository.activeProfileId) {
-                _state.value = current.copy(snapshot = snapshot)
+            if (snapshot == current.snapshot) return@withLock false
+            val committed = synchronized(profileStateLock) {
+                if (!isProfileScopeCurrentLocked(profileScope)) {
+                    false
+                } else {
+                    SimklSyncStorage.savePayload(profileScope.profileId, json.encodeToString(snapshot))
+                    _state.value = current.copy(snapshot = snapshot)
+                    true
+                }
+            }
+            if (committed) {
                 SimklWatchDiagnostics.logSnapshot(stage = "scrobble-commit", snapshot = snapshot)
                 refreshIfHoldingLocalEntries(snapshot)
             }
+            committed
         }
     }
 
-    internal suspend fun commitMutation(receipt: SimklMutationReceipt) {
+    internal suspend fun commitMutation(
+        receipt: SimklMutationReceipt,
+        profileScope: SimklSyncProfileScope,
+    ): Boolean {
         ensureLoaded()
-        val generation = profileGeneration
-        val profileId = ProfileRepository.activeProfileId
         snapshotMutex.withLock {
-            if (generation != profileGeneration || profileId != ProfileRepository.activeProfileId) {
-                return@withLock
-            }
-            val current = _state.value
+            val current = synchronized(profileStateLock) {
+                if (isProfileScopeCurrentLocked(profileScope)) _state.value else null
+            } ?: return@withLock false
             val snapshot = current.snapshot.applyMutationReceipt(
                 receipt = receipt,
                 committedAtEpochMs = SimklPlatformClock.nowEpochMs(),
             )
-            if (snapshot == current.snapshot) return@withLock
-            SimklSyncStorage.savePayload(json.encodeToString(snapshot))
-            if (generation == profileGeneration && profileId == ProfileRepository.activeProfileId) {
-                _state.value = current.copy(snapshot = snapshot)
+            if (snapshot == current.snapshot) return@withLock false
+            val committed = synchronized(profileStateLock) {
+                if (!isProfileScopeCurrentLocked(profileScope)) {
+                    false
+                } else {
+                    SimklSyncStorage.savePayload(profileScope.profileId, json.encodeToString(snapshot))
+                    _state.value = current.copy(snapshot = snapshot)
+                    true
+                }
+            }
+            if (committed) {
                 SimklWatchDiagnostics.logSnapshot(stage = "mutation-commit", snapshot = snapshot)
                 refreshIfHoldingLocalEntries(snapshot)
             }
+            committed
         }
     }
 
@@ -249,17 +322,23 @@ object SimklSyncRepository : TrackingProfileStore {
     }
 
     override fun onProfileChanged() {
-        profileGeneration += 1L
-        hasLoaded = false
-        _state.value = SimklSyncUiState()
+        synchronized(profileStateLock) {
+            profileGeneration += 1L
+            hasLoaded = false
+            _state.value = SimklSyncUiState()
+        }
         ensureLoaded()
     }
 
     override fun clearLocalState() {
-        profileGeneration += 1L
-        hasLoaded = false
-        _state.value = SimklSyncUiState()
-        SimklSyncStorage.savePayload("")
+        val profileId = synchronized(profileStateLock) {
+            val currentProfileId = ProfileRepository.activeProfileId
+            profileGeneration += 1L
+            hasLoaded = false
+            _state.value = SimklSyncUiState()
+            currentProfileId
+        }
+        SimklSyncStorage.savePayload(profileId, "")
     }
 
     /**
@@ -268,15 +347,19 @@ object SimklSyncRepository : TrackingProfileStore {
      * Call this when a setting that affects projection output changes (e.g. anime ID preference).
      */
     fun invalidateProjections() {
-        val current = _state.value
-        _state.value = current.copy(projectionVersion = current.projectionVersion + 1L)
+        synchronized(profileStateLock) {
+            val current = _state.value
+            _state.value = current.copy(projectionVersion = current.projectionVersion + 1L)
+        }
     }
 
     override fun removeStoredProfile(profileId: Int) {
-        if (ProfileRepository.activeProfileId == profileId) {
-            profileGeneration += 1L
-            hasLoaded = false
-            _state.value = SimklSyncUiState()
+        synchronized(profileStateLock) {
+            if (ProfileRepository.activeProfileId == profileId) {
+                profileGeneration += 1L
+                hasLoaded = false
+                _state.value = SimklSyncUiState()
+            }
         }
         SimklSyncStorage.removeProfile(profileId)
     }
