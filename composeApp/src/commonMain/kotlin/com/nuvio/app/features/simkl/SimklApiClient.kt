@@ -15,6 +15,7 @@ import kotlin.math.max
 import kotlin.random.Random
 
 private const val SIMKL_MAX_RESPONSE_BODY_BYTES = 8 * 1024 * 1024
+private const val SIMKL_MAX_RETRY_DELAY_MS = 60_000L
 private val simklSyncLog = Logger.withTag("SimklSync")
 
 internal enum class SimklHttpMethod {
@@ -281,10 +282,11 @@ internal fun retryDelayMs(
         ?.trim()
         ?.toLongOrNull()
         ?.coerceAtLeast(0L)
+        ?.coerceAtMost(SIMKL_MAX_RETRY_DELAY_MS / 1_000L)
         ?.times(1_000L)
         ?: 0L
     return (max(exponentialDelayMs, retryAfterMs) + jitterMs.coerceIn(0L, 1_000L))
-        .coerceAtMost(60_000L)
+        .coerceAtMost(SIMKL_MAX_RETRY_DELAY_MS)
 }
 
 private fun RawHttpResponse.toApiResponse(isSoftSuccess: Boolean = false): SimklApiResponse =
