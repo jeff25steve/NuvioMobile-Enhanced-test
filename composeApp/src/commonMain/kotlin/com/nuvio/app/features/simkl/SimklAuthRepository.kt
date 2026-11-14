@@ -61,6 +61,7 @@ object SimklAuthRepository : TrackingAuthProvider {
     )
 
     private var hasLoaded = false
+    private var loadedProfileId: Int? = null
     private var storedState = SimklStoredAuthState()
     private var accessToken: String? = null
     private var authenticationMethod = SimklAuthenticationMethod.BROWSER_REDIRECT
@@ -72,7 +73,11 @@ object SimklAuthRepository : TrackingAuthProvider {
     }
 
     override fun ensureLoaded() {
-        if (hasLoaded) return
+        val activeProfileId = ProfileRepository.activeProfileId
+        val loadedForActiveProfile = authOperationGeneration.read {
+            hasLoaded && loadedProfileId == activeProfileId
+        }
+        if (loadedForActiveProfile) return
         loadFromDisk()
     }
 
@@ -83,6 +88,7 @@ object SimklAuthRepository : TrackingAuthProvider {
     override fun clearLocalState() {
         authOperationGeneration.advance {
             hasLoaded = false
+            loadedProfileId = null
             pinAuthorizationJob?.cancel()
             pinAuthorizationJob = null
             pinPollingJob?.cancel()
@@ -132,6 +138,7 @@ object SimklAuthRepository : TrackingAuthProvider {
                     storedState = SimklStoredAuthState()
                     authenticationMethod = SimklAuthenticationMethod.BROWSER_REDIRECT
                     hasLoaded = false
+                    loadedProfileId = null
                     SimklAuthStorage.removeProfile(profileId)
                     publish(isLoading = false, error = null)
                 } else {
@@ -423,7 +430,14 @@ object SimklAuthRepository : TrackingAuthProvider {
     }
 
     internal fun isAuthOperationCurrent(generation: Long): Boolean =
-        authOperationGeneration.isCurrent(generation)
+        authOperationGeneration.read { currentGeneration ->
+            isSimklAuthProfileGenerationCurrent(
+                expectedGeneration = generation,
+                currentGeneration = currentGeneration,
+                loadedProfileId = loadedProfileId,
+                activeProfileId = ProfileRepository.activeProfileId,
+            )
+        }
 
     suspend fun refreshUserSettings(): String? {
         authorizedAccessToken() ?: return null
@@ -580,6 +594,7 @@ object SimklAuthRepository : TrackingAuthProvider {
         var restoredPin: Pair<String, SimklPinPollingSchedule>? = null
         val generation = authOperationGeneration.advance { nextGeneration ->
             hasLoaded = true
+            loadedProfileId = ProfileRepository.activeProfileId
             pinAuthorizationJob?.cancel()
             pinAuthorizationJob = null
             pinPollingJob?.cancel()
