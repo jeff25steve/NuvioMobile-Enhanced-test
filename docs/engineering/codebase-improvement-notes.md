@@ -5809,3 +5809,52 @@ Regression coverage:
 - No independent reviewer subagent was available, so this was a separate author self-review rather than independent approval.
 - Regression tests were added before the production changes but **were not executed**. No Gradle/Xcode test command, build, or CI workflow was started because the user explicitly prohibited builds and CI. No compile, test-pass, device, or runtime result is claimed.
 - The source compare from the prior checkpoint (before this notes commit) reported 13 commits ahead and 0 behind, touching six existing source/test files. After committing this notes update, the verified branch is 14 commits ahead and 0 behind; the final compare includes those six files plus this existing engineering-notes file. No dependencies, workflows, CI configuration, unrelated features or new files were changed.
+
+
+## 14 November 2026 — Android startup follow-up (improvement cycles 32–33)
+
+These changes target work that was being performed before Android Compose `setContent`. They reduce non-essential startup work; no elapsed-time improvement is claimed without a device benchmark.
+
+### Improvement cycle 32 — Defer episode-release notification channel creation
+
+`MainActivity.onCreate` initializes `EpisodeReleaseNotificationPlatform` before calling `setContent`. Previously, that initializer also checked the Android notification manager and, on a fresh install without the channel, performed two blocking Compose string-resource lookups followed by `NotificationManager.createNotificationChannel`. None of that is required to draw Home.
+
+Integrated behavior:
+- Platform initialization now only stores the application context. It does not query or create the notification channel on the initial UI path.
+- Channel creation remains at the points that require it: notification permission setup, scheduling, test-send, and scheduled notification delivery.
+- The alarm-delivery path explicitly ensures the channel on `Dispatchers.IO` after obtaining the application context. This retains recovery if Android or the user has removed the channel while the app was closed.
+- No notification settings, IDs, permissions, delivery timing, or scheduling policy were changed.
+
+Regression coverage:
+- Added a Robolectric test that deletes the channel, calls platform initialization, and asserts that startup initialization does not recreate it.
+- Test-first commit: `0518a0bfc162b76f112e02da15a7d80e2b6636ed`.
+- Implementation and add-on client work were integrated in `6cc7c50e02a03b570f4a2346088f48b39d80d30b`; alarm-delivery preservation was added in `1e153e4d16ca1b9b00d8d11fd56ffe19f9781a94`.
+
+### Improvement cycle 33 — Build the add-on HTTP client only on first use
+
+`MainActivity.onCreate` also initialized `AddonHttpClientProvider` before `setContent`. Object initialization built an uncached `OkHttpClient`, then `initialize()` immediately discarded it and built a second client with the 50 MiB disk cache.
+
+Integrated behavior:
+- Startup initialization now stores only the application context.
+- A synchronized, single-instance holder builds the configured client on the first add-on HTTP request and reuses it thereafter, including under concurrent first requests.
+- Both existing `AddonHttpClientProvider.get()` call sites are inside `withContext(Dispatchers.IO)`, so the first construction no longer runs as part of Activity startup or on the UI thread.
+- The 50 MiB cache, cache directory, dispatcher, DNS, timeouts, redirect defaults, proxy setting, and interceptors are preserved. Only creation timing and the redundant discarded client are changed.
+
+Regression coverage:
+- Added tests proving no client is built before first use, repeated gets return the same client, and concurrent first requests create only one instance.
+- Test-first commit: `beda192f016c949f813fbb9bd5f557c5f25c9f0a`.
+- Implementation: `6cc7c50e02a03b570f4a2346088f48b39d80d30b`; final latch/test cleanup: `ee142f5c2d38c10a6072d75bda8b9790126ecdcb`.
+
+### Performance evidence and rejected lead
+
+- Android's official startup guidance recommends deferring initialization that is not required for the first frame, avoiding synchronous binder work on launch, and measuring TTID/TTFD with Macrobenchmark and traces: https://developer.android.com/topic/performance/appstartup/analysis-optimization and https://developer.android.com/topic/performance/issues/launch-time.
+- The app pins `com.squareup.okhttp3:okhttp:4.12.0` in `composeApp/build.gradle.kts`. Exa fetched the Square OkHttp 4.12.0 `Cache.kt` source: https://github.com/square/okhttp/blob/parent-4.12.0/okhttp/src/main/kotlin/okhttp3/Cache.kt. It documents that explicit `Cache.initialize()` reads the journal and builds in-memory state, while the default behavior is lazy initialization on first cache use. Nuvio did not call `Cache.initialize()`; therefore the cache constructor itself was not treated as a synchronous journal-read bottleneck. The valid optimization was to remove eager, duplicate HTTP-client construction from startup and do it on first request.
+- Context7 resolution/documentation was attempted for OkHttp but the service returned its monthly quota limit. No successful Context7 result is claimed. Exa was used for the OkHttp source and official Android startup guidance.
+- The expected benefit is less non-essential work on the pre-`setContent` path. The actual milliseconds and whether users notice the difference remain unmeasured; no speed percentage is claimed.
+
+### Review and verification boundary
+
+- The author reviewed all startup and request call sites. Notification delivery still ensures the channel before displaying due notifications; add-on requests still use the same configured client and execute on the IO dispatcher.
+- No independent reviewer subagent was available; this is an author self-review, not independent approval.
+- Regression tests were added but **not executed**. No Gradle/Xcode test, build, Macrobenchmark, device run, or CI workflow was started, in accordance with the user's instruction.
+- No dependency, build configuration, manifest, workflow, iOS, or unrelated feature changes were made.
