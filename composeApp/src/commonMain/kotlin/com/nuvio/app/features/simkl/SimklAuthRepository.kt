@@ -103,6 +103,8 @@ object SimklAuthRepository : TrackingAuthProvider {
         ensureLoaded()
         if (authenticationMethod == method) return
         authOperationGeneration.advance {
+            pinAuthorizationJob?.cancel()
+            pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
             authenticationMethod = method
@@ -122,6 +124,8 @@ object SimklAuthRepository : TrackingAuthProvider {
         if (ProfileRepository.activeProfileId == profileId) {
             authOperationGeneration.advance {
                 if (ProfileRepository.activeProfileId == profileId) {
+                    pinAuthorizationJob?.cancel()
+                    pinAuthorizationJob = null
                     pinPollingJob?.cancel()
                     pinPollingJob = null
                     accessToken = null
@@ -158,6 +162,8 @@ object SimklAuthRepository : TrackingAuthProvider {
         var generation = 0L
         authOperationGeneration.advance { nextGeneration ->
             generation = nextGeneration
+            pinAuthorizationJob?.cancel()
+            pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
             clearPendingAuthorization()
@@ -340,6 +346,8 @@ object SimklAuthRepository : TrackingAuthProvider {
     fun onCancelAuthorization() {
         ensureLoaded()
         authOperationGeneration.advance {
+            pinAuthorizationJob?.cancel()
+            pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
             clearPendingAuthorization()
@@ -372,6 +380,8 @@ object SimklAuthRepository : TrackingAuthProvider {
     fun onDisconnectRequested() {
         ensureLoaded()
         authOperationGeneration.advance {
+            pinAuthorizationJob?.cancel()
+            pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
             accessToken = null
@@ -633,6 +643,8 @@ object SimklAuthRepository : TrackingAuthProvider {
 
     private fun invalidateCredentials(error: SimklAuthError, generation: Long) {
         val invalidated = authOperationGeneration.invalidateIfCurrent(generation) {
+            pinAuthorizationJob?.cancel()
+            pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
             accessToken = null
