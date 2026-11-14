@@ -38,6 +38,10 @@ internal data class SimklStoredAuthState(
     val tokenExpiresAtEpochMs: Long? = null,
     val pendingAuthorizationState: String? = null,
     val pendingAuthorizationStartedAtEpochMs: Long? = null,
+    /** V1 PIN polling interval returned by Simkl; null migrates to the documented 5-second default. */
+    val pendingPinPollIntervalSeconds: Int? = null,
+    /** Absolute V1 PIN expiry so reloads do not restart the authorization lifetime. */
+    val pendingPinExpiresAtEpochMs: Long? = null,
     /** AUTH V2 device flow `verification_uri_complete` (safe to display; the user still approves). */
     val pendingVerificationUrl: String? = null,
     val authenticationMethod: String? = null,
