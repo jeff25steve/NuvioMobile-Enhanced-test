@@ -221,9 +221,12 @@ object SimklProgressRepository {
                 ?.takeIf { it > 0L }
         }
         if (sessionIds.isEmpty()) return
+        SimklSyncRepository.ensureLoaded()
+        val profileScope = SimklSyncRepository.captureProfileScope() ?: return
 
         val removed = linkedSetOf<Long>()
         for (sessionId in sessionIds) {
+            if (!SimklSyncRepository.isProfileScopeCurrent(profileScope)) return
             try {
                 SimklApi.client.execute(
                     SimklApiRequest(
@@ -231,7 +234,9 @@ object SimklProgressRepository {
                         path = "/sync/playback/$sessionId",
                     ),
                 )
-                removed += sessionId
+                if (SimklSyncRepository.isProfileScopeCurrent(profileScope)) {
+                    removed += sessionId
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -242,7 +247,7 @@ object SimklProgressRepository {
                 }
             }
         }
-        SimklSyncRepository.commitPlaybackRemoval(removed)
+        SimklSyncRepository.commitPlaybackRemoval(removed, profileScope)
     }
 
     private fun publish(syncState: SimklSyncUiState) {
