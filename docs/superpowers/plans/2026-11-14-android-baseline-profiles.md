@@ -34,7 +34,7 @@ The user subsequently authorized Gradle builds and CI. The initial measurement p
 - [ ] Run the generator and the cold-start Macrobenchmarks on the same physical device with one signed-in Home test state.
 - [ ] Compare TTID and TTFD medians for both flavors, inspect raw traces and profile binary sizes, and accept/reject generated profiles based on repeatable non-regressing results.
 
-AndroidX's `benchmarkRelease` is a non-debuggable, profileable, R8/minified, resource-shrunk release-mirrored build signed with the local Android debug key. It is the supported Macrobenchmark target and is not a production-signed release artifact. If a production-signed app is installed on the physical device, it must be uninstalled once before the benchmark-signed variant can be installed; sign in to the benchmark build afterward and retain its data between the two flavor runs.
+AndroidX's `benchmarkRelease` is a non-debuggable, profileable, R8/minified, resource-shrunk release-mirrored build. The app module explicitly assigns the local Android debug signing config to `benchmarkRelease` and `nonMinifiedRelease`, since this fork's production `release` signing config has no keystore. It is the supported Macrobenchmark target and is not a production-signed release artifact. If a production-signed app is installed on the physical device, it must be uninstalled once before the benchmark-signed variant can be installed; sign in to the benchmark build afterward and retain its data between the two flavor runs.
 
 ## Execution boundary
 
