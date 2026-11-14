@@ -179,7 +179,9 @@ class LibraryGlassLayoutTest {
             sourceMode = sourceMode,
         ) { it == enabledSurface }
 
-        assertTrue(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY))
+        // Saved glass now samples the scrolling content source; only the Cloud/Servers
+        // fixed header still needs the static screen backdrop.
+        assertFalse(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY))
         assertTrue(capture(LibraryViewMode.Cloud, LiquidGlassSurface.LIBRARY))
         assertTrue(capture(LibraryViewMode.Servers, LiquidGlassSurface.LIBRARY))
         assertFalse(capture(LibraryViewMode.Saved, LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
