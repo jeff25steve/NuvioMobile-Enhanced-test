@@ -209,6 +209,8 @@ fun NuvioScreenHeader(
     backgroundHorizontalInset: Dp = 0.dp,
     /** Horizontal inset for header content when its background intentionally spans edge-to-edge. */
     contentHorizontalPadding: Dp = 0.dp,
+    /** Bottom spacing after header content; pinned rows can tighten this without changing other callers. */
+    bottomContentPadding: Dp = NuvioTokens.Space.s4,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val tokens = MaterialTheme.nuvio
@@ -243,7 +245,7 @@ fun NuvioScreenHeader(
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(bottom = NuvioTokens.Space.s4),
+                .padding(bottom = bottomContentPadding),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
             content = actions,
@@ -309,7 +311,7 @@ fun NuvioScreenHeader(
                 .fillMaxWidth()
                 .padding(horizontal = sideBleed)
                 .padding(horizontal = contentHorizontalPadding)
-                .padding(top = resolvedTopPadding, bottom = NuvioTokens.Space.s4),
+                .padding(top = resolvedTopPadding, bottom = bottomContentPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
