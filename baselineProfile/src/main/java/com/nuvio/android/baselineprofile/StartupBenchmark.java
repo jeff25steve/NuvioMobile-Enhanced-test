@@ -24,22 +24,24 @@ import org.junit.runner.RunWith;
  * Compares cold-start time with no AOT compilation against a required,
  * packaged Nuvio Baseline Profile.
  *
- * Run this manually on a physical device after generating and packaging the
- * profile. Set androidx.benchmark.enabledRules=macrobenchmark for the
- * instrumentation run on a physical device with a preconfigured signed-in
- * test profile. The measurement waits for Nuvio's real main-content-ready
- * marker so StartupTimingMetric can capture both TTID and TTFD. Auth-first
- * and onboarding launches intentionally fail this benchmark precondition.
+ * Run manually on a physical API 33+ device. The test target package is
+ * resolved from the installed app variant, so the isolated .benchmark
+ * application ID is used without touching the production installation.
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public final class StartupBenchmark {
-    private static final String TARGET_PACKAGE_NAME = "com.nuvio.media";
     private static final int ITERATIONS = 10;
     private static final long FULLY_DRAWN_TIMEOUT_MS = 30_000L;
 
     @Rule
     public final MacrobenchmarkRule benchmarkRule = new MacrobenchmarkRule();
+
+    private static String targetPackageName() {
+        return InstrumentationRegistry.getInstrumentation()
+                .getTargetContext()
+                .getPackageName();
+    }
 
     @Test
     public void coldStartupWithoutBaselineProfile() {
@@ -70,7 +72,7 @@ public final class StartupBenchmark {
 
     private void runColdStartupBenchmark(CompilationMode compilationMode) {
         benchmarkRule.measureRepeated(
-                TARGET_PACKAGE_NAME,
+                targetPackageName(),
                 Collections.singletonList(new StartupTimingMetric()),
                 compilationMode,
                 StartupMode.COLD,
