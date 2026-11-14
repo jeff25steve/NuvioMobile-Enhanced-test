@@ -5363,7 +5363,7 @@ A final race review found that the API client's generation check depended on the
 
 ### Improvement cycle 5 — Reject stale profile auth invalidation
 
-A late authenticated API response can arrive after the user has selected another profile but before the auth provider's profile-change callback advances its operation generation. The request's generation alone is therefore insufficient to decide whether a 401 may clear credentials. The invalidation path now checks that the loaded auth state still belongs to the active profile inside the generation-guarded commit before clearing the access token, persisted metadata, pending authorization state or Simkl sync state. A stale response still advances the old operation generation, but cannot clear credentials belonging to the newly active profile. A common regression test covers matching, mismatched and absent loaded-profile identities.
+A late authenticated API response can arrive after the user has selected another profile but before the auth provider's profile-change callback advances its operation generation. The request's generation alone is therefore insufficient to decide whether a 401 may clear credentials. The invalidation path now checks that the loaded auth state still belongs to the active profile inside the generation-guarded commit before clearing the access token, persisted metadata, pending authorization state or Simkl sync state. A stale response cannot clear credentials belonging to the newly active profile. A common regression test covers matching, mismatched and absent loaded-profile identities.
 
 ### Improvement cycle 6 — Stop stale sync fan-out between remote calls
 
