@@ -6076,3 +6076,13 @@ References:
 - Android instrumentation target context: https://developer.android.com/reference/android/app/Instrumentation#getTargetContext()
 - Android build variants and application ID suffix: https://developer.android.com/build/build-variants
 - LADB pairing procedure and implementation: https://github.com/tytydraco/LADB
+
+
+## Benchmark CI failure investigation — 14 November 2026
+
+- The first phone-bundle workflow dispatch was successful; the benchmark build itself failed in the pre-build validation step, before Rust setup or any Gradle build ran.
+- Root cause from job 132622222249: `bash -n scripts/run-android-startup-profile-benchmark.sh` rejected line 84 because the `find` expression had double-escaped grouping parentheses and semicolon (`\\\\(`, `\\\\)`, `\\\\;`). The shell received an invalid token near `(`. This was a real syntax defect in the desktop runner, not an Android/Gradle failure.
+- Corrected the expression to standard single-escaped find syntax: `\\(`, `\\)`, `\\;`. Applied the identical fix to both `main-build-testing` and `ci/android-startup-profile-benchmark`.
+- The isolated dispatcher workflow completed successfully on the first attempt and issued `workflow_dispatch` to the benchmark workflow. This confirms that the GITHUB_TOKEN-based dispatch path works; the failure was unrelated to workflow recursion or permissions.
+- A fresh dispatch for commit `ef269d2e31c8b4f32bf391aa6c1bb8cbbf45a831` is now queued as run `43652152841`. Do not claim the APK bundle is built until that run completes and its artifact is verified.
+- Process correction: keep the desktop runner's syntax check and phone-runner mock test as mandatory pre-build gates. Inspect job logs at the first failing step before changing build configuration. No production app package or production signing settings are changed by this fix.
