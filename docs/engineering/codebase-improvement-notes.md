@@ -5281,3 +5281,26 @@ Remote source inspection confirmed that `loadFromDisk()` cancelled the active PI
 ### Verification boundary
 
 The regression test was added before the production changes, but it was **not executed** because the user has not authorized tests, Gradle, builds or CI. Verification in this session is limited to remote source inspection, static diff review, exact Simkl API documentation review and Kotlin coroutine cancellation documentation. No workflow files were changed and no CI/build was started. The new test and implementation remain pending execution verification.
+
+
+## 14 November 2026 — Simkl profile reload UI and credential hygiene
+
+**Base checkpoint:** `95e47eca6c99e048e95a76e67732e5d23d0ae317`
+
+### Improvement cycle 1 — Reset transient authentication UI on profile reload
+
+Static lifecycle tracing found that `loadFromDisk()` cancelled the previous profile's PIN jobs but called `publish(error = null)` without overriding the default `isLoading` argument. That default re-used the previous profile's loading flag, so a profile switch during authentication could leave the new profile showing a stale spinner.
+
+- Added a pure profile-load state projection that always starts with `isLoading = false` and `error = null`, while restoring the new profile's connected / awaiting-approval / disconnected mode and account metadata.
+- The disk reload path now publishes that projection directly and synchronizes `isAuthenticated` with the restored state.
+- Added common regression coverage for clean disconnected and authenticated profile snapshots.
+
+### Improvement cycle 2 — Remove orphaned PKCE verifier material
+
+- Added a small state policy that identifies a stored PKCE verifier with no pending authorization state as orphaned.
+- Profile reload clears that verifier from platform secure storage whenever there is no pending authorization to own it. This also covers the expired-token reload path, which resets stored auth metadata before the verifier cleanup check.
+- Pending browser PKCE state and PIN state retain their valid pending flow data.
+
+### Verification boundary
+
+Regression tests were added before the production changes. They were **not executed** because builds, tests and Gradle remain unauthorized. Review was static against the actual remote branch and source. No build or CI workflows were started.
