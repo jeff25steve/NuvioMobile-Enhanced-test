@@ -1,6 +1,8 @@
 name: Build Test IPA
 
 on:
+  push:
+    branches: ["ci/main-build-testing-bridge-repair-20261114"]
   workflow_dispatch:
     inputs:
       configuration:
