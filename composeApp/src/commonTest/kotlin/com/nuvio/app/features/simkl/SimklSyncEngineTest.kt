@@ -77,7 +77,7 @@ class SimklSyncEngineTest {
         }
 
         assertEquals(
-            listOf(SimklAllItemsRequest.Bootstrap(SimklMediaType.SHOWS)),
+            listOf<SimklAllItemsRequest>(SimklAllItemsRequest.Bootstrap(SimklMediaType.SHOWS)),
             remote.allItemsRequests,
         )
     }
