@@ -5415,3 +5415,21 @@ A cross-path review of the restored trailer selector found an interaction mismat
 - Context7 resolved Compose Multiplatform. The repository pins `1.13.0-beta01`, which was not available in Context7's version list; `1.12.2` was the closest available version. Its interaction documentation supports the existing `Modifier.clickable` callback approach; no new Compose API was introduced.
 - The regression test was committed before the implementation. **It was not executed** because the explicit no-build/no-CI constraint was preserved; therefore a red/green test cycle and runtime behavior are not claimed as verified.
 - Static review of the exact test and implementation commit diffs confirmed the preview path no longer sets `menuExpanded`, while the live path still does. No dependencies, build configuration, workflow files, or CI settings were changed.
+## 14 November 2026 — iOS MPV resume-position parity
+
+### Improvement cycle 11 — Apply restored playback position during native MPV file loading
+
+Reviewing the actual Android and iOS player entry points exposed a platform parity gap: Android's ExoPlayer path consumes `initialPositionMs` and acknowledges `initialPositionRequestKey`, but the iOS `PlayerEngine.ios.kt` load effect accepted both values without using them. The native MPV bridge loaded the file with `loadfile <url> replace` and never received a start position, so restored playback could begin at zero on iOS.
+
+- Added a locale-independent millisecond-to-seconds formatter. Zero and negative values intentionally omit the MPV start option.
+- Extended the Kotlin/Swift bridge load request with an optional per-file start position and carried it through the queued native load request.
+- The Swift bridge now uses MPV's `loadfile` per-file options argument (`-1` insertion index followed by `start=<seconds>`), so the requested position is part of the file load rather than a delayed seek.
+- The iOS Compose load effect now observes both `initialPositionMs` and `initialPositionRequestKey`, and acknowledges the request using the same non-null-position semantics as Android.
+- Added common regression coverage for millisecond precision, zero and negative positions.
+
+### Research and verification boundary
+
+- Exa located the official mpv input-command documentation and client API: `loadfile` accepts per-file options in its fourth argument; since mpv 0.38 the third argument must be `-1` when supplying that fourth argument. The official event documentation identifies `file-loaded` as the point after headers are read and decoding begins. This implementation avoids a post-load race by supplying the per-file `start` option directly to `loadfile`.
+- Context7 resolved the mpv manual library, but its documentation query was blocked by the monthly quota. The AndroidX Media3 version resolver also did not index the repository's pinned 1.8.0 (closest indexed 1.9.3); no Media3 API changes were made.
+- The common regression test was added before the formatter implementation. **No Gradle tests, builds, Xcode builds, or CI were run** under the explicit authorization restriction. Static verification is limited to remote source/diff review; Kotlin/Native-to-Swift interop and actual seek-on-load behavior remain uncompiled and unexecuted.
+- No Android player implementation, dependencies, build configuration, workflows, or CI settings were changed.
