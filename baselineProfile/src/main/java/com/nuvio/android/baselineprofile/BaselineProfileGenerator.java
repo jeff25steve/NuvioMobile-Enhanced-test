@@ -17,15 +17,20 @@ import org.junit.runner.RunWith;
 /**
  * Collects only the real launcher startup path for the release application.
  *
- * Run this manually on a supported rooted emulator or API 33+ device. The
- * generated rules are committed only after review; this test never runs as
- * part of a normal release build.
+ * Run this manually on a supported physical API 33+ device. The generated
+ * rules are committed only after review; this test never runs as part of a
+ * normal release build.
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public final class BaselineProfileGenerator {
-    private static final String TARGET_PACKAGE_NAME = "com.nuvio.media";
     private static final long MAIN_CONTENT_READY_TIMEOUT_MS = 30_000L;
+
+    private static String targetPackageName() {
+        return InstrumentationRegistry.getInstrumentation()
+                .getTargetContext()
+                .getPackageName();
+    }
 
     private static void awaitMainContentReady() {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -47,7 +52,7 @@ public final class BaselineProfileGenerator {
     @Test
     public void startup() {
         baselineProfileRule.collect(
-                TARGET_PACKAGE_NAME,
+                targetPackageName(),
                 15,
                 3,
                 "startup",
