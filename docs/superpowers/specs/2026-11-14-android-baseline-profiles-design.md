@@ -197,3 +197,15 @@ References:
 - Android instrumentation target context: https://developer.android.com/reference/android/app/Instrumentation#getTargetContext()
 - Android build variants and application ID suffix: https://developer.android.com/build/build-variants
 - LADB pairing procedure and implementation: https://github.com/tytydraco/LADB
+
+
+## Follow-up design invariant — profile capture must use the isolated non-minified variant
+
+The desktop and phone-only execution paths must collect rules from the same target identity:
+
+- Profile capture uses each flavor's `nonMinifiedRelease` app/test pair. This variant is non-minified for accurate method signatures, profileable for collection, and uses the isolated `com.nuvio.media.benchmark` application ID and benchmark signing key.
+- Macrobenchmark uses the matching flavor's `benchmarkRelease` app/test pair with R8/minification enabled and the same isolated application ID/signing identity.
+- Do not invoke the production `fullRelease` or `playstoreRelease` profile-generation tasks from the desktop runner. The correct per-flavor tasks are `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`; generated rules are inspected under `src/<flavor>NonMinifiedRelease/generated/baselineProfiles`.
+- Keep the production `com.nuvio.media` package and release signing configuration unchanged. A desktop or phone-only profile run must never require uninstalling or replacing the production app.
+
+A regression test now checks task names, generated source-set path and ADB carriage-return filtering before any future authorized benchmark build. No new build or CI execution is part of this follow-up.
