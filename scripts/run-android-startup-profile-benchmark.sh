@@ -17,14 +17,14 @@ done
 mapfile -t connected_devices < <(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')
 [[ "${#connected_devices[@]}" -eq 1 ]] || fail "Connect exactly one authorized physical Android device. Found ${#connected_devices[@]} ready devices."
 DEVICE_SERIAL="${connected_devices[0]}"
-API_LEVEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.build.version.sdk | tr -d '\\r')"
-DEVICE_MODEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.manufacturer | tr -d '\\r') $(adb -s "$DEVICE_SERIAL" shell getprop ro.product.model | tr -d '\\r')"
-KERNEL_QEMU="$(adb -s "$DEVICE_SERIAL" shell getprop ro.kernel.qemu | tr -d '\\r')"
-HARDWARE="$(adb -s "$DEVICE_SERIAL" shell getprop ro.hardware | tr -d '\\r')"
+API_LEVEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')"
+DEVICE_MODEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.manufacturer | tr -d '\r') $(adb -s "$DEVICE_SERIAL" shell getprop ro.product.model | tr -d '\r')"
+KERNEL_QEMU="$(adb -s "$DEVICE_SERIAL" shell getprop ro.kernel.qemu | tr -d '\r')"
+HARDWARE="$(adb -s "$DEVICE_SERIAL" shell getprop ro.hardware | tr -d '\r')"
 [[ "$API_LEVEL" =~ ^[0-9]+$ ]] || fail "Could not determine Android API level."
 [[ "$KERNEL_QEMU" != "1" && "$HARDWARE" != "ranchu" && "$HARDWARE" != "goldfish" && "$HARDWARE" != "qemu" ]] || fail "A physical device is required."
 if (( API_LEVEL < 33 )); then
-  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su -c id 2>/dev/null | tr -d '\\r' || true)"
+  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su -c id 2>/dev/null | tr -d '\r' || true)"
   [[ "$ROOT_ID" == *"uid=0"* ]] || fail "Profile collection requires API 33+ without root, or API 28+ rooted. Device API: $API_LEVEL."
 fi
 
