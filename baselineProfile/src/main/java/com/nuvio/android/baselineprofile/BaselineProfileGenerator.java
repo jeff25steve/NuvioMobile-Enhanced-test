@@ -1,6 +1,5 @@
 package com.nuvio.android.baselineprofile;
 
-import androidx.benchmark.macro.MacrobenchmarkScope;
 import androidx.benchmark.macro.junit4.BaselineProfileRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -34,9 +33,10 @@ public final class BaselineProfileGenerator {
                 3,
                 "startup",
                 true,
-                false,
+                true,
                 rule -> true,
                 scope -> {
+                    scope.pressHome();
                     scope.startActivityAndWait();
                     return Unit.INSTANCE;
                 }
