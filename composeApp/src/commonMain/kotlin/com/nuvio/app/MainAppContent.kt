@@ -595,9 +595,17 @@ internal fun MainAppContent(
         rootContentReady,
         ownsAppRuntime,
         onRootContentReady,
+        launchOverlayState.currentState,
+        launchOverlayState.isIdle,
     ) {
         if (ownsAppRuntime) {
-            onRootContentReady?.invoke(rootContentReady)
+            // Root data can be ready before the launch overlay finishes its exit.
+            // Report the user-visible state only after that transition is fully gone.
+            onRootContentReady?.invoke(
+                rootContentReady &&
+                    launchOverlayState.isIdle &&
+                    !launchOverlayState.currentState,
+            )
         }
     }
 
