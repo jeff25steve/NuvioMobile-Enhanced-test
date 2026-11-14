@@ -260,7 +260,7 @@ object SimklSyncRepository : TrackingProfileStore {
         profileScope: SimklSyncProfileScope,
     ): Boolean {
         ensureLoaded()
-        snapshotMutex.withLock {
+        return snapshotMutex.withLock {
             val current = synchronized(profileStateLock) {
                 if (isProfileScopeCurrentLocked(profileScope)) _state.value else null
             } ?: return@withLock false
@@ -291,7 +291,7 @@ object SimklSyncRepository : TrackingProfileStore {
         profileScope: SimklSyncProfileScope,
     ): Boolean {
         ensureLoaded()
-        snapshotMutex.withLock {
+        return snapshotMutex.withLock {
             val current = synchronized(profileStateLock) {
                 if (isProfileScopeCurrentLocked(profileScope)) _state.value else null
             } ?: return@withLock false
