@@ -444,11 +444,21 @@ actual fun PlatformPlayerSurface(
     }
 
     // Load file and set initial state
-    LaunchedEffect(bridge, sourceUrl, sourceAudioUrl, sourceHeaders, externalSubtitles) {
+    LaunchedEffect(
+        bridge,
+        sourceUrl,
+        sourceAudioUrl,
+        sourceHeaders,
+        externalSubtitles,
+        initialPositionMs,
+        initialPositionRequestKey,
+    ) {
+        val startPositionSeconds = mpvStartPositionSeconds(initialPositionMs ?: 0L)
         InAppLogger.info(
             "Player/iOS",
             "load mpv url=${InAppLogger.redactUrl(sourceUrl)} audio=${!sourceAudioUrl.isNullOrBlank()} " +
-                "subtitles=${externalSubtitles.size} headers=${InAppLogger.headerKeys(sanitizePlaybackHeaders(sourceHeaders))} " +
+                "subtitles=${externalSubtitles.size} startPositionSeconds=${startPositionSeconds ?: "beginning"} " +
+                "headers=${InAppLogger.headerKeys(sanitizePlaybackHeaders(sourceHeaders))} " +
                 "hwdec=${latestPlayerSettings.value.iosHardwareDecoderMode.mpvValue} toneMapping=${latestPlayerSettings.value.iosToneMappingMode.mpvValue}",
         )
         bridge.applyIosVideoOutputSettings(latestPlayerSettings.value)
@@ -457,7 +467,11 @@ actual fun PlatformPlayerSurface(
             audioUrl = sourceAudioUrl,
             headersJson = encodePlaybackHeadersForBridge(sourceHeaders),
             subtitlesJson = encodeExternalSubtitlesForBridge(externalSubtitles),
+            startPositionSeconds = startPositionSeconds,
         )
+        initialPositionRequestKey?.let { key ->
+            onInitialPositionHandled(key, startPositionSeconds != null)
+        }
         if (playWhenReady) {
             InAppLogger.debug("Player/iOS", "initial play requested")
             bridge.play()
