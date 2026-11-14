@@ -5306,3 +5306,45 @@ Static lifecycle tracing found that `loadFromDisk()` cancelled the previous prof
 ### Verification boundary
 
 Regression tests were added before the production changes. They were **not executed** because builds, tests and Gradle remain unauthorized. Review was static against the actual remote branch and source. No build or CI workflows were started.
+
+
+## 14 November 2026 — Simkl cross-profile sync and stale-request isolation
+
+**Base checkpoint:** `d6a59743da609561a9add29434dcba7d6ffab390`
+
+### Improvement cycle 1 — Bind sync snapshot reads and writes to an explicit profile
+
+Static tracing found that sync storage implementations resolved `ProfileScopedKey.of(...)` at the moment of each read/write. A refresh could validate the old profile, then a profile switch could occur before the platform storage call resolved its key. The late result could therefore be written to the newly active profile.
+
+- Introduced `SimklSyncProfileScope(profileId, generation)` as the ownership token for a sync operation.
+- Changed the common sync storage contract and Android/iOS actuals to require an explicit profile ID for every snapshot read and write.
+- All sync refresh, playback-removal, scrobble and mutation snapshot commits now revalidate the same profile scope while holding the repository state lock, then persist to the captured profile ID.
+- The profile generation and UI/cache commit are serialized with profile-change invalidation. A late result can no longer pass a generation check and then write through the newly active profile key.
+- Added common tests for profile/generation scope validity and deterministic profile-specific snapshot keys.
+
+### Improvement cycle 2 — Carry the originating scope through mutations and playback removal
+
+- `SimklMutationService` now carries the originating sync profile scope through list/history mutation requests and their returned receipts.
+- The repository only applies a mutation receipt if that exact profile generation remains current. Reconciliation refresh is requested only after the receipt is accepted; accepted no-op receipts still preserve the existing reconciliation behavior.
+- Scrobble results retain the initiating profile scope before they are committed.
+- Playback removal captures a profile scope before sending DELETE requests, stops processing when the scope becomes stale, and commits local removals only against that same scope.
+- This prevents an in-flight response from one Nuvio profile from updating another profile's local sync snapshot.
+- Extended mutation service regression coverage to assert that the original scope is returned with the mutation receipt.
+
+### Improvement cycle 3 — Reject queued requests after their token generation becomes stale
+
+- `SimklApiClient` now rechecks the captured access-token generation after rate-limit waiting and immediately before dispatching the HTTP request.
+- The production client delegates this check to `SimklAuthRepository.isAuthOperationCurrent`, so profile switches and auth invalidations reject requests that were queued with an older token.
+- Stale-authentication rejection is propagated as a specific API error and is not retried as a transport failure.
+- Added a regression test that invalidates a token while a request is waiting for the GET rate-limit window and asserts that the second HTTP request is never dispatched.
+
+### Evidence and implementation constraints
+
+- The version catalog pins kotlinx-atomicfu `0.32.1`. Context7 documentation was checked for AtomicFU `AtomicLong` and `SynchronizedObject`/ `synchronized` semantics. Exa's official 0.32.1 release notes state that 0.32.1 is identical to 0.32.0 apart from publishing infrastructure.
+- The project pins kotlinx.coroutines `1.10.2`; Context7 did not offer that exact version in its version list. No coroutine APIs or dependencies were changed. Cancellation remains explicitly rethrown in the network paths.
+- Android SharedPreferences and Apple Foundation thread-safety documentation were reviewed. The defect was the late resolution of the active-profile key, not an assumption that those platform stores provide a multi-operation transaction.
+- References: [AtomicFU 0.32.1 release](https://github.com/Kotlin/kotlinx-atomicfu/releases/tag/0.32.1); [AtomicFU synchronization API](https://github.com/Kotlin/kotlinx-atomicfu/blob/master/_autodocs/api-reference/atomicfu-locks-synchronized.md); [Kotlin coroutine cancellation](https://kotlinlang.org/docs/cancellation-and-timeouts.html); [Android SharedPreferences API](https://developer.android.com/reference/android/content/SharedPreferences); [Apple Thread Safety Summary](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html).
+
+### Verification boundary
+
+Three focused regression tests were added before the corresponding production changes; the existing mutation service test was extended to assert scope propagation. **No tests were run** because test execution invokes the Gradle build pipeline and the user has not authorized builds or CI. Review was limited to source-level checks and remote diffs. No Gradle command, build, test task or CI workflow was started.
