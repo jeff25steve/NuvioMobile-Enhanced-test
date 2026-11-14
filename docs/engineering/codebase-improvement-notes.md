@@ -5193,3 +5193,31 @@ This is focused Android host-test and fullDebug APK evidence for the CI source S
 **Next performance investigation (not yet implemented):** the Player capture currently supplies a main-looper `Handler` to PixelCopy. An AOSP support-library change reports high SurfaceView snapshot latency when the PixelCopy callback runs on the main thread and resolves it by moving callback delivery to a background thread: [AOSP change 2a0f340c](https://android.googlesource.com/platform/frameworks/support/+/2a0f340c59db35b6bb52730c35625ea64cf2d633). Before changing this, design a cancellation-safe handler/executor lifecycle and retain the current bitmap ownership rule (do not recycle or reuse a destination while an asynchronous copy/callback may still reference it); capture before/after device traces rather than assuming a speed-up.
 
 **Remaining validation boundary:** inspect actual playback on physical Android devices across ExoPlayer/libmpv, engine switching, subtitles, gestures, disc-title selection, and Liquid Glass overlay composition. The successful host-test/APK run does not replace this device-level QA.
+
+
+## 14 November 2026 — Native NDK consistency and Player capture edge-case coverage
+
+**Base checkpoint:** `add3a775b87227b9d5c45762103cc956f2814181`  
+**Implementation commits prepared:** test coverage `300932d401c6683c66f98d60bbcfb2469427ae92`; NDK config `12f5375b053afd6706c284db0e495f8be59ad058`.
+
+### Improvement cycle 1 — NDK selection and Cargo environment
+
+The successful Linux run `43539212561` selected NDK `28.2.13676358` through Gradle but inherited `ANDROID_NDK_ROOT` pointing to `27.3.13750724`. The build passed, but the mismatch is noisy and leaves the native toolchain environment ambiguous.
+
+- Added version catalog pin `android-ndk = "28.2.13676358"`, matching the exact NDK directory selected in the successful run.
+- Set the Android app module's `ndkVersion` from the version catalog.
+- The `CargoNdkBuild` task now checks that the Gradle-selected NDK directory basename matches its `ndkVersion` input.
+- The Rust subprocess now receives the selected absolute NDK path in both `ANDROID_NDK_HOME` and `ANDROID_NDK_ROOT`; the cargo command, native crate, ABI list, and minSdk remain unchanged.
+
+### Improvement cycle 2 — Player capture regression boundary
+
+- Expanded failed PixelCopy status assertions to cover all five documented errors: `ERROR_UNKNOWN`, `ERROR_TIMEOUT`, `ERROR_SOURCE_NO_DATA`, `ERROR_SOURCE_INVALID`, and `ERROR_DESTINATION_INVALID`.
+- Added a downsampling regression case for a declared 50,000 × 50,000 pixel image backed by a one-pixel array. The expected outcome is `null`, proving the implementation's Long-based pixel-count validation runs before source indexing or allocation.
+
+### Deliberately deferred performance change
+
+The PixelCopy callback/executor rewrite remains deferred. The current callback only converts the status and resumes a coroutine; changing dispatch could shift work but may not reduce frame publication latency, while introducing asynchronous handler/executor and bitmap-lifetime risks. Collect before/after device traces before making that optimization.
+
+### Verification boundary
+
+No Gradle command, test, build, CI dispatch, or APK task was run for this update, in accordance with the user's instruction. The changes were checked by remote source inspection, exact NDK-version cross-reference to the successful run, API/documentation review, and Git tree/diff review only. The added host tests and NDK pin therefore remain **unverified by execution** until a future explicit build/test authorization. No workflow files were changed.
