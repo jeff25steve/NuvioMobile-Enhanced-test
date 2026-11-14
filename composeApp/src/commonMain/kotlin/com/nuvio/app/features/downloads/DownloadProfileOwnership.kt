@@ -31,3 +31,20 @@ internal fun updateProfileDownloadItem(
 
     return items.toMutableList().also { it[index] = updated }
 }
+
+
+/**
+ * Turns a completed item with an unavailable local file into a retryable download.
+ * The original source and file name remain intact so the normal retry path can fetch it again.
+ */
+internal fun DownloadItem.markLocalFileUnavailable(updatedAtEpochMs: Long): DownloadItem =
+    if (status != DownloadStatus.Completed) {
+        this
+    } else {
+        copy(
+            status = DownloadStatus.Failed,
+            localFileUri = null,
+            errorMessage = null,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+    }
