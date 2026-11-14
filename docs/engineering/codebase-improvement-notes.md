@@ -5753,3 +5753,59 @@ Evidence:
 - Context7 was attempted for the repository's pinned Kotlin/coroutines documentation but returned the monthly quota limit. These two changes are Swift-only and add no framework/API/dependency surface; Exa was used to check the official Swift Array documentation and Apple DispatchWorkItem documentation.
 - Regression tests were added before their production changes, but no test command was run: the explicit instruction prohibited builds and CI, and running the Xcode test target would invoke a build. RED/GREEN execution and device-level PiP verification remain pending authorisation.
 - No builds, test runs, or CI workflows were started. The changes are statically reviewed only; no runtime or compile pass is claimed.
+
+
+## 14 November 2026 — Downloads reliability improvements
+
+### Improvement cycle 30 — Enforce the mobile-data preference for active and restored transfers
+
+The Downloads settings UI already describes mobile data as opt-in, and enqueue/resume already checked that preference. However, the platform transfer itself was not gated after it started: Android used connected/any-network background work, and iOS configured background URLSession with cellular access enabled. A download started on Wi-Fi could therefore keep consuming mobile data after the device switched networks.
+
+Integrated behavior:
+- The common DownloadsRepository now rechecks the saved mobile-data preference on progress callbacks, not just when the user presses Download or Resume.
+- If the active transport becomes cellular while mobile data is disabled, it uses the existing pause path. That path cancels the Android worker/transfer or iOS URLSession task through its existing handle and preserves the platform's partial/resume state.
+- The saved setting is loaded before a restored transfer starts reporting progress.
+- After attaching a platform handle for a restored/background transfer, the repository checks the current setting and immediately invokes the existing pause path when cellular use is disallowed. This ordering matters: an earlier state-only pre-start approach was rejected during review because changing the manifest before a platform handle was attached did not guarantee that an already-running Android worker or iOS background task was actually cancelled. The final implementation registers the handle first, then pauses through it.
+- Downloads continue unchanged on Wi-Fi, and continue on cellular when the user has explicitly enabled Allow mobile data. The change is confined to download scheduling/state; it does not affect playback or other network features.
+
+Regression coverage:
+- Added policy cases for Wi-Fi-only operation, active transfer pause after leaving Wi-Fi, and explicit mobile-data opt-in.
+- Added state-transition cases proving pause preserves downloaded bytes, total size, source URL and file name while clearing transient error text; allowed network state leaves the transfer unchanged.
+- Test-first commit: 015986a8d9378c0e420ad74969ced3bfdf67c0ac.
+- Policy and repository commits: 1c302753a1f30060edf991d989c22a8934965671, d8f5d9142b59a0fd12a575bd7148d47e20e5509a.
+- Saved-setting initialization correction: c7585d60a5f81e224ab8e1a872a714c6d1996f23.
+- Pre-start transition test and implementation commits: bad35467989bdd15ba5a50b6cf0111ba3f8b70a8, be523ebdb4edd4e9fd1feebc04935a55051aa185, bb64cc3bf5dd9fb9500beee330b8fc9d025502f1.
+- Final handle-before-pause ordering and test naming: 42ce3276e5e94876d50b91ca8a988c4769f895ff, fa0d972708b00de4d4e18a6fec487f1e48fa9684.
+
+Evidence and design references:
+- Android's official WorkManager documentation states that network constraints can stop a Worker when a constraint becomes unmet and retry when conditions are met: https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work. Nuvio retains its existing scheduler and transport preference semantics rather than changing all jobs to UNMETERED, which would be a broader policy change.
+- Android's official connectivity guidance documents network/capability changes and transport characteristics: https://developer.android.com/training/monitoring-device-state/connectivity-status-type.
+- Apple's URLSessionDownloadDelegate progress callback is the existing cross-platform-independent signal used by the iOS implementation: https://developer.apple.com/documentation/foundation/urlsessiondownloaddelegate/urlsession(_:downloadtask:didwritedata:totalbyteswritten:totalbytesexpectedtowrite:).
+- Apple's download pause/resume guidance describes cancelling with resume data and using that data to resume a transfer: https://apple-docs.everest.mt/docs/foundation/pausing-and-resuming-downloads/.
+- Context7 resolution for repository Kotlin 2.4.10 and kotlinx.coroutines 1.10.2 documentation was attempted but the service returned its monthly quota limit. No successful Context7 documentation result is claimed. Exa was used to check the official Android and Apple documentation instead.
+- No network callbacks, scheduler constraints, dependencies, or platform APIs were added. Existing progress callbacks and pause/resume handles are reused.
+
+### Improvement cycle 31 — Make deleted or moved downloads recoverable from the Downloads screen
+
+A completed row previously treated any nonblank stored local URI as playable. If the user deleted or moved the actual file outside Nuvio, the row still displayed Completed and kept its Play action. The common playback callback called playableLocalFileUri(), received null, and returned silently. The item could remain looking completed, with no Retry action.
+
+Integrated behavior:
+- When opening a completed download, if the repository cannot resolve its local file, the item is marked Failed instead of silently returning.
+- The state transition clears the stale local URI and transient error text, retains the original source URL, request headers, destination file name and recorded byte counts, and updates its timestamp.
+- The Downloads screen consequently changes the stale Play action to the existing Retry action, allowing the user to fetch the item again.
+- The mutation is fenced by both download ID and file name against a stale callback for a different item/profile. It does not delete files or run for non-completed items.
+- Normal completed downloads whose local file still resolves retain the existing playback path.
+
+Regression coverage:
+- Added a completed-item transition test verifying it becomes Failed/retryable while preserving source URL, headers, file name and byte counts.
+- Added a non-completed-state test verifying the transition leaves paused items unchanged.
+- Test-first commit: 606bcd285f0466945e3d3f26fbfafec94d12fc28.
+- State helper, repository reconciliation and playback integration: fadc16bbaf9a2b14af6eb83bcf7929c7173010b3, 1547534f3cf03f66d4ee438611ea5f737b6717f3, d56ebbf04e8956c78bde5bf8edbd817069bab504.
+
+### Review and verification boundary
+
+- The author reviewed the final progress-callback path and confirmed that the current preference is loaded, the network is checked both while progress arrives and after the platform handle is attached, and pause cancellation runs through that registered handle. This is important for both iOS background URLSession and Android worker-backed transfers.
+- The author reviewed the missing-file path and confirmed it only runs after local URI resolution fails, only changes Completed items, checks file name as well as ID, preserves download source metadata, and exposes the existing retry control. No file deletion is performed by this transition.
+- No independent reviewer subagent was available, so this was a separate author self-review rather than independent approval.
+- Regression tests were added before the production changes but **were not executed**. No Gradle/Xcode test command, build, or CI workflow was started because the user explicitly prohibited builds and CI. No compile, test-pass, device, or runtime result is claimed.
+- The final remote compare from the prior checkpoint reports 13 commits ahead and 0 behind, touching only six existing files: MainAppContent.kt, DownloadNetworkGuard.kt, DownloadProfileOwnership.kt, DownloadsRepository.kt, DownloadNetworkPolicyTest.kt and DownloadProfileOwnershipTest.kt. No dependencies, workflows, CI configuration, unrelated features or new files were changed.
