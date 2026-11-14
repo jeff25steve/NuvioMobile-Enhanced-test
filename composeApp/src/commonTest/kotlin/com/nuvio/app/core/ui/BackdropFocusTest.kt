@@ -46,7 +46,7 @@ class BackdropFocusTest {
     }
 }
 
-
+class BackdropFocusDownsampleTest {
     @Test
     fun downsamplePreservesAspectRatioAndSamplesPixelCenters() {
         val pixels = IntArray(16) { it + 1 }
@@ -66,3 +66,4 @@ class BackdropFocusTest {
         assertNull(downsampleArgb(pixels, width = 2, height = 2, targetWidth = 1))
         assertNull(downsampleArgb(pixels, width = 2, height = 2, targetWidth = 0))
     }
+}
