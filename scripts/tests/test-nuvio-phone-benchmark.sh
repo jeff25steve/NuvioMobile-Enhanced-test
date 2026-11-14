@@ -1,7 +1,19 @@
 #!/bin/sh
 set -eu
 
-RUNNER_SOURCE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/nuvio-phone-benchmark.sh"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+RUNNER_SOURCE="$SCRIPT_DIR/nuvio-phone-benchmark.sh"
+DESKTOP_RUNNER="$SCRIPT_DIR/run-android-startup-profile-benchmark.sh"
+
+[ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
+if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
+  echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
+  exit 1
+fi
+grep -Fq "tr -d '\\r'" "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must explicitly strip carriage returns from adb output." >&2
+  exit 1
+}
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 BUNDLE="$TMP/bundle"
