@@ -71,15 +71,15 @@ fi
 adb -s "$DEVICE_SERIAL" shell monkey -p "$BENCHMARK_PACKAGE" 1 >/dev/null 2>&1 || fail "Could not launch the benchmark app."
 read -r -p "Press Enter once the benchmark app is signed in and its Home screen is visible: " _
 
-run_gradle_step "01-generate-full-release-profile" \
-  :baselineProfile:generateFullReleaseBaselineProfile \
+run_gradle_step "01-generate-full-nonMinifiedRelease-profile" \
+  :baselineProfile:generateFullNonMinifiedReleaseBaselineProfile \
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
-run_gradle_step "02-generate-playstore-release-profile" \
-  :baselineProfile:generatePlaystoreReleaseBaselineProfile \
+run_gradle_step "02-generate-playstore-nonMinifiedRelease-profile" \
+  :baselineProfile:generatePlaystoreNonMinifiedReleaseBaselineProfile \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 for flavor in full playstore; do
-  profile_dir="androidApp/src/${flavor}Release/generated/baselineProfiles"
+  profile_dir="androidApp/src/${flavor}NonMinifiedRelease/generated/baselineProfiles"
   [[ -d "$profile_dir" ]] || fail "Missing generated profile directory: $profile_dir"
   find "$profile_dir" -maxdepth 1 -type f \( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \) -print -exec wc -c {} \; | tee "$OUTPUT_DIR/$flavor-generated-profiles.txt"
   grep -q 'baseline-prof.txt' "$OUTPUT_DIR/$flavor-generated-profiles.txt" || fail "No baseline-prof.txt for $flavor."
