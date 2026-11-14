@@ -109,3 +109,15 @@ Static review details:
 - UI Automator 2.4.1 is the stable release published 4 November 2026.
 - Context7 quota was exhausted. Exa was used to consult official Android Developers documentation and release references.
 - No build, test, Macrobenchmark, profile generation, device operation or CI was run.
+
+
+## Source quality cycle 43 — Wait for the visible Home state, not just its data
+
+- [x] Trace the App -> AppGate -> MainAppContent readiness callback to its origin.
+- [x] Identify that root Home readiness can precede completion of the launch overlay exit animation.
+- [x] Include launchOverlayState.currentState and launchOverlayState.isIdle in the readiness effect keys.
+- [x] Report ready only after root content is ready and the launch overlay is fully idle and hidden.
+- [x] Keep the visual transition unchanged; update only the readiness signal consumed by TTFD.
+- [ ] Verify callback behavior with Compose tests and a physical-device startup benchmark when authorized.
+
+No startup speedup is claimed. This makes the future TTFD comparison represent the visible ready state instead of an earlier underlying-content state.
