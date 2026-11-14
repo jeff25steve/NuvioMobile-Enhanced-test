@@ -72,6 +72,16 @@ class SimklApiClientTest {
     }
 
     @Test
+    fun `PIN polling keeps server code inside one encoded path segment`() {
+        val url = buildSimklApiUrl(buildSimklPinPollPath("A/B?C#D%"))
+
+        assertEquals(
+            "$SIMKL_API_BASE_URL/oauth/pin/A%2FB%3FC%23D%25",
+            url.substringBefore('?'),
+        )
+    }
+
+    @Test
     fun `bodyless post sends json content type without inventing a payload`() = runBlocking {
         val engine = RecordingEngine(response(200))
         val harness = TestHarness(engine)
