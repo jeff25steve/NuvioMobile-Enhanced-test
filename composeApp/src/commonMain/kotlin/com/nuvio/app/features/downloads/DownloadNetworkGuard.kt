@@ -13,3 +13,10 @@ internal fun isDownloadNetworkAllowed(
     allowMobileDataDownloads: Boolean,
     isOnWifi: Boolean,
 ): Boolean = allowMobileDataDownloads || isOnWifi
+
+
+/** True when an active transfer should stop to honor the device's mobile-data preference. */
+internal fun shouldPauseDownloadOnCurrentNetwork(
+    allowMobileDataDownloads: Boolean,
+    isOnWifi: Boolean,
+): Boolean = !isDownloadNetworkAllowed(allowMobileDataDownloads, isOnWifi)
