@@ -5099,3 +5099,37 @@ This continuation supersedes the earlier page-only notes for the specific Home h
 - Do not call the regression verified or Player fully fixed until the focused host test and Full Debug APK build both complete successfully on the exact final branch head.
 - After CI completes, re-check the run SHA, job steps, test result, build result and APK artifact. Then integrate only the verified source and test changes into main-build-testing; do not copy the temporary CI workflow into the main application branch.
 - A Linux APK build is compile/package evidence only. Full Player sign-off still requires runtime playback checks across ExoPlayer and libmpv, subtitles, gestures, overlays, engine switching and Liquid Glass on supported Android devices.
+
+
+## 14 November 2026 — Player CI failure root-cause investigation (no rerun authorised)
+
+### Actual run outcome
+
+- GitHub Actions run 43530874621 completed with conclusion FAILURE on candidate head b1d6a6e1966f4506ff4a980e6fda1b975d430189.
+- The job successfully completed checkout, Java 17 setup, Gradle setup, runtime properties and Rust Android target setup.
+- The focused test command started, but Gradle failed in :composeApp:compileAndroidMain before the Player test class executed. The Full Debug APK task and artifact upload were skipped.
+- This was not an APK packaging failure, a Linux runner failure, or a memory/OOM failure. The compiler emitted Kotlin source errors and ended with BUILD FAILED in 4m 53s.
+
+### Player-specific compile blockers identified from the compiler output
+
+1. PlayerPlaybackNetworking.kt imports NetworkErrorInterceptor twice, making the imported symbol ambiguous.
+2. PlayerScreenRuntimeState.kt has no showDiscTitlesPanel state property, although PlayerScreenRuntimeDiscTitles.kt, PlayerScreenRuntimeGestureActions.kt and PlayerScreenRuntimeUi.kt all read/write it. The existing isPanelOpen and isAnyOverlayVisible state aggregations also omit this panel.
+3. PlayerScreenRuntimeUi.kt calls tryRefreshExpiredLinkAfterError(message), but PlayerScreenRuntimeEffects.kt defines tryRefreshCredentialedSourceAfterError(message). The existing implementation includes the credential refresh and server fallback logic; the call site is stale.
+4. PlayerScreenRuntimeUi.kt passes onDiscTitlesClick to PlayerControlsShell, but PlayerControlsShell has no such parameter. FoldControls already supports onDiscTitlesClick and displays the disc icon; the modern PlayerControlActions/toolbar configuration does not yet expose it. The partially wired disc-title feature needs a consistent route through all supported control layouts and the toolbar settings model.
+
+### Baseline attribution
+
+- The relevant source blobs in the CI branch and current main-build-testing are identical for PlayerScreenRuntimeEffects.kt, PlayerScreenRuntimeState.kt, PlayerControls.kt, PlayerControlActions.kt, PlayerToolbarLayout.kt, PlayerScreenRuntimeUi.kt and PlayerScreenRuntimeDiscTitles.kt.
+- PlayerPlaybackNetworking.kt and the other inspected compilation-error files were also identical between the candidate and main-build-testing. These blockers therefore predate the black-frame candidate change and were not caused by the PixelCopy correction.
+- The PixelCopy candidate source itself was not named in the compiler diagnostics.
+
+### Other non-Player compilation blockers in the same run
+
+The same :composeApp:compileAndroidMain pass also reported errors in BackdropFocus.android.kt (downsampleArgb unresolved), AuthRepository.kt (Result type mismatches and missing session/error symbols), DetailHero.kt (missing callback/alpha parameters), SearchRepository.kt (suspending call outside a coroutine), LiquidGlassSurfacesSettingsSheet.kt (cloudBackgroundActive unresolved), and SimklAuthRepository/SimklDeviceAuth.kt (missing response models and duplicate declarations). These are separate baseline issues and must not be papered over as part of the Player patch.
+
+### Next safe implementation sequence
+
+- First correct the Player source-level wiring: duplicate import, restore the missing disc-title state and overlay aggregation, call the already-implemented credential-refresh method, and complete the disc-title action through the Player toolbar/settings model and legacy/fold layouts.
+- Add focused tests for toolbar-layout persistence/visibility and the missing runtime state lifecycle before implementation.
+- The user has explicitly prohibited further builds and CI without authorisation. No rerun, local Gradle test, APK build, workflow dispatch, or CI-triggering push was started during this investigation.
+- Do not merge the PixelCopy candidate or claim Player fixed until the user authorises verification and the corrected candidate passes the focused regression tests plus the Full Debug APK build. The project-wide baseline compile errors above must also be resolved before those tasks can complete.
