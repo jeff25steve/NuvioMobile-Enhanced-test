@@ -205,6 +205,7 @@ internal class PlayerScreenRuntime(
     var currentTrackingMedia by mutableStateOf<TrackingMediaReference?>(null)
 
     var showSourcesPanel by mutableStateOf(false)
+    var showDiscTitlesPanel by mutableStateOf(false)
     var showQualityPanel by mutableStateOf(false)
     var showSpeedPanel by mutableStateOf(false)
     var showEpisodesPanel by mutableStateOf(false)
@@ -269,7 +270,7 @@ internal class PlayerScreenRuntime(
     var showPartyChat by mutableStateOf(false)
     val isPanelOpen: Boolean
         get() = showAudioModal || showSubtitleModal || showVideoSettingsModal || showStreamInfo ||
-            showPartyPanel || showSourcesPanel || showEpisodesPanel || showSubmitIntroModal ||
+            showPartyPanel || showSourcesPanel || showDiscTitlesPanel || showEpisodesPanel || showSubmitIntroModal ||
             // Fork panels
             showChaptersPanel || showQualityPanel || showSpeedPanel || showLiveChannelsPanel ||
             showStreamInfoModal || showUserRatingSheet
@@ -329,6 +330,7 @@ internal class PlayerScreenRuntime(
             showStreamInfo ||
             showUserRatingSheet ||
             showSourcesPanel ||
+            showDiscTitlesPanel ||
             showQualityPanel ||
             showSpeedPanel ||
             showEpisodesPanel ||
