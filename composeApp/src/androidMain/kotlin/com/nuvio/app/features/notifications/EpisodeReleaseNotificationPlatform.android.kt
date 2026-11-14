@@ -308,6 +308,9 @@ internal actual object EpisodeReleaseNotificationPlatform {
     internal suspend fun deliverDueAndScheduleNext(context: Context) {
         initialize(context)
         val applicationContext = context.applicationContext
+        withContext(Dispatchers.IO) {
+            ensureNotificationChannel()
+        }
 
         stateMutex.withLock {
             withContext(Dispatchers.IO) {
