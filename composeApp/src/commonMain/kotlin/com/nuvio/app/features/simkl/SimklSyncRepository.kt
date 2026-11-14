@@ -191,7 +191,11 @@ object SimklSyncRepository : TrackingProfileStore {
         } ?: return@withLock
 
         val result = try {
-            engine.synchronize(previous.snapshot)
+            engine.synchronize(previous.snapshot) {
+                if (!isProfileScopeCurrent(profileScope)) {
+                    throw CancellationException("Simkl profile changed during sync")
+                }
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
