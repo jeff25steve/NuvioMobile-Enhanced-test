@@ -25,17 +25,19 @@ internal data class AndroidDownloadTransfer(
 internal class AndroidDownloadStore(private val directory: File) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val lock = Any()
-    private val state = MutableStateFlow(load())
-    val transfers = state.asStateFlow()
+    private val state = lazy(LazyThreadSafetyMode.SYNCHRONIZED) { MutableStateFlow(load()) }
+    private val stateFlow get() = state.value
+    internal val isLoaded: Boolean get() = state.isInitialized()
+    val transfers get() = stateFlow.asStateFlow()
 
-    fun get(fileName: String): AndroidDownloadTransfer? = state.value[fileName]
+    fun get(fileName: String): AndroidDownloadTransfer? = stateFlow.value[fileName]
 
     fun begin(item: DownloadItem, exportTreeUri: String? = null): AndroidDownloadTransfer = synchronized(lock) {
         val previous = get(item.fileName)?.takeIf { it.item.id == item.id }
         if (previous?.item?.status == DownloadStatus.Downloading) return@synchronized previous
         val transfer = AndroidDownloadTransfer(
             item = item.copy(status = DownloadStatus.Downloading, errorMessage = null, localFileUri = null),
-            jobId = previous?.jobId ?: ((state.value.values.maxOfOrNull { it.jobId } ?: 0) + 1),
+            jobId = previous?.jobId ?: ((stateFlow.value.values.maxOfOrNull { it.jobId } ?: 0) + 1),
             generation = UUID.randomUUID().toString(),
             validator = previous?.validator,
             exportTreeUri = exportTreeUri,
@@ -68,7 +70,7 @@ internal class AndroidDownloadStore(private val directory: File) {
 
     fun remove(fileName: String) = synchronized(lock) {
         AtomicFile(recordFile(fileName)).delete()
-        state.value = state.value - fileName
+        stateFlow.value = stateFlow.value - fileName
     }
 
     private fun save(transfer: AndroidDownloadTransfer) {
@@ -82,7 +84,7 @@ internal class AndroidDownloadStore(private val directory: File) {
             file.failWrite(output)
             throw error
         }
-        state.value = state.value + (transfer.item.fileName to transfer)
+        stateFlow.value = stateFlow.value + (transfer.item.fileName to transfer)
     }
 
     private fun load(): Map<String, AndroidDownloadTransfer> = directory.listFiles().orEmpty()
