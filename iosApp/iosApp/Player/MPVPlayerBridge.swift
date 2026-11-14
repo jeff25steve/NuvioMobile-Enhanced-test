@@ -9,6 +9,10 @@ import ComposeApp
 
 // MARK: - Player Bridge Implementation (Kotlin protocol conformance)
 
+func mpvRetryStartPositionSeconds(_ seconds: Double) -> String? {
+    guard seconds.isFinite, seconds > 0 else { return nil }
+    return String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), seconds)
+}
 
 internal struct MpvDemuxerMemorySettings: Equatable {
     static let constrainedThresholdBytes = 2 * 1024 * 1024 * 1024
@@ -1504,9 +1508,10 @@ final class MPVPlayerViewController: UIViewController {
             guard let self, self.mpvGeneration == coreGeneration else { return }
             guard self.mpv != nil, let path = self.getString("path") else { return }
             let pos = self.getDouble("time-pos")
-            self.command("loadfile", args: [path, "replace"])
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.command("seek", args: [String(format: "%.3f", pos), "absolute"])
+            if let startPosition = mpvRetryStartPositionSeconds(pos) {
+                self.command("loadfile", args: [path, "replace", "-1", "start=\(startPosition)"])
+            } else {
+                self.command("loadfile", args: [path, "replace"])
             }
         }
     }
