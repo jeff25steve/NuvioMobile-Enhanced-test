@@ -422,6 +422,9 @@ object SimklAuthRepository : TrackingAuthProvider {
         invalidateCredentials(SimklAuthError.AUTHORIZATION_REVOKED, generation)
     }
 
+    internal fun isAuthOperationCurrent(generation: Long): Boolean =
+        authOperationGeneration.isCurrent(generation)
+
     suspend fun refreshUserSettings(): String? {
         authorizedAccessToken() ?: return null
         val generation = authOperationGeneration.current()
