@@ -613,7 +613,7 @@ object SimklAuthRepository : TrackingAuthProvider {
                 val expiresAt = storedState.pendingPinExpiresAtEpochMs ?: migratedSchedule.expiresAtEpochMs
                 val interval = (storedState.pendingPinPollIntervalSeconds
                     ?: SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
-                    .coerceAtLeast(SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
+                    .coerceAtLeast(1)
                 storedState = storedState.copy(
                     pendingAuthorizationStartedAtEpochMs = startedAt,
                     pendingPinPollIntervalSeconds = interval,
