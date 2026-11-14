@@ -28,7 +28,7 @@ internal fun downsampleArgb(
     targetWidth: Int,
 ): SampledPixels? {
     if (width <= 0 || height <= 0 || targetWidth <= 0) return null
-    if (pixels.size < width * height) return null
+    if (width.toLong() * height.toLong() > pixels.size.toLong()) return null
 
     val sampledWidth = minOf(width, targetWidth)
     val sampledHeight = ((height.toLong() * sampledWidth + width / 2L) / width)
@@ -45,5 +45,4 @@ internal fun downsampleArgb(
         }
     }
     return SampledPixels(sampled, sampledWidth, sampledHeight)
-}
 }
