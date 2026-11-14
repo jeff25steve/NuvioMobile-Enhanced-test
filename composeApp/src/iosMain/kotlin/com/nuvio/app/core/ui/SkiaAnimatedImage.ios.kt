@@ -441,8 +441,9 @@ private fun decodeAnimation(
 
 private class SharedAnimation(
     val key: String,
-    val animation: AnimationFrames,
+    animation: AnimationFrames,
 ) {
+    var animation: AnimationFrames? = animation
     var refCount: Int = 0
     var job: Job? = null
     var idleEviction: Job? = null
@@ -454,6 +455,71 @@ private val registry = mutableMapOf<String, SharedAnimation>()
 private val pending = mutableMapOf<String, Deferred<SharedAnimation?>>()
 private var budgetUsedBytes = 0L
 private var animationsPaused = false
+
+internal class AnimatedImagePlaybackGate {
+    private var activePlaybackCount = 0
+
+    val isSuspended: Boolean
+        get() = activePlaybackCount > 0
+
+    /** Returns true only when this call begins the first active playback. */
+    fun suspendPlayback(): Boolean {
+        activePlaybackCount++
+        return activePlaybackCount == 1
+    }
+
+    /** Returns true only when this call ends the last active playback. */
+    fun resumePlayback(): Boolean {
+        if (activePlaybackCount == 0) return false
+        activePlaybackCount--
+        return activePlaybackCount == 0
+    }
+
+    fun canFinishResumeCooldown(): Boolean = activePlaybackCount == 0
+}
+
+private val playbackGate = AnimatedImagePlaybackGate()
+private val playbackGeneration = mutableStateOf(0)
+private const val ResumeAfterPlaybackDelayMillis = 3_000L
+private var pendingResume: Job? = null
+
+internal fun suspendAnimatedImagesForPlayback() {
+    pendingResume?.cancel()
+    pendingResume = null
+    if (!playbackGate.suspendPlayback()) return
+
+    registry.values.forEach { shared ->
+        shared.job?.cancel()
+        shared.job = null
+        shared.idleEviction?.cancel()
+        shared.idleEviction = null
+        shared.frame.value = null
+        shared.animation = null
+    }
+    registry.clear()
+    pending.values.forEach { it.cancel() }
+    pending.clear()
+    budgetUsedBytes = 0L
+
+    // The generation fence prevents an in-flight source load from repopulating the cache.
+    sourceCache.clear()
+}
+
+internal fun resumeAnimatedImagesAfterPlayback() {
+    if (!playbackGate.resumePlayback()) return
+    pendingResume?.cancel()
+    pendingResume = registryScope.launch {
+        delay(ResumeAfterPlaybackDelayMillis)
+        if (playbackGate.canFinishResumeCooldown()) {
+            playbackGeneration.value++
+        }
+        pendingResume = null
+    }
+}
+
+private val animationsHeldForPlayback: Boolean
+    get() = playbackGate.isSuspended || pendingResume?.isActive == true
+
 private var lifecycleObserversInstalled = false
 
 private fun installLifecycleObservers() {
@@ -508,6 +574,7 @@ private fun bucket(value: Int): Int {
 
 private suspend fun acquireShared(url: String, targetWidth: Int, targetHeight: Int): SharedAnimation? {
     installLifecycleObservers()
+    if (animationsHeldForPlayback) return null
     val key = "$url|${targetWidth}x$targetHeight"
 
     registry[key]?.let { existing ->
@@ -521,6 +588,7 @@ private suspend fun acquireShared(url: String, targetWidth: Int, targetHeight: I
     val inFlight = pending[key] ?: registryScope.async {
         val bytes = fetchSourceBytes(url) ?: return@async null
         val animation = withAnimatedImageDecodePermit {
+            if (animationsHeldForPlayback) return@withAnimatedImageDecodePermit null
             val remaining = MaxAnimationBudgetBytes - budgetUsedBytes
             if (remaining <= 0L) {
                 null
@@ -532,6 +600,7 @@ private suspend fun acquireShared(url: String, targetWidth: Int, targetHeight: I
         } ?: return@async null
 
         registry[key]?.let { return@async it }
+        if (animationsHeldForPlayback) return@async null
 
         if (budgetUsedBytes + animation.bytes > MaxAnimationBudgetBytes) return@async null
 
@@ -560,8 +629,8 @@ private suspend fun acquireShared(url: String, targetWidth: Int, targetHeight: I
 }
 
 private fun startIfNeeded(shared: SharedAnimation) {
-    if (shared.job != null || animationsPaused) return
-    val animation = shared.animation
+    if (shared.job != null || animationsPaused || animationsHeldForPlayback) return
+    val animation = shared.animation ?: return
     if (animation.frames.size <= 1) return
 
     shared.job = registryScope.launch {
@@ -577,6 +646,7 @@ private fun startIfNeeded(shared: SharedAnimation) {
 private fun releaseShared(shared: SharedAnimation) {
     shared.refCount--
     if (shared.refCount > 0) return
+    if (shared.animation == null || registry[shared.key] !== shared) return
 
     shared.idleEviction?.cancel()
     shared.idleEviction = registryScope.launch {
@@ -594,7 +664,8 @@ private fun evictIfIdle(key: String) {
     shared.idleEviction = null
     registry.remove(key)
     shared.frame.value = null
-    budgetUsedBytes -= shared.animation.bytes
+    budgetUsedBytes -= shared.animation?.bytes ?: 0L
+    shared.animation = null
     if (budgetUsedBytes < 0) budgetUsedBytes = 0
 }
 
@@ -616,11 +687,12 @@ internal fun rememberAnimatedFrame(
 ): AnimatedFrame {
     val width = bucket(targetWidthPx)
     val height = bucket(targetHeightPx)
-    var shared by remember(url, width, height) { mutableStateOf<SharedAnimation?>(null) }
-    var unavailable by remember(url, width, height) { mutableStateOf(false) }
-    var allowAsyncImageFallback by remember(url, width, height) { mutableStateOf(true) }
+    val generation = playbackGeneration.value
+    var shared by remember(url, width, height, generation) { mutableStateOf<SharedAnimation?>(null) }
+    var unavailable by remember(url, width, height, generation) { mutableStateOf(false) }
+    var allowAsyncImageFallback by remember(url, width, height, generation) { mutableStateOf(true) }
 
-    DisposableEffect(url, width, height) {
+    DisposableEffect(url, width, height, generation) {
         var released = false
         var acquired: SharedAnimation? = null
 
