@@ -1,0 +1,80 @@
+#!/bin/sh
+set -eu
+
+RUNNER_SOURCE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/nuvio-phone-benchmark.sh"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+BUNDLE="$TMP/bundle"
+mkdir -p "$BUNDLE" "$TMP/media" "$TMP/bin"
+cp "$RUNNER_SOURCE" "$BUNDLE/nuvio-phone-benchmark.sh"
+for flavor in full playstore; do
+  : > "$BUNDLE/Nuvio-$flavor-BenchmarkRelease.apk"
+  : > "$BUNDLE/Nuvio-$flavor-BenchmarkRelease-Tests.apk"
+  : > "$BUNDLE/Nuvio-$flavor-NonMinifiedRelease.apk"
+  : > "$BUNDLE/Nuvio-$flavor-NonMinifiedRelease-Tests.apk"
+done
+
+cat > "$TMP/bin/getprop" <<'STUB'
+#!/bin/sh
+case "$1" in
+  ro.build.version.sdk) echo "${FAKE_API:-34}" ;;
+  ro.kernel.qemu) echo 0 ;;
+  ro.hardware) echo qcom ;;
+  *) echo test-device ;;
+esac
+STUB
+cat > "$TMP/bin/pm" <<'STUB'
+#!/bin/sh
+printf 'pm %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+case "$1" in
+  list) echo 'instrumentation:com.nuvio.android.baselineprofile.test/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.media.benchmark)' ;;
+  install) echo 'Success' ;;
+  *) exit 0 ;;
+esac
+STUB
+cat > "$TMP/bin/monkey" <<'STUB'
+#!/bin/sh
+printf 'monkey %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+STUB
+cat > "$TMP/bin/am" <<'STUB'
+#!/bin/sh
+printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+case " $* " in
+  *macrobenchmark*) mkdir -p "$FAKE_MEDIA_DIR"; printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
+  *BaselineProfile*) mkdir -p "$FAKE_MEDIA_DIR"; printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt" ;;
+esac
+echo 'OK (1 test)'
+STUB
+chmod +x "$TMP/bin/"*
+export PATH="$TMP/bin:$PATH"
+export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_DIR="$TMP/media"
+export NUVIO_PHONE_OUTPUT_DIR="$TMP/output" NUVIO_PHONE_MEDIA_ROOT="$TMP/media"
+
+# Unsupported devices must fail before any APK installation.
+if FAKE_API=32 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null 2>&1; then
+  echo 'FAIL: API 32 should be rejected.' >&2
+  exit 1
+fi
+[ ! -s "$FAKE_COMMAND_LOG" ] || { echo 'FAIL: unsupported device invoked package manager.' >&2; exit 1; }
+
+for flavor in full playstore; do
+  sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
+  if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
+    echo 'FAIL: measure must reject the profile-generation app state.' >&2
+    exit 1
+  fi
+  sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" >/dev/null
+  sh "$BUNDLE/nuvio-phone-benchmark.sh" install "$flavor" >/dev/null
+  sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null
+  test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
+  test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
+done
+
+# Verify benchmark install never removes the real app and all commands target .benchmark.
+! grep -q 'pm uninstall com.nuvio.media' "$FAKE_COMMAND_LOG"
+grep -q 'monkey -p com.nuvio.media.benchmark 1' "$FAKE_COMMAND_LOG"
+grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
+grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
+
+sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
+printf 'PASS: phone runner covers both flavors, rejects API 32 and invalid run order, exports profile/benchmark artifacts, and never uninstalls production Nuvio.\n'
