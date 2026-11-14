@@ -136,4 +136,32 @@ class DownloadProfileOwnershipTest {
         createdAtEpochMs = 1L,
         updatedAtEpochMs = 1L,
     )
+
+
+    @Test
+    fun completedDownloadWithMissingFileBecomesRetryableWithoutLosingItsSource() {
+        val completed = download("missing-file").copy(
+            status = DownloadStatus.Completed,
+            localFileUri = "file:///downloads/missing-file.mp4",
+            downloadedBytes = 12_345L,
+            totalBytes = 12_345L,
+        )
+
+        val unavailable = completed.markLocalFileUnavailable(updatedAtEpochMs = 99L)
+
+        assertEquals(DownloadStatus.Failed, unavailable.status)
+        assertNull(unavailable.localFileUri)
+        assertEquals(99L, unavailable.updatedAtEpochMs)
+        assertEquals(completed.sourceUrl, unavailable.sourceUrl)
+        assertEquals(completed.sourceHeaders, unavailable.sourceHeaders)
+        assertEquals(completed.fileName, unavailable.fileName)
+        assertEquals(completed.downloadedBytes, unavailable.downloadedBytes)
+    }
+
+    @Test
+    fun markingNonCompletedDownloadUnavailableDoesNotChangeItsState() {
+        val paused = download("paused").copy(status = DownloadStatus.Paused)
+
+        assertEquals(paused, paused.markLocalFileUnavailable(updatedAtEpochMs = 99L))
+    }
 }
