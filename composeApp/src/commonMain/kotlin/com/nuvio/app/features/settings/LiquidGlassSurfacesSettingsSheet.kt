@@ -2804,7 +2804,7 @@ private fun LiquidGlassLibraryPreview(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(libraryCloudToolbarBackgroundColor(cloudBackgroundActive))
+                                .background(libraryCloudToolbarBackgroundColor(artworkBackgroundActive = viewMode == LibraryViewMode.Cloud))
                                 .nuvioConsumePointerEvents(),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {

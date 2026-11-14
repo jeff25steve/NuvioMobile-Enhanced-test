@@ -586,6 +586,7 @@ object SearchRepository {
         )
 
         activeDiscoverJob = scope.launch {
+            val discoverLoadFailureFallback = getString(Res.string.discover_empty_load_failed_message)
             runCatching {
                 val server = selectedCatalog.server
                 if (server != null) {
@@ -667,7 +668,7 @@ object SearchRepository {
                             isLoading = false,
                             nextSkip = null,
                             emptyStateReason = DiscoverEmptyStateReason.RequestFailed,
-                            errorMessage = error.message ?: getString(Res.string.discover_empty_load_failed_message),
+                            errorMessage = error.message ?: discoverLoadFailureFallback,
                         )
                     }
                 },
