@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.androidx.benchmark.macro)
     implementation(libs.androidx.test.runner)
     implementation(libs.androidx.test.core)
+    implementation(libs.androidx.test.uiautomator)
     implementation(libs.androidx.testExt.junit)
     implementation(libs.junit)
 }
