@@ -147,21 +147,28 @@ jobs:
 
           INSTALL / SIGN-IN
           1. Use one physical Android device for both flavors and both A/B arms.
-          2. If production-signed Nuvio is installed, uninstall it once first. Android
-             cannot update an app signed by the production key with this benchmark key.
-             Uninstalling clears that app's local data.
-          3. Install the full BenchmarkRelease APK and sign in to the test account.
-          4. Do not clear app data or uninstall between the full and playstore benchmark
-             runs. Both benchmark flavors share com.nuvio.media and the same benchmark key.
-          5. Keep the device cool, plugged in, and on the same network for all runs.
+          2. Do not install these CI APKs for the local device run: CI's temporary Android
+             debug key differs from the debug key on your machine. The local runner builds
+             and installs its own benchmarkRelease APKs using one consistent local key.
+          3. If production-signed Nuvio is installed, the local install will be rejected.
+             Uninstall the production copy once, then rerun the script; this clears its
+             local data, so you must sign in again on the benchmark build.
+          4. The script installs the local full benchmarkRelease APK and pauses while you
+             sign in on the phone. Keep that app installed for the full/playstore runs.
+          5. Do not clear app data or uninstall between flavors; both share
+             com.nuvio.media and the same local benchmark signing key.
+          6. Keep the device cool, plugged in, and on the same network for all runs.
 
           PROFILE GENERATION / A-B
           Run on a machine with this repository revision, Android SDK, Gradle, ADB, and
           the same physical device connected. Android 13+ (API 33+) is supported without
           root; API 28+ is supported on a rooted device.
 
-          Open Nuvio and confirm it lands directly on the signed-in Home screen, then run:
+          Run:
             bash scripts/run-android-startup-profile-benchmark.sh
+
+          The script builds and installs the local R8 benchmark variant, pauses for sign-in,
+          generates profiles for both flavors, and runs the two A/B arms for each flavor.
 
           The script generates separate fullRelease and playstoreRelease Baseline and
           Startup Profiles from the nonMinifiedRelease variants. It then compares 10
