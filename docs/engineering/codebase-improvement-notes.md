@@ -5924,3 +5924,33 @@ Verification and limitations:
 - Context7 was attempted for the exact Sentry SDK/plugin documentation but its monthly quota was exhausted. The Sentry official engineering report, official SDK/plugin release notes, plugin source/docs and Maven Central were consulted instead.
 - No Gradle build, compilation, tests, Android/iOS build, Macrobenchmark, device run or CI was performed. The exact SDK/plugin tags and repository changes were checked remotely; generated build-time metadata and binary compatibility are pending an authorized build.
 - No whole-app speed percentage is claimed. Sentry's published 20–30% figure applies to its SDK init measurement comparing 8.43.0 to 8.54.0, not to Nuvio launch duration. The next proof step is a controlled cold-start TTID/TTFD comparison on the same device, with the same app configuration, before and after this update.
+
+
+### Improvement cycle 38 — Add a manual, variant-aware Baseline Profile pipeline
+
+Integrated:
+- Added AndroidX Baseline Profile Gradle plugin 1.5.0 and Macrobenchmark 1.5.0, plus the `com.android.test` plugin and test dependencies.
+- Registered `:baselineProfile` in Gradle settings and root plugin management.
+- Added the profile producer as a source dependency of `:androidApp`.
+- Mirrored the application's `full` and `playstore` product flavors so generation is performed against the matching release variant.
+- Configured source-controlled profile output and left release-time automatic generation explicitly disabled. Existing release R8/minification, application IDs, and ProfileInstaller 1.4.1 dependency remain unchanged.
+
+Why this is a real opportunity:
+- ProfileInstaller was already present, but the app-owned `src/main/baseline-prof.txt` was empty and no profile generator existed. That means Nuvio had no app-authored startup profile rules to deliver for ART to precompile.
+- Android's official overview describes Baseline Profiles as enabling AOT compilation of critical paths from first launch and reports around 30% faster code execution in general. This is platform guidance, not an Nuvio result: https://developer.android.com/topic/performance/baselineprofiles/overview.
+- AGP 9.4.0 is paired with Gradle 9.8.2 in this repository; AGP 9.4.0's documented minimum is Gradle 9.6.0: https://developer.android.com/build/releases/agp-9-4-0-release-notes.
+- Stable Macrobenchmark 1.5.0 includes the AGP 9 new DSL compatibility change: https://developer.android.com/jetpack/androidx/releases/benchmark.
+
+### Improvement cycle 39 — Add a focused real-launch Startup Profile journey
+
+Integrated:
+- Added `BaselineProfileGenerator.startup()` in the isolated producer module.
+- It targets the actual release package ID `com.nuvio.media`, calls `startActivityAndWait()`, and sets `includeInStartupProfile = true` so the captured startup code can inform both Baseline Profile and Startup Profile rules.
+- It uses the stable `BaselineProfileRule.collect` API with its documented default iteration/stability values and includes no fabricated class/method rules, login shortcuts, remote-network waits, or speculative feature navigation.
+- The generator is instrumented and must be invoked explicitly; it is not connected to ordinary release assembly or CI.
+
+Verification and limitations for cycles 38–39:
+- Remote static review checked plugin aliases, stable version references, app and producer flavor parity, target package ID, release/minified variant intent, source-output setting, and the disabled automatic-generation setting.
+- Context7 was attempted but the exact-library documentation request hit the monthly quota. Android official documentation, AndroidX release notes/API reference and current AndroidX source were consulted.
+- No Gradle build, configuration, compilation, test, Macrobenchmark, device/emulator run or CI was executed. Build compatibility and generated artifact packaging remain unverified until the user authorizes those operations.
+- No Nuvio speedup is claimed yet: the committed source creates a reproducible profile-generation path, but actual generated profiles still need to be collected, reviewed and included in release output. The follow-up is a controlled repeated cold-start TTID/TTFD comparison with and without the profiles on the same device. Keep any profile only if that comparison does not regress.
