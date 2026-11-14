@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -197,11 +198,20 @@ internal class BackdropFocusState(
         private set
 
     val wasCached: Boolean = initial != null
+    internal var imageResolved by mutableStateOf(initial != null)
+        private set
     private var pending: Image? by mutableStateOf(null)
 
     /** Call from AsyncImage onSuccess. */
     fun onImageLoaded(image: Image) {
+        imageResolved = true
         if (profile == null && url != null) pending = image
+    }
+
+    /** Clear a failed request so it cannot remain pending or keep the hero hidden. */
+    fun onImageFailed() {
+        imageResolved = true
+        pending = null
     }
 
     internal suspend fun process() {
@@ -229,6 +239,17 @@ internal fun rememberBackdropFocusState(url: String?): BackdropFocusState {
     }
     LaunchedEffect(state, state.pendingImage) { state.process() }
     return state
+}
+
+/** Fades a backdrop in once Coil has completed or failed its image request. */
+@Composable
+internal fun BackdropFocusState.revealAlpha(): Float {
+    val alpha by animateFloatAsState(
+        targetValue = if (imageResolved || wasCached) 1f else 0f,
+        animationSpec = tween(durationMillis = 320),
+        label = "backdropFocusReveal",
+    )
+    return alpha
 }
 
 /**
