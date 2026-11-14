@@ -975,8 +975,8 @@ fun LibraryScreen(
             val windowSize = LocalWindowInfo.current.containerSize
             val density = LocalDensity.current
             val windowShortSide = with(density) { minOf(windowSize.width, windowSize.height).toDp() }
-            // This box already starts below the fixed Library header, so its measured height is
-            // the actual scrolling viewport on both Saved and Cloud pages.
+            // This viewport starts below the compact title header. In Saved mode, the source pill
+            // and filters are overlaid here so poster artwork can scroll behind their glass surfaces.
             val isLandscape = maxWidth > maxHeight
             val gridColumns = remember(isLandscape, windowShortSide) {
                 libraryGridColumnCount(
@@ -999,9 +999,8 @@ fun LibraryScreen(
                         },
                     ),
                 horizontalPadding = 0.dp,
-                // Saved filters are pinned outside the scrolling content. Always reserve their
-                // space initially so the first section heading stays visible regardless of material;
-                // after scrolling, poster content can pass beneath the pinned controls.
+                // Saved's source pill and filters are pinned above the scrolling content. Reserve
+                // their full height initially, then let poster artwork pass beneath both overlays.
                 topPadding = if (sourceMode == LibraryViewMode.Saved) {
                     libraryContentTopPadding(
                         hasSavedControls = librarySavedControlsNeedContentInset(hasSavedControls = hasSavedControls),
