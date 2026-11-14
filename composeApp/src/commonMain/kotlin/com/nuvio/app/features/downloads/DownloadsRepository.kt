@@ -474,19 +474,10 @@ object DownloadsRepository {
 
         cancelDownloadOperation(owner, downloadId)
         mutateItem(owner, downloadId) { current ->
-            when (current.status) {
-                DownloadStatus.Downloading,
-                DownloadStatus.Paused,
-                -> current.copy(
-                    status = DownloadStatus.Paused,
-                    updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                    errorMessage = null,
-                )
-
-                DownloadStatus.Completed,
-                DownloadStatus.Failed,
-                -> current
-            }
+            current.pauseIfNetworkDisallowed(
+                networkAllowed = false,
+                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+            )
         }
     }
 
@@ -589,15 +580,6 @@ object DownloadsRepository {
     private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
         DownloadsSettingsRepository.ensureLoaded()
         if (!isProfileOwnerCurrent(owner)) return
-        if (!isDownloadNetworkAllowedForCurrentSettings()) {
-            updateOwnedDownload(owner, item.id) { current ->
-                current.pauseIfNetworkDisallowed(
-                    networkAllowed = false,
-                    updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-                )
-            }
-            return
-        }
         val key = DownloadOperationKey(owner, item.id)
         if (key in activeOperations) return
 
@@ -678,8 +660,16 @@ object DownloadsRepository {
             },
         )
 
-        if (isCurrentOperation(key, generation)) activeHandles[key] = handle
-        else handle.cancel()
+        if (isCurrentOperation(key, generation)) {
+            activeHandles[key] = handle
+            // Restored/background transfers may already be running before this handle attaches.
+            // Pause only after the handle is registered so cancellation reaches the platform task.
+            if (!isDownloadNetworkAllowedForCurrentSettings()) {
+                pauseDownload(item.id)
+            }
+        } else {
+            handle.cancel()
+        }
     }
 
     private fun mutateItem(
