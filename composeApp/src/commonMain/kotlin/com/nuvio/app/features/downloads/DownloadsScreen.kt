@@ -33,6 +33,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -57,10 +59,13 @@ fun DownloadsScreen(
     onNavigateToShow: ((showId: String, title: String) -> Unit)? = null,
     onBackFromShow: (() -> Unit)? = null,
 ) {
-    val uiState by remember {
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            DownloadsPlatformDownloader.preloadTransferStore()
+        }
         DownloadsRepository.ensureLoaded()
-        DownloadsRepository.uiState
-    }.collectAsStateWithLifecycle()
+    }
+    val uiState by DownloadsRepository.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(uiState.completedItems.size) {
         DownloadsRepository.markCompletedSeen()
     }
