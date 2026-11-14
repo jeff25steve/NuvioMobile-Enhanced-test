@@ -73,6 +73,32 @@ class SimklPkceTest {
     }
 
     @Test
+    fun `legacy PIN polling distinguishes pending authorized and replaced codes`() {
+        assertEquals(
+            SimklPinPollOutcome.PENDING,
+            simklPinPollOutcome(
+                SimklPinPollResponse(result = "KO", message = "Authorization pending"),
+            ),
+        )
+        assertEquals(
+            SimklPinPollOutcome.AUTHORIZED,
+            simklPinPollOutcome(
+                SimklPinPollResponse(result = "OK", accessToken = "token"),
+            ),
+        )
+        assertEquals(
+            SimklPinPollOutcome.CODE_EXPIRED,
+            simklPinPollOutcome(
+                SimklPinPollResponse(result = "OK", deviceCode = "DEVICE_CODE", userCode = "NEW1"),
+            ),
+        )
+        assertEquals(
+            SimklPinPollOutcome.UNEXPECTED,
+            simklPinPollOutcome(SimklPinPollResponse(result = "KO", message = "temporary service issue")),
+        )
+    }
+
+    @Test
     fun `pending authorization expires after five minutes`() {
         assertFalse(isSimklAuthorizationExpired(1_000L, 301_000L))
         assertTrue(isSimklAuthorizationExpired(1_000L, 301_001L))
