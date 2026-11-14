@@ -47,8 +47,14 @@ val releaseAppVersionCode = readXcconfigValue(appVersionConfigFile, "CURRENT_PRO
     ?.toIntOrNull()
     ?: error("CURRENT_PROJECT_VERSION is missing or invalid in ${appVersionConfigFile.path}")
 val requestedTaskNames = gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
+// ABI splits are for installable production release outputs only. AndroidX's
+// benchmarkRelease and nonMinifiedRelease variants are profiling/test builds;
+// keep them universal so Macrobenchmark installs the same artifact on each device.
 val buildsReleaseApks = requestedTaskNames.any {
-    it.startsWith("assemble", ignoreCase = true) && it.endsWith("Release", ignoreCase = true)
+    it.startsWith("assemble", ignoreCase = true) &&
+        it.endsWith("Release", ignoreCase = true) &&
+        !it.contains("BenchmarkRelease", ignoreCase = true) &&
+        !it.contains("NonMinifiedRelease", ignoreCase = true)
 }
 
 android {
