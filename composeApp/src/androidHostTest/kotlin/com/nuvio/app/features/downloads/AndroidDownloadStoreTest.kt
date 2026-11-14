@@ -5,6 +5,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -25,4 +26,23 @@ class AndroidDownloadStoreTest {
             directory.deleteRecursively()
         }
     }
+    @Test
+    fun firstAccessRestoresPersistedTransferRecords() {
+        val directory = Files.createTempDirectory("nuvio-download-store-restore-test").toFile()
+        try {
+            val item = downloadItem()
+            AndroidDownloadStore(directory).begin(item)
+
+            val restoredStore = AndroidDownloadStore(directory)
+            assertFalse(restoredStore.isLoaded)
+
+            val restored = restoredStore.get(item.fileName)
+            assertEquals(item.id, restored?.item?.id)
+            assertEquals(DownloadStatus.Downloading, restored?.item?.status)
+            assertTrue(restoredStore.isLoaded)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
 }
