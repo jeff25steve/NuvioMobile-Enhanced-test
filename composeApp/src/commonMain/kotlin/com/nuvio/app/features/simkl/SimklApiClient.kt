@@ -69,6 +69,7 @@ internal class SimklApiClient(
     private val engine: SimklHttpEngine,
     private val accessToken: () -> SimklApiAccessToken?,
     private val onUnauthorized: (Long) -> Unit,
+    private val isCurrentAccessToken: (Long) -> Boolean = { true },
     private val nowEpochMs: () -> Long = SimklPlatformClock::nowEpochMs,
     private val sleep: suspend (Long) -> Unit = { delayMs -> delay(delayMs) },
     private val retryJitterMs: () -> Long = { Random.nextLong(RETRY_JITTER_BOUND_MS + 1L) },
@@ -99,7 +100,18 @@ internal class SimklApiClient(
         var syncWriteLockRetried = false
         for (attempt in 0 until maxAttempts) {
             val response = try {
-                executeRateLimited(request.method) {
+                executeRateLimited(
+                    method = request.method,
+                    beforeExecute = {
+                        if (token != null && !isCurrentAccessToken(token.generation)) {
+                            throw SimklApiException(
+                                status = 401,
+                                errorCode = "stale_authentication",
+                                message = "Simkl profile changed before the request was sent",
+                            )
+                        }
+                    },
+                ) {
                     engine.execute(
                         method = request.method.name,
                         url = buildSimklApiUrl(request.path, request.query),
@@ -111,6 +123,8 @@ internal class SimklApiClient(
                     )
                 }
             } catch (error: CancellationException) {
+                throw error
+            } catch (error: SimklApiException) {
                 throw error
             } catch (error: Throwable) {
                 if (attempt == maxAttempts - 1) {
@@ -171,9 +185,11 @@ internal class SimklApiClient(
 
     private suspend fun <T> executeRateLimited(
         method: SimklHttpMethod,
+        beforeExecute: () -> Unit,
         block: suspend () -> T,
     ): T {
         awaitRateLimit(method)
+        beforeExecute()
         return try {
             block()
         } finally {
@@ -247,6 +263,7 @@ internal object SimklApi {
             },
             accessToken = SimklAuthRepository::authorizedAccessTokenSnapshot,
             onUnauthorized = SimklAuthRepository::onUnauthorizedResponse,
+            isCurrentAccessToken = SimklAuthRepository::isAuthOperationCurrent,
         )
     }
 }
