@@ -670,8 +670,15 @@ object SimklAuthRepository : TrackingAuthProvider {
     }
 
     private fun invalidateCredentials(error: SimklAuthError, generation: Long) {
-        val invalidated = authOperationGeneration.invalidateIfCurrent(generation) {
-            pinAuthorizationJob?.cancel()
+        var invalidatedForActiveProfile = false
+        authOperationGeneration.invalidateIfCurrent(generation) {
+            if (isSimklAuthProfileIdentityCurrent(
+                    loadedProfileId = loadedProfileId,
+                    activeProfileId = ProfileRepository.activeProfileId,
+                )
+            ) {
+                invalidatedForActiveProfile = true
+                pinAuthorizationJob?.cancel()
             pinAuthorizationJob = null
             pinPollingJob?.cancel()
             pinPollingJob = null
@@ -680,9 +687,10 @@ object SimklAuthRepository : TrackingAuthProvider {
             clearPendingAuthorization()
             storedState = SimklStoredAuthState()
             persistMetadata()
-            publish(isLoading = false, error = error)
+                publish(isLoading = false, error = error)
+            }
         }
-        if (invalidated) SimklSyncRepository.clearLocalState()
+        if (invalidatedForActiveProfile) SimklSyncRepository.clearLocalState()
     }
 
     private fun clearPendingAuthorization() {
