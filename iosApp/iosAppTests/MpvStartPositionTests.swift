@@ -240,3 +240,17 @@ final class MpvExternalSubtitleReplacementPlanTests: XCTestCase {
         )
     }
 }
+
+
+final class MpvTrackArrayIndexTests: XCTestCase {
+    func testAcceptsValidTrackArrayIndices() {
+        XCTAssertEqual(mpvTrackArrayIndex(0, count: 3), 0)
+        XCTAssertEqual(mpvTrackArrayIndex(2, count: 3), 2)
+    }
+
+    func testRejectsNegativeAndOutOfRangeTrackArrayIndices() {
+        XCTAssertNil(mpvTrackArrayIndex(-1, count: 3))
+        XCTAssertNil(mpvTrackArrayIndex(3, count: 3))
+        XCTAssertNil(mpvTrackArrayIndex(0, count: 0))
+    }
+}
