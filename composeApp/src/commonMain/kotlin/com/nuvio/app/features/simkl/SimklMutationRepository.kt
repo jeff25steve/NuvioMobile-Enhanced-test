@@ -79,7 +79,7 @@ internal class SimklMutationService(
             ),
         )
         val receipt = response.toHistoryMutationReceipt(candidates, json)
-        onMutationCommitted(receipt)
+        onMutationCommitted(profileScope, receipt)
         return receipt.result
     }
 
@@ -98,7 +98,7 @@ internal class SimklMutationService(
             ),
         )
         val receipt = response.toHistoryRemovalReceipt(candidates, json)
-        onMutationCommitted(receipt)
+        onMutationCommitted(profileScope, receipt)
         return receipt.result
     }
 
