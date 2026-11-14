@@ -446,7 +446,6 @@ func makeMpvExternalSubtitleReplacementPlan(
 }
 
 private struct PendingMpvExternalSubtitleReplacement {
-    let sourceUrl: String
     let path: String
     let trackIdsToRemove: [Int]
 }
@@ -1879,6 +1878,7 @@ final class MPVPlayerViewController: UIViewController {
                 else {
                     return
                 }
+                self.pendingExternalSubtitleReplacement = nil
                 self.externalSubtitlePathsBySourceUrl[url] = localPath ?? url
                 if let localPath {
                     InAppLogBridge.shared.info(tag: "MPV/SubRtl", message: "using RTL-fixed subtitle copy")
@@ -1971,7 +1971,6 @@ final class MPVPlayerViewController: UIViewController {
                 // Keep the original track until MPV confirms that the retimed file has appeared.
                 // The track-list/count observer completes the swap and removes stale AutoSync copies.
                 self.pendingExternalSubtitleReplacement = PendingMpvExternalSubtitleReplacement(
-                    sourceUrl: replacedUrl,
                     path: path,
                     trackIdsToRemove: plan.trackIdsToRemove
                 )
@@ -2014,6 +2013,8 @@ final class MPVPlayerViewController: UIViewController {
         let coreGeneration = mpvGeneration
         onMpvQueue { [weak self] in
             guard let self, self.mpvGeneration == coreGeneration, self.mpv != nil else { return }
+            self.pendingExternalSubtitleReplacement = nil
+            self.externalSubtitlePathsBySourceUrl.removeAll()
             self.removeExternalSubtitleTracksOnMpvQueue()
             self.setStringProperty("sid", "no")
         }
@@ -2025,6 +2026,8 @@ final class MPVPlayerViewController: UIViewController {
         let coreGeneration = mpvGeneration
         onMpvQueue { [weak self] in
             guard let self, self.mpvGeneration == coreGeneration, self.mpv != nil else { return }
+            self.pendingExternalSubtitleReplacement = nil
+            self.externalSubtitlePathsBySourceUrl.removeAll()
             self.removeExternalSubtitleTracksOnMpvQueue()
             if trackId >= 0 {
                 self.selectSubtitle(trackId)
@@ -2140,8 +2143,6 @@ final class MPVPlayerViewController: UIViewController {
         startupSubtitles = []
         startupAudioRequest.clear()
         pendingSubtitleRequest.clearForNewSource()
-        externalSubtitlePathsBySourceUrl.removeAll()
-        pendingExternalSubtitleReplacement = nil
         isFileLoaded = false
         if !isEmbeddedPreviewMode {
             nowPlayingController.invalidate()
