@@ -340,15 +340,21 @@ struct PendingLoadRequest {
 
 struct MpvAudioLanguagePreferenceState: Equatable {
     private(set) var languages: [String]?
+    private(set) var selectedTrackId: Int?
 
     var optionValue: String? {
         languages?.joined(separator: ",")
+    }
+
+    mutating func select(trackId: Int) {
+        selectedTrackId = trackId
     }
 
     mutating func update(_ candidates: [String]) {
         languages = candidates
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        selectedTrackId = nil
     }
 }
 
@@ -534,7 +540,6 @@ final class MPVPlayerViewController: UIViewController {
     private var lastSubtitleDelayMs: Int?
     private var lastVolume: Float?
     private var lastMuted: Bool?
-    private var lastSelectedAudioTrackId: Int?
     private var audioLanguagePreferenceState = MpvAudioLanguagePreferenceState()
     private var lastSelectedSubtitleTrackId: Int?
     private var isRecoveringFromDeviceLoss = false
@@ -1558,7 +1563,7 @@ final class MPVPlayerViewController: UIViewController {
             setStringProperty("alang", alang)
             setStringProperty("aid", "auto")
         }
-        if let audioTrack = lastSelectedAudioTrackId { selectAudio(audioTrack) }
+        if let audioTrack = audioLanguagePreferenceState.selectedTrackId { selectAudio(audioTrack) }
         if let subtitleTrack = lastSelectedSubtitleTrackId { selectSubtitle(subtitleTrack) }
     }
 
@@ -1746,7 +1751,7 @@ final class MPVPlayerViewController: UIViewController {
     // MARK: - Track selection
 
     func selectAudio(_ trackId: Int) {
-        lastSelectedAudioTrackId = trackId
+        audioLanguagePreferenceState.select(trackId: trackId)
         guard mpv != nil else { return }
         setIntProperty("aid", Int64(trackId))
     }
