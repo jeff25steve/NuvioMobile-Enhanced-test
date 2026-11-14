@@ -5252,3 +5252,31 @@ The legacy PIN polling URL previously interpolated a server-provided `user_code`
 ### Verification boundary
 
 No Gradle test, build, CI dispatch, or APK task was run because the user prohibited builds and CI. Review was static: exact source diffs, Ktor 3.4.1 API lookup, RFC grammar review, and reasoning through the `Long.MAX_VALUE * 1,000` overflow path. The new regression tests are committed but **not executed**. No workflow file was changed.
+
+
+## 14 November 2026 — Simkl PIN lifecycle recovery and cancellation
+
+**Base checkpoint:** `943f56df46ceac0f25b4839112cb5be2a0de4e8f`
+
+### Improvement cycle 1 — Persist and restore the V1 PIN polling schedule
+
+Remote source inspection confirmed that `loadFromDisk()` cancelled the active PIN polling job but never recreated it. The stored auth model also omitted the server-provided `interval` and absolute expiry, and the reload path applied the browser OAuth five-minute timeout to PIN authorization.
+
+- Added optional `pendingPinPollIntervalSeconds` and `pendingPinExpiresAtEpochMs` fields to `SimklStoredAuthState`; older serialized records remain readable because both fields are optional.
+- Added a pure schedule helper and common regression coverage for V1 defaults (5-second interval / 900-second lifetime), preservation of a server schedule, absolute expiry, and a lifetime that cannot end before the next polling interval.
+- Persist the returned interval and absolute expiry when the PIN response is accepted.
+- On profile reload, restore the PIN polling job using the persisted interval and expiry. Legacy pending PIN records migrate from their existing authorization start timestamp using the documented defaults.
+- PIN expiry now uses its own absolute expiry check; browser PKCE authorization continues to use its separate five-minute timeout.
+- Respect a non-default positive interval returned by the server rather than silently replacing it with the default.
+
+### Improvement cycle 2 — Cancel superseded PIN initialization requests
+
+- Added a dedicated job handle for the initial `GET /oauth/pin` request.
+- Cancel it alongside the polling job during profile reload, profile removal, authentication-method changes, reconnect, cancellation, disconnect, and credential invalidation.
+- Retained the generation-checked commit boundary so a response that races with cancellation cannot persist a PIN code or start polling for a stale profile.
+
+**References:** [Simkl AUTH V1 PIN flow](https://api.simkl.org/api-reference/pin); [Simkl GET PIN response](https://api.simkl.org/api-reference/simkl/get-pin); [Simkl poll PIN response](https://api.simkl.org/api-reference/simkl/check-pin); [Kotlin coroutine cancellation](https://kotlinlang.org/docs/cancellation-and-timeouts.html); [kotlinx.coroutines 1.11.0 Job documentation](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-job/).
+
+### Verification boundary
+
+The regression test was added before the production changes, but it was **not executed** because the user has not authorized tests, Gradle, builds or CI. Verification in this session is limited to remote source inspection, static diff review, exact Simkl API documentation review and Kotlin coroutine cancellation documentation. No workflow files were changed and no CI/build was started. The new test and implementation remain pending execution verification.
