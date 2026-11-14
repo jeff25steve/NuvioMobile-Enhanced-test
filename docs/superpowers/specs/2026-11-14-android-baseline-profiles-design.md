@@ -128,3 +128,10 @@ References:
 - https://developer.android.com/reference/kotlin/androidx/activity/compose/ReportDrawnWhen.composable
 - https://developer.android.com/develop/ui/compose/testing/interoperability
 - https://developer.android.com/jetpack/androidx/releases/test-uiautomator
+
+
+## Visible-ready state refinement — 14 November 2026
+
+The readiness callback now accounts for the launch overlay's exit transition. Home data readiness alone is not the same as the visible app being ready: the overlay can still be animating away. MainAppContent therefore reports ready only when root content is ready, launchOverlayState is idle, and its current state is hidden. The readiness effect observes both transition-state properties so it is re-evaluated when the overlay exits.
+
+This does not change the overlay animation or hold up content rendering. It corrects the definition used by ReportDrawnWhen and the startup benchmark marker. Runtime validation remains deferred until authorized Compose tests and physical-device benchmarking.
