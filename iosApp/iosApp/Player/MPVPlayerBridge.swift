@@ -51,12 +51,13 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
     }
 
     func loadFile(url: String) { ensurePlayerViewController().loadFile(url) }
-    func loadFileWithAudio(videoUrl: String, audioUrl: String?, headersJson: String?, subtitlesJson: String?) {
+    func loadFileWithAudio(videoUrl: String, audioUrl: String?, headersJson: String?, subtitlesJson: String?, startPositionSeconds: String?) {
         ensurePlayerViewController().loadFile(
             videoUrl,
             audioUrl: audioUrl,
             requestHeaders: parseRequestHeaders(headersJson),
-            subtitles: parseSubtitles(subtitlesJson)
+            subtitles: parseSubtitles(subtitlesJson),
+            startPositionSeconds: startPositionSeconds
         )
     }
 
@@ -318,6 +319,7 @@ private struct PendingLoadRequest {
     let audioUrl: String?
     let requestHeaders: [String: String]
     let subtitles: [PluginSubtitle]
+    let startPositionSeconds: String?
     let queuedAtUptime: TimeInterval
 }
 
@@ -1028,12 +1030,13 @@ final class MPVPlayerViewController: UIViewController {
 
     // MARK: - Playback API
 
-    func loadFile(_ urlString: String, audioUrl: String? = nil, requestHeaders: [String: String] = [:], subtitles: [PluginSubtitle] = []) {
+    func loadFile(_ urlString: String, audioUrl: String? = nil, requestHeaders: [String: String] = [:], subtitles: [PluginSubtitle] = [], startPositionSeconds: String? = nil) {
         let request = PendingLoadRequest(
             urlString: urlString,
             audioUrl: audioUrl,
             requestHeaders: requestHeaders,
             subtitles: subtitles,
+            startPositionSeconds: startPositionSeconds,
             queuedAtUptime: ProcessInfo.processInfo.systemUptime
         )
 
@@ -1087,7 +1090,11 @@ final class MPVPlayerViewController: UIViewController {
         invalidateMediaInfoCache()
         isFileLoaded = false
         startupSubtitles = request.subtitles
-        command("loadfile", args: [request.urlString, "replace"])
+        if let startPositionSeconds = request.startPositionSeconds {
+            command("loadfile", args: [request.urlString, "replace", "-1", "start=\(startPositionSeconds)"])
+        } else {
+            command("loadfile", args: [request.urlString, "replace"])
+        }
         if let audioUrl = request.audioUrl, !audioUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 self?.command("audio-add", args: [audioUrl, "select"], checkForErrors: false)
