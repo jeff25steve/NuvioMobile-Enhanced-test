@@ -80,9 +80,9 @@ run_gradle_step() {
 
 # Build the first app variant on this machine so all device-installed flavors
 # (benchmarkRelease and nonMinifiedRelease) share this machine's debug key.
-run_gradle_step "00-build-full-benchmarkRelease" \\
-  :androidApp:assembleFullBenchmarkRelease \\
-  :baselineProfile:assembleFullBenchmarkRelease \\
+run_gradle_step "00-build-full-benchmarkRelease" \
+  :androidApp:assembleFullBenchmarkRelease \
+  :baselineProfile:assembleFullBenchmarkRelease \
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
 full_benchmark_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path '*/full/benchmarkRelease/*' -print | head -n 1)"
@@ -93,18 +93,18 @@ if ! adb -s "$DEVICE_SERIAL" install -r "$full_benchmark_apk"; then
 fi
 
 adb -s "$DEVICE_SERIAL" shell monkey -p com.nuvio.media 1 >/dev/null 2>&1 || true
-printf '\\nNuvio has been installed using this machine's local benchmark signing key.\\n'
-printf 'Complete sign-in/onboarding on the phone and leave the app on its normal Home screen.\\n'
+printf '\nNuvio has been installed using this machine's local benchmark signing key.\n'
+printf 'Complete sign-in/onboarding on the phone and leave the app on its normal Home screen.\n'
 read -r -p "Press Enter here once signed in and Home is visible: " _
 
 # The Baseline Profile plugin captures the unobfuscated nonMinifiedRelease
 # variant and writes separate source profiles for each distribution flavor.
 run_gradle_step "01-generate-full-release-profile" \
-  :baselineProfile:generateFullReleaseBaselineProfile \\
+  :baselineProfile:generateFullReleaseBaselineProfile \
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
 run_gradle_step "02-generate-playstore-release-profile" \
-  :baselineProfile:generatePlaystoreReleaseBaselineProfile \\
+  :baselineProfile:generatePlaystoreReleaseBaselineProfile \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 for flavor in full playstore; do
@@ -121,12 +121,12 @@ done
 # same-package signed-in state are not changed between benchmark arms.
 run_gradle_step "03-benchmark-full-benchmarkRelease" \
   :baselineProfile:connectedFullBenchmarkReleaseAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \\
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
 run_gradle_step "04-benchmark-playstore-benchmarkRelease" \
   :baselineProfile:connectedPlaystoreBenchmarkReleaseAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \\
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 : > "$OUTPUT_DIR/summary.txt"
