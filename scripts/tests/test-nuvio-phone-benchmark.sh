@@ -14,6 +14,24 @@ grep -Fq "tr -d '\\r'" "$DESKTOP_RUNNER" || {
   echo "FAIL: desktop runner must explicitly strip carriage returns from adb output." >&2
   exit 1
 }
+
+# Profile generation must target the isolated nonMinifiedRelease app variant.
+grep -Fq ':baselineProfile:generateFullNonMinifiedReleaseBaselineProfile' "$DESKTOP_RUNNER" || {
+  echo "FAIL: full profile capture must use the nonMinifiedRelease target variant." >&2
+  exit 1
+}
+grep -Fq ':baselineProfile:generatePlaystoreNonMinifiedReleaseBaselineProfile' "$DESKTOP_RUNNER" || {
+  echo "FAIL: playstore profile capture must use the nonMinifiedRelease target variant." >&2
+  exit 1
+}
+grep -Fq 'profile_dir="androidApp/src/${flavor}NonMinifiedRelease/generated/baselineProfiles"' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must inspect the nonMinifiedRelease profile source set." >&2
+  exit 1
+}
+if grep -Fq 'generateFullReleaseBaselineProfile' "$DESKTOP_RUNNER"; then
+  echo "FAIL: desktop runner must not capture profiles using the production release variant." >&2
+  exit 1
+fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 BUNDLE="$TMP/bundle"
