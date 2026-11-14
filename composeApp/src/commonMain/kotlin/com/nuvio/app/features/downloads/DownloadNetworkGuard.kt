@@ -20,3 +20,19 @@ internal fun shouldPauseDownloadOnCurrentNetwork(
     allowMobileDataDownloads: Boolean,
     isOnWifi: Boolean,
 ): Boolean = !isDownloadNetworkAllowed(allowMobileDataDownloads, isOnWifi)
+
+
+/** Preserve resumable progress while moving a disallowed active transfer to Paused. */
+internal fun DownloadItem.pauseIfNetworkDisallowed(
+    networkAllowed: Boolean,
+    updatedAtEpochMs: Long,
+): DownloadItem =
+    if (networkAllowed || status != DownloadStatus.Downloading) {
+        this
+    } else {
+        copy(
+            status = DownloadStatus.Paused,
+            errorMessage = null,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+    }
