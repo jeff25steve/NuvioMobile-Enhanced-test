@@ -4,12 +4,14 @@ import android.content.Intent
 import android.content.res.Configuration
 import com.nuvio.app.features.autosync.AutoSyncPreferencesAndroid
 import android.os.Bundle
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.setContent
 
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -209,6 +211,10 @@ open class MainActivity : AppCompatActivity() {
     private fun showContent() {
         handleIncomingAppIntent(intent)
         setContent {
+            // Report TTFD only after AppGate's existing main-content readiness signal.
+            // This is measurement-only; it does not delay or otherwise change startup.
+            val appReady = remember { mutableStateOf(false) }
+            ReportDrawnWhen { appReady.value }
             LaunchedEffect(Unit) {
                 withFrameNanos { }
                 StartupPreloader.startPostFrameWarmup()
@@ -216,7 +222,7 @@ open class MainActivity : AppCompatActivity() {
             val sheetBackdropSource = rememberNuvioBackdrop()
             val sheetBackdrop = remember(sheetBackdropSource) { NuvioSheetBackdrop(sheetBackdropSource) }
             NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
-                App()
+                App(onAppReady = { ready -> appReady.value = ready })
             }
         }
         contentReady = true
