@@ -253,6 +253,9 @@ sentry {
     tracingInstrumentation {
         enabled.set(false)
     }
+    runtimeOptimizations {
+        enabled.set(true)
+    }
 }
 
 dependencies {
