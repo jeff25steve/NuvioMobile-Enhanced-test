@@ -8,7 +8,8 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        // BaselineProfileRule requires API 28+ (rooted through API 32, or API 33+ without root).
+        minSdk = maxOf(28, libs.versions.android.minSdk.get().toInt())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
