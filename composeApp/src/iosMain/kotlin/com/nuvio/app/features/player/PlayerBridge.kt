@@ -13,7 +13,8 @@ interface NuvioPlayerBridge {
         videoUrl: String,
         audioUrl: String?,
         headersJson: String?,
-        subtitlesJson: String? = null
+        subtitlesJson: String? = null,
+        startPositionSeconds: String? = null,
     )
     fun play()
     fun pause()
