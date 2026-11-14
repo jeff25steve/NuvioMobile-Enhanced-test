@@ -5858,3 +5858,35 @@ Regression coverage:
 - No independent reviewer subagent was available; this is an author self-review, not independent approval.
 - Regression tests were added but **not executed**. No Gradle/Xcode test, build, Macrobenchmark, device run, or CI workflow was started, in accordance with the user's instruction.
 - No dependency, build configuration, manifest, workflow, iOS, or unrelated feature changes were made.
+
+
+### Improvement cycle 34 — Defer Android download transfer-store loading
+
+Startup tracing found that the Android critical phase awaited `DownloadsPlatformDownloader.prepareForStartup()` on IO. This looked harmless because it was not main-thread work, but the Activity still awaited it before `setContent`. `prepareForStartup()` constructed `AndroidDownloadScheduler`, whose `AndroidDownloadStore` eagerly initialized a StateFlow by listing the transfer-record directory and decoding every JSON record. This work was not needed to render the initial Home screen.
+
+Integrated:
+- Changed `AndroidDownloadStore` to create its transfer StateFlow through `lazy(LazyThreadSafetyMode.SYNCHRONIZED)`. The scheduler can now be constructed without reading transfer records.
+- Added an internal `isLoaded` observation so regression tests can prove that construction does not trigger the disk scan.
+- First state access still performs the same directory enumeration, AtomicFile reads, JSON decoding and map construction. The record schema and behavior are unchanged.
+
+Regression coverage:
+- Added `AndroidDownloadStoreTest` to verify the store is not loaded at construction and becomes loaded on first access.
+- The follow-up test also persists a transfer, creates a new store, and verifies the first access restores its ID and Downloading state.
+- Commit: `0da86fcac7dc6dbfb4da77d747230c4cd35264a0`; test commits: `f8513a0d44397bf27cbccdd5aa1d233e1384272b` and `b9069270e0c4ea5a950252e38dc4d170c80314fd`.
+
+### Improvement cycle 35 — Move Android transfer recovery behind first frame and keep disk work on IO
+
+Making the store lazy exposed an important follow-up: the post-frame `DownloadsRepository.ensureLoaded()` runs on Main and calls platform `restoreItem()`. If that were the first store access, the newly deferred JSON scan would simply move to the UI thread. The implementation therefore moves the entire platform preparation and transfer-store first access together.
+
+Integrated:
+- Added the multiplatform suspend hook `DownloadsPlatformDownloader.preloadTransferStore()`; Android forces the transfer StateFlow to load, while iOS implements a no-op.
+- Removed Android platform preparation from the critical startup phase.
+- The post-frame download warm-up now calls platform preparation and transfer-store preload together on `Dispatchers.IO`, then runs the existing common `DownloadsRepository.ensureLoaded()` on its prior Main-thread path.
+- This preserves ordering: scheduler and transfer records are ready before common manifest restoration calls Android `restoreItem()`. It also preserves the existing offline launch gate on `DownloadsUiState.isLoaded`; offline fallback still waits for the active profile's manifest.
+- No changes were made to download persistence, scheduling, notification behavior, profile ownership, iOS URLSession, or the common repository's state mutation/threading model.
+
+Evidence and constraints:
+- Kotlin standard-library documentation confirms `LazyThreadSafetyMode.SYNCHRONIZED` serializes initialization and safely publishes the initialized value to all threads: https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-lazy-thread-safety-mode/-s-y-n-c-h-r-o-n-i-z-e-d/.
+- Context7 was attempted for kotlinx.coroutines but returned the monthly quota limit. No successful Context7 result is claimed; no coroutine API or dependency version was changed.
+- Static source review confirms the post-frame preload completes on IO before the common repository restore step. New Robolectric coverage is added but not executed.
+- No build, Gradle test, iOS test, CI, benchmark, Macrobenchmark or device run was started. The expected benefit is removal of transfer-directory scanning and JSON decoding from the pre-first-frame wait; actual TTID/TTFD impact remains unmeasured.
