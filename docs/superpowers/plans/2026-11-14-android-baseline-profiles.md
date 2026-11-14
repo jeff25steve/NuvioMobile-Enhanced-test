@@ -88,3 +88,24 @@ Review was a static self-review against the design and official AndroidX/Android
 ## Review boundary for cycles 40–41
 
 The Java collection and benchmark calls were cross-checked against the AndroidX BaselineProfileRule and MacrobenchmarkRule API signatures, CompilationMode classes, BaselineProfileMode enum, StartupMode enum and official Android performance guidance. Review is static and author-performed; no independent reviewer was available. No Gradle configuration, build, compilation, test, device operation, profile generation, Macrobenchmark or CI was run. The benchmark tests are source additions only until an authorized run verifies the module task/runner-argument wiring and compilation.
+
+
+## Source quality cycle 42 — Fully-drawn startup measurement
+
+- [x] Wire Android MainActivity's existing App readiness callback to Compose ReportDrawnWhen.
+- [x] Expose a test-only Compose tag mapped to a UI Automator resource ID only after the same readiness callback.
+- [x] Wait for that marker inside the measured Macrobenchmark block, with an explicit 30-second failure instead of arbitrary sleep.
+- [x] Pin stable UI Automator 2.4.1 only in the producer/test module.
+- [x] Keep readiness marker on the existing root wrapper to avoid an unnecessary extra layout layer.
+- [x] Document that this is a measurement improvement, not a user-visible speed optimization.
+- [ ] Verify Kotlin/Java/Gradle compilation and instrumentation runner wiring in an authorized build session.
+- [ ] Run both A/B cases on the same physical device and preconfigured signed-in test state; inspect TTID and TTFD medians.
+- [ ] Generate and inspect real profile files for both release variants; do not claim a speedup until measured.
+
+Static review details:
+- Android's Macrobenchmark codelab explicitly states that startActivityAndWait() waits only for the first frame and the measured block must separately wait for content readiness to capture TTFD.
+- ReportDrawnWhen is the Compose-native API for state-dependent fully-drawn reporting.
+- testTagsAsResourceId is the documented Compose/UI Automator bridge; the tag is exposed only after App(onAppReady) sets the state.
+- UI Automator 2.4.1 is the stable release published 4 November 2026.
+- Context7 quota was exhausted. Exa was used to consult official Android Developers documentation and release references.
+- No build, test, Macrobenchmark, profile generation, device operation or CI was run.
