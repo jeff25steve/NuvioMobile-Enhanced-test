@@ -64,3 +64,27 @@ Remote source checks confirmed:
 - Variant source output is enabled and automatic generation during release assembly is explicitly false.
 
 Review was a static self-review against the design and official AndroidX/Android Developer documentation. No independent reviewer or subagent was available. No build, configuration task, test, device run, Macrobenchmark or CI workflow was executed. All deferred validation items remain open.
+
+
+## Follow-up source quality cycles (40–41)
+
+- [x] Verify the BaselineProfileRule Java overload and supported device API levels against current AndroidX API/source.
+- [x] Reset each profile collection iteration to the device launcher with pressHome().
+- [x] Require strict profile stability within the existing 15-iteration / 3-stable-iteration limit.
+- [x] Restrict only the producer test APK to API 28+ (or the app's higher minSdk); preserve production app minSdk 24.
+- [x] Add an explicit cold-start A/B Macrobenchmark: no compilation versus required packaged Baseline Profile, cold startup, 10 iterations.
+- [x] Record that TTID is the guaranteed benchmark output; TTFD requires a real Compose fully-drawn signal that Nuvio does not currently wire.
+- [x] Record that the current startup scenario does not fabricate a signed-in Home state or external catalog/add-on data.
+- [x] Update the design and both engineering notes, then re-fetch the exact remote files.
+
+## Additional source commits
+
+- Deterministic, strict collection and launcher reset: 1ffb1385c12c6b4b09cac84d5eb7777dc7b3c2c4
+- Generator API minimum: 2ba0eae26dfce041d20b4fe1f9dcdf520c4453f2
+- Cold-start A/B benchmark: 8ed9ded4f0877ac6150eda8dcedcdbb821eec32c
+- Startup critical-path review update: 0e5727c6203fb33a48c7e32e09283f7aa6d98c16
+- Cumulative improvement notes update: fca847f7d0b25f1795714275f2e2bed30d450197
+
+## Review boundary for cycles 40–41
+
+The Java collection and benchmark calls were cross-checked against the AndroidX BaselineProfileRule and MacrobenchmarkRule API signatures, CompilationMode classes, BaselineProfileMode enum, StartupMode enum and official Android performance guidance. Review is static and author-performed; no independent reviewer was available. No Gradle configuration, build, compilation, test, device operation, profile generation, Macrobenchmark or CI was run. The benchmark tests are source additions only until an authorized run verifies the module task/runner-argument wiring and compilation.
