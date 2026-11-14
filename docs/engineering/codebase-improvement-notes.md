@@ -5485,3 +5485,56 @@ A project-file review found that `iosApp/iosApp.xcodeproj/project.pbxproj` uses 
 - Context7 was attempted for the pinned MPV documentation, but its monthly request quota was exhausted; no Context7 result is claimed. These changes are confined to Swift, XCTest and Xcode project membership; no Kotlin, Compose or dependency APIs were changed.
 - The regression tests were committed before their corresponding production changes. **No XCTest, Xcode build, Gradle task, application build or CI workflow was run** because the user has not authorised builds or CI. Verification is limited to reading the exact remote source, checking the retry-generation guards and one-shot audio state, confirming both test files are referenced in the test target's group and Sources phase, checking project object-ID uniqueness, and reviewing the remote commit diff. Compilation and runtime behavior remain unverified.
 - Commits: retry tests `82b847dabad3145104cb0c11a2b73ce2cd8de036`; retry implementation `8ab1fdea5e3edb5d2549e8fae3c5493671304928`; retry stale-load guard `711acb9db5d7ea37dbdde2bf90f928c8cfb9b840`; startup-audio tests `b16ad5d5d63b161bec039db7af91eafb66c917be`; event-driven audio attachment `9998c062a4658e96e844ce71446c91fde14b9cc0`; XCTest target registration `f67f5fd9706f302360183237876ddbd56ed29fc8`.
+
+## 14 November 2026 — MPV core recovery preferences and source-scoped subtitle requests
+
+### Improvement cycle 16 — Preserve audio-language preferences across MPV core rebuilds
+
+Tracing the iOS device-loss recovery path showed that `reapplyRememberedSettings()` restored explicit audio track IDs but did not retain the audio language preference supplied through `applyAudioLanguagePreferences`. The common Compose runtime caches the applied preference by controller and target list; rebuilding the native mpv core does not replace that controller, so the common effect is not guaranteed to resend the preference to the new core.
+
+- Added `MpvAudioLanguagePreferenceState` to retain normalized audio-language candidates and the most recent explicit audio track choice.
+- `applyAudioLanguagePreferences` now replaces the retained language preference and clears any older explicit track override, matching the user's latest action.
+- `selectAudio` records the explicit track ID. During native core recovery, the bridge reapplies `alang` and `aid=auto` first, then applies the explicit track choice only when one was made after the language preference.
+- Added XCTest coverage for normalized languages, an explicitly empty preference, clearing a stale manual selection, and manual selection taking precedence after preferences are set.
+
+### Improvement cycle 17 — Scope a queued add-on subtitle to its source load
+
+The iOS bridge queued an add-on subtitle in one unscoped URL while mpv was still loading. If the user selected a subtitle and then queued a different source before the old file emitted `MPV_EVENT_FILE_LOADED`, that URL could be consumed by the replacement source.
+
+- Replaced the bare pending URL with `MpvPendingSubtitleRequest`, which normalizes, replaces and consumes one pending selection.
+- A newly queued source clears the prior pending subtitle before the new load begins. Retry and device-loss recovery use `startLoad` for the same source and deliberately keep the queued choice.
+- Removing external subtitles or destroying the player clears the request. The `FILE_LOADED` handler consumes the pending choice once.
+- Added XCTest coverage for source replacement isolation, one-shot consumption and latest-choice-wins behaviour.
+
+### Research and verification boundary for cycles 16–17
+
+- The repository's MPVKit dependency is pinned to MPV 0.41.0. Exa cross-checked upstream MPV 0.41.0 track-selection documentation: `alang` is the language preference list used with `aid=auto`, while an explicit `aid` selection is a separate override. The bridge reapplies those settings in that order.
+- References: [MPV 0.41.0 release](https://github.com/mpv-player/mpv/releases/tag/v0.41.0), [MPV track-selection option documentation](https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst), [MPV interface changes](https://github.com/mpv-player/mpv/blob/86742229/DOCS/interface-changes.rst).
+- Context7 was attempted for the MPV documentation but the monthly quota was exhausted; no Context7 documentation result is claimed.
+- Regression tests were added before the respective production changes. **No local XCTest, Xcode build or Gradle task was run**. At this checkpoint, source/test static review and remote diff inspection are complete; compilation and runtime recovery remain subject to the authorised CI runs below.
+- Commits: audio-preference tests `2c86d92e855c59b416518f9787aef7ed539e81b8` and `043d3fc9aa44ca30aded989734dd3beff301935d`; audio-preference implementation `da5f5a06a7a71c3106be0a97075019457060a894` and final preference/override ordering `28a6984837bc45eb9afec2866b22160e554fc4b9`; pending-subtitle tests `96c6f684388afbdad32c4e5e7eef22d3179f3928`; pending-subtitle implementation `28b11445b9150cc47d2c40dcb19986cffc4a1891`.
+
+## 14 November 2026 — Dedicated Linux and iOS validation branch
+
+**Validation branch:** `ci/nuvio-main-build-testing-linux-ios-20261114`  
+**Source checkpoint:** `main-build-testing` initially at `1eac8a9dd2194d4f7f9cb8fe46ae8ed2390212bc`; the final validation branch also carries the latest `MPVPlayerBridge.swift` and `MpvStartPositionTests.swift` from main.
+
+### Improvement cycle 18 — Reuse the proven Linux Player regression/fullDebug gate
+
+- Inspected the newest CI branch `ci/player-and-build-repairs-20261114` and its latest successful Linux run `43539212561`. Reused its Java 17, Gradle setup, hosted Ubuntu runner, runtime-property discovery, Rust Android targets, Player host-test and fullDebug APK steps.
+- Retained test selectors for the current common and Android host source sets: Player Liquid Glass capture lifecycle, Player runtime state, Player toolbar layout, next-episode transition, engine-switch track preference, gesture overlay, and Simkl PKCE.
+- The initial interim workflow-only pushes triggered and then cancelled earlier runs through the workflow's concurrency policy. The final Linux workflow commit is `32dab2184b4c0dc7aa3111a5c5c9804ab5f2a075`.
+
+### Improvement cycle 19 — Make the iOS IPA lane push-safe and use Debug for validation
+
+- Inspected the current iOS workflow and the previous successful iOS build run `43345532999`. Reused its `xcode-27` runner, Apple toolchain check, Kotlin/Native cache, runtime configuration, dependency preparation and unsigned IPA packaging.
+- Added a push trigger restricted to this CI branch. Because `workflow_dispatch` inputs are only populated for manually dispatched runs, push builds explicitly fall back to `Debug` and `skip-both` for Kotlin/Native Release-only phase exclusions.
+- This runs a fast unsigned Debug IPA validation without invoking signing or production Release compilation. The workflow commit is `199623ca60be38781f6eea9b471cd082fba40a65`.
+
+### Verification and run tracking
+
+- GitHub's Actions trigger documentation was checked to distinguish push branch filters from `workflow_dispatch` inputs. The runner label `xcode-27` was checked against GitHub's runner documentation.
+- The final validation branch commit `32dab2184b4c0dc7aa3111a5c5c9804ab5f2a075` triggered Linux run `43562735197` and iOS run `43562735267`; subsequent source-sync pushes cancelled/replaced those runs as expected.
+- The latest validation revision includes the exact main-branch versions of `iosApp/iosApp/Player/MPVPlayerBridge.swift` and `iosApp/iosAppTests/MpvStartPositionTests.swift`, synced by commits `bad25b5a43080b2a9644eece8e746e60dcb1ce6c` and `1ee79afa219347d3c24702abc134daac85f535c8`.
+- Latest source-inclusive Linux run: `43563190853`; latest source-inclusive iOS Debug IPA run: `43563190919`. At the time of this notes update, Linux was queued and iOS was pending runner assignment. Their final conclusions and artifacts must be recorded after completion; no green result is claimed here.
+- The CI branch is isolated from `main-build-testing`; no workflow files or temporary build configuration were added to the main source branch.
