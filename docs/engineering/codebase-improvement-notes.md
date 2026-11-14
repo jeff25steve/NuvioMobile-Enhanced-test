@@ -5898,3 +5898,29 @@ First-frame safety follow-up to cycles 34–35:
 - `DownloadsScreen` independently awaits the same IO preload before calling `DownloadsRepository.ensureLoaded()`. The synchronized lazy ensures concurrent preload attempts share one store initialization. The screen shows a loading indicator while its manifest is being restored, avoiding a false empty-state flash.
 - Android uses the IO preload; iOS implements the hook as a no-op and retains its existing NSURLSession/profile-manifest behavior.
 - Static call-site audit: startup preloader, Downloads screen, common expect, Android actual and iOS actual were all checked. Tests and builds remain unexecuted by instruction.
+
+
+### Improvement cycle 36 — Upgrade Sentry Android SDK to 8.64.0
+
+The Android Activity calls `SentryInitializer.start(application)` before `super.onCreate`, and the enabled/configured path calls `SentryAndroid.init(application)` synchronously. That makes Sentry SDK initialization part of Nuvio's Android startup critical path.
+
+Integrated:
+- Updated the existing `sentry` version-catalog entry from 8.47.0 to 8.64.0. No new dependency was added and the existing `sentry-android` alias remains unchanged.
+- Kept initialization timing and all Nuvio Sentry options unchanged, preserving early crash capture and privacy/event-filter behavior.
+
+Why this is worthwhile:
+- Sentry's 20 October 2026 engineering report measured 20–30% lower SDK initialization duration when comparing 8.43.0 with 8.54.0. It explicitly measures Sentry init, not whole-app startup: https://blog.sentry.io/android-sdk-faster-startup/.
+- The 8.64.0 release (11 November 2026) includes additional startup fixes: initialization no longer waits for slow Android network/telephony listener registration, and the frame-metrics thread no longer blocks the main thread while starting its first Activity transaction: https://github.com/getsentry/sentry-java/releases/tag/8.64.0.
+
+### Improvement cycle 37 — Upgrade Sentry Gradle plugin and enable build-time runtime optimizations
+
+Integrated:
+- Updated the existing Sentry Android Gradle Plugin version from 6.14.0 to 6.27.0.
+- Explicitly set `runtimeOptimizations.enabled=true` in the existing `sentry { }` block. This enables the plugin's build-time manifest metadata and optional-class availability optimizations, reducing corresponding runtime parsing/reflection when the build can resolve the required metadata.
+- Preserved `autoInstallation.enabled=false` and `tracingInstrumentation.enabled=false`, along with the existing mapping, upload and telemetry configuration.
+- The plugin 6.27.0 release is verified: https://github.com/getsentry/sentry-android-gradle-plugin/releases/tag/6.27.0. The 6.20.0 release introduced build-time manifest metadata generation, and the plugin documentation reports runtime optimizations enabled by default; the explicit setting makes Nuvio's intent durable.
+
+Verification and limitations:
+- Context7 was attempted for the exact Sentry SDK/plugin documentation but its monthly quota was exhausted. The Sentry official engineering report, official SDK/plugin release notes, plugin source/docs and Maven Central were consulted instead.
+- No Gradle build, compilation, tests, Android/iOS build, Macrobenchmark, device run or CI was performed. The exact SDK/plugin tags and repository changes were checked remotely; generated build-time metadata and binary compatibility are pending an authorized build.
+- No whole-app speed percentage is claimed. Sentry's published 20–30% figure applies to its SDK init measurement comparing 8.43.0 to 8.54.0, not to Nuvio launch duration. The next proof step is a controlled cold-start TTID/TTFD comparison on the same device, with the same app configuration, before and after this update.
