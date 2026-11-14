@@ -48,7 +48,6 @@ import com.nuvio.app.core.ui.NuvioNativeLiquidGlassOptionMenu
 import com.nuvio.app.core.ui.isNativeLiquidGlassOptionMenuAvailable
 import com.nuvio.app.core.ui.isNativeLiquidGlassControlsAvailable
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
-import com.nuvio.app.core.ui.backdropControlColor
 import com.nuvio.app.core.ui.nuvioCardDepth
 import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
