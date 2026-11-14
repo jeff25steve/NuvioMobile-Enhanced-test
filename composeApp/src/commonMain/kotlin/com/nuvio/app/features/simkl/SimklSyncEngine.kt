@@ -20,7 +20,7 @@ internal class SimklSyncEngine(
                 lastCheckedAtEpochMs = nowEpochMs(),
             )
         }
-        if (current.watermark == null) return initialSync()
+        if (current.watermark == null) return initialSync(ensureCurrent)
 
         var entries = current.entries
         if (hasAllItemsActivityChanged(current.activities, activities)) {
