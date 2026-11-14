@@ -3168,6 +3168,12 @@ final class MPVPlayerBridgeCreator: NSObject, NuvioPlayerBridgeCreator {
     func createBridge() -> any NuvioPlayerBridge {
         return MPVPlayerBridgeImpl()
     }
+
+    func closeParkedPictureInPicture() {
+        Task { @MainActor in
+            PlayerPictureInPictureParking.shared.closeParked()
+        }
+    }
 }
 
 // MARK: - Registration (called from Swift app startup)
