@@ -5540,3 +5540,45 @@ The iOS bridge queued an add-on subtitle in one unscoped URL while mpv was still
 - The CI branch is isolated from `main-build-testing`; no workflow files or temporary build configuration were added to the main source branch.
 
 **Run-state follow-up (14 November 2026, 05:49 UTC):** The final source-inclusive Linux job `132351267150` remains `in_progress` at `Run Player host regression tests`; the fullDebug APK and artifact steps have not started. The final source-inclusive iOS job `132351302997` remains `in_progress` at `Build unsigned full Debug IPA`; IPA summary/upload have not started. Neither run has a conclusion or artifact at this check. Run links: [Linux `43563190853`](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43563190853) and [iOS `43563190919`](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43563190919). Do not treat the cancelled interim runs as build failures; they were superseded by subsequent pushes to the same validation branch.
+
+
+## 14 November 2026 — Repair source-inclusive Linux and iOS validation failures
+
+The source-inclusive validation runs 43563190853 (Linux, job 132351267150) and 43563190919 (iOS, job 132351302997) both failed during Kotlin compilation. Runner setup and dependency preparation were successful; the failure was in source code shared by the two builds.
+
+### Failure diagnosis from the actual job logs
+
+- Linux stopped in :composeApp:compileAndroidMain during the Player host-regression test step. SimklSyncRepository.commitScrobble and commitMutation declared Boolean results but evaluated snapshotMutex.withLock { ... } without returning the result from their block-bodied functions.
+- iOS stopped in :composeApp:compileKotlinIosArm64. It reported the same two Simkl missing-return errors, an unresolved downsampleArgb reference in BackdropFocus.ios.kt, and unresolved collectAfterPlayback / trimImageMemoryForPlayback references in PlayerEngine.ios.kt.
+- The backdrop helper existed only in androidMain, which is not visible to iosMain. Kotlin Multiplatform's source-set model confirms that commonMain is available to all targets, while platform-specific source sets cannot call declarations confined to another platform.
+- A historical iOS memory-optimization implementation (commit e7d2372cbf43ea150f9497877de23cfae478a92b) showed that the two player lifecycle calls were intended to trim Coil's image cache, suspend animated-image work, and resume it after playback. The current iOS loader retained the memory-warning hook but had lost those playback-memory functions and the animation suspension lifecycle.
+
+### Improvement cycle 20 — Return Simkl commit outcomes explicitly
+
+- Changed both repository methods to return snapshotMutex.withLock { ... }. Their existing return@withLock false/true early exits and commit semantics are preserved; the Boolean from the critical section now becomes the method result.
+- This directly addresses the compiler's two Missing return statement diagnostics and retains the lock's finally-based release behaviour.
+
+### Improvement cycle 21 — Put backdrop pixel downsampling in common code
+
+- Moved the existing nearest-neighbour ARGB reduction implementation unchanged from androidMain to commonMain; Android and iOS now call the same implementation.
+- Added common tests for aspect-ratio-preserving output dimensions, deterministic pixel-centre sampling, invalid dimensions, and undersized source buffers.
+- The new test class is BackdropFocusDownsampleTest.
+
+### Improvement cycle 22 — Restore playback-aware iOS image-memory lifecycle
+
+- Restored the iOS Coil memory-cache ceiling (256 MiB) and the during-playback trim target (64 MiB), retaining the existing iOS memory-warning cache-clear observer.
+- Restored trimImageMemoryForPlayback and collectAfterPlayback in the iOS image-loader implementation. The player now has the lifecycle functions its existing Compose effects call.
+- Reintroduced a reference-counted playback gate. It stops active Skia animation jobs, clears their retained frame/animation references, cancels pending decodes, clears the generation-bounded compressed-source cache, and blocks new animation acquisition while playback is active.
+- When the last playback surface leaves, a three-second cooldown prevents immediate decode churn. A new playback during that cooldown cancels the pending resume. A generation change then restarts eligible animated-image requests.
+- Extracted the counter into commonMain and put its nested-surface, unmatched-resume, and resume-cooldown regression tests in commonTest, so the Linux host-test lane can execute them too.
+
+### Evidence, research and verification boundary
+
+- Failed Linux run: [43563190853](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43563190853). Failed iOS run: [43563190919](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43563190919).
+- Kotlin's multiplatform source-set documentation confirms the common/platform visibility rule: [Kotlin Multiplatform project structure](https://kotlinlang.org/docs/multiplatform/multiplatform-discover-project.html).
+- The kotlinx.coroutines reference specifies that Mutex.withLock returns the action's value: [withLock API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/with-lock.html).
+- Coil 3.6.3 API references confirm the configured memory-cache builder and runtime trim operations: [ImageLoader.Builder.memoryCache](https://coil-kt.github.io/coil/api/coil-core/coil3/-image-loader/-builder/memory-cache.html), [MemoryCache.trimToSize](https://coil-kt.github.io/coil/api/coil-core/coil3.memory/-memory-cache/trim-to-size.html).
+- Kotlin/Native documents GC.collect() as a manual collection trigger and marks the GC runtime API as unstable: [Kotlin/Native GC API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.native.runtime/-g-c/).
+- Context7 was attempted for Kotlin 2.4.10 and the repository's relevant library documentation, but its monthly request quota was exhausted. No Context7 documentation result is claimed. Exa was used to cross-check the official Kotlin, kotlinx.coroutines, Coil 3.6.3 and Kotlin/Native documentation above.
+- Regression tests were committed before the corresponding shared sampling and playback-gate implementations. No local Gradle, Kotlin/Native or Xcode build was run; the fixes are awaiting the fresh CI runs. The previous failed runs are diagnostic evidence only and do not verify these changes.
+- Source commits: Simkl return fix e66893f042d56742e9189b2f832c6302ddc2c074; backdrop test 7bd8e2ddf292569de85cdad248596266cb7d8b10, common helper c78c5eacc6485b8a44c872276958b05ebb152dea, Android delegation 42e43691a1872461555c9eacd2515f19d4086a07, test registration correction c632b2db27d2328e2ddb8deb0902f9a29a62472f; playback test-first commit f43b575e8a082571ab2c811db73d543d62d05f0b, shared gate 0593f50a9a698605076d5565804bdb437078d4c2, Skia playback lifecycle 591935ca6b7cd5482f110cf17d4c252d07b2d7a6, iOS image-loader budget/restoration f4a01989b482485302f63e5491514b9e5ac9c931, shared-test relocation and integration bc80af9663569a04c6a00fc0694526cc3bd9865e, b180a18a8d328296eaee8f47079194b2817ddee4, ae80a3a59d81234828b1cdbd156ef145aaf14d15.
