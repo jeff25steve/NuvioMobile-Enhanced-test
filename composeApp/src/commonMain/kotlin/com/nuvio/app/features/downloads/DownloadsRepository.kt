@@ -589,6 +589,15 @@ object DownloadsRepository {
     private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
         DownloadsSettingsRepository.ensureLoaded()
         if (!isProfileOwnerCurrent(owner)) return
+        if (!isDownloadNetworkAllowedForCurrentSettings()) {
+            updateOwnedDownload(owner, item.id) { current ->
+                current.pauseIfNetworkDisallowed(
+                    networkAllowed = false,
+                    updatedAtEpochMs = DownloadsClock.nowEpochMs(),
+                )
+            }
+            return
+        }
         val key = DownloadOperationKey(owner, item.id)
         if (key in activeOperations) return
 
