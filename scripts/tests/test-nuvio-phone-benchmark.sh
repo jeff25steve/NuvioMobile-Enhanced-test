@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-RUNNER_SOURCE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/nuvio-phone-benchmark.sh"
+RUNNER_SOURCE="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/nuvio-phone-benchmark.sh"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 BUNDLE="$TMP/bundle"
