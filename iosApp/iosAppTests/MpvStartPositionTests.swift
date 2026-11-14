@@ -57,3 +57,70 @@ final class MpvStartPositionTests: XCTestCase {
     }
 
 }
+
+final class MpvAudioLanguagePreferenceStateTests: XCTestCase {
+    func testStoresNormalizedLanguagePreferencesForCoreRecovery() {
+        var state = MpvAudioLanguagePreferenceState()
+
+        XCTAssertNil(state.optionValue)
+
+        state.update([" en ", "", "fr\n"])
+        XCTAssertEqual(state.optionValue, "en,fr")
+        XCTAssertEqual(state.languages, ["en", "fr"])
+    }
+
+    func testAnExplicitEmptyPreferenceRemainsDistinctFromNoPreference() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.update([])
+
+        XCTAssertEqual(state.languages, [])
+        XCTAssertEqual(state.optionValue, "")
+    }
+    func testApplyingLanguagePreferencesClearsAStaleManualTrackOverride() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.select(trackId: 7)
+
+        state.update(["en"])
+
+        XCTAssertNil(state.selectedTrackId)
+        XCTAssertEqual(state.optionValue, "en")
+    }
+
+    func testManualTrackSelectionAfterPreferencesRemainsTheExplicitOverride() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.update(["en"])
+        state.select(trackId: 3)
+
+        XCTAssertEqual(state.selectedTrackId, 3)
+        XCTAssertEqual(state.optionValue, "en")
+    }
+
+}
+
+final class MpvPendingSubtitleRequestTests: XCTestCase {
+    func testQueuedSubtitleDoesNotLeakIntoReplacementSource() {
+        var request = MpvPendingSubtitleRequest()
+        request.enqueue("https://media.example/old-source.srt")
+        request.clearForNewSource()
+
+        XCTAssertNil(request.takeAfterFileLoaded())
+
+        request.enqueue("https://media.example/new-source.srt")
+        XCTAssertEqual(
+            request.takeAfterFileLoaded(),
+            "https://media.example/new-source.srt"
+        )
+        XCTAssertNil(request.takeAfterFileLoaded())
+    }
+
+    func testLatestSubtitleChoiceReplacesEarlierPendingChoice() {
+        var request = MpvPendingSubtitleRequest()
+        request.enqueue("https://media.example/first.srt")
+        request.enqueue("https://media.example/second.srt")
+
+        XCTAssertEqual(
+            request.takeAfterFileLoaded(),
+            "https://media.example/second.srt"
+        )
+    }
+}
