@@ -254,3 +254,35 @@ final class MpvTrackArrayIndexTests: XCTestCase {
         XCTAssertNil(mpvTrackArrayIndex(0, count: 0))
     }
 }
+
+
+final class ParkedPlayerOrientationReleaseStateTests: XCTestCase {
+    func testCurrentCloseReleaseIsAllowedOnlyWhenNoPlayerIsParked() {
+        var state = ParkedPlayerOrientationReleaseState()
+        let release = state.beginCloseRelease()
+
+        XCTAssertTrue(state.canApplyRelease(release, hasParkedPlayer: false))
+        XCTAssertFalse(state.canApplyRelease(release, hasParkedPlayer: true))
+    }
+
+    func testNewParkInvalidatesPreviousCloseRelease() {
+        var state = ParkedPlayerOrientationReleaseState()
+        let oldRelease = state.beginCloseRelease()
+
+        state.invalidateForNewPark()
+
+        XCTAssertFalse(state.canApplyRelease(oldRelease, hasParkedPlayer: false))
+        XCTAssertFalse(state.canApplyRelease(oldRelease, hasParkedPlayer: true))
+    }
+
+    func testLatestCloseReleaseRemainsValidAfterNewPark() {
+        var state = ParkedPlayerOrientationReleaseState()
+        let oldRelease = state.beginCloseRelease()
+        state.invalidateForNewPark()
+        let latestRelease = state.beginCloseRelease()
+
+        XCTAssertNotEqual(oldRelease, latestRelease)
+        XCTAssertFalse(state.canApplyRelease(oldRelease, hasParkedPlayer: false))
+        XCTAssertTrue(state.canApplyRelease(latestRelease, hasParkedPlayer: false))
+    }
+}
