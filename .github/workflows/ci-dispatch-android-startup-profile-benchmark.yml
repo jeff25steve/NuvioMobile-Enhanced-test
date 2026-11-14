@@ -1,0 +1,23 @@
+name: Dispatch Android Startup Profile Benchmark
+
+on:
+  push:
+    branches:
+      - ci/android-startup-profile-benchmark
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    name: Start the phone-ready Android benchmark build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the existing benchmark workflow on this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --method POST "repos/${GH_REPO}/actions/workflows/android-startup-profile-benchmark.yml/dispatches" \
+            -f ref=ci/android-startup-profile-benchmark
