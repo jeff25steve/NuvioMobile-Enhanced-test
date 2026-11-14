@@ -64,8 +64,8 @@ jobs:
           printf '%s' "${LOCAL_PROPERTIES_BASE64}" | base64 --decode > local.properties
 
           sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
-          printf '\\nNUVIO_RELEASE_STORE_FILE=%s\\n' "${keystore_path}" >> local.properties
-          printf 'CONTRIBUTIONS_URL=%s\\n' "${CONTRIBUTIONS_URL}" >> local.properties
+          printf '\nNUVIO_RELEASE_STORE_FILE=%s\n' "${keystore_path}" >> local.properties
+          printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
 
           required_properties=(
             NUVIO_RELEASE_STORE_PASSWORD
@@ -99,20 +99,20 @@ jobs:
       # build script intentionally enables ABI splits only for release task names.
       - name: Build full R8 benchmark app and instrumentation APKs
         run: |
-          ./gradlew \\
-            :androidApp:assembleFullBenchmark \\
-            :baselineProfile:assembleFullBenchmark \\
-            -Pnuvio.android.distribution=full \\
-            -Pnuvio.ios.distribution=appstore \\
+          ./gradlew \
+            :androidApp:assembleFullBenchmark \
+            :baselineProfile:assembleFullBenchmark \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore \
             --stacktrace
 
       - name: Build Play Store R8 benchmark app and instrumentation APKs
         run: |
-          ./gradlew \\
-            :androidApp:assemblePlaystoreBenchmark \\
-            :baselineProfile:assemblePlaystoreBenchmark \\
-            -Pnuvio.android.distribution=playstore \\
-            -Pnuvio.ios.distribution=appstore \\
+          ./gradlew \
+            :androidApp:assemblePlaystoreBenchmark \
+            :baselineProfile:assemblePlaystoreBenchmark \
+            -Pnuvio.android.distribution=playstore \
+            -Pnuvio.ios.distribution=appstore \
             --stacktrace
 
       - name: Assemble phone-ready bundle
@@ -193,7 +193,7 @@ jobs:
           EOF
 
           find phone-benchmark -type f -name '*.apk' -print0 | sort -z | xargs -0 sha256sum > phone-benchmark/SHA256SUMS.txt
-          find phone-benchmark -maxdepth 4 -type f -printf '%p (%s bytes)\\n' | sort
+          find phone-benchmark -maxdepth 4 -type f -printf '%p (%s bytes)\n' | sort
 
       - name: Upload signed Android build bundle
         uses: actions/upload-artifact@v7
