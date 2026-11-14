@@ -5698,3 +5698,58 @@ Test-first coverage:
 - Repository versions were checked: Compose Multiplatform 1.13.0-beta01, Backdrop 2.0.1, Kotlin 2.4.10. Context7 resolution was attempted for the exact pinned Compose and Backdrop versions, but the monthly quota was exhausted. No Context7 result is claimed; official Compose and Kyant documentation were used as the fallback evidence.
 - Remote review confirmed main-build-testing advanced exactly two commits from the previous head, changing only LibraryScreen.kt and LibraryGlassLayoutTest.kt. No unrelated files, dependencies, workflow files, or CI configuration changed.
 - No builds, tests, or CI workflows were started, in accordance with the explicit instruction. A later authorised test run should execute the focused LibraryGlassLayoutTest plus the existing common/Android host test suite.
+
+
+## 14 November 2026 — iOS player safety edge cases
+
+### Improvement cycle 28 — Reject negative MPV audio and subtitle track indices
+
+The Swift bridge's ten audio/subtitle track getters checked only that the requested index was smaller than the current array count. They did not reject negative values. A negative Int32 therefore passed the old upper-bound guard and reached Swift array subscripting, which traps at runtime rather than returning the existing safe fallback.
+
+Integrated fix:
+- Added the small pure helper mpvTrackArrayIndex(_:count:), which rejects negative indices before converting to Int and also rejects indices at or beyond the array count.
+- Routed all five audio getters and all five subtitle getters through the helper.
+- Preserved every existing fallback exactly: numeric track index 0, track ID "0", empty label/language, and false for selected state.
+- Valid indices still address exactly the same track; no playback, track-selection, or UI behavior was changed.
+
+Regression coverage:
+- Added testAcceptsValidTrackArrayIndices for the first and last valid positions.
+- Added testRejectsNegativeAndOutOfRangeTrackArrayIndices for negative, equal-to-count, and empty-array cases.
+- Test-first commit: bce0b3dc5b43c7c8aa836485361ae0eea8c3caa5.
+- Production commit: c59315e229ac1abd62e1b7366d03206ffa97f220.
+
+Evidence:
+- The original ten guards in MPVPlayerBridge.swift used Int(at) < t.count without a lower-bound check.
+- Swift's official Array documentation (https://docs.swift.org/main/documentation/swift/array/) states that valid integer subscripts range from zero up to, but excluding, count, and that a negative or out-of-range subscript triggers a runtime error.
+- This is a defensive boundary fix: valid caller behavior and fallback contracts remain unchanged.
+
+### Improvement cycle 29 — Fence delayed PiP orientation release to its parking lifecycle
+
+PlayerPictureInPictureParking.closeParked() removed the current parked player, then scheduled an unconditional one-second orientation-suspension release. If another player was parked during that delay, the old callback could clear the suspension belonging to the new player and allow the app's normal landscape lock to take effect while PiP was still parked.
+
+Integrated fix:
+- Added a tiny pure ParkedPlayerOrientationReleaseState generation fence.
+- Closing a parked player receives a release token. The delayed callback now applies only when that token is still current and no player is parked.
+- A successful new park and a successful restore invalidate any older pending release.
+- The existing one-second close delay, pause/PiP teardown, navigation removal, route disposal, and immediate restore behavior remain unchanged. The only suppressed action is a stale callback from an earlier player lifecycle.
+
+Regression coverage:
+- Added testCurrentCloseReleaseIsAllowedOnlyWhenNoPlayerIsParked.
+- Added testNewParkInvalidatesPreviousCloseRelease.
+- Added testLatestCloseReleaseRemainsValidAfterNewPark.
+- Test-first commit: c56b3df5107a0133fadf17fd63c34077fd72ec7f.
+- Production commit: 2e4ef11a2e7160cbe6c32bf3acbe59f1a10ee85e.
+
+Evidence:
+- The old delayed closure had no lifecycle check and unconditionally called setParkedPlayerSuspension(false).
+- The manager and its park/restore/close transitions are MainActor-isolated, so the generation and current parked-state check are serialized with the lifecycle that invalidates the token.
+- Apple's DispatchWorkItem cancellation documentation (https://developer.apple.com/documentation/dispatch/dispatchworkitem/cancel()) was checked as a native alternative. A generation token was chosen because it makes the ownership rule explicit and deterministically testable without adding another scheduled-work property or changing dispatch timing.
+
+### Review and verification boundary
+
+- A separate author self-review checked all ten updated getters and their unchanged fallback values, the valid-index helper boundary, and the complete park/unpark/close token lifecycle. It also checked that the Swift test source is already part of the existing iosAppTests target; no Xcode project-file edit or dependency change was needed.
+- A static declaration-to-implementation scan of NuvioPlayerBridge and MPVPlayerBridgeImpl found no additional missing bridge method in the latest source; the creator's separate methods are implemented in MPVPlayerBridgeCreator.
+- No independent reviewer subagent was available in this session, so this is documented as an author self-review, not an independent approval.
+- Context7 was attempted for the repository's pinned Kotlin/coroutines documentation but returned the monthly quota limit. These two changes are Swift-only and add no framework/API/dependency surface; Exa was used to check the official Swift Array documentation and Apple DispatchWorkItem documentation.
+- Regression tests were added before their production changes, but no test command was run: the explicit instruction prohibited builds and CI, and running the Xcode test target would invoke a build. RED/GREEN execution and device-level PiP verification remain pending authorisation.
+- No builds, test runs, or CI workflows were started. The changes are statically reviewed only; no runtime or compile pass is claimed.
