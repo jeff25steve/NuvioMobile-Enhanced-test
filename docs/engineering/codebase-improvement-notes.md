@@ -5359,3 +5359,19 @@ A final race review found that the API client's generation check depended on the
 - The API client's auth-generation predicate now checks generation and loaded-profile identity together under `AuthOperationGeneration.read`.
 - Added common regression coverage proving that a token generation is rejected when its loaded profile no longer matches the active profile, even if its numeric generation has not yet changed.
 
+
+
+### Improvement cycle 5 — Reject stale profile auth invalidation
+
+A late authenticated API response can arrive after the user has selected another profile but before the auth provider's profile-change callback advances its operation generation. The request's generation alone is therefore insufficient to decide whether a 401 may clear credentials. The invalidation path now checks that the loaded auth state still belongs to the active profile inside the generation-guarded commit before clearing the access token, persisted metadata, pending authorization state or Simkl sync state. A stale response still advances the old operation generation, but cannot clear credentials belonging to the newly active profile. A common regression test covers matching, mismatched and absent loaded-profile identities.
+
+### Improvement cycle 6 — Stop stale sync fan-out between remote calls
+
+The Simkl sync repository already rejected stale profile snapshots at commit time, but the sync engine could continue the remaining bootstrap/delta/playback requests after a profile switch while holding the shared snapshot mutex. The engine now accepts a lightweight current-scope checkpoint and invokes it before each subsequent remote request. The repository supplies a check against the captured profile ID and generation; when the scope is stale, a CancellationException exits the engine immediately. This does not claim to interrupt an HTTP request already in flight, but it prevents the old sync from starting its next request and releases the shared mutex as soon as the current request returns. The initialized-but-missing-watermark fallback also forwards the same checkpoint into bootstrap. A common regression test simulates a profile switch after the first bootstrap response and asserts that the second media-type request is never sent.
+
+### Research and verification boundary for cycles 5–6
+
+- Context7 resolved kotlinx.coroutines, but the exact project-pinned 1.10.2 documentation version was not listed; the closest available pinned documentation, 1.10.1, was consulted. It confirms cancellation propagation and the need to rethrow CancellationException.
+- Exa cross-checked the official Kotlin cancellation guide and kotlinx.coroutines Mutex.lock API. The sources confirm cooperative cancellation and prompt cancellation at suspension points; the added engine checkpoints therefore target the boundary between completed network calls rather than claiming to abort an in-flight transport operation.
+- No dependencies, UI, player behavior, or CI workflows were changed.
+- Regression tests were added before production changes. They were not executed because running Gradle tests/builds would violate the explicit no-build/no-CI instruction. Verification is limited to source inspection and remote GitHub content/diff checks.
