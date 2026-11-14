@@ -54,6 +54,7 @@ android {
     namespace = "com.nuvio.android"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     compileSdkMinor = libs.versions.android.compileSdkMinor.get().toInt()
+    ndkVersion = libs.versions.android.ndk.get()
 
     signingConfigs {
         create("release") {
@@ -182,13 +183,20 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
 
     @TaskAction
     fun build() {
+        val selectedNdk = ndk.get().asFile
+        val selectedNdkVersion = ndkVersion.get()
+        check(selectedNdk.name == selectedNdkVersion) {
+            "Selected NDK directory ${selectedNdk.name} does not match configured NDK version ${selectedNdkVersion}."
+        }
+        val selectedNdkPath = selectedNdk.absolutePath
         val out = jniLibs.get().asFile.apply {
             deleteRecursively()
             mkdirs()
         }
         exec.exec {
             workingDir = workspace.get().asFile
-            environment("ANDROID_NDK_HOME", ndk.get().asFile.path)
+            environment("ANDROID_NDK_HOME", selectedNdkPath)
+            environment("ANDROID_NDK_ROOT", selectedNdkPath)
             commandLine(
                 listOf(cargo(), "ndk", "--platform", minSdk.get().toString()) +
                     abis.get().flatMap { listOf("-t", it) } +
