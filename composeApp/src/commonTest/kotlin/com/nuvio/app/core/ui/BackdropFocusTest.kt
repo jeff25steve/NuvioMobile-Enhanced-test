@@ -2,6 +2,7 @@ package com.nuvio.app.core.ui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BackdropFocusTest {
@@ -44,3 +45,24 @@ class BackdropFocusTest {
         assertEquals(0f, profile.horizontalBias(visibleFraction = 1f))
     }
 }
+
+
+    @Test
+    fun downsamplePreservesAspectRatioAndSamplesPixelCenters() {
+        val pixels = IntArray(16) { it + 1 }
+
+        val sampled = requireNotNull(downsampleArgb(pixels, width = 4, height = 4, targetWidth = 2))
+
+        assertEquals(2, sampled.width)
+        assertEquals(2, sampled.height)
+        assertEquals(listOf(6, 8, 14, 16), sampled.pixels.toList())
+    }
+
+    @Test
+    fun downsampleRejectsInvalidDimensionsAndInsufficientPixels() {
+        val pixels = IntArray(3)
+
+        assertNull(downsampleArgb(pixels, width = 0, height = 2, targetWidth = 1))
+        assertNull(downsampleArgb(pixels, width = 2, height = 2, targetWidth = 1))
+        assertNull(downsampleArgb(pixels, width = 2, height = 2, targetWidth = 0))
+    }
