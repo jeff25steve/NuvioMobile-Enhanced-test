@@ -105,6 +105,11 @@ internal fun simklAuthStateAfterProfileReload(
 internal fun shouldClearOrphanedSimklCodeVerifier(state: SimklStoredAuthState): Boolean =
     state.pendingAuthorizationState.isNullOrBlank()
 
+internal fun isSimklAuthProfileIdentityCurrent(
+    loadedProfileId: Int?,
+    activeProfileId: Int,
+): Boolean = loadedProfileId == activeProfileId
+
 internal fun isSimklAuthProfileGenerationCurrent(
     expectedGeneration: Long,
     currentGeneration: Long,
