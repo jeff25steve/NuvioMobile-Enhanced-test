@@ -5,8 +5,29 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNull
 
 class PlayerLiquidGlassCaptureLifecycleTest {
+    @Test
+    fun backdropDownsamplingPreservesAspectRatioAndSamplesEvenly() {
+        val sampled = downsampleArgb(
+            pixels = IntArray(8) { it },
+            width = 4,
+            height = 2,
+            targetWidth = 2,
+        )
+
+        assertEquals(2, sampled?.width)
+        assertEquals(1, sampled?.height)
+        assertEquals(listOf(5, 7), sampled?.pixels?.toList())
+    }
+
+    @Test
+    fun backdropDownsamplingRejectsInvalidDimensionsAndShortPixelBuffers() {
+        assertNull(downsampleArgb(intArrayOf(1), width = 2, height = 2, targetWidth = 1))
+        assertNull(downsampleArgb(intArrayOf(1), width = 1, height = 1, targetWidth = 0))
+    }
+
     @Test
     fun successfulPixelCopyIsAcceptedEvenWhenTheCopiedFrameIsBlack() {
         assertTrue(isSuccessfulVideoFrameCopy(PixelCopy.SUCCESS))
