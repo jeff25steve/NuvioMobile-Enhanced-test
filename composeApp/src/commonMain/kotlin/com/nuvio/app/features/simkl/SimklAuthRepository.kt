@@ -602,6 +602,9 @@ object SimklAuthRepository : TrackingAuthProvider {
                 storedState = SimklStoredAuthState()
                 persistMetadata()
             }
+            if (shouldClearOrphanedSimklCodeVerifier(storedState)) {
+                SimklAuthStorage.saveCodeVerifier(null)
+            }
 
             val pinCode = pendingPinUserCode(storedState.pendingAuthorizationState)
             if (pinCode != null) {
@@ -635,7 +638,13 @@ object SimklAuthRepository : TrackingAuthProvider {
                 clearPendingAuthorization()
                 persistMetadata()
             }
-            publish(error = null)
+            val restoredUiState = simklAuthStateAfterProfileReload(
+                storedState = storedState,
+                accessToken = accessToken,
+                credentialsConfigured = hasRequiredCredentials(),
+            )
+            _isAuthenticated.value = restoredUiState.mode == SimklConnectionMode.CONNECTED
+            _uiState.value = restoredUiState
         }
         restoredPin?.let { (userCode, schedule) ->
             startPinPolling(userCode, schedule, generation)
