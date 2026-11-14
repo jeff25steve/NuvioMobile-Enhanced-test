@@ -17,6 +17,7 @@ fun readXcconfigValue(file: File, key: String): String? {
 
 plugins {
     alias(libs.plugins.androidApplication)
+    alias(libs.plugins.baselineProfile)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.sentry.android.gradle)
 }
@@ -233,6 +234,12 @@ androidComponents {
     }
 }
 
+baselineProfile {
+    mergeIntoMain = false
+    saveInSrc = true
+    automaticGenerationDuringBuild = false
+}
+
 sentry {
     includeProguardMapping.set(true)
     autoUploadProguardMapping.set(sentryMappingUploadEnabled)
@@ -260,6 +267,7 @@ sentry {
 
 dependencies {
     implementation(project(":composeApp"))
+    baselineProfile(project(":baselineProfile"))
     implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.appcompat)
     implementation(libs.compose.runtime)
