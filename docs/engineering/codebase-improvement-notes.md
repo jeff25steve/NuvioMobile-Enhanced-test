@@ -5656,3 +5656,45 @@ Evidence and verification:
 - Context7 resolution was attempted for the repository-pinned Kotlin 2.4.10 documentation, but the monthly quota was exhausted; no Context7 result is claimed. Exa was used to cross-check the official Kotlin and Swift documentation.
 - The observed failing Xcode build is the RED reproduction. No new test or build has yet been run after the fix; a clean Linux and iOS IPA CI run is required to verify compilation and packaging.
 - Source commit: 322f8cca67aab910b7aaa0504142faf02abd8cd1.
+
+## 14 November 2026 — Restore the Saved Library pill's live poster backdrop
+
+### Improvement cycle 27 — Fix the parent CompositionLocal selected before the pill's nested provider
+
+The Library Saved source-switch pill appeared as a solid surface instead of sampling poster artwork. The root cause was not the material recipe or its tint: the sourceSwitchGlassModifier is constructed in LibraryScreen before the nested CompositionLocalProvider surrounding the Saved overlay. Its composable liquidGlassForSurface call therefore reads LocalLiquidGlassBackdrop.current from the parent provider during composition.
+
+The parent provider selected libraryContentBackdrop only when the Saved type or sort filter was enabled. It omitted libraryGlassEnabled. In Saved mode, the static backdrop capture had separately been disabled because the pill and filters should sample the scrolling poster layer. Therefore, with only the main Library surface enabled:
+- libraryContentBackdropCaptureRequired correctly attached the scrolling source to NuvioScreen.
+- libraryStaticBackdropCaptureRequired correctly returned false for Saved mode.
+- The root provider nevertheless supplied null, because neither Saved filter was enabled.
+- The already-created pill modifier retained that null backdrop. ambientLiquidGlass then used liquidGlassStaticFallbackSurface, whose surfaceCard fallback is intentionally opaque. The later nested provider around the pill cannot retroactively change a modifier that has already resolved its composition-local value.
+
+The history confirms the regression path: b3211f0f moved the Saved pill into a pinned overlay and constructed its glass modifier ahead of that overlay provider; c2c173e1 then correctly stopped capturing the unused static Saved backdrop, but the parent provider policy was not updated to select the scrolling backdrop for the Library surface alone.
+
+Integrated fix:
+- Added libraryRootPinnedChromeUsesContentBackdrop, a single policy that selects the scrolling source in Saved mode when the Library pill, Saved type filter, or Saved sort filter is enabled.
+- Updated the root LocalLiquidGlassBackdrop provider to include libraryGlassEnabled alongside the two Saved filter flags.
+- Kept Cloud and Servers on their static screen backdrop, and kept Saved mode free of unnecessary static backdrop capture.
+- Preserved the existing opaque fallback for genuinely unavailable/unsupported backdrops; weakening that fallback would hide missing-source bugs and degrade controls on unsupported renderers.
+
+Test-first coverage:
+- Added savedRootBackdropProviderUsesScrollingContentWhenOnlyLibraryPillGlassIsEnabled.
+- Added savedRootBackdropProviderAlsoSupportsFilterGlassAndIgnoresInactiveModes to cover either filter independently, the no-consumer case, and non-Saved modes.
+- Test commit: 7849e8934bb73d463a4847049c69737551f71378.
+- Implementation commit: 17f3cd3d893f88c469604c6fe182b9c1803cc95f.
+- The test/build task was deliberately not run because the current request explicitly prohibits builds and CI. The tests are committed but remain unexecuted; no runtime fix or test pass is claimed yet.
+
+### Evidence-based audit — related Library glass paths
+
+- The Studio Library preview already provides its backdrop around the preview content before constructing the source-switch glass modifier, so its composition-local ordering is correct. No preview workaround was added.
+- LibraryChip only paints a selected-segment overlay at 15% onSurface alpha and keeps the unselected segment transparent. That is a deliberate selection affordance, not the opaque pill body.
+- The opaque surfaceCard static fallback in LiquidGlass.kt is intentional when there is no ready source or the renderer is unavailable. It was not globally made transparent; the correct fix is to provide the real poster source.
+- The scrolling source is captured on the NuvioScreen content layer, while the pill is a sibling pinned overlay. This preserves the intended architecture: posters move underneath the pill, but the pill is never captured into its own backdrop.
+
+### Documentation and verification boundary
+
+- Android's official Compose CompositionLocal documentation (https://developer.android.com/develop/ui/compose/compositionlocal) states that current resolves to the closest ancestor provider and that the provider's content lambda receives the value. This supports the composition-time scope diagnosis.
+- Kyant's official Backdrop project (https://github.com/Kyant0/AndroidLiquidGlass) documents the source/consumer model: background content is registered as a sampling source and the foreground glass consumes it through drawBackdrop. Exa also cross-checked the versioned 2.0.1 API pattern and the project examples.
+- Repository versions were checked: Compose Multiplatform 1.13.0-beta01, Backdrop 2.0.1, Kotlin 2.4.10. Context7 resolution was attempted for the exact pinned Compose and Backdrop versions, but the monthly quota was exhausted. No Context7 result is claimed; official Compose and Kyant documentation were used as the fallback evidence.
+- Remote review confirmed main-build-testing advanced exactly two commits from the previous head, changing only LibraryScreen.kt and LibraryGlassLayoutTest.kt. No unrelated files, dependencies, workflow files, or CI configuration changed.
+- No builds, tests, or CI workflows were started, in accordance with the explicit instruction. A later authorised test run should execute the focused LibraryGlassLayoutTest plus the existing common/Android host test suite.
