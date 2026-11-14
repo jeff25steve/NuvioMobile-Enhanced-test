@@ -92,7 +92,7 @@ for flavor in full playstore; do
   profile_dir="androidApp/src/$flavor/generated/baselineProfiles"
   [[ -d "$profile_dir" ]] ||
     fail "Expected generated profile directory is missing: $profile_dir"
-  find "$profile_dir" -maxdepth 1 -type f \\( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \\) -print -exec wc -c {} \\; |
+  find "$profile_dir" -maxdepth 1 -type f \( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \) -print -exec wc -c {} \; |
     tee "$OUTPUT_DIR/$flavor-generated-profiles.txt"
   grep -q 'baseline-prof.txt' "$OUTPUT_DIR/$flavor-generated-profiles.txt" ||
     fail "No baseline-prof.txt was generated for $flavor."
