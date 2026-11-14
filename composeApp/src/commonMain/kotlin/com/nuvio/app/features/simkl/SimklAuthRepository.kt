@@ -299,8 +299,7 @@ object SimklAuthRepository : TrackingAuthProvider {
                 true
             }
             SimklPinPollOutcome.PENDING,
-            SimklPinPollOutcome.UNEXPECTED,
-            -> false
+            SimklPinPollOutcome.UNEXPECTED -> false
         }
     }
 
