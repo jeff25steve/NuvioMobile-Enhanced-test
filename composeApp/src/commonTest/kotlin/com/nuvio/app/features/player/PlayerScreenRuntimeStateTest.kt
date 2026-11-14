@@ -13,6 +13,24 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlayerScreenRuntimeStateTest {
+    @Test
+    fun discTitlesPanelParticipatesInPanelAndOverlayVisibility() {
+        val runtime = PlayerScreenRuntime(testPlayerScreenArgs())
+
+        assertFalse(runtime.isPanelOpen)
+        assertFalse(runtime.isAnyOverlayVisible)
+
+        runtime.showDiscTitlesPanel = true
+
+        assertTrue(runtime.isPanelOpen)
+        assertTrue(runtime.isAnyOverlayVisible)
+
+        runtime.showDiscTitlesPanel = false
+
+        assertFalse(runtime.isPanelOpen)
+        assertFalse(runtime.isAnyOverlayVisible)
+    }
+
 
     @Test
     fun controlsStartHidden() {
