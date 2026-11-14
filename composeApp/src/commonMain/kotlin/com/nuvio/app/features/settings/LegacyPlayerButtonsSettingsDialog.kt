@@ -47,6 +47,7 @@ internal val LegacyBottomButton.labelRes: StringResource
         LegacyBottomButton.NIGHT_MODE -> Res.string.player_night_mode
         LegacyBottomButton.SOURCES -> Res.string.compose_player_sources
         LegacyBottomButton.CHAPTERS -> Res.string.player_chapters
+        LegacyBottomButton.DISC_TITLES -> Res.string.player_disc_titles
         LegacyBottomButton.EPISODES -> Res.string.compose_player_episodes
         LegacyBottomButton.LIVE_CHANNELS -> Res.string.compose_player_channels
         LegacyBottomButton.QUALITY -> Res.string.player_toolbar_button_quality
