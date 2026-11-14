@@ -10,6 +10,33 @@ import kotlin.test.assertTrue
 
 class SimklApiClientTest {
     @Test
+    fun `queued request is not sent after its profile token generation becomes stale`() = runBlocking {
+        val engine = RecordingEngine(response(200), response(200))
+        var now = 0L
+        var tokenIsCurrent = true
+        val client = SimklApiClient(
+            engine = engine,
+            accessToken = { SimklApiAccessToken("profile-token", 12L) },
+            onUnauthorized = {},
+            nowEpochMs = { now },
+            sleep = { delayMs ->
+                now += delayMs
+                tokenIsCurrent = false
+            },
+            retryJitterMs = { 0L },
+            isCurrentAccessToken = { tokenIsCurrent },
+        )
+
+        client.execute(SimklApiRequest(SimklHttpMethod.GET, "/first"))
+        val error = assertFailsWith<SimklApiException> {
+            client.execute(SimklApiRequest(SimklHttpMethod.GET, "/second"))
+        }
+
+        assertEquals("stale_authentication", error.errorCode)
+        assertEquals(1, engine.requests.size)
+    }
+
+    @Test
     fun `response classification retries only documented transient statuses`() {
         assertEquals(SimklResponseAction.SUCCESS, classifySimklResponse(200))
         assertEquals(SimklResponseAction.REAUTHENTICATE, classifySimklResponse(401))
