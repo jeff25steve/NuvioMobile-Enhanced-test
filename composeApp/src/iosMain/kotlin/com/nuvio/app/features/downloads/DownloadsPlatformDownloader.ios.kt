@@ -119,6 +119,8 @@ fun pauseDownloadsForAppBackground() = Unit
 internal actual object DownloadsPlatformDownloader {
     actual suspend fun prepareForStartup() = Unit
 
+    actual suspend fun preloadTransferStore() = Unit
+
     actual fun start(
         request: DownloadPlatformRequest,
         onProgress: (downloadedBytes: Long, totalBytes: Long?) -> Unit,
