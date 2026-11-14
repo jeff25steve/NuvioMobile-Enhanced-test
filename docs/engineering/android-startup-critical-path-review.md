@@ -227,3 +227,28 @@ References:
 - AndroidX build variants and per-variant profile output: https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
 - Release-like, minified and profileable Macrobenchmark targets: https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
 - TTID and TTFD comparison guidance: https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
+
+
+## R8 benchmark APK build verified — 14 November 2026
+
+GitHub Actions run 43645267759 completed successfully from commit 88bdfa82d650ede1fde0ee779370f589ee558517.
+
+Verified completed steps:
+- assembleFullBenchmarkRelease and matching Macrobenchmark instrumentation APK.
+- assemblePlaystoreBenchmarkRelease and matching Macrobenchmark instrumentation APK.
+- Phone bundle assembly, SHA-256 manifest generation and artifact upload.
+
+Artifact:
+- ID: 14134457830
+- Name: nuvio-android-startup-profile-88bdfa82d650ede1fde0ee779370f589ee558517
+- Size: 344,398,688 bytes
+- Expiry: 28 November 2026
+- SHA-256: 489a7409b7608b96d7e08064b99c54f207013405e190e295811b6e4e69dcc702
+
+The downloaded archive was checked locally: all four APK entries, the start-here instructions, checksum manifest and runner script passed ZIP integrity testing. It contains both R8 benchmarkRelease app/test pairs. This verifies APK production, not a physical-device performance result.
+
+Still open:
+- Run the updated branch's scripts/run-android-startup-profile-benchmark.sh with exactly one supported physical Android device connected over ADB.
+- Sign in to the benchmark installation and allow the generator and Macrobenchmark to run both flavors.
+- Review TTID/TTFD medians and binary profile sizes; do not commit or retain generated profiles unless both metrics improve repeatably without regressions.
+- No physical-device run has yet been performed; no Nuvio startup speedup is claimed.
