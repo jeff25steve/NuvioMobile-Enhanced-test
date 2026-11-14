@@ -18,8 +18,8 @@ LibraryRepository.ensureLoaded prepares tracking providers and provider refresh 
 - Added a single-flight coordinator for critical and post-frame phases.
 - Android Activity awaits only critical work before setContent.
 - A Compose effect waits for a frame and starts post-frame warmup.
-- Critical: profile cache, watched, watch progress, Continue Watching preferences and Home snapshot; downloader platform recovery parallel.
-- Post-frame: DownloadsRepository manifest restore, Live TV, Player, P2P, Server, Meta Screen and Library.
+- Critical: profile cache, watched, watch progress, Continue Watching preferences and Home snapshot.
+- Post-frame: Android downloader platform preparation, transfer-record scan on IO, DownloadsRepository manifest restore, Live TV, Player, P2P, Server, Meta Screen and Library.
 - Android root first-composition feature ensures are deferred; iOS eager behavior is preserved.
 - Notification refresh waits for a frame on Android; iOS timing is preserved.
 - LiveTvUiState records when playlist preferences are restored. Initial and native tab decisions wait for this signal, preventing a valid Live TV startup route from being redirected while the default state is visible.
@@ -57,3 +57,23 @@ No launch-time benchmark, Macrobenchmark, Gradle/Xcode test, build, CI run, or d
 
 ## Validation
 Focused regression tests are added but not run. No measured latency improvement is claimed; physical-device timing is required. No Gradle build, CI run or Macrobenchmark is claimed. No GitHub Actions workflow is dispatched.
+
+## Follow-up optimization — defer Android transfer-record loading
+
+The Android startup critical phase previously called `DownloadsPlatformDownloader.prepareForStartup()` on IO and awaited it before `setContent`. Although the work was off the main thread, constructing `AndroidDownloadScheduler` constructed `AndroidDownloadStore`, whose StateFlow initializer synchronously enumerated the transfer directory and decoded every persisted JSON record. The Activity still waited for this storage work to finish.
+
+Changes:
+- `AndroidDownloadStore` now initializes its transfer StateFlow lazily with Kotlin's synchronized lazy mode. Constructing the scheduler no longer scans or decodes transfer records.
+- The critical phase no longer creates the Android download scheduler.
+- The post-frame phase now prepares the Android scheduler and explicitly touches the transfer store on `Dispatchers.IO` before restoring the common DownloadsRepository manifest on its existing Main-thread path.
+- The iOS implementation of the new preload hook is a no-op. iOS background URLSession behavior and the existing profile-manifest restore ordering are unchanged.
+- First access remains single-initialization and thread-safe; subsequent reads use the same StateFlow. Download record format, IDs, generations, scheduling, resume and pause behavior are unchanged.
+
+Regression coverage added (not executed):
+- Store construction leaves the transfer store uninitialized.
+- First access initializes the store.
+- A persisted transfer is restored from disk on first access.
+
+Kotlin's official standard-library documentation states that `LazyThreadSafetyMode.SYNCHRONIZED` uses a lock to ensure one initializer and safe publication to all threads: https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-lazy-thread-safety-mode/-s-y-n-c-h-r-o-n-i-z-e-d/. Context7 was attempted but its monthly quota was exhausted, so the exact-library Context7 requirement could not be satisfied for this cycle. No dependency was changed.
+
+Expected benefit: transfer-directory enumeration and JSON decoding no longer delay the initial Android screen. The work is intentionally retained after first frame and remains on IO; no reduction in total work or measured launch-time improvement is claimed.
