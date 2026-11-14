@@ -203,7 +203,7 @@ References:
 
 - [x] Trace the first failed run to the desktop runner's doubled `find` escapes; correction committed on `main-build-testing`.
 - [x] Trace the second failed run to the mock test's incorrect relative runner path; correction committed on `main-build-testing`.
-- [x] Correct six ADB output filters from `tr -d '\\\\r'` to `tr -d '\\r'` so carriage-return bytes are actually removed.
+- [x] Correct six ADB output filters from `tr -d '\\r'` to `tr -d '\r'` so carriage-return bytes are actually removed.
 - [x] Align desktop profile generation with the isolated app identity: use `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`, and inspect `src/<flavor>NonMinifiedRelease/generated/baselineProfiles` rather than the production `release` source set.
 - [x] Add regression assertions for ADB CR cleanup, both profile tasks and the generated profile path.
 - [ ] Run the complete updated mock suite and desktop runner syntax check in a later explicitly authorized validation session.
