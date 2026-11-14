@@ -6,6 +6,7 @@ enum class PlayerToolbarButton(val storageId: String) {
     RESIZE("resize"),
     SUBTITLES("subtitles"),
     CHAPTERS("chapters"),
+    DISC_TITLES("disc_titles"),
     AUDIO("audio"),
     NIGHT_MODE("night_mode"),
     QUALITY("quality"),
@@ -72,6 +73,7 @@ data class PlayerToolbarLayout(val entries: List<PlayerToolbarEntry>) {
                     PlayerToolbarButton.SWITCH_ENGINE,
                     PlayerToolbarButton.VIDEO_SETTINGS,
                     PlayerToolbarButton.SUBMIT_INTRO,
+                    PlayerToolbarButton.DISC_TITLES,
                 ).map { PlayerToolbarEntry(it, visible = false) },
         )
 
