@@ -318,13 +318,24 @@ struct TrackInfo {
     let selected: Bool
 }
 
-private struct PendingLoadRequest {
+struct PendingLoadRequest {
     let urlString: String
     let audioUrl: String?
     let requestHeaders: [String: String]
     let subtitles: [PluginSubtitle]
     let startPositionSeconds: String?
     let queuedAtUptime: TimeInterval
+
+    func retrying(atPositionSeconds seconds: Double) -> PendingLoadRequest {
+        PendingLoadRequest(
+            urlString: urlString,
+            audioUrl: audioUrl,
+            requestHeaders: requestHeaders,
+            subtitles: subtitles,
+            startPositionSeconds: mpvRetryStartPositionSeconds(seconds),
+            queuedAtUptime: queuedAtUptime
+        )
+    }
 }
 
 // MARK: - MPV Player View Controller
@@ -352,6 +363,7 @@ final class MPVPlayerViewController: UIViewController {
     private var externallyManagedViewSize: CGSize?
     private var pendingSurfaceLayoutWorkItems: [DispatchWorkItem] = []
     private var pendingLoadRequest: PendingLoadRequest?
+    private var loadRequestGeneration: UInt64 = 0
     private var startupSubtitles: [PluginSubtitle] = []
     /// mpv's sub-add needs a loaded file. An add-on subtitle selected before that (Nuvio restores
     /// the remembered one as soon as add-ons answer, often while the stream still opens) waits here.
@@ -1054,6 +1066,7 @@ final class MPVPlayerViewController: UIViewController {
     }
 
     private func queueLoad(_ request: PendingLoadRequest) {
+        loadRequestGeneration &+= 1
         pendingLoadRequest = request
         attemptStartPendingLoad()
     }
@@ -1497,21 +1510,28 @@ final class MPVPlayerViewController: UIViewController {
     }
 
     func retryPlayback() {
-        guard mpv != nil else { return }
-        clearPlaybackError()
-        applyRequestHeaders(activeRequestHeaders)
-        playbackStateGeneration &+= 1
-        invalidateMediaInfoCache()
-        isFileLoaded = false
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.retryPlayback() }
+            return
+        }
+        guard mpv != nil, let request = lastLoadRequest else { return }
         let coreGeneration = mpvGeneration
+        let requestGeneration = loadRequestGeneration
         mpvQueue.async { [weak self] in
-            guard let self, self.mpvGeneration == coreGeneration else { return }
-            guard self.mpv != nil, let path = self.getString("path") else { return }
-            let pos = self.getDouble("time-pos")
-            if let startPosition = mpvRetryStartPositionSeconds(pos) {
-                self.command("loadfile", args: [path, "replace", "-1", "start=\(startPosition)"])
-            } else {
-                self.command("loadfile", args: [path, "replace"])
+            guard let self, self.mpvGeneration == coreGeneration, self.mpv != nil else { return }
+            let retryRequest = request.retrying(atPositionSeconds: self.getDouble("time-pos"))
+            DispatchQueue.main.async { [weak self] in
+                guard
+                    let self,
+                    self.mpvGeneration == coreGeneration,
+                    self.mpv != nil,
+                    self.loadRequestGeneration == requestGeneration
+                else {
+                    return
+                }
+                self.clearPlaybackError()
+                self.lastLoadRequest = retryRequest
+                self.startLoad(retryRequest)
             }
         }
     }
