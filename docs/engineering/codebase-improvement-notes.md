@@ -5293,6 +5293,7 @@ Static lifecycle tracing found that `loadFromDisk()` cancelled the previous prof
 
 - Added a pure profile-load state projection that always starts with `isLoading = false` and `error = null`, while restoring the new profile's connected / awaiting-approval / disconnected mode and account metadata.
 - The disk reload path now publishes that projection directly and synchronizes `isAuthenticated` with the restored state.
+- Explicitly reset loading/error state on `clearLocalState()` and user disconnect as well, so terminal auth transitions cannot inherit a previous operation's spinner.
 - Added common regression coverage for clean disconnected and authenticated profile snapshots.
 
 ### Improvement cycle 2 — Remove orphaned PKCE verifier material
