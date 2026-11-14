@@ -338,6 +338,20 @@ struct PendingLoadRequest {
     }
 }
 
+struct MpvAudioLanguagePreferenceState: Equatable {
+    private(set) var languages: [String]?
+
+    var optionValue: String? {
+        languages?.joined(separator: ",")
+    }
+
+    mutating func update(_ candidates: [String]) {
+        languages = candidates
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+}
+
 struct MpvStartupAudioRequest {
     private(set) var url: String?
 
@@ -503,6 +517,7 @@ final class MPVPlayerViewController: UIViewController {
     private var lastVolume: Float?
     private var lastMuted: Bool?
     private var lastSelectedAudioTrackId: Int?
+    private var audioLanguagePreferenceState = MpvAudioLanguagePreferenceState()
     private var lastSelectedSubtitleTrackId: Int?
     private var isRecoveringFromDeviceLoss = false
     private var isDeviceLossRecoveryPending = false
@@ -1520,6 +1535,10 @@ final class MPVPlayerViewController: UIViewController {
         setSpeed(currentSpeed)
         if let volume = lastVolume { setVolume(volume) }
         if let muted = lastMuted { setMuted(muted) }
+        if let alang = audioLanguagePreferenceState.optionValue {
+            setStringProperty("alang", alang)
+            setStringProperty("aid", "auto")
+        }
         if let audioTrack = lastSelectedAudioTrackId { selectAudio(audioTrack) }
         if let subtitleTrack = lastSelectedSubtitleTrackId { selectSubtitle(subtitleTrack) }
     }
@@ -1714,10 +1733,8 @@ final class MPVPlayerViewController: UIViewController {
     }
 
     func applyAudioLanguagePreferences(_ languages: [String]) {
-        let normalized = languages
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        setStringProperty("alang", normalized.joined(separator: ","))
+        audioLanguagePreferenceState.update(languages)
+        setStringProperty("alang", audioLanguagePreferenceState.optionValue ?? "")
         setStringProperty("aid", "auto")
     }
 
