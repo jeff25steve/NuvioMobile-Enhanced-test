@@ -11,7 +11,7 @@ import ComposeApp
 
 func mpvRetryStartPositionSeconds(_ seconds: Double) -> String? {
     guard seconds.isFinite, seconds > 0 else { return nil }
-    return String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), seconds)
+    return String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), arguments: [seconds])
 }
 
 internal struct MpvDemuxerMemorySettings: Equatable {
