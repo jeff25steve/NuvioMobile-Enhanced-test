@@ -30,6 +30,11 @@ class PlayerLiquidGlassCaptureLifecycleTest {
     }
 
     @Test
+    fun backdropDownsamplingRejectsPixelCountThatWouldOverflowAnInt() {
+        assertNull(downsampleArgb(intArrayOf(1), width = 50_000, height = 50_000, targetWidth = 1))
+    }
+
+    @Test
     fun successfulPixelCopyIsAcceptedEvenWhenTheCopiedFrameIsBlack() {
         assertTrue(isSuccessfulVideoFrameCopy(PixelCopy.SUCCESS))
     }
@@ -39,6 +44,8 @@ class PlayerLiquidGlassCaptureLifecycleTest {
         assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_SOURCE_NO_DATA))
         assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_SOURCE_INVALID))
         assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_TIMEOUT))
+        assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_UNKNOWN))
+        assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_DESTINATION_INVALID))
     }
 
     @Test
