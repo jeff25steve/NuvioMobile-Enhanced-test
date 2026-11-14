@@ -135,3 +135,14 @@ No startup speedup is claimed. This makes the future TTFD comparison represent t
 The initial plan incorrectly described `androidApp/src/main/baseline-prof.txt` as empty. A remote size check showed 1,409,345 bytes of existing shared source rules committed in September 2026. The file remains unchanged; new generated files belong under `androidApp/src/fullRelease/generated/baselineProfiles` and `androidApp/src/playstoreRelease/generated/baselineProfiles` with `mergeIntoMain = false`.
 
 The first attempt to assemble production-signed release APKs could not proceed because this fork has no release keystore/local-properties secrets. This is not required for Macrobenchmark: the AndroidX plugin's `benchmarkRelease` app variant is explicitly configured as non-debuggable, profileable, R8/minified and debug-key signed. The dedicated workflow therefore builds those release-mirrored benchmark variants rather than an unsigned or debug app build. Production release signing remains untouched.
+
+
+## Build verification result — 14 November 2026
+
+- [x] Build the full R8 benchmarkRelease app and Macrobenchmark APK.
+- [x] Build the playstore R8 benchmarkRelease app and Macrobenchmark APK.
+- [x] Upload and verify the phone benchmark bundle (Actions run 43645267759, artifact 14134457830).
+- [ ] Connect one physical device and run the updated branch's generator and 10-iteration A/B tests for both flavors.
+- [ ] Inspect TTID/TTFD medians and binary profile sizes, then accept or reject generated per-flavor profiles.
+
+The CI APK build passed. The uploaded 344,398,688-byte archive was downloaded and passed ZIP integrity validation. This does not satisfy the device benchmark acceptance criteria; no TTID/TTFD medians or performance improvement are claimed yet.
