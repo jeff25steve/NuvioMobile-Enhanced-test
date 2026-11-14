@@ -171,6 +171,8 @@ class SimklMutationRepositoryTest {
         )
         var now = 0L
         var committed = 0
+        var committedScope: SimklSyncProfileScope? = null
+        val profileScope = SimklSyncProfileScope(profileId = 3, generation = 7L)
         val service = SimklMutationService(
             client = SimklApiClient(
                 engine = engine,
@@ -180,10 +182,11 @@ class SimklMutationRepositoryTest {
                 sleep = { duration -> now += duration },
                 retryJitterMs = { 0L },
             ),
-            onMutationCommitted = { committed += 1 },
+            onMutationCommitted = { scope, _ -> committedScope = scope; committed += 1 },
         )
 
         val result = service.moveToList(
+            profileScope = profileScope,
             items = listOf(movie(), movie().copy(title = "Missing", ids = TrackingExternalIds())),
             destination = TrackingListStatus.PLAN_TO_WATCH,
         )
@@ -200,6 +203,7 @@ class SimklMutationRepositoryTest {
         assertEquals(SimklScrobbleOutcome.SCROBBLE, scrobbleResult.outcome)
         assertEquals("2026-05-14T23:46:29Z", scrobbleResult.watchedAt)
         assertEquals(1, committed)
+        assertEquals(profileScope, committedScope)
     }
 
     @Test
@@ -241,7 +245,8 @@ class SimklMutationRepositoryTest {
         )
 
         val result = service.addToHistory(
-            listOf(
+            profileScope = SimklSyncProfileScope(profileId = 1, generation = 1L),
+            items = listOf(
                 TrackingHistoryItem(
                     media = anime(TrackingEpisode(number = 1)),
                     watchedAtEpochMs = 1_700_000_000_000L,
@@ -296,7 +301,7 @@ class SimklMutationRepositoryTest {
                 sleep = {},
                 retryJitterMs = { 0L },
             ),
-            onMutationCommitted = { committed += 1 },
+            onMutationCommitted = { _, _ -> committed += 1 },
         )
 
         val result = service.scrobble(
