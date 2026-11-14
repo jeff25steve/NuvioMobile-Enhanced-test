@@ -158,7 +158,8 @@ class LibraryGlassLayoutTest {
         assertFalse(capture(hasSavedControls = false, enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
         assertTrue(capture(showReleaseCalendar = true, enabledSurface = LiquidGlassSurface.LIBRARY_CALENDAR))
         assertFalse(capture(showReleaseCalendar = false, enabledSurface = LiquidGlassSurface.LIBRARY_CALENDAR))
-        assertFalse(capture(enabledSurface = LiquidGlassSurface.LIBRARY))
+        // Saved source-switch glass now samples the same scrolling poster layer as the pinned filters.
+        assertTrue(capture(enabledSurface = LiquidGlassSurface.LIBRARY))
         assertFalse(capture(sourceMode = LibraryViewMode.Cloud, enabledSurface = LiquidGlassSurface.LIBRARY_CLOUD_CARDS))
         assertFalse(capture(sourceMode = LibraryViewMode.Servers, enabledSurface = LiquidGlassSurface.LIBRARY))
         assertFalse(capture(masterEnabled = false, enabledSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER))
@@ -410,18 +411,20 @@ class LibraryGlassLayoutTest {
     }
 
     @Test
-    fun savedScrollViewportReservesOnlyPinnedControlsBelowTheFixedToolbar() {
+    fun savedScrollViewportReservesTheSourcePillAndPinnedFiltersBeforeTheFirstPoster() {
         assertEquals(
-            72.dp,
+            138.dp,
             libraryContentTopPadding(
                 hasSavedControls = true,
+                sourceSwitchInset = 52.dp,
                 savedControlsInset = 72.dp,
             ),
         )
         assertEquals(
-            0.dp,
+            52.dp,
             libraryContentTopPadding(
                 hasSavedControls = false,
+                sourceSwitchInset = 52.dp,
                 savedControlsInset = 72.dp,
             ),
         )
