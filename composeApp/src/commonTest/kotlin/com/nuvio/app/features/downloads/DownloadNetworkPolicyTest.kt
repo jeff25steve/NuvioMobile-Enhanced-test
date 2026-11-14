@@ -47,4 +47,54 @@ class DownloadNetworkPolicyTest {
             ),
         )
     }
+
+
+    @Test
+    fun `queued download is paused before start when mobile data is disallowed`() {
+        val item = sampleDownload().copy(
+            status = DownloadStatus.Downloading,
+            downloadedBytes = 4_096L,
+            totalBytes = 16_384L,
+            errorMessage = "Temporary error",
+        )
+
+        val paused = item.pauseIfNetworkDisallowed(
+            networkAllowed = false,
+            updatedAtEpochMs = 99L,
+        )
+
+        assertEquals(DownloadStatus.Paused, paused.status)
+        assertEquals(4_096L, paused.downloadedBytes)
+        assertEquals(16_384L, paused.totalBytes)
+        assertNull(paused.errorMessage)
+        assertEquals(item.sourceUrl, paused.sourceUrl)
+        assertEquals(item.fileName, paused.fileName)
+        assertEquals(99L, paused.updatedAtEpochMs)
+    }
+
+    @Test
+    fun `queued download is unchanged before start when its network is allowed`() {
+        val item = sampleDownload().copy(status = DownloadStatus.Downloading)
+
+        assertEquals(
+            item,
+            item.pauseIfNetworkDisallowed(networkAllowed = true, updatedAtEpochMs = 99L),
+        )
+    }
+
+    private fun sampleDownload() = DownloadItem(
+        id = "network-policy",
+        contentType = "movie",
+        parentMetaId = "movie-1",
+        parentMetaType = "movie",
+        videoId = "movie-1",
+        title = "Example",
+        streamTitle = "Example stream",
+        providerName = "Example provider",
+        sourceUrl = "https://media.example/movie.mp4",
+        fileName = "movie-1.mp4",
+        status = DownloadStatus.Downloading,
+        createdAtEpochMs = 1L,
+        updatedAtEpochMs = 1L,
+    )
 }
