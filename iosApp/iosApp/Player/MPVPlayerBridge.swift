@@ -338,6 +338,44 @@ struct PendingLoadRequest {
     }
 }
 
+struct MpvAudioLanguagePreferenceState: Equatable {
+    private(set) var languages: [String]?
+    private(set) var selectedTrackId: Int?
+
+    var optionValue: String? {
+        languages?.joined(separator: ",")
+    }
+
+    mutating func select(trackId: Int) {
+        selectedTrackId = trackId
+    }
+
+    mutating func update(_ candidates: [String]) {
+        languages = candidates
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        selectedTrackId = nil
+    }
+}
+
+struct MpvPendingSubtitleRequest {
+    private(set) var url: String?
+
+    mutating func enqueue(_ candidate: String) {
+        let normalized = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        url = normalized.isEmpty ? nil : normalized
+    }
+
+    mutating func clearForNewSource() {
+        url = nil
+    }
+
+    mutating func takeAfterFileLoaded() -> String? {
+        defer { url = nil }
+        return url
+    }
+}
+
 struct MpvStartupAudioRequest {
     private(set) var url: String?
 
@@ -384,9 +422,9 @@ final class MPVPlayerViewController: UIViewController {
     private var loadRequestGeneration: UInt64 = 0
     private var startupSubtitles: [PluginSubtitle] = []
     private var startupAudioRequest = MpvStartupAudioRequest()
-    /// mpv's sub-add needs a loaded file. An add-on subtitle selected before that (Nuvio restores
-    /// the remembered one as soon as add-ons answer, often while the stream still opens) waits here.
-    private var pendingSubtitleUrl: String?
+    /// mpv's sub-add needs a loaded file. This request is cleared when a different source is queued,
+    /// but retained across retries and device-loss recovery of the same source.
+    private var pendingSubtitleRequest = MpvPendingSubtitleRequest()
     private var isFileLoaded = false
     private var pendingLoadRetryWorkItem: DispatchWorkItem?
     var mpv: OpaquePointer?
@@ -502,7 +540,7 @@ final class MPVPlayerViewController: UIViewController {
     private var lastSubtitleDelayMs: Int?
     private var lastVolume: Float?
     private var lastMuted: Bool?
-    private var lastSelectedAudioTrackId: Int?
+    private var audioLanguagePreferenceState = MpvAudioLanguagePreferenceState()
     private var lastSelectedSubtitleTrackId: Int?
     private var isRecoveringFromDeviceLoss = false
     private var isDeviceLossRecoveryPending = false
@@ -1086,6 +1124,7 @@ final class MPVPlayerViewController: UIViewController {
 
     private func queueLoad(_ request: PendingLoadRequest) {
         loadRequestGeneration &+= 1
+        pendingSubtitleRequest.clearForNewSource()
         pendingLoadRequest = request
         attemptStartPendingLoad()
     }
@@ -1520,7 +1559,11 @@ final class MPVPlayerViewController: UIViewController {
         setSpeed(currentSpeed)
         if let volume = lastVolume { setVolume(volume) }
         if let muted = lastMuted { setMuted(muted) }
-        if let audioTrack = lastSelectedAudioTrackId { selectAudio(audioTrack) }
+        if let alang = audioLanguagePreferenceState.optionValue {
+            setStringProperty("alang", alang)
+            setStringProperty("aid", "auto")
+        }
+        if let audioTrack = audioLanguagePreferenceState.selectedTrackId { selectAudio(audioTrack) }
         if let subtitleTrack = lastSelectedSubtitleTrackId { selectSubtitle(subtitleTrack) }
     }
 
@@ -1708,16 +1751,14 @@ final class MPVPlayerViewController: UIViewController {
     // MARK: - Track selection
 
     func selectAudio(_ trackId: Int) {
-        lastSelectedAudioTrackId = trackId
+        audioLanguagePreferenceState.select(trackId: trackId)
         guard mpv != nil else { return }
         setIntProperty("aid", Int64(trackId))
     }
 
     func applyAudioLanguagePreferences(_ languages: [String]) {
-        let normalized = languages
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        setStringProperty("alang", normalized.joined(separator: ","))
+        audioLanguagePreferenceState.update(languages)
+        setStringProperty("alang", audioLanguagePreferenceState.optionValue ?? "")
         setStringProperty("aid", "auto")
     }
 
@@ -1735,7 +1776,7 @@ final class MPVPlayerViewController: UIViewController {
         guard mpv != nil, isFileLoaded else {
             // Upstream: an add-on subtitle picked before mpv has loaded the file is queued and
             // added on MPV_EVENT_FILE_LOADED.
-            pendingSubtitleUrl = url
+            pendingSubtitleRequest.enqueue(url)
             return
         }
         let coreGeneration = mpvGeneration
@@ -1782,7 +1823,7 @@ final class MPVPlayerViewController: UIViewController {
     }
 
     func removeExternalSubtitles() {
-        pendingSubtitleUrl = nil
+        pendingSubtitleRequest.clearForNewSource()
         guard mpv != nil else { return }
         let coreGeneration = mpvGeneration
         onMpvQueue { [weak self] in
@@ -1793,7 +1834,7 @@ final class MPVPlayerViewController: UIViewController {
     }
 
     func removeExternalSubtitlesAndSelect(_ trackId: Int) {
-        pendingSubtitleUrl = nil
+        pendingSubtitleRequest.clearForNewSource()
         guard mpv != nil else { return }
         let coreGeneration = mpvGeneration
         onMpvQueue { [weak self] in
@@ -1912,7 +1953,7 @@ final class MPVPlayerViewController: UIViewController {
         pendingLoadRequest = nil
         startupSubtitles = []
         startupAudioRequest.clear()
-        pendingSubtitleUrl = nil
+        pendingSubtitleRequest.clearForNewSource()
         isFileLoaded = false
         if !isEmbeddedPreviewMode {
             nowPlayingController.invalidate()
@@ -2583,8 +2624,7 @@ final class MPVPlayerViewController: UIViewController {
                         let subtitles = self.startupSubtitles
                         self.startupSubtitles = []
                         subtitles.forEach { self.addSubtitle($0, mode: "auto") }
-                        if let url = self.pendingSubtitleUrl {
-                            self.pendingSubtitleUrl = nil
+                        if let url = self.pendingSubtitleRequest.takeAfterFileLoaded() {
                             self.addSubtitleUrl(url)
                         }
                         self.updateState()
