@@ -5954,3 +5954,31 @@ Verification and limitations for cycles 38–39:
 - Context7 was attempted but the exact-library documentation request hit the monthly quota. Android official documentation, AndroidX release notes/API reference and current AndroidX source were consulted.
 - No Gradle build, configuration, compilation, test, Macrobenchmark, device/emulator run or CI was executed. Build compatibility and generated artifact packaging remain unverified until the user authorizes those operations.
 - No Nuvio speedup is claimed yet: the committed source creates a reproducible profile-generation path, but actual generated profiles still need to be collected, reviewed and included in release output. The follow-up is a controlled repeated cold-start TTID/TTFD comparison with and without the profiles on the same device. Keep any profile only if that comparison does not regress.
+
+### Improvement cycle 40 — Harden Baseline Profile collection against unstable or non-launcher runs
+
+Integrated:
+- The profile collection journey now explicitly presses Home before launching Nuvio. This avoids recording whatever app/screen was left in the foreground between iterations.
+- Enabled strict profile stability. With the existing 15-iteration maximum and 3 stable iterations, the generator now fails rather than quietly writing a profile when the rules do not stabilize.
+- Raised only the profile producer module's minimum SDK to maxOf(28, app minSdk). AndroidX's BaselineProfileRule requires API 33+ on ordinary devices, or API 28+ on rooted devices. Nuvio's production app minSdk remains 24.
+- Verified the Java collect argument order against the AndroidX BaselineProfileRule API: package, maximum iterations, stable iterations, filename prefix, include-in-startup flag, strict-stability flag, filter predicate, and profile block.
+
+### Improvement cycle 41 — Add a required-profile cold-start comparison
+
+Integrated:
+- Added StartupBenchmark to the isolated :baselineProfile instrumentation module.
+- The two benchmark cases compare CompilationMode.None() against CompilationMode.Partial(BaselineProfileMode.Require), both using StartupMode.COLD, a Home reset, StartupTimingMetric, and 10 iterations.
+- The profile-enabled case requires the packaged profile and ProfileInstaller; it will not silently benchmark without a profile.
+- The instrumentation test is opt-in through the Macrobenchmark rule argument and is not linked to release assembly or CI.
+- The intended acceptance comparison is median TTID on the same physical device, app variant and app state. Android documentation warns against using emulator timing as representative performance evidence.
+
+Important measurement and coverage limits:
+- Nuvio's current Android launch does not explicitly signal Compose fully-drawn state to the Activity. The benchmark can compare TTID, but TTFD is not yet a trustworthy output. Android recommends Compose ReportDrawn / ReportDrawnWhen / ReportDrawnAfter for TTFD; a follow-up should wire a real, user-interactive readiness condition without adding an arbitrary delay: https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics.
+- The current generator deliberately does not create fake credentials or mock Home data. It records the installed app's real launcher startup state. A reproducible signed-in Home journey needs a safe test-data fixture before it can be profiled.
+- Generated profile artifacts still need to be collected, reviewed, packaged for both fullRelease and playstoreRelease, and checked for binary size (Android requires the compiled Baseline Profile to remain below 1.5 MB).
+
+Verification and limitations:
+- Static remote review only. No Gradle configuration, compilation, tests, profile collection, Macrobenchmark, device/emulator operations or CI were run.
+- The benchmark test source was checked against the current AndroidX 1.5.0 API documentation/source for MacrobenchmarkRule.measureRepeated, CompilationMode.None, CompilationMode.Partial, BaselineProfileMode.Require, StartupMode.COLD, StartupTimingMetric and Java Function1 lambda signatures, but compile compatibility remains unverified pending authorization.
+- Context7 was attempted for the exact AndroidX documentation but monthly quota was exhausted. Official Android Developers docs, AndroidX API/source and release notes were used.
+- No Nuvio startup speedup is claimed. The current remote source has a stricter generator and an A/B measurement harness, not a generated or measured profile.
