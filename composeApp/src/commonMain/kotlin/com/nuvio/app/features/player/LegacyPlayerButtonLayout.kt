@@ -8,6 +8,7 @@ enum class LegacyBottomButton(val storageId: String) {
     NIGHT_MODE("night_mode"),
     SOURCES("sources"),
     CHAPTERS("chapters"),
+    DISC_TITLES("disc_titles"),
     EPISODES("episodes"),
     LIVE_CHANNELS("live_channels"),
     QUALITY("quality"),
