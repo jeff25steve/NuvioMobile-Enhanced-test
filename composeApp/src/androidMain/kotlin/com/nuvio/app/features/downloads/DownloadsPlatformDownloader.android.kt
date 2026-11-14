@@ -37,6 +37,13 @@ internal actual object DownloadsPlatformDownloader {
         }
     }
 
+    actual suspend fun preloadTransferStore() {
+        val context = appContext ?: return
+        withContext(Dispatchers.IO) {
+            scheduler(context).store.transfers.value
+        }
+    }
+
     @Synchronized
     internal fun scheduler(context: Context): AndroidDownloadScheduler {
         val applicationContext = context.applicationContext
