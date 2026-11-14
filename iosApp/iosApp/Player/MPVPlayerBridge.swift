@@ -1864,6 +1864,16 @@ final class MPVPlayerViewController: UIViewController {
         let coreGeneration = mpvGeneration
         let requestGeneration = loadRequestGeneration
         let headers = activeRequestHeaders
+        onMpvQueue { [weak self] in
+            guard
+                let self,
+                self.mpvGeneration == coreGeneration,
+                self.loadRequestGeneration == requestGeneration
+            else {
+                return
+            }
+            self.pendingExternalSubtitleReplacement = nil
+        }
         // Hebrew SRTs are often authored with sentence-final punctuation at the start
         // of the line (for legacy LTR renderers). mpv lays Hebrew out RTL, so that
         // punctuation shows at the start of the sentence. Fix the file off the main
