@@ -5398,3 +5398,20 @@ After moving all Saved glass consumers to the scrolling-content backdrop, the st
 - References: [Compose graphics modifiers](https://developer.android.com/develop/ui/compose/graphics/draw/modifiers), [Compose lists and sticky headers](https://developer.android.com/develop/ui/compose/quick-guides/content/video/lists-in-compose), and [Android edge-to-edge design guidance](https://developer.android.com/design/ui/mobile/guides/layout-and-content/edge-to-edge).
 - Regression coverage was added for trailer selector surface eligibility/preview selection, Saved source-pill and filter insets, static-versus-content backdrop capture, and compact header height. **No Gradle tests, builds or CI were run** because they were not authorised. Verification is limited to reviewing the exact remote source and commit diffs; no post-change runtime screenshot or emulator preview was produced.
 - No workflow files, Codemagic files, dependencies or player behavior were changed.
+
+## 14 November 2026 — Detail trailer selector preview interaction parity
+
+### Improvement cycle 10 — Keep selector preview taps from opening the live category menu
+
+A cross-path review of the restored trailer selector found an interaction mismatch. The native Liquid Glass button selected the `DETAIL_TRAILER_SELECTOR` preview surface without opening the category menu, but the Compose fallback invoked the same preview-selection callback and unconditionally set `menuExpanded = true`. In the editor, this could open the independently configurable `DETAIL_TRAILER_MENU` while the user was trying to select the selector surface.
+
+- The Compose fallback now uses the same preview-versus-live distinction as the native path: preview taps select only `DETAIL_TRAILER_SELECTOR`; live taps open the category menu.
+- Added a common regression test covering both preview and live menu-opening policy.
+- No changes to live category selection, trailer ordering, menu configuration, or player behavior.
+
+### Evidence and verification boundary
+
+- The current branch was re-read at `7e10dec534614dd234e26ef601498f3be3d5b16c` before changes.
+- Context7 resolved Compose Multiplatform. The repository pins `1.13.0-beta01`, which was not available in Context7's version list; `1.12.2` was the closest available version. Its interaction documentation supports the existing `Modifier.clickable` callback approach; no new Compose API was introduced.
+- The regression test was committed before the implementation. **It was not executed** because the explicit no-build/no-CI constraint was preserved; therefore a red/green test cycle and runtime behavior are not claimed as verified.
+- Static review of the exact test and implementation commit diffs confirmed the preview path no longer sets `menuExpanded`, while the live path still does. No dependencies, build configuration, workflow files, or CI settings were changed.
