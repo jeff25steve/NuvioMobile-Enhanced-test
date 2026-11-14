@@ -5582,3 +5582,17 @@ The source-inclusive validation runs 43563190853 (Linux, job 132351267150) and 4
 - Context7 was attempted for Kotlin 2.4.10 and the repository's relevant library documentation, but its monthly request quota was exhausted. No Context7 documentation result is claimed. Exa was used to cross-check the official Kotlin, kotlinx.coroutines, Coil 3.6.3 and Kotlin/Native documentation above.
 - Regression tests were committed before the corresponding shared sampling and playback-gate implementations. No local Gradle, Kotlin/Native or Xcode build was run; the fixes are awaiting the fresh CI runs. The previous failed runs are diagnostic evidence only and do not verify these changes.
 - Source commits: Simkl return fix e66893f042d56742e9189b2f832c6302ddc2c074; backdrop test 7bd8e2ddf292569de85cdad248596266cb7d8b10, common helper c78c5eacc6485b8a44c872276958b05ebb152dea, Android delegation 42e43691a1872461555c9eacd2515f19d4086a07, test registration correction c632b2db27d2328e2ddb8deb0902f9a29a62472f; playback test-first commit f43b575e8a082571ab2c811db73d543d62d05f0b, shared gate 0593f50a9a698605076d5565804bdb437078d4c2, Skia playback lifecycle 591935ca6b7cd5482f110cf17d4c252d07b2d7a6, iOS image-loader budget/restoration f4a01989b482485302f63e5491514b9e5ac9c931, shared-test relocation and integration bc80af9663569a04c6a00fc0694526cc3bd9865e, b180a18a8d328296eaee8f47079194b2817ddee4, ae80a3a59d81234828b1cdbd156ef145aaf14d15.
+
+
+### Follow-up improvement cycle 23 — Repair the existing common-test compilation blockers
+
+The first repaired Linux run (43584356595) compiled the production Android main source, then failed in :composeApp:compileAndroidHostTest. The log exposed unrelated stale test call sites and one generic inference issue that were not reachable until earlier production compilation errors were fixed.
+
+- LibraryDisplaySettingsTest called libraryContentTopPadding without the now-required sourceSwitchInset argument. The tests explicitly supply 0.dp, preserving their original assertions for the saved-controls inset while acknowledging the current source-switch inset API.
+- SimklSyncEngineTest's stale-profile test used an untyped listOf(...) in assertEquals. This compiler version could not infer the request element type from the generic assertion; it now uses listOf<SimklAllItemsRequest>(...).
+- Both changes are confined to test sources and keep the existing production contracts intact.
+- Commits: Library test 10f908a14157e14474896e6c2e9baab67fcfeafe; Simkl test 2c9a2b4e83b20734b54323dbccc5e080ecc474c1.
+
+The first repaired Linux run's complete diagnostic was obtained from job 132415567219: two missing sourceSwitchInset arguments in LibraryDisplaySettingsTest.kt lines 11 and 12, and a type-inference diagnostic in SimklSyncEngineTest.kt line 79. These are test-compilation failures, not runtime assertions. The fullDebug APK stage was consequently skipped. No local tests or builds were run. A clean Linux validation branch must use these updated test sources before the host-test task can be considered verified.
+
+Validation still in progress: The matching iOS run 43584356627 is still compiling the unsigned Debug IPA on the repaired production source revision 9c876cdbf6f8ad6e7360ac7782ac58e0b72d6437. Its outcome is not yet known; this run does not compile commonTest sources.
