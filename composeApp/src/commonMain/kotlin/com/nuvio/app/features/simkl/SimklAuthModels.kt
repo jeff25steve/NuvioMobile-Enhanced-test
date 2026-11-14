@@ -116,4 +116,5 @@ internal fun isSimklAuthProfileGenerationCurrent(
     loadedProfileId: Int?,
     activeProfileId: Int,
 ): Boolean =
-    expectedGeneration == currentGeneration && loadedProfileId == activeProfileId
+    expectedGeneration == currentGeneration &&
+        isSimklAuthProfileIdentityCurrent(loadedProfileId, activeProfileId)
