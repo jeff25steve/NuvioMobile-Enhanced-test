@@ -3,14 +3,14 @@ import XCTest
 
 final class MpvStartPositionTests: XCTestCase {
     func testFormatsRetryPositionWithStableDecimalSeparator() {
-        XCTAssertEqual(mpvStartPositionSeconds(12.3456), "12.346")
-        XCTAssertEqual(mpvStartPositionSeconds(0.001), "0.001")
+        XCTAssertEqual(mpvRetryStartPositionSeconds(12.3456), "12.346")
+        XCTAssertEqual(mpvRetryStartPositionSeconds(0.001), "0.001")
     }
 
     func testOmitsInvalidOrBeginningPositions() {
-        XCTAssertNil(mpvStartPositionSeconds(0))
-        XCTAssertNil(mpvStartPositionSeconds(-1))
-        XCTAssertNil(mpvStartPositionSeconds(.nan))
-        XCTAssertNil(mpvStartPositionSeconds(.infinity))
+        XCTAssertNil(mpvRetryStartPositionSeconds(0))
+        XCTAssertNil(mpvRetryStartPositionSeconds(-1))
+        XCTAssertNil(mpvRetryStartPositionSeconds(.nan))
+        XCTAssertNil(mpvRetryStartPositionSeconds(.infinity))
     }
 }
