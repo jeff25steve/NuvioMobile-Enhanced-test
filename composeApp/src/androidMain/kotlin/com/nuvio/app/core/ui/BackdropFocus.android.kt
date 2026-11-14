@@ -19,30 +19,3 @@ internal actual fun sampleBackdropPixels(image: Image, targetWidth: Int): Sample
     if (software !== source) software.recycle()
     return downsampleArgb(pixels, width, height, targetWidth)
 }
-
-/** Nearest-neighbour ARGB reduction that preserves the input aspect ratio. */
-internal fun downsampleArgb(
-    pixels: IntArray,
-    width: Int,
-    height: Int,
-    targetWidth: Int,
-): SampledPixels? {
-    if (width <= 0 || height <= 0 || targetWidth <= 0) return null
-    if (width.toLong() * height.toLong() > pixels.size.toLong()) return null
-
-    val sampledWidth = minOf(width, targetWidth)
-    val sampledHeight = ((height.toLong() * sampledWidth + width / 2L) / width)
-        .coerceAtLeast(1L)
-        .toInt()
-    val sampled = IntArray(sampledWidth * sampledHeight)
-    for (y in 0 until sampledHeight) {
-        val sourceY = (((2L * y + 1L) * height) / (2L * sampledHeight))
-            .toInt().coerceIn(0, height - 1)
-        for (x in 0 until sampledWidth) {
-            val sourceX = (((2L * x + 1L) * width) / (2L * sampledWidth))
-                .toInt().coerceIn(0, width - 1)
-            sampled[y * sampledWidth + x] = pixels[sourceY * width + sourceX]
-        }
-    }
-    return SampledPixels(sampled, sampledWidth, sampledHeight)
-}
