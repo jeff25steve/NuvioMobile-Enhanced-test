@@ -338,6 +338,24 @@ struct PendingLoadRequest {
     }
 }
 
+struct MpvStartupAudioRequest {
+    private(set) var url: String?
+
+    mutating func replace(with candidate: String?) {
+        let normalized = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
+        url = normalized.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    mutating func takeAfterFileLoaded() -> String? {
+        defer { url = nil }
+        return url
+    }
+
+    mutating func clear() {
+        url = nil
+    }
+}
+
 // MARK: - MPV Player View Controller
 
 final class MPVPlayerViewController: UIViewController {
@@ -365,6 +383,7 @@ final class MPVPlayerViewController: UIViewController {
     private var pendingLoadRequest: PendingLoadRequest?
     private var loadRequestGeneration: UInt64 = 0
     private var startupSubtitles: [PluginSubtitle] = []
+    private var startupAudioRequest = MpvStartupAudioRequest()
     /// mpv's sub-add needs a loaded file. An add-on subtitle selected before that (Nuvio restores
     /// the remembered one as soon as add-ons answer, often while the stream still opens) waits here.
     private var pendingSubtitleUrl: String?
@@ -1107,15 +1126,11 @@ final class MPVPlayerViewController: UIViewController {
         invalidateMediaInfoCache()
         isFileLoaded = false
         startupSubtitles = request.subtitles
+        startupAudioRequest.replace(with: request.audioUrl)
         if let startPositionSeconds = request.startPositionSeconds {
             command("loadfile", args: [request.urlString, "replace", "-1", "start=\(startPositionSeconds)"])
         } else {
             command("loadfile", args: [request.urlString, "replace"])
-        }
-        if let audioUrl = request.audioUrl, !audioUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                self?.command("audio-add", args: [audioUrl, "select"], checkForErrors: false)
-            }
         }
     }
 
@@ -1896,6 +1911,7 @@ final class MPVPlayerViewController: UIViewController {
         pendingSurfaceLayoutWorkItems.removeAll(keepingCapacity: false)
         pendingLoadRequest = nil
         startupSubtitles = []
+        startupAudioRequest.clear()
         pendingSubtitleUrl = nil
         isFileLoaded = false
         if !isEmbeddedPreviewMode {
@@ -2561,6 +2577,9 @@ final class MPVPlayerViewController: UIViewController {
                         self.playbackStateGeneration &+= 1
                         self.invalidateMediaInfoCache()
                         self.isFileLoaded = true
+                        if let audioUrl = self.startupAudioRequest.takeAfterFileLoaded() {
+                            self.command("audio-add", args: [audioUrl, "select"], checkForErrors: false)
+                        }
                         let subtitles = self.startupSubtitles
                         self.startupSubtitles = []
                         subtitles.forEach { self.addSubtitle($0, mode: "auto") }
