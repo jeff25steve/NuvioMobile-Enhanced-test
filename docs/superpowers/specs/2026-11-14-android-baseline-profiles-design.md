@@ -110,3 +110,21 @@ Measurement limitations:
 - The A/B comparison must use the same physical device and matching app flavor/build configuration. Compare median TTID and keep the profile only if it does not regress. Do not treat emulator timings as user-facing performance evidence.
 
 These changes add the source-side collection and measurement mechanism only. No profile is generated or included in a release yet, and no Nuvio speedup is claimed.
+
+
+## Startup readiness measurement update — 14 November 2026
+
+The Android launch path now uses the existing AppGate readiness signal to report a true fully-drawn state. MainActivity passes App(onAppReady = ...) into remembered state and supplies that state to Compose ReportDrawnWhen. This does not introduce a fixed delay, alter navigation, force network completion, or change what users see.
+
+A root-level Compose test tag, nuvio_startup_ready, is mapped through testTagsAsResourceId for UI Automator. It appears only after the same main-content-ready callback. The wrapper remains a single full-size root container so the marker does not add another nested layout layer.
+
+The manual StartupBenchmark waits for this marker after startActivityAndWait(). Android documents that the latter waits for the first frame only; a benchmark must wait for the actual content-ready element inside the measured block for TTFD to be captured. The benchmark timeout is a condition-based failure, not a sleep.
+
+The Home readiness measurement requires a preconfigured signed-in test installation. Login/onboarding is not considered the Home-ready state. The benchmark harness and runtime callback wiring remain uncompiled and unexecuted until the user authorizes build/device validation. This source change improves measurement quality; it does not itself make startup faster.
+
+References:
+- https://developer.android.com/topic/performance/benchmarking-macrobenchmark-metrics
+- https://developer.android.com/codelabs/android-macrobenchmark-inspect
+- https://developer.android.com/reference/kotlin/androidx/activity/compose/ReportDrawnWhen.composable
+- https://developer.android.com/develop/ui/compose/testing/interoperability
+- https://developer.android.com/jetpack/androidx/releases/test-uiautomator
