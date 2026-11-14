@@ -14,16 +14,13 @@ command -v unzip >/dev/null 2>&1 || fail "unzip is required to inspect the packa
 [[ -x ./gradlew ]] || fail "Run this script from a checkout containing the executable Gradle wrapper."
 
 if [[ ! -f local.properties ]]; then
-  fail "local.properties is missing. Configure the same release keystore and app properties used for signed releases."
+  fail "local.properties is missing. Configure NUVIO_SUPABASE_URL and NUVIO_SUPABASE_ANON_KEY before running the signed-in Home benchmark."
 fi
 
-for key in NUVIO_RELEASE_STORE_FILE NUVIO_RELEASE_STORE_PASSWORD NUVIO_RELEASE_KEY_ALIAS NUVIO_RELEASE_KEY_PASSWORD; do
+for key in NUVIO_SUPABASE_URL NUVIO_SUPABASE_ANON_KEY; do
   grep -Eq "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*.+$" local.properties ||
-    fail "local.properties is missing the required release-signing property: ${key}"
+    fail "local.properties is missing the required runtime property: ${key}"
 done
-
-store_file="$(sed -n 's/^[[:space:]]*NUVIO_RELEASE_STORE_FILE[[:space:]]*=[[:space:]]*//p' local.properties | tail -n 1 | tr -d '\r')"
-[[ -f "$store_file" ]] || fail "The release keystore referenced by NUVIO_RELEASE_STORE_FILE does not exist."
 
 mapfile -t connected_devices < <(adb devices | awk 'NR > 1 && $2 == "device" { print $1 }')
 [[ "${#connected_devices[@]}" -eq 1 ]] ||
@@ -62,8 +59,11 @@ EOF
 
 printf 'Physical device: %s (API %s)\n' "$DEVICE_MODEL" "$API_LEVEL"
 printf 'Logs and results: %s\n' "$OUTPUT_DIR"
-printf '\nBefore continuing, make sure Nuvio is signed in and opens directly to the normal Home screen.\n'
-printf 'The profile collector and benchmark both fail if onboarding/authentication or the Home-ready state is not reached.\n\n'
+printf '\nThis uses AndroidX benchmarkRelease APKs signed with the local Android debug key.\n'
+printf 'If production-signed Nuvio is installed, uninstall it once, then install and sign in to the benchmark build.\n'
+printf 'Do not uninstall or clear app data between the full and playstore runs; both variants share the benchmark signature and package ID.\n'
+printf 'Make sure Nuvio opens directly to the normal signed-in Home screen.\n'
+printf 'The collector and benchmark fail if authentication/onboarding or Home readiness is not reached.\n\n'
 
 run_gradle_step() {
   local label="$1"
@@ -100,19 +100,19 @@ done
 
 # Build/run one flavor at a time so the Gradle split-APK switch and the app's
 # same-package signed-in state are not changed between benchmark arms.
-run_gradle_step "03-benchmark-full-release" \
-  :baselineProfile:connectedFullBenchmarkAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark \\
+run_gradle_step "03-benchmark-full-benchmarkRelease" \
+  :baselineProfile:connectedFullBenchmarkReleaseAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \\
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
-run_gradle_step "04-benchmark-playstore-release" \
-  :baselineProfile:connectedPlaystoreBenchmarkAndroidTest \
+run_gradle_step "04-benchmark-playstore-benchmarkRelease" \
+  :baselineProfile:connectedPlaystoreBenchmarkReleaseAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark \\
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 : > "$OUTPUT_DIR/summary.txt"
 for flavor in full playstore; do
-  apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/benchmark/*" -print | head -n 1)"
+  apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/benchmarkRelease/*" -print | head -n 1)"
   [[ -n "$apk" ]] || fail "Could not find the optimized $flavor benchmark APK."
   profile_bytes="$(unzip -p "$apk" assets/dexopt/baseline.prof 2>/dev/null | wc -c | awk '{print $1}' || true)"
   [[ "$profile_bytes" =~ ^[0-9]+$ ]] || profile_bytes=0
