@@ -108,7 +108,7 @@ class NuvioScreenHeaderTest {
     }
 
     @Test fun compactLibraryHeaderCanStopItsBackgroundBeforeThePinnedSourcePill() {
-        val bottomPadding = mutableStateOf(16.dp)
+        val bottomPadding = mutableStateOf(4.dp)
         compose.setContent {
             NuvioTheme {
                 Box(Modifier.size(320.dp, 180.dp)) {
@@ -126,7 +126,7 @@ class NuvioScreenHeaderTest {
         compose.runOnIdle { bottomPadding.value = 0.dp }
         compose.waitForIdle()
         val compactHeight = compose.onNodeWithTag("libraryHeader").fetchSemanticsNode().boundsInRoot.height
-        val expectedReduction = with(compose.density) { 16.dp.toPx() }
+        val expectedReduction = with(compose.density) { 4.dp.toPx() }
 
         assertTrue(
             abs((originalHeight - compactHeight) - expectedReduction) <= 1f,
