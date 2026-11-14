@@ -405,9 +405,13 @@ func makeMpvExternalSubtitleReplacementPlan(
     func normalizedLocation(_ value: String) -> String {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return "" }
-        if let url = URL(string: value), let scheme = url.scheme?.lowercased(),
-           scheme == "http" || scheme == "https" {
-            return url.absoluteString
+        if let url = URL(string: value), let scheme = url.scheme?.lowercased() {
+            if scheme == "http" || scheme == "https" {
+                return url.absoluteString
+            }
+            if scheme == "file" {
+                return url.standardizedFileURL.path
+            }
         }
         return URL(fileURLWithPath: value).standardizedFileURL.path
     }
