@@ -14,6 +14,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.nuvio.app.core.auth.AuthStorage
 import com.nuvio.app.core.network.ServerConfigurationStorage
@@ -221,8 +227,26 @@ open class MainActivity : AppCompatActivity() {
             }
             val sheetBackdropSource = rememberNuvioBackdrop()
             val sheetBackdrop = remember(sheetBackdropSource) { NuvioSheetBackdrop(sheetBackdropSource) }
-            NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
-                App(onAppReady = { ready -> appReady.value = ready })
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { testTagsAsResourceId = true },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (appReady.value) {
+                                Modifier.testTag("nuvio_startup_ready")
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
+                    NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
+                        App(onAppReady = { ready -> appReady.value = ready })
+                    }
+                }
             }
         }
         contentReady = true
