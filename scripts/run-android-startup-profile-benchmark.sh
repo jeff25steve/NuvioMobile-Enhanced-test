@@ -89,7 +89,7 @@ run_gradle_step "02-generate-playstore-release-profile" \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 for flavor in full playstore; do
-  profile_dir="androidApp/src/$flavor/generated/baselineProfiles"
+  profile_dir="androidApp/src/${flavor}Release/generated/baselineProfiles"
   [[ -d "$profile_dir" ]] ||
     fail "Expected generated profile directory is missing: $profile_dir"
   find "$profile_dir" -maxdepth 1 -type f \( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \) -print -exec wc -c {} \; |
@@ -107,7 +107,7 @@ run_gradle_step "03-benchmark-full-benchmarkRelease" \
 
 run_gradle_step "04-benchmark-playstore-benchmarkRelease" \
   :baselineProfile:connectedPlaystoreBenchmarkReleaseAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark \\
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \\
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 : > "$OUTPUT_DIR/summary.txt"
@@ -122,7 +122,7 @@ for flavor in full playstore; do
   (( profile_bytes < 1572864 )) || fail "The $flavor compiled Baseline Profile is at least 1.5 MB."
 done
 
-for label in 03-benchmark-full-release 04-benchmark-playstore-release; do
+for label in 03-benchmark-full-benchmarkRelease 04-benchmark-playstore-benchmarkRelease; do
   {
     printf '\n--- %s ---\n' "$label"
     grep -E 'StartupBenchmark|timeToInitialDisplayMs|timeToFullDisplayMs|median|min|max|Median' "$OUTPUT_DIR/$label.log" || true
@@ -132,6 +132,6 @@ done
 printf '\n========== RESULT FILES ==========\n'
 cat "$OUTPUT_DIR/summary.txt"
 printf '\nRaw Macrobenchmark logs and traces are retained in Gradle build outputs.\n'
-printf 'Generated profile files are in androidApp/src/full/generated/baselineProfiles and androidApp/src/playstore/generated/baselineProfiles.\n'
+printf 'Generated profile files are in androidApp/src/fullRelease/generated/baselineProfiles and androidApp/src/playstoreRelease/generated/baselineProfiles.\n'
 printf 'Do not commit new profiles until both flavors show no TTID or TTFD regression and a repeatable improvement.\n'
 printf 'Output directory: %s\n' "$OUTPUT_DIR"
