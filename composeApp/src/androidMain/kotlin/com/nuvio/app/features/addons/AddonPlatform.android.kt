@@ -90,13 +90,31 @@ private fun parseEnabledStateLine(line: String): Pair<String, Boolean>? {
     return url to enabled
 }
 
+internal class LazyAddonHttpClient(
+    private val createClient: () -> OkHttpClient,
+) {
+    @Volatile
+    private var client: OkHttpClient? = null
+
+    fun get(): OkHttpClient {
+        client?.let { return it }
+        return synchronized(this) {
+            client ?: createClient().also { client = it }
+        }
+    }
+}
+
 internal object AddonHttpClientProvider {
     private const val cacheSizeBytes = 50L * 1024L * 1024L
-    private var client = buildAddonHttpClient()
 
-    fun initialize(context: Context) {
-        if (client.cache != null) return
-        client = buildAddonHttpClient(
+    @Volatile
+    private var appContext: Context? = null
+
+    private val client = LazyAddonHttpClient {
+        val context = checkNotNull(appContext) {
+            "Add-on HTTP client requested before application initialization"
+        }
+        buildAddonHttpClient(
             cache = Cache(
                 directory = File(context.cacheDir, "addon_http"),
                 maxSize = cacheSizeBytes,
@@ -104,7 +122,11 @@ internal object AddonHttpClientProvider {
         )
     }
 
-    fun get(): OkHttpClient = client
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    fun get(): OkHttpClient = client.get()
 }
 
 private val addonDispatcher = Dispatcher().apply {

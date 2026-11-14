@@ -101,7 +101,6 @@ internal actual object EpisodeReleaseNotificationPlatform {
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
-        ensureNotificationChannel()
     }
 
     fun bindActivity(activity: ComponentActivity) {

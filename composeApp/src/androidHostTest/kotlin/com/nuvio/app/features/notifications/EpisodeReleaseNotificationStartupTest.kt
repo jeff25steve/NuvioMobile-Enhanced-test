@@ -3,12 +3,11 @@ package com.nuvio.app.features.notifications
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 @RunWith(RobolectricTestRunner::class)
@@ -16,7 +15,7 @@ import kotlin.test.assertNull
 class EpisodeReleaseNotificationStartupTest {
     @Test
     fun initializeDoesNotCreateNotificationChannelBeforeItIsNeeded() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = RuntimeEnvironment.getApplication()
         val notificationManager = checkNotNull(
             context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager,
         )
