@@ -8,8 +8,8 @@ class LibraryDisplaySettingsTest {
 
     @Test
     fun `saved controls reserve space only when the pinned controls are visible`() {
-        assertEquals(72.dp, libraryContentTopPadding(hasSavedControls = true, savedControlsInset = 72.dp))
-        assertEquals(0.dp, libraryContentTopPadding(hasSavedControls = false, savedControlsInset = 72.dp))
+        assertEquals(72.dp, libraryContentTopPadding(hasSavedControls = true, sourceSwitchInset = 0.dp, savedControlsInset = 72.dp))
+        assertEquals(0.dp, libraryContentTopPadding(hasSavedControls = false, sourceSwitchInset = 0.dp, savedControlsInset = 72.dp))
     }
 
     @Test
