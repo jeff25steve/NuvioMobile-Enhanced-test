@@ -1,19 +1,7 @@
 name: Android Startup Profile Benchmark Builds
 
+# Manual-only: source pushes never start an Android build.
 on:
-  push:
-    branches:
-      - main-build-testing
-    paths:
-      - ".github/workflows/android-startup-profile-benchmark.yml"
-      - "androidApp/**"
-      - "baselineProfile/**"
-      - "composeApp/**"
-      - "native/**"
-      - "gradle/**"
-      - "scripts/run-android-startup-profile-benchmark.sh"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
   workflow_dispatch:
 
 permissions:
@@ -25,9 +13,9 @@ concurrency:
 
 jobs:
   build:
-    name: Build R8 benchmark APKs for both release flavors
+    name: Build phone-ready R8 and profile-capture APKs
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       LOCAL_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
       CONTRIBUTIONS_URL: https://api.github.com/repos/luqmanfadlli/NuvioMobile-Enhanced/contributors?per_page=100
@@ -72,8 +60,13 @@ jobs:
           EOF
           printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
 
-      - name: Validate physical-device runner script
-        run: bash -n scripts/run-android-startup-profile-benchmark.sh
+      - name: Validate phone-only and desktop runner scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/run-android-startup-profile-benchmark.sh
+          sh -n scripts/nuvio-phone-benchmark.sh
+          sh scripts/tests/test-nuvio-phone-benchmark.sh
 
       - name: Set up Rust Android targets
         shell: bash
@@ -82,10 +75,28 @@ jobs:
           rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
           cargo install cargo-ndk --locked
 
-      # AndroidX creates benchmarkRelease from release: R8 and resource shrinking
-      # remain enabled; the variant is non-debuggable/profileable and uses a local
-      # debug key so the fork does not need the production keystore secrets.
-      - name: Build full R8 benchmark app and instrumentation APKs
+      # Profile rules are generated against nonMinifiedRelease. Both profiling
+      # build types share the isolated .benchmark package and signing config.
+      - name: Build full profile-capture APK pair
+        run: |
+          ./gradlew \
+            :androidApp:assembleFullNonMinifiedRelease \
+            :baselineProfile:assembleFullNonMinifiedRelease \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore \
+            --stacktrace
+
+      - name: Build Play Store profile-capture APK pair
+        run: |
+          ./gradlew \
+            :androidApp:assemblePlaystoreNonMinifiedRelease \
+            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
+            -Pnuvio.android.distribution=playstore \
+            -Pnuvio.ios.distribution=appstore \
+            --stacktrace
+
+      # This is the actual non-debuggable, profileable R8 target for Macrobenchmark.
+      - name: Build full R8 benchmark APK pair
         run: |
           ./gradlew \
             :androidApp:assembleFullBenchmarkRelease \
@@ -94,7 +105,7 @@ jobs:
             -Pnuvio.ios.distribution=appstore \
             --stacktrace
 
-      - name: Build Play Store R8 benchmark app and instrumentation APKs
+      - name: Build Play Store R8 benchmark APK pair
         run: |
           ./gradlew \
             :androidApp:assemblePlaystoreBenchmarkRelease \
@@ -110,85 +121,86 @@ jobs:
           mkdir -p phone-benchmark
 
           for flavor in full playstore; do
-            app_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/benchmarkRelease/*" -print | head -n 1)"
-            test_apk="$(find baselineProfile/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/benchmarkRelease/*" -print | head -n 1)"
-
-            [[ -n "$app_apk" ]] || {
-              echo "Missing optimized $flavor benchmarkRelease app APK." >&2
-              find androidApp/build/outputs/apk -type f -name '*.apk' -print >&2
-              exit 1
-            }
-            [[ -n "$test_apk" ]] || {
-              echo "Missing $flavor Macrobenchmark instrumentation APK." >&2
-              find baselineProfile/build/outputs/apk -type f -name '*.apk' -print >&2
-              exit 1
-            }
-
-            cp "$app_apk" "phone-benchmark/Nuvio-$flavor-BenchmarkRelease.apk"
-            cp "$test_apk" "phone-benchmark/Nuvio-$flavor-BenchmarkRelease-Tests.apk"
+            for variant in nonMinifiedRelease benchmarkRelease; do
+              app_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/$variant/*" -print | head -n 1)"
+              test_apk="$(find baselineProfile/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/$variant/*" -print | head -n 1)"
+              [[ -n "$app_apk" ]] || { echo "Missing $flavor/$variant app APK." >&2; exit 1; }
+              [[ -n "$test_apk" ]] || { echo "Missing $flavor/$variant test APK." >&2; exit 1; }
+              if [[ "$variant" == "nonMinifiedRelease" ]]; then output_variant="NonMinifiedRelease"; else output_variant="BenchmarkRelease"; fi
+              cp "$app_apk" "phone-benchmark/Nuvio-$flavor-$output_variant.apk"
+              cp "$test_apk" "phone-benchmark/Nuvio-$flavor-$output_variant-Tests.apk"
+            done
           done
 
+          cp scripts/nuvio-phone-benchmark.sh phone-benchmark/
           cp scripts/run-android-startup-profile-benchmark.sh phone-benchmark/
           cat > phone-benchmark/START-HERE.txt <<'EOF'
-          NUVIO ANDROID STARTUP PROFILE / BENCHMARK BUNDLE
+          NUVIO ANDROID STARTUP PROFILE / BENCHMARK — PHONE-ONLY BUNDLE
 
-          This bundle contains the optimized AndroidX benchmarkRelease app/test APK
-          pairs for both Nuvio distribution flavors:
-          - full
-          - playstore
+          You do not need a computer. This bundle has eight universal APKs:
+          - full + playstore, each with a nonMinifiedRelease profile-capture pair
+          - full + playstore, each with an R8 benchmarkRelease pair
 
-          These are release-mirrored profiling APKs, not debug-build-type APKs:
-          - R8/minification enabled
-          - resource shrinking enabled
-          - non-debuggable
-          - profileable for Macrobenchmark
-          - signed with the GitHub runner's local Android debug key
-          Production release signing keys are not included in this repository.
+          Benchmark variants install as com.nuvio.media.benchmark, not production
+          com.nuvio.media. Your normal Nuvio app and its data stay installed and
+          untouched. All variants in this one artifact share a temporary signing key
+          and the isolated .benchmark package, so signed-in state survives upgrades.
 
-          INSTALL / SIGN-IN
-          1. Use one physical Android device for both flavors and both A/B arms.
-          2. Do not install these CI APKs for the local device run: CI's temporary Android
-             debug key differs from the debug key on your machine. The local runner builds
-             and installs its own benchmarkRelease APKs using one consistent local key.
-          3. If production-signed Nuvio is installed, the local install will be rejected.
-             Uninstall the production copy once, then rerun the script; this clears its
-             local data, so you must sign in again on the benchmark build.
-          4. The script installs the local full benchmarkRelease APK and pauses while you
-             sign in on the phone. Keep that app installed for the full/playstore runs.
-          5. Do not clear app data or uninstall between flavors; both share
-             com.nuvio.media and the same local benchmark signing key.
-          6. Keep the device cool, plugged in, and on the same network for all runs.
+          SET UP YOUR SAMSUNG PHONE
+          1. Download this ZIP artifact from the GitHub Actions run and extract all
+             files into Internal storage/Download/NuvioBenchmark.
+          2. Install LADB from Google Play:
+             https://play.google.com/store/apps/details?id=com.draco.ladb
+          3. Enable Developer options by tapping Build number seven times in
+             Settings > About phone > Software information (skip if already enabled).
+          4. Settings > Developer options > Wireless debugging: turn it on.
+          5. Open LADB and Settings in Samsung split-screen.
+          6. In Wireless debugging, tap Pair device with pairing code. Keep that
+             dialog open, then enter its six-digit pairing code and the port shown
+             after the colon in the IP:port address into LADB and pair.
 
-          PROFILE GENERATION / A-B
-          Run on a machine with this repository revision, Android SDK, Gradle, ADB, and
-          the same physical device connected. Android 13+ (API 33+) is supported without
-          root; API 28+ is supported on a rooted device.
+          RUN THESE COMMANDS IN ORDER IN LADB
+          FULL:
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile full
+          Then open Nuvio, sign in and leave it on the normal Home screen.
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect full
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install full
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure full
 
-          Run:
-            bash scripts/run-android-startup-profile-benchmark.sh
+          PLAY STORE:
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile playstore
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect playstore
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install playstore
+          sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure playstore
 
-          The script builds and installs the local R8 benchmark variant, pauses for sign-in,
-          generates profiles for both flavors, and runs the two A/B arms for each flavor.
+          Do not clear data or uninstall between flavors. They share the isolated
+          .benchmark package and this artifact's signing certificate. If Android
+          reports an update-signature conflict from an older benchmark artifact,
+          save the results and remove ONLY com.nuvio.media.benchmark. Never remove
+          com.nuvio.media (the production app).
 
-          The script generates separate fullRelease and playstoreRelease Baseline and
-          Startup Profiles from the nonMinifiedRelease variants. It then compares 10
-          cold starts with CompilationMode.None() against 10 with
-          CompilationMode.Partial(BaselineProfileMode.Require) for each flavor using
-          the same device and signed-in install.
+          RESULTS
+          My Files > Internal storage > Download > NuvioStartupBenchmark contains
+          copied instrumentation logs, generated source profile text and Macrobenchmark
+          JSON/traces. Upload that folder here for review.
 
-          Both collection and measurement wait for Nuvio's nuvio_startup_ready marker.
-          Login/onboarding does not count as Home-ready and makes the run fail.
+          nonMinifiedRelease generates readable candidate profile rules.
+          benchmarkRelease is R8/minified, non-debuggable and profileable. Macrobenchmark
+          runs 10 cold launches with CompilationMode.None and 10 with
+          CompilationMode.Partial(BaselineProfileMode.Require). The profile-enabled
+          arm uses the profile already packaged in that APK. A newly collected profile
+          is not inserted into the APK automatically: send the text files for review,
+          then a new authorized build is needed to measure that candidate profile.
 
-          Review TTID and TTFD medians for both flavors and verify the packaged binary
-          assets/dexopt/baseline.prof is below 1.5 MB. Keep generated profiles only if
-          both TTID and TTFD improve repeatably, with no regressions. Do not commit
-          profiles merely because collection/build succeeds.
+          Keep the phone cool, plugged in and otherwise idle. Keep the same device and
+          signed-in Home state throughout. Login, onboarding or a missing Home-ready
+          signal causes the test to fail rather than count as a successful launch.
           EOF
 
-          find phone-benchmark -type f -name '*.apk' -print0 | sort -z | xargs -0 sha256sum > phone-benchmark/SHA256SUMS.txt
+          find phone-benchmark -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > phone-benchmark/SHA256SUMS.txt
           find phone-benchmark -maxdepth 2 -type f -printf '%p (%s bytes)\n' | sort
 
-      - name: Upload R8 benchmark APK bundle
+      - name: Upload phone-ready benchmark APK bundle
         uses: actions/upload-artifact@v7
         with:
           name: nuvio-android-startup-profile-${{ github.sha }}
