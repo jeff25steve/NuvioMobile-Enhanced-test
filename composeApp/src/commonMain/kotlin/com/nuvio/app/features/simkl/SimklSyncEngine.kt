@@ -6,8 +6,12 @@ internal class SimklSyncEngine(
     private val remote: SimklSyncRemote,
     private val nowEpochMs: () -> Long,
 ) {
-    suspend fun synchronize(current: SimklSyncSnapshot): SimklSyncSnapshot {
-        if (!current.isInitialized) return initialSync()
+    suspend fun synchronize(
+        current: SimklSyncSnapshot,
+        ensureCurrent: () -> Unit = {},
+    ): SimklSyncSnapshot {
+        ensureCurrent()
+        if (!current.isInitialized) return initialSync(ensureCurrent)
 
         val activities = remote.fetchActivities()
         if (activities.all == current.watermark) {
@@ -20,16 +24,19 @@ internal class SimklSyncEngine(
 
         var entries = current.entries
         if (hasAllItemsActivityChanged(current.activities, activities)) {
+            ensureCurrent()
             val delta = remote.fetchAllItems(SimklAllItemsRequest.Changes(current.watermark))
             entries = mergeDelta(entries, delta)
         }
 
         if (hasRemovalActivityChanged(current.activities, activities)) {
+            ensureCurrent()
             val authoritativeIds = remote.fetchAllItems(SimklAllItemsRequest.CurrentIds)
             entries = reconcileRemovedEntries(entries, authoritativeIds)
         }
 
         val playback = if (hasPlaybackActivityChanged(current.activities, activities)) {
+            ensureCurrent()
             mergeFetchedPlayback(fetched = remote.fetchPlayback(), held = current.playback)
         } else {
             current.playback
@@ -46,16 +53,19 @@ internal class SimklSyncEngine(
         ).reconcileWatchedPlayback()
     }
 
-    private suspend fun initialSync(): SimklSyncSnapshot {
+    private suspend fun initialSync(ensureCurrent: () -> Unit): SimklSyncSnapshot {
         val entries = buildList {
             SimklMediaType.entries.forEach { type ->
+                ensureCurrent()
                 addAll(
                     remote.fetchAllItems(SimklAllItemsRequest.Bootstrap(type))
                         .entriesFor(type),
                 )
             }
         }
+        ensureCurrent()
         val playback = remote.fetchPlayback()
+        ensureCurrent()
         val activities = remote.fetchActivities()
         val now = nowEpochMs()
         return SimklSyncSnapshot(
