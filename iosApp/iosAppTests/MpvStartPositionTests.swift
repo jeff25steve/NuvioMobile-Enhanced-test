@@ -76,6 +76,25 @@ final class MpvAudioLanguagePreferenceStateTests: XCTestCase {
         XCTAssertEqual(state.languages, [])
         XCTAssertEqual(state.optionValue, "")
     }
+    func testApplyingLanguagePreferencesClearsAStaleManualTrackOverride() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.select(trackId: 7)
+
+        state.update(["en"])
+
+        XCTAssertNil(state.selectedTrackId)
+        XCTAssertEqual(state.optionValue, "en")
+    }
+
+    func testManualTrackSelectionAfterPreferencesRemainsTheExplicitOverride() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.update(["en"])
+        state.select(trackId: 3)
+
+        XCTAssertEqual(state.selectedTrackId, 3)
+        XCTAssertEqual(state.optionValue, "en")
+    }
+
 }
 
 final class MpvPendingSubtitleRequestTests: XCTestCase {
