@@ -5171,3 +5171,25 @@ The latest authorised Linux run (`43536617022`) successfully compiled Android pr
 No application playback engine, stream-resolution, subtitle-selection, or settings behavior was changed by these fixture repairs. The PixelCopy correction remains based on the PixelCopy result status (success accepts legitimate black frames); failure statuses continue to follow the existing capture-backoff path.
 
 **Verification gate:** the workflow on this branch runs the Player PixelCopy lifecycle, Player runtime state, toolbar migration, and Simkl PKCE host regressions before assembling the fullDebug APK. A single Linux workflow run is initiated by the combined repair commit; its result is pending at the time of this notes update. Device-level playback, engine-switching, subtitle, gesture and Liquid Glass QA still require a real Android playback session and are not claimed as completed by host compilation alone.
+
+
+## 14 November 2026 — Successful Player verification and main-build-testing integration
+
+**Verified CI source revision:** `795789db3a8026d371174d55c43edf37990406bd` on `ci/player-and-build-repairs-20261114`  
+**GitHub Actions run:** [`43539212561`](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43539212561) — completed `success` at 01:28:39 UTC on 14 November 2026.
+
+The exact revision passed both configured verification stages:
+
+- `:composeApp:testAndroidHostTest` with focused filters for `PlayerLiquidGlassCaptureLifecycleTest`, `PlayerScreenRuntimeStateTest`, `PlayerToolbarLayoutTest`, and `SimklPkceTest` — `BUILD SUCCESSFUL` (7m 29s).
+- `:androidApp:assembleFullDebug` with `-Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore` — `BUILD SUCCESSFUL` (7m 03s).
+- Artifact `androidApp-full-debug.apk` uploaded successfully; artifact ID `14091717135`, size 169,276,867 bytes.
+
+This is focused Android host-test and fullDebug APK evidence for the CI source SHA; it is not a claim that every project test suite or real-device playback scenario has been exercised.
+
+**Main branch integration:** the application, regression-test, and engineering-note commits were replayed onto `main-build-testing`. The two commits dedicated to adding/fixing the temporary Linux build workflow were intentionally not replayed. The file `.github/workflows/player-and-build-repairs-linux.yml` remains on the dedicated CI branch only, so the temporary push/PR build workflow is not introduced into `main-build-testing`. The existing workflows on `main-build-testing` were inspected; none declares a direct `push` trigger for that branch. No build, CI dispatch, Gradle test, or APK build was run as part of this integration.
+
+**Non-blocking warning observed in the successful run:** the runner reported `ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/28.2.13676358` while `ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.3.13750724`. The build completed successfully, but the environment selection should be made deterministic in a future authorised CI-maintenance task.
+
+**Next performance investigation (not yet implemented):** the Player capture currently supplies a main-looper `Handler` to PixelCopy. An AOSP support-library change reports high SurfaceView snapshot latency when the PixelCopy callback runs on the main thread and resolves it by moving callback delivery to a background thread: [AOSP change 2a0f340c](https://android.googlesource.com/platform/frameworks/support/+/2a0f340c59db35b6bb52730c35625ea64cf2d633). Before changing this, design a cancellation-safe handler/executor lifecycle and retain the current bitmap ownership rule (do not recycle or reuse a destination while an asynchronous copy/callback may still reference it); capture before/after device traces rather than assuming a speed-up.
+
+**Remaining validation boundary:** inspect actual playback on physical Android devices across ExoPlayer/libmpv, engine switching, subtitles, gestures, disc-title selection, and Liquid Glass overlay composition. The successful host-test/APK run does not replace this device-level QA.
