@@ -576,6 +576,7 @@ object DownloadsRepository {
     }
 
     private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
+        DownloadsSettingsRepository.ensureLoaded()
         if (!isProfileOwnerCurrent(owner)) return
         val key = DownloadOperationKey(owner, item.id)
         if (key in activeOperations) return
@@ -590,11 +591,7 @@ object DownloadsRepository {
                 if (isCurrentOperation(key, generation)) {
                     if (!isProfileOwnerCurrent(owner)) {
                         cancelDownloadOperation(owner, item.id)
-                    } else if (shouldPauseDownloadOnCurrentNetwork(
-                            allowMobileDataDownloads = DownloadsSettingsRepository.allowMobileDataDownloads.value,
-                            isOnWifi = DownloadNetworkGuard.isOnWifi(),
-                        )
-                    ) {
+                    } else if (!isDownloadNetworkAllowedForCurrentSettings()) {
                         // The preference can change or Wi-Fi can disappear after enqueue.
                         // Use the existing pause path so each platform preserves resumable bytes.
                         pauseDownload(item.id)
