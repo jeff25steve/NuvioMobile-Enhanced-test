@@ -110,7 +110,7 @@ Validation boundary:
 
 ## Android Baseline Profile preparation — 14 November 2026
 
-The Android app included AndroidX ProfileInstaller 1.4.1, but the app-owned `androidApp/src/main/baseline-prof.txt` was empty. There was no Baseline Profile producer module and no Macrobenchmark collection journey. ProfileInstaller installs profile data packaged with an app; it does not generate Nuvio-specific profile rules.
+The Android app included AndroidX ProfileInstaller 1.4.1 and a legacy app-owned `androidApp/src/main/baseline-prof.txt` containing approximately 1.4 MB of source rules (present since September 2026). What was missing was a Baseline Profile producer module, per-flavor `fullRelease` / `playstoreRelease` profile generation, and a Macrobenchmark collection journey. ProfileInstaller installs profile data packaged with an app; it does not generate Nuvio-specific profile rules.
 
 Integrated:
 - Added the stable AndroidX Baseline Profile Gradle plugin and Macrobenchmark 1.5.0 to the version catalog, together with the Android test plugin and its test dependencies.
@@ -207,3 +207,23 @@ Integrated:
 Validation boundary:
 - Static source inspection only; no Compose test, build, Gradle configuration, Macrobenchmark, device operation or CI was run.
 - This corrects a measurement semantic gap. It is not a claim that app startup itself is faster.
+
+
+## Authorized R8 startup-profile build follow-up — 14 November 2026
+
+The user authorized an optimized Android build for this validation. The measurement path now distinguishes production signing from the build type required for Macrobenchmark:
+
+- AndroidX Baseline Profile 1.5.0 creates \`nonMinifiedRelease\` for profile collection and \`benchmarkRelease\` for measurement. The latter is non-debuggable, profileable, R8/minified, resource-shrunk and signed with the local Android debug key by the plugin. This is the supported release-mirrored benchmark build, not a debug build and not a production-signed release APK.
+- The application Gradle split predicate now excludes \`BenchmarkRelease\` and \`NonMinifiedRelease\` task variants, keeping benchmark APKs universal while preserving ABI splits for actual \`assemble*Release\` production outputs.
+- The Baseline Profile generator waits for the existing \`nuvio_startup_ready\` UI Automator resource marker. It fails if the signed-in Home state is not reached, rather than accepting onboarding, login or the first frame as a completed profile journey.
+- The physical-device runner generates per-flavor profiles with \`generateFullReleaseBaselineProfile\` and \`generatePlaystoreReleaseBaselineProfile\`, then runs 10 cold starts with \`CompilationMode.None()\` and 10 with \`CompilationMode.Partial(BaselineProfileMode.Require)\` on each flavor. It uses the same package, device and signed-in install across both arms, checks the compiled profile against Android's 1.5 MB binary limit, and retains raw Gradle benchmark logs.
+- Generated profile output is variant-specific: \`androidApp/src/fullRelease/generated/baselineProfiles\` and \`androidApp/src/playstoreRelease/generated/baselineProfiles\`. The existing shared \`src/main/baseline-prof.txt\` is retained; it is not overwritten or removed by this measurement preparation.
+
+Build status at note update: the GitHub Actions job for R8 benchmark APK packaging is compiling the \`full\` benchmark variant. Earlier attempts to build production-signed APKs stopped before compilation because this fork has no production keystore/local-properties secrets. The workflow was therefore changed to package the AndroidX debug-key-signed \`benchmarkRelease\` variants, which retain R8 and the release performance configuration. A benchmark-key APK cannot update a production-key-installed copy; a one-time uninstall and sign-in to the benchmark build is needed before physical testing. The \`full\` and \`playstore\` benchmark variants share the benchmark signing key and package ID, so the signed-in benchmark test state should then be retained between them.
+
+No physical-device Macrobenchmark has run in this environment. No TTID/TTFD medians or startup improvement are claimed, and no newly generated profile is accepted or committed until the same-device signed-in comparison shows repeatable improvement in both metrics without regressions.
+
+References:
+- AndroidX build variants and per-variant profile output: https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+- Release-like, minified and profileable Macrobenchmark targets: https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
+- TTID and TTFD comparison guidance: https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
