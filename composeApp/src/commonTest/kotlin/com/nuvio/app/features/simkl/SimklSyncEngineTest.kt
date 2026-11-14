@@ -61,6 +61,28 @@ class SimklSyncEngineTest {
     }
 
     @Test
+    fun `initial sync stops requesting remote data when its profile scope becomes stale`() = runBlocking {
+        var profileIsCurrent = true
+        val remote = ScriptedRemote(
+            Step.AllItems(SimklMediaType.SHOWS, responseOf(entry(SimklMediaType.SHOWS, "1"))),
+            Step.AllItems(SimklMediaType.MOVIES, responseOf(entry(SimklMediaType.MOVIES, "2"))),
+        ).also {
+            it.afterAllItems = { profileIsCurrent = false }
+        }
+
+        assertFailsWith<kotlinx.coroutines.CancellationException> {
+            SimklSyncEngine(remote) { 500L }.synchronize(SimklSyncSnapshot()) {
+                if (!profileIsCurrent) throw kotlinx.coroutines.CancellationException("stale profile")
+            }
+        }
+
+        assertEquals(
+            listOf(SimklAllItemsRequest.Bootstrap(SimklMediaType.SHOWS)),
+            remote.allItemsRequests,
+        )
+    }
+
+    @Test
     fun `unchanged activities gate avoids library and playback calls`() = runBlocking {
         val current = SimklSyncSnapshot(
             isInitialized = true,
@@ -435,6 +457,7 @@ class SimklSyncEngineTest {
     private class ScriptedRemote(vararg steps: Step) : SimklSyncRemote {
         private val remaining = steps.toMutableList()
         val allItemsRequests = mutableListOf<SimklAllItemsRequest>()
+        var afterAllItems: () -> Unit = {}
         val isExhausted: Boolean get() = remaining.isEmpty()
 
         override suspend fun fetchActivities(): SimklActivities = when (val step = next()) {
@@ -452,7 +475,7 @@ class SimklSyncEngineTest {
                 }
                 is Step.Failure -> throw step.error
                 else -> error("Expected all-items, got $step")
-            }
+            }.also { afterAllItems() }
         }
 
         override suspend fun fetchPlayback(): List<SimklPlaybackSession> = when (val step = next()) {
