@@ -33,6 +33,49 @@ internal fun buildPendingPinState(userCode: String): String = "$SIMKL_PIN_STATE_
 internal fun pendingPinUserCode(state: String?): String? =
     state?.takeIf { it.startsWith(SIMKL_PIN_STATE_PREFIX) }?.removePrefix(SIMKL_PIN_STATE_PREFIX)
 
+/** V1 PIN initialization response from GET /oauth/pin. */
+@Serializable
+internal data class SimklPinResponse(
+    val result: String = "",
+    @SerialName("device_code") val deviceCode: String? = null,
+    @SerialName("user_code") val userCode: String = "",
+    @SerialName("verification_uri") val verificationUri: String? = null,
+    @SerialName("verification_url") val verificationUrl: String? = null,
+    @SerialName("expires_in") val expiresIn: Int? = null,
+    val interval: Int? = null,
+)
+
+/** V1 PIN poll response from GET /oauth/pin/{user_code}. */
+@Serializable
+internal data class SimklPinPollResponse(
+    val result: String = "",
+    val message: String? = null,
+    @SerialName("access_token") val accessToken: String? = null,
+    @SerialName("device_code") val deviceCode: String? = null,
+    @SerialName("user_code") val userCode: String? = null,
+)
+
+internal enum class SimklPinPollOutcome {
+    PENDING,
+    AUTHORIZED,
+    CODE_EXPIRED,
+    UNEXPECTED,
+}
+
+/**
+ * Simkl's legacy PIN endpoint returns HTTP 200 for pending and success responses. If the original
+ * code has already been consumed/removed, it returns a new initialization payload with device_code.
+ */
+internal fun simklPinPollOutcome(response: SimklPinPollResponse): SimklPinPollOutcome = when {
+    response.result == "OK" && !response.accessToken.isNullOrBlank() ->
+        SimklPinPollOutcome.AUTHORIZED
+    !response.deviceCode.isNullOrBlank() ->
+        SimklPinPollOutcome.CODE_EXPIRED
+    response.result == "KO" && response.message.equals("Authorization pending", ignoreCase = true) ->
+        SimklPinPollOutcome.PENDING
+    else -> SimklPinPollOutcome.UNEXPECTED
+}
+
 /** Request body for `POST /oauth2/device`. */
 @Serializable
 internal data class SimklDeviceAuthorizationRequest(

@@ -198,7 +198,7 @@ object SimklAuthRepository : TrackingAuthProvider {
 
         val parsed = runCatching { json.decodeFromString<SimklPinResponse>(response.body) }
             .getOrNull()
-            ?.takeIf { it.userCode.isNotBlank() }
+            ?.takeIf { it.result == "OK" && it.userCode.isNotBlank() }
         if (parsed == null) {
             log.w { "Simkl PIN response was not usable" }
             failPinAuthorization(generation)
@@ -284,10 +284,24 @@ object SimklAuthRepository : TrackingAuthProvider {
 
         val parsed = runCatching { json.decodeFromString<SimklPinPollResponse>(response.body) }
             .getOrNull() ?: return false
-        val token = parsed.accessToken?.takeIf { parsed.isAuthorized } ?: return false
-
-        applyAccessToken(token, expiresInSeconds = null, generation = generation)
-        return authOperationGeneration.isCurrent(generation)
+        return when (simklPinPollOutcome(parsed)) {
+            SimklPinPollOutcome.AUTHORIZED -> {
+                val token = parsed.accessToken ?: return false
+                applyAccessToken(token, expiresInSeconds = null, generation = generation)
+                authOperationGeneration.isCurrent(generation)
+            }
+            SimklPinPollOutcome.CODE_EXPIRED -> {
+                authOperationGeneration.commitIfCurrent(generation) {
+                    clearPendingAuthorization()
+                    persistMetadata()
+                    publish(isLoading = false, error = SimklAuthError.AUTHORIZATION_EXPIRED)
+                }
+                true
+            }
+            SimklPinPollOutcome.PENDING,
+            SimklPinPollOutcome.UNEXPECTED,
+            -> false
+        }
     }
 
     fun pendingAuthorizationUrl(): String? {
@@ -444,6 +458,7 @@ object SimklAuthRepository : TrackingAuthProvider {
             }
 
             val request = SimklTokenRequest(
+                grantType = SIMKL_GRANT_AUTHORIZATION_CODE,
                 code = callback.code,
                 clientId = SimklConfig.CLIENT_ID,
                 codeVerifier = verifier,
@@ -641,23 +656,6 @@ object SimklAuthRepository : TrackingAuthProvider {
 }
 
 private data class ExpiredSimklAccessToken(val generation: Long)
-
-@Serializable
-private data class SimklTokenRequest(
-    val code: String,
-    @SerialName("client_id") val clientId: String,
-    @SerialName("code_verifier") val codeVerifier: String,
-    @SerialName("redirect_uri") val redirectUri: String,
-    @SerialName("grant_type") val grantType: String = "authorization_code",
-)
-
-@Serializable
-private data class SimklTokenResponse(
-    @SerialName("access_token") val accessToken: String,
-    @SerialName("token_type") val tokenType: String? = null,
-    val scope: String? = null,
-    @SerialName("expires_in") val expiresIn: Long? = null,
-)
 
 @Serializable
 private data class SimklUserSettingsResponse(
