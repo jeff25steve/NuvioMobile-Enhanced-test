@@ -5619,3 +5619,10 @@ The first repaired iOS build (43584356627, job 132415567488) compiled the Kotlin
 - iOS run https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43584356627 failed only after Swift reached the missing bridge protocol method described above. The method and its regression tests are now present on main-build-testing; a fresh iOS validation is required before claiming the iOS build is fixed.
 - The iOS workflow packages an unsigned Debug IPA and does not execute the XCTest suite. The replacement-plan XCTest source is committed, but its execution is not claimed by that workflow.
 - No local Gradle or Xcode build was run. Context7 requests for mpv/Kotlin documentation were blocked by the monthly API quota. Exa cross-checked the official MPV command/property documentation: sub-add accepts title/language, sub-remove removes an external track by id, and track-list/N/external-filename identifies the external file. The next iOS run will validate compilation and packaging, not XCTest execution.
+
+
+### Improvement cycle 25 — Fence pending iOS subtitle swaps to the active playback generations
+
+Final review of the AutoSync bridge found that a delayed MPV track-list notification could otherwise complete a replacement captured from a different playback session. The pending replacement now records both MPV-core generation and source-request generation. Completion checks both values before looking up or removing any track IDs; stale work is discarded without changing the new source. MPV core teardown clears the cached external-subtitle path map and pending replacement on the serialized MPV queue. Commit: 5098b76f5d1707e27e7546cfce6bea0d7cd7b2b6.
+
+The iOS validation run 43587511268 was started on the immediately preceding code revision (before this final generation fence) and is still running at the time of this note. A separate final iOS validation branch will be based on the updated source head. The earlier Linux run 43585169491 remains green; these cycle-24/25 changes are isolated to iOS Swift and the engineering notes.
