@@ -152,6 +152,16 @@ android {
                 debugSymbolLevel = "FULL"
             }
         }
+
+        // Baseline Profile plugin's release-derived variants inherit the release
+        // signing config by default. Keep production signing isolated from the
+        // R8 profiling variants so they can be assembled and measured locally.
+        create("benchmarkRelease") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        create("nonMinifiedRelease") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {
