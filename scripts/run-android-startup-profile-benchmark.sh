@@ -78,6 +78,25 @@ run_gradle_step() {
   fi
 }
 
+# Build the first app variant on this machine so all device-installed flavors
+# (benchmarkRelease and nonMinifiedRelease) share this machine's debug key.
+run_gradle_step "00-build-full-benchmarkRelease" \\
+  :androidApp:assembleFullBenchmarkRelease \\
+  :baselineProfile:assembleFullBenchmarkRelease \\
+  -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
+
+full_benchmark_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path '*/full/benchmarkRelease/*' -print | head -n 1)"
+[[ -n "$full_benchmark_apk" ]] || fail "Could not find the locally signed full benchmarkRelease APK."
+
+if ! adb -s "$DEVICE_SERIAL" install -r "$full_benchmark_apk"; then
+  fail "Could not install the benchmark APK. If the production-signed Nuvio app is installed, uninstall it once (this clears its local app data), then rerun this script."
+fi
+
+adb -s "$DEVICE_SERIAL" shell monkey -p com.nuvio.media 1 >/dev/null 2>&1 || true
+printf '\\nNuvio has been installed using this machine's local benchmark signing key.\\n'
+printf 'Complete sign-in/onboarding on the phone and leave the app on its normal Home screen.\\n'
+read -r -p "Press Enter here once signed in and Home is visible: " _
+
 # The Baseline Profile plugin captures the unobfuscated nonMinifiedRelease
 # variant and writes separate source profiles for each distribution flavor.
 run_gradle_step "01-generate-full-release-profile" \
