@@ -333,7 +333,7 @@ internal fun libraryStaticBackdropCaptureRequired(
     sourceMode: LibraryViewMode,
     isSurfacePreferenceEnabled: (LiquidGlassSurface) -> Boolean,
 ): Boolean {
-    if (!masterEnabled || !platformSupported) return false
+    if (!masterEnabled || !platformSupported || sourceMode == LibraryViewMode.Saved) return false
     if (isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)) return true
 
     return sourceMode == LibraryViewMode.Cloud && (
