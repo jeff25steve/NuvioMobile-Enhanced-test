@@ -5448,3 +5448,40 @@ A second pass through the native MPV recovery path found that `retryPlayback()` 
 - The XCTest was committed before the Swift implementation. **No XCTest, Xcode build, Gradle task, or CI run was started** because explicit authorization remains absent. Static source/diff checks do not establish Swift compilation or runtime recovery behavior.
 - No Android code, dependencies, build configuration, workflows, or CI settings changed.
 - A final remote-source review aligned the XCTest call with the Swift helper name and made the POSIX formatter's argument array explicit. This was caught by diff inspection, not by an executed test; the no-build/no-CI boundary remains unchanged.
+
+## 14 November 2026 — iOS MPV recovery request integrity and external audio readiness
+
+### Improvement cycle 13 — Replay the complete MPV load request on manual retry
+
+A source-level comparison of manual retry with device-loss recovery found that manual retry rebuilt the media from mpv's current `path` only. That discarded the request's separately supplied external audio URL and startup subtitle list, and it relied on the active-header side channel rather than the original request snapshot. Device-loss recovery already replays the full `lastLoadRequest`, so the retry paths were inconsistent.
+
+- Made the immutable `PendingLoadRequest` visible to the iOS XCTest target and added `retrying(atPositionSeconds:)`. It copies the original video URL, external audio URL, request headers, startup subtitles and queued timestamp, while replacing only the start position with the current finite-positive playback position.
+- Manual retry now samples `time-pos` on the serial MPV queue, then returns to the main queue before calling the UIKit/layout-aware `startLoad` path. This makes retry use the same request setup and attachment lifecycle as initial playback and device-loss recovery.
+- Added a monotonically increasing load-request generation. A retry whose position read completes after a newer source has been queued is discarded rather than restarting the old source. Retry is also ignored while a viewport-delayed load is still pending.
+- Added regression coverage for preservation of external audio, subtitle URL/language/headers, request headers, current-position formatting and beginning-of-file behavior.
+
+### Improvement cycle 14 — Attach external audio on MPV's file-loaded lifecycle
+
+The initial-load path used a fixed 200 ms delay after `loadfile` before issuing `audio-add`. MPV file loading is asynchronous and network-dependent, so that timer was not evidence that the target file had finished loading. The bridge already waits for `MPV_EVENT_FILE_LOADED` before applying startup subtitles.
+
+- Added `MpvStartupAudioRequest` to normalize whitespace, retain the requested audio URL until the main file has loaded, consume it once, and clear it during player destruction.
+- Removed the arbitrary 200 ms timer. The `FILE_LOADED` handler now issues `audio-add <url> select` for the queued external audio source.
+- Since manual retry and device-loss recovery both route through `startLoad(lastLoadRequest)`, they now share this same external-audio attachment lifecycle.
+- Added XCTest coverage for one-shot consumption, whitespace-only input and destruction cleanup.
+
+### Improvement cycle 15 — Ensure MPV regression suites are members of the XCTest target
+
+A project-file review found that `iosApp/iosApp.xcodeproj/project.pbxproj` uses an explicitly populated `iosAppTests` group and an explicit `PBXSourcesBuildPhase`. The MPV retry test file already existed in the repository but was not registered in either list, and the newly added startup-audio tests would have had the same omission. Files on disk alone were therefore insufficient to include these tests in the iOS test target.
+
+- Added PBXFileReference and PBXBuildFile entries for `MpvStartPositionTests.swift` and `MpvStartupAudioRequestTests.swift`.
+- Added both references to the `iosAppTests` group and the test target's Sources phase.
+- Checked the project file's object definitions for duplicate 24-character identifiers; none were found.
+- This is target-membership wiring only; it does not change build settings, dependencies, signing, or workflows.
+
+### Research and verification boundary for cycles 13–15
+
+- The repository's `MPVKit` submodule is pinned at `7f40522ab9a18c7f14c04316f71c7dd47e2a7e05`. Its `Package.swift` references the MPV 0.41.0 Nuvio binary release. Exa cross-checked the matching upstream MPV 0.41.0 input-command manual and libmpv client header: `audio-add` is the external-track command, and `MPV_EVENT_FILE_LOADED` is delivered after the main file has loaded/headers have been read and decoding starts. This supports using the event boundary rather than a fixed timer.
+- References: [MPV 0.41.0 input-command manual](https://raw.githubusercontent.com/mpv-player/mpv/v0.41.0/DOCS/man/input.rst), [MPV 0.41.0 libmpv client API header](https://raw.githubusercontent.com/mpv-player/mpv/v0.41.0/include/mpv/client.h), [pinned MPVKit package manifest](https://github.com/luqmanfadlli/MPVKit/blob/7f40522ab9a18c7f14c04316f71c7dd47e2a7e05/Package.swift).
+- Context7 was attempted for the pinned MPV documentation, but its monthly request quota was exhausted; no Context7 result is claimed. These changes are confined to Swift, XCTest and Xcode project membership; no Kotlin, Compose or dependency APIs were changed.
+- The regression tests were committed before their corresponding production changes. **No XCTest, Xcode build, Gradle task, application build or CI workflow was run** because the user has not authorised builds or CI. Verification is limited to reading the exact remote source, checking the retry-generation guards and one-shot audio state, confirming both test files are referenced in the test target's group and Sources phase, checking project object-ID uniqueness, and reviewing the remote commit diff. Compilation and runtime behavior remain unverified.
+- Commits: retry tests `82b847dabad3145104cb0c11a2b73ce2cd8de036`; retry implementation `8ab1fdea5e3edb5d2549e8fae3c5493671304928`; retry stale-load guard `711acb9db5d7ea37dbdde2bf90f928c8cfb9b840`; startup-audio tests `b16ad5d5d63b161bec039db7af91eafb66c917be`; event-driven audio attachment `9998c062a4658e96e844ce71446c91fde14b9cc0`; XCTest target registration `f67f5fd9706f302360183237876ddbd56ed29fc8`.
