@@ -81,10 +81,12 @@ run_gradle_step() {
 # The Baseline Profile plugin captures the unobfuscated nonMinifiedRelease
 # variant and writes separate source profiles for each distribution flavor.
 run_gradle_step "01-generate-full-release-profile" \
-  :baselineProfile:generateFullReleaseBaselineProfile
+  :baselineProfile:generateFullReleaseBaselineProfile \\
+  -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
 run_gradle_step "02-generate-playstore-release-profile" \
-  :baselineProfile:generatePlaystoreReleaseBaselineProfile
+  :baselineProfile:generatePlaystoreReleaseBaselineProfile \\
+  -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 for flavor in full playstore; do
   profile_dir="androidApp/src/$flavor/generated/baselineProfiles"
@@ -100,11 +102,13 @@ done
 # same-package signed-in state are not changed between benchmark arms.
 run_gradle_step "03-benchmark-full-release" \
   :baselineProfile:connectedFullBenchmarkAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark \\
+  -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
 
 run_gradle_step "04-benchmark-playstore-release" \
   :baselineProfile:connectedPlaystoreBenchmarkAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=Macrobenchmark \\
+  -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
 : > "$OUTPUT_DIR/summary.txt"
 for flavor in full playstore; do
