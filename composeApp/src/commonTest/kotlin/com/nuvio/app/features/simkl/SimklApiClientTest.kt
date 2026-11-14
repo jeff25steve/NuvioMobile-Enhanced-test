@@ -32,6 +32,8 @@ class SimklApiClientTest {
         assertEquals(16_000L, retryDelayMs(4, null, 0L))
         assertEquals(30_250L, retryDelayMs(0, "30", 250L))
         assertEquals(60_000L, retryDelayMs(0, "120", 1_000L))
+        assertEquals(60_000L, retryDelayMs(0, Long.MAX_VALUE.toString(), 0L))
+        assertEquals(60_000L, retryDelayMs(4, Long.MAX_VALUE.toString(), 1_000L))
     }
 
     @Test
