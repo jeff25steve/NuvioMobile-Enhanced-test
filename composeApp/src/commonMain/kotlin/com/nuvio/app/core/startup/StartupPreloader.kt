@@ -81,9 +81,6 @@ object StartupPreloader {
     private suspend fun preloadCriticalPhase() {
         val started = TimeSource.Monotonic.markNow()
         coroutineScope {
-            val downloadsWarmup = async(Dispatchers.IO) {
-                step("downloadsPlatform") { DownloadsPlatformDownloader.prepareForStartup() }
-            }
             profileCachePreloaded = step("profiles") { ProfileRepository.loadCachedProfiles() }
             withContext(Dispatchers.IO) {
                 step("watched") { WatchedRepository.ensureLoaded() }
@@ -91,7 +88,6 @@ object StartupPreloader {
                 step("continueWatching") { ContinueWatchingPreferencesRepository.ensureLoaded() }
                 step("homeSnapshot") { HomeRepository.preloadSnapshot() }
             }
-            downloadsWarmup.await()
         }
         InAppLogger.info(LogTag, "critical preload completed in ${started.elapsedNow().inWholeMilliseconds}ms")
     }
@@ -100,6 +96,10 @@ object StartupPreloader {
         val started = TimeSource.Monotonic.markNow()
         coroutineScope {
             val downloadsWarmup = async {
+                withContext(Dispatchers.IO) {
+                    step("downloadsPlatform") { DownloadsPlatformDownloader.prepareForStartup() }
+                    step("downloadsTransferStore") { DownloadsPlatformDownloader.preloadTransferStore() }
+                }
                 step("downloadsRepository") { DownloadsRepository.ensureLoaded() }
             }
             withContext(Dispatchers.IO) {
