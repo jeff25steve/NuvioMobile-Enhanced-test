@@ -8,11 +8,18 @@ import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIApplicationDidReceiveMemoryWarningNotification
 
+private const val IosImageMemoryCacheBytes = 256L * 1024 * 1024
+private const val IosImageMemoryCacheDuringPlaybackBytes = 64L * 1024 * 1024
+
 private var memoryWarningObserver: Any? = null
 
 internal actual fun ImageLoader.Builder.configurePlatformImageLoader(): ImageLoader.Builder {
     installMemoryWarningObserver()
-    return this
+    return memoryCache {
+        MemoryCache.Builder()
+            .maxSizeBytes(IosImageMemoryCacheBytes)
+            .build()
+    }
 }
 
 internal actual val platformProvidesImageLoader: Boolean = false
@@ -32,4 +39,20 @@ private fun installMemoryWarningObserver() {
 
 internal fun clearIosImageMemoryCacheOnWarning(memoryCache: MemoryCache?) {
     memoryCache?.clear()
+}
+
+
+@OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+internal fun trimImageMemoryForPlayback() {
+    SingletonImageLoader.get(PlatformContext.INSTANCE)
+        .memoryCache
+        ?.trimToSize(IosImageMemoryCacheDuringPlaybackBytes)
+    suspendAnimatedImagesForPlayback()
+    kotlin.native.runtime.GC.collect()
+}
+
+@OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+internal fun collectAfterPlayback() {
+    kotlin.native.runtime.GC.collect()
+    resumeAnimatedImagesAfterPlayback()
 }
