@@ -246,6 +246,19 @@ internal fun libraryPinnedChromeUsesContentBackdrop(
     glassEnabled: Boolean,
 ): Boolean = sourceMode == LibraryViewMode.Saved && glassEnabled
 
+/**
+ * The source-switch glass modifier is resolved before its local overlay provider is entered.
+ * Its parent provider must expose the scrolling poster source whenever any pinned Saved glass
+ * surface needs it, including the Library pill by itself.
+ */
+internal fun libraryRootPinnedChromeUsesContentBackdrop(
+    sourceMode: LibraryViewMode,
+    librarySurfaceGlassEnabled: Boolean,
+    savedTypeGlassEnabled: Boolean,
+    savedSortGlassEnabled: Boolean,
+): Boolean = sourceMode == LibraryViewMode.Saved &&
+    (librarySurfaceGlassEnabled || savedTypeGlassEnabled || savedSortGlassEnabled)
+
 internal fun libraryHeaderUsesArtworkBackdrop(
     sourceMode: LibraryViewMode,
     artworkBackgroundActive: Boolean,
@@ -895,9 +908,11 @@ fun LibraryScreen(
             // Saved pinned glass controls sample the scrolling content beneath them; other modes
             // retain the static screen backdrop. The release calendar uses its own scoped capture.
             LocalLiquidGlassBackdrop provides if (
-                libraryPinnedChromeUsesContentBackdrop(
-                    sourceMode,
-                    savedTypeGlassEnabled || savedSortGlassEnabled,
+                libraryRootPinnedChromeUsesContentBackdrop(
+                    sourceMode = sourceMode,
+                    librarySurfaceGlassEnabled = libraryGlassEnabled,
+                    savedTypeGlassEnabled = savedTypeGlassEnabled,
+                    savedSortGlassEnabled = savedSortGlassEnabled,
                 )
             ) libraryContentBackdrop else if (shouldCaptureLibraryBackdrop) libraryBackdrop else null,
             LocalDynamicArtworkBackgroundActive provides (
