@@ -6017,3 +6017,11 @@ Integrated:
 
 Verification:
 - Static remote source review only. No build, compile, Compose tests, benchmark or CI was run.
+
+
+## Android Baseline Profile R8 artifact build — 14 November 2026
+
+- GitHub Actions run 43645267759 completed successfully on main-build-testing at build commit 88bdfa82d650ede1fde0ee779370f589ee558517.
+- Built both full and playstore benchmarkRelease variants (R8/minification + resource shrinking, non-debuggable/profileable) and both Macrobenchmark instrumentation APKs.
+- Uploaded artifact 14134457830 (nuvio-android-startup-profile-88bdfa82d650ede1fde0ee779370f589ee558517, 344,398,688 bytes). Archive downloaded and ZIP integrity checked.
+- Build success only. Physical-device Baseline Profile generation and same-device TTID/TTFD A/B medians remain unmeasured. Keep the existing shared profile untouched; no generated profile has been accepted.
