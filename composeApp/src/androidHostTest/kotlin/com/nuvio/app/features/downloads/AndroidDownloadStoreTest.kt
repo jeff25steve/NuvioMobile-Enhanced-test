@@ -1,6 +1,6 @@
 package com.nuvio.app.features.downloads
 
-import java.io.File
+import java.nio.file.Files
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -13,9 +13,7 @@ import kotlin.test.assertTrue
 class AndroidDownloadStoreTest {
     @Test
     fun constructionDoesNotReadPersistedTransfersUntilFirstAccess() {
-        val directory = File(System.getProperty("java.io.tmpdir"), "nuvio-download-store-lazy-test")
-        directory.deleteRecursively()
-        directory.mkdirs()
+        val directory = Files.createTempDirectory("nuvio-download-store-lazy-test").toFile()
         try {
             val store = AndroidDownloadStore(directory)
 
