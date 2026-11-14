@@ -31,7 +31,7 @@ class LazyAddonHttpClientTest {
     fun concurrentFirstRequestsShareOneClientInstance() {
         val workerCount = 8
         val ready = CountDownLatch(workerCount)
-        val start = CountDownLatch(1)
+        val startSignal = CountDownLatch(1)
         val creations = AtomicInteger()
         val results = Collections.synchronizedList(mutableListOf<OkHttpClient>())
         val provider = LazyAddonHttpClient {
@@ -41,14 +41,14 @@ class LazyAddonHttpClientTest {
         val workers = List(workerCount) {
             Thread {
                 ready.countDown()
-                if (start.await(5, TimeUnit.SECONDS)) {
+                if (startSignal.await(5, TimeUnit.SECONDS)) {
                     results += provider.get()
                 }
-            }.apply { start() }
+            }.apply { this.start() }
         }
 
         assertTrue(ready.await(5, TimeUnit.SECONDS))
-        start.countDown()
+        startSignal.countDown()
         workers.forEach { it.join(5_000) }
 
         assertEquals(1, creations.get())
