@@ -102,7 +102,24 @@ fun DetailTrailersSection(
     }
 
     val selectorSurface = LiquidGlassSurface.DETAIL_TRAILER_SELECTOR
-    val selectorGlassEnabled = isLiquidGlassAvailable() && isLiquidGlassSurfaceEffectivelyEnabled(selectorSurface)
+    val selectorPreview = onPreviewSurfaceSelected != null || selectedPreviewSurface != null
+    val selectorGlassEnabled = isLiquidGlassAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = selectorSurface,
+            preview = selectorPreview,
+            platformSupported = true,
+        )
+    val selectorNativeGlassEnabled = shouldUseNativeDetailTrailerSelector(
+        nativeControlsAvailable = isNativeLiquidGlassControlsAvailable(),
+        surfaceEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = selectorSurface,
+            preview = selectorPreview,
+            platformSupported = true,
+        ),
+        preview = selectorPreview,
+        selectedPreviewSurface = selectedPreviewSurface,
+        previewMenuInitiallyExpanded = previewMenuInitiallyExpanded,
+    )
     val selectedTrailers = grouped[selectedCategory].orEmpty()
     val useNativeTrailerCategoryMenu = !previewMenuInitiallyExpanded &&
         onPreviewSurfaceSelected == null &&
@@ -132,21 +149,58 @@ fun DetailTrailersSection(
                 }
 
                 Box {
-                    Surface(
-                        shape = RoundedCornerShape(sizing.selectorRadius),
-                        color = backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                        tonalElevation = 0.dp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(sizing.selectorRadius))
-                            .clickable { menuExpanded = true },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(
-                                horizontal = sizing.selectorHorizontalPadding,
-                                vertical = sizing.selectorVerticalPadding,
-                            ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    val selectorShape = liquidGlassShape(
+                        surface = selectorSurface,
+                        defaultShape = RoundedCornerShape(sizing.selectorRadius),
+                    )
+                    val selectorTint = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                    val selectorFallback = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                    val selectorModifier = if (selectorGlassEnabled) {
+                        Modifier.liquidGlassForSurface(
+                            surface = selectorSurface,
+                            shape = selectorShape,
+                            tint = selectorTint,
+                            fallback = selectorFallback,
+                            blurRadius = 12.dp,
+                            refractionHeight = 6.dp,
+                            refractionAmount = 9.dp,
+                        )
+                    } else {
+                        Modifier
+                    }
+                    val selectorSelectionOutline = selectedPreviewSurface == selectorSurface
+                    val selectorBorder = if (selectorSelectionOutline) {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, selectorShape)
+                    } else {
+                        Modifier
+                    }
+
+                    if (selectorNativeGlassEnabled) {
+                        NuvioNativeLiquidGlassButton(
+                            title = selectedCategory,
+                            systemImage = "chevron.down",
+                            accessibilityLabel = selectedCategory,
+                            onClick = {
+                                if (selectorPreview) {
+                                    onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                } else {
+                                    menuExpanded = true
+                                }
+                            },
+                            modifier = Modifier.height(36.dp),
+                        )
+                    } else {
+                        Surface(
+                            shape = selectorShape,
+                            color = if (selectorGlassEnabled) Color.Transparent else selectorFallback,
+                            tonalElevation = 0.dp,
+                            modifier = selectorModifier
+                                .clip(selectorShape)
+                                .then(selectorBorder)
+                                .clickable {
+                                    onPreviewSurfaceSelected?.invoke(selectorSurface)
+                                    menuExpanded = true
+                                },
                         ) {
                             LiquidGlassTextContrastScope(enabled = selectorGlassEnabled) {
                                 Row(
@@ -317,6 +371,19 @@ private fun TrailerCard(
         }
     }
 }
+
+internal fun shouldUseNativeDetailTrailerSelector(
+    nativeControlsAvailable: Boolean,
+    surfaceEnabled: Boolean,
+    preview: Boolean,
+    selectedPreviewSurface: LiquidGlassSurface?,
+    previewMenuInitiallyExpanded: Boolean,
+): Boolean =
+    nativeControlsAvailable &&
+        surfaceEnabled &&
+        (!preview || selectedPreviewSurface == null ||
+            selectedPreviewSurface == LiquidGlassSurface.DETAIL_TRAILER_SELECTOR) &&
+        !previewMenuInitiallyExpanded
 
 private data class TrailerSectionSizing(
     val cardWidth: androidx.compose.ui.unit.Dp,
