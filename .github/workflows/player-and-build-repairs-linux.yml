@@ -83,6 +83,8 @@ jobs:
         run: |
           ./gradlew :composeApp:testAndroidHostTest \
             --tests "com.nuvio.app.features.player.PlayerLiquidGlassCaptureLifecycleTest" \
+            --tests "com.nuvio.app.features.player.PlayerScreenRuntimeStateTest" \
+            --tests "com.nuvio.app.features.player.PlayerToolbarLayoutTest" \
             --tests "com.nuvio.app.features.player.PlayerNextEpisodeTransitionTest" \
             --tests "com.nuvio.app.features.player.PlayerEngineSwitchTrackPreferenceTest" \
             --tests "com.nuvio.app.features.player.PlayerGestureOverlayTest" \
