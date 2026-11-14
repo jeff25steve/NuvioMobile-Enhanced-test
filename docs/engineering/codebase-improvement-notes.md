@@ -6089,3 +6089,33 @@ References:
 
 - Follow-up run `43652152841` passed the desktop runner syntax check after the first repair, then exposed a second independent test-harness path defect: `scripts/tests/test-nuvio-phone-benchmark.sh` resolved the runner relative to its own directory instead of the parent `scripts/` directory. Updated it to resolve `../nuvio-phone-benchmark.sh`; applied to both main and CI branches.
 - Fresh run `43652201558` now passed the complete pre-build validation step (desktop `bash -n`, phone `sh -n`, and the two-flavor mocked phone-runner test) and advanced to Android Rust target setup. APK compilation is still in progress; no benchmark result or artifact is yet claimed.
+
+
+## Android startup benchmark follow-up — shell cleanup and isolated profile variants (14 November 2026)
+
+The failed benchmark attempts were traced to pre-build validation and runner-configuration defects, not an Android runtime regression:
+
+- Run [43651971737](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43651971737) failed at the validation step before Rust setup or Gradle. Bash rejected the desktop runner's over-escaped `find` grouping expression at line 84. The correction is recorded on `main-build-testing` in commit `ef269d2e31c8b4f32bf391aa6c1bb8cbbf45a831`.
+- Run [43652152841](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652152841) passed the desktop runner syntax check, then failed because the phone-runner mock test looked for `nuvio-phone-benchmark.sh` in its own `scripts/tests` directory rather than its parent `scripts` directory. The path correction is on `main-build-testing` in commit `d0d6017cae697ae4c87940000d631e9be7db123f`.
+- The already-existing run [43652201558](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652201558) passed the pre-build validation and Rust setup, then entered the full profile-capture APK task. Last observed status: `in_progress` (23:14:13 UTC on 14 November 2026). This engineering session did not dispatch, rerun, or otherwise start that run.
+
+### Additional desktop-runner correctness fixes
+
+- Six ADB-output normalizers used `tr -d '\\\\r'`. In single quotes that gives GNU `tr` a literal backslash and the letter `r`, not the carriage-return escape. The filter therefore leaves CR bytes in the device properties. Changed all six to `tr -d '\\r'`, which removes carriage returns from API level, device model, emulator markers, hardware and root-check output.
+- The desktop profile generator was still invoking `generateFullReleaseBaselineProfile` and `generatePlaystoreReleaseBaselineProfile`, and inspecting `src/<flavor>Release/generated/baselineProfiles`. Those are production `release` variants; they do not match the isolated profiling build types configured in this repository.
+- The AndroidX Baseline Profile plugin creates `nonMinifiedRelease` for profile capture and `benchmarkRelease` for R8 Macrobenchmark. Updated the desktop runner to use `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`, then inspect `src/<flavor>NonMinifiedRelease/generated/baselineProfiles`. This keeps profile collection on the same `.benchmark` application ID and temporary signing identity as the phone-only path; production `com.nuvio.media` remains separate.
+- Extended `scripts/tests/test-nuvio-phone-benchmark.sh` to guard the CR escape, both variant-specific Gradle task names, and the variant-specific generated-profile directory. The new assertions were first checked against the old desktop-runner expressions (expected failure), then against the corrected expressions (pass). A focused local shell fixture also confirmed that `tr -d '\\r'` removes the CR byte and that the corrected `find` expression parses.
+
+### Verification boundary
+
+- Remote source review used the exact commit tree/blob SHAs. The current fixes are on the review branch `fix/android-startup-profile-shell-validation`; they are not yet part of `main-build-testing` at the time this note is written.
+- The existing Actions run `43652201558` is separate and was already active; no new build, CI run, Gradle task, instrumentation, or device benchmark was started by this follow-up.
+- The complete repository mock suite was not rerun locally after adding these new static assertions. The focused regression fixture passed, and the remote run previously passed the older mock suite before these additional assertions were added.
+- Context7 resolution for AndroidX Baseline Profile 1.5.0 returned its monthly-quota error. Variant/task naming was checked against Android Developers' official Baseline Profile configuration documentation and AndroidX plugin source via Exa. No successful Context7 retrieval is claimed.
+- No TTID/TTFD measurements, profile acceptance, or Nuvio startup speedup are claimed.
+
+References:
+- Android Baseline Profile variant configuration and generated build types: https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+- Android Baseline Profile generation and variant tasks: https://developer.android.com/topic/performance/baselineprofiles/create-baselineprofile
+- AndroidX plugin implementation: https://android.googlesource.com/platform/frameworks/support/+/6c50641296009c38c5995c457d10e4543645ff97/benchmark/baseline-profile-gradle-plugin/src/main/kotlin/androidx/baselineprofile/gradle/consumer/BaselineProfileConsumerPlugin.kt
+- GNU Bash quoting rules: https://www.gnu.org/software/bash/manual/bash.html#Quoting
