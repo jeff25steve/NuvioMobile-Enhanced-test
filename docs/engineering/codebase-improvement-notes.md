@@ -5348,3 +5348,14 @@ Static tracing found that sync storage implementations resolved `ProfileScopedKe
 ### Verification boundary
 
 Three focused regression tests were added before the corresponding production changes; the existing mutation service test was extended to assert scope propagation. **No tests were run** because test execution invokes the Gradle build pipeline and the user has not authorized builds or CI. Review was limited to source-level checks and remote diffs. No Gradle command, build, test task or CI workflow was started.
+
+
+### Improvement cycle 4 — Bind auth-token validity to the profile that loaded it
+
+A final race review found that the API client's generation check depended on the profile-change callback having already advanced the auth generation. During the synchronous profile-selection callback sequence, the active profile ID can change just before Simkl's auth provider receives its callback.
+
+- Simkl auth state now records the profile ID from which its metadata and token were loaded.
+- `ensureLoaded()` checks both the loaded flag and loaded profile ID, and reloads when the active profile has changed even if the registry callback has not arrived yet.
+- The API client's auth-generation predicate now checks generation and loaded-profile identity together under `AuthOperationGeneration.read`.
+- Added common regression coverage proving that a token generation is rejected when its loaded profile no longer matches the active profile, even if its numeric generation has not yet changed.
+
