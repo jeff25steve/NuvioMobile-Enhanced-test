@@ -230,8 +230,11 @@ internal fun librarySavedControlsNeedContentInset(
 
 internal fun libraryContentTopPadding(
     hasSavedControls: Boolean,
+    sourceSwitchInset: Dp,
     savedControlsInset: Dp,
-): Dp = if (hasSavedControls) savedControlsInset else 0.dp
+    savedControlsSpacing: Dp = 14.dp,
+): Dp = sourceSwitchInset +
+    if (hasSavedControls) savedControlsSpacing + savedControlsInset else 0.dp
 
 /** Only the Saved title header needs an opaque backing beneath its fading scrim. */
 internal fun libraryTitleHeaderNeedsOpaqueBackground(sourceMode: LibraryViewMode): Boolean =
@@ -351,13 +354,15 @@ internal fun libraryContentBackdropCaptureRequired(
 ): Boolean {
     if (!masterEnabled || !platformSupported || sourceMode != LibraryViewMode.Saved) return false
 
+    val sourceSwitchNeedsBackdrop =
+        isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY)
     val savedControlsNeedBackdrop = hasSavedControls && (
         isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) ||
             isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
         )
     val calendarNeedsBackdrop = showReleaseCalendar &&
         isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CALENDAR)
-    return savedControlsNeedBackdrop || calendarNeedsBackdrop
+    return sourceSwitchNeedsBackdrop || savedControlsNeedBackdrop || calendarNeedsBackdrop
 }
 
 /** The live calendar samples Library content only in Saved mode and while its glass is enabled. */
@@ -758,6 +763,109 @@ fun LibraryScreen(
         )
     }
     val savedControlsInset = 72.dp
+    val sourceSwitchNativeControlsEnabled = isNativeLiquidGlassControlsAvailable() &&
+        isLiquidGlassSurfaceEffectivelyEnabled(
+            surface = LiquidGlassSurface.LIBRARY,
+            platformSupported = true,
+        )
+    val sourceSwitchHeight = librarySourceSwitchMinimumHeight(sourceSwitchNativeControlsEnabled)
+    val savedSourceSwitchTopInset = 4.dp + sourceSwitchHeight
+    val savedControlsTopInset = savedSourceSwitchTopInset + 14.dp
+    val sourceSwitchGlassModifier = Modifier
+        .padding(horizontal = 16.dp)
+        .then(
+            if (libraryGlassEnabled) {
+                val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(50.dp))
+                Modifier.liquidGlassForSurface(
+                    surface = LiquidGlassSurface.LIBRARY,
+                    shape = shape,
+                    // Keep the pill translucent so scrolling poster artwork remains visible behind it.
+                    tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                    fallback = MaterialTheme.nuvio.colors.surfaceCard,
+                    blurRadius = 12.dp,
+                    refractionHeight = 6.dp,
+                    refractionAmount = 9.dp,
+                ).border(
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)),
+                    shape,
+                )
+            } else {
+                Modifier
+            },
+        )
+    val sourceSwitchTrailingActions: @Composable RowScope.() -> Unit = {
+        if (sourceMode == LibraryViewMode.Saved) {
+            LibraryListManagementButton()
+            val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
+                LibraryLayoutMode.VERTICAL
+            } else {
+                LibraryLayoutMode.HORIZONTAL
+            }
+            IconButton(
+                onClick = {
+                    LibraryDisplaySettingsRepository.setLayoutMode(targetLayout)
+                },
+            ) {
+                Crossfade(
+                    targetState = targetLayout,
+                    animationSpec = tween(durationMillis = 140),
+                    label = "libraryLayoutAction",
+                ) { animatedTargetLayout ->
+                    Icon(
+                        imageVector = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
+                            Icons.Rounded.GridView
+                        } else {
+                            Icons.Rounded.ViewAgenda
+                        },
+                        contentDescription = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
+                            stringResource(Res.string.library_layout_show_vertical)
+                        } else {
+                            stringResource(Res.string.library_layout_show_horizontal)
+                        },
+                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                    )
+                }
+            }
+        }
+        if (sourceMode == LibraryViewMode.Saved) {
+            val openCalendarLabel = stringResource(Res.string.library_calendar_open)
+            IconButton(
+                onClick = { showReleaseCalendar = true },
+                modifier = Modifier
+                    .size(40.dp)
+                    .semantics { contentDescription = openCalendarLabel },
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
+                )
+            }
+        }
+        if (sourceMode == LibraryViewMode.Cloud) {
+            val cloudSearchLabel = stringResource(Res.string.cloud_library_search_label)
+            IconButton(
+                onClick = {
+                    if (cloudSearchVisible) cloudSearchQuery = ""
+                    cloudSearchVisible = !cloudSearchVisible
+                },
+                modifier = Modifier
+                    .size(40.dp)
+                    .semantics { contentDescription = cloudSearchLabel },
+            ) {
+                Icon(
+                    imageVector = if (cloudSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (onDownloadsClick != null) {
+            LibraryDownloadsButton(onClick = onDownloadsClick)
+        }
+    }
     Box(modifier = modifier.fillMaxSize()) {
         // Cloud has a dedicated black default backdrop, matching Studio; a custom local image
         // is drawn above it when present. Draw it even with Liquid Glass disabled.
@@ -841,119 +949,25 @@ fun LibraryScreen(
                     } else {
                         0.dp
                     },
+                    bottomContentPadding = if (sourceMode == LibraryViewMode.Saved) 0.dp else NuvioTokens.Space.s4,
                 )
-                // Keep the source pill close to the Library title.
-                Spacer(modifier = Modifier.height(4.dp))
-                // The source switch sits above the scrolling viewport; it samples the static
-                // screen backdrop, never the scrolling-content layer used by pinned Saved filters.
-                CompositionLocalProvider(
-                    LocalLiquidGlassBackdrop provides if (shouldCaptureLibraryBackdrop) libraryBackdrop else null,
-                ) {
-                    LibrarySourceSwitch(
-                        selectedMode = sourceMode,
-                        showServers = hasServers,
-                        onModeSelected = { mode ->
-                            sourceModeName = mode.name
-                        },
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .then(
-                                if (libraryGlassEnabled) {
-                                    val shape = liquidGlassShape(LiquidGlassSurface.LIBRARY, RoundedCornerShape(50.dp))
-                                    Modifier.liquidGlassForSurface(
-                                        surface = LiquidGlassSurface.LIBRARY,
-                                        shape = shape,
-                                        // Apple-like capsule material: show the wallpaper while keeping
-                                        // a restrained tint, soft edge and legible selected segment.
-                                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
-                                        fallback = MaterialTheme.nuvio.colors.surfaceCard,
-                                        blurRadius = 12.dp,
-                                        refractionHeight = 6.dp,
-                                        refractionAmount = 9.dp,
-                                    ).border(
-                                        BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)),
-                                        shape,
-                                    )
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                        trailingActions = {
-                            if (sourceMode == LibraryViewMode.Saved) {
-                                LibraryListManagementButton()
-                                val targetLayout = if (displaySettings.layoutMode == LibraryLayoutMode.HORIZONTAL) {
-                                    LibraryLayoutMode.VERTICAL
-                                } else {
-                                    LibraryLayoutMode.HORIZONTAL
-                                }
-                                IconButton(
-                                    onClick = {
-                                        LibraryDisplaySettingsRepository.setLayoutMode(targetLayout)
-                                    },
-                                ) {
-                                    Crossfade(
-                                        targetState = targetLayout,
-                                        animationSpec = tween(durationMillis = 140),
-                                        label = "libraryLayoutAction",
-                                    ) { animatedTargetLayout ->
-                                        Icon(
-                                            imageVector = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
-                                                Icons.Rounded.GridView
-                                            } else {
-                                                Icons.Rounded.ViewAgenda
-                                            },
-                                            contentDescription = if (animatedTargetLayout == LibraryLayoutMode.VERTICAL) {
-                                                stringResource(Res.string.library_layout_show_vertical)
-                                            } else {
-                                                stringResource(Res.string.library_layout_show_horizontal)
-                                            },
-                                            tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
-                                        )
-                                    }
-                                }
-                            }
-                            if (sourceMode == LibraryViewMode.Saved) {
-                                val openCalendarLabel = stringResource(Res.string.library_calendar_open)
-                                IconButton(
-                                    onClick = { showReleaseCalendar = true },
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .semantics { contentDescription = openCalendarLabel },
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.CalendarMonth,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = liquidGlassIconTint(LiquidGlassSurface.LIBRARY, MaterialTheme.colorScheme.onSurfaceVariant),
-                                    )
-                                }
-                            }
-                            if (sourceMode == LibraryViewMode.Cloud) {
-                                val cloudSearchLabel = stringResource(Res.string.cloud_library_search_label)
-                                IconButton(
-                                    onClick = {
-                                        if (cloudSearchVisible) cloudSearchQuery = ""
-                                        cloudSearchVisible = !cloudSearchVisible
-                                    },
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .semantics { contentDescription = cloudSearchLabel },
-                                ) {
-                                    Icon(
-                                        imageVector = if (cloudSearchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            if (onDownloadsClick != null) {
-                                LibraryDownloadsButton(onClick = onDownloadsClick)
-                            }
-                        },
-                    )
+                if (sourceMode != LibraryViewMode.Saved) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompositionLocalProvider(
+                        LocalLiquidGlassBackdrop provides if (shouldCaptureLibraryBackdrop) libraryBackdrop else null,
+                    ) {
+                        LibrarySourceSwitch(
+                            selectedMode = sourceMode,
+                            showServers = hasServers,
+                            onModeSelected = { mode ->
+                                sourceModeName = mode.name
+                            },
+                            modifier = sourceSwitchGlassModifier,
+                            trailingActions = sourceSwitchTrailingActions,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
-                Spacer(modifier = Modifier.height(14.dp))
             }
         }
 
@@ -991,6 +1005,7 @@ fun LibraryScreen(
                 topPadding = if (sourceMode == LibraryViewMode.Saved) {
                     libraryContentTopPadding(
                         hasSavedControls = librarySavedControlsNeedContentInset(hasSavedControls = hasSavedControls),
+                        sourceSwitchInset = savedSourceSwitchTopInset,
                         savedControlsInset = savedControlsInset,
                     )
                 } else {
@@ -1149,6 +1164,38 @@ fun LibraryScreen(
             }
         }
     }
+            if (sourceMode == LibraryViewMode.Saved) {
+                CompositionLocalProvider(
+                    LocalLiquidGlassBackdrop provides if (
+                        libraryPinnedChromeUsesContentBackdrop(
+                            sourceMode = sourceMode,
+                            glassEnabled = libraryGlassEnabled,
+                        )
+                    ) libraryContentBackdrop else libraryBackdrop,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(savedSourceSwitchTopInset)
+                            .zIndex(1f),
+                    ) {
+                        LibrarySourceSwitch(
+                            selectedMode = sourceMode,
+                            showServers = hasServers,
+                            onModeSelected = { mode ->
+                                sourceModeName = mode.name
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 4.dp)
+                                .then(sourceSwitchGlassModifier),
+                            trailingActions = sourceSwitchTrailingActions,
+                        )
+                    }
+                }
+            }
+
             if (hasSavedControls) {
                 val savedControlsGlassTextEnabled = savedTypeGlassEnabled || savedSortGlassEnabled
                 CompositionLocalProvider(
@@ -1164,7 +1211,9 @@ fun LibraryScreen(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .fillMaxWidth()
-                                .height(savedControlsInset),
+                                .padding(top = savedControlsTopInset)
+                                .height(savedControlsInset)
+                                .zIndex(2f),
                         ) {
                             // Keep the overlay hit target without painting a full-width black bar.
                             Box(
