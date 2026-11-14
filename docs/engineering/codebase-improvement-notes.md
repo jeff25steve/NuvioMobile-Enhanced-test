@@ -5629,3 +5629,30 @@ The iOS validation run 43587511268 was started on the immediately preceding code
 
 
 **Final iOS validation run started (14 November 2026, 11:02 UTC):** Run 43587823305 on branch ci/main-build-testing-ios-final-20261114, source commit 5098b76f5d1707e27e7546cfce6bea0d7cd7b2b6 plus this notes update, has completed checkout, Java/Gradle setup, Apple toolchain verification, runtime configuration and iOS dependency preparation. The unsigned Debug IPA build step is still in progress; IPA summary and upload have not run. This is the validation branch containing the final core/source-generation fence. Run URL: https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43587823305. The older candidate run 43587511268 is still active on the pre-fence implementation and is not the final validation. No iOS build pass or artifact is claimed yet.
+
+## 14 November 2026 — Repair final iOS bridge protocol conformance
+
+### Improvement cycle 26 — Forward parked-PiP close requests to the existing Swift owner
+
+The latest two iOS Debug IPA runs (43587511268 and 43587823305) both reached Swift compilation and failed because the generated Kotlin/Native `NuvioPlayerBridgeCreator` protocol required `closeParkedPictureInPicture()`, while `MPVPlayerBridgeCreator` implemented only `createBridge()`. The newest job log's compiler diagnostic points directly to the generated `ComposeApp.h` protocol requirement. The earlier iOS run 43584356627 had exposed the separate missing `replaceExternalSubtitle(replacedUrl:path:)` bridge requirement; that was subsequently implemented in cycle 24 and is no longer reported in the latest build.
+
+Root-cause trace:
+- `PlayerBridge.kt` exposes `NuvioPlayerBridgeFactory.closeParkedPictureInPicture()`, which forwards to the `NuvioPlayerBridgeCreator` protocol.
+- The Swift app already owns parked-player lifecycle in the `@MainActor` singleton `PlayerPictureInPictureParking`, whose `closeParked()` method handles pause, PiP teardown, view removal, route disposal and orientation suspension cleanup.
+- The Swift creator did not implement the new Kotlin-exported protocol requirement, so Xcode rejected the conformance before packaging.
+- Removing the Kotlin API would hide the compiler error but discard an existing cross-platform bridge operation. Duplicating parked-player teardown in the MPV bridge would create a second owner. The minimal fix is to forward the creator method to the existing Swift parking manager on the main actor.
+
+Integrated fix:
+- Added `MPVPlayerBridgeCreator.closeParkedPictureInPicture()`.
+- The implementation schedules `PlayerPictureInPictureParking.shared.closeParked()` in an explicit `Task { @MainActor in ... }`, preserving the manager's actor isolation and single ownership of parked-player teardown.
+- No player lifecycle logic, Kotlin interface, settings, UI or dependency was changed.
+
+Evidence and verification:
+- Latest failing IPA run: [43587823305](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43587823305), job 132426022291. Compiler diagnostic: `MPVPlayerBridgeCreator` does not conform to `NuvioPlayerBridgeCreator`; required witness `closeParkedPictureInPicture()`.
+- Preceding failed IPA run: [43587511268](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43587511268), same missing witness.
+- Earlier bridge compile run: [43584356627](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43584356627), which required `replaceExternalSubtitle(replacedUrl:path:)`; that was addressed in improvement cycle 24.
+- Swift concurrency's official actor-isolated-call guidance explicitly recommends `Task { @MainActor in ... }` when a synchronous nonisolated method must invoke a main-actor-isolated manager: https://docs.swift.org/main/documentation/diagnostics/actor-isolated-call/.
+- Kotlin's official Kotlin/Native interoperability documentation confirms Kotlin interfaces are exported as Objective-C protocols and must be implemented by the Swift bridge: https://kotlinlang.org/docs/native-objc-interop.html.
+- Context7 resolution was attempted for the repository-pinned Kotlin 2.4.10 documentation, but the monthly quota was exhausted; no Context7 result is claimed. Exa was used to cross-check the official Kotlin and Swift documentation.
+- The observed failing Xcode build is the RED reproduction. No new test or build has yet been run after the fix; a clean Linux and iOS IPA CI run is required to verify compilation and packaging.
+- Source commit: 322f8cca67aab910b7aaa0504142faf02abd8cd1.
