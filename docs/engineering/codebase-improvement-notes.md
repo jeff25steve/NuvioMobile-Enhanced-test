@@ -6003,3 +6003,17 @@ Verification:
 - Remote static inspection only. No Gradle configuration, build, compilation, test, profile generation, Macrobenchmark, device/emulator operation or CI was run.
 - Context7 quota was exhausted; official Android Developers docs and AndroidX release notes/API references were used.
 - No performance result or speedup is claimed.
+
+
+### Improvement cycle 43 — Align ready state with the end of the launch overlay
+
+A source trace found that initialHomeReady and the launch overlay's animation state are separate. The previous callback could signal ready as soon as Home data was ready while the launch overlay was still animating away, causing TTFD to under-report the actual visible-ready time.
+
+Integrated:
+- MainAppContent now includes launchOverlayState.currentState and launchOverlayState.isIdle in the readiness effect keys.
+- onRootContentReady(true) is sent only when the root content is ready and the launch overlay is both idle and no longer visible. Loading and overlay-exit states continue to report false.
+- This is a measurement correctness change only. It preserves the overlay animation and does not block first-frame rendering or change user interaction paths.
+- MainActivity's ReportDrawnWhen and startup test marker now use the corrected readiness condition.
+
+Verification:
+- Static remote source review only. No build, compile, Compose tests, benchmark or CI was run.
