@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class SimklProfileReloadStateTest {
     @Test
-    fun profileReloadAlwaysClearsThePreviousProfilesLoadingAndErrorState() {
+    fun profileReloadProducesANonLoadingStateWithoutAnOldError() {
         val restored = simklAuthStateAfterProfileReload(
             storedState = SimklStoredAuthState(username = "new-profile"),
             accessToken = null,
