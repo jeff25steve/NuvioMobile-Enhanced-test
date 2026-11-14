@@ -23,6 +23,30 @@ internal const val SIMKL_DEFAULT_PIN_EXPIRES_IN_SECONDS = 900
 /** RFC 8628 section 3.5: a `slow_down` response adds five seconds to the polling interval. */
 internal const val SIMKL_DEVICE_SLOW_DOWN_INCREMENT_SECONDS = 5
 
+internal data class SimklPinPollingSchedule(
+    val intervalSeconds: Int,
+    val expiresAtEpochMs: Long,
+)
+
+/** Restores the V1 PIN cadence and absolute expiry, migrating records written before these fields existed. */
+internal fun buildSimklPinPollingSchedule(
+    intervalSeconds: Int?,
+    expiresInSeconds: Int?,
+    startedAtEpochMs: Long,
+): SimklPinPollingSchedule {
+    val interval = (intervalSeconds ?: SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
+        .coerceAtLeast(SIMKL_DEFAULT_PIN_POLL_INTERVAL_SECONDS)
+    val lifetime = (expiresInSeconds ?: SIMKL_DEFAULT_PIN_EXPIRES_IN_SECONDS)
+        .coerceAtLeast(interval)
+    return SimklPinPollingSchedule(
+        intervalSeconds = interval,
+        expiresAtEpochMs = startedAtEpochMs + lifetime * 1_000L,
+    )
+}
+
+internal fun isSimklPinAuthorizationExpired(expiresAtEpochMs: Long?, nowEpochMs: Long): Boolean =
+    expiresAtEpochMs == null || nowEpochMs >= expiresAtEpochMs
+
 internal const val SIMKL_GRANT_AUTHORIZATION_CODE = "authorization_code"
 internal const val SIMKL_GRANT_REFRESH_TOKEN = "refresh_token"
 internal const val SIMKL_GRANT_DEVICE_CODE = "urn:ietf:params:oauth:grant-type:device_code"
