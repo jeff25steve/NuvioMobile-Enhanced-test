@@ -365,7 +365,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
                     },
                     onError = { message ->
                         if (!active.value || playbackKey != activePlaybackKey) return@PlatformPlayerSurface
-                        if (message != null && tryRefreshExpiredLinkAfterError(message)) {
+                        if (message != null && tryRefreshCredentialedSourceAfterError(message)) {
                             return@PlatformPlayerSurface
                         }
                         // Engine failover is decided here, driven by its own player setting;
