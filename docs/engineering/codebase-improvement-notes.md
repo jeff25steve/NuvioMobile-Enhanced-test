@@ -5596,3 +5596,6 @@ The first repaired Linux run (43584356595) compiled the production Android main 
 The first repaired Linux run's complete diagnostic was obtained from job 132415567219: two missing sourceSwitchInset arguments in LibraryDisplaySettingsTest.kt lines 11 and 12, and a type-inference diagnostic in SimklSyncEngineTest.kt line 79. These are test-compilation failures, not runtime assertions. The fullDebug APK stage was consequently skipped. No local tests or builds were run. A clean Linux validation branch must use these updated test sources before the host-test task can be considered verified.
 
 Validation still in progress: The matching iOS run 43584356627 is still compiling the unsigned Debug IPA on the repaired production source revision 9c876cdbf6f8ad6e7360ac7782ac58e0b72d6437. Its outcome is not yet known; this run does not compile commonTest sources.
+
+
+**Run-state update (14 November 2026, 10:33 UTC):** The clean Linux validation run 43585169491 on branch ci/main-build-testing-linux-repair-20261114 has passed the Player host-regression test step, including BackdropFocusDownsampleTest and AnimatedImagePlaybackGateTest. It is now in the fullDebug APK build step; artifact upload is pending. The iOS Debug IPA run 43584356627 remains in the unsigned IPA build step. Neither packaging result has completed at this update.
