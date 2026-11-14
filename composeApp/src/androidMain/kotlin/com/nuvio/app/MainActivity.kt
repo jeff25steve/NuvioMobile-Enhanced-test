@@ -230,22 +230,17 @@ open class MainActivity : AppCompatActivity() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .semantics { testTagsAsResourceId = true },
+                    .semantics { testTagsAsResourceId = true }
+                    .then(
+                        if (appReady.value) {
+                            Modifier.testTag("nuvio_startup_ready")
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (appReady.value) {
-                                Modifier.testTag("nuvio_startup_ready")
-                            } else {
-                                Modifier
-                            },
-                        ),
-                ) {
-                    NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
-                        App(onAppReady = { ready -> appReady.value = ready })
-                    }
+                NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
+                    App(onAppReady = { ready -> appReady.value = ready })
                 }
             }
         }
