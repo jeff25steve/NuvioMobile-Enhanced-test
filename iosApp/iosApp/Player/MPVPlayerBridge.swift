@@ -226,6 +226,9 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
     func selectAudioTrack(trackId: Int32) { playerVC?.selectAudio(Int(trackId)) }
     func selectSubtitleTrack(trackId: Int32) { playerVC?.selectSubtitle(Int(trackId)) }
     func setSubtitleUrl(url: String) { playerVC?.addSubtitleUrl(url) }
+    func replaceExternalSubtitle(replacedUrl: String, path: String) {
+        playerVC?.replaceExternalSubtitle(replacedUrl: replacedUrl, path: path)
+    }
     func clearExternalSubtitle() { playerVC?.removeExternalSubtitles() }
     func clearExternalSubtitleAndSelect(trackId: Int32) { playerVC?.removeExternalSubtitlesAndSelect(Int(trackId)) }
     func setSubtitleDelayMs(delayMs: Int32) { playerVC?.setSubtitleDelayMs(Int(delayMs)) }
@@ -376,6 +379,78 @@ struct MpvPendingSubtitleRequest {
     }
 }
 
+
+struct MpvExternalSubtitleTrackSnapshot: Equatable {
+    let id: Int
+    let externalFilename: String?
+    let title: String
+    let language: String
+    let isExternal: Bool
+}
+
+struct MpvExternalSubtitleReplacementPlan: Equatable {
+    let sourceTrackId: Int
+    let existingReplacementTrackId: Int?
+    let title: String
+    let language: String
+    let trackIdsToRemove: [Int]
+}
+
+func makeMpvExternalSubtitleReplacementPlan(
+    tracks: [MpvExternalSubtitleTrackSnapshot],
+    replacedUrl: String,
+    resolvedOriginalPath: String?,
+    replacementPath: String
+) -> MpvExternalSubtitleReplacementPlan? {
+    func normalizedLocation(_ value: String) -> String {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return "" }
+        if let url = URL(string: value), let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            return url.absoluteString
+        }
+        return URL(fileURLWithPath: value).standardizedFileURL.path
+    }
+
+    let sourceLocations = Set([replacedUrl, resolvedOriginalPath]
+        .compactMap { $0 }
+        .map(normalizedLocation)
+        .filter { !$0.isEmpty })
+    guard let source = tracks.first(where: {
+        $0.isExternal &&
+            $0.externalFilename.map(normalizedLocation).map(sourceLocations.contains) == true
+    }) else {
+        return nil
+    }
+
+    let normalizedReplacement = normalizedLocation(replacementPath)
+    let existingReplacement = tracks.first(where: {
+        $0.isExternal && $0.externalFilename.map(normalizedLocation) == normalizedReplacement
+    })
+    let staleAutoSyncIds = tracks.compactMap { track -> Int? in
+        guard track.isExternal, let filename = track.externalFilename else { return nil }
+        let basename = URL(fileURLWithPath: filename).lastPathComponent
+        return basename.hasPrefix("autosync_") ? track.id : nil
+    }
+    let idsToRemove = Set([source.id] + staleAutoSyncIds)
+        .subtracting(existingReplacement.map { [$0.id] } ?? [])
+        .sorted()
+
+    return MpvExternalSubtitleReplacementPlan(
+        sourceTrackId: source.id,
+        existingReplacementTrackId: existingReplacement?.id,
+        title: source.title,
+        language: source.language,
+        trackIdsToRemove: idsToRemove
+    )
+}
+
+private struct PendingMpvExternalSubtitleReplacement {
+    let sourceUrl: String
+    let path: String
+    let trackIdsToRemove: [Int]
+}
+
 struct MpvStartupAudioRequest {
     private(set) var url: String?
 
@@ -425,6 +500,8 @@ final class MPVPlayerViewController: UIViewController {
     /// mpv's sub-add needs a loaded file. This request is cleared when a different source is queued,
     /// but retained across retries and device-loss recovery of the same source.
     private var pendingSubtitleRequest = MpvPendingSubtitleRequest()
+    private var externalSubtitlePathsBySourceUrl: [String: String] = [:]
+    private var pendingExternalSubtitleReplacement: PendingMpvExternalSubtitleReplacement?
     private var isFileLoaded = false
     private var pendingLoadRetryWorkItem: DispatchWorkItem?
     var mpv: OpaquePointer?
@@ -1124,7 +1201,13 @@ final class MPVPlayerViewController: UIViewController {
 
     private func queueLoad(_ request: PendingLoadRequest) {
         loadRequestGeneration &+= 1
+        let requestGeneration = loadRequestGeneration
         pendingSubtitleRequest.clearForNewSource()
+        onMpvQueue { [weak self] in
+            guard let self, self.loadRequestGeneration == requestGeneration else { return }
+            self.externalSubtitlePathsBySourceUrl.removeAll()
+            self.pendingExternalSubtitleReplacement = nil
+        }
         pendingLoadRequest = request
         attemptStartPendingLoad()
     }
@@ -1780,18 +1863,29 @@ final class MPVPlayerViewController: UIViewController {
             return
         }
         let coreGeneration = mpvGeneration
+        let requestGeneration = loadRequestGeneration
         let headers = activeRequestHeaders
         // Hebrew SRTs are often authored with sentence-final punctuation at the start
         // of the line (for legacy LTR renderers). mpv lays Hebrew out RTL, so that
         // punctuation shows at the start of the sentence. Fix the file off the main
         // thread before handing it to mpv; fall back to the original URL otherwise.
         MPVSubtitleRtlFix.prepare(url: url, headers: headers) { [weak self] localPath, title in
-            guard let self, self.mpvGeneration == coreGeneration else { return }
-            if let localPath {
-                InAppLogBridge.shared.info(tag: "MPV/SubRtl", message: "using RTL-fixed subtitle copy")
-                self.command("sub-add", args: [localPath, "select", title])
-            } else {
-                self.command("sub-add", args: [url, "select"])
+            guard let self else { return }
+            self.onMpvQueue {
+                guard
+                    self.mpvGeneration == coreGeneration,
+                    self.loadRequestGeneration == requestGeneration,
+                    self.mpv != nil
+                else {
+                    return
+                }
+                self.externalSubtitlePathsBySourceUrl[url] = localPath ?? url
+                if let localPath {
+                    InAppLogBridge.shared.info(tag: "MPV/SubRtl", message: "using RTL-fixed subtitle copy")
+                    self.command("sub-add", args: [localPath, "select", title])
+                } else {
+                    self.command("sub-add", args: [url, "select"])
+                }
             }
         }
     }
@@ -1820,6 +1914,98 @@ final class MPVPlayerViewController: UIViewController {
                 self.applyRequestHeaders(previousHeaders)
             }
         }
+    }
+
+    func replaceExternalSubtitle(replacedUrl: String, path: String) {
+        guard mpv != nil, isFileLoaded else { return }
+        let coreGeneration = mpvGeneration
+        let requestGeneration = loadRequestGeneration
+        onMpvQueue { [weak self] in
+            guard
+                let self,
+                self.mpvGeneration == coreGeneration,
+                self.loadRequestGeneration == requestGeneration,
+                self.mpv != nil
+            else {
+                return
+            }
+
+            let tracks = (0..<self.getInt("track-list/count")).compactMap { index -> MpvExternalSubtitleTrackSnapshot? in
+                guard
+                    self.getString("track-list/\(index)/type") == "sub",
+                    self.getFlag("track-list/\(index)/external")
+                else {
+                    return nil
+                }
+                return MpvExternalSubtitleTrackSnapshot(
+                    id: Int(self.getInt("track-list/\(index)/id")),
+                    externalFilename: self.getString("track-list/\(index)/external-filename"),
+                    title: self.getTrackString(index, "title"),
+                    language: self.getTrackString(index, "lang"),
+                    isExternal: true
+                )
+            }
+            let plan = makeMpvExternalSubtitleReplacementPlan(
+                tracks: tracks,
+                replacedUrl: replacedUrl,
+                resolvedOriginalPath: self.externalSubtitlePathsBySourceUrl[replacedUrl],
+                replacementPath: path
+            )
+            guard let plan else {
+                InAppLogBridge.shared.warn(
+                    tag: "MPV/AutoSync",
+                    message: "could not resolve selected external subtitle for replacement"
+                )
+                return
+            }
+
+            self.externalSubtitlePathsBySourceUrl[replacedUrl] = path
+            if let existingTrackId = plan.existingReplacementTrackId {
+                self.pendingExternalSubtitleReplacement = nil
+                self.selectSubtitle(existingTrackId)
+                plan.trackIdsToRemove.forEach { id in
+                    self.command("sub-remove", args: ["\(id)"], checkForErrors: false)
+                }
+                self.refreshTracks()
+            } else {
+                // Keep the original track until MPV confirms that the retimed file has appeared.
+                // The track-list/count observer completes the swap and removes stale AutoSync copies.
+                self.pendingExternalSubtitleReplacement = PendingMpvExternalSubtitleReplacement(
+                    sourceUrl: replacedUrl,
+                    path: path,
+                    trackIdsToRemove: plan.trackIdsToRemove
+                )
+                self.command(
+                    "sub-add",
+                    args: [path, "select", plan.title, plan.language],
+                    checkForErrors: false
+                )
+                self.completePendingExternalSubtitleReplacementIfAvailable()
+            }
+        }
+    }
+
+    private func completePendingExternalSubtitleReplacementIfAvailable() {
+        guard let pending = pendingExternalSubtitleReplacement, mpv != nil else { return }
+        let count = getInt("track-list/count")
+        let replacementId = (0..<count).first(where: { index in
+            getString("track-list/\(index)/type") == "sub" &&
+                getFlag("track-list/\(index)/external") &&
+                getString("track-list/\(index)/external-filename")
+                    .map { URL(fileURLWithPath: $0).standardizedFileURL.path == URL(fileURLWithPath: pending.path).standardizedFileURL.path } == true
+        }).map { Int(getInt("track-list/\($0)/id")) }
+        guard let replacementId else { return }
+
+        pendingExternalSubtitleReplacement = nil
+        lastSelectedSubtitleTrackId = replacementId
+        pending.trackIdsToRemove.forEach { id in
+            command("sub-remove", args: ["\(id)"], checkForErrors: false)
+        }
+        InAppLogBridge.shared.info(
+            tag: "MPV/AutoSync",
+            message: "replaced external subtitle source with synchronized local track"
+        )
+        refreshTracks()
     }
 
     func removeExternalSubtitles() {
@@ -1954,6 +2140,8 @@ final class MPVPlayerViewController: UIViewController {
         startupSubtitles = []
         startupAudioRequest.clear()
         pendingSubtitleRequest.clearForNewSource()
+        externalSubtitlePathsBySourceUrl.removeAll()
+        pendingExternalSubtitleReplacement = nil
         isFileLoaded = false
         if !isEmbeddedPreviewMode {
             nowPlayingController.invalidate()
@@ -2283,6 +2471,7 @@ final class MPVPlayerViewController: UIViewController {
         let coreGeneration = mpvGeneration
         mpvQueue.async { [weak self] in
             guard let self, self.mpvGeneration == coreGeneration else { return }
+            self.completePendingExternalSubtitleReplacementIfAvailable()
             let tracks = self.readTracks()
 
             self.stateRefreshLock.lock()
