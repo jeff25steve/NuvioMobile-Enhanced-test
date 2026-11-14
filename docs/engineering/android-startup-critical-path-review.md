@@ -315,7 +315,7 @@ The first two phone-bundle workflow dispatches failed before Gradle compilation:
 
 A further static audit found two desktop-runner issues and fixed them on the isolated review branch:
 
-1. All six ADB output cleanup commands now use `tr -d '\\r'` rather than `tr -d '\\\\r'`. GNU `tr` previously received a literal backslash plus the letter `r`, leaving carriage-return bytes in API level, model, hardware, emulator and root-check strings.
+1. All six ADB output cleanup commands now use `tr -d '\r'` rather than `tr -d '\\r'`. GNU `tr` previously received a literal backslash plus the letter `r`, leaving carriage-return bytes in API level, model, hardware, emulator and root-check strings.
 2. The desktop runner now collects profiles through `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`, and inspects `src/<flavor>NonMinifiedRelease/generated/baselineProfiles`. Its prior `generate*ReleaseBaselineProfile` tasks and `src/<flavor>Release` path selected the production release build type instead of the isolated `.benchmark` profile-capture build type. This aligns the desktop runner with the APK pairs used by the phone-only workflow and leaves production `com.nuvio.media` isolated.
 
 The mocked runner test now asserts the CR escape, both non-minified task names and the correct generated source-set path. The new checks were exercised with a focused local fixture: they rejected the old task/path and accepted the corrected variant. The CR-removal behavior was confirmed with a literal CR byte; representative updated shell fragments passed `bash -n`. The complete repository mock suite has not been rerun locally after these new assertions were added.
