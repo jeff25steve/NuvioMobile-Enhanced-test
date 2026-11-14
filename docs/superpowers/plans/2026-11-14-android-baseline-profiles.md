@@ -197,3 +197,19 @@ References:
 - Android instrumentation target context: https://developer.android.com/reference/android/app/Instrumentation#getTargetContext()
 - Android build variants and application ID suffix: https://developer.android.com/build/build-variants
 - LADB pairing procedure and implementation: https://github.com/tytydraco/LADB
+
+
+## Follow-up — CI validation and desktop variant alignment (14 November 2026)
+
+- [x] Trace the first failed run to the desktop runner's doubled `find` escapes; correction committed on `main-build-testing`.
+- [x] Trace the second failed run to the mock test's incorrect relative runner path; correction committed on `main-build-testing`.
+- [x] Correct six ADB output filters from `tr -d '\\\\r'` to `tr -d '\\r'` so carriage-return bytes are actually removed.
+- [x] Align desktop profile generation with the isolated app identity: use `generateFullNonMinifiedReleaseBaselineProfile` and `generatePlaystoreNonMinifiedReleaseBaselineProfile`, and inspect `src/<flavor>NonMinifiedRelease/generated/baselineProfiles` rather than the production `release` source set.
+- [x] Add regression assertions for ADB CR cleanup, both profile tasks and the generated profile path.
+- [ ] Run the complete updated mock suite and desktop runner syntax check in a later explicitly authorized validation session.
+- [ ] Complete and review the already-existing Actions run 43652201558; do not start another run without authorization.
+- [ ] Complete physical-device profile collection and TTID/TTFD A/B measurement.
+
+The follow-up changes are on `fix/android-startup-profile-shell-validation`, based on the current `main-build-testing` head. This session did not run Gradle, start CI, dispatch a workflow or operate a device. The previously active run 43652201558 had already passed the pre-build gate and was observed building the first non-minified profile-capture pair; that status is not equivalent to a completed artifact.
+
+Context7's monthly quota prevented retrieval of AndroidX Baseline Profile 1.5.0 documentation. The variant mapping was checked against the Android Developers plugin configuration documentation and AndroidX plugin source using Exa. No profile or performance improvement is accepted until the physical-device comparison is complete.
