@@ -52,7 +52,7 @@ Context7 resolution for the exact AndroidX Baseline Profile plugin documentation
 - Store generated profiles in source control.
 - Keep generation variant-specific (`fullRelease` and `playstoreRelease`) rather than silently merging potentially different distribution artifacts.
 - Explicitly leave `automaticGenerationDuringBuild` disabled.
-- Keep the existing ProfileInstaller dependency and empty legacy source file until a real generated profile has been produced and packaging has been reviewed.
+- Keep the existing ProfileInstaller dependency and legacy shared source profile unchanged; add separately generated flavor-specific source profiles and only retain them after packaging and same-device A/B review.
 
 ### Producer module
 
@@ -135,3 +135,14 @@ References:
 The readiness callback now accounts for the launch overlay's exit transition. Home data readiness alone is not the same as the visible app being ready: the overlay can still be animating away. MainAppContent therefore reports ready only when root content is ready, launchOverlayState is idle, and its current state is hidden. The readiness effect observes both transition-state properties so it is re-evaluated when the overlay exits.
 
 This does not change the overlay animation or hold up content rendering. It corrects the definition used by ReportDrawnWhen and the startup benchmark marker. Runtime validation remains deferred until authorized Compose tests and physical-device benchmarking.
+
+
+## Authorized R8 build and device run update — 14 November 2026
+
+The user authorized an optimized Android build and validation. The workflow now builds the AndroidX \`benchmarkRelease\` variants for both \`full\` and \`playstore\`. AndroidX creates this variant from the release build configuration with R8/minification and resource shrinking enabled, non-debuggable and profileable; it uses the local debug signing key so Macrobenchmark can install it without production signing secrets. It is not a production-signed public release APK. The separate \`nonMinifiedRelease\` build remains the profile-collection target, as required by Android's Baseline Profile workflow.
+
+The generator now waits for \`nuvio_startup_ready\` after launching the app. It rejects first-run authentication/onboarding as a completed journey. The physical-device runner uses the variant-specific output paths \`androidApp/src/fullRelease/generated/baselineProfiles\` and \`androidApp/src/playstoreRelease/generated/baselineProfiles\`, and then compares 10 cold starts in \`CompilationMode.None()\` with 10 cold starts in \`CompilationMode.Partial(BaselineProfileMode.Require)\` for each flavor using the same physical device and signed-in install. The app must be pre-signed-in; the script does not create accounts or falsify remote catalog state.
+
+The fork has no production release signing secrets. This does not block the benchmarkRelease variant because AndroidX signs the app/test benchmark variants with the local debug key. A production-signed copy must be uninstalled once before installing this benchmark-signature APK; the user signs in again on the benchmark installation. The two flavors share the application ID and benchmark key, so test state can be retained when switching flavors.
+
+The CI build workflow is compiling the first R8 benchmark variant. The physical-device runner cannot be executed until a supported physical device is connected through ADB. Therefore no per-flavor profile has been accepted and no TTID/TTFD median or Nuvio startup speedup is claimed yet. Acceptance requires a repeatable improvement in both metrics with no regression and a compiled profile below Android's 1.5 MB binary limit. The legacy shared main profile remains untouched pending that result.
