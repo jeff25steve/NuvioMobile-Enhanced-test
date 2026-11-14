@@ -5890,3 +5890,11 @@ Evidence and constraints:
 - Context7 was attempted for kotlinx.coroutines but returned the monthly quota limit. No successful Context7 result is claimed; no coroutine API or dependency version was changed.
 - Static source review confirms the post-frame preload completes on IO before the common repository restore step. New Robolectric coverage is added but not executed.
 - No build, Gradle test, iOS test, CI, benchmark, Macrobenchmark or device run was started. The expected benefit is removal of transfer-directory scanning and JSON decoding from the pre-first-frame wait; actual TTID/TTFD impact remains unmeasured.
+
+
+First-frame safety follow-up to cycles 34–35:
+- Kept `DownloadsPlatformDownloader.prepareForStartup()` in the critical phase. After the store became lazy, this now constructs only the scheduler and store wrapper; it does not enumerate or decode transfer records. This keeps the platform scheduler ready if a user opens Downloads immediately after the first frame.
+- The post-frame warm-up explicitly calls `preloadTransferStore()` on IO before the common manifest restore.
+- `DownloadsScreen` independently awaits the same IO preload before calling `DownloadsRepository.ensureLoaded()`. The synchronized lazy ensures concurrent preload attempts share one store initialization. The screen shows a loading indicator while its manifest is being restored, avoiding a false empty-state flash.
+- Android uses the IO preload; iOS implements the hook as a no-op and retains its existing NSURLSession/profile-manifest behavior.
+- Static call-site audit: startup preloader, Downloads screen, common expect, Android actual and iOS actual were all checked. Tests and builds remain unexecuted by instruction.
