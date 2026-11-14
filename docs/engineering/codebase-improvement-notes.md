@@ -5447,3 +5447,4 @@ A second pass through the native MPV recovery path found that `retryPlayback()` 
 - The replacement uses the official mpv `loadfile` fourth-argument per-file options syntax already researched for cycle 11, with `-1` in the third argument as required since mpv 0.38.
 - The XCTest was committed before the Swift implementation. **No XCTest, Xcode build, Gradle task, or CI run was started** because explicit authorization remains absent. Static source/diff checks do not establish Swift compilation or runtime recovery behavior.
 - No Android code, dependencies, build configuration, workflows, or CI settings changed.
+- A final remote-source review aligned the XCTest call with the Swift helper name and made the POSIX formatter's argument array explicit. This was caught by diff inspection, not by an executed test; the no-build/no-CI boundary remains unchanged.
