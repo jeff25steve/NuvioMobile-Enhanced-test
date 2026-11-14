@@ -61,7 +61,7 @@ internal val PlayerGlassSurfaceTint = Color.White.copy(alpha = 0.05f)
 /**
  * Keep the blurred frame dominant inside the glass. The raw video is still visible around the
  * controls; a half-opacity copy on top of it made blur/refraction sliders barely perceptible.
- * Failed/black frame captures are discarded by VideoFrameBackdrop before they can be published.
+ * Only failed or unavailable PixelCopy captures are discarded; a successful black frame is valid video.
  */
 internal const val PlayerGlassBackdropOpacity = 0.9f
 

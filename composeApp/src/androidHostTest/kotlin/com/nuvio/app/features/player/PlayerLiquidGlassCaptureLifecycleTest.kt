@@ -1,11 +1,24 @@
 package com.nuvio.app.features.player
 
+import android.view.PixelCopy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PlayerLiquidGlassCaptureLifecycleTest {
+    @Test
+    fun successfulPixelCopyIsAcceptedEvenWhenTheCopiedFrameIsBlack() {
+        assertTrue(isSuccessfulVideoFrameCopy(PixelCopy.SUCCESS))
+    }
+
+    @Test
+    fun failedPixelCopyStatusesRemainUnavailable() {
+        assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_SOURCE_NO_DATA))
+        assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_SOURCE_INVALID))
+        assertFalse(isSuccessfulVideoFrameCopy(PixelCopy.ERROR_TIMEOUT))
+    }
+
     @Test
     fun captureBacksOffOnlyAfterConsecutiveUnavailableFrames() {
         val policy = VideoFrameCapturePolicy(unavailableFrameLimit = 3)
