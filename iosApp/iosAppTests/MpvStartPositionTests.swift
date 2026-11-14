@@ -57,3 +57,23 @@ final class MpvStartPositionTests: XCTestCase {
     }
 
 }
+
+final class MpvAudioLanguagePreferenceStateTests: XCTestCase {
+    func testStoresNormalizedLanguagePreferencesForCoreRecovery() {
+        var state = MpvAudioLanguagePreferenceState()
+
+        XCTAssertNil(state.optionValue)
+
+        state.update([" en ", "", "fr\n"])
+        XCTAssertEqual(state.optionValue, "en,fr")
+        XCTAssertEqual(state.languages, ["en", "fr"])
+    }
+
+    func testAnExplicitEmptyPreferenceRemainsDistinctFromNoPreference() {
+        var state = MpvAudioLanguagePreferenceState()
+        state.update([])
+
+        XCTAssertEqual(state.languages, [])
+        XCTAssertEqual(state.optionValue, "")
+    }
+}
