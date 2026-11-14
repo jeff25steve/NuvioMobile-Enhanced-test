@@ -50,7 +50,7 @@ class DownloadNetworkPolicyTest {
 
 
     @Test
-    fun `queued download is paused before start when mobile data is disallowed`() {
+    fun `disallowed network pauses an active download without losing resumable progress`() {
         val item = sampleDownload().copy(
             status = DownloadStatus.Downloading,
             downloadedBytes = 4_096L,
@@ -73,7 +73,7 @@ class DownloadNetworkPolicyTest {
     }
 
     @Test
-    fun `queued download is unchanged before start when its network is allowed`() {
+    fun `allowed network leaves the download state unchanged`() {
         val item = sampleDownload().copy(status = DownloadStatus.Downloading)
 
         assertEquals(
