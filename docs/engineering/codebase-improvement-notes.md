@@ -5599,3 +5599,23 @@ Validation still in progress: The matching iOS run 43584356627 is still compilin
 
 
 **Run-state update (14 November 2026, 10:33 UTC):** The clean Linux validation run 43585169491 on branch ci/main-build-testing-linux-repair-20261114 has passed the Player host-regression test step, including BackdropFocusDownsampleTest and AnimatedImagePlaybackGateTest. It is now in the fullDebug APK build step; artifact upload is pending. The iOS Debug IPA run 43584356627 remains in the unsigned IPA build step. Neither packaging result has completed at this update.
+
+
+### Improvement cycle 24 — Implement the missing iOS AutoSync external-subtitle replacement
+
+The first repaired iOS build (43584356627, job 132415567488) compiled the Kotlin Multiplatform framework and then failed in Swift compilation because MPVPlayerBridgeImpl did not conform to the generated NuvioPlayerBridge protocol. The missing requirement was replaceExternalSubtitle(replacedUrl:path:), used by AutoSyncMpvEngineController after it writes a synchronized local subtitle.
+
+- Added a native bridge implementation and a deterministic replacement-plan helper. The plan finds the selected external subtitle by its original URL or the local path produced by the existing RTL subtitle normalizer, carries forward the original title and language, reuses an already-loaded replacement path, and identifies only external AutoSync tracks plus the selected source for removal.
+- The new local subtitle is added with MPV's sub-add command and the existing metadata. The original subtitle remains loaded until track-list/count reports the replacement file; only then is the previous track and stale AutoSync copies removed. A missing source match fails closed and leaves current tracks untouched.
+- Added a serial-queue-owned source URL to resolved local path map, cleared when the source changes or the user removes external subtitles. Replacement operations are guarded by both MPV-core and source-request generations.
+- Hardened the asynchronous Hebrew/RTL subtitle preparation callback: an older download can no longer attach its subtitle after the user has switched to another video. A new subtitle selection also cancels any not-yet-completed replacement from an earlier selection.
+- Added XCTest coverage (test-first commit) for original metadata preservation, RTL-normalized source paths, existing replacement reuse, stale AutoSync track cleanup, and missing-source safety.
+- Commits: tests a4c4bc1429a65c6485d615f413658078445cedb6; implementation 189472f3d431f5c717f645164f50dd21890c8c1a; stale-selection cancellation and queue ownership cleanup 60a0bca2235b7d0772f9dcfab7e04ee44b962943, c6256440f2b4d272d64e4a23697212e011dda73e.
+
+### Validation results and remaining boundary
+
+- Linux is green on ci/main-build-testing-linux-repair-20261114, run https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43585169491: Player host-regression tests passed (including the new shared backdrop and playback-gate tests), assembleFullDebug passed, and the APK artifact uploaded successfully.
+- APK artifact: androidApp-full-debug.apk, 169,289,947 bytes; SHA-256 95b0ede665ca58a51f2cdcfbc742498f9b5b657931df7d462edef589907ac093; artifact ID 14109798143, retained until 21 November 2026.
+- iOS run https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43584356627 failed only after Swift reached the missing bridge protocol method described above. The method and its regression tests are now present on main-build-testing; a fresh iOS validation is required before claiming the iOS build is fixed.
+- The iOS workflow packages an unsigned Debug IPA and does not execute the XCTest suite. The replacement-plan XCTest source is committed, but its execution is not claimed by that workflow.
+- No local Gradle or Xcode build was run. Context7 requests for mpv/Kotlin documentation were blocked by the monthly API quota. Exa cross-checked the official MPV command/property documentation: sub-add accepts title/language, sub-remove removes an external track by id, and track-list/N/external-filename identifies the external file. The next iOS run will validate compilation and packaging, not XCTest execution.
