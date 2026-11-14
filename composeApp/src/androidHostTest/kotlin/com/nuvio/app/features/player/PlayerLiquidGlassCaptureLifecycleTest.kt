@@ -1,6 +1,7 @@
 package com.nuvio.app.features.player
 
 import android.view.PixelCopy
+import com.nuvio.app.core.ui.downsampleArgb
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

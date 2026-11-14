@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
-private fun cleanupFailure(results: List<Result<*>>): Throwable? {
+internal fun cleanupFailure(results: List<Result<*>>): Throwable? {
     val failures = results.mapNotNull { it.exceptionOrNull() }
     val primary = failures.firstOrNull { it is CancellationException }
         ?: failures.firstOrNull()

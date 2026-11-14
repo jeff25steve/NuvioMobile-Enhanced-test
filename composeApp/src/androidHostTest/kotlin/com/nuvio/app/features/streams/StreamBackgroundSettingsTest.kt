@@ -144,6 +144,17 @@ class StreamBackgroundSettingsTest {
                     liquidGlassNativeTabBarSupported = false,
                     switchProfileAvailable = false,
                     checkForUpdatesAvailable = false,
+                    debridSettings = com.nuvio.app.features.debrid.DebridSettings(),
+                    liveTvUiState = com.nuvio.app.features.livetv.LiveTvUiState(),
+                    continueWatchingStyle = com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle.Card,
+                    continueWatchingEpisodeThumbnails = true,
+                    trackingTraktConnected = false,
+                    trackingSimklConnected = false,
+                    homeHeroSourcesAvailable = false,
+                    homeCatalogsAvailable = false,
+                    homeHeroEnabled = false,
+                    homeHeroTrailerPlaybackSettingAvailable = false,
+                    homeHeroTrailerPlaybackEnabled = false,
                 )
             }
         }

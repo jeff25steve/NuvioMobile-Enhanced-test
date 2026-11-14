@@ -15,7 +15,7 @@ class CleanupCancellationTest {
 
         try {
             ensureCleanupCallerActive(
-                listOf(Result.failure(first), Result.failure(second)),
+                listOf(Result.failure<Unit>(first), Result.failure<Unit>(second)),
             )
         } catch (error: CancellationException) {
             thrown = error
@@ -37,7 +37,7 @@ class CleanupCancellationTest {
         var thrown: CancellationException? = null
 
         try {
-            ensureCleanupCallerActive(listOf(Result.failure(cancellation)))
+            ensureCleanupCallerActive(listOf(Result.failure<Unit>(cancellation)))
         } catch (error: CancellationException) {
             thrown = error
         }
@@ -52,7 +52,7 @@ class CleanupCancellationTest {
         val ordinary = IllegalStateException("Local cleanup failed")
 
         val failure = cleanupFailure(
-            listOf(Result.failure(ordinary), Result.failure(cancellation)),
+            listOf(Result.failure<Unit>(ordinary), Result.failure<Unit>(cancellation)),
         )
 
         assertSame(cancellation, failure)
@@ -65,7 +65,7 @@ class CleanupCancellationTest {
         val second = IllegalStateException("Second cleanup failed")
 
         val failure = cleanupFailure(
-            listOf(Result.failure(first), Result.failure(second)),
+            listOf(Result.failure<Unit>(first), Result.failure<Unit>(second)),
         )
 
         assertSame(first, failure)
