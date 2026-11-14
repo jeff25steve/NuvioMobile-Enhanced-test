@@ -324,6 +324,17 @@ object DownloadsRepository {
         }
     }
 
+    fun markLocalFileUnavailable(item: DownloadItem) {
+        val owner = ensureLoadedForCurrentProfile()
+        mutateItem(owner, item.id) { current ->
+            if (current.fileName == item.fileName) {
+                current.markLocalFileUnavailable(DownloadsClock.nowEpochMs())
+            } else {
+                current
+            }
+        }
+    }
+
     fun playableLocalFileUri(item: DownloadItem): String? {
         val owner = ensureLoadedForCurrentProfile()
         if (item.status != DownloadStatus.Completed) return null
