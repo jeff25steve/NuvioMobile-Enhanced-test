@@ -90,7 +90,7 @@ object SimklAuthRepository : TrackingAuthProvider {
             storedState = SimklStoredAuthState()
             accessToken = null
             authenticationMethod = SimklAuthenticationMethod.BROWSER_REDIRECT
-            publish()
+            publish(isLoading = false, error = null)
         }
     }
 
@@ -390,7 +390,7 @@ object SimklAuthRepository : TrackingAuthProvider {
             clearPendingAuthorization()
             storedState = SimklStoredAuthState()
             persistMetadata()
-            publish(error = null)
+            publish(isLoading = false, error = null)
         }
         SimklSyncRepository.clearLocalState()
     }
