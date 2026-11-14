@@ -91,3 +91,22 @@ If authorized build verification reveals a plugin, flavor, variant, or profile p
 - AndroidX Benchmark release notes: https://developer.android.com/jetpack/androidx/releases/benchmark
 - BaselineProfileRule API: https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule
 - AGP 9.4.0 release notes: https://developer.android.com/build/releases/agp-9-4-0-release-notes
+
+
+## Quality hardening and measurement protocol — 14 November 2026
+
+The producer was tightened after reviewing the stable BaselineProfileRule and Macrobenchmark APIs:
+
+- The profile collection test calls pressHome() before startActivityAndWait() so every iteration begins at the launcher.
+- strictStability is true. The generator keeps 15 maximum iterations and 3 stable iterations and must fail rather than accept unstable output.
+- The producer test APK uses maxOf(28, app minSdk). This respects BaselineProfileRule's API 28+ rooted / API 33+ non-rooted support without changing Nuvio's production minSdk 24.
+- A separate manual StartupBenchmark compares CompilationMode.None() with CompilationMode.Partial(BaselineProfileMode.Require), using StartupMode.COLD, StartupTimingMetric and 10 iterations. The profile-enabled scenario requires a packaged profile and will fail when it is absent.
+- The Macrobenchmark tests require androidx.benchmark.enabledRules=macrobenchmark and are not linked to release assembly or CI.
+
+Measurement limitations:
+- The benchmark guarantees TTID. Current Android MainActivity does not wire the app-ready callback into Compose ReportDrawnWhen, so TTFD cannot yet be treated as validated. Do not use an arbitrary sleep as a substitute for a real user-interactive readiness signal.
+- The profile collection journey captures the installed app's actual launcher state. It does not synthesize sign-in state, onboarding completion, catalog data or add-on/network responses. A stable signed-in Home critical journey requires an approved test-data fixture.
+- Generated baseline-prof.txt and startup-prof.txt still need to be produced for each release flavor. Both generated variants must be inspected, and the compiled binary Baseline Profile must remain below Android's 1.5 MB limit.
+- The A/B comparison must use the same physical device and matching app flavor/build configuration. Compare median TTID and keep the profile only if it does not regress. Do not treat emulator timings as user-facing performance evidence.
+
+These changes add the source-side collection and measurement mechanism only. No profile is generated or included in a release yet, and no Nuvio speedup is claimed.
