@@ -590,6 +590,14 @@ object DownloadsRepository {
                 if (isCurrentOperation(key, generation)) {
                     if (!isProfileOwnerCurrent(owner)) {
                         cancelDownloadOperation(owner, item.id)
+                    } else if (shouldPauseDownloadOnCurrentNetwork(
+                            allowMobileDataDownloads = DownloadsSettingsRepository.allowMobileDataDownloads.value,
+                            isOnWifi = DownloadNetworkGuard.isOnWifi(),
+                        )
+                    ) {
+                        // The preference can change or Wi-Fi can disappear after enqueue.
+                        // Use the existing pause path so each platform preserves resumable bytes.
+                        pauseDownload(item.id)
                     } else {
                         updateOwnedDownload(owner, item.id) { current ->
                             if (current.status != DownloadStatus.Downloading) current
