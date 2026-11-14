@@ -977,7 +977,12 @@ internal fun MainAppContent(
         }
 
         fun openDownloadedItem(item: DownloadItem) {
-            val sourceUrl = DownloadsRepository.playableLocalFileUri(item) ?: return
+            val sourceUrl = DownloadsRepository.playableLocalFileUri(item) ?: run {
+                // A completed download can be removed outside Nuvio; expose Retry instead of
+                // leaving a Play action that silently does nothing.
+                DownloadsRepository.markLocalFileUnavailable(item)
+                return
+            }
             val resumeEntry = item.videoId
                 .takeIf { it.isNotBlank() }
                 ?.let(WatchProgressRepository::progressForVideo)
