@@ -13,6 +13,8 @@
 		5950F0BCA7E4790326ACD8ED /* captions.srt in Resources */ = {isa = PBXBuildFile; fileRef = E27F0F006756F30DE4E82AEC /* captions.srt */; };
 		7397CF462F80FE3A00AC0F84 /* MPVKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* MPVKit */; };
 		C775C0E7A7F486CE63FEB866 /* SubtitlePlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C2673A436033CC351728D43 /* SubtitlePlaybackTests.swift */; };
+		A7B1C2D3E4F5061728394A10 /* MpvStartPositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5061728394A12 /* MpvStartPositionTests.swift */; };
+		A7B1C2D3E4F5061728394A11 /* MpvStartupAudioRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5061728394A13 /* MpvStartupAudioRequestTests.swift */; };
 		E13BB6F776079BECB1C385AE /* styled.ass in Resources */ = {isa = PBXBuildFile; fileRef = 392AF87E6B301A2EF4CDCAC6 /* styled.ass */; };
 /* End PBXBuildFile section */
 
@@ -51,6 +53,8 @@
 		07921B4E8F8546BEE682C2FE /* Nuvio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nuvio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A1B2C3D4E5F60718293A4B5 /* DownloadsWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DownloadsWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C2673A436033CC351728D43 /* SubtitlePlaybackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubtitlePlaybackTests.swift; sourceTree = "<group>"; };
+		A7B1C2D3E4F5061728394A12 /* MpvStartPositionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MpvStartPositionTests.swift; sourceTree = "<group>"; };
+		A7B1C2D3E4F5061728394A13 /* MpvStartupAudioRequestTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MpvStartupAudioRequestTests.swift; sourceTree = "<group>"; };
 		392AF87E6B301A2EF4CDCAC6 /* styled.ass */ = {isa = PBXFileReference; includeInIndex = 1; path = styled.ass; sourceTree = "<group>"; };
 		75DECEA6A716ACCF256DD05C /* SubtitleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubtitleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		85E7C6938899908633B6C313 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -180,6 +184,8 @@
 			isa = PBXGroup;
 			children = (
 				1C2673A436033CC351728D43 /* SubtitlePlaybackTests.swift */,
+				A7B1C2D3E4F5061728394A12 /* MpvStartPositionTests.swift */,
+				A7B1C2D3E4F5061728394A13 /* MpvStartupAudioRequestTests.swift */,
 			);
 			name = iosAppTests;
 			path = iosAppTests;
@@ -358,6 +364,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C775C0E7A7F486CE63FEB866 /* SubtitlePlaybackTests.swift in Sources */,
+				A7B1C2D3E4F5061728394A10 /* MpvStartPositionTests.swift in Sources */,
+				A7B1C2D3E4F5061728394A11 /* MpvStartupAudioRequestTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
