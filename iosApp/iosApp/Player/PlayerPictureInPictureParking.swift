@@ -2,6 +2,23 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
+struct ParkedPlayerOrientationReleaseState {
+    private var generation: UInt64 = 0
+
+    mutating func invalidateForNewPark() {
+        generation &+= 1
+    }
+
+    mutating func beginCloseRelease() -> UInt64 {
+        generation &+= 1
+        return generation
+    }
+
+    func canApplyRelease(_ token: UInt64, hasParkedPlayer: Bool) -> Bool {
+        token == generation && !hasParkedPlayer
+    }
+}
+
 @MainActor
 final class PlayerPictureInPictureParking {
     static let shared = PlayerPictureInPictureParking()
@@ -16,6 +33,7 @@ final class PlayerPictureInPictureParking {
     weak var appCoordinator: AppNavigationCoordinator?
 
     private var parked: Parked?
+    private var orientationReleaseState = ParkedPlayerOrientationReleaseState()
     private var hostView: UIView?
     private var pendingRestore: ((Bool) -> Void)?
     private var restoreTimeout: DispatchWorkItem?
@@ -43,6 +61,7 @@ final class PlayerPictureInPictureParking {
               let coordinator = container.coordinator,
               let window = container.view.window else { return false }
 
+        orientationReleaseState.invalidateForNewPark()
         let host = hostView(in: window)
         (content as? RootComposeViewController)?.prepareForPictureInPictureParking()
         container.releaseContent()
@@ -87,6 +106,7 @@ final class PlayerPictureInPictureParking {
 
     func unpark(route: AppRoute, into container: PlayerRouteContainerViewController) -> Bool {
         guard let parked, parked.route === route else { return false }
+        orientationReleaseState.invalidateForNewPark()
         self.parked = nil
         container.embed(parked.content)
         (parked.content as? RootComposeViewController)?.restoreAfterPictureInPictureParking()
@@ -103,6 +123,7 @@ final class PlayerPictureInPictureParking {
 
     func closeParked() {
         guard let parked else { return }
+        let releaseToken = orientationReleaseState.beginCloseRelease()
         self.parked = nil
         finishPendingRestore(false)
         parked.player?.pausePlayback()
@@ -110,7 +131,13 @@ final class PlayerPictureInPictureParking {
         parked.content.view.removeFromSuperview()
         parked.content.removeFromParent()
         AppKt.disposeRoute(route: parked.route)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self,
+                  self.orientationReleaseState.canApplyRelease(
+                      releaseToken,
+                      hasParkedPlayer: self.parked != nil
+                  )
+            else { return }
             OrientationLockCoordinator.shared.setParkedPlayerSuspension(false)
         }
         InAppLogBridge.shared.info(tag: "Player/PiP", message: "parked player closed")
