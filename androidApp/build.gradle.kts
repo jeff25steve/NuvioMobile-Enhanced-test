@@ -153,13 +153,16 @@ android {
             }
         }
 
-        // Baseline Profile plugin's release-derived variants inherit the release
-        // signing config by default. Keep production signing isolated from the
-        // R8 profiling variants so they can be assembled and measured locally.
+        // Keep profiling installs isolated from the production app ID. This is
+        // essential because these variants use a temporary debug signing key.
+        // The same suffix on both build types lets profile capture and Macrobenchmark
+        // upgrade the same app install without losing its signed-in test state.
         create("benchmarkRelease") {
+            applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
         create("nonMinifiedRelease") {
+            applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
     }
