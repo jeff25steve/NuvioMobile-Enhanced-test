@@ -68,6 +68,8 @@ jobs:
           sh -n scripts/nuvio-phone-benchmark.sh
           sh scripts/tests/test-nuvio-phone-benchmark.sh
           sh scripts/tests/test-android-benchmark-bundle-assembly.sh
+          sh scripts/tests/test-android-startup-readiness.sh
+          sh scripts/tests/test-android-startup-metric-contract.sh
 
       - name: Set up Rust Android targets
         shell: bash
