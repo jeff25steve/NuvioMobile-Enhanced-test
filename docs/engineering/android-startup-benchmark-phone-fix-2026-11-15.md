@@ -350,3 +350,42 @@ References:
 - https://developer.android.com/topic/performance/baselineprofiles/overview
 - https://developer.android.com/tools/apkanalyzer
 - https://developer.android.com/develop/ui/compose/testing/interoperability
+
+## Macrobenchmark execution gap and result-integrity hardening — 2026-11-15 04:50 UTC
+
+### Critical source finding
+
+A fresh inspection of the complete StartupBenchmark.java showed that the class contained the shared runColdStartupBenchmark(CompilationMode) helper but no JUnit @Test methods invoking it. As a result, the intended no-compilation versus Baseline Profile comparison was not actually declared as executable Macrobenchmark test cases. A successful build of the APK pair could not establish that the comparison would run or produce measurements.
+
+### Completed improvement cycle 1: declare both benchmark cases
+
+- Added startupNoCompilation() with @Test, calling runColdStartupBenchmark(new CompilationMode.None()).
+- Added startupWithBaselineProfile() with @Test, calling runColdStartupBenchmark(new CompilationMode.Partial(BaselineProfileMode.Require)).
+- Both use the same existing helper, target package, StartupTimingMetric, cold startup mode, ten measured iterations, Home/fully-drawn gate and timeout. No benchmark readiness requirement was weakened.
+- Added scripts/tests/test-android-startup-metric-contract.sh. Its first version was checked against the remote source before the implementation: the two missing test declarations/calls were absent, so the regression correctly identified the gap. The test now requires both JUnit cases, both compilation modes, StartupTimingMetric, cold startup and ten iterations.
+
+### Completed improvement cycle 2: fail closed on missing timing metrics
+
+The desktop phone benchmark runner previously grepped for TTID/TTFD lines when writing the summary but tolerated their absence (|| true). That could leave an apparently completed run without proving that both startup metrics were emitted. The runner now requires both timeToInitialDisplayMs and timeToFullDisplayMs in each flavor's Macrobenchmark log and fails with a specific message if either is missing. The metric-contract regression test now protects this behavior too.
+
+The new metric-contract test is wired into the manual benchmark workflow's preflight validation alongside the phone-runner and readiness tests. The workflow remains manual-only; no build or CI was started for these changes.
+
+### API verification and measurement meaning
+
+- The project pins androidx.benchmark:benchmark-macro-junit4 1.5.0. The official AndroidX API surface exposes public Java constructors for CompilationMode.None() and CompilationMode.Partial(BaselineProfileMode), and BaselineProfileMode.Require is a public enum constant. The Java test uses those exact Java forms.
+- Android's StartupTimingMetric reports both timeToInitialDisplayMs (TTID) and timeToFullDisplayMs (TTFD), with minimum, median and maximum. Android recommends focusing on medians when assessing startup changes. TTFD depends on the app reporting fully drawn; the existing Compose ReportDrawnWhen { appReady.value } remains in place.
+- The Context7 quota was exhausted when attempting to resolve the pinned libraries, so Context7 documentation could not be retrieved in this pass. Exa research used the official Android Developer Macrobenchmark metric/API pages and the AndroidX Git source API signature. No third-party source was used to determine the Java constructor forms.
+
+### Verification boundary
+
+- Remote source inspection confirms both JUnit test methods now exist and invoke the intended modes.
+- Remote source inspection confirms the runner requires both TTID and TTFD log entries for both full and playstore.
+- The new static regression test is included in the workflow preflight.
+- No build, device benchmark, or CI run was started. The older authorized Actions run [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220) was built from commit 8b0ff930519edb047b98cfd675866d934edd56e8, predates these changes, and was still in progress at the last status check with no artifact published. It cannot validate this fix.
+- Therefore, the benchmark cases are now declared in source, but compilation and execution remain unverified until a separately authorized run.
+
+References:
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics
+- https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule
+- https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
+- https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/api/current.txt
