@@ -484,6 +484,9 @@ for flavor in full playstore; do
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Benchmark device context' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Device: Fixture phone | Android API: 35' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Install path: APK sideload via pm install; not Google Play delivery.' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'The playstore build-flavor label does not mean this APK was installed from Google Play.' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement.' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
@@ -577,6 +580,15 @@ for flavor in full playstore; do
     }
   done
 done
+
+# Verify the API 33 report explicitly identifies its pre-34 ART verification caveat.
+FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1
+api33_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
+[ -n "$api33_result_dir" ] || { echo 'FAIL: API 33 report fixture did not produce a measure-* result.' >&2; exit 1; }
+grep -Fq 'Android API: 33' "$api33_result_dir/benchmark-summary.txt"
+grep -Fq 'API 33 uses the pre-34 reset path' "$api33_result_dir/benchmark-summary.txt"
+grep -Fq 'ART verification state can differ' "$api33_result_dir/benchmark-summary.txt"
+grep -Fq 'APK sideload via pm install; not Google Play delivery.' "$api33_result_dir/benchmark-summary.txt"
 
 # Verify the signing-key recovery path uninstalls only the isolated benchmark
 # and self-instrumenting test packages, never production com.nuvio.media.
