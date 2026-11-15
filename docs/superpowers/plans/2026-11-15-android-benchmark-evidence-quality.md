@@ -54,12 +54,13 @@
 **Interfaces:**
 - Writes `environment-before.txt` and `environment-after.txt` in each Macrobenchmark run directory.
 - Captures timestamp, battery power/level/temperature, thermal-service status, battery-saver state and display brightness/mode.
-- Snapshot collection is best-effort: missing diagnostic commands or non-zero dumpsys responses are recorded as unavailable and never mask the benchmark result.
+- Snapshot collection is best-effort: missing diagnostic commands or non-zero dumpsys responses are recorded as unavailable, and a snapshot-file write failure is reported without masking the benchmark result.
 
 - [x] Extend the Android shell stubs and assert both snapshots are written for each flavor.
 - [x] Add snapshot capture immediately before and after Macrobenchmark instrumentation.
 - [x] Keep the raw result logs and JSON files unchanged.
 - [x] Exercise the snapshot helper with successful and failing diagnostic-command fixtures; defer the full repository shell suite.
+- [x] Exercise a snapshot-file write failure and confirm the helper returns successfully.
 
 ### Task 3: Update engineering notes and review
 
@@ -76,6 +77,7 @@
 - Implemented on `main-build-testing` directly through sequential commits; no force update or merge was used.
 - The exact validator logic was exercised locally: realistic and whitespace-formatted two-arm JSON passed, while wrong repeat counts, truncated arrays, missing samples, non-numeric samples, and invalid statistics failed.
 - The device-condition snapshot helper was exercised with successful and failing diagnostic command fixtures; it preserved available readings and remained non-fatal when diagnostics failed.
+- A separate unwritable-path fixture confirmed that snapshot creation failure is reported without stopping the caller.
 - The full repository regression script was not run end-to-end. No build, CI, APK assembly, or device benchmark was run.
 - Performance conclusions are deferred until a new authorized real-device run.
 
