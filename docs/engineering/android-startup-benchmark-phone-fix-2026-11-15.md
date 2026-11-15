@@ -1133,7 +1133,7 @@ The current `StartupBenchmark` collects only `StartupTimingMetric` plus Startup 
 - `artVerifyClassCount` and `artVerifyClassSumMs`: runtime class verification count and duration.
 - `artClassLoadCount` and `artClassLoadSumMs`: runtime class loading count and duration, when the device supports the tracepoints.
 
-The class-loading tracepoints require API 35+, or API 31+ with ART Mainline version at least `341511000`. Nuvio's runner already records API and ART Mainline version, so the report can state whether class-load metrics should be expected. AndroidX 1.5.0 release notes include the R8/AGP 9.1+ fix for ArtMetric class-load detection, relevant to this repository's AGP 9.4.0. JIT metrics can include uncompiled framework code, so they are diagnostic comparisons, not a direct count of Nuvio-only methods.
+The class-loading tracepoints require API 35+, or API 31+ with ART Mainline version at least `341511000`. Nuvio's runner already records API and ART Mainline version, so the report can state whether class-load metrics should be expected. AndroidX 1.5.0 release notes include the R8/AGP 9.1+ fix for ArtMetric class-load detection, relevant to this repository's AGP 9.4.0. AndroidX filters ArtMetric slices by the target package name, so these counts are limited to the measured app package (including libraries packaged into that app), not arbitrary Android framework processes. They remain diagnostic comparisons rather than a direct count of Nuvio-authored methods.
 
 **Recommended benchmark-only enhancement:** include `ArtMetric()` alongside `StartupTimingMetric()` in both comparison arms and surface its optional JSON measurements in the summary. Keep TTID/TTFD as the user-facing primary metrics. Do not make class-load metrics mandatory on devices that lack the tracepoints. This does not alter application runtime behavior, but it still needs a regression test for JSON parsing and a version-checked benchmark build before use.
 
@@ -1233,3 +1233,9 @@ The common lesson is not "remove providers" or "make everything lazy". It is to 
 4. Only then evaluate optional ArtMetric integration and trace-led critical-path changes. Preserve raw iteration traces and compare repeated paired sessions before making small-gain claims.
 
 No runtime/build/benchmark source changed. No Gradle task, build, APK/AAB, profile collection, device benchmark, workflow dispatch or CI was run.
+
+### ArtMetric package-scope clarification — 15 November 2026
+
+The earlier line saying that ART JIT metrics may include uncompiled Android framework code was inaccurate for AndroidX 1.5.0 `ArtMetric`. The implementation queries ART trace slices with `packageName = captureInfo.targetPackageName`, so its measurements are filtered to the target application package. They can include app-packaged third-party libraries and generated code, so they are still not a count of Nuvio-authored methods, but they do not aggregate unrelated Android framework packages. The exact measurement names and support conditions above remain unchanged.
+
+Source: [AndroidX Benchmark Metric.kt](https://github.com/androidx/androidx/blob/66dad59938a20f2975af8594868b6dd28ca0146e/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt).
