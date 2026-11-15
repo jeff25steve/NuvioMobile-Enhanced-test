@@ -1600,13 +1600,13 @@ internal fun MainAppContent(
                         .fillMaxSize()
                         .then(
                             if (selectedPosterActionTarget != null || selectedContinueWatchingZoomAnchor != null) {
-                            Modifier.nuvioBackdropSource(posterOverlayBackdrop)
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .background(MaterialTheme.nuvio.colors.background),
-            ) {
+                                Modifier.nuvioBackdropSource(posterOverlayBackdrop)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .background(MaterialTheme.nuvio.colors.background),
+                ) {
             val verticalBarPadding = LocalVerticalBarPadding.current
             val drawsUnderVerticalBar = currentRoute.drawsUnderVerticalBar(selectedTab)
             SharedTransitionLayout {
