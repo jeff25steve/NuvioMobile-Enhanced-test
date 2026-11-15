@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # Phone-only Nuvio startup benchmark runner for LADB / Android shell.
-# Keep this script and all eight APKs in the same Downloads folder.
+# Keep this script and all eight arm64-v8a APKs in the same Downloads folder.
 set -eu
 
 APP_PACKAGE="com.nuvio.media.benchmark"
@@ -51,7 +51,7 @@ usage() {
   cat <<'HELP'
 Nuvio Android phone-only startup benchmark
 
-Keep all eight APKs and this script together:
+Keep all eight arm64-v8a APKs and this script together:
   Nuvio-full-BenchmarkRelease.apk
   Nuvio-full-BenchmarkRelease-Tests.apk
   Nuvio-playstore-BenchmarkRelease.apk
@@ -78,6 +78,8 @@ check_device() {
   api="$(getprop ro.build.version.sdk | tr -d '\r')"
   case "$api" in ''|*[!0-9]*) fail "Cannot determine Android API level." ;; esac
   [ "$api" -ge 33 ] || fail "Baseline Profile collection without root requires Android 13 / API 33 or later. This device reports API $api."
+  abi="$(getprop ro.product.cpu.abi | tr -d '\r')"
+  [ "$abi" = "arm64-v8a" ] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Device ABI is $abi; use an arm64 Android phone."
   qemu="$(getprop ro.kernel.qemu | tr -d '\r')"
   hardware="$(getprop ro.hardware | tr -d '\r')"
   [ "$qemu" != "1" ] || fail "A physical Android phone is required; emulators are not supported for this comparison."
