@@ -67,6 +67,7 @@ jobs:
           bash -n scripts/run-android-startup-profile-benchmark.sh
           sh -n scripts/nuvio-phone-benchmark.sh
           sh scripts/tests/test-nuvio-phone-benchmark.sh
+          sh scripts/tests/test-android-benchmark-bundle-assembly.sh
 
       - name: Set up Rust Android targets
         shell: bash
@@ -155,7 +156,6 @@ jobs:
             exit 1
           }
           test -s phone-benchmark/nuvio-phone-benchmark.sh
-          test -s phone-benchmark/START-HERE.txt
           cat > phone-benchmark/START-HERE.txt <<'EOF'
           NUVIO ANDROID STARTUP PROFILE / BENCHMARK — PHONE-ONLY BUNDLE
 
@@ -228,6 +228,7 @@ jobs:
           signed-in Home state throughout. Login, onboarding or a missing Home-ready
           signal causes the test to fail rather than count as a successful launch.
           EOF
+          test -s phone-benchmark/START-HERE.txt || { echo "Missing or empty START-HERE.txt." >&2; exit 1; }
 
           (
             cd phone-benchmark
