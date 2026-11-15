@@ -5,6 +5,25 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 WORKFLOW="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 [ -f "$WORKFLOW" ] || { echo "FAIL: benchmark workflow not found: $WORKFLOW" >&2; exit 1; }
 
+# This APK workflow must remain explicit/manual; an accidental push or PR
+# trigger can start an expensive Android build without an authorized dispatch.
+awk '
+  /^on:[[:space:]]*$/ { in_on=1; seen_on=1; next }
+  in_on && /^[^[:space:]#][^:]*:/ { in_on=0 }
+  in_on && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
+    trigger=$1
+    sub(/:$/, "", trigger)
+    if (trigger == "workflow_dispatch") manual=1
+    else unexpected=1
+  }
+  END {
+    if (!seen_on || !manual || unexpected) {
+      print "FAIL: benchmark workflow must use workflow_dispatch only; automatic triggers are not allowed." > "/dev/stderr"
+      exit 1
+    }
+  }
+' "$WORKFLOW" || exit 1
+
 line_of() {
   grep -n -F -- "$1" "$WORKFLOW" | head -n 1 | cut -d: -f1
 }
