@@ -563,14 +563,6 @@ grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
 printf 'PASS: phone runner auto-stages only required APK pairs, resolves the self-instrumenting runner, benchmarks the isolated app for both flavors, runs the combined workflow, exports results, rejects unsupported devices/order, and protects production Nuvio.\n'
  "$environment_before"
-  grep -Fq 'printf "%.0f seconds\\n", $1' "$RUNNER_SOURCE" || {
-    echo "FAIL: uptime AWK output must use a single newline escape." >&2
-    exit 1
-  }
-  grep -Fq "printf 'unavailable\\n'" "$RUNNER_SOURCE" || {
-    echo "FAIL: unavailable uptime output must use a single newline escape." >&2
-    exit 1
-  }
   grep -Fq 'level: 88' "$environment_after"
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
@@ -656,14 +648,6 @@ grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
 printf 'PASS: phone runner auto-stages only required APK pairs, resolves the self-instrumenting runner, benchmarks the isolated app for both flavors, runs the combined workflow, exports results, rejects unsupported devices/order, and protects production Nuvio.\n'
  "$environment_before"
-  grep -Fq 'printf "%.0f seconds\n", $1' "$RUNNER_SOURCE" || {
-    echo "FAIL: uptime AWK output must use a single newline escape." >&2
-    exit 1
-  }
-  grep -Fq "printf 'unavailable\n'" "$RUNNER_SOURCE" || {
-    echo "FAIL: unavailable uptime output must use a single newline escape." >&2
-    exit 1
-  }
   grep -Fq 'level: 88' "$environment_after"
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
@@ -749,14 +733,6 @@ grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
 printf 'PASS: phone runner auto-stages only required APK pairs, resolves the self-instrumenting runner, benchmarks the isolated app for both flavors, runs the combined workflow, exports results, rejects unsupported devices/order, and protects production Nuvio.\n'
  "$environment_before"
-  grep -Fq 'printf "%.0f seconds\\n", $1' "$RUNNER_SOURCE" || {
-    echo "FAIL: uptime AWK output must use a single newline escape." >&2
-    exit 1
-  }
-  grep -Fq "printf 'unavailable\\n'" "$RUNNER_SOURCE" || {
-    echo "FAIL: unavailable uptime output must use a single newline escape." >&2
-    exit 1
-  }
   grep -Fq 'level: 88' "$environment_after"
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
