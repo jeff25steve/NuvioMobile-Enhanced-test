@@ -12,6 +12,8 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 import androidx.test.filters.LargeTest;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 import kotlin.Unit;
@@ -46,6 +48,30 @@ public final class StartupBenchmark {
         return TARGET_APP_PACKAGE;
     }
 
+    private static String readinessDiagnostics(UiDevice device) {
+        String foregroundPackage = "<unavailable>";
+        try {
+            foregroundPackage = device.getCurrentPackageName();
+            ByteArrayOutputStream hierarchyOutput = new ByteArrayOutputStream();
+            device.dumpWindowHierarchy(hierarchyOutput);
+            String hierarchy = new String(
+                    hierarchyOutput.toByteArray(),
+                    StandardCharsets.UTF_8
+            ).replaceAll("(text|content-desc)=\"[^\"]*\"", "$1=\"[redacted]\"");
+            final int maxHierarchyChars = 8_000;
+            if (hierarchy.length() > maxHierarchyChars) {
+                hierarchy = hierarchy.substring(0, maxHierarchyChars) + "\n...[truncated]";
+            }
+            return "\nForeground package: " + foregroundPackage +
+                    "\nExpected package: " + TARGET_APP_PACKAGE +
+                    "\nWindow hierarchy (text and content descriptions redacted):\n" + hierarchy;
+        } catch (Exception error) {
+            return "\nForeground package: " + foregroundPackage +
+                    "\nCould not capture the accessibility hierarchy: " +
+                    error.getClass().getSimpleName() + ": " + error.getMessage();
+        }
+    }
+
     @Test
     public void coldStartupWithoutBaselineProfile() {
         runColdStartupBenchmark(new CompilationMode.None());
@@ -66,9 +92,8 @@ public final class StartupBenchmark {
         );
         if (!ready) {
             throw new AssertionError(
-                    "Nuvio did not reach main-content readiness within 30 seconds. " +
-                    "Use a preconfigured signed-in test install; auth and onboarding states " +
-                    "do not represent the interactive Home startup journey."
+                    "Nuvio did not expose the Home-ready marker 'nuvio_startup_ready' within 30 seconds." +
+                    readinessDiagnostics(device)
             );
         }
     }
