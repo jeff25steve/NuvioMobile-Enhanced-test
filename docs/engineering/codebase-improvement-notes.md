@@ -6139,3 +6139,12 @@ Two result-integrity gaps in the phone-only Macrobenchmark path are now guarded:
 The existing phone-runner fixture now models a two-arm Macrobenchmark payload and checks missing-method, empty-result, missing-profile, missing-TTFD, and one-arm-metric failures. Context7's connected `Main` account supplied AndroidX and AndroidX Test source confirming the JSON fields, metric names and instrumentation status keys. Exa confirmed Android's median-based interpretation guidance.
 
 The isolated POSIX-shell guard fixture passed positive and negative cases, and `sh -n` passed for that harness. The full repository regression suite could not be run locally because the container could not resolve GitHub for a checkout. No Gradle build, APK build, device benchmark or CI was started. This is result-integrity hardening only; no startup performance improvement is claimed. Detailed record: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+## Android startup benchmark evidence quality — 15 November 2026
+
+Two further benchmark-integrity cycles are now on `main-build-testing`:
+
+- **Per-iteration result validation:** the LADB runner now requires exactly ten numeric samples for each of the four TTID/TTFD metrics across the no-compilation and required-Baseline-Profile result records. It also checks both repeat counts and validates positive minimum/median/maximum ordering and sample extrema. The fixture now covers truncated/missing/non-numeric samples, wrong repeat count and invalid statistics.
+- **Device-condition evidence:** each Macrobenchmark run now preserves before/after battery, thermal-service, battery-saver and display-brightness snapshots. Collection is best-effort and cannot fail the benchmark merely because an Android diagnostic command is unavailable.
+
+Context7 was successfully used for AndroidX Benchmark JSON/API source; Exa cross-checked the schema and official Android guidance on stable physical-device conditions. Local isolated AWK and environment-capture fixtures passed positive cases and rejected invalid samples; the complete repository regression suite was not run end-to-end. No Gradle build, APK build, device benchmark, or CI was started. This is measurement-integrity work only; no Nuvio performance improvement is claimed. Full record: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
