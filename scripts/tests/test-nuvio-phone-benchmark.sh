@@ -4,8 +4,22 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 RUNNER_SOURCE="$SCRIPT_DIR/nuvio-phone-benchmark.sh"
 DESKTOP_RUNNER="$SCRIPT_DIR/run-android-startup-profile-benchmark.sh"
+ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
+BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
+[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] || { echo "FAIL: baseline profile test sources are missing." >&2; exit 1; }
+for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+  grep -Fq 'TARGET_APP_PACKAGE = "com.nuvio.media.benchmark"' "$source" || {
+    echo "FAIL: self-instrumenting tests must explicitly target the isolated Nuvio benchmark app." >&2
+    exit 1
+  }
+  if grep -Fq 'getTargetContext().getPackageName()' "$source"; then
+    echo "FAIL: self-instrumenting instrumentation context must not be mistaken for the target app package." >&2
+    exit 1
+  fi
+done
 if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
   exit 1
@@ -57,7 +71,7 @@ cat > "$TMP/bin/pm" <<'STUB'
 #!/bin/sh
 printf 'pm %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case "$1" in
-  list) echo 'instrumentation:com.nuvio.android.baselineprofile.test/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.media.benchmark)' ;;
+  list) echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)' ;;
   install) echo 'Success' ;;
   *) exit 0 ;;
 esac
@@ -79,6 +93,7 @@ chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_DIR="$TMP/media"
 export NUVIO_PHONE_OUTPUT_DIR="$TMP/output" NUVIO_PHONE_MEDIA_ROOT="$TMP/media"
+export NUVIO_PHONE_STAGE_DIR="$TMP/staged"
 
 # Unsupported devices must fail before any APK installation.
 if FAKE_API=32 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null 2>&1; then
@@ -103,6 +118,9 @@ done
 # Verify benchmark install never removes the real app and all commands target .benchmark.
 ! grep -q 'pm uninstall com.nuvio.media' "$FAKE_COMMAND_LOG"
 grep -q 'monkey -p com.nuvio.media.benchmark 1' "$FAKE_COMMAND_LOG"
+grep -Fq "pm install -r $TMP/staged/Nuvio-full-NonMinifiedRelease.apk" "$FAKE_COMMAND_LOG"
+test -f "$TMP/staged/Nuvio-playstore-BenchmarkRelease-Tests.apk"
+grep -Fq 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG" || true
 grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
 grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
 
