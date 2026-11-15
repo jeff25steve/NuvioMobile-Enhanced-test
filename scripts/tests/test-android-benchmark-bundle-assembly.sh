@@ -6,7 +6,7 @@ WORKFLOW="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 [ -f "$WORKFLOW" ] || { echo "FAIL: benchmark workflow not found: $WORKFLOW" >&2; exit 1; }
 
 line_of() {
-  grep -n -F "$1" "$WORKFLOW" | head -n 1 | cut -d: -f1
+  grep -n -F -- "$1" "$WORKFLOW" | head -n 1 | cut -d: -f1
 }
 
 instructions_create="$(line_of 'cat > phone-benchmark/START-HERE.txt <<'EOF'')"
