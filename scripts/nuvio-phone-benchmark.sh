@@ -235,7 +235,7 @@ validate_macrobenchmark_statistics() {
       return ""
     }
 
-    function validate_metric_object(object, metric_name,    minimum, median, maximum, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count, sorted_samples, j, min_index, swap_value, median_position, lower_index, upper_index, interpolation_ratio, expected_median, median_difference, median_tolerance) {
+    function validate_metric_object(object, metric_name,    minimum, median, maximum, coefficient_variation, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count, sorted_samples, j, min_index, swap_value, median_position, lower_index, upper_index, interpolation_ratio, expected_median, median_difference, median_tolerance, sample_mean, squared_deviation_sum, expected_cv, cv_difference, cv_tolerance) {
       minimum = metric_field(object, "minimum")
       median = metric_field(object, "median")
       maximum = metric_field(object, "maximum")
@@ -246,6 +246,16 @@ validate_macrobenchmark_statistics() {
       }
       if (minimum + 0 <= 0 || median + 0 <= 0 || maximum + 0 <= 0 || minimum + 0 > median + 0 || median + 0 > maximum + 0) {
         print "FAIL: " metric_name " has invalid statistics; require 0 < minimum <= median <= maximum."
+        return 0
+      }
+
+      coefficient_variation = metric_field(object, "coefficientOfVariation")
+      if (coefficient_variation == "") {
+        print "FAIL: " metric_name " is missing its AndroidX coefficientOfVariation."
+        return 0
+      }
+      if (coefficient_variation !~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || coefficient_variation + 0 < 0) {
+        print "FAIL: " metric_name " has an invalid coefficientOfVariation."
         return 0
       }
 
@@ -321,6 +331,22 @@ validate_macrobenchmark_statistics() {
       median_tolerance = 0.000001 * (1 + expected_median)
       if (median_difference > median_tolerance) {
         print "FAIL: " metric_name " reported median does not match the 50th percentile of its per-iteration runs."
+        return 0
+      }
+
+      # AndroidX MetricResult uses sample standard deviation (n - 1)
+      # divided by arithmetic mean for coefficientOfVariation.
+      sample_mean = 0
+      for (i = 1; i <= sample_count; i++) sample_mean += samples[i] + 0
+      sample_mean /= sample_count
+      squared_deviation_sum = 0
+      for (i = 1; i <= sample_count; i++) squared_deviation_sum += (samples[i] + 0 - sample_mean) ^ 2
+      expected_cv = sqrt(squared_deviation_sum / (sample_count - 1)) / sample_mean
+      cv_difference = coefficient_variation + 0 - expected_cv
+      if (cv_difference < 0) cv_difference = -cv_difference
+      cv_tolerance = 0.000001 * (1 + expected_cv)
+      if (cv_difference > cv_tolerance) {
+        print "FAIL: " metric_name " reported coefficientOfVariation does not match its per-iteration runs."
         return 0
       }
       return 1
@@ -468,17 +494,90 @@ validate_macrobenchmark_trace_files() {
   [ "$trace_file_count" -eq 20 ] || fail "Macrobenchmark trace output must contain exactly twenty non-empty per-iteration Perfetto traces; found $trace_file_count."
 }
 
+write_macrobenchmark_summary() {
+  result_file="$1"
+  summary_file="$RUN_DIR/benchmark-summary.txt"
+  awk '
+    function metric_field(object, field,    needle, start, rest) {
+      needle = "\"" field "\""
+      start = index(object, needle)
+      if (start == 0) return ""
+      rest = substr(object, start + length(needle))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) return substr(rest, 1, RLENGTH)
+      return ""
+    }
+
+    { json = json $0 "\n" }
+
+    END {
+      test_names[1] = "startupNoCompilation"
+      test_names[2] = "startupWithBaselineProfile"
+      metric_names[1] = "timeToInitialDisplayMs"
+      metric_names[2] = "timeToFullDisplayMs"
+
+      for (test_index = 1; test_index <= 2; test_index++) {
+        test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" test_names[test_index] "\""
+        if (!match(json, test_pattern)) {
+          print "FAIL: cannot find " test_names[test_index] " while writing benchmark summary."
+          exit 1
+        }
+        result_rest = substr(json, RSTART + RLENGTH)
+        next_test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
+        if (match(result_rest, next_test_pattern)) result_object = substr(result_rest, 1, RSTART - 1)
+        else result_object = result_rest
+
+        for (metric_index = 1; metric_index <= 2; metric_index++) {
+          metric_pattern = "\"" metric_names[metric_index] "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          if (!match(result_object, metric_pattern)) {
+            print "FAIL: cannot find " metric_names[metric_index] " for " test_names[test_index] " while writing benchmark summary."
+            exit 1
+          }
+          metric_object = substr(result_object, RSTART, RLENGTH)
+          metric_key = test_names[test_index] SUBSEP metric_names[metric_index]
+          minimum[metric_key] = metric_field(metric_object, "minimum") + 0
+          median[metric_key] = metric_field(metric_object, "median") + 0
+          maximum[metric_key] = metric_field(metric_object, "maximum") + 0
+          cv[metric_key] = metric_field(metric_object, "coefficientOfVariation") + 0
+        }
+      }
+
+      print "Nuvio Android cold-start benchmark"
+      print "Comparison: no compilation vs required packaged Baseline Profile"
+      print "10 samples per comparison arm"
+      print ""
+      for (metric_index = 1; metric_index <= 2; metric_index++) {
+        metric = metric_names[metric_index]
+        no_key = test_names[1] SUBSEP metric
+        profile_key = test_names[2] SUBSEP metric
+        delta_ms = median[profile_key] - median[no_key]
+        delta_percent = delta_ms / median[no_key] * 100
+        print metric
+        printf "  No compilation: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[no_key], minimum[no_key], maximum[no_key], cv[no_key] * 100
+        printf "  Baseline Profile: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[profile_key], minimum[profile_key], maximum[profile_key], cv[profile_key] * 100
+        printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
+        print ""
+      }
+      print "Interpretation: descriptive only; ten iterations do not establish statistical significance."
+      print "Do not claim a speedup from the median difference alone. Inspect per-iteration traces for skew, thermal throttling, and warm-up effects."
+    }
+  ' "$result_file" > "$summary_file" || fail "Could not create the human-readable Macrobenchmark summary."
+  [ -s "$summary_file" ] || fail "Macrobenchmark summary is empty."
+}
+
 require_macrobenchmark_result_data() {
   json_files=0
   no_compilation_results=0
   baseline_profile_results=0
   ttid_metrics=0
   ttfd_metrics=0
+  summary_result_file=""
 
   for result_file in "$RUN_DIR"/*benchmarkData.json; do
     [ -f "$result_file" ] || continue
     json_files=$((json_files + 1))
     [ -s "$result_file" ] || fail "Macrobenchmark result file is empty: $result_file."
+    [ -n "$summary_result_file" ] || summary_result_file="$result_file"
 
     no_compilation_results=$((no_compilation_results + $(count_json_named_results startupNoCompilation "$result_file")))
     baseline_profile_results=$((baseline_profile_results + $(count_json_named_results startupWithBaselineProfile "$result_file")))
@@ -495,6 +594,7 @@ require_macrobenchmark_result_data() {
   [ "$ttid_metrics" -ge 2 ] && [ "$ttfd_metrics" -ge 2 ] || {
     fail "Macrobenchmark JSON must contain TTID and TTFD metrics for both startup results (found $ttid_metrics and $ttfd_metrics)."
   }
+  write_macrobenchmark_summary "$summary_result_file"
 }
 
 install_variant() {
@@ -627,6 +727,8 @@ run_instrumentation() {
       require_macrobenchmark_cases
       copy_recent_outputs benchmark
       require_macrobenchmark_result_data
+      printf 'Generated benchmark summary -> %s\n' "$RUN_DIR/benchmark-summary.txt" >> "$RUN_DIR/copied-files.txt"
+      cat "$RUN_DIR/benchmark-summary.txt"
       ;;
   esac
   printf '\nSaved results to: %s\n' "$RUN_DIR"
