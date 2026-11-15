@@ -7,6 +7,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
+import android.os.SystemClock;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -64,13 +65,27 @@ public final class BaselineProfileGenerator {
 
     private static void awaitMainContentReady() {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        boolean ready = device.wait(
+        long deadline = SystemClock.elapsedRealtime() + MAIN_CONTENT_READY_TIMEOUT_MS;
+        boolean homeVisible = device.wait(
                 Until.hasObject(By.res("nuvio_benchmark_home")),
                 MAIN_CONTENT_READY_TIMEOUT_MS
         );
-        if (!ready) {
+        if (!homeVisible) {
             throw new AssertionError(
-                    "Nuvio did not expose the HomeScreen benchmark marker 'nuvio_benchmark_home' within 30 seconds." +
+                    "Nuvio did not expose the HomeScreen marker 'nuvio_benchmark_home' within 30 seconds." +
+                    readinessDiagnostics(device)
+            );
+        }
+
+        long remainingMs = deadline - SystemClock.elapsedRealtime();
+        boolean fullyDrawn = remainingMs > 0 && device.wait(
+                Until.hasObject(By.res("nuvio_startup_ready")),
+                remainingMs
+        );
+        if (!fullyDrawn) {
+            throw new AssertionError(
+                    "HomeScreen appeared, but Nuvio did not expose its fully-drawn marker " +
+                    "'nuvio_startup_ready' before the 30-second startup deadline." +
                     readinessDiagnostics(device)
             );
         }
