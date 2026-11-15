@@ -126,4 +126,4 @@ grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
 grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
-printf 'PASS: phone runner covers both flavors, rejects API 32 and invalid run order, exports profile/benchmark artifacts, and never uninstalls production Nuvio.\n'
+printf 'PASS: phone runner auto-stages only required APK pairs, resolves the self-instrumenting runner, benchmarks the isolated app for both flavors, runs the combined workflow, exports results, rejects unsupported devices/order, and protects production Nuvio.\n'
