@@ -96,6 +96,10 @@ for flavor in full playstore; do
   [[ -d "$profile_dir" ]] || fail "Missing generated profile directory: $profile_dir"
   find "$profile_dir" -maxdepth 1 -type f \( -name 'baseline-prof.txt' -o -name 'startup-prof.txt' \) -print -exec wc -c {} \; | tee "$OUTPUT_DIR/$flavor-generated-profiles.txt"
   grep -q 'baseline-prof.txt' "$OUTPUT_DIR/$flavor-generated-profiles.txt" || fail "No baseline-prof.txt for $flavor."
+  baseline_profile_file="$(find "$profile_dir" -maxdepth 1 -type f -name 'baseline-prof.txt' -print -quit)"
+  [[ -n "$baseline_profile_file" ]] || fail "No baseline-prof.txt for $flavor."
+  [[ -s "$baseline_profile_file" ]] || fail "Generated baseline profile contains no rules: $baseline_profile_file."
+  grep -Eq '[^[:space:]]' "$baseline_profile_file" || fail "Generated baseline profile contains no rules: $baseline_profile_file."
 done
 
 run_gradle_step "03-benchmark-full-benchmarkRelease" \
