@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 PHONE_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
+WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 
 [ -f "$BENCHMARK_SOURCE" ] || {
   echo "FAIL: StartupBenchmark source not found: $BENCHMARK_SOURCE" >&2
@@ -11,6 +12,10 @@ PHONE_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 }
 [ -f "$PHONE_RUNNER" ] || {
   echo "FAIL: phone benchmark runner not found: $PHONE_RUNNER" >&2
+  exit 1
+}
+[ -f "$WORKFLOW_SOURCE" ] || {
+  echo "FAIL: benchmark workflow not found: $WORKFLOW_SOURCE" >&2
   exit 1
 }
 
@@ -61,5 +66,26 @@ grep -Fq 'did not emit $metric' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must fail clearly when a startup metric is missing." >&2
   exit 1
 }
+
+# Every source regression must run exactly once in the pre-build workflow.
+for test_script in \
+  test-nuvio-phone-benchmark.sh \
+  test-android-benchmark-bundle-assembly.sh \
+  test-android-startup-readiness.sh \
+  test-android-startup-metric-contract.sh; do
+  count="$(awk -v expected="sh scripts/tests/$test_script" '
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == expected) count++
+    }
+    END { print count + 0 }
+  ' "$WORKFLOW_SOURCE")"
+  [ "$count" -eq 1 ] || {
+    echo "FAIL: workflow must invoke sh scripts/tests/$test_script exactly once; found $count." >&2
+    exit 1
+  }
+done
 
 printf 'PASS: both cold-start Macrobenchmark cases are declared and use the shared TTID/TTFD measurement.\n'
