@@ -157,6 +157,71 @@ copy_recent_outputs() {
   [ -s "$RUN_DIR/copied-files.txt" ] || fail "The test completed without producing the expected files. Check $RUN_DIR/instrumentation.log and Android's benchmark output directory."
 }
 
+require_macrobenchmark_cases() {
+  for test_name in startupNoCompilation startupWithBaselineProfile; do
+    grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
+      fail "Macrobenchmark did not execute required comparison case '$test_name'. See $RUN_DIR/instrumentation.log."
+    }
+  done
+}
+
+count_json_occurrences() {
+  awk -v needle="$1" '
+    {
+      remaining = $0
+      while ((position = index(remaining, needle)) > 0) {
+        count++
+        remaining = substr(remaining, position + length(needle))
+      }
+    }
+    END { print count + 0 }
+  ' "$2"
+}
+
+count_json_named_results() {
+  awk -v expected="$1" '
+    {
+      content = content $0
+    }
+    END {
+      remaining = content
+      pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" expected "\""
+      while (match(remaining, pattern)) {
+        count++
+        remaining = substr(remaining, RSTART + RLENGTH)
+      }
+      print count + 0
+    }
+  ' "$2"
+}
+
+require_macrobenchmark_result_data() {
+  json_files=0
+  no_compilation_results=0
+  baseline_profile_results=0
+  ttid_metrics=0
+  ttfd_metrics=0
+
+  for result_file in "$RUN_DIR"/*benchmarkData.json; do
+    [ -f "$result_file" ] || continue
+    json_files=$((json_files + 1))
+    [ -s "$result_file" ] || fail "Macrobenchmark result file is empty: $result_file."
+
+    no_compilation_results=$((no_compilation_results + $(count_json_named_results startupNoCompilation "$result_file")))
+    baseline_profile_results=$((baseline_profile_results + $(count_json_named_results startupWithBaselineProfile "$result_file")))
+    ttid_metrics=$((ttid_metrics + $(count_json_occurrences '"timeToInitialDisplayMs"' "$result_file")))
+    ttfd_metrics=$((ttfd_metrics + $(count_json_occurrences '"timeToFullDisplayMs"' "$result_file")))
+  done
+
+  [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
+  [ "$no_compilation_results" -ge 1 ] && [ "$baseline_profile_results" -ge 1 ] || {
+    fail "Macrobenchmark JSON must contain both startupNoCompilation and startupWithBaselineProfile results (found $no_compilation_results and $baseline_profile_results)."
+  }
+  [ "$ttid_metrics" -ge 2 ] && [ "$ttfd_metrics" -ge 2 ] || {
+    fail "Macrobenchmark JSON must contain TTID and TTFD metrics for both startup results (found $ttid_metrics and $ttfd_metrics)."
+  }
+}
+
 install_variant() {
   apk_paths
   [ -f "$APP_APK" ] || fail "Missing app APK: $APP_APK. Extract all eight APKs and this script into one folder."
@@ -240,8 +305,14 @@ run_instrumentation() {
     fail "The test reported a failure. See $RUN_DIR/instrumentation.log."
   fi
   case "$rule" in
-    BaselineProfile) copy_recent_outputs profile ;;
-    macrobenchmark) copy_recent_outputs benchmark ;;
+    BaselineProfile)
+      copy_recent_outputs profile
+      ;;
+    macrobenchmark)
+      require_macrobenchmark_cases
+      copy_recent_outputs benchmark
+      require_macrobenchmark_result_data
+      ;;
   esac
   printf '\nSaved results to: %s\n' "$RUN_DIR"
   printf 'Copied files:\n'
