@@ -108,9 +108,7 @@ for flavor in full playstore; do
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
   fi
-  sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" >/dev/null
-  sh "$BUNDLE/nuvio-phone-benchmark.sh" install "$flavor" >/dev/null
-  sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null
+  sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" >/dev/null
   test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
 done
@@ -123,6 +121,7 @@ test -f "$TMP/staged/Nuvio-playstore-BenchmarkRelease-Tests.apk"
 grep -Fq 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG" || true
 grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
 grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
+grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
 printf 'PASS: phone runner covers both flavors, rejects API 32 and invalid run order, exports profile/benchmark artifacts, and never uninstalls production Nuvio.\n'
