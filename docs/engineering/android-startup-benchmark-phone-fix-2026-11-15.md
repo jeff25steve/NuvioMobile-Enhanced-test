@@ -685,3 +685,47 @@ A separate failed run, [43675718220](https://github.com/jeff25steve/NuvioMobile-
 - [AndroidX Macrobenchmark BaselineProfiles.kt at the reviewed source revision](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/BaselineProfiles.kt)
 
 No startup performance improvement is claimed. The changes make phone-side artifact collection more deterministic and prevent unrelated app outputs from contaminating the recorded run.
+
+
+## Macrobenchmark trace completeness validation — 2026-11-15
+
+### Improvement cycle 1 — validate AndroidX trace references in result JSON
+
+The phone runner previously validated the two startup result names, both TTID/TTFD metrics, ten raw timing samples per metric, extrema and the AndroidX median. It did not validate the profilerOutputs trace references in those same result records.
+
+AndroidX Benchmark 1.5.0 records trace references on each BenchmarkData.TestResult. Its Macrobenchmark implementation converts each measured iteration trace path into a ProfilerOutput with type PerfettoTrace, label Trace Iteration <index>, and a filename relative to the benchmark output directory. The Nuvio class has two measured JUnit methods, each configured for ten cold-start iterations. Accordingly, valid phone output must contain two profilerOutputs arrays, each with ten Perfetto entries and exactly one label for every iteration index from 0 through 9.
+
+The AWK result validator now rejects a result when either profilerOutputs array is absent, either array has fewer than or more than ten PerfettoTrace entries, a filename is missing, or an iteration label is missing or duplicated. The new missing-trace-metadata fixture keeps all timing statistics intact but removes one trace reference from the second comparison arm, proving that valid timings alone are no longer sufficient.
+
+### Improvement cycle 2 — verify the copied trace artifacts
+
+A JSON filename reference is useful only if the corresponding trace is actually available for review. The phone runner now extracts all twenty filenames from the two result arrays and checks that:
+
+- there are exactly twenty references and all are unique;
+- every reference is a local filename, not a path outside the run folder;
+- every referenced file exists in the run folder and is non-empty; and
+- exactly twenty non-empty trace files were copied.
+
+The file scan recognizes both .trace and .perfetto-trace. AndroidX Macrobenchmark can emit .perfetto-trace files; checking only the .trace suffix would incorrectly reject valid output. The regression fixture now creates twenty synthetic non-empty .perfetto-trace files for a valid run, and separate negative cases remove one referenced file (missing-trace-file) or leave one referenced file zero bytes (empty-trace-file).
+
+### Source basis
+
+- AndroidX Benchmark 1.5.0 Macrobenchmark.kt collects per-measurement-iteration trace paths and creates a Profiler.ResultFile.ofPerfettoTrace for each path, with Trace Iteration <index> labels, before placing the outputs in the BenchmarkData.TestResult.
+- AndroidX BenchmarkData.kt defines TestResult.profilerOutputs and the ProfilerOutput fields type, label, and filename; its trace enum contains PerfettoTrace.
+- AndroidX Profiler.kt defines ofPerfettoTrace and derives the JSON filename using Outputs.relativePathFor.
+- Android's official Benchmark-in-CI documentation states that Macrobenchmark emits one Perfetto trace file per measured iteration and that trace files (.trace or .perfetto-trace) are stored alongside the benchmark JSON output.
+- The runner's two startup JUnit methods each request ten iterations, so the expected total is twenty traces: ten for startupNoCompilation and ten for startupWithBaselineProfile.
+
+References:
+- [AndroidX Macrobenchmark.kt at the reviewed 1.5.0-era source revision](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
+- [AndroidX BenchmarkData.kt](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt)
+- [AndroidX Profiler.kt](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/Profiler.kt)
+- [Android Developers: Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci)
+
+### Verification boundary
+
+- Focused local AWK fixtures accepted two arrays containing ten trace references each, then rejected a fixture with one reference removed.
+- A focused local shell reproduction accepted twenty unique, non-empty .perfetto-trace artifacts and rejected both a missing referenced file and a zero-byte referenced file. The reproduction also confirmed that .perfetto-trace must be included explicitly in the file glob.
+- The updated remote phone-runner fixture covers valid trace references, missing trace metadata, missing physical trace output, and empty trace output for both Full and Play Store variants. The full test-nuvio-phone-benchmark.sh was not executed end-to-end against a local checkout in this environment; the focused helper checks and remote source inspection are not a substitute for that full suite.
+- No Gradle task, APK build, profile generation, device instrumentation, physical-device Macrobenchmark, workflow dispatch or CI run was started.
+- This change makes the timing report and trace evidence fail together when the trace set is incomplete. It does not claim any Nuvio startup speedup or change the measured startup path.

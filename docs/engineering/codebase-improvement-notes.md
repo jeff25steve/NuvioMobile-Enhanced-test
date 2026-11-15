@@ -6182,3 +6182,13 @@ Final remote review also covered the complete current workflow directory: there 
 - The local focused shell reproduction reproduced the broad-scan contamination and verified the package-scoped scan excludes the foreign artifacts. Full repository shell scripts were not run end-to-end because a local checkout was unavailable. No Gradle/APK build, device benchmark, workflow dispatch or CI run was started. No startup speedup is claimed.
 
 Detailed evidence and source links: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+
+## Android startup benchmark trace integrity — 15 November 2026
+
+- AndroidX Benchmark 1.5.0 stores per-iteration trace references in each BenchmarkData.TestResult.profilerOutputs array. With Nuvio's two startup test methods and ten measured iterations each, the phone result must contain two arrays with ten PerfettoTrace entries each and iteration labels 0–9.
+- The phone JSON validator now rejects missing/duplicated trace references or missing iteration labels. The phone runner additionally checks that the twenty unique JSON filenames resolve to twenty copied, non-empty files and that the copied trace set contains exactly twenty traces.
+- The file scan covers both .trace and .perfetto-trace; the latter is a valid AndroidX Macrobenchmark output suffix. New regression fixtures cover a missing JSON reference, missing physical trace file and zero-byte trace.
+- Focused local AWK and POSIX-shell checks accepted valid 20-trace fixtures and rejected missing metadata, missing files and empty files. The complete repository phone-runner regression script was not run end-to-end because a local checkout was unavailable. No build, APK build, device benchmark, workflow dispatch or CI run was started. No startup performance gain is claimed.
+
+Detailed source evidence and verification boundaries: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
