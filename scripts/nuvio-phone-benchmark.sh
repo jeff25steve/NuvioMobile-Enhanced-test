@@ -4,9 +4,11 @@
 set -eu
 
 APP_PACKAGE="com.nuvio.media.benchmark"
+TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+STAGING_DIR="${NUVIO_PHONE_STAGE_DIR:-/data/local/tmp/NuvioBenchmark}"
 OUTPUT_ROOT="${NUVIO_PHONE_OUTPUT_DIR:-/sdcard/Download/NuvioStartupBenchmark}"
 MEDIA_ROOT="${NUVIO_PHONE_MEDIA_ROOT:-/sdcard/Android/media}"
 
@@ -14,6 +16,27 @@ fail() {
   printf '\nERROR: %s\n' "$*" >&2
   exit 1
 }
+
+# Android's package manager cannot reliably install APKs directly from shared
+# Downloads storage. Stage the complete bundle in shell-readable local storage
+# automatically, so the user never has to copy files manually.
+if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
+  mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
+  for apk in \
+    Nuvio-full-NonMinifiedRelease.apk \
+    Nuvio-full-NonMinifiedRelease-Tests.apk \
+    Nuvio-playstore-NonMinifiedRelease.apk \
+    Nuvio-playstore-NonMinifiedRelease-Tests.apk \
+    Nuvio-full-BenchmarkRelease.apk \
+    Nuvio-full-BenchmarkRelease-Tests.apk \
+    Nuvio-playstore-BenchmarkRelease.apk \
+    Nuvio-playstore-BenchmarkRelease-Tests.apk; do
+    [ -f "$SCRIPT_DIR/$apk" ] || fail "Bundle is incomplete: missing $apk beside nuvio-phone-benchmark.sh."
+    cp -f "$SCRIPT_DIR/$apk" "$STAGING_DIR/$apk" || fail "Could not stage $apk in $STAGING_DIR."
+  done
+  cp -f "$SCRIPT_DIR/nuvio-phone-benchmark.sh" "$STAGING_DIR/nuvio-phone-benchmark.sh" || fail "Could not stage the benchmark runner."
+  exec sh "$STAGING_DIR/nuvio-phone-benchmark.sh" "$@"
+fi
 
 usage() {
   cat <<'HELP'
@@ -32,13 +55,9 @@ Keep all eight APKs and this script together:
 
 Run from LADB (no computer required):
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile full
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect full
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install full
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure full
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile playstore
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect playstore
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install playstore
-  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure playstore
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run playstore
 
 Results are copied to /sdcard/Download/NuvioStartupBenchmark.
 The benchmark app uses com.nuvio.media.benchmark; production Nuvio is untouched.
@@ -79,12 +98,20 @@ apk_paths() {
 }
 
 resolve_instrumentation() {
+  # com.android.test with android.experimental.self-instrumenting=true is
+  # intentionally instrumented against its own test APK package. The app under
+  # test is launched separately by Macrobenchmark using APP_PACKAGE.
   INSTRUMENTATION="$(pm list instrumentation 2>/dev/null | while IFS= read -r line; do
     case "$line" in
-      *"(target=$APP_PACKAGE)"*) printf '%s\n' "$line" | sed 's/^instrumentation://; s/[[:space:]].*//' ;;
+      *"(target=$TEST_PACKAGE)"*)
+        component="$(printf '%s\\n' "$line" | sed 's/^instrumentation://; s/[[:space:]].*//')"
+        case "$component" in
+          "$TEST_PACKAGE/"*) printf '%s\\n' "$component" ;;
+        esac
+        ;;
     esac
   done | head -n 1)"
-  [ -n "$INSTRUMENTATION" ] || fail "The matching test APK is not installed or does not target $APP_PACKAGE. Run install-profile or install for this flavor first."
+  [ -n "$INSTRUMENTATION" ] || fail "The self-instrumenting test APK ($TEST_PACKAGE) is not installed. Install the matching app and -Tests APK pair for this flavor first."
 }
 
 new_run_dir() {
@@ -198,5 +225,13 @@ case "$ACTION" in
     run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
     printf '\nThe JSON contains paired cold-start results for CompilationMode.None and CompilationMode.Partial(BaselineProfileMode.Require). Check both TTID and TTFD medians; the profile-enabled arm uses the profile already packaged in this benchmarkRelease APK, not the profile collected in the previous step.\n'
     ;;
-  *) usage; fail "Unknown action '$ACTION'. Use install-profile, collect, install, measure or help." ;;
+  run)
+    require_installed_variant install-profile
+    run_instrumentation BaselineProfile "$GENERATOR_CLASS"
+    ACTION=install
+    install_variant
+    run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
+    printf '\nFull profile collection and startup measurement completed for %s.\n' "$FLAVOR"
+    ;;
+  *) usage; fail "Unknown action '$ACTION'. Use install-profile, run, collect, install, measure or help." ;;
 esac
