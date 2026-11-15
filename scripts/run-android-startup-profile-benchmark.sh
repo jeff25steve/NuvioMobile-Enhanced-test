@@ -100,6 +100,10 @@ for flavor in full playstore; do
   [[ -n "$baseline_profile_file" ]] || fail "No baseline-prof.txt for $flavor."
   [[ -s "$baseline_profile_file" ]] || fail "Generated baseline profile contains no rules: $baseline_profile_file."
   grep -Eq '[^[:space:]]' "$baseline_profile_file" || fail "Generated baseline profile contains no rules: $baseline_profile_file."
+  startup_profile_file="$(find "$profile_dir" -maxdepth 1 -type f -name 'startup-prof.txt' -print -quit)"
+  [[ -n "$startup_profile_file" ]] || fail "No startup-prof.txt for $flavor."
+  [[ -s "$startup_profile_file" ]] || fail "Generated startup profile contains no rules: $startup_profile_file."
+  grep -Eq '[^[:space:]]' "$startup_profile_file" || fail "Generated startup profile contains no rules: $startup_profile_file."
 done
 
 run_gradle_step "03-benchmark-full-benchmarkRelease" \
