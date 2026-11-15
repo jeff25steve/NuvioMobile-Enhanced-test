@@ -119,6 +119,7 @@ grep -q 'monkey -p com.nuvio.media.benchmark 1' "$FAKE_COMMAND_LOG"
 grep -Fq "pm install -r $TMP/staged/Nuvio-full-NonMinifiedRelease.apk" "$FAKE_COMMAND_LOG"
 test -f "$TMP/staged/Nuvio-playstore-BenchmarkRelease-Tests.apk"
 grep -Fq 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG" || true
+grep -Fq 'com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG" || true
 grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
 grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
 grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
