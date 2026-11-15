@@ -6246,3 +6246,11 @@ Detailed source reasoning, independent case studies and verification limits: [an
 - Added build fingerprint, boot-complete state and uptime-since-boot to the phone runner's read-only before/after device snapshots. This captures a relevant field-vs-lab variable found in a recent 12 Oct 2026 practitioner case study.
 - Regression assertions were added for the new config and snapshot fields. Remote source inspection confirms the runner's AWK uptime output uses a single newline escape. The full shell suite remains unrun (no local checkout); no builds, CI, profile capture or device measurements were started.
 - Further speed work is not justified until Nuvio's actual traces/Startup Insights and R8 Configuration Analyzer report identify concrete blockers. Do not copy another app's lazy initialization changes or remove broad keep rules without Nuvio-specific evidence.
+
+
+### Benchmark follow-up — verify Startup Insights output channel and R8 Analyzer scope (15 Nov 2026)
+
+- Refined the Startup Insights documentation after checking AndroidX Benchmark source: insights are analyzed after each captured iteration and included in the instrumentation IDE tree summary, not serialized into `benchmarkData.json`. The phone runner already preserves `instrumentation.log`; use that file for findings and JSON for timings/device context/traces.
+- Context7 successfully resolved AndroidX and AGP documentation this session. Confirmed the Java two-argument `ExperimentalConfig` constructor exists in the 1.5.0 release API and the AGP 9.3+ standalone R8 Analyzer does not complete APK/AAB compilation.
+- The production flavor variants are `fullRelease` and `playstoreRelease`. Exact Analyzer task names must be confirmed from the real Gradle task listing before execution; no task or build was run. Keep the Analyzer focused on minified production variants, not non-minified profile-capture variants.
+- No code change is justified from source inspection alone. Next step is to inspect actual Startup Insights in the saved instrumentation log and obtain R8 Analyzer reports when a local checkout/Gradle environment is available and authorized.
