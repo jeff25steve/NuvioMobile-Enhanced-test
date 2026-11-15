@@ -1020,3 +1020,25 @@ Sources:
 - [Expensify: Ship an ART Baseline Profile](https://github.com/Expensify/App/issues/99839) — September 2026 correction of a false ~800 ms profile win caused by unequal ART verification states.
 - [Android Developers: Benchmark Baseline Profiles with Macrobenchmark](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) — intended meaning of None and Partial compilation modes, and recommendation to compare TTID and TTFD.
 
+
+
+### Benchmark report comparability labels — 15 November 2026
+
+A concrete reporting gap was found: the runner records the Android API level and installs the benchmark APK with `pm install`, but the human-readable report did not tell readers that the run was sideloaded or explain the API 33 ART reset caveat. This is particularly easy to misread for the `playstore` flavor, whose name is a build flavor, not proof of Google Play delivery.
+
+- The report now explicitly labels the install path as an APK sideload via `pm install`, not Google Play delivery, and says that the `playstore` flavor label is not an install channel.
+- API 33 reports now identify the pre-34 `CompilationMode.None` reset path and warn that, on unrooted user builds, uninstall/reinstall can leave the control arm with a different ART verification state from a Play-installed app.
+- API 34+ reports identify the AndroidX reset path (`verify` plus `pm art clear-app-profiles`) and still make clear that the APK was sideloaded.
+- Unknown API metadata is reported as unknown rather than silently implying comparable state.
+- Regression fixtures were extended to assert the API 34+ and sideload labels and to run an API 33 fixture that checks the pre-34 warning.
+
+This change improves interpretation only; it does not change compilation mode, benchmark order, measured code, app behavior or timing. It does not repair API 33 comparability; it makes the limitation visible. The API 33 limitation is grounded in the repository-pinned AndroidX Benchmark 1.5.0 source and in Expensify's September 2026 investigation, where an apparent ~800 ms Baseline Profile gain disappeared after the no-profile arm was put into the same verified ART state.
+
+Additional current research reviewed:
+- [Android Developers — Benchmark Baseline Profiles with Macrobenchmark](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile), last updated 28 October 2026: compare `CompilationMode.None` with `Partial(Require)`, use a physical device, and report both TTID and TTFD.
+- [Expensify — Ship an ART Baseline Profile](https://github.com/Expensify/App/issues/99839), updated 16 September 2026: a measured 22% result on a Galaxy A37 (n=10 per arm) was later identified as a verification-state artifact; the corrected profile delta was within noise.
+- [Tinder — R8 Configuration Analyzer](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer), 18 August 2026: found a broad keep rule limiting optimization; the 47% figure refers to the slow-start user cohort, not a universal median startup reduction.
+- [Grab — R8 and profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), 19 October 2026: reported cumulative 35% startup improvement across R8, Baseline/Startup Profiles and full-mode phases; these were multiple changes in a large super-app and are not a Nuvio estimate.
+- [Android Developers — Startup Profiles and DEX layout](https://developer.android.com/topic/performance/startupprofiles/dex-layout-optimizations): Startup Profiles improve DEX layout; AGP enables DEX layout optimization by default since 8.3. Nuvio is already on AGP 9.4.0, so adding a redundant flag is not a valid optimization. The remaining concrete artifact check is whether startup-critical code fits in primary `classes.dex`.
+
+No Gradle task, build, APK/AAB, profile capture, physical-device benchmark, Actions dispatch or CI was run. The updated regression test was not executed in this environment; source edits and remote branch state still require final read-back verification. No Nuvio startup-speed gain is claimed.
