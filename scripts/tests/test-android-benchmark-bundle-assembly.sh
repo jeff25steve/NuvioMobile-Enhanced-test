@@ -12,7 +12,7 @@ line_of() {
 instructions_create="$(line_of 'cat > phone-benchmark/START-HERE.txt <<'EOF'')"
 instructions_check="$(line_of 'test -s phone-benchmark/START-HERE.txt')"
 instructions_end="$(awk 'found && $0 == "          EOF" { print NR; exit } /cat > phone-benchmark\/START-HERE.txt <<.EOF./ { found=1 }' "$WORKFLOW")"
-checksum_create="$(line_of 'sha256sum > SHA256SUMS.txt')"
+checksum_create="$(line_of 'xargs -0 sha256sum > SHA256SUMS.txt')"
 checksum_verify="$(line_of 'sha256sum --check SHA256SUMS.txt')"
 bundle_count_check="$(line_of 'Phone bundle must contain eight APKs, two scripts, START-HERE.txt and SHA256SUMS.txt.')"
 upload_step="$(line_of '- name: Upload phone-ready benchmark APK bundle')"
