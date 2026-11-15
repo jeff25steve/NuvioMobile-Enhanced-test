@@ -20,6 +20,10 @@ grep -Fq '.semantics { testTagsAsResourceId = true }' "$MAIN_ACTIVITY_SOURCE" ||
   echo "FAIL: Android Compose root must expose test tags as resource IDs." >&2
   exit 1
 }
+grep -Fq 'ReportDrawnWhen { appReady.value }' "$MAIN_ACTIVITY_SOURCE" || {
+  echo "FAIL: Macrobenchmark TTFD reporting must remain tied to the app's fully-drawn signal." >&2
+  exit 1
+}
 grep -Fq 'BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("nuvio_benchmark_home"))' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: HomeScreen root must expose the benchmark Home marker." >&2
   exit 1
