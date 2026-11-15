@@ -639,3 +639,49 @@ References:
 - The remote comparison from checkpoint `629e71e26763a5e738f08355a58f82c57d97c52e` shows six changed paths: the phone runner, three source-regression scripts and two engineering notes. The branch remains zero commits behind; later commits in this review updated documentation only. No app runtime, Gradle build, Android dependency or workflow definition changed.
 - The latest Actions run returned for `main-build-testing` was created at `2026-11-15T04:12:13Z`, before the follow-up commits. No new workflow run was started by this session; no build, dispatch or CI command was invoked.
 - The static review was performed against the live remote source. No independent reviewer tool was available, and the full repository shell regression scripts were not run against a local checkout.
+
+## Phone output isolation and historical bundle failure diagnosis — 2026-11-15
+
+### Confirmed output-directory ownership gap
+
+The phone runner previously searched the entire `/sdcard/Android/media` tree for newly written `baseline-prof*.txt`, `startup-prof*.txt`, `*benchmarkData.json` and trace files. That was broader than the AndroidX output contract.
+
+- The project pins `androidx-benchmark` 1.5.0 in `gradle/libs.versions.toml`.
+- The `:baselineProfile` test module sets `android.experimental.self-instrumenting=true` and its package/namespace is `com.nuvio.android.baselineprofile`.
+- AndroidX Benchmark's `Outputs` implementation obtains `InstrumentationRegistry.getInstrumentation().targetContext`, then uses that context's first mounted `externalMediaDirs` directory on API 29+. For a self-instrumenting test APK, the instrumentation target context belongs to the test APK, not the measured Nuvio app.
+- The expected output subtree for this runner is therefore `/sdcard/Android/media/com.nuvio.android.baselineprofile`. It must not collect generic similarly named files belonging to any other installed app.
+
+The phone runner now forms `TEST_MEDIA_ROOT` from the configured Android media root plus `TEST_PACKAGE`, then uses that path for both profile and Macrobenchmark/trace discovery. The existing `NUVIO_PHONE_MEDIA_ROOT` override remains the media-root override; it is not the per-package directory. App IDs, test IDs, output filenames, instrumentation arguments and benchmark methodology are unchanged.
+
+### Regression fixture and focused verification
+
+The phone-runner fixture now stores valid outputs under the self-instrumenting package subtree and, on an isolation-focused run, creates two foreign-app decoys after the run marker:
+
+- An empty `foreign-baseline-prof-decoy.txt`, which the former broad scan copied and then incorrectly rejected alongside a valid Nuvio profile.
+- An incomplete `foreign-benchmarkData.json`, which the former broad scan copied and treated as a Nuvio result file.
+
+The fixture checks that no foreign-app path appears in any copied-files manifest. The focused local shell reproduction confirmed the old scan copied both Nuvio and foreign files; the package-scoped scan copied only the Nuvio files, allowing the valid profile through its non-whitespace check. The remote runner/test sources were then re-fetched and inspected at the new commit.
+
+The full `test-nuvio-phone-benchmark.sh` was not run end-to-end against a local checkout in this environment. The local reproduction validates the exact directory-selection behavior, not the entire script. No Gradle task, APK build, device instrumentation, profile generation, Macrobenchmark, Actions dispatch or CI run was started.
+
+### Historical GitHub Actions failure root cause
+
+The logs for historical Actions run [43672203091](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43672203091), job `132689544532`, establish the failing order in the `Assemble phone-ready benchmark bundle` step:
+
+1. The step ran `test -s phone-benchmark/START-HERE.txt`.
+2. The next command was the heredoc that created `phone-benchmark/START-HERE.txt`.
+3. The file did not exist yet, so the pre-creation non-empty check returned non-zero under the step's fail-fast shell and stopped bundle assembly.
+4. All four profile-capture/R8 APK assembly steps preceding this bundle step had completed successfully; artifact upload was skipped because assembly stopped.
+
+The current `test-android-benchmark-bundle-assembly.sh` regression explicitly requires the heredoc closing delimiter to occur before the non-empty check, then requires checksum creation/verification and bundle-count validation before upload. This confirms the known ordering defect is guarded in the current branch.
+
+A separate failed run, [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220), has no retrievable job-log blob in the available GitHub response. Its specific failure cause remains unknown; no root cause is inferred from the red conclusion alone.
+
+### Source references
+
+- [AndroidX Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
+- [AndroidX Benchmark Outputs.kt at the reviewed AndroidX source revision](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/Outputs.kt)
+- [Android Developers: Benchmark in Continuous Integration — save and locate files](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci)
+- [AndroidX Macrobenchmark BaselineProfiles.kt at the reviewed source revision](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/BaselineProfiles.kt)
+
+No startup performance improvement is claimed. The changes make phone-side artifact collection more deterministic and prevent unrelated app outputs from contaminating the recorded run.
