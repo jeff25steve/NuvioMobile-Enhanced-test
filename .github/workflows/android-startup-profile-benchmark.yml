@@ -1,13 +1,11 @@
 name: Android Startup Profile Benchmark Builds
 
-# Temporary path-scoped trigger for the one authorized build; remove after dispatch.
+# One-time authorized build trigger; restored to manual-only immediately after launch.
 on:
   workflow_dispatch:
   push:
     branches:
       - main-build-testing
-    paths:
-      - .github/workflow-triggers/android-startup-profile-benchmark-once.txt
 
 permissions:
   contents: read
