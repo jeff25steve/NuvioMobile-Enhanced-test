@@ -6213,3 +6213,16 @@ Detailed source evidence and verification boundaries: [android-startup-benchmark
 - No build, APK build, profile generation, on-device benchmark, workflow dispatch or CI run was started.
 
 Detailed investigation and source references: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+
+## Android phone startup benchmark — variability and reportability (15 November 2026)
+
+- The phone result validator now requires AndroidX 1.5.0's `coefficientOfVariation` field and recomputes it from the ten raw samples using sample standard deviation divided by arithmetic mean. It rejects missing or inconsistent CV metadata rather than trusting a stale summary field.
+- The runner now writes and prints `benchmark-summary.txt` with both TTID and TTFD median/range/CV values and the descriptive median difference for no-compilation versus required Baseline Profile. It clearly warns that ten samples do not establish statistical significance; it applies no arbitrary CV threshold and does not remove outliers.
+- Regression fixtures include correct CV values, incorrect and missing CVs, plus assertions for both summary metrics, deltas and the ten-sample caveat. Focused local AWK fixtures passed positive and negative CV cases; the report function passed `sh -n` and expected-output assertions. The full repository phone-runner regression was not executed because a local checkout is unavailable.
+- Independent findings: Android Calendar reported 15% median cold-start improvement and 17% interactive startup improvement in controlled releases; Doist reported 22.95% median TTID improvement on Todoist phone; Duolingo reported approximately 30% production improvement but uncovered invalid/compressed profile packaging; ONCOassist reported 14.7% TTID improvement on a Pixel 7 Pro over ten physical-device cold starts. These results vary by app/device and are not Nuvio targets.
+- P.Y. Ricau's Block/Square statistical methodology highlights Macrobenchmark noise from thermal throttling and warm-up. It recommends examining distribution/iteration traces instead of comparing medians alone; one 95% CI approach requires normality, more than 30 iterations per arm and a variance ratio no greater than two. Nuvio's ten-iteration results are therefore treated as screening/descriptive until stronger repeated evidence exists.
+- Startup Profile audit: Nuvio's generator already enables `includeInStartupProfile`; AGP is pinned to 9.4.0, where DEX layout optimisation is already enabled by default. No redundant optimization flag or profile filter was added. The remaining artifact-level check is whether startup-critical code is in the primary `classes.dex` (or `r8.json`'s `startup: true` metadata in an AAB); no artifact was built or available to prove this.
+- The only available prior device file is an installation-state marker, not a Macrobenchmark result. No Nuvio TTID/TTFD gain is claimed. No Gradle/APK/AAB build, profile collection, device benchmark, workflow dispatch or CI was started.
+
+Detailed source reasoning, independent case studies and verification limits: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
