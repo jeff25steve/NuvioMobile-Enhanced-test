@@ -195,6 +195,155 @@ count_json_named_results() {
   ' "$2"
 }
 
+validate_macrobenchmark_statistics() {
+  awk '
+    function count_matches(source, pattern,    rest, count) {
+      rest = source
+      count = 0
+      while (match(rest, pattern)) {
+        count++
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+      return count
+    }
+
+    function metric_field(object, field,    needle, start, rest) {
+      needle = "\\\"" field "\\\""
+      start = index(object, needle)
+      if (start == 0) return ""
+      rest = substr(object, start + length(needle))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) {
+        return substr(rest, 1, RLENGTH)
+      }
+      return ""
+    }
+
+    function validate_metric_object(object, metric_name,    minimum, median, maximum, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count) {
+      minimum = metric_field(object, "minimum")
+      median = metric_field(object, "median")
+      maximum = metric_field(object, "maximum")
+
+      if (minimum == "" || median == "" || maximum == "") {
+        print "FAIL: " metric_name " is missing a numeric minimum, median, or maximum."
+        return 0
+      }
+      if (minimum + 0 <= 0 || median + 0 <= 0 || maximum + 0 <= 0 || minimum + 0 > median + 0 || median + 0 > maximum + 0) {
+        print "FAIL: " metric_name " has invalid statistics; require 0 < minimum <= median <= maximum."
+        return 0
+      }
+
+      run_key_count = count_matches(object, "\\\"runs\\\"[[:space:]]*:")
+      if (run_key_count != 1) {
+        print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
+        return 0
+      }
+      start = index(object, "\\\"runs\\\"")
+      rest = substr(object, start + length("\\\"runs\\\""))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (substr(rest, 1, 1) != "[") {
+        print "FAIL: " metric_name " runs value is not an array."
+        return 0
+      }
+      close_pos = index(rest, "]")
+      if (close_pos == 0) {
+        print "FAIL: " metric_name " runs array is incomplete."
+        return 0
+      }
+      runs_text = substr(rest, 2, close_pos - 2)
+      gsub(/[[:space:]]/, "", runs_text)
+      if (runs_text == "") sample_count = 0
+      else sample_count = split(runs_text, samples, ",")
+
+      if (sample_count != expected_iterations) {
+        print "FAIL: " metric_name " has " sample_count " samples; expected " expected_iterations "."
+        return 0
+      }
+
+      sample_min = 0
+      sample_max = 0
+      for (i = 1; i <= sample_count; i++) {
+        value = samples[i]
+        if (value !~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || value + 0 <= 0) {
+          print "FAIL: " metric_name " contains a non-numeric or non-positive sample."
+          return 0
+        }
+        if (i == 1 || value + 0 < sample_min) sample_min = value + 0
+        if (i == 1 || value + 0 > sample_max) sample_max = value + 0
+        if (value + 0 < minimum + 0 || value + 0 > maximum + 0) {
+          print "FAIL: " metric_name " sample falls outside its reported minimum/maximum."
+          return 0
+        }
+      }
+      if (sample_min != minimum + 0 || sample_max != maximum + 0) {
+        print "FAIL: " metric_name " reported minimum/maximum do not match the sample extrema."
+        return 0
+      }
+      return 1
+    }
+
+    { json = json $0 "\\n" }
+
+    END {
+      expected_iterations = 10
+      count_no = count_matches(json, "\\\"name\\\"[[:space:]]*:[[:space:]]*\\\"startupNoCompilation\\\"")
+      count_profile = count_matches(json, "\\\"name\\\"[[:space:]]*:[[:space:]]*\\\"startupWithBaselineProfile\\\"")
+      count_class = count_matches(json, "\\\"className\\\"[[:space:]]*:[[:space:]]*\\\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\\\"")
+      if (count_no != 1 || count_profile != 1 || count_class != 2) {
+        print "FAIL: JSON must contain exactly one result for each startup case and two StartupBenchmark class records."
+        exit 1
+      }
+
+      repeat_rest = json
+      repeat_count = 0
+      repeat_pattern = "\\\"repeatIterations\\\"[[:space:]]*:[[:space:]]*[0-9]+"
+      while (match(repeat_rest, repeat_pattern)) {
+        repeat_start = RSTART
+        repeat_length = RLENGTH
+        repeat_value = substr(repeat_rest, repeat_start, repeat_length)
+        sub(/^.*:[[:space:]]*/, "", repeat_value)
+        if (repeat_value + 0 != expected_iterations) {
+          print "FAIL: each benchmark result must report repeatIterations=" expected_iterations "."
+          exit 1
+        }
+        repeat_count++
+        repeat_rest = substr(repeat_rest, repeat_start + repeat_length)
+      }
+      if (repeat_count != 2) {
+        print "FAIL: JSON must contain repeatIterations for both startup results."
+        exit 1
+      }
+
+      total_metric_objects = 0
+      for (metric_name_index = 1; metric_name_index <= 2; metric_name_index++) {
+        if (metric_name_index == 1) metric_name = "timeToInitialDisplayMs"
+        else metric_name = "timeToFullDisplayMs"
+        metric_pattern = "\\\"" metric_name "\\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
+        metric_rest = json
+        metric_count = 0
+        while (match(metric_rest, metric_pattern)) {
+          metric_start = RSTART
+          metric_length = RLENGTH
+          metric_object = substr(metric_rest, metric_start, metric_length)
+          if (!validate_metric_object(metric_object, metric_name)) exit 1
+          metric_count++
+          total_metric_objects++
+          metric_rest = substr(metric_rest, metric_start + metric_length)
+        }
+        if (metric_count != 2) {
+          print "FAIL: JSON must contain exactly two " metric_name " results, one per startup case."
+          exit 1
+        }
+      }
+      if (total_metric_objects != 4) {
+        print "FAIL: JSON must contain exactly four startup metric objects."
+        exit 1
+      }
+      print "PASS: both startup results contain ten numeric TTID/TTFD samples and valid min/median/max statistics."
+    }
+  ' "$1"
+}
+
 require_macrobenchmark_result_data() {
   json_files=0
   no_compilation_results=0
@@ -211,6 +360,7 @@ require_macrobenchmark_result_data() {
     baseline_profile_results=$((baseline_profile_results + $(count_json_named_results startupWithBaselineProfile "$result_file")))
     ttid_metrics=$((ttid_metrics + $(count_json_occurrences '"timeToInitialDisplayMs"' "$result_file")))
     ttfd_metrics=$((ttfd_metrics + $(count_json_occurrences '"timeToFullDisplayMs"' "$result_file")))
+    validate_macrobenchmark_statistics "$result_file" || fail "Macrobenchmark JSON contains incomplete or invalid per-iteration startup statistics: $result_file."
   done
 
   [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
