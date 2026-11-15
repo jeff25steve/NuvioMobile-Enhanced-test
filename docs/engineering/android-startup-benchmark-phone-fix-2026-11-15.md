@@ -740,3 +740,58 @@ References:
 - The benchmark workflow remains workflow_dispatch-only. The latest returned Actions runs are historical runs on earlier SHAs; no Actions run references the final HEAD.
 - The focused shell/AWK reproductions described above were run locally. The complete repository phone-runner test script was not run end-to-end because a local checkout was unavailable.
 - No Gradle build, APK build, device test, physical-device benchmark, workflow dispatch or CI run was started. No startup performance improvement is claimed.
+
+
+## Follow-up audit — instrumentation result semantics and output traceability (2026-11-15)
+
+### Cycle 1 — distinguish instrumentation completion from test failure
+
+**Confirmed defect**
+
+- The phone runner previously failed when its instrumentation log contained any negative `INSTRUMENTATION_CODE`.
+- This conflated the overall instrumentation Activity result with an individual test result. Android's `Activity.RESULT_OK` is `-1`; AOSP's `InstrumentationTestRunner` and AndroidX `AndroidJUnitRunner` finish using `Activity.RESULT_OK`. The standard final line is therefore `INSTRUMENTATION_CODE: -1`, including for a normal completed run. AOSP's `am instrument` examples show the same final `-1` in both successful and failing test output; test failure is carried in the test summary/status events, not that final Activity result.
+- Consequently, the previous expression could classify a successful Baseline Profile collection or Macrobenchmark invocation as a failure after all test methods had completed.
+
+**Change**
+
+- Removed only the `INSTRUMENTATION_CODE: -[0-9]` alternative from the phone runner's failure expression.
+- Kept the shell command exit-code check, `FAILURES!!!`, `INSTRUMENTATION_FAILED`, and negative `INSTRUMENTATION_STATUS_CODE` detection. Negative per-test statuses remain failures/skips and are not confused with the final Activity result.
+- Extended the fake instrumentation output for both Baseline Profile and Macrobenchmark to include the normal `INSTRUMENTATION_CODE: -1` line. Added a negative per-test status fixture to ensure actual test failure is still rejected.
+
+**Primary source references**
+
+- AOSP `InstrumentationTestRunner`: https://android.googlesource.com/platform/frameworks/base/+/master/test-runner/src/android/test/InstrumentationTestRunner.java — calls `finish(Activity.RESULT_OK, ...)`; its documented status values distinguish per-test status from the overall finish result.
+- AndroidX `AndroidJUnitRunner`: https://github.com/android/android-test/blob/master/runner/android_junit_runner/java/androidx/test/runner/AndroidJUnitRunner.java — finishes with `Activity.RESULT_OK`.
+- Android `Activity` API reference: https://developer.android.com/reference/android/app/Activity#RESULT_OK — defines the successful result constant.
+- The legacy AOSP instrumentation testing example also displays `INSTRUMENTATION_CODE: -1` after both a passing test run and a run containing a test failure: https://www.kandroid.org/online-pdk/guide/instrumentation_testing.html.
+
+### Cycle 2 — label combined-run measurement artifacts as measurements
+
+**Confirmed defect**
+
+- In the combined `run <flavor>` flow, the runner collects the profile, sets `ACTION=install`, installs the benchmark APK pair, and immediately invokes Macrobenchmark.
+- `new_run_dir()` names its output directory from `ACTION`. The Macrobenchmark files from the combined workflow were therefore written to `install-<timestamp>`, even though they are measurement results. This was a misleading artifact label, not a change in the benchmark measurement itself.
+
+**Change**
+
+- Left `ACTION=install` in place while installing the BenchmarkRelease pair and writing the `install:<flavor>` state marker.
+- Set `ACTION=measure` immediately after installation and before invoking Macrobenchmark. The combined run now stores its JSON, traces, instrumentation log and environment snapshots under `measure-<timestamp>`.
+- Added a regression assertion that the combined workflow's `measure-*` directory contains the copied `benchmarkData.json`.
+
+### Re-check of the phone evidence and benchmark boundary
+
+- The available `current-install.txt` attachment contains only `install-profile:playstore`. It identifies the installed profile-capture variant; it is not a Macrobenchmark result and does not prove that either startup test has run.
+- No `benchmarkData.json`, `instrumentation.log`, Perfetto trace, or before/after device snapshot was present in the accessible upload. Therefore this audit cannot calculate or claim a startup-time improvement or diagnose a measured TTID/TTFD regression.
+- The current runner's separate app and instrumentation package identities remain intentional: the app under test is `com.nuvio.media.benchmark`; the self-instrumenting test package is `com.nuvio.android.baselineprofile`. The Play Store production package `com.nuvio.media` remains outside the installation/recovery path.
+- AndroidX Benchmark source inspection confirmed that result data is written through `ResultWriter`, that `BenchmarkData.TestResult` contains `profilerOutputs` with trace filenames, and that its output directory is derived from the instrumentation target context's external media directory. This supports retaining the current test-package-scoped output scan; no speculative package/path change was made.
+- AndroidX source references: `ResultWriter.kt`, `Outputs.kt`, `BenchmarkData.kt` and `Macrobenchmark.kt` in https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/.
+
+### Verification and integration record
+
+- RED reproduction: the previous failure expression matched a normal log containing `INSTRUMENTATION_CODE: -1`; the combined-run state produced an `install-*` directory label.
+- GREEN focused POSIX-shell reproduction: the corrected expression accepted final code `-1`, rejected negative per-test status `-2`, and rejected `INSTRUMENTATION_FAILED`; the measurement directory label was `measure-*`.
+- The remote regression fixture was updated to cover successful final instrumentation codes, negative per-test status, and the combined-run result directory.
+- Remote implementation commits: `4aa3fc0983bd717c7c22330a2d95f43f66c35372` (runner), `5d0765da86bc93cae998a2fa41c10adb77f50df2` (regression fixture), and `f6d70d97da1b33de3caa81908989367557ccb3b4` (fixture escape correction).
+- The complete `scripts/tests/test-nuvio-phone-benchmark.sh` was not run end-to-end; this environment has no local repository checkout. The focused shell reproduction is not a substitute for that complete regression script.
+- Context7 resolution for AndroidX Benchmark 1.5.0 was attempted but the connector returned a quota-exhausted response. No Kotlin, Android API, library or dependency code was changed; the shell-only fix was grounded against AOSP and AndroidX source fetched through Exa.
+- No Gradle task, APK build, profile-generation run, device instrumentation, physical-device Macrobenchmark, GitHub Actions workflow dispatch or CI run was started. No app startup speedup is claimed.
