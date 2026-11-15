@@ -54,3 +54,27 @@ profile-enabled measurement still uses the Baseline Profile packaged in the
 benchmark APK. A newly collected candidate is not silently injected into the
 already-built APK; review and a separate authorized build are required before
 measuring a new profile.
+
+
+## CI build verification
+
+The corrected phone workflow regression suite passed, and all four APK-pair build
+steps passed in GitHub Actions run
+[43657203014](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43657203014).
+
+The resulting phone bundle artifact is:
+- Name: `nuvio-android-startup-profile-0a7e3c2e15ebcb59e16e46c80a6b30a392d92f67`
+- Artifact ID: `14139057608`
+- Size: 688,797,198 bytes
+- SHA-256: `7d29794dfdd5fa8f71ae3f5f819e6fd4cbcde43ffea4d114a8133fddd0b22704`
+- Expires: 2026-11-29
+
+The build was run from a short-lived verification branch whose only difference
+from `main-build-testing` was a temporary push trigger for this workflow. The
+APK sources, test sources, phone runner, regression test, and user instructions
+were identical to `main-build-testing` at the time of the build.
+
+The bundle has been built and uploaded successfully. A real-device execution
+of the corrected instrumentation and startup measurements is still pending;
+no startup performance improvement is claimed until the phone results are
+collected and compared.
