@@ -114,6 +114,16 @@ public final class StartupBenchmark {
         }
     }
 
+    @Test
+    public void startupNoCompilation() {
+        runColdStartupBenchmark(new CompilationMode.None());
+    }
+
+    @Test
+    public void startupWithBaselineProfile() {
+        runColdStartupBenchmark(new CompilationMode.Partial(BaselineProfileMode.Require));
+    }
+
     private void runColdStartupBenchmark(CompilationMode compilationMode) {
         benchmarkRule.measureRepeated(
                 targetPackageName(),
