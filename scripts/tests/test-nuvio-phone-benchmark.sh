@@ -98,10 +98,17 @@ esac
 STUB
 cat > "$TMP/bin/pm" <<'STUB'
 #!/bin/sh
-printf 'pm %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+printf 'pm %s\\n' "$*" >> "$FAKE_COMMAND_LOG"
 case "$1" in
   list) echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)' ;;
-  install) echo 'Success' ;;
+  install)
+    if [ "${FAKE_INCOMPATIBLE:-0}" = "1" ] && [ "$2" = "-r" ] && [ ! -f "$FAKE_INCOMPATIBLE_ONCE" ]; then
+      : > "$FAKE_INCOMPATIBLE_ONCE"
+      echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]'
+      exit 1
+    fi
+    echo 'Success'
+    ;;
   *) exit 0 ;;
 esac
 STUB
@@ -142,8 +149,19 @@ for flavor in full playstore; do
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
 done
 
-# Verify benchmark install never removes the real app and all commands target .benchmark.
-! grep -q 'pm uninstall com.nuvio.media' "$FAKE_COMMAND_LOG"
+# Verify the signing-key recovery path uninstalls only the isolated benchmark
+# and self-instrumenting test packages, never production com.nuvio.media.
+: > "$FAKE_COMMAND_LOG"
+rm -rf "$TMP/output" "$TMP/staged"
+export FAKE_INCOMPATIBLE=1 FAKE_INCOMPATIBLE_ONCE="$TMP/incompatible-once"
+sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null
+grep -Fq 'pm uninstall com.nuvio.media.benchmark' "$FAKE_COMMAND_LOG"
+grep -Fq 'pm uninstall com.nuvio.android.baselineprofile' "$FAKE_COMMAND_LOG"
+if grep -Eq 'pm uninstall com\\.nuvio\\.media([[:space:]]|$)' "$FAKE_COMMAND_LOG"; then
+  echo 'FAIL: signing-key recovery attempted to uninstall production com.nuvio.media.' >&2
+  exit 1
+fi
+unset FAKE_INCOMPATIBLE
 grep -q 'monkey -p com.nuvio.media.benchmark 1' "$FAKE_COMMAND_LOG"
 grep -Fq "pm install -r $TMP/staged/Nuvio-full-NonMinifiedRelease.apk" "$FAKE_COMMAND_LOG"
 test -f "$TMP/staged/Nuvio-full-NonMinifiedRelease.apk"
