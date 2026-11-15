@@ -174,7 +174,7 @@ case " $* " in
     done
     cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<'JSON'
 {
-  "context": {"build": {"model": "Fixture phone"}, "cpuCoreCount": 8},
+  "context": {"build": {"model": "Fixture phone", "version": {"sdk": 35}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL", "compilationMode": "None"},
   "benchmarks": [
     {
       "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
@@ -413,6 +413,10 @@ for flavor in full playstore; do
   grep -Fq 'descriptive only' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToInitialDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Benchmark device context' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Device: Fixture phone | Android API: 35' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
   for iteration in 0 1 2 3 4 5 6 7 8 9; do
     no_ttid=$((400 + iteration * 10))
