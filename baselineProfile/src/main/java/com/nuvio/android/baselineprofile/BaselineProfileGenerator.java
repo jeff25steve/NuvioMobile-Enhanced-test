@@ -65,12 +65,12 @@ public final class BaselineProfileGenerator {
     private static void awaitMainContentReady() {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         boolean ready = device.wait(
-                Until.hasObject(By.res("nuvio_startup_ready")),
+                Until.hasObject(By.res("nuvio_benchmark_home")),
                 MAIN_CONTENT_READY_TIMEOUT_MS
         );
         if (!ready) {
             throw new AssertionError(
-                    "Nuvio did not expose the Home-ready marker 'nuvio_startup_ready' within 30 seconds." +
+                    "Nuvio did not expose the HomeScreen benchmark marker 'nuvio_benchmark_home' within 30 seconds." +
                     readinessDiagnostics(device)
             );
         }
