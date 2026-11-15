@@ -1587,6 +1587,7 @@ internal fun MainAppContent(
                         },
                     ),
             ) {
+                // Non-drawing diagnostic node: reveal which root-readiness input is still pending.
                 Box(
                     modifier = Modifier
                         .size(1.dp)
