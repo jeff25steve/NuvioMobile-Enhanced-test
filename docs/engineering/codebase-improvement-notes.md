@@ -6150,3 +6150,14 @@ Two further benchmark-integrity cycles are now on `main-build-testing`:
 Context7 was successfully used for AndroidX Benchmark JSON/API source; Exa cross-checked the schema and official Android guidance on stable physical-device conditions. Local isolated AWK and environment-capture fixtures passed positive cases and rejected invalid samples; the complete repository regression suite was not run end-to-end. No Gradle build, APK build, device benchmark, or CI was started. This is measurement-integrity work only; no Nuvio performance improvement is claimed. Full record: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
 
 The snapshot writer also handles an unwritable output path without masking the instrumentation result: it reports the snapshot-write failure and returns successfully. This path was exercised separately in the isolated shell helper fixture.
+
+## Android Baseline Profile collection acceptance — 15 November 2026
+
+Two concrete profile-evidence checks were added after tracing the AndroidX producer/consumer hand-off:
+
+- **Phone/LADB collection:** after copying the generated profile artifacts, the runner now requires at least one non-empty, non-whitespace `baseline-prof*.txt` file. A zero-byte or whitespace-only profile cannot be reported as a successful collection. Startup Profile output remains optional.
+- **Desktop profile capture:** after each Full/Play Store nonMinifiedRelease collection, the runner resolves the generated `baseline-prof.txt` source file and rejects missing, empty or whitespace-only content before running Macrobenchmark.
+
+The previous code accepted a matching filename alone. AndroidX `CollectBaselineProfileTask` copies profile text artifacts from instrumentation results but does not itself reject empty text files; the AndroidX plugin's no-rules warning is not a hard failure. The new checks close that gap while preserving the separate APK-level verification of compiled `assets/dexopt/baseline.prof`.
+
+The regression fixture covers valid, zero-byte and whitespace-only candidates on both Full and Play Store phone paths. A focused shell fixture passed the valid case and rejected the two invalid cases; desktop assertion and shell syntax checks also passed. The complete repository regression test was not executed end-to-end. No build, APK build, device benchmark or CI was started. No startup improvement is claimed.
