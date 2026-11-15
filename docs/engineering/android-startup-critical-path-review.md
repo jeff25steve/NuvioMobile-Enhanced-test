@@ -382,3 +382,14 @@ A fresh inspection of the exact benchmark variant configuration found a higher-p
 No source/build configuration was changed because no local checkout was available to run the required test-first regression checks. These findings are documented in `android-startup-benchmark-phone-fix-2026-11-15.md`. No Gradle task, build, device benchmark or CI was run.
 
 References: [AGP build variants](https://developer.android.com/build/build-variants), [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview), [AndroidX CompilationMode source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt), [ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [Sentry methodology](https://blog.sentry.io/android-sdk-faster-startup/).
+
+
+## Correction — generated benchmarkRelease is plugin-configured — 15 November 2026, 23:10 UTC
+
+Withdraw the previous statement that Nuvio's custom `benchmarkRelease` block omits R8 because it lacks `initWith(release)`. The pinned AndroidX Baseline Profile Gradle plugin 1.5.0 creates and configures this build type. Android's official plugin guide explicitly says these generated variants are configured for their use case and shows a custom `create("benchmarkRelease")` block changing only signingConfig. Nuvio's signing and applicationIdSuffix overrides follow this customization model. Do not add `initWith` based on the earlier audit.
+
+The concrete outstanding checks are artifact-level: confirm the resolved benchmark APK is non-debuggable/profileable and minified with the intended release ProGuard rules, and confirm it uses the isolated benchmark package/signing identity. These require an authorized diagnostic build; no such build was run.
+
+API 33: the app-data-loss path applies only when AndroidX Macrobenchmark's instrumentation shell is neither root nor able to run `su root id`. Rooted API 33 uses `cmd package compile --reset` and preserves app data. The outer LADB shell's UID alone does not establish the instrumentation shell's root capability. API 34+ remains the simplest non-rooted reproducible benchmark platform.
+
+References: [Baseline Profile plugin configuration](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles), [Macrobenchmark setup](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview), [AndroidX CompilationMode source](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
