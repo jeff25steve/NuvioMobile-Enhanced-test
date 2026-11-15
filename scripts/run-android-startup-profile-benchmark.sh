@@ -96,6 +96,16 @@ run_gradle_step "04-benchmark-playstore-benchmarkRelease" \
   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
 
+# A green connectedAndroidTest task is not enough: require both StartupTimingMetric
+# outputs from each flavor so a zero-test run or missing fully-drawn signal cannot
+# silently produce an apparently successful but unusable benchmark summary.
+for label in 03-benchmark-full-benchmarkRelease 04-benchmark-playstore-benchmarkRelease; do
+  for metric in timeToInitialDisplayMs timeToFullDisplayMs; do
+    grep -Fq "$metric" "$OUTPUT_DIR/$label.log" || \
+      fail "$label did not emit $metric; check that its JUnit benchmark cases ran and that the app reported fully drawn."
+  done
+done
+
 : > "$OUTPUT_DIR/summary.txt"
 for flavor in full playstore; do
   apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/benchmarkRelease/*" -print | head -n 1)"
