@@ -940,3 +940,27 @@ Sources:
 #### Benchmark methodology caution
 
 The two comparison arms remain separate JUnit test methods. JUnit's default method ordering is deterministic but not predictable; do not assume alphabetical order or that the same thermal/device-state sequence applies across all environments. The runner's before/after environment snapshots and per-iteration trace mapping improve diagnosis, but they do not eliminate order effects. For a stronger comparison, future authorized measurements should include repeated independent sessions with the order reversed or balanced, while keeping the same device, build artifacts, data state and cooling/idle conditions. No test-order annotation or execution-order change was made in this update because the present evidence does not establish a single best order for all devices.
+
+
+### Follow-up source verification — Startup Insights output and R8 task scope
+
+A deeper check against AndroidX Benchmark 1.5.0 source refined one detail in the prior Startup Insights description:
+
+- Startup Insights are calculated per measurement iteration after the trace has been captured and the timing metrics extracted. This keeps the analysis outside the measured app-start interval.
+- AndroidX aggregates the findings and passes them to `InstrumentationResults.reportSummaryToIde()`. With Startup Insights enabled, it requests the tree-format IDE summary, where the `App Startup Insights` section is emitted. Nuvio's phone runner already saves the complete `instrumentation.log`, so this channel is retained.
+- **Startup Insights are not fields in `benchmarkData.json` in AndroidX 1.5.0.** The `BenchmarkData.TestResult` schema contains metrics, sampled metrics, iteration counts and profiler outputs, but no insights property. The JSON remains useful for timings and trace filenames; the instrumentation log is the place to inspect insight findings. Do not build a JSON parser for a field that does not exist.
+
+R8 Analyzer follow-up from the current pinned AGP 9.4.0 and app variant configuration:
+
+- AGP 9.3+ documents the standalone `analyzeReleaseR8Config` task, which generates the R8 Configuration Analyzer report without completing APK/AAB compilation.
+- Android variant naming combines flavor then build type. Nuvio's production release variants are `fullRelease` and `playstoreRelease`; their corresponding task names should be confirmed from the actual Gradle task listing before execution, rather than guessed or added as hard-coded automation.
+- The Analyzer should target those minified production release variants first, because `benchmarkRelease` and `nonMinifiedRelease` have different optimization purposes. Do not run `assemble`, `bundle`, profile generation or CI as part of this audit.
+
+Verified source references:
+- [AndroidX Benchmark Macrobenchmark.kt](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) — trace analysis, IDE summary and JSON result construction.
+- [AndroidX Benchmark InstrumentationResults.kt](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/InstrumentationResults.kt) — Startup Insights appear in the tree-format IDE summary.
+- [AndroidX Benchmark BenchmarkData.kt](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) — JSON TestResult schema has no insights field.
+- [AGP 9.3 release notes](https://developer.android.com/build/releases/agp-9-3-0-release-notes) — standalone Analyzer task.
+- [Android build variants](https://developer.android.com/build/build-variants) — flavor/build-type naming.
+
+Context7 was working for this follow-up. It resolved AndroidX and AGP documentation and returned the 1.5.0 API signature for `ExperimentalConfig`, the `StartupInsightsConfig` constructor, the `MacrobenchmarkRule.measureRepeated` overload, and the AGP 9.3+ standalone R8 Analyzer behavior. The exact AndroidX 1.5.0-rc01 API file confirms Java has the two-argument `ExperimentalConfig(PerfettoConfig?, StartupInsightsConfig?)` constructor used by Nuvio. No Gradle task was executed.
