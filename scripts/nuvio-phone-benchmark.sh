@@ -460,7 +460,7 @@ capture_device_environment() {
     printf 'Screen brightness setting: '
     settings get system screen_brightness 2>&1 || printf 'unavailable\n'
   } > "$snapshot" 2>&1 || {
-    printf 'Unable to write environment snapshot: %s\n' "$snapshot" >&2
+    printf 'could not write environment snapshot: %s\n' "$snapshot" >&2
     return 0
   }
 }
