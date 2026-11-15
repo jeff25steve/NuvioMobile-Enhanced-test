@@ -277,10 +277,10 @@ JSON
     fi
     echo 'OK (2 tests)'
     if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
-      printf 'INSTRUMENTATION_STATUS_CODE: -2\\n'
+      printf 'INSTRUMENTATION_STATUS_CODE: -2\n'
     fi
     # Activity.RESULT_OK is -1; AndroidJUnitRunner emits this on normal completion.
-    printf 'INSTRUMENTATION_CODE: -1\\n'
+    printf 'INSTRUMENTATION_CODE: -1\n'
     ;;
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
