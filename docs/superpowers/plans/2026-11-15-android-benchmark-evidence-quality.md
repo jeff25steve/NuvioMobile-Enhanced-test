@@ -43,7 +43,7 @@
 - [x] Add the validator to the phone runner using the existing Android `awk` dependency only.
 - [x] Require exactly ten numeric samples in each of the four startup metric result arrays.
 - [x] Require positive numeric min/median/max with `minimum <= median <= maximum`.
-- [x] Re-run the isolated shell regression and shell syntax checks.
+- [x] Execute the isolated AWK positive/negative fixtures and inspect the runner integration; defer the full repository shell suite.
 
 ### Task 2: Capture device conditions around measurements
 
@@ -59,7 +59,7 @@
 - [x] Extend the Android shell stubs and assert both snapshots are written for each flavor.
 - [x] Add snapshot capture immediately before and after Macrobenchmark instrumentation.
 - [x] Keep the raw result logs and JSON files unchanged.
-- [x] Re-run the isolated shell regression and shell syntax checks.
+- [x] Exercise the snapshot helper with successful and failing diagnostic-command fixtures; defer the full repository shell suite.
 
 ### Task 3: Update engineering notes and review
 
