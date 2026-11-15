@@ -10,6 +10,7 @@ BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
 [ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] || { echo "FAIL: baseline profile test sources are missing." >&2; exit 1; }
+sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   grep -Fq 'TARGET_APP_PACKAGE = "com.nuvio.media.benchmark"' "$source" || {
     echo "FAIL: self-instrumenting tests must explicitly target the isolated Nuvio benchmark app." >&2
