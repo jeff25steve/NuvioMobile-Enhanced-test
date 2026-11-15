@@ -6266,3 +6266,13 @@ Detailed source reasoning, independent case studies and verification limits: [an
 - **Verification boundary:** the raw profile validator was exercised in a focused shell fixture, and current GitHub source/blobs were re-read. The full repository shell test, Gradle tasks, builds, profile generation, APK/AAB, device benchmarks and CI were not run. No startup-speed improvement is claimed.
 
 Detailed source evidence and caveats: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+
+### Benchmark follow-up — ART verification-state comparability (15 Nov 2026)
+
+- AndroidX Benchmark 1.5.0 `CompilationMode.None` explicitly sets ART `verify` and clears profiles on API 34+, but uses uninstall/reinstall on pre-34 unrooted user builds. Since the phone runner permits API 33 and installs APKs directly, API 33 no-profile timings can include verification work that Play installation normally completes before first launch.
+- Expensify's September 2026 investigation documented a false ~800 ms Baseline Profile win caused by comparing raw sideload state with an arm that had also paid verification. Once both arms had equivalent verification state, the apparent gain disappeared in that app.
+- **Reporting guardrail:** do not pool API 33 with API 34+ results or present API 33 as a Play-equivalent profile comparison. Retain API 33 support but label it sideload/worst-case; use API 34+ as the primary Play-like comparison. The project's Android 17 / API 37 phone is on the API 34+ path, but still needs an actual run.
+- No minimum API change or app/runtime code change was made. No local checkout was available to run the full shell regression suite; no Gradle task, build, APK/AAB, profile capture, physical-device benchmark or CI was run.
+
+Detailed source analysis: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
