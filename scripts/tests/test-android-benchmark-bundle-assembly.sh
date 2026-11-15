@@ -9,7 +9,7 @@ line_of() {
   grep -n -F -- "$1" "$WORKFLOW" | head -n 1 | cut -d: -f1
 }
 
-instructions_create="$(line_of 'cat > phone-benchmark/START-HERE.txt <<'EOF'')"
+instructions_create="$(line_of "cat > phone-benchmark/START-HERE.txt <<'EOF'")"
 instructions_check="$(line_of 'test -s phone-benchmark/START-HERE.txt')"
 instructions_end="$(awk 'found && $0 == "          EOF" { print NR; exit } /cat > phone-benchmark\/START-HERE.txt <<.EOF./ { found=1 }' "$WORKFLOW")"
 checksum_create="$(line_of 'xargs -0 sha256sum > SHA256SUMS.txt')"
