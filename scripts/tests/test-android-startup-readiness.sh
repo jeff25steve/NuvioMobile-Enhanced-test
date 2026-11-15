@@ -49,6 +49,18 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: fully-drawn wait must use the remaining shared timeout." >&2
     exit 1
   }
+  grep -Fq 'markerVisible(UiDevice device, String marker)' "$source" || {
+    echo "FAIL: readiness diagnostics must report marker visibility safely." >&2
+    exit 1
+  }
+  grep -Fq 'Last package to report an accessibility event' "$source" || {
+    echo "FAIL: diagnostics must not mislabel the last accessibility-event package as foreground." >&2
+    exit 1
+  }
+  if grep -Fq 'dumpWindowHierarchy' "$source"; then
+    echo "FAIL: diagnostics must not serialize the entire accessibility hierarchy." >&2
+    exit 1
+  fi
 done
 
-printf 'PASS: both benchmark journeys wait for the actual HomeScreen composable; TTFD remains reported by ReportDrawnWhen.\n'
+printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; diagnostics cannot fail on malformed accessibility text.\\n'
