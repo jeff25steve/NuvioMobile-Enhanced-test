@@ -307,3 +307,46 @@ The actual failure was an ordering error in the same shell step: `test -s phone-
 - The actual remote workflow source was checked: START-HERE creation is line 159, its heredoc closes at line 230, the non-empty check is line 231, checksum generation/verification are lines 235–236, bundle-count validation is line 239, and artifact upload begins at line 244. The order is now correct.
 - The new regression is wired into pre-build validation. It has not yet run on GitHub Actions against the checked-out repository, and the full bundle has not yet been uploaded. A fresh authorized workflow execution is still required to prove the complete ZIP and artifact upload.
 - Context7 documentation retrieval was unavailable because the service reported its monthly quota was exhausted. Exa search returned GitHub's official workflow documentation confirming steps run sequentially and scripts execute through the selected shell. The diagnosis itself is established directly by the exact failed command and the GitHub job log.
+
+## Review of the Grok screenshot and follow-up source audit — 2026-11-15 04:22 UTC
+
+### Fully-drawn readiness: current evidence and correction
+
+The screenshot's central assessment is correct: the benchmark still requires both `nuvio_benchmark_home` and `nuvio_startup_ready`, and the phone evidence has shown Home without the fully-drawn marker. The benchmark must not relax that requirement; `ReportDrawnWhen { appReady.value }` remains the Android TTFD contract.
+
+A suspected controller wiring gap was investigated and discarded. The standard Android entry point calls `App()` with its default `renderMainContent = true`. In that mode, AppGate does not use `externalMainContentReady` from `AppGateController`; its outer launch overlay is disabled and the normal `MainAppContent.onRootContentReady` callback directly feeds `onAppReady` when the gate is Main and profile selection is not loading. The controller-flow observation therefore does not explain the Android phone failure.
+
+The remaining normal-path readiness conditions are explicit in source: `MainAppContent` reports ready only when `initialHomeReady` is true, `profileSwitchLoading` is false, and its own launch-overlay transition is idle and hidden. AppGate additionally gates the callback on `gateScreen == Main` and `profileSelectionLoading == false`. The source has a 5-second fallback that sets `initialHomeReady` if the first Home content callback never arrives, and a 20-second safety timeout for profile-selection loading. These source facts narrow the search but do not prove which condition stayed false during the failed phone launch.
+
+### More discriminating readiness diagnostics
+
+- Added one 1 dp, transparent diagnostic semantics node to `MainAppContent`. Its resource ID encodes both `initialHomeReady` and `profileSwitchLoading` (all four combinations). It does not change either state or any readiness condition.
+- Both Baseline Profile collection and Macrobenchmark failure diagnostics now query all four combinations in addition to the existing AppGate, root-content, overlay, Home, and fully-drawn markers.
+- Extended `test-android-startup-readiness.sh` to require the new state marker and all four diagnostic queries. The benchmark still waits for Home and fully-drawn markers under the same 30-second shared deadline.
+- This is diagnostic instrumentation, not a fix for the readiness failure. A device run is still needed to see which state actually occurs at timeout.
+
+### R8 build-type audit: concern resolved by plugin contract, with artifact checks added
+
+The project pins `androidx.baselineprofile` to 1.5.0. The official AndroidX configuration guide states that the plugin creates `benchmarkRelease` and `nonMinifiedRelease` and overrides incompatible properties: `benchmarkRelease` is non-debuggable, minified and profileable; `nonMinifiedRelease` is non-debuggable, non-minified and profileable. The app module's custom build-type blocks only set the isolated `.benchmark` application ID suffix and temporary debug signing. Therefore, the screenshot's inference that the short custom blocks leave R8 behavior unconfigured is not supported by the pinned plugin contract.
+
+To verify the built outputs rather than trust the variant names, the bundle assembly step now uses the official Android SDK `apkanalyzer` to check each APK's application ID, debuggable flag and `android:profileable android:shell=true` manifest entry. For each `benchmarkRelease` APK it also requires a non-empty AGP R8 `mapping.txt`. The bundle regression test requires these checks to remain in place. These checks have been committed but have not yet run on the new source; no APK build or CI was started for this follow-up.
+
+### Baseline Profile filtering
+
+The generator still uses `filterPredicate = rule -> true`. This means it accepts every rule emitted by the measured startup journey; it does not mean it profiles every possible app path. The checked-in human-readable source profile is 1,409,345 bytes, but the GitHub file-content connector could not return its contents because the blob exceeds its supported response size, so its rule/package composition has not been independently inspected in this pass.
+
+Android's official documentation explicitly says the 1.5 MB limit applies to the compiled binary profile in the APK, not the much larger human-readable text source. The prior failed bundle assembly log measured the compiled profile at 22,236 bytes (full) and 20,982 bytes (Play Store), both well below that limit. No package filter was introduced: filtering to only `com.nuvio` without inspecting the rule set could remove Compose, AndroidX, Coil or other dependency methods that are part of this app's actual startup path. A safe filter decision needs the full rule inventory and, ultimately, measured comparisons.
+
+### Verification boundary and build policy
+
+- Remote source assertions confirm the new state tag, all four diagnostic queries, readiness regression expectations, APK identity/debuggable/profileable checks, R8 mapping-file check, and manual-only workflow configuration are present on `main-build-testing`.
+- The current pre-existing Actions run [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220) was started earlier from commit `8b0ff930519edb047b98cfd675866d934edd56e8`. It predates the follow-up diagnostic and APK-contract changes and must not be treated as verifying them.
+- No new build or CI run was started for this follow-up, in accordance with the user's instruction. The workflow remains `workflow_dispatch` only.
+- Context7 retrieval was unavailable due the service's monthly quota. Exa research used official Android documentation for Baseline Profile plugin behavior, Compose test-tag interoperability and `apkanalyzer` command syntax.
+- No fully-drawn fix or startup speed improvement is claimed. The next device result must identify the readiness-state combination before any behavioral change is justified.
+
+References:
+- https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+- https://developer.android.com/topic/performance/baselineprofiles/overview
+- https://developer.android.com/tools/apkanalyzer
+- https://developer.android.com/develop/ui/compose/testing/interoperability
