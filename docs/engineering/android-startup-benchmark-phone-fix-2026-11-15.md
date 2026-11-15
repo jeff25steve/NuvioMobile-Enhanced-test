@@ -424,3 +424,43 @@ The phone runner previously executed the Full and Play Store Macrobenchmark task
 ### Remaining verification boundary
 
 The checks above validate source and shell control-flow fixtures. They do not prove that Gradle's instrumentation output on a physical phone emits both metric keys or that the Java test class compiles on the actual AGP/Benchmark toolchain. That still requires a separately authorized build and device run.
+
+## Startup benchmark result completeness — 2026-11-15
+
+### Improvement cycle 1 — require both JUnit comparison cases to execute
+
+The LADB runner previously treated a successful `am instrument` exit as sufficient evidence that the cold-start comparison had completed. A zero exit and a generated file do not prove that both JUnit comparison methods ran.
+
+- Added a fail-closed check for the AndroidJUnitRunner status records of `startupNoCompilation` and `startupWithBaselineProfile`.
+- The check runs only for Macrobenchmark instrumentation, after the generic instrumentation failure checks and before copying results.
+- The phone-runner regression fixture now emits the expected per-test records and verifies that omitting either comparison arm causes a targeted failure.
+- AndroidX Test's `InstrumentationResultPrinter` implementation confirms that it sends each JUnit method name in the status Bundle under the test key, along with its class name. The raw `am instrument -r` output exposes these as `INSTRUMENTATION_STATUS: test=...` records.
+
+### Improvement cycle 2 — reject incomplete Macrobenchmark JSON
+
+The old phone-runner fixture wrote `{"benchmarks":[]}` and the test only required a file to exist. That meant an empty result could satisfy the output-export contract.
+
+- The runner now checks the copied `*benchmarkData.json` result file(s) before declaring Macrobenchmark complete.
+- It requires at least one result named `startupNoCompilation` and one named `startupWithBaselineProfile`.
+- It also requires at least two occurrences of each metric key, `timeToInitialDisplayMs` and `timeToFullDisplayMs`, so the file contains the two metrics for both comparison results.
+- The fixture now contains a representative two-result JSON payload and negative cases for empty JSON, a missing profile result, missing TTFD, and metrics present for only one arm.
+- The logic uses the Android shell's existing `awk` and `grep` commands; no runtime package or new dependency was introduced.
+
+### API and source verification
+
+- Context7 was successfully used through the connected `Main` account for AndroidX (`/androidx/androidx`) and AndroidX Test (`/android/android-test`). The AndroidX Macrobenchmark source represents each JSON record with `className`, `name` and `metrics`; `StartupTimingMetric` uses the exact TTID/TTFD keys checked above.
+- AndroidX Test's current `InstrumentationResultPrinter` source confirms per-test `class` and `test` status fields. The AndroidX Benchmark 1.5.0 source query also confirmed that a Macrobenchmark test is skipped when `androidx.benchmark.enabledRules` does not include `macrobenchmark`; this runner passes that rule explicitly.
+- Exa's official Android Developers results confirm that the startup metrics include TTID and TTFD, that the results report minimum/median/maximum, and that median values should be used to compare typical startup times. A physical-device run is still required for actual Nuvio measurements.
+
+### Verification boundary
+
+- The new regression fixture was first exercised against the previous “exit code only” behavior and failed because an instrumentation log missing the profile arm was accepted. After adding the guards, the isolated POSIX-shell fixture passed the complete and incomplete log/JSON cases, including JSON fields with whitespace around separators; `sh -n` also passed for that isolated harness.
+- GitHub source reads confirm the regression fixture and runner changes are present on `main-build-testing`. The complete repository shell regression suite was not run locally: the container could not resolve `github.com` for a shallow checkout, and no build or CI execution was authorized.
+- No Gradle task, APK build, device instrumentation run, Macrobenchmark, or GitHub Actions workflow was started.
+- This improves result integrity only. No startup speedup, TTID/TTFD improvement, or successful phone benchmark is claimed until a new authorized device run produces valid measurements.
+
+References:
+- https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/internal/runner/listener/InstrumentationResultPrinter.java
+- https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics
+- https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
