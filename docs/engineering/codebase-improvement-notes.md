@@ -6128,3 +6128,14 @@ References:
 - The integrated diff does not modify `androidApp/build.gradle.kts`, application IDs, manifests, Kotlin/Compose app source, the production release signing configuration or the phone-only runner.
 - No new Actions run was triggered by this integration. The only observed active benchmark run remains [43652201558](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652201558), which was already in flight from the separate CI-dispatch branch. At the latest check, both `nonMinifiedRelease` profile-capture build steps had succeeded and `Build full R8 benchmark APK pair` was in progress. Do not treat this as a completed artifact until the workflow reports success and the artifact is verified.
 - The full updated mock suite has not been rerun locally after adding the new assertions. The focused local RED/GREEN regression fixture and shell syntax fixture passed; no Gradle build, CI run, Macrobenchmark or device test was started by this integration.
+
+## Android startup benchmark result integrity — 15 November 2026
+
+Two result-integrity gaps in the phone-only Macrobenchmark path are now guarded:
+
+- The LADB runner requires AndroidJUnitRunner status records for both `startupNoCompilation` and `startupWithBaselineProfile`; a zero exit alone no longer passes.
+- After export, the runner requires both result names in `benchmarkData.json` and at least two occurrences each of TTID and TTFD metric keys. An empty JSON file or a one-arm result is rejected.
+
+The existing phone-runner fixture now models a two-arm Macrobenchmark payload and checks missing-method, empty-result, missing-profile, missing-TTFD, and one-arm-metric failures. Context7's connected `Main` account supplied AndroidX and AndroidX Test source confirming the JSON fields, metric names and instrumentation status keys. Exa confirmed Android's median-based interpretation guidance.
+
+The isolated POSIX-shell guard fixture passed positive and negative cases, and `sh -n` passed for that harness. The full repository regression suite could not be run locally because the container could not resolve GitHub for a checkout. No Gradle build, APK build, device benchmark or CI was started. This is result-integrity hardening only; no startup performance improvement is claimed. Detailed record: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
