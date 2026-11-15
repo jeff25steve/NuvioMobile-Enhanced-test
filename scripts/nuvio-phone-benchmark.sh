@@ -628,6 +628,21 @@ write_macrobenchmark_summary() {
       printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\n", cpu_core_count, cpu_max_frequency, cpu_locked
       printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\n", memory_total, art_mainline_version, sustained_performance
       printf "  Android release codename: %s\n", os_codename
+      print "  Install path: APK sideload via pm install; not Google Play delivery."
+      print "  The playstore build-flavor label does not mean this APK was installed from Google Play."
+      if (android_api ~ /^[0-9]+$/) {
+        if (android_api + 0 == 33) {
+          print "  ART comparability: API 33 uses the pre-34 reset path; unrooted user builds reinstall for CompilationMode.None."
+          print "  API 33 warning: do not treat this as a Play-equivalent isolated Baseline Profile comparison; ART verification state can differ."
+        } else if (android_api + 0 >= 34) {
+          print "  ART comparability: API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement."
+          print "  This controls the pre-34 verification-state confounder; the APK is still sideloaded, not Play-delivered."
+        } else {
+          print "  ART comparability: API below 33 is outside this runner supported range."
+        }
+      } else {
+        print "  ART comparability: Android API unavailable; do not infer Play-equivalent verification state."
+      }
       print ""
       print "Comparison: no compilation vs required packaged Baseline Profile"
       print "10 samples per comparison arm"
