@@ -71,6 +71,30 @@ grep -Fq 'require_startup_metrics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must centralize the TTID/TTFD validation for each flavor." >&2
   exit 1
 }
+grep -Fq 'require_macrobenchmark_cases() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must require both Macrobenchmark JUnit cases to execute." >&2
+  exit 1
+}
+grep -Fq 'INSTRUMENTATION_STATUS: test=$test_name' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must inspect AndroidJUnitRunner's per-test status records." >&2
+  exit 1
+}
+grep -Fq 'require_macrobenchmark_result_data() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must validate the exported Macrobenchmark JSON before reporting success." >&2
+  exit 1
+}
+for result_name in startupNoCompilation startupWithBaselineProfile; do
+  grep -Fq "$result_name" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner must require JSON results for $result_name." >&2
+    exit 1
+  }
+done
+for metric_name in timeToInitialDisplayMs timeToFullDisplayMs; do
+  grep -Fq "$metric_name" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner must require JSON $metric_name values for both comparison arms." >&2
+    exit 1
+  }
+done
 
 line_of() {
   grep -n -F -- "$1" "$PHONE_RUNNER" | head -n 1 | cut -d: -f1
@@ -113,4 +137,13 @@ for test_script in \
   }
 done
 
-printf 'PASS: both cold-start Macrobenchmark cases are declared and use the shared TTID/TTFD measurement.\n'
+phone_case_check="$(grep -n -F '      require_macrobenchmark_cases' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+phone_copy="$(grep -n -F '      copy_recent_outputs benchmark' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+[ -n "$phone_case_check" ] && [ -n "$phone_copy" ] && [ -n "$phone_json_check" ] &&
+[ "$phone_case_check" -lt "$phone_copy" ] && [ "$phone_copy" -lt "$phone_json_check" ] || {
+  echo "FAIL: phone runner must check both instrumentation cases, copy results, then validate JSON before reporting completion." >&2
+  exit 1
+}
+
+printf 'PASS: both cold-start Macrobenchmark cases are declared and phone results require both test arms plus TTID/TTFD JSON data.\n'
