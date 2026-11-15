@@ -22,15 +22,24 @@ fail() {
 # automatically, so the user never has to copy files manually.
 if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
   mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
-  for apk in \
-    Nuvio-full-NonMinifiedRelease.apk \
-    Nuvio-full-NonMinifiedRelease-Tests.apk \
-    Nuvio-playstore-NonMinifiedRelease.apk \
-    Nuvio-playstore-NonMinifiedRelease-Tests.apk \
-    Nuvio-full-BenchmarkRelease.apk \
-    Nuvio-full-BenchmarkRelease-Tests.apk \
-    Nuvio-playstore-BenchmarkRelease.apk \
-    Nuvio-playstore-BenchmarkRelease-Tests.apk; do
+  case "${1:-}:${2:-}" in
+    install-profile:full)
+      STAGE_APKS="Nuvio-full-NonMinifiedRelease.apk Nuvio-full-NonMinifiedRelease-Tests.apk"
+      ;;
+    install-profile:playstore)
+      STAGE_APKS="Nuvio-playstore-NonMinifiedRelease.apk Nuvio-playstore-NonMinifiedRelease-Tests.apk"
+      ;;
+    run:full|install:full)
+      STAGE_APKS="Nuvio-full-BenchmarkRelease.apk Nuvio-full-BenchmarkRelease-Tests.apk"
+      ;;
+    run:playstore|install:playstore)
+      STAGE_APKS="Nuvio-playstore-BenchmarkRelease.apk Nuvio-playstore-BenchmarkRelease-Tests.apk"
+      ;;
+    *)
+      STAGE_APKS=""
+      ;;
+  esac
+  for apk in $STAGE_APKS; do
     [ -f "$SCRIPT_DIR/$apk" ] || fail "Bundle is incomplete: missing $apk beside nuvio-phone-benchmark.sh."
     cp -f "$SCRIPT_DIR/$apk" "$STAGING_DIR/$apk" || fail "Could not stage $apk in $STAGING_DIR."
   done
