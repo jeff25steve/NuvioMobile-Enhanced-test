@@ -139,6 +139,10 @@ grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must scope AndroidX output collection to the self-instrumenting test package." >&2
   exit 1
 }
+if grep -Fq '      require_non_empty_baseline_profile' "$RUNNER_SOURCE"; then
+  echo "FAIL: raw Startup Profile collection must not require a separate baseline-prof artifact." >&2
+  exit 1
+fi
 grep -Fq 'find "$TEST_MEDIA_ROOT" -type f -newer "$MARKER"' "$RUNNER_SOURCE" || {
   echo "FAIL: profile and Macrobenchmark artifacts must be discovered only beneath the test package media directory." >&2
   exit 1
@@ -343,13 +347,6 @@ JSON
     ;;
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
-    if [ "${FAKE_EMPTY_PROFILE:-0}" = "1" ]; then
-      : > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
-    elif [ "${FAKE_BLANK_PROFILE:-0}" = "1" ]; then
-      printf '  \n\t\n' > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
-    else
-      printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
-    fi
     if [ "${FAKE_MISSING_STARTUP_PROFILE:-0}" != "1" ]; then
       if [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
@@ -434,22 +431,6 @@ fi
 
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
-  for profile_fixture in empty blank; do
-    if [ "$profile_fixture" = empty ]; then
-      profile_env=FAKE_EMPTY_PROFILE
-    else
-      profile_env=FAKE_BLANK_PROFILE
-    fi
-    if env "$profile_env=1" sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-$profile_fixture-profile.log" 2>&1; then
-      echo "FAIL: phone runner accepted a $profile_fixture generated baseline profile ($flavor)." >&2
-      exit 1
-    fi
-    grep -Fq "Generated baseline profile contains no rules" "$TMP/$flavor-$profile_fixture-profile.log" || {
-      echo "FAIL: empty-profile rejection did not identify the missing rules ($flavor/$profile_fixture)." >&2
-      cat "$TMP/$flavor-$profile_fixture-profile.log" >&2
-      exit 1
-    }
-  done
   for startup_profile_fixture in missing empty blank; do
     case "$startup_profile_fixture" in
       missing) startup_profile_env=FAKE_MISSING_STARTUP_PROFILE ;;
@@ -517,8 +498,10 @@ for flavor in full playstore; do
   fi
   baseline_profile_copy="$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   startup_profile_copy="$(find "$TMP/output/$flavor" -name '*startup-prof*.txt' -print -quit)"
-  test -n "$baseline_profile_copy"
-  test -s "$baseline_profile_copy"
+  [ -z "$baseline_profile_copy" ] || {
+    echo "FAIL: raw Startup Profile collection unexpectedly copied a separate baseline-prof artifact ($flavor)." >&2
+    exit 1
+  }
   test -n "$startup_profile_copy"
   test -s "$startup_profile_copy"
   grep -Eq '[^[:space:]]' "$startup_profile_copy"
@@ -1214,11 +1197,11 @@ JSON
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
     if [ "${FAKE_EMPTY_PROFILE:-0}" = "1" ]; then
-      : > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
+      : > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
     elif [ "${FAKE_BLANK_PROFILE:-0}" = "1" ]; then
-      printf '  \n\t\n' > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
+      printf '  \n\t\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
     else
-      printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/startup-baseline-prof.txt"
+      printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
     fi
     if [ "${FAKE_MISSING_STARTUP_PROFILE:-0}" != "1" ]; then
       if [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
