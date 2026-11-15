@@ -136,7 +136,7 @@ jobs:
                 [[ "$profile_bytes" =~ ^[0-9]+$ ]] || { echo "Could not inspect $flavor packaged Baseline Profile." >&2; exit 1; }
                 (( profile_bytes > 0 )) || { echo "$flavor benchmark APK has no packaged assets/dexopt/baseline.prof; BaselineProfileMode.Require would not be a valid comparison." >&2; exit 1; }
                 (( profile_bytes < 1572864 )) || { echo "$flavor packaged Baseline Profile is at least 1.5 MiB ($profile_bytes bytes)." >&2; exit 1; }
-                printf '%s benchmark APK contains %s bytes of compiled Baseline Profile.\\n' "$flavor" "$profile_bytes"
+                printf '%s benchmark APK contains %s bytes of compiled Baseline Profile.\n' "$flavor" "$profile_bytes"
               fi
               cp "$app_apk" "phone-benchmark/Nuvio-$flavor-$output_variant.apk"
               cp "$test_apk" "phone-benchmark/Nuvio-$flavor-$output_variant-Tests.apk"
@@ -232,7 +232,7 @@ jobs:
             echo "Phone bundle must contain eight APKs, two scripts, START-HERE.txt and SHA256SUMS.txt." >&2
             exit 1
           }
-          find phone-benchmark -maxdepth 1 -type f -printf '%f (%s bytes)\\n' | sort
+          find phone-benchmark -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort
 
       - name: Upload phone-ready benchmark APK bundle
         uses: actions/upload-artifact@v7
