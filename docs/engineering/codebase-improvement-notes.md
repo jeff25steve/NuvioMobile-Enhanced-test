@@ -6276,3 +6276,14 @@ Detailed source evidence and caveats: [android-startup-benchmark-phone-fix-2026-
 - No minimum API change or app/runtime code change was made. No local checkout was available to run the full shell regression suite; no Gradle task, build, APK/AAB, profile capture, physical-device benchmark or CI was run.
 
 Detailed source analysis: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+
+### Benchmark report comparability labels — 15 November 2026
+
+- The phone report now labels its APK install path as sideloaded via `pm install`, explicitly distinguishes the `playstore` build flavor from actual Google Play delivery, and surfaces the API 33 versus API 34+ ART reset difference. API 33 warns against an unqualified Play-equivalent profile claim; API 34+ reports the `verify` + ART-profile-clear reset path while still noting sideloading.
+- Regression fixtures now assert the API 34+ report and include an API 33 run checking the pre-34 warning. The fixture has been edited but not executed here.
+- This is a reporting-integrity fix, not an application performance optimization and not a fix for API 33 ART-state mismatch. The warning is grounded in AndroidX Benchmark 1.5.0 `CompilationMode.None` source and Expensify's September 2026 false ~800 ms profile-win investigation.
+- Latest independent findings reviewed: Tinder (18 Aug 2026) used R8 Configuration Analyzer to find a broad keep rule; its 47% result is for users in the slow-start cohort. Grab (19 Oct 2026) reported 35% cumulative startup improvement across R8 and profile-guided optimization phases. Neither result justifies copying its keep-rule or initialization changes into Nuvio. Android's Startup Profile guidance confirms DEX layout optimization is enabled by default since AGP 8.3; Nuvio's AGP 9.4.0 does not need a redundant enable flag.
+- Next concrete optimization candidate remains an R8 Configuration Analyzer report for the actual minified `fullRelease` and `playstoreRelease` variants, followed by Nuvio-specific trace review and primary-`classes.dex` Startup Profile validation. This requires an authorized Gradle analysis/build environment; none was started.
+- No app/runtime code changed. No Gradle task, build, APK/AAB, profile capture, device benchmark, workflow dispatch or CI was started. No startup-speed gain is claimed.
+- Detailed source and method caveats: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
