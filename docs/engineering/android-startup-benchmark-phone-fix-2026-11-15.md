@@ -155,3 +155,28 @@ The bundle has been built and uploaded successfully. A real-device execution
 of the corrected instrumentation and startup measurements is still pending;
 no startup performance improvement is claimed until the phone results are
 collected and compared.
+
+
+## Follow-up after the 03:03 phone run
+
+The user confirmed that no other app was open during the run, so the earlier split-screen hypothesis is discarded.
+
+The uploaded LADB output establishes two separate facts:
+
+1. The HomeScreen selector succeeded: the test reported that HomeScreen appeared.
+2. The fully-drawn selector did not become visible within the remaining 30-second deadline.
+
+The diagnostic then attempted `UiDevice.dumpWindowHierarchy(OutputStream)` and itself failed with `IllegalArgumentException: Illegal character (U+0)`. Android's accessibility hierarchy dumper serializes node attributes as XML; invalid control characters in accessibility text can make that serializer throw. This was a secondary diagnostics failure, not evidence that Nuvio crashed. The screenshots therefore do not identify which AppGate readiness condition remained false.
+
+The previous label `Foreground package` was also inaccurate: `UiDevice.getCurrentPackageName()` is documented as the last package to report an accessibility event, not a guaranteed foreground-window query. The diagnostic now labels it accordingly.
+
+### Source correction
+
+- Removed XML hierarchy dumping from both instrumentation failure paths.
+- Diagnostics now report the last accessibility-event package and whether each of the two marker selectors is visible, using best-effort calls that cannot replace the original assertion.
+- Kept the HomeScreen and fully-drawn waits and the shared elapsed-realtime deadline unchanged. This preserves the distinction between Home route mounting and the actual TTFD signal.
+- Kept `ReportDrawnWhen { appReady.value }` unchanged. AndroidX documents `StartupTimingMetric.timeToFullDisplayMs` as ending when the app reports fully drawn through `Activity.reportFullyDrawn`; the benchmark must not substitute the Home marker for that signal.
+
+### Verification boundary
+
+The AndroidX Compose source confirms that `testTagsAsResourceId` is checked on the tagged semantics node and its ancestors, so the original same-node tag arrangement is valid; no nested-Box workaround is justified. The exact cause of the missing fully-drawn marker remains unresolved. The source now has safer diagnostics to expose the two marker states on the next device run. Static regression checks were updated, but no local Gradle build, APK build, or CI run was started after this change. The currently installed phone bundle does not contain these source corrections.
