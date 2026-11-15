@@ -1,0 +1,1 @@
+One-time trigger for the user-authorized arm64 phone benchmark bundle build. Delete this file and restore workflow_dispatch-only after dispatch.
