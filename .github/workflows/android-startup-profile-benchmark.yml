@@ -160,8 +160,9 @@ jobs:
              after the colon in the IP:port address into LADB and pair.
 
           RUN THESE COMMANDS IN ORDER IN LADB
-          The runner automatically copies the APKs into Android's local temporary
-          install directory. Do not manually copy files or tap APKs in My Files.
+          The runner automatically copies only the APK pair needed for each step
+          into Android's local temporary install directory. Do not manually copy
+          files or tap APKs in My Files.
 
           FULL:
           sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh install-profile full
@@ -181,9 +182,10 @@ jobs:
           com.nuvio.media.benchmark. These are intentionally different packages.
 
           Do not clear data or uninstall between flavors. They share the isolated
-          .benchmark package and this artifact's signing certificate. If Android
-          reports an update-signature conflict from an older benchmark artifact,
-          save the results and remove ONLY com.nuvio.media.benchmark. Never remove
+          .benchmark package and this artifact's signing certificate. If a previous
+          artifact used a different temporary signing key, the runner automatically
+          replaces ONLY com.nuvio.media.benchmark and the test runner package. You
+          may need to sign in again after that replacement. It never removes or clears
           com.nuvio.media (the production app).
 
           RESULTS
