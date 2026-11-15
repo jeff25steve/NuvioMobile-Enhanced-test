@@ -477,7 +477,7 @@ The runner now parses the AndroidX Macrobenchmark result shape using the Android
 - Requires `repeatIterations=10` on both records.
 - Requires exactly two metric objects for each of `timeToInitialDisplayMs` and `timeToFullDisplayMs`.
 - Requires each metric to include exactly ten positive numeric `runs` samples.
-- Requires positive `minimum`, `median`, and `maximum` values with `minimum <= median <= maximum).
+- Requires positive `minimum`, `median`, and `maximum` values with `minimum <= median <= maximum`.
 - Checks every sample is within the reported range and that the sample extrema equal the reported minimum and maximum.
 
 The fake Macrobenchmark output was upgraded from an empty results array to a realistic two-result JSON fixture. Negative cases now cover empty/missing result data, wrong repeat count, nine samples, missing sample arrays, non-numeric samples, and inconsistent statistics.
@@ -486,7 +486,7 @@ The fake Macrobenchmark output was upgraded from an empty results array to a rea
 
 Each Macrobenchmark run now writes `environment-before.txt` and `environment-after.txt` in its run directory. These snapshots capture the model and API level; Android battery status, charge/power source, level, voltage and temperature; the first 80 lines of the thermal service report; battery-saver state; and display brightness mode/value.
 
-This is diagnostic-only. The runner does not modify brightness, power mode, thermal state, network state, CPU frequencies, or app state. Snapshot collection is best-effort so unavailable Android diagnostic commands cannot replace a successful or failed instrumentation result. The regression fixture now models both normal device readings and diagnostics that return errors.
+This is diagnostic-only. The runner does not modify brightness, power mode, thermal state, network state, CPU frequencies, or app state. Snapshot collection is best-effort: unavailable Android diagnostic commands are recorded as unavailable, and failure to create a snapshot file is reported to stderr and returns successfully so it cannot replace a successful or failed instrumentation result. The regression fixture now models both normal device readings and diagnostics that return errors.
 
 ### Context7 and Exa findings applied
 
@@ -506,6 +506,7 @@ References:
 
 - The AWK validator was executed locally against a representative two-result AndroidX JSON fixture. The complete fixture passed; a whitespace-formatted fixture also passed. Separate negative fixtures were rejected for a short sample array, wrong repeat count, inconsistent minimum/median/maximum, missing runs, and non-numeric samples.
 - The device-snapshot helper was exercised locally in an isolated POSIX shell with stubbed `getprop`, `dumpsys`, and `settings` commands. Normal battery/thermal readings were retained, and simulated diagnostic-command failures still produced snapshots without stopping the helper.
+- The same helper was also exercised with a snapshot path that could not be created; it emitted the write diagnostic and returned success rather than aborting the caller.
 - The remote phone-runner test fixture and metric-contract script now cover these cases. The complete repository regression script was not run end-to-end in this environment because the container could not resolve GitHub for a checkout. Static remote source checks and the isolated fixture checks are not a substitute for running that full script on the branch.
 - No Gradle task, APK build, device instrumentation run, Macrobenchmark, or GitHub Actions workflow was started.
 - The work improves measurement integrity and diagnostic context only. No Nuvio startup improvement, profile speedup, or statistical confidence claim is made. A new authorized physical-device run is still required to collect real TTID/TTFD data.
