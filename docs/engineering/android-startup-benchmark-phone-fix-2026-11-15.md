@@ -551,3 +551,39 @@ References:
 - The phone regression fixture now contains the full two-flavor negative cases, but the repository's complete `test-nuvio-phone-benchmark.sh` was not executed end-to-end here because the repository checkout is unavailable in the local shell environment. The GitHub file reads confirm the updated fixture and runner are present.
 - No Gradle build, APK build, device instrumentation, profile generation, Macrobenchmark, GitHub Actions workflow or CI run was started.
 - This change improves profile-capture evidence integrity only. It does not claim the new phone-collected candidate rules are packaged into the existing APK or that startup speed improved.
+
+## Full benchmark-path audit — readiness and variant hand-off — 2026-11-15
+
+### TTFD/readiness signal cross-check
+
+The existing measurement signal agrees with the app's readiness state:
+
+- `MainActivity` registers `ReportDrawnWhen { appReady.value }`; this is the Android fully-drawn/TTFD signal.
+- `AppGate` forwards `onAppReady` only when the main gate is active and profile/launch overlays are idle and hidden.
+- `MainAppContent` computes root readiness from initial Home readiness and profile-switch loading; it reports ready only when root content is ready and the launch overlay has completed and is hidden.
+- `HomeScreen` exposes `nuvio_benchmark_home` on its root content container.
+- Both `StartupBenchmark` and `BaselineProfileGenerator` wait for the HomeScreen marker and then for `nuvio_startup_ready`, with a shared 30-second deadline.
+
+This means the benchmark is not treating splash/first composition as full readiness: TTID is the first frame, while the TTFD signal is held until the Home route and startup transition have completed. I found no concrete defect in this path and made no app/Compose changes.
+
+### Baseline Profile variant hand-off cross-check
+
+The repository configuration and runner steps remain consistent:
+
+- The app's `benchmarkRelease` and `nonMinifiedRelease` variants use the isolated `com.nuvio.media.benchmark` application ID and the same signing configuration, so the phone can move between collection and measurement variants without disturbing production `com.nuvio.media`.
+- The app config uses per-variant generated profiles (`mergeIntoMain = false`), saves them to source (`saveInSrc = true`) and disables implicit regeneration during ordinary release assembly (`automaticGenerationDuringBuild = false`).
+- The desktop runner generates the Full and Play Store `nonMinifiedRelease` profile tasks, then benchmarks their matching `benchmarkRelease` variants.
+- The phone-only workflow packages both nonMinifiedRelease and benchmarkRelease APK pairs. The phone runner's collection step explicitly states that the newly collected text candidate is not injected into the already-built benchmark APK; a later authorized build is required to benchmark a newly collected profile.
+- The workflow independently checks the optimized benchmark APK for a non-empty `assets/dexopt/baseline.prof` below 1.5 MiB. The new text-profile check complements rather than replaces this compiled-artifact check.
+
+### Version and environmental research
+
+- The pinned repository dependencies include AndroidX Benchmark 1.5.0, ProfileInstaller 1.4.1 and Android Gradle Plugin 9.4.0. Context7 returned the Macrobenchmark setup/measure API and AndroidX benchmark metric/result model; Exa cross-checked Android's official Macrobenchmark, Baseline Profile and environment guidance.
+- AndroidX Macrobenchmark's cold-start path uses its setup block before process termination, clears shader/page caches as supported by the library/device, then measures the start block. The existing test puts `pressHome()` in setup and `startActivityAndWait()` plus readiness waiting in the measure block. No redundant launch or pre-warm step was found.
+- The phone diagnostic snapshots remain observational only. No brightness, battery, power, thermal, CPU-clock or network settings are changed automatically.
+
+### Audit conclusion
+
+The concrete change in this audit is limited to rejecting empty/whitespace Baseline Profile source artifacts in both collection paths. Other reviewed paths—the app-ready/TTFD signal, cold-start block separation, variant package/signing arrangement, profile source variant wiring and compiled APK profile check—were left unchanged because repository code and source documentation did not show a defect.
+
+No Gradle build, APK build, profile generation, device benchmark, GitHub Actions workflow or CI run was started.
