@@ -41,6 +41,14 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: benchmark must also wait for the fully-drawn marker to preserve TTFD coverage." >&2
     exit 1
   }
+  grep -Fq 'SystemClock.elapsedRealtime()' "$source" || {
+    echo "FAIL: both startup markers must share one elapsed-realtime deadline." >&2
+    exit 1
+  }
+  grep -Fq 'remainingMs' "$source" || {
+    echo "FAIL: fully-drawn wait must use the remaining shared timeout." >&2
+    exit 1
+  }
 done
 
 printf 'PASS: both benchmark journeys wait for the actual HomeScreen composable; TTFD remains reported by ReportDrawnWhen.\n'
