@@ -3,7 +3,6 @@ package com.nuvio.android.baselineprofile;
 import androidx.benchmark.macro.junit4.BaselineProfileRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
-import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
@@ -26,10 +25,13 @@ import org.junit.runner.RunWith;
 public final class BaselineProfileGenerator {
     private static final long MAIN_CONTENT_READY_TIMEOUT_MS = 30_000L;
 
+    // The test module is self-instrumenting, so InstrumentationRegistry's target
+    // context is the test APK itself, not the app being measured. Both distribution
+    // flavors deliberately share this isolated benchmark application ID.
+    private static final String TARGET_APP_PACKAGE = "com.nuvio.media.benchmark";
+
     private static String targetPackageName() {
-        return InstrumentationRegistry.getInstrumentation()
-                .getTargetContext()
-                .getPackageName();
+        return TARGET_APP_PACKAGE;
     }
 
     private static void awaitMainContentReady() {
