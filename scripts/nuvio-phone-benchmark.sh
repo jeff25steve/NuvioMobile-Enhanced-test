@@ -232,7 +232,7 @@ validate_macrobenchmark_statistics() {
       return ""
     }
 
-    function validate_metric_object(object, metric_name,    minimum, median, maximum, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count) {
+    function validate_metric_object(object, metric_name,    minimum, median, maximum, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count, sorted_samples, j, min_index, swap_value, median_position, lower_index, upper_index, interpolation_ratio, expected_median, median_difference, median_tolerance) {
       minimum = metric_field(object, "minimum")
       median = metric_field(object, "median")
       maximum = metric_field(object, "maximum")
@@ -290,6 +290,34 @@ validate_macrobenchmark_statistics() {
       }
       if (sample_min != minimum + 0 || sample_max != maximum + 0) {
         print "FAIL: " metric_name " reported minimum/maximum do not match the sample extrema."
+        return 0
+      }
+
+      # Match AndroidX MetricResult.getPercentile(sortedRuns, 50): the
+      # 50th-percentile index is 0.5 * (n - 1), with linear interpolation.
+      for (i = 1; i <= sample_count; i++) sorted_samples[i] = samples[i] + 0
+      for (i = 1; i < sample_count; i++) {
+        min_index = i
+        for (j = i + 1; j <= sample_count; j++) {
+          if (sorted_samples[j] < sorted_samples[min_index]) min_index = j
+        }
+        if (min_index != i) {
+          swap_value = sorted_samples[i]
+          sorted_samples[i] = sorted_samples[min_index]
+          sorted_samples[min_index] = swap_value
+        }
+      }
+      median_position = 0.5 * (sample_count - 1)
+      lower_index = int(median_position) + 1
+      upper_index = lower_index + 1
+      if (upper_index > sample_count) upper_index = sample_count
+      interpolation_ratio = median_position - int(median_position)
+      expected_median = sorted_samples[lower_index] * (1 - interpolation_ratio) + sorted_samples[upper_index] * interpolation_ratio
+      median_difference = median + 0 - expected_median
+      if (median_difference < 0) median_difference = -median_difference
+      median_tolerance = 0.000001 * (1 + expected_median)
+      if (median_difference > median_tolerance) {
+        print "FAIL: " metric_name " reported median does not match the 50th percentile of its per-iteration runs."
         return 0
       }
       return 1
