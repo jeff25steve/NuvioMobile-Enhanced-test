@@ -11,6 +11,9 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 STAGING_DIR="${NUVIO_PHONE_STAGE_DIR:-/data/local/tmp/NuvioBenchmark}"
 OUTPUT_ROOT="${NUVIO_PHONE_OUTPUT_DIR:-/sdcard/Download/NuvioStartupBenchmark}"
 MEDIA_ROOT="${NUVIO_PHONE_MEDIA_ROOT:-/sdcard/Android/media}"
+# AndroidX 1.5.0 uses InstrumentationRegistry.targetContext.externalMediaDirs.
+# This self-instrumenting test module owns the output directory, not the app under test.
+TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"
 
 fail() {
   printf '\nERROR: %s\n' "$*" >&2
@@ -141,10 +144,10 @@ copy_recent_outputs() {
   # The patterns are fixed by this script, not supplied by the caller.
   case "$patterns" in
     profile)
-      find "$MEDIA_ROOT" -type f -newer "$MARKER" \( -name '*baseline-prof*.txt' -o -name '*startup-prof*.txt' \) -print > "$RUN_DIR/files-to-copy.txt" 2>/dev/null || true
+      find "$TEST_MEDIA_ROOT" -type f -newer "$MARKER" \( -name '*baseline-prof*.txt' -o -name '*startup-prof*.txt' \) -print > "$RUN_DIR/files-to-copy.txt" 2>/dev/null || true
       ;;
     benchmark)
-      find "$MEDIA_ROOT" -type f -newer "$MARKER" \( -name '*benchmarkData.json' -o -name '*.trace' -o -name '*.perfetto-trace' \) -print > "$RUN_DIR/files-to-copy.txt" 2>/dev/null || true
+      find "$TEST_MEDIA_ROOT" -type f -newer "$MARKER" \( -name '*benchmarkData.json' -o -name '*.trace' -o -name '*.perfetto-trace' \) -print > "$RUN_DIR/files-to-copy.txt" 2>/dev/null || true
       ;;
   esac
   while IFS= read -r source_file; do

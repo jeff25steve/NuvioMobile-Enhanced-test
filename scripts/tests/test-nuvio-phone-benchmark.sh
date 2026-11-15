@@ -87,6 +87,14 @@ grep -Fq "grep -Eq '[^[:space:]]' \"\$baseline_profile_file\"" "$DESKTOP_RUNNER"
   echo "FAIL: desktop runner must reject a whitespace-only generated baseline profile." >&2
   exit 1
 }
+grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must scope AndroidX output collection to the self-instrumenting test package." >&2
+  exit 1
+}
+grep -Fq 'find "$TEST_MEDIA_ROOT" -type f -newer "$MARKER"' "$RUNNER_SOURCE" || {
+  echo "FAIL: profile and Macrobenchmark artifacts must be discovered only beneath the test package media directory." >&2
+  exit 1
+}
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 BUNDLE="$TMP/bundle"
@@ -209,6 +217,10 @@ JSON
         ;;
       *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
     esac
+    if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
+      mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
+      printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
+    fi
     echo 'OK (2 tests)'
     ;;
   *BaselineProfile*)
@@ -219,6 +231,10 @@ JSON
       printf '  \n\t\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
     else
       printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    fi
+    if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
+      mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
+      : > "$FAKE_MEDIA_ROOT/com.example.other/foreign-baseline-prof-decoy.txt"
     fi
     echo 'OK (1 test)'
     ;;
@@ -270,8 +286,9 @@ esac
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
-export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_DIR="$TMP/media"
-export NUVIO_PHONE_OUTPUT_DIR="$TMP/output" NUVIO_PHONE_MEDIA_ROOT="$TMP/media"
+export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_ROOT="$TMP/media"
+export FAKE_MEDIA_DIR="$FAKE_MEDIA_ROOT/com.nuvio.android.baselineprofile"
+export NUVIO_PHONE_OUTPUT_DIR="$TMP/output" NUVIO_PHONE_MEDIA_ROOT="$FAKE_MEDIA_ROOT"
 export NUVIO_PHONE_STAGE_DIR="$TMP/staged"
 
 # Unsupported devices must fail before any APK installation.
@@ -308,7 +325,11 @@ for flavor in full playstore; do
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
   fi
-  sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" >/dev/null
+  FAKE_FOREIGN_OUTPUTS=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" > "$TMP/$flavor-isolation.log" 2>&1
+  if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
+    echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
+    exit 1
+  fi
   test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
   environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
