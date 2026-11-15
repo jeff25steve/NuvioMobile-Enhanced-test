@@ -155,9 +155,37 @@ install_variant() {
   else
     variant_label=benchmarkRelease
   fi
-  printf 'Installing %s %s app without touching production Nuvio...\n' "$FLAVOR" "$variant_label"
-  pm install -r "$APP_APK" || fail "App installation failed. Do not uninstall production Nuvio. If an older .benchmark build has a different signing key, save results and remove only com.nuvio.media.benchmark before retrying."
-  pm install -t -r "$TEST_APK" || fail "Instrumentation APK installation failed. Keep the benchmark app installed and check available storage."
+  printf 'Installing %s %s app and matching test APK...\n' "$FLAVOR" "$variant_label"
+  if install_output="$(pm install -r "$APP_APK" 2>&1)"; then
+    printf '%s\n' "$install_output"
+  else
+    printf '%s\n' "$install_output" >&2
+    case "$install_output" in
+      *INSTALL_FAILED_UPDATE_INCOMPATIBLE*)
+        printf 'Replacing an older benchmark-only signing key. Official Nuvio is not touched.\n'
+        pm uninstall "$APP_PACKAGE" >/dev/null 2>&1 || true
+        pm uninstall "$TEST_PACKAGE" >/dev/null 2>&1 || true
+        pm install "$APP_APK" || fail "Could not reinstall the isolated benchmark app after removing its older signature."
+        ;;
+      *)
+        fail "App installation failed. Your official Nuvio app was not changed."
+        ;;
+    esac
+  fi
+  if test_output="$(pm install -t -r "$TEST_APK" 2>&1)"; then
+    printf '%s\n' "$test_output"
+  else
+    printf '%s\n' "$test_output" >&2
+    case "$test_output" in
+      *INSTALL_FAILED_UPDATE_INCOMPATIBLE*)
+        pm uninstall "$TEST_PACKAGE" >/dev/null 2>&1 || true
+        pm install -t "$TEST_APK" || fail "Could not reinstall the isolated instrumentation test APK."
+        ;;
+      *)
+        fail "Instrumentation APK installation failed. Your official Nuvio app was not changed."
+        ;;
+    esac
+  fi
   resolve_instrumentation
   monkey -p "$APP_PACKAGE" 1 >/dev/null 2>&1 || fail "Could not launch the benchmark app."
   mkdir -p "$OUTPUT_ROOT"
