@@ -200,6 +200,38 @@ JSON
     ;;
 esac
 STUB
+cat > "$TMP/bin/dumpsys" <<'STUB'
+#!/bin/sh
+case "$1" in
+  battery)
+    cat <<'BATTERY'
+AC powered: true
+USB powered: false
+Wireless powered: false
+status: 2
+level: 88
+voltage: 4200
+temperature: 320
+BATTERY
+    ;;
+  thermalservice)
+    cat <<'THERMAL'
+Current Thermal Status: 0 (NONE)
+Thermal Status: 0
+THERMAL
+    ;;
+  *) exit 1 ;;
+esac
+STUB
+cat > "$TMP/bin/settings" <<'STUB'
+#!/bin/sh
+case "$2:$3" in
+  global:low_power) echo 0 ;;
+  system:screen_brightness_mode) echo 0 ;;
+  system:screen_brightness) echo 128 ;;
+  *) echo null ;;
+esac
+STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_DIR="$TMP/media"
@@ -227,6 +259,16 @@ for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" >/dev/null
   test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
+  environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
+  environment_after="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print -quit)"
+  test -s "$environment_before"
+  test -s "$environment_after"
+  grep -Fq 'level: 88' "$environment_before"
+  grep -Fq 'temperature: 320' "$environment_before"
+  grep -Fq 'Current Thermal Status: 0' "$environment_before"
+  grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
+  grep -Fq 'Screen brightness setting: 128' "$environment_before"
+  grep -Fq 'level: 88' "$environment_after"
 
   for missing_case in startupNoCompilation startupWithBaselineProfile; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
