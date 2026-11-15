@@ -104,9 +104,9 @@ resolve_instrumentation() {
   INSTRUMENTATION="$(pm list instrumentation 2>/dev/null | while IFS= read -r line; do
     case "$line" in
       *"(target=$TEST_PACKAGE)"*)
-        component="$(printf '%s\\n' "$line" | sed 's/^instrumentation://; s/[[:space:]].*//')"
+        component="$(printf '%s\n' "$line" | sed 's/^instrumentation://; s/[[:space:]].*//')"
         case "$component" in
-          "$TEST_PACKAGE/"*) printf '%s\\n' "$component" ;;
+          "$TEST_PACKAGE/"*) printf '%s\n' "$component" ;;
         esac
         ;;
     esac
