@@ -587,3 +587,48 @@ The repository configuration and runner steps remain consistent:
 The concrete change in this audit is limited to rejecting empty/whitespace Baseline Profile source artifacts in both collection paths. Other reviewed paths—the app-ready/TTFD signal, cold-start block separation, variant package/signing arrangement, profile source variant wiring and compiled APK profile check—were left unchanged because repository code and source documentation did not show a defect.
 
 No Gradle build, APK build, profile generation, device benchmark, GitHub Actions workflow or CI run was started.
+
+## Further benchmark integrity cycles — 2026-11-15
+
+### Cycle 1 — lock the build workflow to explicit manual dispatch
+
+A history review found that commit `8b0ff930519edb047b98cfd675866d934edd56e8` temporarily added a `push` trigger for `main-build-testing` while leaving a comment that described the workflow as manual-only. The benchmark workflow was subsequently restored to `workflow_dispatch` only; the current file at this checkpoint contains no automatic `push` or pull-request trigger.
+
+- Added a regression guard to `scripts/tests/test-android-benchmark-bundle-assembly.sh`. It inspects only the workflow's top-level `on:` keys and rejects every trigger other than `workflow_dispatch`.
+- This protects the documented no-automatic-build contract from future accidental trigger reintroduction.
+- The old Actions history records push-triggered runs 43672203091 and 43675718220 on earlier SHAs. Run 43672203091 failed during `Assemble phone-ready benchmark bundle`; the upload was skipped. The available run summary for 43675718220 reports job failure but did not expose the failing step/log, so its specific cause is not asserted here.
+- A focused local AWK check rejected a workflow fixture with `push` plus `workflow_dispatch` and accepted the current manual-only trigger shape.
+
+### Cycle 2 — cross-check reported medians against the raw samples
+
+The phone runner already required exactly ten positive samples and verified that reported minimum/maximum matched their extrema. It did not verify that the reported median was calculated from those samples: any in-range median could pass.
+
+- Added a `wrong-median` fixture to `scripts/tests/test-nuvio-phone-benchmark.sh`. The fixture changes a valid TTID median from 445 to 446 while leaving min=400, max=490 and all ten raw runs unchanged. The validator must reject it.
+- Updated `validate_macrobenchmark_statistics()` in `scripts/nuvio-phone-benchmark.sh` to sort the raw sample array and recompute the AndroidX 50th percentile using the same interpolation rule: `idealIndex = 0.5 * (sampleCount - 1)`, then linearly interpolate between the adjacent sorted values.
+- Added a small relative tolerance (`1e-6 * (1 + expectedMedian)`) to avoid rejecting harmless JSON floating-point serialization differences.
+- Extended `scripts/tests/test-android-startup-metric-contract.sh` to require this recomputation and mismatch rejection.
+
+### Source basis
+
+- The repository pins `androidx.benchmark:benchmark-macro-junit4:1.5.0`, `androidx.profileinstaller:profileinstaller:1.4.1` and Android Gradle Plugin 9.4.0.
+- AndroidX `MetricResult.kt` computes `median` using `getPercentile(sortedValues, 50)`; `getPercentile` uses `percentile / 100.0 * (size - 1)` and interpolates between adjacent values. The file at AndroidX commit `b7a21ae178189e339dd750865f86fae3219f0101` (4 September 2026, before the 1.5.0 release on 9 September 2026) contains the implementation used for this validation.
+- AndroidX `BenchmarkData.SingleMetricResult` stores `minimum`, `maximum`, `median`, `coefficientOfVariation` and `runs`, confirming that the validator has the raw data needed to check the reported median.
+- AndroidX Macrobenchmark's cold-start implementation runs setup before killing the app process, drops shader cache and app page cache as supported, verifies the process is no longer alive, then runs the measured block. The existing Nuvio test's `pressHome()` setup and launch/readiness measure block match that design.
+- `CompilationMode.Partial(BaselineProfileMode.Require)` requires a usable Baseline Profile and ProfileInstaller; Android's documentation says it throws when the profile or installer is missing. The existing APK packaging check plus this required compilation mode remain the appropriate evidence that the measured arm is actually profile-enabled.
+- AndroidX's Macrobenchmark JSON constructor currently sets `thermalThrottleSleepSeconds = 0` for Macrobenchmark results, so it is not treated as a thermal-throttling signal. The phone runner retains the before/after thermal-service snapshots; I did not introduce a speculative thermal threshold or root-only clock control.
+
+References:
+- https://github.com/androidx/androidx/blob/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/MetricResult.kt
+- https://github.com/androidx/androidx/blob/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt
+- https://github.com/androidx/androidx/blob/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
+- https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
+- https://developer.android.com/jetpack/androidx/releases/benchmark
+
+### Verification boundary
+
+- The manual-trigger policy was exercised against a representative historical `push` trigger shape and the current `workflow_dispatch`-only shape: the former was rejected and the latter accepted.
+- The median-validation logic was exercised with valid integer samples, valid decimal samples in unsorted iteration order, and an in-range but incorrect median: valid medians were accepted and the inconsistent median rejected.
+- The new repository regression fixture includes both Full and Play Store variants. The complete `test-nuvio-phone-benchmark.sh` and `test-android-benchmark-bundle-assembly.sh` were not run end-to-end against a local checkout in this session; their updated remote source and focused helper behavior were inspected.
+- No Gradle task, APK build, device instrumentation, profile generation, Macrobenchmark, Actions dispatch or CI run was started.
+- These cycles strengthen automation safety and result integrity only. No Nuvio startup speedup or profile performance gain is claimed.
