@@ -470,7 +470,99 @@ for flavor in full playstore; do
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
   grep -Fq 'Boot completed: 1' "$environment_before"
-  grep -Eq 'Device uptime since boot: [0-9]+ seconds' "$environment_before"
+  grep -Eq '^Device uptime since boot: [0-9]+ seconds  grep -Fq 'level: 88' "$environment_after"
+
+  if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
+    :
+  else
+    echo "FAIL: unavailable device diagnostics must not fail a valid Macrobenchmark ($flavor)." >&2
+    cat "$TMP/$flavor-diagnostics-fail.log" >&2
+    exit 1
+  fi
+  diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
+  grep -Fq 'level: unavailable' "$diagnostic_snapshot"
+  grep -Fq 'unavailable' "$diagnostic_snapshot"
+
+  if FAKE_NEGATIVE_STATUS_CODE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-negative-status.log" 2>&1; then
+    echo "FAIL: phone runner accepted a negative per-test instrumentation status ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "The test reported a failure" "$TMP/$flavor-negative-status.log" || {
+    echo "FAIL: negative per-test instrumentation status was not diagnosed ($flavor)." >&2
+    cat "$TMP/$flavor-negative-status.log" >&2
+    exit 1
+  }
+
+  for missing_case in startupNoCompilation startupWithBaselineProfile; do
+    if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
+      echo "FAIL: Macrobenchmark accepted a run missing $missing_case." >&2
+      exit 1
+    fi
+    grep -Fq "did not execute required comparison case '$missing_case'" "$TMP/$flavor-$missing_case.log" || {
+      echo "FAIL: missing-case rejection did not identify $missing_case." >&2
+      cat "$TMP/$flavor-$missing_case.log" >&2
+      exit 1
+    }
+  done
+
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
+    if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
+      echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
+      exit 1
+    fi
+    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output' "$TMP/$flavor-$bad_json.log" || {
+      echo "FAIL: incomplete JSON rejection did not identify the result-data gap ($bad_json)." >&2
+      cat "$TMP/$flavor-$bad_json.log" >&2
+      exit 1
+    }
+  done
+done
+
+# Verify the signing-key recovery path uninstalls only the isolated benchmark
+# and self-instrumenting test packages, never production com.nuvio.media.
+rm -rf "$TMP/output"
+export FAKE_INCOMPATIBLE=1 FAKE_INCOMPATIBLE_ONCE="$TMP/incompatible-once"
+if ! sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null; then
+  echo "FAIL: signing-key recovery command failed; captured package-manager calls:" >&2
+  cat "$FAKE_COMMAND_LOG" >&2
+  exit 1
+fi
+if ! grep -Fq 'pm uninstall com.nuvio.media.benchmark' "$FAKE_COMMAND_LOG"; then
+  echo "FAIL: recovery did not uninstall the isolated benchmark package:" >&2
+  cat "$FAKE_COMMAND_LOG" >&2
+  exit 1
+fi
+if ! grep -Fq 'pm uninstall com.nuvio.android.baselineprofile' "$FAKE_COMMAND_LOG"; then
+  echo "FAIL: recovery did not uninstall the isolated test package:" >&2
+  cat "$FAKE_COMMAND_LOG" >&2
+  exit 1
+fi
+if grep -Eq 'pm uninstall com\.nuvio\.media([[:space:]]|$)' "$FAKE_COMMAND_LOG"; then
+  echo 'FAIL: signing-key recovery attempted to uninstall production com.nuvio.media.' >&2
+  exit 1
+fi
+unset FAKE_INCOMPATIBLE
+grep -q 'monkey -p com.nuvio.media.benchmark 1' "$FAKE_COMMAND_LOG"
+grep -Fq "pm install -r $TMP/staged/Nuvio-full-NonMinifiedRelease.apk" "$FAKE_COMMAND_LOG"
+test -f "$TMP/staged/Nuvio-full-NonMinifiedRelease.apk"
+test -f "$TMP/staged/Nuvio-playstore-BenchmarkRelease-Tests.apk"
+test -f "$TMP/staged/Nuvio-full-BenchmarkRelease.apk"
+grep -Fq 'com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG"
+grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
+grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
+grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
+
+sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
+printf 'PASS: phone runner auto-stages only required APK pairs, resolves the self-instrumenting runner, benchmarks the isolated app for both flavors, runs the combined workflow, exports results, rejects unsupported devices/order, and protects production Nuvio.\n'
+ "$environment_before"
+  grep -Fq 'printf "%.0f seconds\\n", $1' "$RUNNER_SOURCE" || {
+    echo "FAIL: uptime AWK output must use a single newline escape." >&2
+    exit 1
+  }
+  grep -Fq "printf 'unavailable\\n'" "$RUNNER_SOURCE" || {
+    echo "FAIL: unavailable uptime output must use a single newline escape." >&2
+    exit 1
+  }
   grep -Fq 'level: 88' "$environment_after"
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
