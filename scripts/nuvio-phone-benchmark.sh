@@ -157,6 +157,19 @@ copy_recent_outputs() {
   [ -s "$RUN_DIR/copied-files.txt" ] || fail "The test completed without producing the expected files. Check $RUN_DIR/instrumentation.log and Android's benchmark output directory."
 }
 
+require_non_empty_baseline_profile() {
+  profile_count=0
+  for profile_file in "$RUN_DIR"/*baseline-prof*.txt; do
+    [ -f "$profile_file" ] || continue
+    profile_count=$((profile_count + 1))
+    [ -s "$profile_file" ] || fail "Generated baseline profile contains no rules: $profile_file."
+    grep -Eq '[^[:space:]]' "$profile_file" || {
+      fail "Generated baseline profile contains no rules: $profile_file."
+    }
+  done
+  [ "$profile_count" -gt 0 ] || fail "No baseline-prof text profile was produced. Check $RUN_DIR/instrumentation.log and the profile output directory."
+}
+
 require_macrobenchmark_cases() {
   for test_name in startupNoCompilation startupWithBaselineProfile; do
     grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
@@ -496,6 +509,7 @@ run_instrumentation() {
   case "$rule" in
     BaselineProfile)
       copy_recent_outputs profile
+      require_non_empty_baseline_profile
       ;;
     macrobenchmark)
       require_macrobenchmark_cases
