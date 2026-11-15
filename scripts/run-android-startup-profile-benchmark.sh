@@ -19,9 +19,11 @@ mapfile -t connected_devices < <(adb devices | awk 'NR > 1 && $2 == "device" { p
 DEVICE_SERIAL="${connected_devices[0]}"
 API_LEVEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')"
 DEVICE_MODEL="$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.manufacturer | tr -d '\r') $(adb -s "$DEVICE_SERIAL" shell getprop ro.product.model | tr -d '\r')"
+DEVICE_ABI="$(adb -s "$DEVICE_SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
 KERNEL_QEMU="$(adb -s "$DEVICE_SERIAL" shell getprop ro.kernel.qemu | tr -d '\r')"
 HARDWARE="$(adb -s "$DEVICE_SERIAL" shell getprop ro.hardware | tr -d '\r')"
 [[ "$API_LEVEL" =~ ^[0-9]+$ ]] || fail "Could not determine Android API level."
+[[ "$DEVICE_ABI" == "arm64-v8a" ]] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Connected device ABI is '$DEVICE_ABI'."
 [[ "$KERNEL_QEMU" != "1" && "$HARDWARE" != "ranchu" && "$HARDWARE" != "goldfish" && "$HARDWARE" != "qemu" ]] || fail "A physical device is required."
 if (( API_LEVEL < 33 )); then
   ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su -c id 2>/dev/null | tr -d '\r' || true)"
