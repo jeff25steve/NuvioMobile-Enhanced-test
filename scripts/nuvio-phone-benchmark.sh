@@ -781,7 +781,7 @@ capture_device_environment() {
     if [ -r /proc/uptime ]; then
       awk '
         NR == 1 && $1 ~ /^[0-9]+([.][0-9]+)?$/ {
-          printf "%.0f seconds\\n", $1
+          printf "%.0f seconds\n", $1
           printed = 1
         }
         END {
@@ -789,7 +789,7 @@ capture_device_environment() {
         }
       ' /proc/uptime
     else
-      printf 'unavailable\\n'
+      printf 'unavailable\n'
     fi
 
     printf '\nBattery state (raw Android dumpsys fields):\n'
