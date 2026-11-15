@@ -335,3 +335,36 @@ References:
 - The integrated diff does not modify `androidApp/build.gradle.kts`, application IDs, manifests, Kotlin/Compose app source, the production release signing configuration or the phone-only runner.
 - No new Actions run was triggered by this integration. The only observed active benchmark run remains [43652201558](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43652201558), which was already in flight from the separate CI-dispatch branch. At the latest check, both `nonMinifiedRelease` profile-capture build steps had succeeded and `Build full R8 benchmark APK pair` was in progress. Do not treat this as a completed artifact until the workflow reports success and the artifact is verified.
 - The full updated mock suite has not been rerun locally after adding the new assertions. The focused local RED/GREEN regression fixture and shell syntax fixture passed; no Gradle build, CI run, Macrobenchmark or device test was started by this integration.
+
+
+## Evidence-based startup follow-up — 15 November 2026
+
+A source-only cross-check against Android's current startup guidance and the Gojek/Reddit/Sentry practitioner reports identified one useful next audit surface, but did not establish a safe code change.
+
+### MainActivity initializer inventory
+
+At branch HEAD `8eae9b6290df3041cf998a59f21ff5ea6311d835`, `MainActivity.onCreate` calls 78 explicit `.initialize(...)` methods before `showContent()` and the first Compose composition. This is worth inspecting in the next Startup Insights/Perfetto capture, but it must not be treated as 78 expensive initializations. Representative implementations inspected in this pass are lightweight context/reference setup:
+
+- `P2pStreamingEngine.initialize` stores the application context; engine creation is deferred until a stream/cache operation.
+- `AppFileCache.initialize` stores a cache-directory reference.
+- `EpisodeReleaseNotificationPlatform.initialize` and `AndroidAppUpdaterPlatform.initialize` store application context; the notification HTTP client is lazy.
+- `ProfileBiometricAuth.initialize` stores a weak activity reference and launches legacy Keystore cleanup on an IO coroutine rather than blocking the main thread.
+- `DownloadsPlatformDownloader.initialize` stores context and initializes export support; scheduler/store preparation is separately awaited by the startup preloader.
+
+The list therefore needs per-call trace evidence before any initializer is moved. The call count alone does not demonstrate a launch regression.
+
+### Existing startup split is already aligned with guidance
+
+The current `StartupPreloader` awaits profile cache, watched data, watch progress, continue-watching preferences and the Home snapshot in its critical phase, while starting download-platform preparation concurrently. Its post-frame phase warms Live TV, player/P2P settings, servers, metadata settings, library and download transfer state. Android's current guidance supports deferring nonessential work after the first frame, but Nuvio already has this split; moving additional work requires proving that it is not needed for first Home readiness, offline routing, or notification/download correctness.
+
+The application-owned manifests inspected here declare a FileProvider, while dependency-merged manifest providers cannot be confirmed without a merged-manifest artifact. Do not add AndroidX App Startup solely to follow generic advice: Gojek's 2026 report says its own adoption saved only a few milliseconds and was dropped. First establish whether Nuvio has multiple relevant eager providers and whether they are on the measured path.
+
+### Evidence-led priority
+
+1. R8 Configuration Analyzer report for the broad package keep rules (already identified in the benchmark note).
+2. Primary DEX Startup Profile verification in the next authorized artifact.
+3. Perfetto inspection of the 78 pre-composition initializer calls and the critical preloader steps; optimize only a measured expensive operation.
+
+No runtime source or configuration change was made in this pass. No build, Gradle task, benchmark, device session or CI was run.
+
+References: [Android startup best practices](https://developer.android.com/topic/performance/appstartup/best-practices), [Gojek Project Butter](https://www.gojek.io/blog/project-butter-a-journey-for-app-performance-improvement), [Reddit R8 case study](https://developer.android.com/blog/posts/how-reddit-used-the-r8-optimizer-for-high-impact-performance-improvements), [Sentry Android startup report](https://blog.sentry.io/android-sdk-faster-startup/).

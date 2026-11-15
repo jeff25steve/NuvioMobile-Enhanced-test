@@ -6310,3 +6310,12 @@ Sources reviewed:
 - [Tinder R8 Configuration Analyzer case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer) (18 Aug 2026)
 - [Grab R8 and profile-guided optimization case study](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time) (19 Oct 2026)
 - [P.Y. Ricau — Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks) (iteration-order, thermal and distribution analysis)
+
+
+## 15 November 2026 — Android startup research/source cross-check
+
+- Rechecked `main-build-testing` at `8eae9b6290df3041cf998a59f21ff5ea6311d835`. `MainActivity.onCreate` contains 78 explicit initializer calls before first Compose content, but representative implementations are simple context wiring or launch IO cleanup; the count is an audit surface, not proof of cost. `StartupPreloader` already splits critical Home readiness from post-frame warmup. Do not move more work without per-step Perfetto evidence.
+- Nuvio already uses Sentry Android 8.64.0 / plugin 6.27.0 with runtime optimizations enabled; the October 2026 Sentry initialization benchmark does not justify another version bump.
+- New cross-industry sources: [Reddit R8 case study](https://developer.android.com/blog/posts/how-reddit-used-the-r8-optimizer-for-high-impact-performance-improvements), [Gojek Project Butter](https://www.gojek.io/blog/project-butter-a-journey-for-app-performance-improvement), [Android startup best practices](https://developer.android.com/topic/performance/appstartup/best-practices), and [Sentry Android startup](https://blog.sentry.io/android-sdk-faster-startup/). The actionable Nuvio diagnostics remain R8 Configuration Analyzer, primary-DEX Startup Profile verification, and trace-based initializer review—not speculative changes to ServiceLoader, App Startup or startup ordering.
+- The retrievable `current-install.txt` contains only `install-profile:playstore`; no measurement artifacts were supplied, so no Nuvio startup gain is claimed. See `android-startup-benchmark-phone-fix-2026-11-15.md` and `android-startup-critical-path-review.md` for detailed findings and the authorized next steps.
+- No app/benchmark code, keep rules, profiles or dependencies changed. No Gradle task, build, APK/AAB, device benchmark or CI was run.
