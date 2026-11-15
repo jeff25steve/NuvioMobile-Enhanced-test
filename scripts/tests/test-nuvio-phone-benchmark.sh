@@ -195,7 +195,13 @@ JSON
     ;;
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
-    printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    if [ "${FAKE_EMPTY_PROFILE:-0}" = "1" ]; then
+      : > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    elif [ "${FAKE_BLANK_PROFILE:-0}" = "1" ]; then
+      printf '  \n\t\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    else
+      printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    fi
     echo 'OK (1 test)'
     ;;
 esac
@@ -264,6 +270,22 @@ fi
 
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
+  for profile_fixture in empty blank; do
+    if [ "$profile_fixture" = empty ]; then
+      profile_env=FAKE_EMPTY_PROFILE
+    else
+      profile_env=FAKE_BLANK_PROFILE
+    fi
+    if env "$profile_env=1" sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-$profile_fixture-profile.log" 2>&1; then
+      echo "FAIL: phone runner accepted a $profile_fixture generated baseline profile ($flavor)." >&2
+      exit 1
+    fi
+    grep -Fq "Generated baseline profile contains no rules" "$TMP/$flavor-$profile_fixture-profile.log" || {
+      echo "FAIL: empty-profile rejection did not identify the missing rules ($flavor/$profile_fixture)." >&2
+      cat "$TMP/$flavor-$profile_fixture-profile.log" >&2
+      exit 1
+    }
+  done
   if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
