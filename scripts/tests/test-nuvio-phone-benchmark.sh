@@ -204,6 +204,10 @@ cat > "$TMP/bin/dumpsys" <<'STUB'
 #!/bin/sh
 case "$1" in
   battery)
+    if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
+      echo 'level: unavailable'
+      exit 1
+    fi
     cat <<'BATTERY'
 AC powered: true
 USB powered: false
@@ -215,6 +219,10 @@ temperature: 320
 BATTERY
     ;;
   thermalservice)
+    if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
+      echo 'thermal service unavailable'
+      exit 1
+    fi
     cat <<'THERMAL'
 Current Thermal Status: 0 (NONE)
 Thermal Status: 0
@@ -225,6 +233,10 @@ esac
 STUB
 cat > "$TMP/bin/settings" <<'STUB'
 #!/bin/sh
+if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
+  echo 'unavailable'
+  exit 1
+fi
 case "$2:$3" in
   global:low_power) echo 0 ;;
   system:screen_brightness_mode) echo 0 ;;
@@ -269,6 +281,17 @@ for flavor in full playstore; do
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   grep -Fq 'level: 88' "$environment_after"
+
+  if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
+    :
+  else
+    echo "FAIL: unavailable device diagnostics must not fail a valid Macrobenchmark ($flavor)." >&2
+    cat "$TMP/$flavor-diagnostics-fail.log" >&2
+    exit 1
+  fi
+  diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
+  grep -Fq 'level: unavailable' "$diagnostic_snapshot"
+  grep -Fq 'unavailable' "$diagnostic_snapshot"
 
   for missing_case in startupNoCompilation startupWithBaselineProfile; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
