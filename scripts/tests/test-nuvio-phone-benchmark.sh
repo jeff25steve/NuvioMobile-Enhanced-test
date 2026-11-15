@@ -276,6 +276,11 @@ JSON
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
     fi
     echo 'OK (2 tests)'
+    if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
+      printf 'INSTRUMENTATION_STATUS_CODE: -2\\n'
+    fi
+    # Activity.RESULT_OK is -1; AndroidJUnitRunner emits this on normal completion.
+    printf 'INSTRUMENTATION_CODE: -1\\n'
     ;;
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
@@ -291,6 +296,8 @@ JSON
       : > "$FAKE_MEDIA_ROOT/com.example.other/foreign-baseline-prof-decoy.txt"
     fi
     echo 'OK (1 test)'
+    # The final instrumentation result code is Activity.RESULT_OK, not a per-test status.
+    printf 'INSTRUMENTATION_CODE: -1\\n'
     ;;
 esac
 STUB
@@ -380,6 +387,15 @@ for flavor in full playstore; do
     exit 1
   fi
   FAKE_FOREIGN_OUTPUTS=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" > "$TMP/$flavor-isolation.log" 2>&1
+  benchmark_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print -quit)"
+  [ -n "$benchmark_result_dir" ] || {
+    echo "FAIL: combined run must store Macrobenchmark artifacts in a measure-* directory ($flavor)." >&2
+    exit 1
+  }
+  [ -s "$benchmark_result_dir/fake-benchmarkData.json" ] || {
+    echo "FAIL: measure-* directory must contain the Macrobenchmark JSON result ($flavor)." >&2
+    exit 1
+  }
   if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
     echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
     exit 1
@@ -407,6 +423,16 @@ for flavor in full playstore; do
   diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
+
+  if FAKE_NEGATIVE_STATUS_CODE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-negative-status.log" 2>&1; then
+    echo "FAIL: phone runner accepted a negative per-test instrumentation status ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "The test reported a failure" "$TMP/$flavor-negative-status.log" || {
+    echo "FAIL: negative per-test instrumentation status was not diagnosed ($flavor)." >&2
+    cat "$TMP/$flavor-negative-status.log" >&2
+    exit 1
+  }
 
   for missing_case in startupNoCompilation startupWithBaselineProfile; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
