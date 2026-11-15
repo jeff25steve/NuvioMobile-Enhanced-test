@@ -6360,3 +6360,15 @@ Sources:
 - [Genvi startup report](https://genvi.co/blog/cutting-phone-cold-start-from-7-to-3-seconds)
 - [TrulyMadly Android startup report](https://www.linkedin.com/posts/pulkitloya_android-kotlin-androiddevelopment-activity-7524833478069399552-UzGB)
 - [RKMovies startup report](https://dev.to/hammiwor/why-my-1.17-mb-player-opens-in-under-400-ms-cold-zero-content-providers-lazy-init-and-a-startup-1i1h)
+
+
+## 15 November 2026 — benchmark field variance and latest AndroidX controls
+
+- The Nuvio phone runner already records device uptime, boot-completed state, battery and thermal service immediately before and after the paired benchmark. The October 2026 TeachmintX report found >50% of cold launches occurred within two minutes of boot; its field median (~4.5 s) differed materially from devices with >4h uptime (~2.5 s). Preserve the current raw snapshots; use separate post-boot and settled-device paired runs if the target use case requires both. No duplicate uptime instrumentation is needed.
+- The same practitioner report measured 2,758 ms TTID without compilation vs 1,807 ms with the app Baseline Profile (ten cold iterations on the same panel). A separate headline comparison was 2.4 s to 1.8 s on the same panel. Keep those experiments distinct. It also found background work can compete with the UI thread on low-core hardware and worsen TTFD even when TTID improves.
+- Grab's official 19 Oct 2026 case study reports ~35% cumulative cold-start improvement from R8 + Baseline/Startup Profiles + R8 Full Mode + keep-rule refinement. Cloud Profiles did not cover all app-specific startup paths; custom profiles for critical journeys filled that gap. This supports analyzing Nuvio's actual keep-rule blockers rather than making speculative runtime deferrals.
+- AndroidX Benchmark 1.5.0 includes API 34+ ART runtime-image safeguards for the `CompilationMode.None` arm, preventing later iterations from benefiting from an automatically generated runtime image. It clears runtime images where the platform supports it and uses the library's poison workaround otherwise. No custom ART reset should be added.
+- AndroidX Benchmark 1.6.0-alpha01 (7 Oct) adds `MemoryProfilingConfig` for a separate Perfetto heap-profiling pass and expands `:lockClocks` fixed-performance-mode support. It remains alpha; heap profiling is a future diagnostic only if traces indicate allocation pressure, and clock locking is not a reason to change the current Macrobenchmark.
+- No source or build configuration changed; no Gradle task/build, profile collection, device benchmark or CI was run.
+
+Sources: [TeachmintX engineering report](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [Grab engineering report](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
