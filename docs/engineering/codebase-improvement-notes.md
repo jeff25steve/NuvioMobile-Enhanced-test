@@ -6238,3 +6238,11 @@ Detailed source reasoning, independent case studies and verification limits: [an
 - **Next evidence-led optimization:** run the AGP 9.3+ R8 Configuration Analyzer for the relevant release-like variants once an authorized local Gradle analysis is possible. Inspect exact task names for the flavored `:androidApp` module, analyze rule-level impact and only then propose narrowly scoped keep-rule changes. No analyzer run or rule edits occurred in this session.
 - Latest independent Android case studies strengthen this priority: Grab reported 35% cumulative startup improvement across R8/profile phases; Tinder found a broad keep rule blocking optimization despite full mode (28% to 50% optimization score); Monzo reported 30% better cold starts from R8 full mode. These results are not Nuvio performance claims. See the detailed benchmark note for sources and caveats.
 - Context7 returned a monthly quota error. AndroidX source, Android Developers docs, Exa and live GitHub repository evidence were used instead.
+
+
+### Benchmark follow-up — Startup Insights and boot-state recording (15 Nov 2026)
+
+- Enabled AndroidX Benchmark 1.5.0 Startup Insights for both cold-start comparison arms using the experimental ExperimentalConfig overload. This adds trace-derived diagnostics without changing the app runtime or benchmark timing metric.
+- Added build fingerprint, boot-complete state and uptime-since-boot to the phone runner's read-only before/after device snapshots. This captures a relevant field-vs-lab variable found in a recent 12 Oct 2026 practitioner case study.
+- Regression assertions were added for the new config and snapshot fields. Remote source inspection confirms the runner's AWK uptime output uses a single newline escape. The full shell suite remains unrun (no local checkout); no builds, CI, profile capture or device measurements were started.
+- Further speed work is not justified until Nuvio's actual traces/Startup Insights and R8 Configuration Analyzer report identify concrete blockers. Do not copy another app's lazy initialization changes or remove broad keep rules without Nuvio-specific evidence.
