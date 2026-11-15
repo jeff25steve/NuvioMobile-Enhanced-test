@@ -1107,19 +1107,13 @@ No application source, benchmark source, keep rule, dependency, profile or runne
 
 ## Benchmark fidelity and ART diagnostics audit — 15 November 2026, 22:36 UTC
 
-### Finding 1 — benchmarkRelease does not inherit the production release optimizer configuration
+### Finding 1 — benchmarkRelease optimisation inheritance: previous diagnosis withdrawn
 
-Source inspected at branch HEAD `933c03f5bbfad74e0366e45beaf77b20aa690842`:
+The earlier claim that the custom `benchmarkRelease` block necessarily disables or omits production R8 optimisation was incorrect. The Baseline Profile Gradle plugin is pinned to **1.5.0** (`androidx-benchmark = "1.5.0"`) and creates/configures the `benchmarkRelease` and `nonMinifiedRelease` build types itself. Android's official [Baseline Profile configuration guide](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles) explicitly says these generated variants are automatically configured for their intended use and generally need no further customization. It demonstrates a user-defined `create("benchmarkRelease")` block that changes only the signing config—the same customization pattern used by Nuvio, which additionally sets the isolated `.benchmark` application ID suffix.
 
-- `androidApp/build.gradle.kts` configures the `release` build type with `isMinifyEnabled = minifyRelease`, `isShrinkResources = minifyRelease`, the optimized default R8 rules and `../composeApp/proguard-rules.pro`. `releaseMinifyEnabled` defaults to true.
-- The separate `create("benchmarkRelease")` block sets only `applicationIdSuffix = ".benchmark"` and debug signing. It does **not** call `initWith(getByName("release"))`, and no other build-type configuration for `benchmarkRelease` was found in this module.
-- `scripts/nuvio-phone-benchmark.sh` installs the `Nuvio-*-BenchmarkRelease.apk` pair for the Macrobenchmark measurement. The non-minified variant is used for profile collection, not the measured arm.
+Therefore, the absence of an explicit `initWith(getByName("release"))` in Nuvio's customization block is **not evidence** that minification, resource shrinking, optimized ProGuard rules, non-debuggable/profileable settings or other plugin-managed benchmark properties are missing. The previous recommendation to add `initWith` is withdrawn; do not make that change.
 
-Android's official AGP build-variant guidance states that `initWith` copies another build type's configuration and uses it in its custom build-type example. Therefore, as authored, `benchmarkRelease` does not inherit the explicitly configured release minification, resource shrinking or release ProGuard configuration. This is a real benchmark fidelity gap: timing the benchmark build does not establish the startup performance of the optimized production release.
-
-**Recommended minimal correction, pending regression check:** make `benchmarkRelease` inherit `release` via `initWith(getByName("release"))`, then override only the isolated `.benchmark` application ID suffix and debug signing key. Preserve `nonMinifiedRelease` as the profile-generation variant. Before accepting the correction, verify both full and playstore benchmark variants inherit the same minify/shrink/rules settings as release, remain non-debuggable/profileable, and still install over the profile-capture variant with the same isolated package/signing identity. Do not change production release configuration.
-
-Reference: [Android build variants — custom build types and initWith](https://developer.android.com/build/build-variants).
+The current source inspection establishes that Nuvio customizes the generated benchmark variant's signing and application ID. To prove exact resolved variant properties for AGP 9.4.0 + Baseline Profile plugin 1.5.0, inspect the generated variant model or the actual benchmark APK manifest/R8 outputs during an explicitly authorized diagnostic build. Until then, treat the plugin-managed benchmark configuration as the documented intended behavior, not a defect.
 
 ### Finding 2 — API 33 unrooted Macrobenchmark reset clears the authenticated test state
 
@@ -1155,4 +1149,22 @@ Reference: [Sentry Android SDK performance methodology](https://blog.sentry.io/a
 
 ### Implementation boundary
 
-These findings are source- and documentation-backed. No build-type, phone-runner, benchmark-source or parser code was changed in this pass: a local checkout/execution environment is unavailable, so the required failing regression tests cannot be run before source changes. No Gradle task, build, APK/AAB, benchmark, device session or CI was run. The next code cycle should address benchmarkRelease inheritance first, then API 33 preflight, then optional ArtMetric and paired-session support; validate with the shell regression suite and authorized benchmark build before making performance claims.
+These findings are source- and documentation-backed. No build-type, phone-runner, benchmark-source or parser code was changed in this pass: a local checkout/execution environment is unavailable, so the required failing regression tests cannot be run before source changes. No Gradle task, build, APK/AAB, benchmark, device session or CI was run. The next evidence-led cycle should verify the resolved benchmark APK properties (without adding redundant build-type inheritance), tighten API 33 reporting/preflight only if the instrumentation-shell root state can be checked reliably, then consider optional ArtMetric and balanced paired sessions. Validate with the shell regression suite and an authorized benchmark build before making performance claims.
+
+
+## Correction — Baseline Profile plugin owns benchmarkRelease configuration — 15 November 2026, 23:10 UTC
+
+The 22:36 UTC finding above that `benchmarkRelease` lacked release R8/resource-shrinking configuration because its user customization block omitted `initWith(release)` was incorrect and is withdrawn. Repository version catalog pins AGP 9.4.0 and AndroidX Baseline Profile Gradle plugin 1.5.0. Android's official plugin configuration guide states the plugin creates and configures `benchmarkRelease` and `nonMinifiedRelease`, and that user blocks customize selected properties. Its Kotlin example specifically customizes the generated `benchmarkRelease` by changing only signingConfig. Nuvio's custom block sets debug signing and the isolated `.benchmark` application ID suffix, matching that supported pattern.
+
+No `initWith` change is warranted. Exact resolved variant properties still require a generated-variant report or inspection of the APK produced by an authorized build. Do not describe the current benchmark as unminified based solely on the source block.
+
+API 33 reset nuance: AndroidX 1.5.0 source calls `Shell.isSessionRooted()`; this returns true if the instrumentation shell is already root **or** if `su root id` succeeds. In that case it runs `cmd package compile --reset`, preserving app data. Only the unrooted pre-API-34 branch calls `reinstallPackage()`, whose source explicitly says it does not preserve app data. A root check from the outer LADB shell is not conclusive proof of the instrumentation shell's result. Safest reproducible path remains API 34+; for API 33, report the exact instrumentation root capability or reject the run rather than assume from API level alone.
+
+New high-signal evidence reviewed:
+- [Android Baseline Profile plugin configuration](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles): generated benchmark build types and customization contract.
+- [Android Macrobenchmark setup](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview): measured target should be profileable, non-debuggable and as close to production as possible; minification is preferred.
+- [Android Calendar controlled-release case study](https://developer.android.com/topic/performance/baselineprofiles/case-study-android-calendar): Baseline Profiles produced 15% median cold-start and 17% median interactive-start improvements in production, plus 42–60% fewer janky frames in key views. This supports measuring user-interactive readiness (TTFD) alongside TTID.
+- [ONCOassist cold-start measurement](https://shaheer.blog/how-we-measured-our-android-cold-start-and-got-15-back-from-a-text-file/): 14.7% TTID improvement (500.8 ms to 427.1 ms) across ten cold starts on Pixel 7 Pro, using a minified benchmark APK and a separate non-minified profile-generation variant. This is a useful small-app benchmark example, not a forecast for Nuvio.
+- [Tinder R8 Configuration Analyzer case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer): 47% reduction specifically in the slow-start cohort, after identifying unintentional keep-rule blockers; not a 47% median improvement for all users.
+
+No source/configuration or runtime code was changed. No Gradle task, build, APK/AAB, profile capture, device benchmark or CI was run.
