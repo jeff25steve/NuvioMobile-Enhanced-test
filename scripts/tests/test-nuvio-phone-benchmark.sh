@@ -143,6 +143,20 @@ printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
+    trace_file_limit=20
+    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-file" ]; then trace_file_limit=19; fi
+    trace_index=0
+    for trace_prefix in startupNoCompilation startupWithBaselineProfile; do
+      i=0
+      while [ "$i" -lt 10 ]; do
+        trace_file="$trace_prefix-trace-$i.perfetto-trace"
+        if [ "$trace_index" -lt "$trace_file_limit" ]; then
+          printf 'fixture perfetto trace\n' > "$FAKE_MEDIA_DIR/$trace_file"
+        fi
+        trace_index=$((trace_index + 1))
+        i=$((i + 1))
+      done
+    done
     for test_name in startupNoCompilation startupWithBaselineProfile; do
       if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
@@ -164,7 +178,19 @@ case " $* " in
       "sampledMetrics": {},
       "warmupIterations": 0,
       "repeatIterations": 10,
-      "thermalThrottleSleepSeconds": 0
+      "thermalThrottleSleepSeconds": 0,
+      "profilerOutputs": [
+        {"type":"PerfettoTrace","label":"Trace Iteration 0","filename":"startupNoCompilation-trace-0.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 1","filename":"startupNoCompilation-trace-1.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 2","filename":"startupNoCompilation-trace-2.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 3","filename":"startupNoCompilation-trace-3.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 4","filename":"startupNoCompilation-trace-4.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 5","filename":"startupNoCompilation-trace-5.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 6","filename":"startupNoCompilation-trace-6.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupNoCompilation-trace-7.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupNoCompilation-trace-8.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupNoCompilation-trace-9.perfetto-trace"}
+      ]
     },
     {
       "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
@@ -176,13 +202,29 @@ case " $* " in
       "sampledMetrics": {},
       "warmupIterations": 0,
       "repeatIterations": 10,
-      "thermalThrottleSleepSeconds": 0
+      "thermalThrottleSleepSeconds": 0,
+      "profilerOutputs": [
+        {"type":"PerfettoTrace","label":"Trace Iteration 0","filename":"startupWithBaselineProfile-trace-0.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 1","filename":"startupWithBaselineProfile-trace-1.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 2","filename":"startupWithBaselineProfile-trace-2.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 3","filename":"startupWithBaselineProfile-trace-3.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 4","filename":"startupWithBaselineProfile-trace-4.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 5","filename":"startupWithBaselineProfile-trace-5.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 6","filename":"startupWithBaselineProfile-trace-6.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupWithBaselineProfile-trace-7.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupWithBaselineProfile-trace-8.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupWithBaselineProfile-trace-9.perfetto-trace"}
+      ]
     }
   ]
 }
 JSON
+    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-metadata" ]; then
+      awk '!/startupWithBaselineProfile-trace-9.perfetto-trace/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete) ;;
+      complete|missing-trace-metadata|missing-trace-file) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -366,7 +408,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median missing-samples; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median missing-samples missing-trace-metadata; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1

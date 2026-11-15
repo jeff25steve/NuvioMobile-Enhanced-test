@@ -383,7 +383,34 @@ validate_macrobenchmark_statistics() {
         print "FAIL: JSON must contain exactly four startup metric objects."
         exit 1
       }
-      print "PASS: both startup results contain ten numeric TTID/TTFD samples and valid min/median/max statistics."
+      trace_rest = json
+      trace_array_count = 0
+      trace_array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      while (match(trace_rest, trace_array_pattern)) {
+        trace_start = RSTART
+        trace_length = RLENGTH
+        trace_array = substr(trace_rest, trace_start, trace_length)
+        trace_type_count = count_matches(trace_array, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"")
+        trace_filename_count = count_matches(trace_array, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"")
+        if (trace_type_count != expected_iterations || trace_filename_count != expected_iterations) {
+          print "FAIL: each startup result must reference ten Perfetto trace files in profilerOutputs."
+          exit 1
+        }
+        for (trace_iteration = 0; trace_iteration < expected_iterations; trace_iteration++) {
+          trace_label_pattern = "\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " trace_iteration "\""
+          if (count_matches(trace_array, trace_label_pattern) != 1) {
+            print "FAIL: each startup result must contain exactly one trace reference for every measured iteration."
+            exit 1
+          }
+        }
+        trace_array_count++
+        trace_rest = substr(trace_rest, trace_start + trace_length)
+      }
+      if (trace_array_count != 2) {
+        print "FAIL: JSON must contain profilerOutputs for both startup comparison results."
+        exit 1
+      }
+      print "PASS: both startup results contain ten numeric TTID/TTFD samples, valid statistics and ten Perfetto trace references each."
     }
   ' "$1"
 }
