@@ -167,7 +167,9 @@ install_variant() {
     variant_label=benchmarkRelease
   fi
   printf 'Installing %s %s app and matching test APK...\n' "$FLAVOR" "$variant_label"
-  if install_output="$(pm install -r "$APP_APK" 2>&1)"; then
+  install_status=0
+  install_output="$(pm install -r "$APP_APK" 2>&1)" || install_status=$?
+  if [ "$install_status" -eq 0 ]; then
     printf '%s\n' "$install_output"
   else
     printf '%s\n' "$install_output" >&2
@@ -183,7 +185,9 @@ install_variant() {
         ;;
     esac
   fi
-  if test_output="$(pm install -t -r "$TEST_APK" 2>&1)"; then
+  test_install_status=0
+  test_output="$(pm install -t -r "$TEST_APK" 2>&1)" || test_install_status=$?
+  if [ "$test_install_status" -eq 0 ]; then
     printf '%s\n' "$test_output"
   else
     printf '%s\n' "$test_output" >&2
