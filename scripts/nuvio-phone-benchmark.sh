@@ -460,7 +460,7 @@ validate_macrobenchmark_trace_files() {
   done < "$trace_reference_file"
 
   trace_file_count=0
-  for trace_file in "$RUN_DIR"/*.trace; do
+  for trace_file in "$RUN_DIR"/*.trace "$RUN_DIR"/*.perfetto-trace; do
     [ -f "$trace_file" ] || continue
     [ -s "$trace_file" ] || fail "Macrobenchmark trace output is empty: $trace_file."
     trace_file_count=$((trace_file_count + 1))

@@ -228,7 +228,11 @@ case " $* " in
 }
 JSON
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-metadata" ]; then
-      awk '!/startupWithBaselineProfile-trace-9.perfetto-trace/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      awk '
+        /startupWithBaselineProfile-trace-9.perfetto-trace/ { next }
+        /startupWithBaselineProfile-trace-8.perfetto-trace/ { sub(/},[[:space:]]*$/, "}"); }
+        { print }
+      ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
