@@ -6226,3 +6226,15 @@ Detailed investigation and source references: [android-startup-benchmark-phone-f
 - The only available prior device file is an installation-state marker, not a Macrobenchmark result. No Nuvio TTID/TTFD gain is claimed. No Gradle/APK/AAB build, profile collection, device benchmark, workflow dispatch or CI was started.
 
 Detailed source reasoning, independent case studies and verification limits: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
+
+
+## Android startup benchmark follow-up — 15 November 2026
+
+- The phone benchmark summary now surfaces AndroidX device context (model/API, CPU cores/max frequency/clock-lock state, memory, ART Mainline and sustained-performance mode) and prints all 20 raw TTID/TTFD sample rows beside their matching per-iteration Perfetto trace filenames.
+- The sample-to-trace mapping was checked against AndroidX source: measurement samples are assembled in iteration order and trace labels are created from the same ordered result list. The regression fixture asserts every iteration row and the reported device context.
+- Focused synthetic AWK verification passed for the new report output. This is fixture-only validation; the full repository shell regression suite was not run in this environment. No APK/AAB build, Gradle task, on-device benchmark or CI was run.
+- R8 audit: AGP 9.4.0, release minification/resource shrinking default on, optimized default ProGuard rules, and no R8 full-mode opt-out in the repository's single `gradle.properties`. Full mode is already the AGP default; do not add a redundant flag.
+- The custom ProGuard file contains several broad package-level keep rules (Supabase, Ktor, QuickJS, plugins/P2P, Nuvio engine, Media3/ExoPlayer and mpv). Do not remove or narrow these speculatively; reflection, dynamic loading and JNI compatibility must be proven.
+- **Next evidence-led optimization:** run the AGP 9.3+ R8 Configuration Analyzer for the relevant release-like variants once an authorized local Gradle analysis is possible. Inspect exact task names for the flavored `:androidApp` module, analyze rule-level impact and only then propose narrowly scoped keep-rule changes. No analyzer run or rule edits occurred in this session.
+- Latest independent Android case studies strengthen this priority: Grab reported 35% cumulative startup improvement across R8/profile phases; Tinder found a broad keep rule blocking optimization despite full mode (28% to 50% optimization score); Monzo reported 30% better cold starts from R8 full mode. These results are not Nuvio performance claims. See the detailed benchmark note for sources and caveats.
+- Context7 returned a monthly quota error. AndroidX source, Android Developers docs, Exa and live GitHub repository evidence were used instead.
