@@ -771,6 +771,26 @@ capture_device_environment() {
     getprop ro.product.model 2>/dev/null || printf 'unavailable\n'
     printf 'Android API: '
     getprop ro.build.version.sdk 2>/dev/null || printf 'unavailable\n'
+    printf 'Build fingerprint: '
+    getprop ro.build.fingerprint 2>/dev/null || printf 'unavailable\n'
+    printf 'Boot completed: '
+    getprop sys.boot_completed 2>/dev/null || printf 'unavailable\n'
+    # Cold starts shortly after device boot can be slower because system services
+    # and other applications are still competing for CPU and storage.
+    printf 'Device uptime since boot: '
+    if [ -r /proc/uptime ]; then
+      awk '
+        NR == 1 && $1 ~ /^[0-9]+([.][0-9]+)?$/ {
+          printf "%.0f seconds\\n", $1
+          printed = 1
+        }
+        END {
+          if (!printed) print "unavailable"
+        }
+      ' /proc/uptime
+    else
+      printf 'unavailable\\n'
+    fi
 
     printf '\nBattery state (raw Android dumpsys fields):\n'
     if command -v dumpsys >/dev/null 2>&1; then
