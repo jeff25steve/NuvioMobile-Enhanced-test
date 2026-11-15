@@ -916,3 +916,27 @@ The common actionable lesson is to combine profile-guided startup optimization w
 Context7's resolver returned a monthly-quota error during this session. Exact AndroidX source, current Android Developers documentation, Exa research and live GitHub files were used instead. No claim is made that Context7 supplied the documentation for this change.
 
 No build, CI, profile generation or physical-device timing run was started, as requested. There is still no new Nuvio TTID/TTFD measurement or verified startup-speed gain from this work.
+
+
+### Startup Insights and boot-state context — 15 November 2026
+
+Two benchmark-only improvements were added after reviewing AndroidX Benchmark 1.5.0 source and a recent first-hand startup case study.
+
+- **AndroidX Startup Insights enabled for both A/B arms.** StartupBenchmark now passes ExperimentalConfig(null, new StartupInsightsConfig(true)) to the experimental MacrobenchmarkRule.measureRepeated overload. The API was added in AndroidX Benchmark 1.4.0 and is present in the repository's pinned 1.5.0. AndroidX documents that it reports trace-derived startup problem patterns in instrumentation output and benchmark JSON. This is diagnostic output; it does not change the app, the compilation modes, or the measured StartupTimingMetric. The shared configuration is used by both CompilationMode.None and CompilationMode.Partial(BaselineProfileMode.Require). The API remains experimental, so it should be revisited when the pinned Benchmark version changes.
+- **Device snapshots now record boot context.** The phone runner records ro.build.fingerprint, sys.boot_completed, and /proc/uptime alongside the existing model, API, battery, thermal, saver and brightness fields. This allows results to be stratified by device firmware and time since boot. It is observational only: missing values do not fail a run and no device setting is changed.
+- **Test guard coverage** now requires the pinned Benchmark 1.5.0 API/configuration and the new boot fields, including correct single-newline formatting for uptime output. The focused assertions were inspected against the remote source; the full shell regression suite was not run because there is no local checkout in this execution environment.
+
+#### New practitioner evidence
+
+Shubham Singh Bisht's 12 October 2026 first-hand report, *How I Made Our Android App Start 25% Faster*, is unusually useful because it separates lab results from fleet conditions. On a TeachmintX 75 Pro, 10 cold Macrobenchmark iterations showed TTID median changing from 2,758 ms with no compilation to 1,807 ms with the app Baseline Profile on top of library profiles. Before that profile comparison, Perfetto traces attributed about 1,070 ms of a 1,495 ms layout-inflation phase to launch-time WebView/Chromium, LaTeX, icon decoding and ML Kit work that could be deferred. The author also found more than half of field cold starts happened within two minutes of device boot, and debug traces were 4.5× slower than release-like traces. This is one app/device case study, not a prediction for Nuvio; it directly motivates capturing boot age and using Startup Insights to identify Nuvio's own bottlenecks rather than copying their fixes.
+
+Sources:
+- [AndroidX Benchmark 1.5.0 MacrobenchmarkRule source](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro-junit4/src/main/java/androidx/benchmark/macro/junit4/MacrobenchmarkRule.kt)
+- [AndroidX Benchmark ExperimentalConfig and StartupInsightsConfig source](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/ExperimentalBenchmarkConfigApi.kt)
+- [Android Developers StartupInsightsConfig API](https://developer.android.com/reference/kotlin/androidx/benchmark/StartupInsightsConfig)
+- [Bisht, 12 October 2026: How I Made Our Android App Start 25% Faster](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/)
+- [Android Developers: App startup best practices](https://developer.android.com/topic/performance/appstartup/best-practices)
+
+#### Benchmark methodology caution
+
+The two comparison arms remain separate JUnit test methods. JUnit's default method ordering is deterministic but not predictable; do not assume alphabetical order or that the same thermal/device-state sequence applies across all environments. The runner's before/after environment snapshots and per-iteration trace mapping improve diagnosis, but they do not eliminate order effects. For a stronger comparison, future authorized measurements should include repeated independent sessions with the order reversed or balanced, while keeping the same device, build artifacts, data state and cooling/idle conditions. No test-order annotation or execution-order change was made in this update because the present evidence does not establish a single best order for all devices.
