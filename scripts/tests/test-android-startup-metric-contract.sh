@@ -113,6 +113,14 @@ grep -Fq 'minimum + 0 > median + 0 || median + 0 > maximum + 0' "$PHONE_RUNNER" 
   echo "FAIL: phone result validation must reject inconsistent minimum/median/maximum values." >&2
   exit 1
 }
+grep -Fq 'median_position = 0.5 * (sample_count - 1)' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must recompute AndroidX's interpolated 50th percentile from raw runs." >&2
+  exit 1
+}
+grep -Fq 'reported median does not match the 50th percentile of its per-iteration runs' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must reject a reported median that disagrees with the raw runs." >&2
+  exit 1
+}
 grep -Fq 'validate_macrobenchmark_statistics "$result_file"' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must apply metric-statistics validation to the copied result file." >&2
   exit 1
