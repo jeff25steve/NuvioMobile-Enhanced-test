@@ -54,6 +54,10 @@ grep -Fq '"nuvio_main_content_ready"' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: MainAppContent must expose its ready state." >&2
   exit 1
 }
+grep -Fq 'nuvio_readiness_home_' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent must expose the initial-home/profile-switch readiness combination." >&2
+  exit 1
+}
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   grep -Fq 'By.res("nuvio_benchmark_home")' "$source" || {
     echo "FAIL: benchmark must first wait for the HomeScreen marker." >&2
@@ -63,7 +67,7 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: benchmark must also wait for the fully-drawn marker to preserve TTFD coverage." >&2
     exit 1
   }
-  for marker in nuvio_appgate_main nuvio_appgate_profile_loading nuvio_main_content_loading nuvio_launch_overlay_transitioning nuvio_main_content_ready; do
+  for marker in nuvio_appgate_main nuvio_appgate_profile_loading nuvio_main_content_loading nuvio_launch_overlay_transitioning nuvio_main_content_ready nuvio_readiness_home_ready_profile_switch_idle nuvio_readiness_home_ready_profile_switch_loading nuvio_readiness_home_pending_profile_switch_idle nuvio_readiness_home_pending_profile_switch_loading; do
     grep -Fq "markerVisible(device, \"$marker\")" "$source" || {
       echo "FAIL: readiness diagnostics must report $marker." >&2
       exit 1
