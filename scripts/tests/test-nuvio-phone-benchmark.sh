@@ -470,7 +470,15 @@ for flavor in full playstore; do
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
   grep -Fq 'Boot completed: 1' "$environment_before"
-  grep -Eq '^Device uptime since boot: [0-9]+ seconds
+  grep -Eq '^Device uptime since boot: [0-9]+ seconds$' "$environment_before"
+  grep -Fq 'printf "%.0f seconds\n", $1' "$RUNNER_SOURCE" || {
+    echo "FAIL: uptime AWK output must use a single newline escape." >&2
+    exit 1
+  }
+  grep -Fq "printf 'unavailable\n'" "$RUNNER_SOURCE" || {
+    echo "FAIL: unavailable uptime output must use a single newline escape." >&2
+    exit 1
+  }
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
     :
