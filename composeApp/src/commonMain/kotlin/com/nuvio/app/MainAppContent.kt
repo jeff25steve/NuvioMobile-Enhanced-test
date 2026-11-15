@@ -38,6 +38,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -1575,7 +1576,15 @@ internal fun MainAppContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.nuvio.colors.background),
+                    .background(MaterialTheme.nuvio.colors.background)
+                    .testTag(
+                        when {
+                            !rootContentReady -> "nuvio_main_content_loading"
+                            !launchOverlayState.isIdle || launchOverlayState.currentState ->
+                                "nuvio_launch_overlay_transitioning"
+                            else -> "nuvio_main_content_ready"
+                        },
+                    ),
             ) {
             Box(
                 modifier = Modifier
