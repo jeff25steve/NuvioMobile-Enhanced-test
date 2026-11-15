@@ -56,6 +56,14 @@ val buildsReleaseApks = requestedTaskNames.any {
         !it.contains("BenchmarkRelease", ignoreCase = true) &&
         !it.contains("NonMinifiedRelease", ignoreCase = true)
 }
+// The phone-only startup benchmark targets the user's arm64 Android handset.
+// Keep production release APK generation multi-ABI, but avoid shipping four
+// copies of every native library in each temporary profiling APK.
+val buildsArm64BenchmarkApks = requestedTaskNames.any {
+    it.startsWith("assemble", ignoreCase = true) &&
+        (it.contains("BenchmarkRelease", ignoreCase = true) ||
+            it.contains("NonMinifiedRelease", ignoreCase = true))
+}
 
 android {
     namespace = "com.nuvio.android"
@@ -127,11 +135,16 @@ android {
         }
     }
 
+    // Production release builds retain all supported ABIs. The phone-only
+    // benchmark variants are arm64-v8a APKs to keep the on-device bundle small.
     splits {
         abi {
-            isEnable = buildsReleaseApks
+            isEnable = buildsReleaseApks || buildsArm64BenchmarkApks
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            when {
+                buildsReleaseApks -> include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+                buildsArm64BenchmarkApks -> include("arm64-v8a")
+            }
             isUniversalApk = false
         }
     }
@@ -237,7 +250,11 @@ val rust = tasks.register<CargoNdkBuild>("buildRust") {
     workspace = native
     sources.from(fileTree(native) { exclude("target/**", "**/*.md") })
     crate = "aiostreams-native-android"
-    abis = listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+    abis = if (buildsArm64BenchmarkApks) {
+        listOf("arm64-v8a")
+    } else {
+        listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+    }
     minSdk = libs.versions.android.minSdk.get().toInt()
     ndkVersion = androidComponents.sdkComponents.ndkDirectory.map { it.asFile.name }
     ndk = androidComponents.sdkComponents.ndkDirectory
