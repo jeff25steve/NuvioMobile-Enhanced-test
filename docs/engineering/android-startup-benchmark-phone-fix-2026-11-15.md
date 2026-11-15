@@ -1103,3 +1103,56 @@ The only retrievable attachment for the current phone attempt is `current-instal
 Context7 was queried in this pass, but its retrieved Macrobenchmark API snippet referenced an older 1.1.0-beta02 source snapshot rather than the pinned 1.5.0 implementation. No version-sensitive code change was made from that stale snippet; the exact 1.5.0 AndroidX source references already recorded above remain the authority.
 
 No application source, benchmark source, keep rule, dependency, profile or runner behavior was changed. No Gradle task, build, APK/AAB generation, profile capture, device benchmark, workflow dispatch or CI was run. No Nuvio startup-speed improvement is claimed.
+
+
+## Benchmark fidelity and ART diagnostics audit — 15 November 2026, 22:36 UTC
+
+### Finding 1 — benchmarkRelease does not inherit the production release optimizer configuration
+
+Source inspected at branch HEAD `933c03f5bbfad74e0366e45beaf77b20aa690842`:
+
+- `androidApp/build.gradle.kts` configures the `release` build type with `isMinifyEnabled = minifyRelease`, `isShrinkResources = minifyRelease`, the optimized default R8 rules and `../composeApp/proguard-rules.pro`. `releaseMinifyEnabled` defaults to true.
+- The separate `create("benchmarkRelease")` block sets only `applicationIdSuffix = ".benchmark"` and debug signing. It does **not** call `initWith(getByName("release"))`, and no other build-type configuration for `benchmarkRelease` was found in this module.
+- `scripts/nuvio-phone-benchmark.sh` installs the `Nuvio-*-BenchmarkRelease.apk` pair for the Macrobenchmark measurement. The non-minified variant is used for profile collection, not the measured arm.
+
+Android's official AGP build-variant guidance states that `initWith` copies another build type's configuration and uses it in its custom build-type example. Therefore, as authored, `benchmarkRelease` does not inherit the explicitly configured release minification, resource shrinking or release ProGuard configuration. This is a real benchmark fidelity gap: timing the benchmark build does not establish the startup performance of the optimized production release.
+
+**Recommended minimal correction, pending regression check:** make `benchmarkRelease` inherit `release` via `initWith(getByName("release"))`, then override only the isolated `.benchmark` application ID suffix and debug signing key. Preserve `nonMinifiedRelease` as the profile-generation variant. Before accepting the correction, verify both full and playstore benchmark variants inherit the same minify/shrink/rules settings as release, remain non-debuggable/profileable, and still install over the profile-capture variant with the same isolated package/signing identity. Do not change production release configuration.
+
+Reference: [Android build variants — custom build types and initWith](https://developer.android.com/build/build-variants).
+
+### Finding 2 — API 33 unrooted Macrobenchmark reset clears the authenticated test state
+
+AndroidX's current `CompilationMode.kt` implementation uses `reinstallPackage()` on pre-API-34 unrooted user builds. That method explicitly copies the APK, calls `pm uninstall`, then reinstalls it; its source comment states this path does not preserve app data. Rooted pre-34 sessions instead use `cmd package compile --reset`. Android's current Macrobenchmark guide now explicitly says to use API 34+ to persist state when benchmarking.
+
+Nuvio's phone runner accepts API 33 and only prints a post-run ART caveat. The current Nuvio benchmark requires an authenticated Home screen: `StartupBenchmark.awaitMainContentReady()` waits for `nuvio_benchmark_home` and `nuvio_startup_ready`, while the install instructions require signing in first. On API 33 unrooted, both `CompilationMode.None` and `Partial(Require)` can uninstall/reinstall the app before measurement and erase that sign-in/profile state. The expected symptom is a Home readiness timeout or an unintended auth/onboarding path, not a valid Home startup sample.
+
+**Recommended correction:** preflight API 33 root capability before installing/running this authenticated benchmark. Allow API 33 only when the Macrobenchmark shell can actually run root commands (AndroidX checks both a root shell session and usable `su root id`); otherwise stop with a clear API 34+ requirement. Keep API 34+ behavior unchanged. Do not simply suppress compilation resets: that would invalidate the comparison unless compilation is controlled independently. The current report's API 33 warning is insufficient because it omits app-data loss.
+
+References: [Macrobenchmark overview — state persistence on API 34+](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview), [AndroidX CompilationMode implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
+
+### Finding 3 — add ART metrics to validate profile effectiveness, not just launch time
+
+The current `StartupBenchmark` collects only `StartupTimingMetric` plus Startup Insights. AndroidX Benchmark 1.5.0 includes the public `ArtMetric`, which can add diagnostic evidence for:
+
+- `artJitCount` and `artJitSumMs`: JIT compilations and total JIT time during the measured startup.
+- `artVerifyClass` and `artVerifyClassSumMs`: runtime class verification count and duration.
+- `artClassLoadCount` and `artClassLoadSumMs`: runtime class loading count and duration, when the device supports the tracepoints.
+
+The class-loading tracepoints require API 35+, or API 31+ with ART Mainline version at least `341511000`. Nuvio's runner already records API and ART Mainline version, so the report can state whether class-load metrics should be expected. AndroidX 1.5.0 release notes include the R8/AGP 9.1+ fix for ArtMetric class-load detection, relevant to this repository's AGP 9.4.0. JIT metrics can include uncompiled framework code, so they are diagnostic comparisons, not a direct count of Nuvio-only methods.
+
+**Recommended benchmark-only enhancement:** include `ArtMetric()` alongside `StartupTimingMetric()` in both comparison arms and surface its optional JSON measurements in the summary. Keep TTID/TTFD as the user-facing primary metrics. Do not make class-load metrics mandatory on devices that lack the tracepoints. This does not alter application runtime behavior, but it still needs a regression test for JSON parsing and a version-checked benchmark build before use.
+
+References: [ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AndroidX Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+### Finding 4 — one 10-sample batch per arm is not enough to rule out session drift
+
+Nuvio currently runs two separate JUnit test methods, each with ten cold-start iterations. AndroidX resets/compiles once before each `measureRepeated` benchmark and then performs the ten measured iterations. The two arms therefore run as separate batches rather than interleaved samples. The phone runner captures device conditions before and after the whole instrumentation invocation, not between arms.
+
+Sentry's October 2026 SDK performance report describes four interleaved rounds with ten runs per version (40 runs per version) on a Pixel 3 with locked clocks. This is a useful stronger pattern for detecting thermal/order drift; it is not a universal requirement or a guaranteed sample size for Nuvio. Nuvio should use repeated paired sessions with arm order reversed/balanced, preserve all raw iterations and traces, and compare distributions and per-arm environment snapshots. Do not increase iterations blindly or treat ten-run medians as significance.
+
+Reference: [Sentry Android SDK performance methodology](https://blog.sentry.io/android-sdk-faster-startup/).
+
+### Implementation boundary
+
+These findings are source- and documentation-backed. No build-type, phone-runner, benchmark-source or parser code was changed in this pass: a local checkout/execution environment is unavailable, so the required failing regression tests cannot be run before source changes. No Gradle task, build, APK/AAB, benchmark, device session or CI was run. The next code cycle should address benchmarkRelease inheritance first, then API 33 preflight, then optional ArtMetric and paired-session support; validate with the shell regression suite and authorized benchmark build before making performance claims.
