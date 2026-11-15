@@ -83,6 +83,14 @@ grep -Fq 'require_macrobenchmark_result_data() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the exported Macrobenchmark JSON before reporting success." >&2
   exit 1
 }
+grep -Fq 'require_non_empty_baseline_profile() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must reject empty or whitespace-only generated Baseline Profile rules." >&2
+  exit 1
+}
+grep -Fq 'require_non_empty_baseline_profile' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must apply the Baseline Profile content check after profile collection." >&2
+  exit 1
+}
 grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
   exit 1
