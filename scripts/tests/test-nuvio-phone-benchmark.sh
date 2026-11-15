@@ -160,7 +160,7 @@ done
 : > "$FAKE_COMMAND_LOG"
 rm -rf "$TMP/output" "$TMP/staged"
 export FAKE_INCOMPATIBLE=1 FAKE_INCOMPATIBLE_ONCE="$TMP/incompatible-once"
-if ! sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null; then
+if ! NUVIO_BENCHMARK_TRACE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null; then
   echo "FAIL: signing-key recovery command failed; captured package-manager calls:" >&2
   cat "$FAKE_COMMAND_LOG" >&2
   exit 1
