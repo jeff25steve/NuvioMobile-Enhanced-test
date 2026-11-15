@@ -72,6 +72,7 @@ import com.nuvio.app.core.sync.SyncManager
 import com.nuvio.app.core.ui.DisintegrationRequestController
 import com.nuvio.app.core.ui.NativeTabBridge
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.NuvioContinueWatchingActionSheet
 import com.nuvio.app.core.ui.NuvioFloatingPrompt
@@ -1586,6 +1587,15 @@ internal fun MainAppContent(
                         },
                     ),
             ) {
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(1.dp)
+                        .testTag(
+                            "nuvio_readiness_home_${if (initialHomeReady) "ready" else "pending"}_" +
+                                "profile_switch_${if (profileSwitchLoading) "loading" else "idle"}",
+                        ),
+                )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
