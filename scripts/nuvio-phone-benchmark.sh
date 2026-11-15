@@ -432,6 +432,36 @@ require_installed_variant() {
   [ "$installed" = "$expected" ] || fail "Currently installed variant is '$installed', but '$expected' is required. Run the matching install action first."
 }
 
+capture_device_environment() {
+  label="$1"
+  snapshot="$RUN_DIR/environment-$label.txt"
+  {
+    printf 'Capture: %s\n' "$label"
+    printf 'Timestamp: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\n'
+    printf 'Model: '
+    getprop ro.product.model 2>/dev/null || printf 'unavailable\n'
+    printf 'Android API: '
+    getprop ro.build.version.sdk 2>/dev/null || printf 'unavailable\n'
+
+    printf '\nBattery state (raw Android dumpsys fields):\n'
+    if command -v dumpsys >/dev/null 2>&1; then
+      dumpsys battery 2>&1 | awk '/AC powered|USB powered|Wireless powered|status:|level:|temperature:|voltage:/ { print }' || true
+      printf '\nThermal service (first 80 lines):\n'
+      dumpsys thermalservice 2>&1 | sed -n '1,80p' || true
+    else
+      printf 'dumpsys unavailable\n'
+    fi
+
+    printf '\nBattery saver (settings global low_power): '
+    settings get global low_power 2>&1 || printf 'unavailable\n'
+    printf 'Brightness mode (0 manual, 1 automatic): '
+    settings get system screen_brightness_mode 2>&1 || printf 'unavailable\n'
+    printf 'Screen brightness setting: '
+    settings get system screen_brightness 2>&1 || printf 'unavailable\n'
+  } > "$snapshot" 2>&1
+}
+
 run_instrumentation() {
   rule="$1"
   class_name="$2"
@@ -442,6 +472,9 @@ run_instrumentation() {
   resolve_instrumentation
   new_run_dir
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
+  if [ "$rule" = macrobenchmark ]; then
+    capture_device_environment before
+  fi
   set +e
   am instrument -w -r \
     -e androidx.benchmark.enabledRules "$rule" \
@@ -449,6 +482,9 @@ run_instrumentation() {
     "$INSTRUMENTATION" > "$RUN_DIR/instrumentation.log" 2>&1
   result=$?
   set -e
+  if [ "$rule" = macrobenchmark ]; then
+    capture_device_environment after
+  fi
   cat "$RUN_DIR/instrumentation.log"
   [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log."
   if grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|INSTRUMENTATION_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
@@ -465,6 +501,9 @@ run_instrumentation() {
       ;;
   esac
   printf '\nSaved results to: %s\n' "$RUN_DIR"
+  if [ "$rule" = macrobenchmark ]; then
+    printf 'Device condition snapshots: %s and %s\n' "$RUN_DIR/environment-before.txt" "$RUN_DIR/environment-after.txt"
+  fi
   printf 'Copied files:\n'
   cat "$RUN_DIR/copied-files.txt"
 }
