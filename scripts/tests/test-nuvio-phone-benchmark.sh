@@ -130,12 +130,39 @@ case " $* " in
         printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
       fi
     done
-    case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete)
-        cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<'JSON'
-{"benchmarks":[{"className":"com.nuvio.android.baselineprofile.StartupBenchmark","name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"minimum":400,"median":420,"maximum":450},"timeToFullDisplayMs":{"minimum":700,"median":730,"maximum":780}}},{"className":"com.nuvio.android.baselineprofile.StartupBenchmark","name":"startupWithBaselineProfile","metrics":{"timeToInitialDisplayMs":{"minimum":330,"median":350,"maximum":380},"timeToFullDisplayMs":{"minimum":610,"median":640,"maximum":690}}}]}
+    cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<'JSON'
+{
+  "context": {"build": {"model": "Fixture phone"}, "cpuCoreCount": 8},
+  "benchmarks": [
+    {
+      "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
+      "name": "startupNoCompilation",
+      "metrics": {
+        "timeToInitialDisplayMs": {"minimum": 400, "maximum": 490, "median": 445, "runs": [400,410,420,430,440,450,460,470,480,490]},
+        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "runs": [700,710,720,730,740,750,760,770,780,790]}
+      },
+      "sampledMetrics": {},
+      "warmupIterations": 0,
+      "repeatIterations": 10,
+      "thermalThrottleSleepSeconds": 0
+    },
+    {
+      "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
+      "name": "startupWithBaselineProfile",
+      "metrics": {
+        "timeToInitialDisplayMs": {"minimum": 330, "maximum": 420, "median": 375, "runs": [330,340,350,360,370,380,390,400,410,420]},
+        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "runs": [610,620,630,640,650,660,670,680,690,700]}
+      },
+      "sampledMetrics": {},
+      "warmupIterations": 0,
+      "repeatIterations": 10,
+      "thermalThrottleSleepSeconds": 0
+    }
+  ]
+}
 JSON
-        ;;
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
+      complete) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -145,6 +172,22 @@ JSON
         ;;
       one-arm-metrics)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}},{"name":"startupWithBaselineProfile","metrics":{}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      wrong-repeat-iterations)
+        sed 's/"repeatIterations": 10/"repeatIterations": 9/g' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      short-samples)
+        sed 's/480,490/480/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      invalid-stats)
+        sed 's/"minimum": 400, "maximum": 490, "median": 445/"minimum": 450, "maximum": 490, "median": 445/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      missing-samples)
+        sed 's/, "runs": \[400,410,420,430,440,450,460,470,480,490\]//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
     esac
@@ -197,7 +240,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats missing-samples; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
