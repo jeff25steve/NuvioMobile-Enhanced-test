@@ -1239,3 +1239,66 @@ No runtime/build/benchmark source changed. No Gradle task, build, APK/AAB, profi
 The earlier line saying that ART JIT metrics may include uncompiled Android framework code was inaccurate for AndroidX 1.5.0 `ArtMetric`. The implementation queries ART trace slices with `packageName = captureInfo.targetPackageName`, so its measurements are filtered to the target application package. They can include app-packaged third-party libraries and generated code, so they are still not a count of Nuvio-authored methods, but they do not aggregate unrelated Android framework packages. The exact measurement names and support conditions above remain unchanged.
 
 Source: [AndroidX Benchmark Metric.kt](https://github.com/androidx/androidx/blob/66dad59938a20f2975af8594868b6dd28ca0146e/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt).
+
+## Field startup variance, ART runtime images and newer benchmark tooling — 15 November 2026, 23:38 UTC
+
+### New field evidence: cold start is not one homogeneous condition
+
+Shubham Singh Bisht's 12 October 2026 first-hand report, *How I Made Our Android App Start 25% Faster*, is unusually useful because it combines a shipped Android whiteboard app, a week of telemetry from thousands of classroom panels, Perfetto traces, production-like builds and Macrobenchmark:
+
+- The deployed fleet's cold-start median was about **4.5 seconds**; on panels with more than four hours uptime it was about **2.5 seconds**.
+- More than half of cold launches happened within two minutes of boot. The author's desk measurements, taken after days of uptime, therefore represented a materially easier environment.
+- Play Console was reporting a different firmware population (mostly Android 14) from the author's deployed fleet (mostly Android 16). Splitting by API level and device cohort explained the apparent disagreement between the dashboard and local tests.
+- A release-like trace on a TeachmintX 75 Pro attributed 1,495 ms to layout inflation, 612 ms to first-frame work, 310 ms to bindApplication and 142 ms to process start. WebView/Chromium startup, LaTeX, icon decoding and ML Kit accounted for roughly 1,070 ms of the inflation cost and were not required to display the first usable board.
+- Deferring hidden ComposeView content, changing expensive hidden hosts to on-demand creation and moving bitmap decoding after the first frame each produced measured, isolated changes. The hidden ComposeView change alone improved cold start by 55 ms in that app; the author also documented a logout/login regression caused by callbacks assuming the lazy WebView already existed.
+- Moving work to background dispatchers was not automatically beneficial: on the low-core panel it competed with the UI thread and reduced the TTID-to-TTFD gap improvement. The report explicitly treats first-frame and fully-drawn as separate outcomes.
+
+The report's headline comparison was 2.4 s to 1.8 s to first frame on the same panel. Separately, its ten-run Macrobenchmark comparison on the TeachmintX 75 Pro measured 2,758 ms without compilation and 1,807 ms with the app Baseline Profile (about 34.5% faster); that profile added about 450 ms beyond library profiles alone. These are different experiments/devices and must not be combined into one claimed percentage.
+
+**Nuvio-specific implication:** the phone runner already records `/proc/uptime`, boot-completed state, battery and thermal-service snapshots immediately before and after the entire Macrobenchmark invocation. This is good existing instrumentation; do not duplicate it. However, the uptime is not included in the human-readable summary and the snapshots bracket both test methods rather than each arm separately. For field-representative comparisons, retain those raw snapshots and repeat the complete paired run in two clearly labelled conditions: shortly after reboot (e.g. under two minutes) and after the device has settled (e.g. several hours). Do not mix the two populations into one median or treat the post-boot result as a code regression without the matching control.
+
+**Do not blindly copy the reported changes.** Nuvio is a Compose Multiplatform app rather than the report's XML/View-heavy classroom board. Its WebView, ML Kit, LaTeX and 4K view hierarchy are not Nuvio's startup workload. The transferable rule is to prove which work is needed before Home is usable, and to protect TTFD when deferring work or moving it off the main thread.
+
+Source: [How I Made Our Android App Start 25% Faster](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/).
+
+### Independent confirmation: R8 and custom profiles complement Cloud Profiles
+
+Google's 19 October 2026 Grab engineering case study reports a cumulative **about 35% cold-start improvement**, about 32.5% lower user-perceived ANRs and about 30% smaller download size across R8 optimization, Baseline Profiles, Startup Profiles, R8 Full Mode and keep-rule refinement. The team reports an initial 27% cold-start improvement from its R8 + profile-guided optimization phase, then a further 10% from R8 Full Mode. It also explains that Play Cloud Profiles did not cover all app-specific startup paths (including Dagger graph initialization), which motivated custom Baseline Profiles for critical journeys.
+
+The relevant lesson for Nuvio is not to copy Grab's percentage. Nuvio already has R8-enabled benchmark variants, Baseline Profile generation and Startup Profile collection. The next meaningful evidence is the actual R8 Configuration Analyzer output and the built APK's consumed profile/DEX metadata. Grab's case study reinforces that keep-rule hygiene can matter after the basic R8/profile setup is in place.
+
+Source: [Grab: R8 and profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time).
+
+### AndroidX 1.5.0 ART runtime-image controls are already part of this benchmark
+
+A further source review of the pinned AndroidX Benchmark **1.5.0** behavior confirmed an important control not captured in the earlier cold-cache summary:
+
+- API 34+ ART can create runtime images that make later launches faster even when a benchmark intends to measure a no-compilation/verify baseline.
+- Benchmark 1.5.0's `CompilationMode.None` explicitly requests runtime-image clearing between kills when supported.
+- On API 35 (and API 34 with the required ART Mainline backport), AndroidX uses the verify path to clear the image. On supported devices where verify cannot clear it, AndroidX uses its runtime-image poisoning workaround before the measurement phase and waits for the image flush. This is an intentional library safeguard, not a Nuvio runner omission.
+- The Baseline Profile arm uses the library's profile installation/reset path; no custom shell command should be added to try to clear ART images manually.
+
+This confirms that Nuvio should continue to rely on the pinned Macrobenchmark library rather than layering independent ART resets on top. The runner already records the ART Mainline version so a result can be interpreted against device capability. The API 33 data-loss distinction remains separate: pre-34 unrooted user builds use uninstall/reinstall for compilation reset, while rooted instrumentation shells use the reset command and preserve app data.
+
+Sources: [Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [CompilationMode source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt), [MacrobenchmarkScope source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/MacrobenchmarkScope.kt), [DeviceInfo runtime-image capability logic](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/DeviceInfo.kt).
+
+### Latest AndroidX release status: do not jump to alpha for this startup comparison
+
+As of 15 November 2026, AndroidX Benchmark **1.5.0 is the latest stable release**; 1.6.0-alpha01 was published on 7 October. The alpha adds:
+
+- `MemoryProfilingConfig` to capture Perfetto heap profiles in an additional profiling pass, separate from regular timing iterations. This could be useful later if Nuvio's Home-ready traces point to allocation/heap pressure, without contaminating the TTID/TTFD timing pass.
+- A `:lockClocks` task that uses fixed performance mode where available on more physical devices. The published release notes describe this as a Benchmark Gradle plugin capability primarily useful for stable Microbenchmarks; it is not a reason to change Nuvio's current Macrobenchmark or force clock locking on the user's non-rooted phone.
+
+Keep 1.5.0 as the benchmark baseline. A 1.6 alpha experiment should be isolated and only considered for a specific memory-diagnostic question, not adopted as an unmeasured startup-speed fix.
+
+Source: [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+### Revised concrete next steps
+
+1. Keep the existing uptime/battery/thermal snapshots; use them to label a settled-device run and a post-boot run rather than adding another environment-capture mechanism.
+2. Preserve TTID and Home-ready TTFD as joint acceptance criteria. Any deferred initialization must be evaluated for CPU contention and TTFD regression on lower-core devices.
+3. Obtain the R8 Configuration Analyzer reports for minified `fullRelease` and `playstoreRelease` when a Gradle task is authorized; inspect actual keep-rule blockers before editing any rule.
+4. Inspect compiled Startup Profile and primary DEX metadata in the built artifacts.
+5. Only add ArtMetric or a 1.6 alpha heap-profiling pilot when a specific unresolved trace question justifies the extra diagnostic complexity.
+
+No source, benchmark, runner, dependency, build configuration or profile was changed in this cycle. No Gradle task, build, APK/AAB, profile collection, physical-device benchmark, workflow dispatch or CI was run.
