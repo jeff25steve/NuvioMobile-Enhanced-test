@@ -91,6 +91,7 @@ cat > "$TMP/bin/getprop" <<'STUB'
 #!/bin/sh
 case "$1" in
   ro.build.version.sdk) echo "${FAKE_API:-34}" ;;
+  ro.product.cpu.abi) echo "${FAKE_ABI:-arm64-v8a}" ;;
   ro.kernel.qemu) echo 0 ;;
   ro.hardware) echo qcom ;;
   *) echo test-device ;;
@@ -137,6 +138,11 @@ if FAKE_API=32 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/
   exit 1
 fi
 [ ! -s "$FAKE_COMMAND_LOG" ] || { echo 'FAIL: unsupported device invoked package manager.' >&2; exit 1; }
+if FAKE_ABI=x86_64 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null 2>&1; then
+  echo 'FAIL: non-arm64 device should be rejected.' >&2
+  exit 1
+fi
+[ ! -s "$FAKE_COMMAND_LOG" ] || { echo 'FAIL: unsupported ABI invoked package manager.' >&2; exit 1; }
 
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
