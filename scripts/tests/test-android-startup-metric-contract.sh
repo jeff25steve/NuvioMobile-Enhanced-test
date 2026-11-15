@@ -91,6 +91,12 @@ grep -Fq 'require_non_empty_baseline_profile' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must apply the Baseline Profile content check after profile collection." >&2
   exit 1
 }
+phone_profile_copy="$(grep -n -F '      copy_recent_outputs profile' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+phone_profile_validate="$(grep -n -F '      require_non_empty_baseline_profile' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+[ -n "$phone_profile_copy" ] && [ -n "$phone_profile_validate" ] && [ "$phone_profile_copy" -lt "$phone_profile_validate" ] || {
+  echo "FAIL: phone runner must validate copied baseline profile rules before declaring collection complete." >&2
+  exit 1
+}
 grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
   exit 1
