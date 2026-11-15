@@ -8,6 +8,9 @@ import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+
 import kotlin.Unit;
 
 import org.junit.Rule;
@@ -35,6 +38,30 @@ public final class BaselineProfileGenerator {
         return TARGET_APP_PACKAGE;
     }
 
+    private static String readinessDiagnostics(UiDevice device) {
+        String foregroundPackage = "<unavailable>";
+        try {
+            foregroundPackage = device.getCurrentPackageName();
+            ByteArrayOutputStream hierarchyOutput = new ByteArrayOutputStream();
+            device.dumpWindowHierarchy(hierarchyOutput);
+            String hierarchy = new String(
+                    hierarchyOutput.toByteArray(),
+                    StandardCharsets.UTF_8
+            ).replaceAll("(text|content-desc)=\"[^\"]*\"", "$1=\"[redacted]\"");
+            final int maxHierarchyChars = 8_000;
+            if (hierarchy.length() > maxHierarchyChars) {
+                hierarchy = hierarchy.substring(0, maxHierarchyChars) + "\n...[truncated]";
+            }
+            return "\nForeground package: " + foregroundPackage +
+                    "\nExpected package: " + TARGET_APP_PACKAGE +
+                    "\nWindow hierarchy (text and content descriptions redacted):\n" + hierarchy;
+        } catch (Exception error) {
+            return "\nForeground package: " + foregroundPackage +
+                    "\nCould not capture the accessibility hierarchy: " +
+                    error.getClass().getSimpleName() + ": " + error.getMessage();
+        }
+    }
+
     private static void awaitMainContentReady() {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         boolean ready = device.wait(
@@ -43,8 +70,8 @@ public final class BaselineProfileGenerator {
         );
         if (!ready) {
             throw new AssertionError(
-                    "Nuvio did not reach the signed-in Home-ready state within 30 seconds. " +
-                    "Sign in and complete onboarding before generating startup profiles."
+                    "Nuvio did not expose the Home-ready marker 'nuvio_startup_ready' within 30 seconds." +
+                    readinessDiagnostics(device)
             );
         }
     }
