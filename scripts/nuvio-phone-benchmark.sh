@@ -615,7 +615,7 @@ run_instrumentation() {
   fi
   cat "$RUN_DIR/instrumentation.log"
   [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log."
-  if grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]|INSTRUMENTATION_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
+  if grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
     fail "The test reported a failure. See $RUN_DIR/instrumentation.log."
   fi
   case "$rule" in
@@ -662,6 +662,8 @@ case "$ACTION" in
     run_instrumentation BaselineProfile "$GENERATOR_CLASS"
     ACTION=install
     install_variant
+    # The install marker is written above; label the following result directory as a measurement.
+    ACTION=measure
     run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
     printf '\nFull profile collection and startup measurement completed for %s.\n' "$FLAVOR"
     ;;
