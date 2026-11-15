@@ -14,7 +14,12 @@ PHONE_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
   exit 1
 }
 
-grep -Eq '@Test[[:space:]]+public void startupNoCompilation\(' "$BENCHMARK_SOURCE" || {
+awk '
+  /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
+  /^[[:space:]]*public void startupNoCompilation[[:space:]]*\(/ && annotated { found=1 }
+  { if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*@Test[[:space:]]*$/) annotated=0 }
+  END { exit !found }
+' "$BENCHMARK_SOURCE" || {
   echo "FAIL: Macrobenchmark must declare a JUnit test for the no-compilation baseline." >&2
   exit 1
 }
@@ -22,7 +27,12 @@ grep -Fq 'runColdStartupBenchmark(new CompilationMode.None())' "$BENCHMARK_SOURC
   echo "FAIL: no-compilation test must execute the shared cold-start measurement." >&2
   exit 1
 }
-grep -Eq '@Test[[:space:]]+public void startupWithBaselineProfile\(' "$BENCHMARK_SOURCE" || {
+awk '
+  /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
+  /^[[:space:]]*public void startupWithBaselineProfile[[:space:]]*\(/ && annotated { found=1 }
+  { if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*@Test[[:space:]]*$/) annotated=0 }
+  END { exit !found }
+' "$BENCHMARK_SOURCE" || {
   echo "FAIL: Macrobenchmark must declare a JUnit test for the packaged Baseline Profile." >&2
   exit 1
 }
