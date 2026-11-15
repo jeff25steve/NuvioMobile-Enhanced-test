@@ -21,21 +21,33 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     exit 1
   fi
   grep -Fq 'device.getCurrentPackageName()' "$source" || {
-    echo "FAIL: readiness failures must record the foreground package." >&2
+    echo "FAIL: readiness failures must record the last package to report an accessibility event." >&2
     exit 1
   }
-  grep -Fq 'device.dumpWindowHierarchy(hierarchyOutput)' "$source" || {
-    echo "FAIL: readiness failures must capture the accessibility hierarchy." >&2
+  grep -Fq 'Last package to report an accessibility event' "$source" || {
+    echo "FAIL: diagnostics must accurately label the accessibility-event package." >&2
     exit 1
   }
-  grep -Fq 'replaceAll("(text|content-desc)=' "$source" || {
-    echo "FAIL: accessibility hierarchy diagnostics must redact text and content descriptions." >&2
+  grep -Fq 'markerVisible(UiDevice device, String marker)' "$source" || {
+    echo "FAIL: readiness diagnostics must safely report both marker states." >&2
     exit 1
   }
-  grep -Fq '[redacted]' "$source" || {
-    echo "FAIL: accessibility hierarchy diagnostics must mark sensitive values as redacted." >&2
+  grep -Fq 'HomeScreen marker visible now:' "$source" || {
+    echo "FAIL: readiness diagnostics must report HomeScreen marker visibility." >&2
     exit 1
   }
+  grep -Fq 'Fully-drawn marker visible now:' "$source" || {
+    echo "FAIL: readiness diagnostics must report fully-drawn marker visibility." >&2
+    exit 1
+  }
+  if grep -Fq 'dumpWindowHierarchy' "$source"; then
+    echo "FAIL: diagnostics must not XML-serialize potentially malformed accessibility text." >&2
+    exit 1
+  fi
+  if grep -Fq 'ByteArrayOutputStream' "$source"; then
+    echo "FAIL: obsolete accessibility hierarchy buffering must be removed." >&2
+    exit 1
+  fi
 done
 if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
