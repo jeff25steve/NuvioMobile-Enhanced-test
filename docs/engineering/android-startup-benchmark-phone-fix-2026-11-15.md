@@ -84,21 +84,26 @@ states.
 
 ### New benchmark contract
 
-- `HomeScreen` now exposes an unconditional `nuvio_benchmark_home` test tag
-  on its root `BoxWithConstraints`.
-- The app root continues to enable `testTagsAsResourceId`, so this descendant
-  tag is available to UI Automator as `By.res("nuvio_benchmark_home")`.
-- Baseline Profile collection and both startup measurement iterations wait for
-  the actual HomeScreen marker, rather than an Activity-level readiness flag.
-- `ReportDrawnWhen { appReady.value }` is deliberately retained. It remains
-  the independent signal used by Android's startup timing metric for
-  time-to-full-display (TTFD). A HomeScreen marker does not pretend that the
-  whole UI is fully drawn.
+- `HomeScreen` exposes an unconditional `nuvio_benchmark_home` test tag on
+  its root `BoxWithConstraints`. The app root enables `testTagsAsResourceId`,
+  so UI Automator can locate it with `By.res("nuvio_benchmark_home")`.
+- `MainActivity` retains the conditional `nuvio_startup_ready` test tag,
+  attached when `appReady` becomes true. It is still the same state supplied
+  to `ReportDrawnWhen { appReady.value }`.
+- Both instrumentation paths use one shared 30-second elapsed-realtime budget:
+  first wait for the HomeScreen route marker, then use the remaining time to
+  wait for the fully-drawn marker. This distinguishes “Home never mounted”
+  from “Home mounted, but AppGate/launch-overlay readiness never completed”.
+- The second marker prevents the benchmark action from ending as soon as the
+  Home composable mounts. The Macrobenchmark still waits for the app's actual
+  fully-drawn state, preserving TTFD coverage rather than confusing Home route
+  availability with full display.
 
 ### Failure diagnostics and regression protection
 
 - The readiness regression script verifies the app-root semantics mapping,
-  HomeScreen marker, both benchmark selectors, and continued TTFD reporting.
+  both Home/fully-drawn markers, both benchmark selectors, and the shared
+  30-second deadline.
 - Both Baseline Profile collection and Macrobenchmark include the foreground
   package and an accessibility hierarchy snapshot if the marker still times
   out.
@@ -110,13 +115,14 @@ states.
 ### Verification boundary
 
 The readiness regression was exercised against synthetic source fixtures:
-the old Activity-marker contract failed at the missing HomeScreen marker, and
-the new HomeScreen-marker contract passed. The actual GitHub branch sources were
-then fetched and checked for the tag, both instrumentation selectors, retained
-`ReportDrawnWhen`, and diagnostic redaction. No Gradle build, device benchmark,
-or CI run was started. A real-device run remains necessary to confirm that
-Samsung's accessibility hierarchy exposes `nuvio_benchmark_home` and to collect
-meaningful TTID/TTFD measurements. No startup improvement is claimed.
+the old Activity-only marker contract failed at the missing HomeScreen marker,
+and the HomeScreen plus fully-drawn contract passed. The actual GitHub branch
+sources were then fetched and checked for both markers, both selectors, the
+shared deadline, retained `ReportDrawnWhen`, and diagnostic redaction. No
+Gradle build, device benchmark, or CI run was started. A real-device run remains
+necessary to confirm that Samsung's accessibility hierarchy exposes both
+markers and to collect meaningful TTID/TTFD measurements. No startup improvement
+is claimed.
 
 References:
 - [Compose interoperability with UiAutomator](https://developer.android.com/develop/ui/compose/testing/interoperability)
