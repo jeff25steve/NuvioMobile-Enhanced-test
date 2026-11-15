@@ -38,4 +38,19 @@ done
   exit 1
 }
 
+# The actual packaged R8 APKs must be audited, not inferred from variant names.
+for required in \
+  'manifest application-id' \
+  'manifest debuggable' \
+  'manifest print' \
+  'android:shell="true"' \
+  'outputs/mapping/' \
+  'mapping.txt'; do
+  grep -Fq -- "$required" "$WORKFLOW" || {
+    echo "FAIL: benchmark APK contract audit is missing '$required'." >&2
+    exit 1
+  }
+done
+
+
 printf 'PASS: START-HERE creation precedes validation; checksum and bundle-count checks precede upload.\n'
