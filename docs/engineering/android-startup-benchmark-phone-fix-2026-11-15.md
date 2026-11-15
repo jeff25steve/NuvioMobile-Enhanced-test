@@ -109,13 +109,14 @@ states.
 
 ### Verification boundary
 
-The regression test was first run against a fixture matching the old contract
-and failed specifically because the HomeScreen marker was absent. The updated
-contract still requires a local static verification pass. No Android build,
-device benchmark, or CI run was started. A real-device run remains necessary to
-confirm that Samsung's accessibility hierarchy exposes `nuvio_benchmark_home`
-and to collect meaningful TTID/TTFD measurements. No startup improvement is
-claimed.
+The readiness regression was exercised against synthetic source fixtures:
+the old Activity-marker contract failed at the missing HomeScreen marker, and
+the new HomeScreen-marker contract passed. The actual GitHub branch sources were
+then fetched and checked for the tag, both instrumentation selectors, retained
+`ReportDrawnWhen`, and diagnostic redaction. No Gradle build, device benchmark,
+or CI run was started. A real-device run remains necessary to confirm that
+Samsung's accessibility hierarchy exposes `nuvio_benchmark_home` and to collect
+meaningful TTID/TTFD measurements. No startup improvement is claimed.
 
 References:
 - [Compose interoperability with UiAutomator](https://developer.android.com/develop/ui/compose/testing/interoperability)
