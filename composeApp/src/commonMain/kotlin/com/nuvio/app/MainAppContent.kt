@@ -71,8 +71,8 @@ import com.nuvio.app.core.sync.ProfileSettingsSync
 import com.nuvio.app.core.sync.SyncManager
 import com.nuvio.app.core.ui.DisintegrationRequestController
 import com.nuvio.app.core.ui.NativeTabBridge
-import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.NuvioContinueWatchingActionSheet
 import com.nuvio.app.core.ui.NuvioFloatingPrompt
@@ -1586,7 +1586,6 @@ internal fun MainAppContent(
                             else -> "nuvio_main_content_ready"
                         },
                     ),
-            ) {
             ) {
                 Box(
                     modifier = Modifier
