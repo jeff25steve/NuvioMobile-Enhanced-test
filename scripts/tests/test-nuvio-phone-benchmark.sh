@@ -122,8 +122,12 @@ grep -Fq "grep -Eq '[^[:space:]]' \"\$startup_profile_file\"" "$DESKTOP_RUNNER" 
   echo "FAIL: desktop runner must reject a whitespace-only generated startup profile." >&2
   exit 1
 }
-grep -Fq 'require_non_empty_startup_profile' "$RUNNER_SOURCE" || {
-  echo "FAIL: phone runner must require a non-empty generated Startup Profile." >&2
+grep -Fq 'require_non_empty_startup_profile() {' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must define Startup Profile validation." >&2
+  exit 1
+}
+grep -Fq '      require_non_empty_startup_profile' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must execute Startup Profile validation after collection." >&2
   exit 1
 }
 grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
