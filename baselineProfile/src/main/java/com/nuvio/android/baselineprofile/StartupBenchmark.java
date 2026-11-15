@@ -66,6 +66,16 @@ public final class StartupBenchmark {
         }
         return "\nLast package to report an accessibility event: " + lastAccessibilityEventPackage +
                 "\nExpected app package: " + TARGET_APP_PACKAGE +
+                "\nAppGate main marker visible now: " + markerVisible(device, "nuvio_appgate_main") +
+                "\nAppGate profile-loading marker visible now: " + markerVisible(device, "nuvio_appgate_profile_loading") +
+                "\nAppGate current gate marker: " +
+                    (markerVisible(device, "nuvio_appgate_loading") ? "loading" :
+                     markerVisible(device, "nuvio_appgate_auth") ? "auth" :
+                     markerVisible(device, "nuvio_appgate_profileselection") ? "profile selection" :
+                     markerVisible(device, "nuvio_appgate_profileedit") ? "profile edit" : "not visible") +
+                "\nMain content loading marker visible now: " + markerVisible(device, "nuvio_main_content_loading") +
+                "\nLaunch overlay transition marker visible now: " + markerVisible(device, "nuvio_launch_overlay_transitioning") +
+                "\nMain content ready marker visible now: " + markerVisible(device, "nuvio_main_content_ready") +
                 "\nHomeScreen marker visible now: " + markerVisible(device, "nuvio_benchmark_home") +
                 "\nFully-drawn marker visible now: " + markerVisible(device, "nuvio_startup_ready") +
                 "\nAccessibility hierarchy omitted: Android's XML dumper can throw on invalid " +
