@@ -98,7 +98,7 @@ esac
 STUB
 cat > "$TMP/bin/pm" <<'STUB'
 #!/bin/sh
-printf 'pm %s\\n' "$*" >> "$FAKE_COMMAND_LOG"
+printf 'pm %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case "$1" in
   list) echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)' ;;
   install)
@@ -157,7 +157,7 @@ export FAKE_INCOMPATIBLE=1 FAKE_INCOMPATIBLE_ONCE="$TMP/incompatible-once"
 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null
 grep -Fq 'pm uninstall com.nuvio.media.benchmark' "$FAKE_COMMAND_LOG"
 grep -Fq 'pm uninstall com.nuvio.android.baselineprofile' "$FAKE_COMMAND_LOG"
-if grep -Eq 'pm uninstall com\\.nuvio\\.media([[:space:]]|$)' "$FAKE_COMMAND_LOG"; then
+if grep -Eq 'pm uninstall com\.nuvio\.media([[:space:]]|$)' "$FAKE_COMMAND_LOG"; then
   echo 'FAIL: signing-key recovery attempted to uninstall production com.nuvio.media.' >&2
   exit 1
 fi
