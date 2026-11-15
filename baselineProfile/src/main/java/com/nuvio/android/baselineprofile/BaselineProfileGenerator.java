@@ -66,6 +66,10 @@ public final class BaselineProfileGenerator {
                 "\nMain content loading marker visible now: " + markerVisible(device, "nuvio_main_content_loading") +
                 "\nLaunch overlay transition marker visible now: " + markerVisible(device, "nuvio_launch_overlay_transitioning") +
                 "\nMain content ready marker visible now: " + markerVisible(device, "nuvio_main_content_ready") +
+                "\nReadiness home-ready/profile-idle: " + markerVisible(device, "nuvio_readiness_home_ready_profile_switch_idle") +
+                "\nReadiness home-ready/profile-loading: " + markerVisible(device, "nuvio_readiness_home_ready_profile_switch_loading") +
+                "\nReadiness home-pending/profile-idle: " + markerVisible(device, "nuvio_readiness_home_pending_profile_switch_idle") +
+                "\nReadiness home-pending/profile-loading: " + markerVisible(device, "nuvio_readiness_home_pending_profile_switch_loading") +
                 "\nHomeScreen marker visible now: " + markerVisible(device, "nuvio_benchmark_home") +
                 "\nFully-drawn marker visible now: " + markerVisible(device, "nuvio_startup_ready") +
                 "\nAccessibility hierarchy omitted: Android's XML dumper can throw on invalid " +
