@@ -6,7 +6,6 @@ import androidx.benchmark.macro.StartupMode;
 import androidx.benchmark.macro.StartupTimingMetric;
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
@@ -37,10 +36,13 @@ public final class StartupBenchmark {
     @Rule
     public final MacrobenchmarkRule benchmarkRule = new MacrobenchmarkRule();
 
+    // The test module is self-instrumenting, so InstrumentationRegistry's target
+    // context is the test APK itself, not the app being measured. Both distribution
+    // flavors deliberately share this isolated benchmark application ID.
+    private static final String TARGET_APP_PACKAGE = "com.nuvio.media.benchmark";
+
     private static String targetPackageName() {
-        return InstrumentationRegistry.getInstrumentation()
-                .getTargetContext()
-                .getPackageName();
+        return TARGET_APP_PACKAGE;
     }
 
     @Test
