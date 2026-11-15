@@ -110,6 +110,22 @@ grep -Fq "grep -Eq '[^[:space:]]' \"\$baseline_profile_file\"" "$DESKTOP_RUNNER"
   echo "FAIL: desktop runner must reject a whitespace-only generated baseline profile." >&2
   exit 1
 }
+grep -Fq 'startup_profile_file=' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must resolve the generated startup profile explicitly." >&2
+  exit 1
+}
+grep -Fq '[[ -s "$startup_profile_file" ]]' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must reject a missing or empty generated startup profile." >&2
+  exit 1
+}
+grep -Fq "grep -Eq '[^[:space:]]' \"\$startup_profile_file\"" "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must reject a whitespace-only generated startup profile." >&2
+  exit 1
+}
+grep -Fq 'require_non_empty_startup_profile' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must require a non-empty generated Startup Profile." >&2
+  exit 1
+}
 grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must scope AndroidX output collection to the self-instrumenting test package." >&2
   exit 1
@@ -325,6 +341,15 @@ JSON
     else
       printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
     fi
+    if [ "${FAKE_MISSING_STARTUP_PROFILE:-0}" != "1" ]; then
+      if [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
+        : > "$FAKE_MEDIA_DIR/fake-startup-prof-test.txt"
+      elif [ "${FAKE_BLANK_STARTUP_PROFILE:-0}" = "1" ]; then
+        printf '  \n\t\n' > "$FAKE_MEDIA_DIR/fake-startup-prof-test.txt"
+      else
+        printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-startup-prof-test.txt"
+      fi
+    fi
     if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       : > "$FAKE_MEDIA_ROOT/com.example.other/foreign-baseline-prof-decoy.txt"
@@ -416,6 +441,30 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  for startup_profile_fixture in missing empty blank; do
+    case "$startup_profile_fixture" in
+      missing) startup_profile_env=FAKE_MISSING_STARTUP_PROFILE ;;
+      empty) startup_profile_env=FAKE_EMPTY_STARTUP_PROFILE ;;
+      blank) startup_profile_env=FAKE_BLANK_STARTUP_PROFILE ;;
+    esac
+    if env "$startup_profile_env=1" sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-$startup_profile_fixture-startup-profile.log" 2>&1; then
+      echo "FAIL: phone runner accepted a $startup_profile_fixture generated Startup Profile ($flavor)." >&2
+      exit 1
+    fi
+    case "$startup_profile_fixture" in
+      missing)
+        expected_startup_failure="No startup-prof text profile was produced"
+        ;;
+      empty|blank)
+        expected_startup_failure="Generated startup profile contains no rules"
+        ;;
+    esac
+    grep -Fq "$expected_startup_failure" "$TMP/$flavor-$startup_profile_fixture-startup-profile.log" || {
+      echo "FAIL: $startup_profile_fixture Startup Profile rejection did not identify the missing rules ($flavor)." >&2
+      cat "$TMP/$flavor-$startup_profile_fixture-startup-profile.log" >&2
+      exit 1
+    }
+  done
   if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
@@ -457,7 +506,13 @@ for flavor in full playstore; do
     echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
     exit 1
   fi
-  test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
+  baseline_profile_copy="$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
+  startup_profile_copy="$(find "$TMP/output/$flavor" -name '*startup-prof*.txt' -print -quit)"
+  test -n "$baseline_profile_copy"
+  test -s "$baseline_profile_copy"
+  test -n "$startup_profile_copy"
+  test -s "$startup_profile_copy"
+  grep -Eq '[^[:space:]]' "$startup_profile_copy"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
   environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
   environment_after="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print -quit)"
