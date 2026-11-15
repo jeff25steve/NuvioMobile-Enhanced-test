@@ -519,7 +519,7 @@ write_macrobenchmark_summary() {
     }
 
     function metric_boolean_field(object, field,    needle, start, rest) {
-      needle = "\\\"" field "\\\""
+      needle = "\"" field "\""
       start = index(object, needle)
       if (start == 0) return ""
       rest = substr(object, start + length(needle))
@@ -624,10 +624,10 @@ write_macrobenchmark_summary() {
 
       print "Nuvio Android cold-start benchmark"
       print "Benchmark device context"
-      printf "  Device: %s | Android API: %s\\n", device_model, android_api
-      printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\\n", cpu_core_count, cpu_max_frequency, cpu_locked
-      printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\\n", memory_total, art_mainline_version, sustained_performance
-      printf "  Android release codename: %s\\n", os_codename
+      printf "  Device: %s | Android API: %s\n", device_model, android_api
+      printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\n", cpu_core_count, cpu_max_frequency, cpu_locked
+      printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\n", memory_total, art_mainline_version, sustained_performance
+      printf "  Android release codename: %s\n", os_codename
       print ""
       print "Comparison: no compilation vs required packaged Baseline Profile"
       print "10 samples per comparison arm"
