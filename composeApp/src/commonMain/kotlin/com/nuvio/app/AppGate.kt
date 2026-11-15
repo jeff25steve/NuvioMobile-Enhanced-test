@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -556,7 +557,20 @@ internal fun AppGate(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(
+                when {
+                    gateScreen != AppGateScreen.Main.name ->
+                        "nuvio_appgate_${gateScreen.lowercase()}"
+                    profileSelectionLoading ->
+                        "nuvio_appgate_profile_loading"
+                    else ->
+                        "nuvio_appgate_main"
+                },
+            ),
+    ) {
         AnimatedContent(
             targetState = gateScreen,
             label = "app_gate",
