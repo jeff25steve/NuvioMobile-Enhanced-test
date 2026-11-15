@@ -508,9 +508,45 @@ write_macrobenchmark_summary() {
       return ""
     }
 
+    function metric_string_field(object, field,    needle, start, rest) {
+      needle = "\"" field "\""
+      start = index(object, needle)
+      if (start == 0) return ""
+      rest = substr(object, start + length(needle))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (match(rest, /^"[^"]*"/)) return substr(rest, 2, RLENGTH - 2)
+      return ""
+    }
+
+    function metric_runs(object, values,    needle, start, rest, close_pos, run_text) {
+      needle = "\"runs\""
+      start = index(object, needle)
+      if (start == 0) return 0
+      rest = substr(object, start + length(needle))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (substr(rest, 1, 1) != "[") return 0
+      close_pos = index(rest, "]")
+      if (close_pos == 0) return 0
+      run_text = substr(rest, 2, close_pos - 2)
+      gsub(/[[:space:]]/, "", run_text)
+      if (run_text == "") return 0
+      return split(run_text, values, ",")
+    }
+
+    function trace_filename(result_object, iteration,    array_pattern, trace_array, trace_pattern, trace_object) {
+      array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      if (!match(result_object, array_pattern)) return ""
+      trace_array = substr(result_object, RSTART, RLENGTH)
+      trace_pattern = "\\{[^}]*\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " iteration "\"[^}]*\\}"
+      if (!match(trace_array, trace_pattern)) return ""
+      trace_object = substr(trace_array, RSTART, RLENGTH)
+      return metric_string_field(trace_object, "filename")
+    }
+
     { json = json $0 "\n" }
 
     END {
+      expected_iterations = 10
       test_names[1] = "startupNoCompilation"
       test_names[2] = "startupWithBaselineProfile"
       metric_names[1] = "timeToInitialDisplayMs"
@@ -526,6 +562,7 @@ write_macrobenchmark_summary() {
         next_test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
         if (match(result_rest, next_test_pattern)) result_object = substr(result_rest, 1, RSTART - 1)
         else result_object = result_rest
+        test_objects[test_index] = result_object
 
         for (metric_index = 1; metric_index <= 2; metric_index++) {
           metric_pattern = "\"" metric_names[metric_index] "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
@@ -539,6 +576,20 @@ write_macrobenchmark_summary() {
           median[metric_key] = metric_field(metric_object, "median") + 0
           maximum[metric_key] = metric_field(metric_object, "maximum") + 0
           cv[metric_key] = metric_field(metric_object, "coefficientOfVariation") + 0
+
+          run_count = metric_runs(metric_object, run_values)
+          if (run_count != expected_iterations) {
+            print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " must contain exactly " expected_iterations " raw samples."
+            exit 1
+          }
+          for (run_index = 1; run_index <= run_count; run_index++) {
+            if (run_values[run_index] !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || run_values[run_index] + 0 <= 0) {
+              print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " contains an invalid raw sample."
+              exit 1
+            }
+            if (metric_index == 1) ttid_runs[test_index, run_index] = run_values[run_index] + 0
+            else ttfd_runs[test_index, run_index] = run_values[run_index] + 0
+          }
         }
       }
 
@@ -556,6 +607,23 @@ write_macrobenchmark_summary() {
         printf "  No compilation: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[no_key], minimum[no_key], maximum[no_key], cv[no_key] * 100
         printf "  Baseline Profile: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[profile_key], minimum[profile_key], maximum[profile_key], cv[profile_key] * 100
         printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
+        print ""
+      }
+
+      print "Per-iteration samples and matching Perfetto traces"
+      print "AndroidX preserves measurement order in the raw runs and labels the corresponding trace with the same iteration index."
+      print ""
+      for (test_index = 1; test_index <= 2; test_index++) {
+        print test_names[test_index]
+        for (run_index = 1; run_index <= expected_iterations; run_index++) {
+          iteration = run_index - 1
+          trace = trace_filename(test_objects[test_index], iteration)
+          if (trace == "") {
+            print "FAIL: missing Perfetto trace filename for " test_names[test_index] " iteration " iteration "."
+            exit 1
+          }
+          printf "  Iteration %d: TTID %.1f ms | TTFD %.1f ms | trace %s\n", iteration, ttid_runs[test_index, run_index], ttfd_runs[test_index, run_index], trace
+        }
         print ""
       }
       print "Interpretation: descriptive only; ten iterations do not establish statistical significance."
