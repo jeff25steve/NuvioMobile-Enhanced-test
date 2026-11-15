@@ -6163,3 +6163,13 @@ The previous code accepted a matching filename alone. AndroidX `CollectBaselineP
 The regression fixture covers valid, zero-byte and whitespace-only candidates on both Full and Play Store phone paths. A focused shell fixture passed the valid case and rejected the two invalid cases; desktop assertion and shell syntax checks also passed. The complete repository regression test was not executed end-to-end. No build, APK build, device benchmark or CI was started. No startup improvement is claimed.
 
 The broader readiness/variant audit found no additional app-runtime changes to make: `ReportDrawnWhen` is driven by Home-ready plus profile/launch-overlay completion; the benchmark waits for both HomeScreen and fully-drawn markers; the nonMinifiedRelease and benchmarkRelease variants remain isolated under the same benchmark package/signing identity; and the workflow separately verifies the compiled Baseline Profile in the R8 APK. These paths were documented and left unchanged rather than introducing speculative modifications.
+## Benchmark integrity follow-up — 15 November 2026
+
+Two further guardrails were added:
+
+- **Manual-only workflow:** the benchmark bundle-assembly regression now rejects any automatic workflow trigger and requires `workflow_dispatch` as the only top-level `on:` trigger. This follows the history review that found a temporary `push` trigger on an older `main-build-testing` SHA. The current workflow remains manual-only.
+- **Raw-sample median validation:** the phone JSON validator now recomputes the AndroidX 50th percentile from the ten sorted raw runs using AndroidX's linear interpolation rule, then compares it with the reported median. A new `wrong-median` fixture changes a median to another value still inside min/max, proving the old bounds-only check was insufficient.
+
+Focused local shell/AWK fixtures rejected the historical push-trigger shape and the in-range wrong median, while accepting the current manual-only workflow and valid integer/decimal median examples. The full repository shell regression scripts were not executed end-to-end because a local checkout was unavailable. No Gradle build, APK build, physical-device benchmark, Actions dispatch or CI was started. No startup performance improvement is claimed.
+
+Full source reasoning, references and verification limits: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
