@@ -180,8 +180,8 @@ case " $* " in
       "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
       "name": "startupNoCompilation",
       "metrics": {
-        "timeToInitialDisplayMs": {"minimum": 400, "maximum": 490, "median": 445, "runs": [400,410,420,430,440,450,460,470,480,490]},
-        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "runs": [700,710,720,730,740,750,760,770,780,790]}
+        "timeToInitialDisplayMs": {"minimum": 400, "maximum": 490, "median": 445, "coefficientOfVariation": 0.068037086608932, "runs": [400,410,420,430,440,450,460,470,480,490]},
+        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "coefficientOfVariation": 0.040639602068423, "runs": [700,710,720,730,740,750,760,770,780,790]}
       },
       "sampledMetrics": {},
       "warmupIterations": 0,
@@ -204,8 +204,8 @@ case " $* " in
       "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
       "name": "startupWithBaselineProfile",
       "metrics": {
-        "timeToInitialDisplayMs": {"minimum": 330, "maximum": 420, "median": 375, "runs": [330,340,350,360,370,380,390,400,410,420]},
-        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "runs": [610,620,630,640,650,660,670,680,690,700]}
+        "timeToInitialDisplayMs": {"minimum": 330, "maximum": 420, "median": 375, "coefficientOfVariation": 0.080737342775933, "runs": [330,340,350,360,370,380,390,400,410,420]},
+        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "coefficientOfVariation": 0.046223669528206, "runs": [610,620,630,640,650,660,670,680,690,700]}
       },
       "sampledMetrics": {},
       "warmupIterations": 0,
@@ -263,6 +263,15 @@ JSON
         # Keep the reported median within min/max, but make it disagree with
         # the 50th percentile recomputed from the ten raw samples.
         sed 's/"median": 445/"median": 446/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      wrong-cv)
+        # Keep CV numeric and plausible, but inconsistent with the raw runs.
+        sed 's/"coefficientOfVariation": 0.068037086608932/"coefficientOfVariation": 0.070037086608932/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      missing-cv)
+        sed 's/, "coefficientOfVariation": 0.068037086608932//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       missing-samples)
@@ -396,6 +405,16 @@ for flavor in full playstore; do
     echo "FAIL: measure-* directory must contain the Macrobenchmark JSON result ($flavor)." >&2
     exit 1
   }
+  [ -s "$benchmark_result_dir/benchmark-summary.txt" ] || {
+    echo "FAIL: measure-* directory must contain the human-readable benchmark summary ($flavor)." >&2
+    exit 1
+  }
+  grep -Fq '10 samples per comparison arm' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'descriptive only' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'timeToInitialDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-70.0 ms (-15.7%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-90.0 ms (-12.1%)' "$benchmark_result_dir/benchmark-summary.txt"
   if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
     echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
     exit 1
@@ -446,7 +465,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
