@@ -115,6 +115,14 @@ grep -Fq 'capture_device_environment after' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must capture device conditions after Macrobenchmark." >&2
   exit 1
 }
+grep -Fq '2>&1 || {' "$PHONE_RUNNER" || {
+  echo "FAIL: device-condition snapshot file-write failures must be handled best-effort." >&2
+  exit 1
+}
+grep -Fq 'could not write environment snapshot' "$PHONE_RUNNER" || {
+  echo "FAIL: failed environment snapshot writes must be reported without masking instrumentation results." >&2
+  exit 1
+}
 grep -Fq 'environment-before.txt' "$PHONE_RUNNER" && grep -Fq 'environment-after.txt' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must identify both device-condition snapshot files." >&2
   exit 1
