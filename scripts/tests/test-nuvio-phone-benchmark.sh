@@ -144,14 +144,22 @@ case " $* " in
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
     trace_file_limit=20
-    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-file" ]; then trace_file_limit=19; fi
+    empty_trace_index=-1
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
+      missing-trace-file) trace_file_limit=19 ;;
+      empty-trace-file) empty_trace_index=19 ;;
+    esac
     trace_index=0
     for trace_prefix in startupNoCompilation startupWithBaselineProfile; do
       i=0
       while [ "$i" -lt 10 ]; do
         trace_file="$trace_prefix-trace-$i.perfetto-trace"
         if [ "$trace_index" -lt "$trace_file_limit" ]; then
-          printf 'fixture perfetto trace\n' > "$FAKE_MEDIA_DIR/$trace_file"
+          if [ "$trace_index" -eq "$empty_trace_index" ]; then
+            : > "$FAKE_MEDIA_DIR/$trace_file"
+          else
+            printf 'fixture perfetto trace\n' > "$FAKE_MEDIA_DIR/$trace_file"
+          fi
         fi
         trace_index=$((trace_index + 1))
         i=$((i + 1))
@@ -408,12 +416,12 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median missing-samples missing-trace-metadata; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
     fi
-    grep -Eq 'Macrobenchmark JSON|benchmarkData.json' "$TMP/$flavor-$bad_json.log" || {
+    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output' "$TMP/$flavor-$bad_json.log" || {
       echo "FAIL: incomplete JSON rejection did not identify the result-data gap ($bad_json)." >&2
       cat "$TMP/$flavor-$bad_json.log" >&2
       exit 1

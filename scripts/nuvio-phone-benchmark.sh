@@ -415,6 +415,59 @@ validate_macrobenchmark_statistics() {
   ' "$1"
 }
 
+extract_macrobenchmark_trace_filenames() {
+  awk '
+    { json = json $0 "\\n" }
+    END {
+      remaining = json
+      array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      while (match(remaining, array_pattern)) {
+        array_start = RSTART
+        array_length = RLENGTH
+        trace_array = substr(remaining, array_start, array_length)
+        fields = trace_array
+        filename_pattern = "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
+        while (match(fields, filename_pattern)) {
+          field_start = RSTART
+          field_length = RLENGTH
+          filename_field = substr(fields, field_start, field_length)
+          sub(/^.*:[[:space:]]*"/, "", filename_field)
+          sub(/"$/, "", filename_field)
+          print filename_field
+          fields = substr(fields, field_start + field_length)
+        }
+        remaining = substr(remaining, array_start + array_length)
+      }
+    }
+  ' "$1"
+}
+
+validate_macrobenchmark_trace_files() {
+  result_file="$1"
+  trace_reference_file="$RUN_DIR/trace-references.txt"
+  extract_macrobenchmark_trace_filenames "$result_file" > "$trace_reference_file"
+  reference_count="$(awk 'END { print NR + 0 }' "$trace_reference_file")"
+  [ "$reference_count" -eq 20 ] || fail "Macrobenchmark trace output must reference twenty per-iteration Perfetto files (ten per startup case); found $reference_count references."
+
+  unique_reference_count="$(sort -u "$trace_reference_file" | wc -l | tr -d ' ')"
+  [ "$unique_reference_count" -eq 20 ] || fail "Macrobenchmark trace output contains duplicate filenames; expected twenty unique Perfetto traces, found $unique_reference_count."
+
+  while IFS= read -r trace_filename; do
+    [ -n "$trace_filename" ] || fail "Macrobenchmark trace output contains an empty filename reference."
+    trace_basename="$(basename "$trace_filename")"
+    [ "$trace_basename" = "$trace_filename" ] || fail "Macrobenchmark trace output contains a non-local filename reference: $trace_filename."
+    [ -s "$RUN_DIR/$trace_filename" ] || fail "Macrobenchmark trace output referenced by JSON is missing or empty: $trace_filename."
+  done < "$trace_reference_file"
+
+  trace_file_count=0
+  for trace_file in "$RUN_DIR"/*.trace; do
+    [ -f "$trace_file" ] || continue
+    [ -s "$trace_file" ] || fail "Macrobenchmark trace output is empty: $trace_file."
+    trace_file_count=$((trace_file_count + 1))
+  done
+  [ "$trace_file_count" -eq 20 ] || fail "Macrobenchmark trace output must contain exactly twenty non-empty per-iteration Perfetto traces; found $trace_file_count."
+}
+
 require_macrobenchmark_result_data() {
   json_files=0
   no_compilation_results=0
@@ -432,6 +485,7 @@ require_macrobenchmark_result_data() {
     ttid_metrics=$((ttid_metrics + $(count_json_occurrences '"timeToInitialDisplayMs"' "$result_file")))
     ttfd_metrics=$((ttfd_metrics + $(count_json_occurrences '"timeToFullDisplayMs"' "$result_file")))
     validate_macrobenchmark_statistics "$result_file" || fail "Macrobenchmark JSON contains incomplete or invalid per-iteration startup statistics: $result_file."
+    validate_macrobenchmark_trace_files "$result_file"
   done
 
   [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
