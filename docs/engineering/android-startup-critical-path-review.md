@@ -393,3 +393,31 @@ The concrete outstanding checks are artifact-level: confirm the resolved benchma
 API 33: the app-data-loss path applies only when AndroidX Macrobenchmark's instrumentation shell is neither root nor able to run `su root id`. Rooted API 33 uses `cmd package compile --reset` and preserves app data. The outer LADB shell's UID alone does not establish the instrumentation shell's root capability. API 34+ remains the simplest non-rooted reproducible benchmark platform.
 
 References: [Baseline Profile plugin configuration](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles), [Macrobenchmark setup](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview), [AndroidX CompilationMode source](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
+
+## 15 November 2026 — deeper benchmark mechanics and launch-path cross-check
+
+### Confirmed benchmark strengths
+
+- The target source manifest explicitly declares `<profileable android:shell="true" />`. This enables shell profiling at source level; the final merged APK manifest still needs artifact-level verification.
+- Nuvio's Compose TTFD contract is correctly connected: `MainActivity` uses `ReportDrawnWhen` tied to the `appReady` value received from AppGate. The UI Automator marker `nuvio_startup_ready` is emitted from the same state, and the benchmark also waits for `nuvio_benchmark_home`. TTID therefore remains first frame while TTFD waits for the usable Home state.
+- AndroidX `StartupMode.COLD` clears the target shader cache, kills the target process, drops the kernel page cache, and verifies the process is stopped before each measured launch. Nuvio's ProfileInstaller 1.4.1 exceeds the ProfileInstaller minimum for the shader-cache broadcast. API 31+ supports the kernel page-cache operation without root, so the runner's API 33+ device floor is covered. Do not add duplicate cache clearing to the shell runner.
+- These controls are separate from compilation-state preparation. API 33's unrooted pre-34 reinstall fallback can still erase the authenticated target app's data before measurement; a rooted instrumentation shell instead uses `cmd package compile --reset` and preserves it. An outer LADB shell UID is not proof of the instrumentation shell's root or `su` capability.
+
+### ART diagnostics and reporting contract
+
+AndroidX Benchmark 1.5.0 `ArtMetric` is a public API. Its exact result names are `artJitCount`, `artJitSumMs`, `artVerifyClassCount`, `artVerifyClassSumMs`, and conditionally `artClassLoadCount` / `artClassLoadSumMs`. Class-load data requires API 35+, or API 31+ with ART Mainline >= `341511000`. Release classes are normally verified at install time, so runtime class-verification metrics may legitimately be zero. Nuvio currently captures only `StartupTimingMetric` and its phone report only parses TTID/TTFD; optional ART output would need parser and regression-fixture support before it is useful. This is a benchmark instrumentation improvement, not an app runtime change.
+
+AndroidX 1.5.0 also supports `androidx.benchmark.requireLockedClocks` for rooted physical devices. The current runner records the reported `cpuLocked` field but does not attempt to lock a non-rooted handset. Macrobenchmark is an end-to-end app benchmark, and Android guidance reserves forced clock locking primarily for Microbenchmark. Keep clock state as context rather than adding a root-only requirement to normal phone runs.
+
+### New practice evidence
+
+Genvi's Oct/Nov 2026 report measured 7.3 s to 3.2 s on its release app after deferring large tool modules, tab setup and the second blank-to-populated Home draw; its sample was five launches and should be treated directionally. TrulyMadly's Nov 7 practitioner post describes skipping unnecessary launch network calls when cache is fresh, removing obsolete screen configuration and moving hidden screens/noncritical work off the first-frame path, but provides no comparable timing series. RKMovies' Nov 13 post reports 250–350 ms TTID on one low-end phone after minimizing launch providers and delaying video surface creation; it is self-published and not a comparable Nuvio baseline. These are hypotheses to test against Nuvio traces, not a prescription to disable providers or defer required Home/offline state.
+
+### Next evidence gates
+
+1. R8 Configuration Analyzer for the minified production variants; AGP 9.4 meets the minimum, but no Gradle task was run.
+2. Confirm Startup Profile primary-DEX placement in the built artifact.
+3. Extend ArtMetric only with optional-field parser coverage and per-arm reporting.
+4. Inspect actual Perfetto/Startup Insights before touching startup initialization. Keep paired sessions and raw traces for borderline gains.
+
+References: [Macrobenchmark cold-start source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt), [MacrobenchmarkScope cache APIs](https://developer.android.com/reference/androidx/benchmark/macro/MacrobenchmarkScope), [ArtMetric implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [Genvi case study](https://genvi.co/blog/cutting-phone-cold-start-from-7-to-3-seconds), [TrulyMadly practitioner report](https://www.linkedin.com/posts/pulkitloya_android-kotlin-androiddevelopment-activity-7524833478069399552-UzGB), [RKMovies practitioner post](https://dev.to/hammiwor/why-my-1.17-mb-player-opens-in-under-400-ms-cold-zero-content-providers-lazy-init-and-a-startup-1i1h).
