@@ -56,6 +56,56 @@ already-built APK; review and a separate authorized build are required before
 measuring a new profile.
 
 
+## Follow-up device failure — 2026-11-15
+
+The second real-phone run reached instrumentation successfully but failed only
+at the 30-second wait for `nuvio_startup_ready`. The complete uploaded
+`instrumentation.log` contains one test failure and no installation or runner
+failure. The supplied phone screenshots show the isolated benchmark app had
+reached its signed-in Home UI before the repeated attempt; asking the user to
+sign in again was therefore not a justified diagnosis.
+
+### Root cause found in the Compose semantics tree
+
+`MainActivity.showContent()` originally put
+`.semantics { testTagsAsResourceId = true }` and
+`Modifier.testTag("nuvio_startup_ready")` on the same root `Box`. Android's
+Compose interoperability guidance defines `testTagsAsResourceId` as a setting
+for a semantics subtree and demonstrates placing the `testTag` on a nested
+composable below that semantics ancestor. The existing
+`By.res("nuvio_startup_ready")` selector was already the documented selector;
+changing it or extending the timeout would not correct the tree.
+
+The root `Box` now only enables `testTagsAsResourceId`, and a nested full-size
+`Box` carries the conditional readiness test tag. The nested wrapper preserves
+the visual layout and does not change when the readiness callback becomes true.
+
+### Failure diagnostics and regression protection
+
+- Added `scripts/tests/test-android-startup-readiness.sh`, which fails if the
+  readiness tag is not on a descendant `Box` beneath the resource-ID semantics
+  ancestor. The existing phone-runner regression test invokes it.
+- Both Baseline Profile collection and the startup Macrobenchmark now include
+  the foreground package and an accessibility hierarchy snapshot when the
+  readiness wait fails.
+- The diagnostic hierarchy redacts all `text` and `content-desc` attribute
+  values and is capped at 8,000 characters, avoiding account text in logs.
+- Removed misleading timeout guidance that told the user to sign in again.
+  Failures now identify the missing marker and provide evidence for the next
+  diagnosis.
+
+### Verification boundary
+
+The new structural regression was observed failing against the previous
+same-node modifier arrangement. The corrected descendant arrangement is
+checked by the regression script. No Android build, device benchmark, or CI run
+was started for this correction. The next authorized phone run is still needed
+to confirm the marker is now visible through Samsung's accessibility hierarchy
+and to produce performance measurements; no startup improvement is claimed.
+
+Reference: [Compose interoperability with UiAutomator](https://developer.android.com/develop/ui/compose/testing/interoperability)
+
+
 ## CI build verification
 
 The corrected phone workflow regression suite passed, and all four APK-pair build
