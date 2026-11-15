@@ -6200,3 +6200,16 @@ Detailed source evidence and verification boundaries: [android-startup-benchmark
 - Five follow-up commits are ahead of the trace-audit starting checkpoint ad96e564ea8b82a4d64f7de83fb9a5edae13fe63; zero commits behind. The follow-up diff touches only the phone runner, its regression fixture and the two existing benchmark notes.
 - The benchmark workflow remains manual-dispatch-only. No Actions run was started for the current HEAD.
 - No Gradle/APK build, device Macrobenchmark, workflow dispatch or CI was started. Full phone-runner regression execution remains outstanding because there is no local checkout in this environment. No startup-speed claim is made.
+
+
+## Android phone startup benchmark follow-up — instrumentation and artifact labels (15 November 2026)
+
+- **Instrumentation false failure removed:** the phone runner no longer treats every negative `INSTRUMENTATION_CODE` as a test failure. Android's overall `Activity.RESULT_OK` is `-1`, and AOSP/AndroidX instrumentation runners use it on normal completion. The runner still rejects nonzero shell execution, `FAILURES!!!`, `INSTRUMENTATION_FAILED`, and negative per-test `INSTRUMENTATION_STATUS_CODE` events.
+- **Combined result naming corrected:** after the benchmark APK pair is installed and the `install:<flavor>` marker is written, the combined `run <flavor>` command now switches its output label to `measure` before Macrobenchmark begins. Benchmark JSON, traces and environment snapshots therefore live in a `measure-*` directory rather than a misleading `install-*` directory.
+- The phone-runner regression fixture now emits `INSTRUMENTATION_CODE: -1` on successful Baseline Profile and Macrobenchmark invocations, includes a negative per-test status case, and requires the combined-run JSON to be in a `measure-*` folder.
+- Focused POSIX-shell reproduction accepted the normal final `-1`, rejected negative per-test status `-2` and `INSTRUMENTATION_FAILED`, and verified the measurement label. The full repository phone-runner regression script remains unexecuted because no local checkout is available; this focused check is not represented as a full suite pass.
+- The only accessible uploaded run file, `current-install.txt`, contains `install-profile:playstore`. No Macrobenchmark JSON, instrumentation log, Perfetto trace or timing sample was available, so no application startup performance claim is made.
+- Context7 AndroidX Benchmark 1.5.0 resolution was unavailable due connector quota exhaustion. This change is POSIX shell only; Android platform and AndroidX runner/output contracts were checked against AOSP/AndroidX source. No Kotlin, Compose, Android API, library or dependency code changed.
+- No build, APK build, profile generation, on-device benchmark, workflow dispatch or CI run was started.
+
+Detailed investigation and source references: [android-startup-benchmark-phone-fix-2026-11-15.md](android-startup-benchmark-phone-fix-2026-11-15.md).
