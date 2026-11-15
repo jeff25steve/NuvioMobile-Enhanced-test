@@ -208,7 +208,7 @@ validate_macrobenchmark_statistics() {
     }
 
     function metric_field(object, field,    needle, start, rest) {
-      needle = "\\\"" field "\\\""
+      needle = "\"" field "\""
       start = index(object, needle)
       if (start == 0) return ""
       rest = substr(object, start + length(needle))
@@ -233,13 +233,13 @@ validate_macrobenchmark_statistics() {
         return 0
       }
 
-      run_key_count = count_matches(object, "\\\"runs\\\"[[:space:]]*:")
+      run_key_count = count_matches(object, "\"runs\"[[:space:]]*:")
       if (run_key_count != 1) {
         print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
         return 0
       }
-      start = index(object, "\\\"runs\\\"")
-      rest = substr(object, start + length("\\\"runs\\\""))
+      start = index(object, "\"runs\"")
+      rest = substr(object, start + length("\"runs\""))
       sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
       if (substr(rest, 1, 1) != "[") {
         print "FAIL: " metric_name " runs value is not an array."
@@ -282,13 +282,13 @@ validate_macrobenchmark_statistics() {
       return 1
     }
 
-    { json = json $0 "\\n" }
+    { json = json $0 "\n" }
 
     END {
       expected_iterations = 10
-      count_no = count_matches(json, "\\\"name\\\"[[:space:]]*:[[:space:]]*\\\"startupNoCompilation\\\"")
-      count_profile = count_matches(json, "\\\"name\\\"[[:space:]]*:[[:space:]]*\\\"startupWithBaselineProfile\\\"")
-      count_class = count_matches(json, "\\\"className\\\"[[:space:]]*:[[:space:]]*\\\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\\\"")
+      count_no = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupNoCompilation\"")
+      count_profile = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupWithBaselineProfile\"")
+      count_class = count_matches(json, "\"className\"[[:space:]]*:[[:space:]]*\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\"")
       if (count_no != 1 || count_profile != 1 || count_class != 2) {
         print "FAIL: JSON must contain exactly one result for each startup case and two StartupBenchmark class records."
         exit 1
@@ -296,7 +296,7 @@ validate_macrobenchmark_statistics() {
 
       repeat_rest = json
       repeat_count = 0
-      repeat_pattern = "\\\"repeatIterations\\\"[[:space:]]*:[[:space:]]*[0-9]+"
+      repeat_pattern = "\"repeatIterations\"[[:space:]]*:[[:space:]]*[0-9]+"
       while (match(repeat_rest, repeat_pattern)) {
         repeat_start = RSTART
         repeat_length = RLENGTH
@@ -318,7 +318,7 @@ validate_macrobenchmark_statistics() {
       for (metric_name_index = 1; metric_name_index <= 2; metric_name_index++) {
         if (metric_name_index == 1) metric_name = "timeToInitialDisplayMs"
         else metric_name = "timeToFullDisplayMs"
-        metric_pattern = "\\\"" metric_name "\\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
+        metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
         metric_rest = json
         metric_count = 0
         while (match(metric_rest, metric_pattern)) {
