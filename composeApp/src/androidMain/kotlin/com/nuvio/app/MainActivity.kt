@@ -227,28 +227,15 @@ open class MainActivity : AppCompatActivity() {
             }
             val sheetBackdropSource = rememberNuvioBackdrop()
             val sheetBackdrop = remember(sheetBackdropSource) { NuvioSheetBackdrop(sheetBackdropSource) }
-            // Keep the resource-id mapping on an ancestor semantics node. Compose
-            // exposes testTag as AccessibilityNodeInfo.viewIdResourceName only for
-            // descendants of the node that enables testTagsAsResourceId.
+            // Expose descendant HomeScreen test tags to UI Automator. The benchmark
+            // waits for the actual Home route; ReportDrawnWhen above remains the TTFD signal.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .semantics { testTagsAsResourceId = true },
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (appReady.value) {
-                                Modifier.testTag("nuvio_startup_ready")
-                            } else {
-                                Modifier
-                            },
-                        ),
-                ) {
-                    NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
-                        App(onAppReady = { ready -> appReady.value = ready })
-                    }
+                NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
+                    App(onAppReady = { ready -> appReady.value = ready })
                 }
             }
         }
