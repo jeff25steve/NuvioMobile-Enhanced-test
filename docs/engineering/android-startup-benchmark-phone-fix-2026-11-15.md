@@ -75,12 +75,15 @@ the original same-node modifier arrangement was valid, and the temporary
 nested-Box change was removed. The selector form `By.res("tag")` was also
 correct.
 
-The stronger issue was coupling the benchmark's route-readiness check to
-`MainActivity`'s separate `appReady` callback. That callback only becomes true
-after AppGate reports main-content readiness and the launch overlay has exited.
-The phone screenshot proves Home was visible, but does not independently prove
-that callback had fired. The old instrumentation could not distinguish those
-states.
+A weakness in the previous test was that its only route-readiness
+check was coupled to `MainActivity`'s separate `appReady` callback. That
+callback becomes true only after AppGate reports main-content readiness and
+the launch overlay has exited. The phone screenshot proves Home was visible
+before the repeated benchmark attempt, but does not prove which readiness state
+was reached during the later cold launch. This coupling is a plausible source
+of the mismatch, not a proven root cause; the two markers now distinguish the
+Home route from the fully-drawn signal so the next device run can identify
+which stage is missing.
 
 ### New benchmark contract
 
