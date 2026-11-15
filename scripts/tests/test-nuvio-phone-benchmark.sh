@@ -16,6 +16,29 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: self-instrumenting tests must explicitly target the isolated Nuvio benchmark app." >&2
     exit 1
   }
+
+  if [ "$source" = "$BENCHMARK_SOURCE" ]; then
+    grep -Fq 'androidx-benchmark = "1.5.0"' "$ROOT_DIR/gradle/libs.versions.toml" || {
+      echo "FAIL: Startup Insights usage must be checked against the repository's pinned AndroidX Benchmark version." >&2
+      exit 1
+    }
+    grep -Fq 'import androidx.benchmark.ExperimentalConfig;' "$source" || {
+      echo "FAIL: StartupBenchmark must import AndroidX ExperimentalConfig for Startup Insights." >&2
+      exit 1
+    }
+    grep -Fq 'import androidx.benchmark.StartupInsightsConfig;' "$source" || {
+      echo "FAIL: StartupBenchmark must import AndroidX StartupInsightsConfig." >&2
+      exit 1
+    }
+    grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true))' "$source" || {
+      echo "FAIL: both startup comparison arms must enable trace-based Startup Insights without changing the Perfetto config." >&2
+      exit 1
+    }
+    grep -Fq '                STARTUP_INSIGHTS_CONFIG,' "$source" || {
+      echo "FAIL: MacrobenchmarkRule must use the ExperimentalConfig overload in both startup arms." >&2
+      exit 1
+    }
+  fi
   if grep -Fq 'getTargetContext().getPackageName()' "$source"; then
     echo "FAIL: self-instrumenting instrumentation context must not be mistaken for the target app package." >&2
     exit 1
