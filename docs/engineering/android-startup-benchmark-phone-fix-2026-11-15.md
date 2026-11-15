@@ -1000,3 +1000,23 @@ The newest directly relevant, method-described measured case study found in this
 - **TeachmintX, 12 October 2026:** a practitioner report on a physical Android 16 classroom panel measured ten cold starts per configuration: median TTID 2,758 ms with no compilation, 2,253 ms with library profiles and 1,807 ms with the app Baseline Profile. Its managed system-app context differs from Nuvio; its useful lesson is trace-first analysis on the target hardware and release-like builds, not copying its fixes. [Engineering write-up](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/).
 
 Benchmark methodology implication: Sentry's four interleaved 10-run rounds provide a useful way to limit time/order drift compared with two separately executed ten-iteration test methods. Nuvio's runner already preserves per-iteration traces and device-condition snapshots, but separate JUnit methods do not eliminate method-order or thermal drift. Retain TTID and TTFD separately and keep the current ten-sample summaries descriptive. A stronger future authorized comparison should use multiple independent sessions with balanced/reversed arm order on the same physical device, keeping app data, APKs, battery, cooling and idle conditions equivalent. Do not add test-order annotations or change the benchmark until real run evidence demonstrates a specific problem.
+
+
+### ART verification-state fairness across Android API levels — 15 November 2026
+
+A further review found an important limitation in the current A/B design that depends on the Android API level:
+
+- Nuvio permits API 33 and later in `scripts/nuvio-phone-benchmark.sh`.
+- In the repository-pinned AndroidX Benchmark 1.5.0 implementation of `CompilationMode.None`, API 34+ runs `cmd package compile verify` and clears the app's ART profiles before measurement. This puts the no-AOT control in a verified-but-not-profile-compiled state, which is materially closer to a Play-installed app than a raw sideload.
+- On pre-34 user builds, the same implementation falls back to uninstall/reinstall to reset compilation state. It does not explicitly issue the `verify` compilation command in that path. Nuvio's phone runner installs APKs directly with `pm install`, so API 33 results can include ART verification work in the no-compilation arm that a Play install normally completes at install time.
+- This is the same class of confounder described in Expensify's September 2026 investigation: an apparent ~800 ms profile benefit was traced to comparing a raw sideloaded install with an arm whose profile compilation also caused ART verification. Once the baseline was properly verified, the measured difference disappeared for that app. This does not prove Nuvio has the same magnitude or even the same bottleneck, but it makes API 33 results unsuitable for an unqualified Play-user profile-benefit claim.
+- **Reporting rule:** retain API 33 support, but label API 33 results separately as sideload/worst-case measurements. Use API 34+ as the primary comparison for estimating the incremental Baseline Profile effect under a Play-like verification state. Never pool API 33 and API 34+ samples into one headline median. Keep device API in every report.
+- The user device context currently associated with this project is Android 17 / API 37, so it is in the API 34+ branch. That does not substitute for a fresh benchmark run or prove that the app's profile is correctly packaged/applied.
+
+No runner minimum-API change was made: raising it would unnecessarily remove API 33 coverage, and there is no local checkout available to run the full shell regression suite. No timing, Gradle task, build, APK/AAB, profile capture, device benchmark or CI was run.
+
+Sources:
+- [AndroidX Benchmark 1.5.0 CompilationMode.kt at the pinned source commit](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt) — API 34+ verify reset versus pre-U uninstall/reinstall fallback.
+- [Expensify: Ship an ART Baseline Profile](https://github.com/Expensify/App/issues/99839) — September 2026 correction of a false ~800 ms profile win caused by unequal ART verification states.
+- [Android Developers: Benchmark Baseline Profiles with Macrobenchmark](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) — intended meaning of None and Partial compilation modes, and recommendation to compare TTID and TTFD.
+
