@@ -510,3 +510,44 @@ References:
 - The remote phone-runner test fixture and metric-contract script now cover these cases. The complete repository regression script was not run end-to-end in this environment because the container could not resolve GitHub for a checkout. Static remote source checks and the isolated fixture checks are not a substitute for running that full script on the branch.
 - No Gradle task, APK build, device instrumentation run, Macrobenchmark, or GitHub Actions workflow was started.
 - The work improves measurement integrity and diagnostic context only. No Nuvio startup improvement, profile speedup, or statistical confidence claim is made. A new authorized physical-device run is still required to collect real TTID/TTFD data.
+
+## Generated Baseline Profile content validation — 2026-11-15
+
+### Improvement cycle 1 — phone collection cannot accept an empty profile
+
+The phone runner previously considered profile collection complete when it copied any matching profile text file. That could accept a zero-byte `baseline-prof` file (or a whitespace-only file) as a successful collection.
+
+- Added a post-copy validation step for `*baseline-prof*.txt` files.
+- At least one `baseline-prof` file must be present.
+- Every copied `baseline-prof` file must be non-empty and contain at least one non-whitespace character.
+- `startup-prof` remains optional; the check does not incorrectly require a Startup Profile on every supported API level.
+- The phone-runner fixture now simulates valid, empty and whitespace-only baseline profile outputs for both Full and Play Store variants. Empty and whitespace-only results must fail with a specific diagnostic before the runner reports collection complete.
+
+### Improvement cycle 2 — desktop collection checks the same source artifact
+
+The desktop runner previously checked only that the generated-profiles listing contained a filename called `baseline-prof.txt`. A zero-byte or whitespace-only text file could therefore pass the profile preflight and proceed to the A/B benchmark.
+
+- It now resolves the actual `baseline-prof.txt` path in the expected `src/<flavor>NonMinifiedRelease/generated/baselineProfiles` folder.
+- It rejects missing, zero-byte and whitespace-only profile content before starting either flavor's Macrobenchmark.
+- The existing source regression now guards the explicit path resolution, non-zero file check and non-whitespace content check.
+
+### Source basis
+
+- AndroidX Baseline Profile's producer `CollectBaselineProfileTask` collects the profile artifacts from instrumentation results and copies matching human-readable `*-baseline-prof-*.txt` / `*-startup-prof-*.txt` outputs. It does not itself reject an empty baseline-profile text file.
+- AndroidX's Baseline Profile Gradle plugin enables the `noBaselineProfileRulesGenerated` warning by default, but that warning is not a replacement for the phone/desktop runner's own fail-closed acceptance check.
+- Android's Baseline Profile documentation distinguishes human-readable source rules from the compiled binary `assets/dexopt/baseline.prof` consumed by ART. A file's presence alone is not proof that any rules were collected.
+- The existing workflow still independently checks that each benchmark APK contains a non-empty compiled `assets/dexopt/baseline.prof` below the documented 1.5 MiB limit. This new check closes the earlier source-profile hand-off gap; it does not replace the APK-level check.
+
+References:
+- https://github.com/androidx/androidx/blob/e70f5406a4fa24bd3c2dfb27832ab5fa87c9c5c6/benchmark/baseline-profile-gradle-plugin/src/main/kotlin/androidx/baselineprofile/gradle/producer/tasks/CollectBaselineProfileTask.kt
+- https://github.com/androidx/androidx/blob/e70f5406a4fa24bd3c2dfb27832ab5fa87c9c5c6/benchmark/baseline-profile-gradle-plugin/src/main/kotlin/androidx/baselineprofile/gradle/utils/WarningsExtension.kt
+- https://developer.android.com/topic/performance/baselineprofiles/overview
+- https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+
+### Verification boundary
+
+- A focused local POSIX-shell fixture accepted one non-empty baseline rule and rejected a zero-byte and a whitespace-only profile with the intended diagnostic.
+- The desktop preflight assertions were checked against the added path, file-size and non-whitespace guards; the isolated assertion script passed `sh -n`.
+- The phone regression fixture now contains the full two-flavor negative cases, but the repository's complete `test-nuvio-phone-benchmark.sh` was not executed end-to-end here because the repository checkout is unavailable in the local shell environment. The GitHub file reads confirm the updated fixture and runner are present.
+- No Gradle build, APK build, device instrumentation, profile generation, Macrobenchmark, GitHub Actions workflow or CI run was started.
+- This change improves profile-capture evidence integrity only. It does not claim the new phone-collected candidate rules are packaged into the existing APK or that startup speed improved.
