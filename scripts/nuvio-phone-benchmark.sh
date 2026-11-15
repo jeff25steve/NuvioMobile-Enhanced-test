@@ -417,7 +417,7 @@ validate_macrobenchmark_statistics() {
 
 extract_macrobenchmark_trace_filenames() {
   awk '
-    { json = json $0 "\\n" }
+    { json = json $0 "\n" }
     END {
       remaining = json
       array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
