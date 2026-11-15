@@ -2,7 +2,6 @@
 # Phone-only Nuvio startup benchmark runner for LADB / Android shell.
 # Keep this script and all eight arm64-v8a APKs in the same Downloads folder.
 set -eu
-[ "${NUVIO_BENCHMARK_TRACE:-0}" = "1" ] && set -x
 
 APP_PACKAGE="com.nuvio.media.benchmark"
 TEST_PACKAGE="com.nuvio.android.baselineprofile"
