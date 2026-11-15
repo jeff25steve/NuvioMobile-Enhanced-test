@@ -1,11 +1,8 @@
 name: Android Startup Profile Benchmark Builds
 
-# One-time authorized build trigger. Restored to manual-only immediately after dispatch.
+# Manual-only: source pushes never start an Android build.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main-build-testing
 
 permissions:
   contents: read
@@ -16,7 +13,6 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'ci: one-time authorized benchmark bundle build'
     name: Build phone-ready R8 and profile-capture APKs
     runs-on: ubuntu-latest
     timeout-minutes: 150
