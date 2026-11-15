@@ -395,3 +395,32 @@ References:
 The metric-contract shell regression was checked with a temporary local fixture: `sh -n` passed, the positive fixture containing both annotated test methods and both metric log guards passed, and a negative fixture with the Baseline Profile test removed failed with the expected targeted message. The test uses `awk` to associate each `@Test` annotation with the following method because POSIX `grep` processes source one line at a time; this avoids a false assumption that a grep expression can match the annotation and method across separate lines.
 
 This fixture check validates the regression script's logic, not Kotlin/Java compilation or the actual Android instrumentation runner. No Gradle task, build, device test or GitHub Actions run was executed.
+## Follow-up: regression deduplication and per-flavor fail-fast metrics — 2026-11-15
+
+### Improvement cycle 1 — workflow preflight executes each regression once
+
+The live workflow had two adjacent invocations of `test-android-startup-metric-contract.sh`. This was redundant and made preflight behavior harder to reason about. The metric-contract regression now reads the workflow and requires each of the four source regression scripts (phone runner, bundle assembly, startup readiness and metric contract) to be invoked exactly once. The check was first evaluated against the live workflow and correctly found two invocations on lines 72 and 73. The duplicate line was then removed; the workflow now contains one invocation of each test.
+
+### Improvement cycle 2 — validate startup metrics before running the next flavor
+
+The phone runner previously executed the Full and Play Store Macrobenchmark tasks before checking whether either log actually contained TTID and TTFD. A Full run that omitted `timeToFullDisplayMs` could therefore consume the complete Play Store run before failing.
+
+- Added `require_startup_metrics(label)`, which first requires a non-empty log and then requires both `timeToInitialDisplayMs` and `timeToFullDisplayMs`.
+- The Full validation now runs immediately after the Full connected Macrobenchmark task, before Play Store starts.
+- The Play Store validation runs immediately after the Play Store task.
+- The old deferred two-flavor metric-validation loop was removed. The later summary loop remains only to copy useful benchmark lines into `summary.txt`.
+- Extended the metric-contract regression to verify the helper and the precise order of both run/check pairs.
+
+### Verification
+
+- The new duplicate-invocation assertion correctly failed against the previous workflow state (two matching commands) and passes after the duplicate was removed.
+- The fail-fast assertion correctly failed against the previous runner (no per-flavor validation helper) and the remote source now shows Full run/check at lines 101/105 and Play Store run/check at lines 106/110.
+- Local shell fixtures passed the positive case and rejected two negative cases: duplicate workflow invocation and deferred validation after the Play Store task.
+- Remote source checks confirm both JUnit benchmark methods remain declared, both compilation modes remain intact, TTID/TTFD checks remain required, and all four preflight regression scripts are invoked once.
+- Exa's official Android Developers results confirm the exact `StartupTimingMetric` keys (`timeToInitialDisplayMs` and `timeToFullDisplayMs`) and the min/median/max result fields. Android recommends using the median when comparing startup performance. TTFD is tied to the app's `reportFullyDrawn` signal. References: https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics and https://developer.android.com/reference/androidx/benchmark/macro/StartupTimingMetric.
+- The Context7 `Main` link was explicitly attempted but rejected by the connector as an ineligible linked account. No account switch or Context7 documentation retrieval was successful. These changes are shell/workflow changes; the API metric names were verified against the official Android documentation through Exa.
+- No Gradle build, APK build, device benchmark, or GitHub Actions run was started. The older run [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220) remains associated with earlier commit `8b0ff930519edb047b98cfd675866d934edd56e8`; its last observed state was still in progress during the Play Store R8 build and it had no uploaded artifact. It does not validate the current branch changes.
+
+### Remaining verification boundary
+
+The checks above validate source and shell control-flow fixtures. They do not prove that Gradle's instrumentation output on a physical phone emits both metric keys or that the Java test class compiles on the actual AGP/Benchmark toolchain. That still requires a separately authorized build and device run.
