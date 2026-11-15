@@ -861,3 +861,58 @@ These are independent case studies, not predictions of Nuvio's gain:
 - The exact new shell report function passed a local `sh -n` check and the focused output assertions. The full repository `scripts/tests/test-nuvio-phone-benchmark.sh` was not run end-to-end because this runtime cannot resolve GitHub for a local checkout. The focused fixtures are not represented as a full suite pass.
 - Context7 resolved the AndroidX library and returned Macrobenchmark source/API snippets; the exact CV fields/formula were not present in its matching documentation response. The pinned 1.5.0 behavior was instead checked directly against AndroidX source and the 1.5.0 API release source through Exa.
 - No Gradle task, APK/AAB build, profile generation, Android instrumentation, physical-device Macrobenchmark, workflow dispatch or CI run was started. No Nuvio startup-speed improvement is claimed.
+
+
+## Benchmark reportability and R8 optimization audit — 15 November 2026
+
+### Completed reporting cycle: preserve the measurement-to-trace relationship
+
+The phone runner's `benchmark-summary.txt` now includes:
+
+- AndroidX device context from `benchmarkData.json`: device model, Android API level, CPU core count, maximum reported CPU frequency, whether CPU clocks were locked, total memory, ART Mainline version, sustained-performance-mode state, and OS codename.
+- All ten raw TTID and TTFD samples for each comparison arm.
+- The corresponding `PerfettoTrace` filename for each measured iteration.
+
+This is a reporting-only change. It does not change test order, compilation modes, iteration count, app behavior, scheduling, device clock or thermal settings.
+
+**Why the trace mapping is valid:** the AndroidX source used for the existing 1.5.0 JSON/statistics audit shows `MetricResultExtensions.mergeToSingleMetricResults()` assembling each metric's `runs` list by mapping over the ordered iteration-result list. `Macrobenchmark.kt` derives the per-iteration trace paths from that same ordered list and labels them `Trace Iteration <index>`. Thus the Nth raw sample and trace label N correspond. Source references:
+
+- [AndroidX MetricResultExtensions.kt](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/MetricResultExtensions.kt)
+- [AndroidX Macrobenchmark.kt](https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
+- [AndroidX Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
+
+The regression fixture now checks the device context and each of the 20 iteration/timing/trace rows. A first assertion was confirmed to fail against the previous summary because it had no per-iteration section; focused synthetic AWK fixtures then passed for all 20 rows and the device context. The sample timings remain synthetic test values, not Nuvio measurements. The full repository test script was not run because this environment has no local checkout; no Gradle build, APK/AAB build, device benchmark, profile capture or CI was run.
+
+### Separate speed opportunity: R8 keep-rule impact audit
+
+The live repository configuration was inspected before considering any R8 change:
+
+- `gradle/libs.versions.toml` pins AGP `9.4.0` and AndroidX Benchmark `1.5.0`.
+- The app release build type defaults `releaseMinifyEnabled` to true and sets both `isMinifyEnabled` and `isShrinkResources` from that value.
+- Release uses `proguard-android-optimize.txt` plus `composeApp/proguard-rules.pro`.
+- The repository has one `gradle.properties`; it does not contain `android.enableR8.fullMode=false`.
+- R8 full mode has been the default since AGP 8.0, so Nuvio does not need a redundant flag to enable it. AGP 9.0+ also has optimized resource shrinking enabled by default.
+
+The custom rules include package-wide keeps for Supabase, Ktor, QuickJS, plugin and P2P packages, the Nuvio engine, Media3/ExoPlayer, and mpv, plus generated Compose screen classes. Some rules may protect reflection, dynamic loading or native bridges. Their breadth makes them worth measuring, but their presence alone does not prove that they are harming startup or that removing them is safe. **No keep rule was removed or narrowed.**
+
+The best next evidence-gathering step is the **R8 Configuration Analyzer**. Android's current docs say it is integrated from AGP 9.3 and has a standalone Gradle task that emits an HTML report without assembling an APK or App Bundle. Nuvio's AGP 9.4 meets that version requirement. The Android docs' example task is ` :app:analyzeReleaseR8Config`; Nuvio has an `:androidApp` module, distribution flavors and generated benchmark build types, so the exact variant task names must be discovered rather than guessed. No analyzer task was run in this session.
+
+Review the report for the most impactful broad, duplicated, subsumed or unused rules, identify their originating file/library and the exact classes/members they retain, then replace only rules proven to be overbroad. Validate reflection, serialization, dynamic loading and JNI paths with appropriate release-like smoke tests before comparing startup traces. Do not set score thresholds or introduce CI automation until a baseline report exists.
+
+Official guidance: [R8 full mode](https://developer.android.com/topic/performance/app-optimization/full-mode), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [AGP 9.3 standalone analyzer task](https://developer.android.com/build/releases/agp-9-3-0-release-notes).
+
+### New independent results worth learning from
+
+These are case studies, not forecasts for Nuvio:
+
+- **Grab, 19 October 2026:** reported 12% cold-start improvement from R8 optimization and a further 15% from Baseline/Startup Profiles in its first rollout, then a further 10% startup improvement from R8 full mode. The cumulative reported improvement was 35%. The team used targeted keep rules for reflection and dynamic proxies rather than broad exceptions. [Google Android Developers case study](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time).
+- **Tinder, 18 August 2026:** its R8 Configuration Analyzer found an unscoped keep rule from an in-house library. Optimization score rose from 28% to 50% after narrowing the blocker; Tinder reported 47% fewer users experiencing slow cold starts, 17 to 11 DEX files and a 28.98% download-size reduction. This is particularly relevant because it demonstrates that enabling full mode does not guarantee the codebase is actually optimizable. [Google Android Developers case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer).
+- **Monzo, 30 March 2026:** reported 30% better cold starts, 24% warm starts and 14% hot starts after fully enabling R8 optimizations, with P50/P90 launch improvements of 11%/12%, 9% smaller app size and a 35% lower ANR rate. [Google Android Developers case study](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update).
+
+The common actionable lesson is to combine profile-guided startup optimization with a measured audit of what R8 is actually allowed to shrink and optimize. Nuvio already has minification, the optimized default rules file, Baseline Profile and Startup Profile generation configured. The missing evidence is the analyzer output and artifact-level confirmation of startup DEX layout—not another blanket optimization flag.
+
+### Tool and execution limits
+
+Context7's resolver returned a monthly-quota error during this session. Exact AndroidX source, current Android Developers documentation, Exa research and live GitHub files were used instead. No claim is made that Context7 supplied the documentation for this change.
+
+No build, CI, profile generation or physical-device timing run was started, as requested. There is still no new Nuvio TTID/TTFD measurement or verified startup-speed gain from this work.
