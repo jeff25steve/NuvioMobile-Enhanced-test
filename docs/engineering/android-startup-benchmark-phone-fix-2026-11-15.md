@@ -729,3 +729,14 @@ References:
 - The updated remote phone-runner fixture covers valid trace references, missing trace metadata, missing physical trace output, and empty trace output for both Full and Play Store variants. The full test-nuvio-phone-benchmark.sh was not executed end-to-end against a local checkout in this environment; the focused helper checks and remote source inspection are not a substitute for that full suite.
 - No Gradle task, APK build, profile generation, device instrumentation, physical-device Macrobenchmark, workflow dispatch or CI run was started.
 - This change makes the timing report and trace evidence fail together when the trace set is incomplete. It does not claim any Nuvio startup speedup or change the measured startup path.
+
+
+## Final remote verification — 2026-11-15 16:xx UTC
+
+- Final branch: main-build-testing
+- Final HEAD: 7414622c477599f169bc5480dfdc560ebab6ca19 (fix(benchmark): preserve JSON record boundaries in trace extraction)
+- Comparison from the trace-audit starting checkpoint ad96e564ea8b82a4d64f7de83fb9a5edae13fe63: 5 commits ahead, 0 behind; four changed paths comprise the phone runner, its regression script, and the two existing engineering notes.
+- Comparison from the earlier benchmark checkpoint 629e71e26763a5e738f08355a58f82c57d97c52e: 17 commits ahead, 0 behind; the same six benchmark paths previously audited remain the only changed paths.
+- The benchmark workflow remains workflow_dispatch-only. The latest returned Actions runs are historical runs on earlier SHAs; no Actions run references the final HEAD.
+- The focused shell/AWK reproductions described above were run locally. The complete repository phone-runner test script was not run end-to-end because a local checkout was unavailable.
+- No Gradle build, APK build, device test, physical-device benchmark, workflow dispatch or CI run was started. No startup performance improvement is claimed.
