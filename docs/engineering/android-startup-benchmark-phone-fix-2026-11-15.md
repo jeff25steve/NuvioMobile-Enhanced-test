@@ -25,7 +25,7 @@ self-instrumenting test APK rather than the Nuvio app.
 - Both Baseline Profile generation and Macrobenchmark explicitly target
   `com.nuvio.media.benchmark`, the isolated application ID used by both
   distribution flavors' benchmark build types.
-- The runner automatically stages all eight APKs and itself into
+- The runner automatically stages only the APK pair needed for the selected step, plus itself, into
   `/data/local/tmp/NuvioBenchmark`; users no longer need a separate manual copy
   step to work around Package Manager's inability to install from shared
   Downloads storage.
