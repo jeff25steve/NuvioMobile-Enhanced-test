@@ -67,6 +67,31 @@ grep -Fq 'did not emit $metric' "$PHONE_RUNNER" || {
   exit 1
 }
 
+grep -Fq 'require_startup_metrics() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must centralize the TTID/TTFD validation for each flavor." >&2
+  exit 1
+}
+
+line_of() {
+  grep -n -F -- "$1" "$PHONE_RUNNER" | head -n 1 | cut -d: -f1
+}
+full_run="$(line_of 'run_gradle_step "03-benchmark-full-benchmarkRelease"')"
+full_check="$(line_of 'require_startup_metrics "03-benchmark-full-benchmarkRelease"')"
+playstore_run="$(line_of 'run_gradle_step "04-benchmark-playstore-benchmarkRelease"')"
+playstore_check="$(line_of 'require_startup_metrics "04-benchmark-playstore-benchmarkRelease"')"
+for line in "$full_run" "$full_check" "$playstore_run" "$playstore_check"; do
+  [ -n "$line" ] || {
+    echo "FAIL: phone runner is missing a per-flavor startup result validation point." >&2
+    exit 1
+  }
+done
+[ "$full_run" -lt "$full_check" ] &&
+[ "$full_check" -lt "$playstore_run" ] &&
+[ "$playstore_run" -lt "$playstore_check" ] || {
+  echo "FAIL: each flavor's TTID/TTFD output must be validated before the next flavor starts." >&2
+  exit 1
+}
+
 # Every source regression must run exactly once in the pre-build workflow.
 for test_script in \
   test-nuvio-phone-benchmark.sh \
