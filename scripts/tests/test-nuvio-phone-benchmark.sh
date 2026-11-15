@@ -75,6 +75,18 @@ if grep -Fq 'generateFullReleaseBaselineProfile' "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner must not capture profiles using the production release variant." >&2
   exit 1
 fi
+grep -Fq 'baseline_profile_file="$(find "$profile_dir" -maxdepth 1 -type f -name \'baseline-prof.txt\' -print -quit)"' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must resolve the generated baseline profile file explicitly." >&2
+  exit 1
+}
+grep -Fq '[[ -s "$baseline_profile_file" ]]' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must reject an empty generated baseline profile." >&2
+  exit 1
+}
+grep -Fq 'grep -Eq '\''[^[:space:]]'\'' "$baseline_profile_file"' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must reject a whitespace-only generated baseline profile." >&2
+  exit 1
+}
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 BUNDLE="$TMP/bundle"
