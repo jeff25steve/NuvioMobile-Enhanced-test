@@ -227,20 +227,28 @@ open class MainActivity : AppCompatActivity() {
             }
             val sheetBackdropSource = rememberNuvioBackdrop()
             val sheetBackdrop = remember(sheetBackdropSource) { NuvioSheetBackdrop(sheetBackdropSource) }
+            // Keep the resource-id mapping on an ancestor semantics node. Compose
+            // exposes testTag as AccessibilityNodeInfo.viewIdResourceName only for
+            // descendants of the node that enables testTagsAsResourceId.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .semantics { testTagsAsResourceId = true }
-                    .then(
-                        if (appReady.value) {
-                            Modifier.testTag("nuvio_startup_ready")
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .semantics { testTagsAsResourceId = true },
             ) {
-                NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
-                    App(onAppReady = { ready -> appReady.value = ready })
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (appReady.value) {
+                                Modifier.testTag("nuvio_startup_ready")
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
+                    NuvioSheetBackdropHost(sheetBackdrop = sheetBackdrop) {
+                        App(onAppReady = { ready -> appReady.value = ready })
+                    }
                 }
             }
         }
