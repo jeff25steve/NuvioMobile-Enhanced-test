@@ -63,4 +63,4 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   fi
 done
 
-printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; diagnostics cannot fail on malformed accessibility text.\\n'
+printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; diagnostics cannot fail on malformed accessibility text.\n'
