@@ -103,6 +103,22 @@ grep -Fq 'validate_macrobenchmark_statistics "$result_file"' "$PHONE_RUNNER" || 
   echo "FAIL: phone runner must apply metric-statistics validation to the copied result file." >&2
   exit 1
 }
+grep -Fq 'capture_device_environment() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must record the device conditions surrounding Macrobenchmark." >&2
+  exit 1
+}
+grep -Fq 'capture_device_environment before' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must capture device conditions before Macrobenchmark." >&2
+  exit 1
+}
+grep -Fq 'capture_device_environment after' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must capture device conditions after Macrobenchmark." >&2
+  exit 1
+}
+grep -Fq 'environment-before.txt' "$PHONE_RUNNER" && grep -Fq 'environment-after.txt' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must identify both device-condition snapshot files." >&2
+  exit 1
+}
 for result_name in startupNoCompilation startupWithBaselineProfile; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
