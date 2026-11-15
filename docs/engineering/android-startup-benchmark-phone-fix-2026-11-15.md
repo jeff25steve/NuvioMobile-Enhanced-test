@@ -261,3 +261,18 @@ References:
 - https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
 - https://developer.android.com/topic/performance/baselineprofiles/difference-baseline-startup
 - https://developer.android.com/build/configure-apk-splits
+
+
+### Final regression-fixture correction and current build
+
+The first post-audit CI attempts exposed a test-fixture issue, not an APK compile failure: the signing-recovery test deleted its staged APK directory and then asserted that files from the earlier full/playstore test journeys were still present. The fixture now preserves that staged directory while resetting only its output folder. The package-manager error is captured explicitly so the recovery branch is tested under `set -e`.
+
+The corrected validation step passed in workflow run
+[43672203091](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43672203091):
+- shell syntax checks passed for both phone and desktop runners
+- Home/fully-drawn readiness regression passed
+- arm64-only device guard passed in the simulated phone test
+- signing-conflict recovery passed, with only benchmark/test packages removed
+- existing instrumentation and output-export assertions passed
+
+The same run has proceeded to build the full profile-capture APK pair. Its Play Store profile pair, both R8 benchmark pairs, APK ABI/profile checks, checksum verification and artifact upload are still pending. The workflow is manual-only again; the temporary push trigger was removed immediately after the run started.
