@@ -413,6 +413,15 @@ for flavor in full playstore; do
   grep -Fq 'descriptive only' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToInitialDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+  for iteration in 0 1 2 3 4 5 6 7 8 9; do
+    no_ttid=$((400 + iteration * 10))
+    no_ttfd=$((700 + iteration * 10))
+    profile_ttid=$((330 + iteration * 10))
+    profile_ttfd=$((610 + iteration * 10))
+    grep -Fq "Iteration $iteration: TTID $no_ttid.0 ms | TTFD $no_ttfd.0 ms | trace startupNoCompilation-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
+    grep -Fq "Iteration $iteration: TTID $profile_ttid.0 ms | TTFD $profile_ttfd.0 ms | trace startupWithBaselineProfile-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
+  done
   grep -Fq -- '-70.0 ms (-15.7%)' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq -- '-90.0 ms (-12.1%)' "$benchmark_result_dir/benchmark-summary.txt"
   if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
