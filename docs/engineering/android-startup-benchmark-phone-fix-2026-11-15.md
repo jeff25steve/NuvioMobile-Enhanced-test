@@ -1042,3 +1042,31 @@ Additional current research reviewed:
 - [Android Developers — Startup Profiles and DEX layout](https://developer.android.com/topic/performance/startupprofiles/dex-layout-optimizations): Startup Profiles improve DEX layout; AGP enables DEX layout optimization by default since 8.3. Nuvio is already on AGP 9.4.0, so adding a redundant flag is not a valid optimization. The remaining concrete artifact check is whether startup-critical code fits in primary `classes.dex`.
 
 No Gradle task, build, APK/AAB, profile capture, physical-device benchmark, Actions dispatch or CI was run. The updated regression test was not executed in this environment. GitHub read-back confirmed the runner, fixture and both notes contain the committed changes; the branch comparison shows no commits behind the starting checkpoint. No Nuvio startup-speed gain is claimed.
+
+
+## Deeper Startup Profile and R8 configuration audit — 15 November 2026
+
+### Confirmed source facts
+
+- The generator collects 15 maximum iterations / 3 stable iterations, includes the launcher-to-fully-drawn path in the Startup Profile, and uses an unfiltered rule predicate. The checked-in app Baseline Profile text file is 1,409,345 bytes according to the Git tree metadata.
+- Android's API reference says `filterPredicate` filters individual rules, defaults to no filtering and only works when target app code is not obfuscated. Its package-restricted example is specifically for a library-only profile. Since Nuvio's profile capture is against its non-minified variant, there is no evidence that the current unfiltered predicate is a bug. Filtering to `com.nuvio` could remove dependency code needed during startup.
+- The compiled `baseline.prof` must remain below 1.5 MB; the human-readable 1,409,345-byte text file is not that binary and must not be judged against the binary limit.
+- Startup Profile inclusion is correctly restricted to the initial launcher-to-ready journey. The unresolved artifact question is whether R8 actually placed the startup partition in primary `classes.dex`. Android supports verification through APK Analyzer or, for AGP 8.8+, the AAB `BUNDLE-METADATA/com.android.tools/r8.json` metadata with a `startup: true` DEX entry.
+- Nuvio pins AGP 9.4.0, which meets the AGP 9.3+ requirement for the standalone R8 Configuration Analyzer task. The official task skips APK/AAB packaging and produces an HTML report; it is a more direct next diagnostic than manually guessing at keep-rule impact.
+- Static keep-rule inspection identified broad package-wide app rules in `composeApp/proguard-rules.pro` for Supabase, Ktor, Media3, legacy ExoPlayer, MPV, QuickJS, plugin, P2P and engine packages. These are candidates for analyzer quantification only. Some may be needed for reflection, JNI, serializers or dynamic plugin loading, so no rule was edited.
+
+### Concrete next sequence
+
+1. Run the standalone R8 Configuration Analyzer for both minified distribution release variants and inspect the largest in-app rules by blocked optimization/shrinking impact. This task does not package an APK/AAB, but it is a Gradle task and was not run in this no-build/no-CI session.
+2. Only refine a rule if the report shows a material in-app impact and the corresponding reflection/JNI/serialization contract can be preserved with narrower members.
+3. In the next authorized artifact build, inspect AAB `r8.json` for a DEX marked `startup: true`, and cross-check the DEX checksum against the actual packaged DEX. Alternatively inspect the APK's DEX layout with Android Studio APK Analyzer.
+4. Then use the same physical device and account to compare before/after TTID and TTFD across repeated independent sessions, retaining per-iteration traces and thermal snapshots. Do not accept a median-only win.
+
+### Practitioner evidence
+
+- Monzo (30 March 2026) reported 30% cold-start, 24% warm-start and 14% hot-start improvements after enabling R8 optimizations, with P50/P90 launch improvements of 11%/12%.
+- Tinder (18 August 2026) reported a 47% reduction in slow cold starts after using R8 Configuration Analyzer to find and refine an overly broad in-house keep rule. The result is for the slow-start cohort, not a universal median.
+- Grab (19 October 2026) reported a cumulative 35% startup improvement across R8, Baseline/Startup Profiles and keep-rule refinement; multiple interventions in a large super-app mean this is not a Nuvio forecast.
+- P.Y. Ricau's benchmark analysis shows why iteration order and per-iteration traces matter: thermal throttling can create multimodal results, and warm-up/cache effects can create long tails. Nuvio's existing 10-iteration report is suitable for screening, not a statistically strong final claim.
+
+No application source, keep rule, profile generator, iteration count or test order was changed. No standalone analyzer Gradle task, build, APK/AAB generation, profile collection, device benchmark, workflow dispatch or CI was run. No Nuvio performance gain is claimed.
