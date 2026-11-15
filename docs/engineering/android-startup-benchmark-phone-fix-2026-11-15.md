@@ -464,3 +464,48 @@ References:
 - https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt
 - https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics
 - https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
+
+## Benchmark evidence quality improvements — 2026-11-15
+
+### Improvement cycle 1 — validate every measured startup sample
+
+The phone runner previously checked that the two result names and TTID/TTFD keys appeared in `benchmarkData.json`, but did not verify the actual sample arrays or repeat count. An incomplete JSON result could therefore contain both metric names while one metric had fewer than the ten requested iteration samples.
+
+The runner now parses the AndroidX Macrobenchmark result shape using the Android shell's existing POSIX `awk`:
+
+- Requires exactly one `startupNoCompilation` and one `startupWithBaselineProfile` record, both under `com.nuvio.android.baselineprofile.StartupBenchmark`.
+- Requires `repeatIterations=10` on both records.
+- Requires exactly two metric objects for each of `timeToInitialDisplayMs` and `timeToFullDisplayMs`.
+- Requires each metric to include exactly ten positive numeric `runs` samples.
+- Requires positive `minimum`, `median`, and `maximum` values with `minimum <= median <= maximum).
+- Checks every sample is within the reported range and that the sample extrema equal the reported minimum and maximum.
+
+The fake Macrobenchmark output was upgraded from an empty results array to a realistic two-result JSON fixture. Negative cases now cover empty/missing result data, wrong repeat count, nine samples, missing sample arrays, non-numeric samples, and inconsistent statistics.
+
+### Improvement cycle 2 — retain device conditions around the measurement
+
+Each Macrobenchmark run now writes `environment-before.txt` and `environment-after.txt` in its run directory. These snapshots capture the model and API level; Android battery status, charge/power source, level, voltage and temperature; the first 80 lines of the thermal service report; battery-saver state; and display brightness mode/value.
+
+This is diagnostic-only. The runner does not modify brightness, power mode, thermal state, network state, CPU frequencies, or app state. Snapshot collection is best-effort so unavailable Android diagnostic commands cannot replace a successful or failed instrumentation result. The regression fixture now models both normal device readings and diagnostics that return errors.
+
+### Context7 and Exa findings applied
+
+- Context7 retrieved AndroidX Benchmark JSON source and confirmed the `BenchmarkData.TestResult` shape: `name`, `className`, `repeatIterations`, and a metrics map. Its single-metric result includes `minimum`, `maximum`, `median`, and the per-iteration `runs` array.
+- Context7 also retrieved the Macrobenchmark Java API overload including a separate setup block and measure block, and the Baseline Profile collection API's stability and rule-filter parameters. No app journey or profile collection API was changed in this pass.
+- Exa's official Android Benchmark-in-CI documentation independently shows the JSON device-context and result schema, including `repeatIterations`, metric runs and summary values.
+- Exa's official Android environment guidance recommends a charged device, no competing background apps, stable network conditions when networking is measured, fixed display brightness and stable temperature. The new snapshots preserve several of those conditions for later interpretation; they do not enforce them.
+
+References:
+- https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt
+- https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt
+- https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci
+- https://developer.android.com/topic/performance/appstartup/setup-env
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics
+
+### Verification boundary
+
+- The AWK validator was executed locally against a representative two-result AndroidX JSON fixture. The complete fixture passed; a whitespace-formatted fixture also passed. Separate negative fixtures were rejected for a short sample array, wrong repeat count, inconsistent minimum/median/maximum, missing runs, and non-numeric samples.
+- The device-snapshot helper was exercised locally in an isolated POSIX shell with stubbed `getprop`, `dumpsys`, and `settings` commands. Normal battery/thermal readings were retained, and simulated diagnostic-command failures still produced snapshots without stopping the helper.
+- The remote phone-runner test fixture and metric-contract script now cover these cases. The complete repository regression script was not run end-to-end in this environment because the container could not resolve GitHub for a checkout. Static remote source checks and the isolated fixture checks are not a substitute for running that full script on the branch.
+- No Gradle task, APK build, device instrumentation run, Macrobenchmark, or GitHub Actions workflow was started.
+- The work improves measurement integrity and diagnostic context only. No Nuvio startup improvement, profile speedup, or statistical confidence claim is made. A new authorized physical-device run is still required to collect real TTID/TTFD data.
