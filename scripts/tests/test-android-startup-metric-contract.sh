@@ -83,6 +83,26 @@ grep -Fq 'require_macrobenchmark_result_data() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the exported Macrobenchmark JSON before reporting success." >&2
   exit 1
 }
+grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
+  exit 1
+}
+grep -Fq 'expected_iterations = 10' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must match the ten requested iterations." >&2
+  exit 1
+}
+grep -Fq 'sample_count != expected_iterations' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must reject missing startup samples." >&2
+  exit 1
+}
+grep -Fq 'minimum + 0 > median + 0 || median + 0 > maximum + 0' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must reject inconsistent minimum/median/maximum values." >&2
+  exit 1
+}
+grep -Fq 'validate_macrobenchmark_statistics "$result_file"' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must apply metric-statistics validation to the copied result file." >&2
+  exit 1
+}
 for result_name in startupNoCompilation startupWithBaselineProfile; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
