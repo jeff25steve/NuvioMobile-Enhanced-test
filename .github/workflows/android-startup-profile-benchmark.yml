@@ -126,7 +126,18 @@ jobs:
               test_apk="$(find baselineProfile/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/$variant/*" -print | head -n 1)"
               [[ -n "$app_apk" ]] || { echo "Missing $flavor/$variant app APK." >&2; exit 1; }
               [[ -n "$test_apk" ]] || { echo "Missing $flavor/$variant test APK." >&2; exit 1; }
-              if [[ "$variant" == "nonMinifiedRelease" ]]; then output_variant="NonMinifiedRelease"; else output_variant="BenchmarkRelease"; fi
+              [[ -s "$app_apk" ]] || { echo "Empty $flavor/$variant app APK." >&2; exit 1; }
+              [[ -s "$test_apk" ]] || { echo "Empty $flavor/$variant test APK." >&2; exit 1; }
+              if [[ "$variant" == "nonMinifiedRelease" ]]; then
+                output_variant="NonMinifiedRelease"
+              else
+                output_variant="BenchmarkRelease"
+                profile_bytes="$(unzip -p "$app_apk" assets/dexopt/baseline.prof 2>/dev/null | wc -c | tr -d ' ' || true)"
+                [[ "$profile_bytes" =~ ^[0-9]+$ ]] || { echo "Could not inspect $flavor packaged Baseline Profile." >&2; exit 1; }
+                (( profile_bytes > 0 )) || { echo "$flavor benchmark APK has no packaged assets/dexopt/baseline.prof; BaselineProfileMode.Require would not be a valid comparison." >&2; exit 1; }
+                (( profile_bytes < 1572864 )) || { echo "$flavor packaged Baseline Profile is at least 1.5 MiB ($profile_bytes bytes)." >&2; exit 1; }
+                printf '%s benchmark APK contains %s bytes of compiled Baseline Profile.\\n' "$flavor" "$profile_bytes"
+              fi
               cp "$app_apk" "phone-benchmark/Nuvio-$flavor-$output_variant.apk"
               cp "$test_apk" "phone-benchmark/Nuvio-$flavor-$output_variant-Tests.apk"
             done
@@ -134,6 +145,12 @@ jobs:
 
           cp scripts/nuvio-phone-benchmark.sh phone-benchmark/
           cp scripts/run-android-startup-profile-benchmark.sh phone-benchmark/
+          test "$(find phone-benchmark -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 8 || {
+            echo "Phone bundle must contain exactly eight APKs (four app/test pairs)." >&2
+            exit 1
+          }
+          test -s phone-benchmark/nuvio-phone-benchmark.sh
+          test -s phone-benchmark/START-HERE.txt
           cat > phone-benchmark/START-HERE.txt <<'EOF'
           NUVIO ANDROID STARTUP PROFILE / BENCHMARK — PHONE-ONLY BUNDLE
 
@@ -206,8 +223,16 @@ jobs:
           signal causes the test to fail rather than count as a successful launch.
           EOF
 
-          find phone-benchmark -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > phone-benchmark/SHA256SUMS.txt
-          find phone-benchmark -maxdepth 2 -type f -printf '%p (%s bytes)\n' | sort
+          (
+            cd phone-benchmark
+            find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
+          test "$(find phone-benchmark -maxdepth 1 -type f | wc -l)" -eq 12 || {
+            echo "Phone bundle must contain eight APKs, two scripts, START-HERE.txt and SHA256SUMS.txt." >&2
+            exit 1
+          }
+          find phone-benchmark -maxdepth 1 -type f -printf '%f (%s bytes)\\n' | sort
 
       - name: Upload phone-ready benchmark APK bundle
         uses: actions/upload-artifact@v7
