@@ -121,10 +121,41 @@ cat > "$TMP/bin/am" <<'STUB'
 #!/bin/sh
 printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
-  *macrobenchmark*) mkdir -p "$FAKE_MEDIA_DIR"; printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
-  *BaselineProfile*) mkdir -p "$FAKE_MEDIA_DIR"; printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt" ;;
+  *macrobenchmark*)
+    mkdir -p "$FAKE_MEDIA_DIR"
+    for test_name in startupNoCompilation startupWithBaselineProfile; do
+      if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
+        printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
+        printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
+        printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
+      fi
+    done
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
+      complete)
+        cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<'JSON'
+{"benchmarks":[{"className":"com.nuvio.android.baselineprofile.StartupBenchmark","name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"minimum":400,"median":420,"maximum":450},"timeToFullDisplayMs":{"minimum":700,"median":730,"maximum":780}}},{"className":"com.nuvio.android.baselineprofile.StartupBenchmark","name":"startupWithBaselineProfile","metrics":{"timeToInitialDisplayMs":{"minimum":330,"median":350,"maximum":380},"timeToFullDisplayMs":{"minimum":610,"median":640,"maximum":690}}}]}
+JSON
+        ;;
+      empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
+      missing-profile)
+        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      missing-ttfd)
+        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1}}},{"name":"startupWithBaselineProfile","metrics":{"timeToInitialDisplayMs":{"median":1}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      one-arm-metrics)
+        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}},{"name":"startupWithBaselineProfile","metrics":{}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
+    esac
+    echo 'OK (2 tests)'
+    ;;
+  *BaselineProfile*)
+    mkdir -p "$FAKE_MEDIA_DIR"
+    printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/fake-baseline-prof-test.txt"
+    echo 'OK (1 test)'
+    ;;
 esac
-echo 'OK (1 test)'
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
@@ -153,6 +184,30 @@ for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" >/dev/null
   test -n "$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
+
+  for missing_case in startupNoCompilation startupWithBaselineProfile; do
+    if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
+      echo "FAIL: Macrobenchmark accepted a run missing $missing_case." >&2
+      exit 1
+    fi
+    grep -Fq "did not execute required comparison case '$missing_case'" "$TMP/$flavor-$missing_case.log" || {
+      echo "FAIL: missing-case rejection did not identify $missing_case." >&2
+      cat "$TMP/$flavor-$missing_case.log" >&2
+      exit 1
+    }
+  done
+
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics; do
+    if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
+      echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
+      exit 1
+    fi
+    grep -Eq 'Macrobenchmark JSON|benchmarkData.json' "$TMP/$flavor-$bad_json.log" || {
+      echo "FAIL: incomplete JSON rejection did not identify the result-data gap ($bad_json)." >&2
+      cat "$TMP/$flavor-$bad_json.log" >&2
+      exit 1
+    }
+  done
 done
 
 # Verify the signing-key recovery path uninstalls only the isolated benchmark
