@@ -1,10 +1,8 @@
 name: Android Startup Profile Benchmark Builds
 
-# Temporary one-time push trigger for the verified phone-bundle build; restore to workflow_dispatch immediately.
+# Manual-only: source pushes never start an Android build.
 on:
-  push:
-    branches:
-      - main-build-testing
+  workflow_dispatch:
 
 permissions:
   contents: read
