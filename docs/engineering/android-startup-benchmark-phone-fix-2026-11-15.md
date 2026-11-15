@@ -795,3 +795,69 @@ References:
 - The complete `scripts/tests/test-nuvio-phone-benchmark.sh` was not run end-to-end; this environment has no local repository checkout. The focused shell reproduction is not a substitute for that complete regression script.
 - Context7 resolution for AndroidX Benchmark 1.5.0 was attempted but the connector returned a quota-exhausted response. No Kotlin, Android API, library or dependency code was changed; the shell-only fix was grounded against AOSP and AndroidX source fetched through Exa.
 - No Gradle task, APK build, profile-generation run, device instrumentation, physical-device Macrobenchmark, GitHub Actions workflow dispatch or CI run was started. No app startup speedup is claimed.
+
+
+## Follow-up audit — startup variability reporting and industry evidence (15 November 2026)
+
+### Improvement cycle 1 — validate AndroidX coefficient of variation
+
+**Confirmed gap**
+
+- AndroidX Benchmark 1.5.0's `BenchmarkData.TestResult.SingleMetricResult` serializes `coefficientOfVariation` alongside `minimum`, `maximum`, `median` and the raw `runs` array.
+- The phone runner already checked that all ten samples were positive, that the reported extrema matched the samples, and that the reported median matched AndroidX's interpolated P50. It did not verify the serialized coefficient of variation (CV).
+- A malformed or stale CV value could therefore pass the runner while reporting a misleading impression of run stability.
+
+**Change**
+
+- The validator now requires one numeric, non-negative `coefficientOfVariation` for each TTID/TTFD metric.
+- It independently recomputes CV from the ten raw samples using AndroidX's formula: sample standard deviation (denominator `n - 1`) divided by arithmetic mean.
+- The recomputed and reported CV values are compared with a small floating-point serialization tolerance. Missing, negative, non-numeric, or inconsistent CV values fail closed.
+- No arbitrary CV pass/fail threshold was introduced. CV is displayed as a measure of spread, not used to reject a run merely because its device conditions are noisy.
+
+**Source basis**
+
+- AndroidX Benchmark 1.5.0 JSON schema: `BenchmarkData.TestResult.SingleMetricResult` includes `coefficientOfVariation`: https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt
+- AndroidX calculation: `MetricResult.kt` computes sample standard deviation with denominator `size - 1`, then `coefficientOfVariation = standardDeviation / mean`: https://android.googlesource.com/platform/frameworks/support/+/b7a21ae178189e339dd750865f86fae3219f0101/benchmark/benchmark-common/src/main/java/androidx/benchmark/MetricResult.kt
+
+### Improvement cycle 2 — produce a human-readable, properly qualified report
+
+**Confirmed gap**
+
+- After a successful phone run, the output contained the JSON, per-iteration traces, instrumentation log, environment snapshots and a copied-files manifest, but no concise report comparing both startup arms.
+- That made users inspect JSON manually and encouraged interpreting a median difference without seeing the sample spread or a warning about the small sample count.
+
+**Change**
+
+- The phone runner now creates `benchmark-summary.txt` after JSON/statistics/trace validation.
+- For each of TTID and TTFD, the report shows the no-compilation and Baseline-Profile medians, observed minimum/maximum, CV percentage, and the descriptive median difference in milliseconds and percent.
+- The report explicitly says that ten iterations do not establish statistical significance and that a median difference alone is not grounds to claim a speedup. It points the reader to per-iteration traces for skew, thermal throttling and warm-up effects.
+- The generated report is included in the output manifest and printed in the LADB session.
+- The report does not automatically remove outliers, prescribe an unsupported CV threshold, or claim a statistically significant result.
+
+### What other Android teams measured and learned
+
+These are independent case studies, not predictions of Nuvio's gain:
+
+- **Android Calendar (official Google case study):** controlled releases across a broad device population reported median interactive startup falling from 775 ms to 644 ms (17%), cold startup from 1,058 ms to 901 ms (15%), warm startup from 453 ms to 378 ms (17%), and 42–60% fewer janky frames in the measured views. The team chose profile journeys based on common schedule/month entry points and user data. https://developer.android.com/topic/performance/baselineprofiles/case-study-android-calendar
+- **Todoist / Doist:** the phone app's median startup improved by 22.95% (328 ms); the Wear OS app improved by 13.94% (about 268 ms). The engineer used Macrobenchmark and cross-checked the results statistically. The measured effect differed by form factor. https://www.doist.dev/android-app-baseline-profiles/
+- **Duolingo:** reported approximately 30% production startup improvement and 25–40% in Macrobenchmark results. Their investigation found invalid profiles after DEX files were modified during packaging, plus a third-party library compressing profile files. Their side-loaded-profile experiment looked promising but did not reflect the final shipped artifact. This supports validating the packaged profile rather than trusting the generated text file alone. https://blog.duolingo.com/slashed-android-startup-time-baseline-profiles/
+- **ONCOassist:** an engineer reported ten physical-device cold starts on a Pixel 7 Pro (Android 16): TTID median 500.8 ms without a Baseline Profile versus 427.1 ms with one (14.7%). This is a particularly close comparison-method example, but still a single app/device result, not a target for Nuvio. https://shaheer.blog/how-we-measured-our-android-cold-start-and-got-15-back-from-a-text-file/
+- **Statistical interpretation (Block/Square engineering):** Jetpack Macrobenchmark is nondeterministic; thermal throttling, CPU-frequency changes and warm-up can create separate modes or long tails. The author recommends inspecting iteration order and Perfetto traces, not blindly dropping outliers. One proposed 95% confidence-interval method requires normality checks, more than 30 iterations per arm and a variance ratio no greater than two. That is a particular method with assumptions, not a universal Android threshold. https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks
+
+### Startup Profile / DEX-layout audit — no redundant setting added
+
+- The live Nuvio generator calls `BaselineProfileRule.collect(..., includeInStartupProfile = true, strictStability = true, filterPredicate = rule -> true, ...)`. Android's API reference confirms the first boolean is `includeInStartupProfile`; the second requests strict profile stability. The journey is the launcher start through fully ready Home, which is the intended startup path.
+- The project pins Android Gradle Plugin 9.4.0. Android's Startup Profile documentation says DEX layout optimization has been enabled by default since AGP 8.3; explicitly adding the older opt-in flag would be redundant here. R8/minification is part of the optimized benchmark/release variant setup already recorded above.
+- Android documents Startup Profiles as a build-time DEX-layout optimization (not a separate `startup.prof` packaged for ART) and reports that they can add 15–30% startup improvement over Baseline Profiles alone. This is an ecosystem result, not a Nuvio measurement: https://developer.android.com/topic/performance/startupprofiles/dex-layout-optimizations?hl=en
+- The correct verification is the built artifact's DEX layout. For AGP 8.8+, Android documents `r8.json` with a `dexFiles` entry marked `"startup": true` inside the AAB; for APK-only inspection, use APK Analyzer to verify startup-critical classes are placed in the primary `classes.dex`. https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles
+- The current phone workflow creates APK pairs and checks for the compiled ART Baseline Profile, but it does not currently produce an AAB or prove primary-DEX Startup Profile placement. No speculative ZIP/metadata assertion was added: the next authorised artifact review should inspect the actual packaged APK (or an AAB if one is built) before deciding how to automate this check.
+- The source generator uses `filterPredicate = rule -> true`; no package-only filter was introduced. A broad filter could remove startup-relevant Compose/AndroidX/library methods. Rule composition and primary-DEX fit need the generated profile and build artifact before any change is justified.
+
+### Verification and limits
+
+- Literal POSIX/AWK fixtures accepted all four correct CV values, rejected a numerically plausible but incorrect CV, and rejected a missing CV.
+- The summary function was checked with a formatted two-result AndroidX-style JSON fixture. It produced the expected fixture deltas: TTID -70.0 ms (-15.7%) and TTFD -90.0 ms (-12.1%), with the corresponding four CVs. These are synthetic test-fixture values only, not Nuvio device measurements.
+- The remote regression fixture now includes valid AndroidX CV fields, `wrong-cv` and `missing-cv` cases, and assertions for the saved report, both timing metrics, median differences and the ten-sample caveat.
+- The exact new shell report function passed a local `sh -n` check and the focused output assertions. The full repository `scripts/tests/test-nuvio-phone-benchmark.sh` was not run end-to-end because this runtime cannot resolve GitHub for a local checkout. The focused fixtures are not represented as a full suite pass.
+- Context7 resolved the AndroidX library and returned Macrobenchmark source/API snippets; the exact CV fields/formula were not present in its matching documentation response. The pinned 1.5.0 behavior was instead checked directly against AndroidX source and the 1.5.0 API release source through Exa.
+- No Gradle task, APK/AAB build, profile generation, Android instrumentation, physical-device Macrobenchmark, workflow dispatch or CI run was started. No Nuvio startup-speed improvement is claimed.
