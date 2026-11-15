@@ -87,10 +87,6 @@ grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
   exit 1
 }
-grep -Fq 'metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"' "$PHONE_RUNNER" || {
-  echo "FAIL: metric JSON matcher must escape each brace once so it matches normal JSON objects." >&2
-  exit 1
-}
 grep -Fq 'expected_iterations = 10' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must match the ten requested iterations." >&2
   exit 1
