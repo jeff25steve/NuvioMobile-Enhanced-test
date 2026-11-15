@@ -24,19 +24,23 @@ grep -Fq 'ReportDrawnWhen { appReady.value }' "$MAIN_ACTIVITY_SOURCE" || {
   echo "FAIL: Macrobenchmark TTFD reporting must remain tied to the app's fully-drawn signal." >&2
   exit 1
 }
+grep -Fq 'Modifier.testTag("nuvio_startup_ready")' "$MAIN_ACTIVITY_SOURCE" || {
+  echo "FAIL: the fully-drawn signal must remain externally observable for benchmark validation." >&2
+  exit 1
+}
 grep -Fq 'BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("nuvio_benchmark_home"))' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: HomeScreen root must expose the benchmark Home marker." >&2
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   grep -Fq 'By.res("nuvio_benchmark_home")' "$source" || {
-    echo "FAIL: benchmark must wait for the HomeScreen marker, not Activity appReady." >&2
+    echo "FAIL: benchmark must first wait for the HomeScreen marker." >&2
     exit 1
   }
-  if grep -Fq 'By.res("nuvio_startup_ready")' "$source"; then
-    echo "FAIL: benchmark still depends on the Activity-level readiness callback." >&2
+  grep -Fq 'By.res("nuvio_startup_ready")' "$source" || {
+    echo "FAIL: benchmark must also wait for the fully-drawn marker to preserve TTFD coverage." >&2
     exit 1
-  fi
+  }
 done
 
 printf 'PASS: both benchmark journeys wait for the actual HomeScreen composable; TTFD remains reported by ReportDrawnWhen.\n'
