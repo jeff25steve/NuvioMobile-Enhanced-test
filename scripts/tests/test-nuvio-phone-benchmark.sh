@@ -157,10 +157,9 @@ done
 
 # Verify the signing-key recovery path uninstalls only the isolated benchmark
 # and self-instrumenting test packages, never production com.nuvio.media.
-: > "$FAKE_COMMAND_LOG"
 rm -rf "$TMP/output" "$TMP/staged"
 export FAKE_INCOMPATIBLE=1 FAKE_INCOMPATIBLE_ONCE="$TMP/incompatible-once"
-if ! NUVIO_BENCHMARK_TRACE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null; then
+if ! sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/dev/null; then
   echo "FAIL: signing-key recovery command failed; captured package-manager calls:" >&2
   cat "$FAKE_COMMAND_LOG" >&2
   exit 1
