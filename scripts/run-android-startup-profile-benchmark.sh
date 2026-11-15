@@ -56,6 +56,17 @@ run_gradle_step() {
   fi
 }
 
+require_startup_metrics() {
+  local label="$1"
+  local log_file="$OUTPUT_DIR/$label.log"
+  [[ -s "$log_file" ]] || fail "$label did not produce a Macrobenchmark log."
+
+  for metric in timeToInitialDisplayMs timeToFullDisplayMs; do
+    grep -Fq "$metric" "$log_file" || \
+      fail "$label did not emit $metric; check that its JUnit benchmark cases ran and that the app reported fully drawn."
+  done
+}
+
 printf 'Physical device: %s (API %s)\n' "$DEVICE_MODEL" "$API_LEVEL"
 printf 'Benchmark package: %s (production com.nuvio.media remains installed)\n' "$BENCHMARK_PACKAGE"
 printf 'Logs and results: %s\n' "$OUTPUT_DIR"
@@ -91,20 +102,12 @@ run_gradle_step "03-benchmark-full-benchmarkRelease" \
   :baselineProfile:connectedFullBenchmarkReleaseAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \
   -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore
+require_startup_metrics "03-benchmark-full-benchmarkRelease"
 run_gradle_step "04-benchmark-playstore-benchmarkRelease" \
   :baselineProfile:connectedPlaystoreBenchmarkReleaseAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=macrobenchmark \
   -Pnuvio.android.distribution=playstore -Pnuvio.ios.distribution=appstore
-
-# A green connectedAndroidTest task is not enough: require both StartupTimingMetric
-# outputs from each flavor so a zero-test run or missing fully-drawn signal cannot
-# silently produce an apparently successful but unusable benchmark summary.
-for label in 03-benchmark-full-benchmarkRelease 04-benchmark-playstore-benchmarkRelease; do
-  for metric in timeToInitialDisplayMs timeToFullDisplayMs; do
-    grep -Fq "$metric" "$OUTPUT_DIR/$label.log" || \
-      fail "$label did not emit $metric; check that its JUnit benchmark cases ran and that the app reported fully drawn."
-  done
-done
+require_startup_metrics "04-benchmark-playstore-benchmarkRelease"
 
 : > "$OUTPUT_DIR/summary.txt"
 for flavor in full playstore; do
