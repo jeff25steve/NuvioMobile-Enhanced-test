@@ -389,3 +389,9 @@ References:
 - https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule
 - https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
 - https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/api/current.txt
+
+### Follow-up regression execution check — 2026-11-15 04:56 UTC
+
+The metric-contract shell regression was checked with a temporary local fixture: `sh -n` passed, the positive fixture containing both annotated test methods and both metric log guards passed, and a negative fixture with the Baseline Profile test removed failed with the expected targeted message. The test uses `awk` to associate each `@Test` annotation with the following method because POSIX `grep` processes source one line at a time; this avoids a false assumption that a grep expression can match the annotation and method across separate lines.
+
+This fixture check validates the regression script's logic, not Kotlin/Java compilation or the actual Android instrumentation runner. No Gradle task, build, device test or GitHub Actions run was executed.
