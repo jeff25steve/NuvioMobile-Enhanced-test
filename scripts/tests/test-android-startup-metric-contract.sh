@@ -3,9 +3,14 @@ set -eu
 
 ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+PHONE_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 
 [ -f "$BENCHMARK_SOURCE" ] || {
   echo "FAIL: StartupBenchmark source not found: $BENCHMARK_SOURCE" >&2
+  exit 1
+}
+[ -f "$PHONE_RUNNER" ] || {
+  echo "FAIL: phone benchmark runner not found: $PHONE_RUNNER" >&2
   exit 1
 }
 
@@ -35,6 +40,15 @@ grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
 }
 grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   echo "FAIL: startup comparison must retain ten measured iterations per arm." >&2
+  exit 1
+}
+
+grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs; do' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must require both TTID and TTFD output for every flavor." >&2
+  exit 1
+}
+grep -Fq 'did not emit $metric' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must fail clearly when a startup metric is missing." >&2
   exit 1
 }
 
