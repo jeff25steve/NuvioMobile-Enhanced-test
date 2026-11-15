@@ -518,6 +518,16 @@ write_macrobenchmark_summary() {
       return ""
     }
 
+    function metric_boolean_field(object, field,    needle, start, rest) {
+      needle = "\\\"" field "\\\""
+      start = index(object, needle)
+      if (start == 0) return ""
+      rest = substr(object, start + length(needle))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
+      return ""
+    }
+
     function metric_runs(object, values,    needle, start, rest, close_pos, run_text) {
       needle = "\"runs\""
       start = index(object, needle)
@@ -551,6 +561,25 @@ write_macrobenchmark_summary() {
       test_names[2] = "startupWithBaselineProfile"
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
+
+      device_model = metric_string_field(json, "model")
+      android_api = metric_field(json, "sdk")
+      cpu_core_count = metric_field(json, "cpuCoreCount")
+      cpu_max_frequency = metric_field(json, "cpuMaxFreqHz")
+      cpu_locked = metric_boolean_field(json, "cpuLocked")
+      memory_total = metric_field(json, "memTotalBytes")
+      art_mainline_version = metric_field(json, "artMainlineVersion")
+      sustained_performance = metric_boolean_field(json, "sustainedPerformanceModeEnabled")
+      os_codename = metric_string_field(json, "osCodenameAbbreviated")
+      if (device_model == "") device_model = "not reported"
+      if (android_api == "") android_api = "not reported"
+      if (cpu_core_count == "") cpu_core_count = "not reported"
+      if (cpu_max_frequency == "") cpu_max_frequency = "not reported"
+      if (cpu_locked == "") cpu_locked = "not reported"
+      if (memory_total == "") memory_total = "not reported"
+      if (art_mainline_version == "") art_mainline_version = "not reported"
+      if (sustained_performance == "") sustained_performance = "not reported"
+      if (os_codename == "") os_codename = "not reported"
 
       for (test_index = 1; test_index <= 2; test_index++) {
         test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" test_names[test_index] "\""
@@ -594,6 +623,12 @@ write_macrobenchmark_summary() {
       }
 
       print "Nuvio Android cold-start benchmark"
+      print "Benchmark device context"
+      printf "  Device: %s | Android API: %s\\n", device_model, android_api
+      printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\\n", cpu_core_count, cpu_max_frequency, cpu_locked
+      printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\\n", memory_total, art_mainline_version, sustained_performance
+      printf "  Android release codename: %s\\n", os_codename
+      print ""
       print "Comparison: no compilation vs required packaged Baseline Profile"
       print "10 samples per comparison arm"
       print ""
