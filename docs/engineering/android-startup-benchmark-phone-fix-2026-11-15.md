@@ -1130,7 +1130,7 @@ References: [Macrobenchmark overview — state persistence on API 34+](https://d
 The current `StartupBenchmark` collects only `StartupTimingMetric` plus Startup Insights. AndroidX Benchmark 1.5.0 includes the public `ArtMetric`, which can add diagnostic evidence for:
 
 - `artJitCount` and `artJitSumMs`: JIT compilations and total JIT time during the measured startup.
-- `artVerifyClass` and `artVerifyClassSumMs`: runtime class verification count and duration.
+- `artVerifyClassCount` and `artVerifyClassSumMs`: runtime class verification count and duration.
 - `artClassLoadCount` and `artClassLoadSumMs`: runtime class loading count and duration, when the device supports the tracepoints.
 
 The class-loading tracepoints require API 35+, or API 31+ with ART Mainline version at least `341511000`. Nuvio's runner already records API and ART Mainline version, so the report can state whether class-load metrics should be expected. AndroidX 1.5.0 release notes include the R8/AGP 9.1+ fix for ArtMetric class-load detection, relevant to this repository's AGP 9.4.0. JIT metrics can include uncompiled framework code, so they are diagnostic comparisons, not a direct count of Nuvio-only methods.
@@ -1168,3 +1168,68 @@ New high-signal evidence reviewed:
 - [Tinder R8 Configuration Analyzer case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer): 47% reduction specifically in the slow-start cohort, after identifying unintentional keep-rule blockers; not a 47% median improvement for all users.
 
 No source/configuration or runtime code was changed. No Gradle task, build, APK/AAB, profile capture, device benchmark or CI was run.
+
+## Benchmark mechanics, ART metric schema and fresh practitioner evidence — 15 November 2026
+
+### Confirmed positive: cold means cold disk/cache state on every measured iteration
+
+A source-level re-check of AndroidX Macrobenchmark's `StartupMode.COLD` path confirms that, for each cold iteration, it:
+
+1. runs the benchmark setup (Nuvio presses Home),
+2. calls `dropShaderCache()`,
+3. kills the target app process,
+4. calls `dropKernelPageCache()`, and
+5. verifies the target package is no longer running before the measured launch.
+
+AndroidX documents shader-cache clearing as part of `StartupMode.COLD`; the operation uses ProfileInstaller 1.3.0-alpha02+ or a rooted-device fallback. Nuvio pins ProfileInstaller **1.4.1**, so it exceeds that minimum. Kernel page-cache clearing is available without root from API 31 via Android's `perf.drop_caches` property; Nuvio's supported phone runner starts at API 33. This is materially stronger than force-stopping the process alone: the measured launch is not simply reading the app from a still-warm kernel page cache.
+
+References: [AndroidX Macrobenchmark cold-start implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt), [MacrobenchmarkScope cache APIs](https://developer.android.com/reference/androidx/benchmark/macro/MacrobenchmarkScope), [Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+**Do not add manual cache-clearing commands to Nuvio's runner.** That would duplicate AndroidX's per-iteration behavior and could make the benchmark less comparable to the library's supported setup. The API 33 unrooted app-data loss issue is separate: it occurs during the compilation reset before iterations, not in the per-iteration cold-cache sequence.
+
+### Confirmed positive: tracing capability and TTFD readiness are already wired
+
+- `androidApp/src/main/AndroidManifest.xml` explicitly contains `<profileable android:shell="true" />`. This is the app-owned source manifest; the merged, resolved manifest is still an artifact-level check.
+- `MainActivity.kt` uses Compose `ReportDrawnWhen { appReady.value }`. That state is set by AppGate's `onAppReady` callback. The `nuvio_startup_ready` resource marker is exposed from the same ready state, while `nuvio_benchmark_home` identifies the actual Home route.
+- `StartupBenchmark.awaitMainContentReady()` waits for Home and the fully-drawn marker. Therefore TTID and TTFD are distinct and the TTFD signal is tied to the usable Home readiness contract rather than merely to the splash screen or first Compose frame.
+
+No replacement readiness signal or extra profiling manifest declaration is justified from the current source review.
+
+### ART metrics: exact 1.5.0 result names and limitations
+
+The previous ART metric note used an imprecise shorthand for the class-verification count. AndroidX 1.5.0's public `ArtMetric` emits these exact measurement names:
+
+| Measurement | Meaning |
+|---|---|
+| `artJitCount`, `artJitSumMs` | JIT compilation events during the measured app journey and their total duration |
+| `artVerifyClassCount`, `artVerifyClassSumMs` | Runtime class-verification events and total duration |
+| `artClassLoadCount`, `artClassLoadSumMs` | Runtime class-load events and total duration, only when class-load tracepoints are supported |
+
+The first two metric pairs are available from API 24+. Class-load tracepoints are available on API 35+, or API 31+ when the ART Mainline version is at least `341511000`. The AndroidX 1.5.0-alpha05 change specifically corrected class-load detection with AGP/R8 9.1+, relevant to Nuvio's AGP 9.4.0. AndroidX filters the ART slices by the target package; the values are diagnostics for the app process, not a direct wall-clock breakdown of all system work.
+
+A useful interpretation caveat: AndroidX notes that release APK classes are typically verified at install time, so runtime class-verification counts may correctly be zero. JIT and supported class-load metrics are the more useful signals for checking whether the packaged profile changes runtime work. A lower ART count is not itself proof of a faster user-visible launch; TTID/TTFD and traces remain primary.
+
+Nuvio's current `StartupBenchmark` only requests `StartupTimingMetric`, and the phone runner validates and summarizes TTID/TTFD. ArtMetric is a worthwhile **benchmark-only follow-up**, but it must be integrated end-to-end: optional metric parsing, a schema regression fixture, per-arm reporting, and graceful absence of class-load fields on unsupported ART versions. Adding the metric to the Java list alone would not make its results useful in the phone report. No such change was made without a local test run.
+
+References: [ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AndroidX ArtMetric implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt), [AndroidX ArtMetric tests](https://github.com/androidx/androidx/blob/66dad59938a20f2975af8594868b6dd28ca0146e/benchmark/benchmark-macro/src/androidTest/java/androidx/benchmark/macro/ArtMetricTest.kt), [Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+### Clock-locking is not a missing runner feature
+
+Benchmark 1.5.0 added the optional `androidx.benchmark.requireLockedClocks` check for rooted physical devices. Android's Macrobenchmark guidance distinguishes Macrobenchmark from CPU-bound Microbenchmark and says clock locking is primarily necessary for Microbenchmark. Nuvio's phone runner already records whether clocks are reported locked as environment metadata. Do not attempt to force-lock clocks on an ordinary non-rooted user handset or reject a useful real-device run solely because this flag is false. Instead, retain device/thermal/battery context and repeat sessions when the result is close to the noise floor.
+
+### Recent practitioner evidence and confidence
+
+- **Genvi (2 Oct 2026; updated 3 Nov):** reported cold start from 7.3 s to 3.2 s on its release Android app. Its five-launch median was tied to showing the Home user's identity. The team attributed the improvement to loading large editor/3D/PDF/media modules only on demand, initializing tabs when first opened, and avoiding an initial empty Home render followed by a second render after local account data became available. This is a useful engineering pattern, but its five-run sample and limited device/method detail make it directional rather than a benchmark standard. [Case study](https://genvi.co/blog/cutting-phone-cold-start-from-7-to-3-seconds).
+- **TrulyMadly Android engineer (7 Nov 2026):** described removing a redundant launch API call, skipping network refresh when cached data is fresh, deleting obsolete login-screen configuration work, deferring heavy hidden screens, and moving noncritical DataStore/cache work off the main thread. No comparable before/after timing series was provided, so this is qualitative practitioner evidence, not a measured gain. [Write-up](https://www.linkedin.com/posts/pulkitloya_android-kotlin-androiddevelopment-activity-7524833478069399552-UzGB).
+- **RKMovies (13 Nov 2026):** its author claims 250–350 ms cold TTID and sub-500 ms interactive Home on a 2 GB Moto G Play after removing launch providers, delaying a video surface, and moving parsing/decode work out of the first-frame path. It is a self-published product post with a single-device result and no raw benchmark distribution, so it is low-confidence and not a transferable target for Nuvio. [Write-up](https://dev.to/hammiwor/why-my-1.17-mb-player-opens-in-under-400-ms-cold-zero-content-providers-lazy-init-and-a-startup-1i1h).
+
+The common lesson is not "remove providers" or "make everything lazy". It is to identify work on the first usable Home path that is not needed to make Home usable, then prove its contribution in Nuvio's traces. Nuvio already has a critical/post-frame preloader split and a Home readiness contract. Do not defer more profile, playback, offline or Home data based only on another app's result.
+
+### Revised next sequence
+
+1. Obtain the standalone R8 Configuration Analyzer reports for the actual minified `fullRelease` and `playstoreRelease` variants once Gradle-task authorization and an execution environment are available. AGP 9.4.0 meets the AGP 9.3+ requirement, and the standalone task skips APK/AAB packaging, but it is still a Gradle task and was not run.
+2. Inspect the reports for rules that block optimization of Nuvio-owned startup code; validate reflection/JNI/serialization/plugin contracts before narrowing any rule.
+3. Verify the compiled Startup Profile was consumed and startup classes fit in primary `classes.dex` using the AAB `BUNDLE-METADATA/com.android.tools/r8.json` metadata or APK Analyzer.
+4. Only then evaluate optional ArtMetric integration and trace-led critical-path changes. Preserve raw iteration traces and compare repeated paired sessions before making small-gain claims.
+
+No runtime/build/benchmark source changed. No Gradle task, build, APK/AAB, profile collection, device benchmark, workflow dispatch or CI was run.
