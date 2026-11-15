@@ -20,6 +20,22 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: self-instrumenting instrumentation context must not be mistaken for the target app package." >&2
     exit 1
   fi
+  grep -Fq 'device.getCurrentPackageName()' "$source" || {
+    echo "FAIL: readiness failures must record the foreground package." >&2
+    exit 1
+  }
+  grep -Fq 'device.dumpWindowHierarchy(hierarchyOutput)' "$source" || {
+    echo "FAIL: readiness failures must capture the accessibility hierarchy." >&2
+    exit 1
+  }
+  grep -Fq 'replaceAll("(text|content-desc)=' "$source" || {
+    echo "FAIL: accessibility hierarchy diagnostics must redact text and content descriptions." >&2
+    exit 1
+  }
+  grep -Fq '[redacted]' "$source" || {
+    echo "FAIL: accessibility hierarchy diagnostics must mark sensitive values as redacted." >&2
+    exit 1
+  }
 done
 if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
