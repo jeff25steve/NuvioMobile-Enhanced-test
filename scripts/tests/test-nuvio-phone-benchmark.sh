@@ -134,6 +134,8 @@ cat > "$TMP/bin/getprop" <<'STUB'
 #!/bin/sh
 case "$1" in
   ro.build.version.sdk) echo "${FAKE_API:-34}" ;;
+  ro.build.fingerprint) echo "${FAKE_FINGERPRINT:-fixture/fingerprint}" ;;
+  sys.boot_completed) echo "${FAKE_BOOT_COMPLETED:-1}" ;;
   ro.product.cpu.abi) echo "${FAKE_ABI:-arm64-v8a}" ;;
   ro.kernel.qemu) echo 0 ;;
   ro.hardware) echo qcom ;;
@@ -466,6 +468,9 @@ for flavor in full playstore; do
   grep -Fq 'Current Thermal Status: 0' "$environment_before"
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
+  grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
+  grep -Fq 'Boot completed: 1' "$environment_before"
+  grep -Eq 'Device uptime since boot: [0-9]+ seconds' "$environment_before"
   grep -Fq 'level: 88' "$environment_after"
 
   if FAKE_ENV_DIAGNOSTICS_FAIL=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-diagnostics-fail.log" 2>&1; then
