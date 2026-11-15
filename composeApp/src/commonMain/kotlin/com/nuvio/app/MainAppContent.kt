@@ -1595,18 +1595,18 @@ internal fun MainAppContent(
                                 "profile_switch_${if (profileSwitchLoading) "loading" else "idle"}",
                         ),
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (selectedPosterActionTarget != null || selectedContinueWatchingZoomAnchor != null) {
-                                Modifier.nuvioBackdropSource(posterOverlayBackdrop)
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .background(MaterialTheme.nuvio.colors.background),
-                ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (selectedPosterActionTarget != null || selectedContinueWatchingZoomAnchor != null) {
+                            Modifier.nuvioBackdropSource(posterOverlayBackdrop)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .background(MaterialTheme.nuvio.colors.background),
+            ) {
             val verticalBarPadding = LocalVerticalBarPadding.current
             val drawsUnderVerticalBar = currentRoute.drawsUnderVerticalBar(selectedTab)
             SharedTransitionLayout {
