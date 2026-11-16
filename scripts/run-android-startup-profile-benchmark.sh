@@ -26,10 +26,12 @@ HARDWARE="$(adb -s "$DEVICE_SERIAL" shell getprop ro.hardware | tr -d '\r')"
 [[ "$DEVICE_ABI" == "arm64-v8a" ]] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Connected device ABI is '$DEVICE_ABI'."
 [[ "$KERNEL_QEMU" != "1" && "$HARDWARE" != "ranchu" && "$HARDWARE" != "goldfish" && "$HARDWARE" != "qemu" ]] || fail "A physical device is required."
 if (( API_LEVEL <= 33 )); then
-  # Macrobenchmark's instrumentation shell checks root with "su root id".
-  # On unrooted API 33, CompilationMode.None/Partial reinstall the target APK
-  # to reset compilation state, which erases the signed-in Home benchmark data.
-  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su root id 2>/dev/null | tr -d '\r' || true)"
+  # Match AndroidX Shell.isSessionRooted(): an already-rooted shell is valid,
+  # otherwise the instrumentation shell must be able to execute "su root id".
+  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell id 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$ROOT_ID" != *"uid=0"* ]]; then
+    ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su root id 2>/dev/null | tr -d '\r' || true)"
+  fi
   [[ "$ROOT_ID" == *"uid=0"* ]] || fail "This authenticated Home benchmark requires API 34+ or a rooted API 28-33 device. AndroidX Macrobenchmark reinstalls the target app on unrooted pre-34 devices and clears sign-in data. Device API: $API_LEVEL."
 fi
 
