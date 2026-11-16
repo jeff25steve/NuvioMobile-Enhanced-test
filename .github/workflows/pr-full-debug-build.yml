@@ -1,6 +1,8 @@
 name: PR Full Debug Build
 
 on:
+  push:
+    branches: ["ci/main-build-testing-apk-20261116"]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [enhanced]
