@@ -480,3 +480,34 @@ Block's [Francis](https://github.com/block/francis) is a credible Android Macrob
 No app runtime code, Baseline Profile contents or R8 rules were changed in this cycle. No CI/build or physical-device run has been claimed until the branch workflow reports its result.
 
 References: [Sentry Java ABBA Macrobenchmark implementation, PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [Android Macrobenchmark metric guidance](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics), [Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks), [Block Francis](https://github.com/block/francis).
+
+
+## 16 November 2026 — Startup Profile and R8 verification gates
+
+A further distinction matters when interpreting the ABBA result: the current experiment compares **ART runtime compilation modes** for the same R8 APK. It can measure the benefit of the packaged Baseline Profile, but it cannot separately quantify the Startup Profile's build-time DEX-layout benefit because that layout is already baked into both arms.
+
+Google's current guidance distinguishes the artifacts:
+
+- The Baseline Profile is packaged for ART: APK `assets/dexopt/baseline.prof`, or AAB `BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof`.
+- The Startup Profile is consumed by D8/R8 during the build to influence DEX layout. There is no separate `startup.prof` file inside the final APK/AAB.
+- For AGP 8.8+, the direct AAB evidence is `BUNDLE-METADATA/com.android.tools/r8.json`. Its `dexFiles` array should contain at least one entry with `"startup": true`; the entry's checksum can be matched to the DEX in the AAB. Inspecting the primary `classes.dex` remains the fallback/manual cross-check.
+
+Nuvio's current phone bundle confirms a non-empty packaged Baseline Profile, but does not yet prove that the generated Startup Profile was consumed by R8. Do not describe that build check as Startup Profile verification. The next evidence pass should inspect an R8 AAB and require the Startup DEX metadata, then check the critical startup classes against the primary DEX. A separate performance experiment for the incremental Startup Profile benefit would need matched builds with and without the custom app profile while retaining the same library profiles; the current `None` versus `Partial(Require)` comparison is not that experiment.
+
+### R8 Configuration Analyzer
+
+AGP 9.3+ includes the R8 Configuration Analyzer. Nuvio is pinned to AGP 9.4.0, so it already meets the documented minimum; no AGP bump is needed to access the analyzer. The official standalone task pattern is `analyzeReleaseR8Config`, and a full R8 release build can also emit `configanalyzer.html` under `build/outputs/mapping/<variant>/`. The exact flavored task/report paths must be confirmed from Nuvio's generated Gradle tasks and actual build outputs before adding hard CI assertions.
+
+The analyzer is the next concrete route to finding broad or obsolete app/library keep rules that prevent R8 shrinking and optimization. Do not edit keep rules based only on an aggregate score: inspect the affected classes/members, identify whether reflection actually requires them, and run functional tests after any rule refinement. Nuvio already uses `proguard-android-optimize.txt`; repeating that basic configuration change from the Monzo case study would be redundant.
+
+### ART diagnostics available without changing the timing metric
+
+Pinned AndroidX Benchmark 1.5.0 includes `ArtMetric()`. Its output can add JIT count/time (`artJitCount`, `artJitSumMs`), runtime class-load count/time (`artClassLoadCount`, `artClassLoadSumMs`) where the ART tracepoints are supported, and runtime verification count/time (`artVerifyClass`, `artVerifyClassSumMs`). Class-load tracing requires API 35 or API 31+ with ART Mainline at least `341511000`; unsupported fields are omitted from JSON and must not be interpreted as zero. Runtime verification can legitimately be zero for a non-debuggable release app because verification normally happens at install time. JIT counts can include framework code not AOT-compiled in the system image.
+
+This is a useful next diagnostic because it can show whether the Baseline Profile arm actually reduces runtime JIT and class-loading work, while leaving StartupTimingMetric as the user-facing outcome. It has not yet been added to the benchmark: keep the current build unchanged, and add it only with parser/fixture coverage that treats API-dependent fields as optional. The raw JSON should retain any ART metrics so the per-arm samples can be correlated with the matching Perfetto traces.
+
+### Toolchain freshness check
+
+As of 16 November 2026, Google's AGP API reference lists 9.5.1 as the current stable release. Nuvio's AGP 9.4.0 already satisfies the R8 Analyzer minimum and the official 9.5 release notes do not identify a startup/R8 optimization that justifies a blind toolchain upgrade. Keep the benchmark on its pinned toolchain for the current controlled comparison; consider a separate 9.5.1 compatibility/build experiment only when its purpose and measured outcome are clear.
+
+References: [Debug Baseline Profiles and Startup Profile verification](https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles), [Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AGP 9.5 release notes](https://developer.android.com/build/releases/agp-9-5-0-release-notes), [AGP API current release](https://developer.android.com/reference/tools/gradle-api).
