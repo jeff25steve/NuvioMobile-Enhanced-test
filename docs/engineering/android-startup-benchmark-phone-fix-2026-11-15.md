@@ -1443,3 +1443,21 @@ Verification boundary:
 - Run `43978450085` passed the full phone-runner shell regression, including the injected signing mismatch and all combined-run instrumentation assertions. It stopped at the separately wired desktop/phone static contract test, before Rust target setup or Gradle compilation.
 - The runner-source split is committed on `main-build-testing` as `8ec0135ea6ca5554d0716574309199a41ab2d264`. It still requires the isolated CI branch to execute the corrected contract test.
 - The R8 Analyzer report existence and exact variant output paths have not yet been confirmed by a completed build. No R8 rule change or performance improvement is claimed.
+
+
+### Improvement cycle 4 — Align the static profile contract with the actual phone export
+
+The next validation of the corrected runner-path split reached the phone-side assertions and identified another stale symbol in `test-android-startup-metric-contract.sh`: it required a function called `require_non_empty_baseline_profile`, while the phone runner deliberately uses `require_non_empty_startup_profile`.
+
+The current phone `collect` action is specifically the raw Startup Profile export. The integration test already makes that contract explicit: it requires a non-empty `startup-prof.txt` and rejects copying a separate `baseline-prof*.txt` artifact during that raw Startup Profile collection. The separate R8 `benchmarkRelease` APKs are validated for the compiled Baseline Profile asset `assets/dexopt/baseline.prof`; this is a different artifact and a different part of the workflow.
+
+Context7's AndroidX `BaselineProfileRule.collect` Java API confirms the current argument meanings: the two booleans in the generator call are `includeInStartupProfile` and `strictStability`. Both are set to true. The phone-runner validation should therefore assert the existing `require_non_empty_startup_profile()` function and ensure it executes after `copy_recent_outputs profile`. It must not invent a separate Baseline Profile text-file requirement for that raw Startup Profile export.
+
+Correction on `main-build-testing`:
+- Replaced the three stale `require_non_empty_baseline_profile` symbol checks in the static contract test with `require_non_empty_startup_profile`.
+- Updated the associated failure diagnostics to identify Startup Profile validation.
+- Left the runtime phone runner and the integration test's explicit Startup Profile-only output behavior unchanged.
+
+This is another validation-only repair; it does not alter either benchmark arm or the packaged Baseline Profile requirement.
+
+The corrected metric-contract test is committed on `main-build-testing` as `471922ebc2d4ddfee146bdeaddfcc344287cf891`. It still needs a full isolated workflow validation. No APK build has yet passed the pre-build validation gate.
