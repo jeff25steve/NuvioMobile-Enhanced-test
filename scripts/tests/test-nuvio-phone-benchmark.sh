@@ -505,9 +505,9 @@ for flavor in full playstore; do
     exit 1
   fi
   baseline_profile_copy="$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
-  profile_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+  profile_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'run-*' -print | sort | tail -n 1)"
   [ -n "$profile_result_dir" ] || {
-    echo "FAIL: combined run must store a collect-* directory ($flavor)." >&2
+    echo "FAIL: combined run must store a run-* directory ($flavor)." >&2
     exit 1
   }
   baseline_profile_copy="$(find "$profile_result_dir" -name '*baseline-prof*.txt' -print -quit)"
