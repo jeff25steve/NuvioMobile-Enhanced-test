@@ -833,6 +833,35 @@ capture_device_environment() {
   }
 }
 
+capture_foreground_state() {
+  label="$1"
+  snapshot="$RUN_DIR/foreground-$label.txt"
+  {
+    printf 'Capture: %s\\n' "$label"
+    printf 'Timestamp: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\\n'
+    printf '\\nWindow focus (mCurrentFocus / mFocusedApp):\\n'
+    if command -v dumpsys >/dev/null 2>&1; then
+      dumpsys window windows 2>&1 | grep -E 'mCurrentFocus|mFocusedApp' || true
+      printf '\\nActivity state (top resumed / resumed):\\n'
+      dumpsys activity activities 2>&1 | grep -E 'topResumedActivity|mResumedActivity|ResumedActivity' || true
+    else
+      printf 'dumpsys unavailable\\n'
+    fi
+  } > "$snapshot" 2>&1 || {
+    printf 'could not write foreground snapshot: %s\\n' "$snapshot" >&2
+    return 0
+  }
+}
+
+reject_pending_wifi_debug_confirmation() {
+  focus_state="$(dumpsys window windows 2>&1; dumpsys activity activities 2>&1)"
+  if printf '%s\\n' "$focus_state" | grep -Eiq 'com[.]android[.]systemui/([[:alnum:]_.$]+/)?wifi[.]WifiDebuggingActivity|com[.]android[.]systemui[[:space:]]'; then
+    printf '%s\\n' "$focus_state" | grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' | head -n 12 >&2 || true
+    fail "Wireless debugging confirmation is active in Android System UI. Unlock the phone, approve or dismiss the Wireless debugging prompt for this LADB session, then rerun the benchmark. Instrumentation was not started."
+  fi
+}
+
 run_instrumentation() {
   rule="$1"
   class_name="$2"
@@ -842,6 +871,8 @@ run_instrumentation() {
   esac
   resolve_instrumentation
   new_run_dir
+  capture_foreground_state before
+  reject_pending_wifi_debug_confirmation
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
@@ -853,11 +884,12 @@ run_instrumentation() {
     "$INSTRUMENTATION" > "$RUN_DIR/instrumentation.log" 2>&1
   result=$?
   set -e
+  capture_foreground_state after
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment after
   fi
   cat "$RUN_DIR/instrumentation.log"
-  [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log."
+  [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log and foreground-before.txt / foreground-after.txt in $RUN_DIR. These snapshots distinguish a Nuvio readiness timeout from an external Android System UI or LADB interruption."
   if grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
     fail "The test reported a failure. See $RUN_DIR/instrumentation.log."
   fi
