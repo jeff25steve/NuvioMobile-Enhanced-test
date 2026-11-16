@@ -1302,3 +1302,11 @@ Source: [AndroidX Benchmark release notes](https://developer.android.com/jetpack
 5. Only add ArtMetric or a 1.6 alpha heap-profiling pilot when a specific unresolved trace question justifies the extra diagnostic complexity.
 
 No source, benchmark, runner, dependency, build configuration or profile was changed in this cycle. No Gradle task, build, APK/AAB, profile collection, physical-device benchmark, workflow dispatch or CI was run.
+
+## 16 November 2026 — API 33 signed-in benchmark preflight
+
+The phone and desktop runners now distinguish API 33 profile collection from authenticated Home measurement. Profile collection remains supported on API 33 without root. The `run` / `measure` path now requires API 33's instrumentation shell to pass the same `su root id` capability probe used by AndroidX Benchmark; otherwise it exits before Macrobenchmark can uninstall/reinstall the target and erase the signed-in test state. API 34+ remains the normal non-rooted path.
+
+A mocked phone-runner regression was added for both API 33 unrooted rejection and rooted acceptance. The desktop runner has matching static contract assertions. The full shell suite has not yet been executed in this environment, so this change is pending test execution before merge. No build, CI, profile collection or physical-device benchmark was started. No app speedup is claimed.
+
+Current source branch: `fix/benchmark-api33-auth-state-guard`, based on `main-build-testing` at `472211a9dea084efa5a8a0ee7c0a45608c554b1b`.
