@@ -869,10 +869,10 @@ run_instrumentation() {
     BaselineProfile) require_installed_variant install-profile ;;
     macrobenchmark) require_installed_variant install ;;
   esac
-  resolve_instrumentation
   new_run_dir
   capture_foreground_state before
   reject_pending_wifi_debug_confirmation
+  resolve_instrumentation
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
