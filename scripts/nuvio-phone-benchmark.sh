@@ -84,10 +84,18 @@ check_device() {
   case "$ACTION" in
     run|measure)
       if [ "$api" -eq 33 ]; then
-        root_id="$(su root id 2>/dev/null || true)"
+        # Match AndroidX Shell.isSessionRooted(): the instrumentation shell
+        # may already be root, or may gain root through "su root id".
+        root_id="$(id 2>/dev/null || true)"
         case "$root_id" in
           *"uid=0(root)"*) ;;
-          *) fail "Authenticated Home measurement on API 33 requires a rooted instrumentation shell because AndroidX resets compilation by reinstalling the app on unrooted pre-34 devices, which clears sign-in data. Use API 34+ or make 'su root id' available; profile collection alone remains supported on API 33." ;;
+          *)
+            root_id="$(su root id 2>/dev/null || true)"
+            case "$root_id" in
+              *"uid=0(root)"*) ;;
+              *) fail "Authenticated Home measurement on API 33 requires a rooted instrumentation shell because AndroidX resets compilation by reinstalling the app on unrooted pre-34 devices, which clears sign-in data. Use API 34+ or make 'su root id' available; profile collection alone remains supported on API 33." ;;
+            esac
+            ;;
         esac
       fi
       ;;
