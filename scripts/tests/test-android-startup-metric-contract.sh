@@ -212,4 +212,17 @@ phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHON
   exit 1
 }
 
-printf 'PASS: both cold-start Macrobenchmark cases are declared and phone results require both test arms plus TTID/TTFD JSON data.\n'
+grep -Fq 'if (( API_LEVEL <= 33 )); then' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must require root for authenticated benchmark runs on API 33 and below." >&2
+  exit 1
+}
+grep -Fq 'shell su root id' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must mirror AndroidX's su root id capability check." >&2
+  exit 1
+}
+grep -Fq 'Authenticated Home measurement on API 33 requires a rooted instrumentation shell' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must reject unrooted API 33 signed-in measurements before app data is reset." >&2
+  exit 1
+}
+
+printf 'PASS: both cold-start Macrobenchmark cases are declared and phone results require both test arms plus TTID/TTFD JSON data; API 33 signed-in state is protected.\n'
