@@ -449,7 +449,7 @@ fi
 
 # API 33 may collect profiles without root, but the authenticated Home
 # comparison must fail before instrumentation unless the instrumentation shell
-# can execute the same "su root id" check used by AndroidX Benchmark.
+# can pass AndroidX Benchmark's already-root-or-"su root id" capability check.
 API33_OUTPUT="$TMP/api33-rooted-output"
 NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full >/dev/null
 if NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-unrooted.log" 2>&1; then
