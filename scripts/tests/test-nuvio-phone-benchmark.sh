@@ -588,6 +588,9 @@ for flavor in full playstore; do
 done
 
 # Verify the API 33 report explicitly identifies its pre-34 ART verification caveat.
+# The preceding flavor loop leaves the Play Store variant installed. Restore Full
+# explicitly because the phone runner correctly requires a matching installed variant.
+FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full >/dev/null
 FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1
 api33_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
 [ -n "$api33_result_dir" ] || { echo 'FAIL: API 33 report fixture did not produce a measure-* result.' >&2; exit 1; }
