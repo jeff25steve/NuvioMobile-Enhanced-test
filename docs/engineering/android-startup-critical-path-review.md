@@ -433,3 +433,41 @@ References: [Macrobenchmark cold-start source](https://github.com/androidx/andro
 - No code/configuration change was justified. No Gradle task/build, profile collection, device benchmark or CI was run.
 
 References: [Teachmint startup case study](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [Grab R8/profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [AndroidX CompilationMode](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
+
+## 16 November 2026 — authenticated API 33 guard and current field evidence
+
+### Cycle 47 — fail fast before API 33 destroys the signed-in benchmark state
+
+The Android Developers Macrobenchmark guide explicitly recommends API 34+ when benchmark state must persist: on pre-34 devices, compilation-state reset requires uninstall/reinstall unless the instrumentation shell is rooted. The AndroidX 1.5.0 implementation checks `su root id`; an outer ADB/LADB shell's apparent UID is not sufficient evidence that the instrumentation shell can run the root reset path.
+
+Implemented on the isolated branch `fix/benchmark-api33-auth-state-guard`:
+
+- The phone runner still allows API 33 profile collection and variant installation without root.
+- The phone runner now rejects only the authenticated `run` and `measure` actions on API 33 unless `su root id` returns `uid=0(root)`. This prevents the first `CompilationMode.None` / `Partial` reset from silently removing the benchmark app's signed-in Home data.
+- The desktop ADB runner now applies the same requirement to API 33 as well as API 28–32, using AndroidX's `su root id` capability probe. API 34+ remains the preferred unrooted path.
+- Added a phone-runner fixture for API 33 unrooted rejection and rooted API 33 acceptance, plus static contract assertions for the desktop runner.
+
+This is a benchmark-correctness and data-preservation fix, not an app startup speedup. It does not affect API 34+ devices.
+
+### Cycle 48 — cross-check recent measured optimization results; retain evidence gates
+
+Fresh research found several useful but non-transferable results:
+
+- Google's 18 August 2026 Tinder case study reports a 47% reduction in users experiencing slow cold starts after the team used R8 Configuration Analyzer to find an overly broad keep rule from an internal library. The key actionable lesson is to inspect Nuvio's actual analyzer output before editing ProGuard rules; do not copy Tinder's keep-rule change without identifying the matching blocker.
+- Google's 19 October 2026 Grab case study reports roughly 35% cumulative cold-start improvement across R8 optimization, Baseline Profiles, Startup Profiles, R8 Full Mode and keep-rule refinement. It also reports that custom Baseline Profiles covered app-specific startup paths not represented by Cloud Profiles. Nuvio already has the profile infrastructure; the remaining evidence gate is the actual minified APK's analyzer report and compiled profile/DEX layout.
+- Sentry's 20 October 2026 engineering report measured 20–30% faster `SentryAndroid.init` from SDK 8.43.0 to 8.54.0 in a synthetic demo app, not a whole-app cold-start improvement. Its specific changes include build-time manifest option resolution and replacing a slow URI parser; neither justifies a Nuvio change without the same work appearing in Nuvio's trace.
+- The independent ONCOassist report measured 500.8 ms to 427.1 ms TTID (14.7%) on a Pixel 7 Pro, using ten cold starts per arm. This supports ten iterations as a useful screening run, not as statistical proof.
+- Sentry describes four interleaved rounds of ten runs per version with locked clocks (40 runs per version). That is a stronger confirmation design for borderline changes, but it would lengthen Nuvio's signed-in phone session substantially. Keep the current ten-iteration run for screening and require repeated, balanced paired sessions before accepting a small gain.
+
+### ART diagnostics decision
+
+AndroidX Benchmark 1.5.0 `ArtMetric` can report JIT count/time, runtime class verification, and class-load count/time where supported (API 35, or API 31+ with ART Mainline >= 341511000). The 1.5.0 release fixed class-load tracing for top-level/repackaged classes, which matters with Nuvio's AGP 9.4/R8 toolchain. I did not add it to the timing pass: the additional trace instrumentation needs to be checked for measurement perturbation and optional-output handling first. If Perfetto shows JIT/class-load work as a likely blocker, add a separate diagnostic pass rather than silently changing the TTID/TTFD baseline.
+
+### Verification boundary
+
+- Source edits and regression fixtures are committed on the isolated branch; the complete shell regression suite has not been executed in this environment because no repository checkout is mounted and outbound GitHub cloning is unavailable.
+- No Gradle build, APK build, device benchmark, profile collection or CI was started. The manual-only workflow remains unchanged.
+- Do not treat the API 33 guard as a speed improvement. No Nuvio TTID/TTFD improvement is claimed.
+- Next high-value action after test execution is an authorized R8 Configuration Analyzer report for both minified flavors and inspection of actual primary-DEX Startup Profile placement. Do not modify runtime initialization or keep rules without those artifacts.
+
+References: [Macrobenchmark API/state guidance](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview), [AndroidX CompilationMode](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt), [Tinder R8 Analyzer case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer), [Grab profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [Sentry startup report](https://blog.sentry.io/android-sdk-faster-startup/), [ONCOassist measured cold-start report](https://shaheer.blog/how-we-measured-our-android-cold-start-and-got-15-back-from-a-text-file/), [AndroidX ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric).
