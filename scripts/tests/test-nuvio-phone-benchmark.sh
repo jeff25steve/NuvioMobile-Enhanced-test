@@ -202,17 +202,18 @@ printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
-    trace_file_limit=20
+    trace_file_limit=24
     empty_trace_index=-1
-    case "${FAKE_BENCHMARK_JSON:-complete}" in
-      missing-trace-file) trace_file_limit=19 ;;
-      empty-trace-file) empty_trace_index=19 ;;
+    case "\${FAKE_BENCHMARK_JSON:-complete}" in
+      missing-trace-file) trace_file_limit=23 ;;
+      empty-trace-file) empty_trace_index=23 ;;
     esac
+    block_ids='01-none-a 02-profile-b 03-profile-b 04-none-a 05-none-a 06-profile-b 07-profile-b 08-none-a'
     trace_index=0
-    for trace_prefix in startupNoCompilation startupWithBaselineProfile; do
+    for block_id in $block_ids; do
       i=0
-      while [ "$i" -lt 10 ]; do
-        trace_file="$trace_prefix-trace-$i.perfetto-trace"
+      while [ "$i" -lt 3 ]; do
+        trace_file="abba-$block_id-trace-$i.perfetto-trace"
         if [ "$trace_index" -lt "$trace_file_limit" ]; then
           if [ "$trace_index" -eq "$empty_trace_index" ]; then
             : > "$FAKE_MEDIA_DIR/$trace_file"
@@ -224,134 +225,93 @@ case " $* " in
         i=$((i + 1))
       done
     done
-    for test_name in startupNoCompilation startupWithBaselineProfile; do
-      if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
+    for block_id in $block_ids; do
+      test_name="startup[$block_id]"
+      if [ "\${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
         printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
       fi
     done
-    cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<'JSON'
-{
-  "context": {"build": {"model": "Fixture phone", "version": {"sdk": 35}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL", "compilationMode": "None"},
-  "benchmarks": [
     {
-      "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
-      "name": "startupNoCompilation",
-      "metrics": {
-        "timeToInitialDisplayMs": {"minimum": 400, "maximum": 490, "median": 445, "coefficientOfVariation": 0.068037086608932, "runs": [400,410,420,430,440,450,460,470,480,490]},
-        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "coefficientOfVariation": 0.040639602068423, "runs": [700,710,720,730,740,750,760,770,780,790]}
-      },
-      "sampledMetrics": {},
-      "warmupIterations": 0,
-      "repeatIterations": 10,
-      "thermalThrottleSleepSeconds": 0,
-      "profilerOutputs": [
-        {"type":"PerfettoTrace","label":"Trace Iteration 0","filename":"startupNoCompilation-trace-0.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 1","filename":"startupNoCompilation-trace-1.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 2","filename":"startupNoCompilation-trace-2.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 3","filename":"startupNoCompilation-trace-3.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 4","filename":"startupNoCompilation-trace-4.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 5","filename":"startupNoCompilation-trace-5.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 6","filename":"startupNoCompilation-trace-6.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupNoCompilation-trace-7.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupNoCompilation-trace-8.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupNoCompilation-trace-9.perfetto-trace"}
-      ]
-    },
-    {
-      "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
-      "name": "startupWithBaselineProfile",
-      "metrics": {
-        "timeToInitialDisplayMs": {"minimum": 330, "maximum": 420, "median": 375, "coefficientOfVariation": 0.080737342775933, "runs": [330,340,350,360,370,380,390,400,410,420]},
-        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "coefficientOfVariation": 0.046223669528206, "runs": [610,620,630,640,650,660,670,680,690,700]}
-      },
-      "sampledMetrics": {},
-      "warmupIterations": 0,
-      "repeatIterations": 10,
-      "thermalThrottleSleepSeconds": 0,
-      "profilerOutputs": [
-        {"type":"PerfettoTrace","label":"Trace Iteration 0","filename":"startupWithBaselineProfile-trace-0.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 1","filename":"startupWithBaselineProfile-trace-1.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 2","filename":"startupWithBaselineProfile-trace-2.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 3","filename":"startupWithBaselineProfile-trace-3.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 4","filename":"startupWithBaselineProfile-trace-4.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 5","filename":"startupWithBaselineProfile-trace-5.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 6","filename":"startupWithBaselineProfile-trace-6.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupWithBaselineProfile-trace-7.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupWithBaselineProfile-trace-8.perfetto-trace"},
-        {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupWithBaselineProfile-trace-9.perfetto-trace"}
-      ]
-    }
-  ]
-}
-JSON
-    if [ "${FAKE_API:-35}" = "33" ]; then
-      sed 's/"sdk": 35/"sdk": 33/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
-      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-    fi
-    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-metadata" ]; then
-      awk '
-        /startupWithBaselineProfile-trace-9.perfetto-trace/ { next }
-        /startupWithBaselineProfile-trace-8.perfetto-trace/ { sub(/},[[:space:]]*$/, "}"); }
-        { print }
-      ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
-      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-    fi
-    case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|missing-trace-metadata|missing-trace-file|empty-trace-file) ;;
-      empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
-      missing-profile)
-        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+      printf '{\n'
+      printf '  "context": {"build": {"model": "Fixture phone", "version": {"sdk": %s}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL", "compilationMode": "None"},\n' "\${FAKE_API:-35}"
+      printf '  "benchmarks": [\n'
+      comma=''
+      for block_id in $block_ids; do
+        case "$block_id" in
+          01-none-a) ttid=400; ttfd=700 ;;
+          02-profile-b) ttid=330; ttfd=610 ;;
+          03-profile-b) ttid=360; ttfd=640 ;;
+          04-none-a) ttid=430; ttfd=730 ;;
+          05-none-a) ttid=410; ttfd=710 ;;
+          06-profile-b) ttid=340; ttfd=620 ;;
+          07-profile-b) ttid=370; ttfd=650 ;;
+          08-none-a) ttid=440; ttfd=740 ;;
+        esac
+        printf '%s    {"className":"com.nuvio.android.baselineprofile.StartupBenchmark","name":"startup[%s]","metrics":{\n' "$comma" "$block_id"
+        printf '      "timeToInitialDisplayMs":{"minimum":%s,"maximum":%s,"median":%s,"coefficientOfVariation":0.0,"runs":[%s,%s,%s]},\n' "$ttid" "$ttid" "$ttid" "$ttid" "$ttid" "$ttid"
+        printf '      "timeToFullDisplayMs":{"minimum":%s,"maximum":%s,"median":%s,"coefficientOfVariation":0.0,"runs":[%s,%s,%s]}\n' "$ttfd" "$ttfd" "$ttfd" "$ttfd" "$ttfd" "$ttfd"
+        printf '    },"sampledMetrics":{},"warmupIterations":0,"repeatIterations":3,"thermalThrottleSleepSeconds":0,"profilerOutputs":[\n'
+        for i in 0 1 2; do
+          [ "$i" -eq 0 ] || printf ',\n'
+          printf '      {"type":"PerfettoTrace","label":"Trace Iteration %s","filename":"abba-%s-trace-%s.perfetto-trace"}' "$i" "$block_id" "$i"
+        done
+        printf '\n    ]}'
+        comma=',\n'
+      done
+      printf '\n  ]\n}\n'
+    } > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    case "\${FAKE_BENCHMARK_JSON:-complete}" in
+      complete|missing-trace-file|empty-trace-file) ;;
+      empty)
+        printf '{"benchmarks":[]}\n' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
-      missing-ttfd)
-        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1}}},{"name":"startupWithBaselineProfile","metrics":{"timeToInitialDisplayMs":{"median":1}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-        ;;
-      one-arm-metrics)
-        printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}},{"name":"startupWithBaselineProfile","metrics":{}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+      missing-profile|missing-ttfd|one-arm-metrics)
+        printf '{"benchmarks":[{"name":"startup[01-none-a]","metrics":{"timeToInitialDisplayMs":{"median":1}}}]}\n' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       wrong-repeat-iterations)
-        sed 's/"repeatIterations": 10/"repeatIterations": 9/g' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"repeatIterations":3/"repeatIterations":2/g' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       short-samples)
-        sed 's/480,490/480/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"runs":\[400,400,400\]/"runs":[400,400]/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       invalid-stats)
-        sed 's/"minimum": 400, "maximum": 490, "median": 445/"minimum": 450, "maximum": 490, "median": 445/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"minimum":400,"maximum":400,"median":400/"minimum":401,"maximum":400,"median":400/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       wrong-median)
-        # Keep the reported median within min/max, but make it disagree with
-        # the 50th percentile recomputed from the ten raw samples.
-        sed 's/"median": 445/"median": 446/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"median":400/"median":401/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       wrong-cv)
-        # Keep CV numeric and plausible, but inconsistent with the raw runs.
-        sed 's/"coefficientOfVariation": 0.068037086608932/"coefficientOfVariation": 0.070037086608932/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"coefficientOfVariation":0.0/"coefficientOfVariation":0.1/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       missing-cv)
-        sed 's/, "coefficientOfVariation": 0.068037086608932//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/"coefficientOfVariation":0.0,//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       missing-samples)
-        sed 's/, "runs": \[400,410,420,430,440,450,460,470,480,490\]//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        sed 's/,"runs":\[400,400,400\]//' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      missing-trace-metadata)
+        sed '/abba-08-none-a-trace-2.perfetto-trace/d' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
     esac
-    if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
+    if [ "\${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
     fi
-    echo 'OK (2 tests)'
-    if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
+    echo 'OK (8 tests)'
+    if [ "\${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
       printf 'INSTRUMENTATION_STATUS_CODE: -2\n'
     fi
-    # Activity.RESULT_OK is -1; AndroidJUnitRunner emits this on normal completion.
     printf 'INSTRUMENTATION_CODE: -1\n'
     ;;
   *BaselineProfile*)
@@ -482,7 +442,7 @@ for flavor in full playstore; do
     echo "FAIL: measure-* directory must contain the human-readable benchmark summary ($flavor)." >&2
     exit 1
   }
-  grep -Fq '10 samples per comparison arm' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq '12 raw samples per comparison arm (24 cold starts total)' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'descriptive only' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToInitialDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
@@ -493,17 +453,24 @@ for flavor in full playstore; do
   grep -Fq 'API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement.' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
-  grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
-  for iteration in 0 1 2 3 4 5 6 7 8 9; do
-    no_ttid=$((400 + iteration * 10))
-    no_ttfd=$((700 + iteration * 10))
-    profile_ttid=$((330 + iteration * 10))
-    profile_ttfd=$((610 + iteration * 10))
-    grep -Fq "Iteration $iteration: TTID $no_ttid.0 ms | TTFD $no_ttfd.0 ms | trace startupNoCompilation-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
-    grep -Fq "Iteration $iteration: TTID $profile_ttid.0 ms | TTFD $profile_ttfd.0 ms | trace startupWithBaselineProfile-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Per-block samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+  for block_id in 01-none-a 02-profile-b 03-profile-b 04-none-a 05-none-a 06-profile-b 07-profile-b 08-none-a; do
+    for iteration in 0 1 2; do
+      case "$block_id" in
+        01-none-a) ttid=400; ttfd=700 ;;
+        02-profile-b) ttid=330; ttfd=610 ;;
+        03-profile-b) ttid=360; ttfd=640 ;;
+        04-none-a) ttid=430; ttfd=730 ;;
+        05-none-a) ttid=410; ttfd=710 ;;
+        06-profile-b) ttid=340; ttfd=620 ;;
+        07-profile-b) ttid=370; ttfd=650 ;;
+        08-none-a) ttid=440; ttfd=740 ;;
+      esac
+      grep -Fq "Iteration $iteration: TTID $ttid.0 ms | TTFD $ttfd.0 ms | trace abba-$block_id-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
+    done
   done
-  grep -Fq -- '-70.0 ms (-15.7%)' "$benchmark_result_dir/benchmark-summary.txt"
-  grep -Fq -- '-90.0 ms (-12.1%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-70.0 ms (-16.7%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-90.0 ms (-12.5%)' "$benchmark_result_dir/benchmark-summary.txt"
   if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
     echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
     exit 1
@@ -566,13 +533,13 @@ for flavor in full playstore; do
     exit 1
   }
 
-  for missing_case in startupNoCompilation startupWithBaselineProfile; do
+  for missing_case in 'startup[01-none-a]' 'startup[02-profile-b]' 'startup[03-profile-b]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[06-profile-b]' 'startup[07-profile-b]' 'startup[08-none-a]'; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted a run missing $missing_case." >&2
       exit 1
     fi
-    grep -Fq "did not execute required comparison case '$missing_case'" "$TMP/$flavor-$missing_case.log" || {
-      echo "FAIL: missing-case rejection did not identify $missing_case." >&2
+    grep -Fq "did not execute required ABBA block '$missing_case'" "$TMP/$flavor-$missing_case.log" || {
+      echo "FAIL: missing ABBA block rejection did not identify $missing_case." >&2
       cat "$TMP/$flavor-$missing_case.log" >&2
       exit 1
     }
