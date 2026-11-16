@@ -856,7 +856,7 @@ capture_foreground_state() {
 
 reject_pending_wifi_debug_confirmation() {
   focus_state="$(dumpsys window windows 2>&1; dumpsys activity activities 2>&1)"
-  if printf '%s\\n' "$focus_state" | grep -Eiq 'com[.]android[.]systemui/([[:alnum:]_.$]+/)?wifi[.]WifiDebuggingActivity|com[.]android[.]systemui[[:space:]]'; then
+  if printf '%s\\n' "$focus_state" | grep -Eiq 'WifiDebuggingActivity|mCurrentFocus=.*com[.]android[.]systemui|topResumedActivity=.*com[.]android[.]systemui'; then
     printf '%s\\n' "$focus_state" | grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' | head -n 12 >&2 || true
     fail "Wireless debugging confirmation is active in Android System UI. Unlock the phone, approve or dismiss the Wireless debugging prompt for this LADB session, then rerun the benchmark. Instrumentation was not started."
   fi
