@@ -493,6 +493,16 @@ for flavor in full playstore; do
     exit 1
   fi
   FAKE_FOREIGN_OUTPUTS=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" run "$flavor" > "$TMP/$flavor-isolation.log" 2>&1
+  grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG" || {
+    echo "FAIL: combined run did not invoke Baseline Profile collection ($flavor)." >&2
+    cat "$FAKE_COMMAND_LOG" >&2
+    exit 1
+  }
+  grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG" || {
+    echo "FAIL: combined run did not invoke Macrobenchmark measurement ($flavor)." >&2
+    cat "$FAKE_COMMAND_LOG" >&2
+    exit 1
+  }
   benchmark_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print -quit)"
   [ -n "$benchmark_result_dir" ] || {
     echo "FAIL: combined run must store Macrobenchmark artifacts in a measure-* directory ($flavor)." >&2
@@ -690,8 +700,6 @@ test -f "$TMP/staged/Nuvio-full-NonMinifiedRelease.apk"
 test -f "$TMP/staged/Nuvio-playstore-BenchmarkRelease-Tests.apk"
 test -f "$TMP/staged/Nuvio-full-BenchmarkRelease.apk"
 grep -Fq 'com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner' "$FAKE_COMMAND_LOG"
-grep -q 'androidx.benchmark.enabledRules BaselineProfile' "$FAKE_COMMAND_LOG"
-grep -q 'androidx.benchmark.enabledRules macrobenchmark' "$FAKE_COMMAND_LOG"
 grep -q 'pm list instrumentation' "$FAKE_COMMAND_LOG"
 
 sh -n "$BUNDLE/nuvio-phone-benchmark.sh"
