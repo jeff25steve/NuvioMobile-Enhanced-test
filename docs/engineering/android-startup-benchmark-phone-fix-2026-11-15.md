@@ -1310,3 +1310,21 @@ The phone and desktop runners now distinguish API 33 profile collection from aut
 A mocked phone-runner regression was added for both API 33 unrooted rejection and rooted acceptance. The desktop runner has matching static contract assertions. The full shell suite has not yet been executed in this environment, so this change is pending test execution before merge. No build, CI, profile collection or physical-device benchmark was started. No app speedup is claimed.
 
 Current source branch: `fix/benchmark-api33-auth-state-guard`, based on `main-build-testing` at `472211a9dea084efa5a8a0ee7c0a45608c554b1b`.
+
+## 16 November 2026 — final harness audit and rewrite handoff
+
+A complete source audit of the existing benchmark configuration found one concrete measurement limitation:
+
+- The phone runner makes one `am instrument` invocation for `com.nuvio.android.baselineprofile.StartupBenchmark`, which contains `startupNoCompilation` and `startupWithBaselineProfile`.
+- JUnit 4.13.2's default `MethodSorter.DEFAULT` orders these exact names by hash, ascending. `startupNoCompilation` (hash `-1479621179`) therefore runs before `startupWithBaselineProfile` (hash `-173791167`). There is no explicit balanced or randomized test order.
+- The phone runner captures thermal/battery/uptime state only before and after the whole instrumentation session, not between the two arms. This leaves the comparison exposed to one-directional device drift; it does not prove the measured profile benefit is false, but it weakens small-difference claims.
+
+The source comparison also found AndroidX's own `development/ab-benchmarking` Macrobenchmark tool. It interleaves A then B for each revision-comparison round and reports raw per-revision CSV samples, metadata, histograms, 95% BCa confidence intervals and Mann–Whitney U tests. Its scope is comparing Git revisions with a host build and real device; it is not a drop-in for the current same-APK `None` versus `Partial(Require)` test. Sentry Java PR #5991 uses a more balanced ABBA order and pooled-sample permutation analysis; do not conflate that PR's 24-start experiment with Sentry's separate October blog methodology of four rounds of ten runs per SDK version.
+
+Recent R8 evidence was checked against Nuvio's source. Monzo's March 2026 case study highlights switching to `proguard-android-optimize.txt`, but Nuvio already uses that optimized default file and enables minification/resource shrinking by default. The meaningful remaining action is to inspect actual R8 Configuration Analyzer findings, not to repeat Monzo's basic configuration change.
+
+**Project handoff:** maintainers closed legacy PR [#9](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/pull/9) because this app is being replaced by a full Compose Multiplatform rewrite and legacy contributions are no longer being reviewed. These additions are an archival engineering handoff only. The API 33 guard remains unmerged and its full shell suite remains unverified.
+
+No source/runtime/configuration changes were made. No Gradle task, build, APK/AAB, device measurement, profile collection, workflow dispatch or CI was run. No startup speedup is claimed.
+
+References: [JUnit 4.13.2 method ordering](https://junit.org/junit4/xref/org/junit/internal/MethodSorter.html), [AndroidX A/B Macrobenchmark README](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/development/ab-benchmarking/app/src/main/kotlin/androidx/abbenchmarking/macrobenchmarking/README-MACRO.md), [Sentry ABBA PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [Monzo R8 case study](https://android-developers.googleblog.com/2026/03/monzo-boosts-performance-metrics-by-up-to-35-percent.html).
