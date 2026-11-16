@@ -1302,3 +1302,18 @@ Source: [AndroidX Benchmark release notes](https://developer.android.com/jetpack
 5. Only add ArtMetric or a 1.6 alpha heap-profiling pilot when a specific unresolved trace question justifies the extra diagnostic complexity.
 
 No source, benchmark, runner, dependency, build configuration or profile was changed in this cycle. No Gradle task, build, APK/AAB, profile collection, physical-device benchmark, workflow dispatch or CI was run.
+
+
+## 16 November 2026 — ABBA comparison update and API 33 guard
+
+The phone benchmark's old two-method order (ten `None` launches, then ten Baseline Profile launches) is superseded on the isolated CI branch `ci/android-startup-abba-confirmation-20261116`.
+
+The new sequence is A/B/B/A/A/B/B/A, where A is `CompilationMode.None` and B is `Partial(BaselineProfileMode.Require)`. Each named parameterized block measures three cold starts. The phone-side runner validates eight result records, twelve raw samples per mode for both TTID and TTFD, and 24 corresponding Perfetto traces. Its report keeps per-block trace linkage and pooled median/range/CV output; it remains descriptive and does not assert statistical significance.
+
+This adopts the practical design in [Sentry Java PR #5991](https://github.com/getsentry/sentry-java/pull/5991) while preserving Nuvio's own compilation-mode comparison. Sentry's test uses `CompilationMode.Full` for its SDK experiment; Nuvio intentionally retains the required packaged Baseline Profile arm.
+
+**API 33 guard:** four repeated no-compilation blocks can repeatedly trigger AndroidX's pre-34 uninstall/reinstall fallback on an unrooted device. This removes the benchmark app's sign-in data. The phone runner therefore refuses API 33 authenticated `run`/`measure` before Macrobenchmark unless the instrumentation shell is already root or `su root id` confirms root. Profile collection alone remains available on API 33. The regression fixture covers both the safe rejection and the rooted path. API 34+ is the ordinary supported path for the ABBA comparison.
+
+**Important:** the ABBA harness itself does not demonstrate faster app startup. It adds four launches compared with the previous 20-launch sequential run and improves order balance; actual TTID/TTFD impact can only be assessed from a physical-device run, raw results and traces. Keep the existing signed-in Home state, thermal/environment checks and production-app isolation. Do not treat simulated fixture values as benchmark measurements.
+
+AndroidX Benchmark 1.5.0 remains pinned. The 1.6.0-alpha01 additions (separate-pass heap profiling and broader fixed-performance clock support) are diagnostic tooling, not a reason to change the timed startup benchmark dependency without a specific need.
