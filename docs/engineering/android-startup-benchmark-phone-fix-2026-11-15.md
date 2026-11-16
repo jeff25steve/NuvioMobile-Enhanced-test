@@ -1317,3 +1317,23 @@ This adopts the practical design in [Sentry Java PR #5991](https://github.com/ge
 **Important:** the ABBA harness itself does not demonstrate faster app startup. It adds four launches compared with the previous 20-launch sequential run and improves order balance; actual TTID/TTFD impact can only be assessed from a physical-device run, raw results and traces. Keep the existing signed-in Home state, thermal/environment checks and production-app isolation. Do not treat simulated fixture values as benchmark measurements.
 
 AndroidX Benchmark 1.5.0 remains pinned. The 1.6.0-alpha01 additions (separate-pass heap profiling and broader fixed-performance clock support) are diagnostic tooling, not a reason to change the timed startup benchmark dependency without a specific need.
+
+
+## 16 November 2026 — Verify the Startup Profile, not just the Baseline Profile
+
+The phone bundle's existing check for non-empty `assets/dexopt/baseline.prof` proves that the ART Baseline Profile is packaged. It does **not** prove the generated Startup Profile influenced R8's DEX layout.
+
+Google's current distinction:
+- Baseline Profile: runtime input packaged as `assets/dexopt/baseline.prof` in APKs.
+- Startup Profile: build-time input to D8/R8; there is no separate `startup.prof` in the final APK/AAB.
+- With AGP 8.8+, verify Startup Profile application from AAB `BUNDLE-METADATA/com.android.tools/r8.json`, where at least one `dexFiles[]` entry should have `"startup": true`; match its checksum to the DEX entry. Primary `classes.dex` inspection is the manual cross-check.
+
+Therefore, the existing None-versus-Partial ABBA run tests the same R8 APK under different ART compilation modes. It measures the packaged Baseline Profile effect; it is not a clean A/B measurement of the incremental Startup Profile DEX-layout effect. That would need a separate matched build comparison with and without the custom app Startup Profile while keeping library profiles constant.
+
+AGP 9.4.0 already meets the R8 Configuration Analyzer minimum (AGP 9.3+). The documented standalone task pattern is `analyzeReleaseR8Config`; full R8 builds can also emit `configanalyzer.html` under `build/outputs/mapping/<variant>/`. Confirm the actual flavored task and report paths from Nuvio's Gradle output before making CI assertions. Use the report to locate broad/obsolete keep rules, then inspect affected code and tests before changing rules. Nuvio already uses `proguard-android-optimize.txt`, so copying the basic Monzo configuration change adds nothing.
+
+AndroidX Benchmark 1.5.0 also includes optional `ArtMetric()`: JIT count/time (`artJitCount`, `artJitSumMs`), class-load count/time (`artClassLoadCount`, `artClassLoadSumMs`) on API 35 or API 31+ with ART Mainline >= `341511000`, and runtime verification (`artVerifyClass`, `artVerifyClassSumMs`). Unsupported class-load fields are absent, not zero; runtime verification may legitimately be zero for a release app. JIT events may include framework code. This is a candidate diagnostic for the next benchmark cycle, but it has not yet been added; preserve optional-field handling and JSON/fixture coverage if adopted.
+
+AGP's current stable release is 9.5.1 as of 16 November 2026. The pinned AGP 9.4.0 already exposes the analyzer and the public 9.5 release notes do not show a startup/R8 performance change that justifies a blind upgrade. Retain the current toolchain for this controlled run.
+
+References: [Debug Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles), [Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [ArtMetric](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AGP 9.5 release notes](https://developer.android.com/build/releases/agp-9-5-0-release-notes).
