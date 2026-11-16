@@ -1412,3 +1412,34 @@ The exact AndroidX Benchmark dependency is pinned at 1.5.0 in `gradle/libs.versi
 - Keep the ten-iteration paired run as the practical diagnostic set, preserve all traces and per-run samples, and repeat complete paired sessions on the same physical phone. Treat settled-device and post-reboot conditions as separate cohorts. A small median delta from one ten-iteration session is not proof of a statistically significant Nuvio speedup.
 
 No Nuvio app startup optimization, measured startup claim, physical-device benchmark, APK build or successful CI run is claimed by this entry.
+
+
+### Improvement cycle 3 — Validate the correct runner for each contract
+
+After the signing-recovery fixture passed, run `43978450085` reached `test-android-startup-metric-contract.sh` and exposed a second static-test wiring error:
+
+- The contract test named its source variable `PHONE_RUNNER`, but assigned it to `scripts/run-android-startup-profile-benchmark.sh`, the desktop/ADB Gradle orchestrator.
+- The earlier TTID/TTFD log assertions and per-flavor Gradle check-order assertions belong to that desktop script.
+- The later per-JUnit-case status parsing, copied phone instrumentation artifacts, JSON/statistics validation, and phone device snapshots belong to `scripts/nuvio-phone-benchmark.sh`.
+- The test mixed the two files under one variable, so it looked for phone-only functions in the desktop script. Both production scripts already had the expected behavior.
+
+Correction on `main-build-testing`:
+- Declare separate `DESKTOP_RUNNER` and `PHONE_RUNNER` paths and check that both files exist.
+- Keep desktop log-emission and per-flavor TTID/TTFD validation-order assertions pointed at the ADB orchestrator.
+- Point per-test JUnit status checks, JSON/trace validation, profile-output validation and phone environmental snapshot assertions at the LADB phone runner.
+- Keep the final order assertion for `require_macrobenchmark_cases` → `copy_recent_outputs benchmark` → `require_macrobenchmark_result_data` specifically on the phone runner.
+
+This is a test-only correction. Neither runner, benchmark test, APK configuration, app behavior or metric contract was weakened.
+
+### R8 Configuration Analyzer follow-up — AGP capability confirmed
+
+The repository pins AGP 9.4.0 and does not set `android.experimental.r8.enableR8ConfigurationAnalyzer=false` in `gradle.properties`. Android's current guidance confirms that AGP 9.3+ can run the standalone analyzer task and also emits `configanalyzer.html` automatically during ordinary R8 builds. The documented standalone report path is under the module's `build/reports/r8`; reports generated during R8 builds are under `build/outputs/mapping/<variant>/configanalyzer.html`.
+
+For Nuvio, inspect the analyzer reports for the actual `fullBenchmarkRelease` and `playstoreBenchmarkRelease` variants after the bundle workflow completes, if the AGP build produces them. They are useful evidence about the same R8 rules used by these minified benchmark targets, but they are not a substitute for reports on production `fullRelease` and `playstoreRelease` if those variants differ. Do not add keep-rule edits based on a score alone; inspect the rule origin and runtime contracts first.
+
+Sources: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [AGP 9.3 standalone analyzer task](https://developer.android.com/build/releases/agp-9-3-0-release-notes).
+
+Verification boundary:
+- Run `43978450085` passed the full phone-runner shell regression, including the injected signing mismatch and all combined-run instrumentation assertions. It stopped at the separately wired desktop/phone static contract test, before Rust target setup or Gradle compilation.
+- The runner-source split is committed on `main-build-testing` as `8ec0135ea6ca5554d0716574309199a41ab2d264`. It still requires the isolated CI branch to execute the corrected contract test.
+- The R8 Analyzer report existence and exact variant output paths have not yet been confirmed by a completed build. No R8 rule change or performance improvement is claimed.
