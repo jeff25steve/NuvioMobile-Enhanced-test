@@ -2,8 +2,6 @@ name: Android Startup Profile Benchmark Builds
 
 # CI-only trigger for the explicitly requested phone-ready benchmark bundle.
 on:
-  push:
-    branches: ["ci/main-build-testing-startup-bundle-20261116"]
   workflow_dispatch:
 
 permissions:
