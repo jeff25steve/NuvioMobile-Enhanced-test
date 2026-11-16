@@ -6405,3 +6405,10 @@ Sources:
 - [Android Developers — R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer) (AGP 9.3+ standalone report)
 - [Android Developers — Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles) (primary DEX and AAB R8 metadata)
 - [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) (1.5.0 stable; 1.6.0-alpha01)
+
+
+### 16 November 2026 — refresh of the older benchmark workflow attempt
+
+- Rechecked GitHub Actions run [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220), which was previously described in the 15 November notes as still running. The run API now reports `completed` with conclusion `failure`; it was built from older commit `8b0ff930519edb047b98cfd675866d934edd56e8`, not the current benchmark source.
+- The job-step endpoint reports the Play Store R8 benchmark APK step as `in_progress` and bundle/upload steps as pending, despite the run-level failure. The job-log endpoint currently returns 404 (BlobNotFound), so the final failing command cannot be established from retained logs. Do not infer that the current source or APK build is broken from this stale run.
+- No artifact from this run was treated as a valid current phone bundle. A fresh manual workflow run is still needed after the current branch source is checked.
