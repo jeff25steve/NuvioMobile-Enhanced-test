@@ -442,9 +442,9 @@ The Android Developers Macrobenchmark guide explicitly recommends API 34+ when b
 
 Implemented on the isolated branch `fix/benchmark-api33-auth-state-guard`:
 
-- The phone runner still allows API 33 profile collection and variant installation without root.
+- The phone runner still allows API 33 profile collection and variant installation without root. For measurement it mirrors AndroidX `Shell.isSessionRooted()` by accepting either an already-root shell (`id`) or a usable `su root id`.
 - The phone runner now rejects only the authenticated `run` and `measure` actions on API 33 unless `su root id` returns `uid=0(root)`. This prevents the first `CompilationMode.None` / `Partial` reset from silently removing the benchmark app's signed-in Home data.
-- The desktop ADB runner now applies the same requirement to API 33 as well as API 28–32, using AndroidX's `su root id` capability probe. API 34+ remains the preferred unrooted path.
+- The desktop ADB runner now applies the same requirement to API 33 as well as API 28–32, using AndroidX's `id`-then-`su root id` capability probe. API 34+ remains the preferred unrooted path.
 - Added a phone-runner fixture for API 33 unrooted rejection and rooted API 33 acceptance, plus static contract assertions for the desktop runner.
 
 This is a benchmark-correctness and data-preservation fix, not an app startup speedup. It does not affect API 34+ devices.
