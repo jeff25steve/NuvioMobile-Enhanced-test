@@ -6412,3 +6412,10 @@ Sources:
 - Rechecked GitHub Actions run [43675718220](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43675718220), which was previously described in the 15 November notes as still running. The run API now reports `completed` with conclusion `failure`; it was built from older commit `8b0ff930519edb047b98cfd675866d934edd56e8`, not the current benchmark source.
 - The job-step endpoint reports the Play Store R8 benchmark APK step as `in_progress` and bundle/upload steps as pending, despite the run-level failure. The job-log endpoint currently returns 404 (BlobNotFound), so the final failing command cannot be established from retained logs. Do not infer that the current source or APK build is broken from this stale run.
 - No artifact from this run was treated as a valid current phone bundle. A fresh manual workflow run is still needed after the current branch source is checked.
+
+
+### 16 November 2026 — do not copy locked-clock microbenchmark setup into startup UX tests
+
+- Sentry's SDK-initialization experiment used a Pixel 3 with locked clocks, but Android's current performance-measurement guidance explicitly says `lockClocks` is not recommended for user-experience-focused tests such as app launch and jank. It is primarily a microbenchmark control.
+- Therefore, do not add `:lockClocks`, root-only CPU/GPU frequency controls or fixed-performance-mode requirements to Nuvio's cold-start Macrobenchmark just to imitate Sentry's experiment. Keep the existing physical-device, same-device/same-OS comparison, thermal/battery/uptime snapshots and repeated paired sessions. Benchmark 1.6 alpha's expanded clock-locking support does not change that decision.
+- Reference: [Android Developers — Overview of measuring app performance](https://developer.android.com/topic/performance/measuring-performance).
