@@ -157,7 +157,12 @@ copy_recent_outputs() {
     printf '%s\n' "$source_file -> $destination" >> "$RUN_DIR/copied-files.txt"
   done < "$RUN_DIR/files-to-copy.txt"
   rm -f "$RUN_DIR/files-to-copy.txt" "$MARKER"
-  [ -s "$RUN_DIR/copied-files.txt" ] || fail "The test completed without producing the expected files. Check $RUN_DIR/instrumentation.log and Android's benchmark output directory."
+  # A missing profile is validated by require_non_empty_startup_profile so the
+  # user gets a specific Startup Profile diagnostic instead of this generic
+  # file-copy error. Macrobenchmark must still produce result/trace artifacts.
+  if [ "$patterns" != profile ] && [ ! -s "$RUN_DIR/copied-files.txt" ]; then
+    fail "The test completed without producing the expected files. Check $RUN_DIR/instrumentation.log and Android's benchmark output directory."
+  fi
 }
 
 require_non_empty_startup_profile() {
