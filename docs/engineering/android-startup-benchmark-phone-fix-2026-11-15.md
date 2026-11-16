@@ -1370,3 +1370,45 @@ Sources: [AndroidX startup metrics](https://developer.android.com/topic/performa
 4. **Do not add noise:** no manual cache clearing, forced clock locking on this non-rooted phone, blanket lazy initialization, extra background dispatch, or alpha-only metrics without a trace question and a validation plan.
 
 No app source, benchmark parameters, dependency, profile, shrinker rule or build configuration was changed in this research cycle. The only implementation change in the preceding cycle remains the phone-runner Wireless debugging interruption guard. No build, Gradle task, device benchmark or CI was run.
+
+
+## 16 November 2026 — CI regression-fixture root cause and correction
+
+### Improvement cycle 1 — Keep instrumentation assertions with the run that emits them
+
+The diagnostic run `43976620274` failed before APK compilation. The traced failure was not the package-manager recovery implementation:
+
+- The injected `INSTALL_FAILED_UPDATE_INCOMPATIBLE` was observed by the phone-runner fixture.
+- The runner removed only `com.nuvio.media.benchmark` and `com.nuvio.android.baselineprofile`, retried the isolated app install, installed the matching test APK, resolved the self-instrumenting test component, and launched the benchmark app.
+- The test later failed on its final `androidx.benchmark.enabledRules BaselineProfile` grep. The shared fake command log had already been deliberately truncated before the Wireless debugging prompt negative test. The profile-collection invocation from the earlier successful combined run was therefore no longer present.
+- This was a test assertion lifetime/scope defect. The runner's signing-key recovery and protection of production `com.nuvio.media` were not implicated.
+
+Correction on `main-build-testing`:
+- Assert the Baseline Profile instrumentation invocation and Macrobenchmark instrumentation invocation immediately after each successful combined `run` journey, while the corresponding fake command log is still intact.
+- Keep the final signing-recovery assertions scoped to package install/recovery, instrumentation resolution and benchmark-app launch.
+- No phone-runner code, app startup code, benchmark parameters, build types, signing settings or dependencies were changed.
+
+The previous diagnostic `set -x` is temporary and must not remain in the final test source.
+
+### Improvement cycle 2 — Re-check what is worth changing in the benchmark itself
+
+The current benchmark source remains aligned with the official cold-start comparison contract: release-like, R8-minified and profileable target APK; separate instrumentation APK; `StartupMode.COLD`; `CompilationMode.None` against `CompilationMode.Partial(BaselineProfileMode.Require)`; ten measured iterations per arm; `StartupTimingMetric`; and a Compose-driven fully-drawn signal plus the real Home-ready guard. Startup Insights is enabled for trace diagnosis. The phone runner retains per-iteration Macrobenchmark JSON and Perfetto traces, device/thermal/battery/uptime context, and explicit API-level handling.
+
+Fresh external research checked against the pinned AndroidX version:
+- AndroidX Benchmark **1.5.0 remains the stable dependency used here**. The 1.6.0-alpha01 line adds opt-in Perfetto heap profiling and broader fixed-performance-mode clock-lock support, but neither is a concrete improvement to this non-rooted phone's current cold-start experiment. Do not move the benchmark onto an alpha simply to appear newer. [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
+- Android Developers defines TTID as the first displayed frame and TTFD as the app-reported fully-drawn state, recommends evaluating both, and says the median is the useful typical-startup summary. The current `ReportDrawnWhen` + Home-ready contract should remain; do not weaken it to make runs pass. [Macrobenchmark metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics)
+- The official Baseline Profile measurement guidance uses a no-compilation comparison and a required Baseline Profile comparison, recommends physical devices, and warns that an emulator is not representative. Nuvio already follows that structure. [Measure Baseline Profile impact](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
+- An independent 3 August 2026 Pixel 7 Pro / Android 16 write-up measured ten cold starts with Macrobenchmark 1.4.1: median TTID 500.8 ms without the profile vs 427.1 ms with it (14.7%). This supports the value of testing the actual shipped profile, but is not an expected Nuvio gain. [Method and result](https://shaheer.blog/how-we-measured-our-android-cold-start-and-got-15-back-from-a-text-file/)
+- Google's Android case studies show materially different gains by app and cohort, reinforcing that profile/R8 outcomes need app-specific measurement. Grab's R8 + Baseline/Startup Profile + R8 Full Mode work reports a cumulative ~35% cold-start improvement; Tinder documents a broad keep rule blocking optimization; Monzo reports gains from R8 Full Mode. These are reasons to inspect Nuvio's own R8 Configuration Analyzer reports, not to copy their percentages or alter keep rules speculatively. [Grab](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time) · [Tinder](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer) · [Monzo](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update)
+
+The exact AndroidX Benchmark dependency is pinned at 1.5.0 in `gradle/libs.versions.toml`. Context7 documentation lookup was used for the AndroidX Macrobenchmark `measureRepeated` Java API and compilation modes. No API or dependency change was justified.
+
+### Verification boundary and next highest-value work
+
+- GitHub Actions run `43976620274` failed in validation before Rust target setup, Gradle compilation or bundle assembly. It produced no new APK artifact.
+- The test correction is committed on `main-build-testing` as `9ca5eb25da214cfe2cb96f54877477d11be47e47`; the canonical benchmark workflow remains manual-dispatch-only on that branch.
+- The same corrected test, without diagnostic tracing, must pass on the isolated CI branch before the eight-APK bundle is built.
+- Once packaging succeeds, the highest-value app/build investigation remains the standalone R8 Configuration Analyzer report for both actual minified distribution variants, followed by inspection of consumed Baseline/Startup Profile and primary DEX metadata. These are report/artifact-led checks; do not narrow keep rules or change profile filters without evidence.
+- Keep the ten-iteration paired run as the practical diagnostic set, preserve all traces and per-run samples, and repeat complete paired sessions on the same physical phone. Treat settled-device and post-reboot conditions as separate cohorts. A small median delta from one ten-iteration session is not proof of a statistically significant Nuvio speedup.
+
+No Nuvio app startup optimization, measured startup claim, physical-device benchmark, APK build or successful CI run is claimed by this entry.
