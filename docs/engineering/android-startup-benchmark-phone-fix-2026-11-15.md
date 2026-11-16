@@ -1301,4 +1301,17 @@ Source: [AndroidX Benchmark release notes](https://developer.android.com/jetpack
 4. Inspect compiled Startup Profile and primary DEX metadata in the built artifacts.
 5. Only add ArtMetric or a 1.6 alpha heap-profiling pilot when a specific unresolved trace question justifies the extra diagnostic complexity.
 
-No source, benchmark, runner, dependency, build configuration or profile was changed in this cycle. No Gradle task, build, APK/AAB, profile collection, physical-device benchmark, workflow dispatch or CI was run.
+No Gradle task, build, APK/AAB, profile collection, physical-device benchmark, workflow dispatch or CI was run.
+
+
+### 16 November 2026 — phone-runner interruption guard
+
+The uploaded failed-run diagnostics show Android launching `com.android.systemui/.wifi.WifiDebuggingActivity` through `AdbDebuggingManager.verifyWifiNetwork`; the final `dumpsys` snapshot reports LADB (`com.draco.ladb`) as the focused and top-resumed Activity. This is concrete evidence of a Wireless debugging authorisation interruption during the failed run. It does not, by itself, prove that every readiness timeout has the same cause.
+
+The phone runner now:
+- Captures actual `dumpsys window windows` focus and `dumpsys activity activities` resumed-Activity state immediately before and after each instrumentation run. These are separate from UiAutomator's last-accessibility-event package, which is not a foreground-window API.
+- Detects the System UI `WifiDebuggingActivity` (or a System UI focused/resumed Activity) before starting instrumentation and stops with an actionable instruction to approve or dismiss the Wireless debugging prompt. It does not attempt to bypass Android's ADB security prompt, kill LADB, or continue with an unreliable measurement.
+- Retains the original Home and fully-drawn readiness markers and all benchmark metrics. No app startup code or benchmark timing behavior was changed.
+- Reports the foreground snapshot paths when instrumentation exits unsuccessfully.
+
+A fixture test was added for the pending-confirmation case and for the foreground snapshots. **The test has not yet been executed in a local checkout**, because this session has repository API access but no working local clone. No build, benchmark run, or CI was started. The runner/test changes therefore need the shell test suite to be run from a checkout before they can be called verified. On the phone, approve the Wireless debugging prompt for LADB before rerunning; the new guard should now fail immediately with the reason instead of wasting the 30-second readiness timeout.
