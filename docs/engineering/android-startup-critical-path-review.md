@@ -433,3 +433,50 @@ References: [Macrobenchmark cold-start source](https://github.com/androidx/andro
 - No code/configuration change was justified. No Gradle task/build, profile collection, device benchmark or CI was run.
 
 References: [Teachmint startup case study](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [Grab R8/profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [AndroidX CompilationMode](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
+
+
+## 16 November 2026 — Cycle 54: balanced compilation-mode startup comparison
+
+### Why the current sequential comparison was replaced
+
+The previous phone benchmark invoked two JUnit methods in one instrumentation session: ten cold starts with `CompilationMode.None`, followed by ten with the packaged Baseline Profile. JUnit's method ordering made that order deterministic, so arm identity was confounded with elapsed session time. A cold app process does not reset device-wide thermal state, CPU frequency, battery or background-service conditions.
+
+A primary practitioner implementation now provides a concrete alternative: [Sentry Java PR #5991](https://github.com/getsentry/sentry-java/pull/5991) parameterizes the Macrobenchmark into short blocks and repeats an A/B/B/A sequence twice. Each block is a separate `measureRepeated` invocation. Sentry uses three measured launches per block, yielding twelve observations per build across twenty-four cold launches. It preserves individual result records and traces, pools raw observations by build and avoids gating merges on noisy cloud-device timing. That is a more useful precedent than simply increasing a single sequential arm's iteration count.
+
+### Nuvio implementation on the isolated CI branch
+
+The branch `ci/android-startup-abba-confirmation-20261116` now uses the same block structure but keeps Nuvio's actual variable of interest: ART compilation mode for the *same installed APK*.
+
+- Eight named JUnit parameter blocks run in the exact sequence A/B/B/A/A/B/B/A.
+- A is `CompilationMode.None`; B is `CompilationMode.Partial(BaselineProfileMode.Require)`.
+- Each block measures three cold starts, preserving TTID, Home-ready TTFD, Startup Insights and per-iteration Perfetto traces.
+- The phone runner requires all eight instrumented test records, eight result objects per metric, three samples in each result, and 24 unique non-empty Perfetto trace files.
+- The report pools twelve raw TTID and TTFD observations per mode, prints range and coefficient of variation, and retains each block's sample/trace pairing. It explicitly remains descriptive; it does not claim statistical significance.
+
+This is a measurement-quality change, not an app startup optimization. The design adds four cold launches versus the previous 10+10 run. That is a deliberate cost for balanced order and two ABBA rounds, not a claim that more iterations alone improve precision. It may make the phone warmer; inspect the raw block order and trace evidence, and repeat on a cool, idle device. ABBA balances approximately linear session drift but cannot cancel abrupt thermal transitions or every carry-over effect.
+
+Sentry's PR uses `CompilationMode.Full` for its own SDK startup comparison; Nuvio does **not** copy that setting because Nuvio is explicitly measuring the packaged Baseline Profile against no AOT compilation. The test uses the same no-compilation/profile modes and same target package as before.
+
+### API 33 authenticated-state safety
+
+The repeated A blocks exposed a concrete API 33 constraint. On an unrooted pre-34 device, AndroidX's no-compilation reset may uninstall/reinstall the target app. That clears the benchmark app's authenticated state; repeating this several times would make a signed-in Home comparison unsafe or cause the later blocks to measure a login flow.
+
+The phone runner now checks the instrumentation shell's root capability before any API 33 `run` or `measure` action. It accepts an already-root shell or successful `su root id`; otherwise it refuses before starting Macrobenchmark and explains that profile collection alone remains supported. Regression fixtures exercise both the unrooted rejection and rooted API 33 path. API 34+ continues to use AndroidX's ART reset path.
+
+### Current library/research assessment
+
+AndroidX Benchmark **1.5.0 remains the stable pinned version**. The official release page lists 1.6.0-alpha01 (7 October 2026), including optional Perfetto heap profiling in an additional profiling pass and broader fixed-performance clock support. Those are diagnostics/benchmark-environment improvements, not a proven replacement for the controlled same-APK compilation-mode comparison. Keep 1.5.0 pinned for apples-to-apples results until the alpha is evaluated independently.
+
+Block's [Francis](https://github.com/block/francis) is a credible Android Macrobenchmark A/B CLI with raw samples and Perfetto/Simpleperf support. Its documented workflow compares separately installed app APKs. It would introduce another SDK/tooling surface and does not directly model Nuvio's same-package `None` versus `Partial(Require)` experiment, so it was not added.
+
+### Evidence gates and status
+
+1. Run the branch-only shell regression suite and build the two benchmark app/test APK pairs for both distribution flavors.
+2. Inspect the build output to confirm the parameterized tests compile and all eight result records are emitted as named.
+3. Run the 24-launch comparison on a physical API 34+ phone; do not infer a speedup from fixture data or the benchmark harness change.
+4. Compare pooled medians, spread, per-block ordering, thermal snapshots and matching Perfetto/Startup Insights traces. Keep the result descriptive until repeated paired runs and suitable uncertainty analysis support a stronger conclusion.
+5. Only change app startup work after traces identify the exact startup-critical path.
+
+No app runtime code, Baseline Profile contents or R8 rules were changed in this cycle. No CI/build or physical-device run has been claimed until the branch workflow reports its result.
+
+References: [Sentry Java ABBA Macrobenchmark implementation, PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [Android Macrobenchmark metric guidance](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics), [Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks), [Block Francis](https://github.com/block/francis).
