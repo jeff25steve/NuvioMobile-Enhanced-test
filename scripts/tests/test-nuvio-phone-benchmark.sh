@@ -586,6 +586,7 @@ for flavor in full playstore; do
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
 
+  : > "$FAKE_COMMAND_LOG"
   if FAKE_WIFI_DEBUG_PROMPT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-wifi-prompt.log" 2>&1; then
     echo "FAIL: phone runner must stop before instrumentation when Android's Wi-Fi debugging confirmation is foregrounded ($flavor)." >&2
     exit 1
