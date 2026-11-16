@@ -403,6 +403,30 @@ Current Thermal Status: 0 (NONE)
 Thermal Status: 0
 THERMAL
     ;;
+  window)
+    case "$2" in
+      windows)
+        if [ "${FAKE_WIFI_DEBUG_PROMPT:-0}" = "1" ]; then
+          echo 'mCurrentFocus=Window{abc com.android.systemui/.wifi.WifiDebuggingActivity}'
+        else
+          echo 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}'
+        fi
+        ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  activity)
+    case "$2" in
+      activities)
+        if [ "${FAKE_WIFI_DEBUG_PROMPT:-0}" = "1" ]; then
+          echo 'topResumedActivity=ActivityRecord{abc com.android.systemui/.wifi.WifiDebuggingActivity}'
+        else
+          echo 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}'
+        fi
+        ;;
+      *) exit 1 ;;
+    esac
+    ;;
   *) exit 1 ;;
 esac
 STUB
@@ -533,6 +557,12 @@ for flavor in full playstore; do
   grep -Fq 'Current Thermal Status: 0' "$environment_before"
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
+  foreground_before="$(find "$TMP/output/$flavor" -name 'foreground-before.txt' -print -quit)"
+  foreground_after="$(find "$TMP/output/$flavor" -name 'foreground-after.txt' -print -quit)"
+  test -s "$foreground_before"
+  test -s "$foreground_after"
+  grep -Fq 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}' "$foreground_before"
+  grep -Fq 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}' "$foreground_before"
   grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
   grep -Fq 'Boot completed: 1' "$environment_before"
   grep -Eq '^Device uptime since boot: [0-9]+ seconds$' "$environment_before"
@@ -555,6 +585,17 @@ for flavor in full playstore; do
   diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
+
+  if FAKE_WIFI_DEBUG_PROMPT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-wifi-prompt.log" 2>&1; then
+    echo "FAIL: phone runner must stop before instrumentation when Android's Wi-Fi debugging confirmation is foregrounded ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq 'Wireless debugging confirmation is active' "$TMP/$flavor-wifi-prompt.log"
+  grep -Fq 'com.android.systemui/.wifi.WifiDebuggingActivity' "$TMP/$flavor-wifi-prompt.log"
+  if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+    echo "FAIL: instrumentation must not start while the Wi-Fi debugging confirmation is active ($flavor)." >&2
+    exit 1
+  fi
 
   if FAKE_NEGATIVE_STATUS_CODE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-negative-status.log" 2>&1; then
     echo "FAIL: phone runner accepted a negative per-test instrumentation status ($flavor)." >&2
