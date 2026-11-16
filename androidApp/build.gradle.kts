@@ -171,10 +171,19 @@ android {
         // The same suffix on both build types lets profile capture and Macrobenchmark
         // upgrade the same app install without losing its signed-in test state.
         create("benchmarkRelease") {
+            // A custom build type does not inherit release's R8 configuration unless
+            // it is initialized from release. This must be a real minified release
+            // target so the benchmark measures the code that would ship.
+            initWith(getByName("release"))
             applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
         create("nonMinifiedRelease") {
+            // Keep profile generation readable while inheriting release's other
+            // release-only behavior (including non-debuggable/profileable settings).
+            initWith(getByName("release"))
+            isMinifyEnabled = false
+            isShrinkResources = false
             applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
