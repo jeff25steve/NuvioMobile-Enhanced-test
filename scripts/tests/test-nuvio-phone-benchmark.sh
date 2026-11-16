@@ -419,6 +419,10 @@ case "$2:$3" in
   *) echo null ;;
 esac
 STUB
+cat > "$TMP/bin/id" <<'STUB'
+#!/bin/sh
+printf 'uid=2000(shell) gid=2000(shell)\n'
+STUB
 cat > "$TMP/bin/su" <<'STUB'
 #!/bin/sh
 [ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
