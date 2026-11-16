@@ -1337,3 +1337,22 @@ AndroidX Benchmark 1.5.0 also includes optional `ArtMetric()`: JIT count/time (`
 AGP's current stable release is 9.5.1 as of 16 November 2026. The pinned AGP 9.4.0 already exposes the analyzer and the public 9.5 release notes do not show a startup/R8 performance change that justifies a blind upgrade. Retain the current toolchain for this controlled run.
 
 References: [Debug Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles), [Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [ArtMetric](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AGP 9.5 release notes](https://developer.android.com/build/releases/agp-9-5-0-release-notes).
+
+
+## 16 November 2026 — CI #47 root cause and R8 build-type correction
+
+The branch-only workflow did not fail during Kotlin/Java compilation or APK assembly. In run [#47](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43816652663), all four app/test APK build steps succeeded and the ABBA shell regression/pre-build validation step passed. The final phone-bundle assembly failed at the explicit R8 mapping check:
+
+`full benchmarkRelease has no non-empty R8 mapping file; refusing to label it an R8 benchmark.`
+
+The Gradle log shows no R8 minification task for `fullBenchmarkRelease`. The cause was in `androidApp/build.gradle.kts`: the production `release` build type had minification and resource shrinking enabled, but the manually declared `benchmarkRelease` did not inherit from it. A custom build type does not copy those release settings merely because its name ends in `Release`.
+
+Commit [`3ec1211`](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/3ec1211a6311f4322ee7fc0cac159b081139798d) fixes this on `ci/android-startup-abba-confirmation-20261116`:
+
+- `benchmarkRelease`: `initWith(getByName("release"))`, then isolated benchmark application ID and debug signing.
+- `nonMinifiedRelease`: same release inheritance, then explicitly disables code minification and resource shrinking to keep profile-capture rules readable.
+- `test-android-startup-metric-contract.sh`: now guards those build-type properties against regression.
+
+The focused AWK assertions for the two build-type blocks passed. The correction still needs a fresh authorized workflow result: require actual R8 minification tasks and non-empty mappings for both full and Play Store variants, then require the bundle assembly and artifact upload to pass. Run #47 is still a failure from the pre-fix commit; it must not be described as a successful R8 benchmark bundle.
+
+This correction supersedes the earlier 15 November note that withdrew the build-type inheritance diagnosis. That withdrawal was based on the plugin's intended variant setup; the later CI output is direct artifact evidence that the manually configured variant in this repository was not minified.
