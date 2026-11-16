@@ -81,6 +81,28 @@ check_device() {
   api="$(getprop ro.build.version.sdk | tr -d '\r')"
   case "$api" in ''|*[!0-9]*) fail "Cannot determine Android API level." ;; esac
   [ "$api" -ge 33 ] || fail "Baseline Profile collection without root requires Android 13 / API 33 or later. This device reports API $api."
+  case "$ACTION" in
+    run|measure)
+      if [ "$api" -eq 33 ]; then
+        # Macrobenchmark's unrooted pre-34 CompilationMode.None fallback
+        # reinstalls the target app and therefore clears its signed-in state.
+        # ABBA deliberately invokes this mode four times per comparison.
+        # Match AndroidX Shell.isSessionRooted(): shell uid may be root, or
+        # "su root id" may return uid=0.
+        root_id="$(id 2>/dev/null || true)"
+        case "$root_id" in
+          *"uid=0(root)"*) ;;
+          *)
+            root_id="$(su root id 2>/dev/null || true)"
+            case "$root_id" in
+              *"uid=0(root)"*) ;;
+              *) fail "Authenticated ABBA Home measurement on API 33 requires a rooted instrumentation shell because AndroidX resets compilation by reinstalling the app on unrooted pre-34 devices, which clears sign-in data. Use API 34+ or make 'su root id' available; profile collection alone remains supported on API 33." ;;
+            esac
+            ;;
+        esac
+      fi
+      ;;
+  esac
   abi="$(getprop ro.product.cpu.abi | tr -d '\r')"
   [ "$abi" = "arm64-v8a" ] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Device ABI is $abi; use an arm64 Android phone."
   qemu="$(getprop ro.kernel.qemu | tr -d '\r')"
@@ -89,7 +111,7 @@ check_device() {
   case "$hardware" in ranchu|goldfish|qemu) fail "A physical Android phone is required; emulators are not supported for this comparison." ;; esac
 }
 
-apk_paths() {
+apk_paths() {apk_paths() {
   case "$FLAVOR:$ACTION" in
     full:install-profile)
       APP_APK="$SCRIPT_DIR/Nuvio-full-NonMinifiedRelease.apk"
