@@ -1315,3 +1315,58 @@ The phone runner now:
 - Reports the foreground snapshot paths when instrumentation exits unsuccessfully.
 
 A fixture test was added for the pending-confirmation case and for the foreground snapshots. **The test has not yet been executed in a local checkout**, because this session has repository API access but no working local clone. No build, benchmark run, or CI was started. The runner/test changes therefore need the shell test suite to be run from a checkout before they can be called verified. On the phone, approve the Wireless debugging prompt for LADB before rerunning; the new guard should now fail immediately with the reason instead of wasting the 30-second readiness timeout.
+
+
+## 16 November 2026 — benchmark methodology review and latest research
+
+### Current AndroidX release check
+
+The official AndroidX Benchmark release page still lists **1.5.0 as stable** and **1.6.0-alpha01 (7 October 2026)** as the alpha line. There is no newer stable release to justify changing Nuvio's pinned androidx-benchmark = "1.5.0". The alpha's notable additions remain opt-in Perfetto heap profiling through MemoryProfilingConfig and broader fixed-performance-mode clock locking. Neither is a demonstrated improvement to this cold-start comparison on the user's non-rooted phone. Keep the stable dependency unchanged.
+
+Sources: [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
+
+### Benchmark implementation review
+
+The current Java benchmark is structurally aligned with AndroidX's documented cold-start pattern:
+- StartupMode.COLD is explicit, with pressHome() in setup and startActivityAndWait() in the measured block.
+- The two arms are explicit: CompilationMode.None and CompilationMode.Partial(BaselineProfileMode.Require). The latter fails rather than silently benchmarking without the required profile.
+- Each arm uses ten measured iterations and StartupTimingMetric, preserving both TTID and TTFD.
+- StartupInsightsConfig(true) is enabled on the same capture, so the generated Perfetto traces can be examined for likely startup blockers.
+- The test waits for the real Home route and the app's Compose fully-drawn marker; this prevents the timing result from treating an early shell/splash frame as usable Home.
+
+No code change to these controls is justified by the latest primary documentation. Android Developers explicitly says to use TTID and TTFD together, focus on median values, and keep Compose's ReportDrawn / ReportDrawnWhen integration rather than manually calling reportFullyDrawn.
+
+Sources: [Startup metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics), [Macrobenchmark overview](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
+
+### New independent evidence: optimization opportunities worth investigating, not copying
+
+| Source | Reported result | Transferable lesson | Nuvio decision |
+|---|---|---|---|
+| Google Android Developers / Grab, 19 Oct 2026 | About 27% cold-start improvement from R8 optimization plus Baseline Profiles and Startup Profiles; a further ~10% from R8 Full Mode; cumulative ~35% | Keep-rule blockers can prevent R8 from optimizing app code even when minification is enabled | Highest-value next artifact is the R8 Configuration Analyzer report for each actual minified distribution variant. Do not alter keep rules without the report and contract review |
+| Google Android Developers / Tinder, 18 Aug 2026 | 47% fewer users experiencing slow cold starts; 28.98% smaller download; 28% lower user-perceived ANR rate | A broad unscoped keep rule in an in-house library blocked optimization | Inspect Nuvio's analyzer output for broad rules and their origin before making any R8 change |
+| Google Android Developers / Monzo (2026) | Reported cold starts 30% faster, warm 24%, hot 14%, and P50 launch 11% faster after enabling R8 Full Mode | Build optimizer configuration can produce larger gains than speculative runtime micro-optimizations | Check Nuvio's effective release shrinker configuration and analyzer report first |
+| First-hand 2026 startup case studies | Deferring hidden heavy UI/module work can help TTID, but moving work to background threads can still contend with the UI thread and delay full readiness | A task being off-main-thread does not mean it is free during startup | Preserve Nuvio's TTID + Home-ready TTFD contract and inspect traces before deferring more work |
+
+Sources: [Grab R8/profile optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [Tinder R8 Configuration Analyzer](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer), [Monzo R8 Full Mode](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update), [2026 field startup case study](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/).
+
+### Statistical interpretation: ten iterations are a measurement set, not proof of a small win
+
+AndroidX reports minimum, median and maximum and recommends the median as the typical-startup summary. Independent practitioner analysis of Macrobenchmark variability makes an additional important point: ten samples are not enough to claim that a small median movement is statistically meaningful, especially when run-to-run distributions shift with thermal state, background work and clock behavior. That analysis recommends checking distribution shape and variance and using confidence intervals when making formal claims; its 30+ sample guidance is a statistical methodology, not an AndroidX requirement.
+
+For Nuvio's next authorized physical-device campaign:
+1. Keep the current ten-iteration paired arms as the practical diagnostic pass.
+2. Repeat the complete paired campaign in multiple sessions under the same device, OS, account, network and battery/thermal conditions. Do not compare one arm from one day with the other arm from another day.
+3. Preserve per-iteration JSON samples and all Perfetto traces. Report each arm's TTID and TTFD median, range and coefficient of variation; flag unstable distributions rather than presenting a tiny median delta as a win.
+4. Treat post-reboot and settled-device launches as separate cohorts. The existing /proc/uptime, battery and thermal snapshots are useful context, but they bracket the instrumentation invocation rather than every individual iteration.
+5. Do not discard early iterations silently: AndroidX's cold-start and compilation controls already define the intended experiment. If a separate steady-state-after-boot cohort is desired, label and repeat it as a separate experiment.
+
+Sources: [AndroidX startup metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics), [Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks), [Macrobenchmark comparison script and worked example](https://blog.p-y.wtf/a-script-to-compare-two-macrobenchmarks-runs).
+
+### Concrete next improvement cycle
+
+1. **R8 analyzer first:** run the documented standalone analyzer task for fullRelease and playstoreRelease only when a Gradle task is authorized. Review the generated report and trace each optimization blocker to its originating rule/library. Validate reflection, JNI, serialization and plugin contracts before narrowing any keep rule.
+2. **Artifact proof second:** inspect the actual minified release-like APK/AAB for consumed Baseline Profile, Startup Profile metadata and primary DEX placement. A non-empty generated text profile alone does not prove that the measured artifact packaged and consumed the intended profile.
+3. **Trace-led app changes third:** use Startup Insights and Perfetto to identify work before first frame and before the Home-ready signal. Change one proven bottleneck at a time, then rerun the same paired benchmark and check both TTID and TTFD.
+4. **Do not add noise:** no manual cache clearing, forced clock locking on this non-rooted phone, blanket lazy initialization, extra background dispatch, or alpha-only metrics without a trace question and a validation plan.
+
+No app source, benchmark parameters, dependency, profile, shrinker rule or build configuration was changed in this research cycle. The only implementation change in the preceding cycle remains the phone-runner Wireless debugging interruption guard. No build, Gradle task, device benchmark or CI was run.
