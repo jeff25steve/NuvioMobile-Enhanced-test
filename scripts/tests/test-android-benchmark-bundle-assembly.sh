@@ -5,20 +5,30 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 WORKFLOW="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 [ -f "$WORKFLOW" ] || { echo "FAIL: benchmark workflow not found: $WORKFLOW" >&2; exit 1; }
 
-# This APK workflow must remain explicit/manual; an accidental push or PR
-# trigger can start an expensive Android build without an authorized dispatch.
+# The production benchmark workflow remains manual-only on normal branches.
+# One isolated CI branch is allowed to push-trigger this same validation/build
+# job; no other ref or automatic event may start it.
 awk '
   /^on:[[:space:]]*$/ { in_on=1; seen_on=1; next }
   in_on && /^[^[:space:]#][^:]*:/ { in_on=0 }
-  in_on && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
-    trigger=$1
-    sub(/:$/, "", trigger)
-    if (trigger == "workflow_dispatch") manual=1
-    else unexpected=1
+  in_on && /^  workflow_dispatch:[[:space:]]*$/ { manual=1; next }
+  in_on && /^  push:[[:space:]]*$/ { push=1; next }
+  in_on && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ { unexpected=1; next }
+  in_on && push && /^    branches:[[:space:]]*$/ { branches=1; next }
+  in_on && push && /^      - / {
+    if ($0 == "      - ci/android-startup-abba-confirmation-20261116") {
+      branch=1
+      branch_count++
+    } else {
+      unexpected=1
+    }
+    next
   }
+  in_on && push && /^    / { unexpected=1 }
+  in_on && push && /^      / { unexpected=1 }
   END {
-    if (!seen_on || !manual || unexpected) {
-      print "FAIL: benchmark workflow must use workflow_dispatch only; automatic triggers are not allowed." > "/dev/stderr"
+    if (!seen_on || !manual || !push || !branches || !branch || branch_count != 1 || unexpected) {
+      print "FAIL: benchmark workflow may use workflow_dispatch plus only the isolated ABBA CI branch push; all other automatic triggers are forbidden." > "/dev/stderr"
       exit 1
     }
   }
