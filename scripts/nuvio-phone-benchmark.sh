@@ -382,9 +382,12 @@ validate_macrobenchmark_statistics() {
         metric_count = 0
         while (match(remaining, pattern)) {
           object = substr(remaining, RSTART, RLENGTH)
+          metric_start = RSTART
+          metric_length = RLENGTH
+          object = substr(remaining, metric_start, metric_length)
           if (!validate_metric_object(object, metric_name)) exit 1
           metric_count++
-          remaining = substr(remaining, RSTART + RLENGTH)
+          remaining = substr(remaining, metric_start + metric_length)
         }
         if (metric_count != expected_blocks) {
           print "FAIL: JSON must contain exactly eight " metric_name " metric objects."
@@ -396,7 +399,9 @@ validate_macrobenchmark_statistics() {
       trace_count = 0
       trace_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
       while (match(remaining, trace_pattern)) {
-        trace_array = substr(remaining, RSTART, RLENGTH)
+        trace_start = RSTART
+        trace_length = RLENGTH
+        trace_array = substr(remaining, trace_start, trace_length)
         trace_types = count_matches(trace_array, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"")
         trace_names = count_matches(trace_array, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"")
         if (trace_types != expected_iterations || trace_names != expected_iterations) {
@@ -411,7 +416,7 @@ validate_macrobenchmark_statistics() {
           }
         }
         trace_count++
-        remaining = substr(remaining, RSTART + RLENGTH)
+        remaining = substr(remaining, trace_start + trace_length)
       }
       if (trace_count != expected_blocks) {
         print "FAIL: JSON must contain profilerOutputs for all eight ABBA blocks."
