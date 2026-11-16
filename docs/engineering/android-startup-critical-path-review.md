@@ -475,3 +475,53 @@ References: [Macrobenchmark API/state guidance](https://developer.android.com/to
 ### Failed workflow root cause re-confirmed
 
 GitHub Actions run [43781685987](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43781685987) was re-inspected. Checkout, Java, Gradle setup and runtime-properties preparation succeeded; the pre-build validation step failed at `test-android-benchmark-bundle-assembly.sh` with `FAIL: benchmark workflow must use workflow_dispatch only; automatic triggers are not allowed.` All Rust setup and APK build steps were skipped. This confirms the failure was the temporary push trigger in that run's workflow snapshot, not Gradle compilation or the benchmark source. The current `main-build-testing` head `472211a9dea084efa5a8a0ee7c0a45608c554b1b` restores `workflow_dispatch` only. Do not rerun the old failed run; it would retry the old workflow snapshot.
+
+## 16 November 2026 — complete harness audit and legacy-rewrite handoff
+
+### Cycle 51 — the two JUnit arms have a fixed, unbalanced execution order
+
+A source-level audit found a concrete benchmark-methodology limitation that was not captured in the earlier notes:
+
+- `StartupBenchmark.java` has two independent JUnit 4 test methods: `startupNoCompilation` and `startupWithBaselineProfile`. The class uses `androidx.test.ext.junit.runners.AndroidJUnit4`, and the version catalog pins JUnit **4.13.2**. There is no `@FixMethodOrder` or custom ordering annotation.
+- AndroidX Test's on-device `AndroidJUnit4ClassRunner` extends JUnit's `BlockJUnit4ClassRunner`. With no explicit ordering annotation, JUnit 4.13.2 applies `MethodSorter.DEFAULT`: it sorts by the Java hash code of each method name, ascending. For these exact names, `startupNoCompilation` hashes to `-1479621179` and `startupWithBaselineProfile` to `-173791167`; therefore **the no-compilation arm is ordered before the Baseline Profile arm**.
+- The phone runner invokes the entire `StartupBenchmark` class in one `am instrument` command and validates that both methods ran. That means each measured session runs the no-compilation batch first, then the Baseline Profile batch. It is not randomized and it is not ABBA.
+- `StartupMode.COLD` gives cold app-process launches within each arm, but it does not reset device temperature, CPU/GPU clocks, system load or other device-wide conditions between the two test methods. The runner's environment snapshots are taken before and after the whole instrumentation invocation, not around each arm independently.
+
+This does **not** prove the reported Baseline Profile effect is wrong. It does mean that a fixed first-arm/second-arm effect is not cancelled, and a small median difference can include order or thermal drift. Do not paper over this with `@FixMethodOrder`: making the current sequence explicit would still leave the comparison unbalanced. A successor harness should orchestrate the arms in deliberate balanced blocks and retain arm-order/environment metadata.
+
+Sources: [JUnit 4.13.2 MethodSorter implementation](https://junit.org/junit4/xref/org/junit/internal/MethodSorter.html), [JUnit 4.13.2 default-order contract](https://junit.org/junit4/javadoc/latest/org/junit/FixMethodOrder.html), [AndroidX Test AndroidJUnit4 implementation](https://github.com/android/android-test/blob/master/runner/android_junit_runner/java/androidx/test/internal/runner/junit4/AndroidJUnit4ClassRunner.java).
+
+### Cycle 52 — compare the AndroidX A/B runner with the Sentry ABBA design
+
+The latest AndroidX source includes its own local A/B Macrobenchmark tool under `development/ab-benchmarking`. It is a useful upgrade in evidence quality for **comparing two Git revisions**:
+
+- It runs the same Macrobenchmark test on revision A and then revision B, repeating that A/B pair for the configured run count. It does not run all A sessions and then all B sessions.
+- It emits per-revision measurement CSVs, execution metadata (commit hashes, device and parameters), histograms, and a comparison summary.
+- Its summary includes a 95% BCa bootstrap confidence interval for the difference between medians and a Mann–Whitney U p-value. Its documented significance rule requires the interval to exclude zero and the p-value to be below 0.05.
+- Important limitation: the runner's loop is A→B on every round, not ABBA. It interleaves the revisions but still makes A consistently first, so it does not fully balance linear time/thermal drift. Its statistical tests also do not, by themselves, prove that ordered samples are independent.
+
+This AndroidX tool is not a drop-in replacement for Nuvio's current question. It checks out and builds two Git revisions on a host machine and runs the same benchmark test against each; Nuvio's current test instead compares `CompilationMode.None` and `Partial(BaselineProfileMode.Require)` for one installed APK, with a phone-only LADB runner.
+
+Sentry's separate Java PR [#5991](https://github.com/getsentry/sentry-java/pull/5991) is a stronger order-balancing reference: it runs the two app variants in ABBA order, pools iteration samples, and uses a permutation test for the median difference. Its authors explicitly note that the longer 24-cold-start session can thermally throttle the device; ABBA distributes that drift rather than making it disappear. Keep the two Sentry sources distinct: the **20 October Sentry SDK blog's** four rounds of ten runs per version are a different experiment from the **Sentry Java PR's** 24-start ABBA comparison.
+
+For a future Nuvio rewrite, use the current ten-iteration test only as a screening pass. For a code-change or profile-effect claim, design a test-first balanced comparison (ABBA or randomized blocks), preserve the chronological raw samples and per-iteration traces, capture environment state per block, and validate the harness with both an A/A null comparison and a deliberate known-delay sensitivity test. Do not increase iteration count blindly; longer runs can create more thermal drift.
+
+Sources: [AndroidX A/B Macrobenchmark README](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/development/ab-benchmarking/app/src/main/kotlin/androidx/abbenchmarking/macrobenchmarking/README-MACRO.md), [AndroidX A/B runner implementation](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/development/ab-benchmarking/app/src/main/kotlin/androidx/abbenchmarking/macrobenchmarking/MacroBenchmarkRunner.kt), [AndroidX A/B tool overview](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/development/ab-benchmarking/README.md), [Sentry ABBA PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks).
+
+### Cycle 53 — recent R8 results checked against Nuvio's actual release config
+
+Google's Monzo case study (30 March 2026) reports 30% faster cold starts, 24% faster warm starts, 14% faster hot starts, 11% better P50 launch time, 12% better P90 launch time, 9% smaller app size and 35% fewer ANRs after fully enabling R8 optimizations. The simple configuration change highlighted was replacing `proguard-android.txt` with `proguard-android-optimize.txt`.
+
+That basic change is **already present** in Nuvio's inspected `androidApp/build.gradle.kts`: its release configuration uses `getDefaultProguardFile("proguard-android-optimize.txt")`, and minification/resource shrinking default to enabled unless the `releaseMinifyEnabled` property overrides them. Therefore, copying Monzo's initial Gradle edit would not be a concrete Nuvio improvement. The remaining evidence-led R8 opportunity is the analyzer report: find broad keep rules and their actual impact on Nuvio-owned startup code before changing rules.
+
+Google's Reddit case study is still useful as context, but its headline results must be separated: the production rollout reported 40% faster cold startup after enabling R8's optimization potential; a separate Macrobenchmark comparison combining R8, Baseline Profiles and Startup Profiles reported 55% faster startup and 18% earlier browsing. The latter is not an R8-only attribution.
+
+Sources: [Monzo R8 case study](https://android-developers.googleblog.com/2026/03/monzo-boosts-performance-metrics-by-up-to-35-percent.html), [Reddit R8/Profile case study](https://developer.android.com/blog/posts/how-reddit-used-the-r8-optimizer-for-high-impact-performance-improvements), [Nuvio release build configuration](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/main-build-testing/androidApp/build.gradle.kts).
+
+### Repository and integration decision
+
+The maintainer closed legacy PR [#9](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/pull/9) on 16 November 2026 because the current app is being discontinued in favour of a full Compose Multiplatform rewrite and legacy-code contributions are no longer being reviewed. The API 33 data-preservation guard remains unmerged on its original branch. This handoff is documentation-only: do not reopen the closed PR, merge legacy-app source changes, or infer that the API 33 guard has passed its unrun shell suite.
+
+The benchmark infrastructure already provides a substantial base to carry forward: release-like R8 benchmark variants, isolated `.benchmark` package identity, required packaged Baseline Profile mode, TTID and Home-ready TTFD, Startup Insights, ten cold iterations per arm, one Perfetto trace per iteration, output integrity checks, phone-side environment snapshots, and a manual-only build workflow. No new app-runtime optimization is justified by the source audit alone. The next evidence gates remain the actual R8 Configuration Analyzer output, compiled Startup Profile/primary-DEX placement, and balanced device measurements on the replacement app.
+
+Verification boundary for this handoff: remote source and documentation inspection only. No Gradle task, build, APK/AAB, profile generation, physical-device benchmark, workflow dispatch or CI was run. No Nuvio startup speedup is claimed.
