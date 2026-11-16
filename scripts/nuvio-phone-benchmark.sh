@@ -837,27 +837,27 @@ capture_foreground_state() {
   label="$1"
   snapshot="$RUN_DIR/foreground-$label.txt"
   {
-    printf 'Capture: %s\\n' "$label"
+    printf 'Capture: %s\n' "$label"
     printf 'Timestamp: '
-    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\\n'
-    printf '\\nWindow focus (mCurrentFocus / mFocusedApp):\\n'
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\n'
+    printf '\nWindow focus (mCurrentFocus / mFocusedApp):\n'
     if command -v dumpsys >/dev/null 2>&1; then
       dumpsys window windows 2>&1 | grep -E 'mCurrentFocus|mFocusedApp' || true
-      printf '\\nActivity state (top resumed / resumed):\\n'
+      printf '\nActivity state (top resumed / resumed):\n'
       dumpsys activity activities 2>&1 | grep -E 'topResumedActivity|mResumedActivity|ResumedActivity' || true
     else
-      printf 'dumpsys unavailable\\n'
+      printf 'dumpsys unavailable\n'
     fi
   } > "$snapshot" 2>&1 || {
-    printf 'could not write foreground snapshot: %s\\n' "$snapshot" >&2
+    printf 'could not write foreground snapshot: %s\n' "$snapshot" >&2
     return 0
   }
 }
 
 reject_pending_wifi_debug_confirmation() {
   focus_state="$(dumpsys window windows 2>&1; dumpsys activity activities 2>&1)"
-  if printf '%s\\n' "$focus_state" | grep -Eiq 'WifiDebuggingActivity|mCurrentFocus=.*com[.]android[.]systemui|topResumedActivity=.*com[.]android[.]systemui'; then
-    printf '%s\\n' "$focus_state" | grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' | head -n 12 >&2 || true
+  if printf '%s\n' "$focus_state" | grep -Eiq 'WifiDebuggingActivity|mCurrentFocus=.*com[.]android[.]systemui|topResumedActivity=.*com[.]android[.]systemui'; then
+    printf '%s\n' "$focus_state" | grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' | head -n 12 >&2 || true
     fail "Wireless debugging confirmation is active in Android System UI. Unlock the phone, approve or dismiss the Wireless debugging prompt for this LADB session, then rerun the benchmark. Instrumentation was not started."
   fi
 }
