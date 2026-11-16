@@ -19,42 +19,42 @@ WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.y
   exit 1
 }
 
-awk '
-  /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
-  /^[[:space:]]*public void startupNoCompilation[[:space:]]*\(/ && annotated { found=1 }
-  { if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*@Test[[:space:]]*$/) annotated=0 }
-  END { exit !found }
-' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: Macrobenchmark must declare a JUnit test for the no-compilation baseline." >&2
+grep -Fq '@RunWith(Parameterized.class)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup comparison must use a parameterized JUnit runner so compilation modes can be interleaved." >&2
   exit 1
 }
-grep -Fq 'runColdStartupBenchmark(new CompilationMode.None())' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: no-compilation test must execute the shared cold-start measurement." >&2
+grep -Fq '@Parameterized.Parameters(name = "{0}")' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: ABBA startup blocks must retain visible stable names in instrumentation output." >&2
   exit 1
 }
-awk '
-  /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
-  /^[[:space:]]*public void startupWithBaselineProfile[[:space:]]*\(/ && annotated { found=1 }
-  { if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*@Test[[:space:]]*$/) annotated=0 }
-  END { exit !found }
-' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: Macrobenchmark must declare a JUnit test for the packaged Baseline Profile." >&2
+grep -Fq 'private static final int ITERATIONS_PER_BLOCK = 3;' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: each ABBA block must collect three cold starts." >&2
   exit 1
 }
-grep -Fq 'runColdStartupBenchmark(new CompilationMode.Partial(BaselineProfileMode.Require))' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: Baseline Profile test must require the packaged profile during partial compilation." >&2
+grep -Fq 'private static final int BLOCK_COUNT = 8;' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup comparison must run two ABBA rounds (eight blocks)." >&2
+  exit 1
+}
+for block_name in '01-none-a' '02-profile-b' '03-profile-b' '04-none-a' '05-none-a' '06-profile-b' '07-profile-b' '08-none-a'; do
+  grep -Fq "$block_name" "$BENCHMARK_SOURCE" || {
+    echo "FAIL: parameterized startup sequence is missing ABBA block $block_name." >&2
+    exit 1
+  }
+done
+grep -Fq 'new CompilationMode.None()' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: A blocks must use CompilationMode.None." >&2
+  exit 1
+}
+grep -Fq 'new CompilationMode.Partial(BaselineProfileMode.Require)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: B blocks must require the packaged Baseline Profile." >&2
   exit 1
 }
 grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both comparison arms must collect StartupTimingMetric." >&2
+  echo "FAIL: all ABBA blocks must collect StartupTimingMetric." >&2
   exit 1
 }
 grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both comparison arms must measure cold starts." >&2
-  exit 1
-}
-grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: startup comparison must retain ten measured iterations per arm." >&2
+  echo "FAIL: all ABBA blocks must measure cold starts." >&2
   exit 1
 }
 
@@ -101,7 +101,7 @@ grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
   exit 1
 }
-grep -Fq 'expected_iterations = 10' "$PHONE_RUNNER" || {
+grep -Fq 'expected_iterations = 3' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must match the ten requested iterations." >&2
   exit 1
 }
@@ -113,11 +113,11 @@ grep -Fq 'minimum + 0 > median + 0 || median + 0 > maximum + 0' "$PHONE_RUNNER" 
   echo "FAIL: phone result validation must reject inconsistent minimum/median/maximum values." >&2
   exit 1
 }
-grep -Fq 'median_position = 0.5 * (sample_count - 1)' "$PHONE_RUNNER" || {
+grep -Fq 'position = 0.5 * (n - 1)' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must recompute AndroidX's interpolated 50th percentile from raw runs." >&2
   exit 1
 }
-grep -Fq 'reported median does not match the 50th percentile of its per-iteration runs' "$PHONE_RUNNER" || {
+grep -Fq 'median does not match the raw block samples' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must reject a reported median that disagrees with the raw runs." >&2
   exit 1
 }
@@ -149,7 +149,7 @@ grep -Fq 'environment-before.txt' "$PHONE_RUNNER" && grep -Fq 'environment-after
   echo "FAIL: phone runner must identify both device-condition snapshot files." >&2
   exit 1
 }
-for result_name in startupNoCompilation startupWithBaselineProfile; do
+for result_name in 'startup[01-none-a]' 'startup[02-profile-b]' 'startup[03-profile-b]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[06-profile-b]' 'startup[07-profile-b]' 'startup[08-none-a]'; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
     exit 1
@@ -212,4 +212,4 @@ phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHON
   exit 1
 }
 
-printf 'PASS: both cold-start Macrobenchmark cases are declared and phone results require both test arms plus TTID/TTFD JSON data.\n'
+printf 'PASS: eight ordered ABBA startup blocks are declared and phone results require pooled twelve-sample arms plus TTID/TTFD JSON data.\n'
