@@ -511,3 +511,38 @@ This is a useful next diagnostic because it can show whether the Baseline Profil
 As of 16 November 2026, Google's AGP API reference lists 9.5.1 as the current stable release. Nuvio's AGP 9.4.0 already satisfies the R8 Analyzer minimum and the official 9.5 release notes do not identify a startup/R8 optimization that justifies a blind toolchain upgrade. Keep the benchmark on its pinned toolchain for the current controlled comparison; consider a separate 9.5.1 compatibility/build experiment only when its purpose and measured outcome are clear.
 
 References: [Debug Baseline Profiles and Startup Profile verification](https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles), [Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AGP 9.5 release notes](https://developer.android.com/build/releases/agp-9-5-0-release-notes), [AGP API current release](https://developer.android.com/reference/tools/gradle-api).
+
+
+## 16 November 2026 — Cycle 55: R8 benchmark variant verified against CI output
+
+### What the authorized CI run actually established
+
+Workflow run [#47](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43816652663), attempt 2, ran against commit `355c6cf1b53fffb9082b9803a621abd7858007e4`.
+
+- The shell regression/pre-build validation step passed, including the ABBA runner and metric-contract checks.
+- Both full and Play Store profile-capture APK pairs built successfully.
+- Both full and Play Store benchmark APK pairs also built successfully.
+- The job failed only in **Assemble phone-ready benchmark bundle**, when it required `androidApp/build/outputs/mapping/fullBenchmarkRelease/mapping.txt` and found no non-empty mapping file.
+- The build log contains no R8 minification task for `fullBenchmarkRelease`; it proceeds from compilation/dexing to package/assemble. The corresponding mapping assertion therefore exposed a real configuration gap, not a Gradle compilation failure.
+
+This is stronger evidence than the earlier source-only assumption that the Baseline Profile plugin had already configured the manually declared build type. The previous statement that the custom `benchmarkRelease` necessarily inherited the R8 configuration is withdrawn. The app module explicitly sets minification on the `release` build type, but separately creates `benchmarkRelease` without `initWith(release)`. The CI artifact inspection confirms that this custom variant did not produce the R8 mapping output expected of the R8 benchmark.
+
+### Concrete correction on the isolated CI branch
+
+Commit [`3ec1211`](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/3ec1211a6311f4322ee7fc0cac159b081139798d) changes only the app build-type inheritance:
+
+- `benchmarkRelease` now calls `initWith(getByName("release"))`, then keeps the isolated `.benchmark` application ID and debug signing.
+- `nonMinifiedRelease` also inherits release behavior, then explicitly sets `isMinifyEnabled = false` and `isShrinkResources = false` so profile collection remains readable.
+- The source regression contract now checks these two build-type invariants.
+
+This follows Android's documented `initWith` behavior: a custom build type copies the selected build type's configuration before its intended overrides are applied. It preserves release's optimized ProGuard configuration for the actual R8 benchmark APK without changing production build types or runtime application code.
+
+### Verification status and next gate
+
+The two new shell assertions were checked against the exact build-type block and pass. That is a focused syntax/logic check, not a replacement for the workflow.
+
+The corrective commit has been pushed to `ci/android-startup-abba-confirmation-20261116`; the last observed workflow run still corresponds to the previous commit and remains failed at bundle assembly. A new workflow result is required to verify that R8 tasks execute, both flavored `mapping.txt` files exist, the eight-APK bundle assembles, and the artifact uploads. Do not mark the R8 benchmark build as verified until that run passes.
+
+The failure is not evidence of a startup regression. It is evidence that the previous bundle did not contain a genuinely minified benchmark target. No app startup code, Baseline Profile rules or R8 keep rules were changed.
+
+References: [Android build types and `initWith`](https://developer.android.com/build/build-variants), [Android R8 optimization](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization), [failed benchmark workflow run #47](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43816652663).
