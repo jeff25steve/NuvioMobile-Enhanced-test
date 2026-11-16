@@ -1305,7 +1305,7 @@ No source, benchmark, runner, dependency, build configuration or profile was cha
 
 ## 16 November 2026 — API 33 signed-in benchmark preflight
 
-The phone and desktop runners now distinguish API 33 profile collection from authenticated Home measurement. Profile collection remains supported on API 33 without root. The `run` / `measure` path now requires API 33's instrumentation shell to pass the same `su root id` capability probe used by AndroidX Benchmark; otherwise it exits before Macrobenchmark can uninstall/reinstall the target and erase the signed-in test state. API 34+ remains the normal non-rooted path.
+The phone and desktop runners now distinguish API 33 profile collection from authenticated Home measurement. Profile collection remains supported on API 33 without root. The `run` / `measure` path now requires API 33's instrumentation shell to pass the same already-root-or-`su root id` capability probe used by AndroidX Benchmark; otherwise it exits before Macrobenchmark can uninstall/reinstall the target and erase the signed-in test state. API 34+ remains the normal non-rooted path.
 
 A mocked phone-runner regression was added for both API 33 unrooted rejection and rooted acceptance. The desktop runner has matching static contract assertions. The full shell suite has not yet been executed in this environment, so this change is pending test execution before merge. No build, CI, profile collection or physical-device benchmark was started. No app speedup is claimed.
 
