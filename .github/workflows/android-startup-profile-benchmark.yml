@@ -1,8 +1,11 @@
 name: Android Startup Profile Benchmark Builds
 
-# Manual-only: source pushes never start an Android build.
+# One-time authorized diagnostic retry; restore manual-only immediately.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main-build-testing
 
 permissions:
   contents: read
@@ -66,7 +69,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/run-android-startup-profile-benchmark.sh
           sh -n scripts/nuvio-phone-benchmark.sh
-          sh scripts/tests/test-nuvio-phone-benchmark.sh
+          sh -x scripts/tests/test-nuvio-phone-benchmark.sh
           sh scripts/tests/test-android-benchmark-bundle-assembly.sh
           sh scripts/tests/test-android-startup-readiness.sh
           sh scripts/tests/test-android-startup-metric-contract.sh
