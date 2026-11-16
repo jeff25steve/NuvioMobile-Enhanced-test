@@ -71,10 +71,17 @@ grep -Fq 'require_startup_metrics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must centralize the TTID/TTFD validation for each flavor." >&2
   exit 1
 }
-grep -Fq 'require_macrobenchmark_cases() {' "$PHONE_RUNNER" || {
-  echo "FAIL: phone runner must require both Macrobenchmark JUnit cases to execute." >&2
+grep -Fq 'require_macrobenchmark_cases' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must require the ordered ABBA Macrobenchmark test blocks to execute." >&2
   exit 1
 }
+
+for block_name in 'startup[01-none-a]' 'startup[02-profile-b]' 'startup[03-profile-b]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[06-profile-b]' 'startup[07-profile-b]' 'startup[08-none-a]'; do
+  grep -Fq "$block_name" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner must require instrumentation output for ABBA block $block_name." >&2
+    exit 1
+  }
+done
 grep -Fq 'INSTRUMENTATION_STATUS: test=$test_name' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must inspect AndroidJUnitRunner's per-test status records." >&2
   exit 1
