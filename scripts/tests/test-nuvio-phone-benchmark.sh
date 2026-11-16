@@ -192,6 +192,15 @@ case "$1" in
   *) exit 0 ;;
 esac
 STUB
+cat > "$TMP/bin/id" <<'STUB'
+#!/bin/sh
+printf 'uid=2000(shell) gid=2000(shell)\\n'
+STUB
+cat > "$TMP/bin/su" <<'STUB'
+#!/bin/sh
+[ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
+printf 'uid=0(root) gid=0(root)\\n'
+STUB
 cat > "$TMP/bin/monkey" <<'STUB'
 #!/bin/sh
 printf 'monkey %s\n' "$*" >> "$FAKE_COMMAND_LOG"
@@ -398,6 +407,32 @@ if FAKE_ABI=x86_64 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/
 fi
 [ ! -s "$FAKE_COMMAND_LOG" ] || { echo 'FAIL: unsupported ABI invoked package manager.' >&2; exit 1; }
 
+# API 33 profile capture is allowed, but authenticated A/B measurement is
+# safe only when Macrobenchmark's instrumentation shell can reset compilation
+# without uninstalling the signed-in target app.
+API33_OUTPUT="$TMP/api33-rooted-output"
+NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full >/dev/null
+if NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-unrooted.log" 2>&1; then
+  echo 'FAIL: API 33 unrooted authenticated ABBA measurement should be rejected.' >&2
+  exit 1
+fi
+grep -Fq 'Authenticated ABBA Home measurement on API 33 requires a rooted instrumentation shell' "$TMP/api33-unrooted.log" || {
+  echo 'FAIL: API 33 rejection did not explain that repeated None blocks reinstall and clear sign-in data.' >&2
+  cat "$TMP/api33-unrooted.log" >&2
+  exit 1
+}
+NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 FAKE_SU_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-rooted.log" 2>&1 || {
+  echo 'FAIL: rooted API 33 should pass the authenticated ABBA measurement preflight.' >&2
+  cat "$TMP/api33-rooted.log" >&2
+  exit 1
+}
+grep -Fq 'Saved results to:' "$TMP/api33-rooted.log" || {
+  echo 'FAIL: rooted API 33 did not complete the mocked ABBA Macrobenchmark run.' >&2
+  cat "$TMP/api33-rooted.log" >&2
+  exit 1
+}
+NUVIO_PHONE_OUTPUT_DIR="$TMP/output"
+
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
   for startup_profile_fixture in missing empty blank; do
@@ -566,7 +601,7 @@ if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full > "$TMP/api3
   cat "$TMP/api33-install.log" >&2
   exit 1
 fi
-if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1; then
+if ! FAKE_API=33 FAKE_SU_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1; then
   echo "FAIL: API 33 benchmark measurement failed before summary validation." >&2
   cat "$TMP/api33-art-caveat.log" >&2
   exit 1
