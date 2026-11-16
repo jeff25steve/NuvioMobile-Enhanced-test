@@ -97,6 +97,10 @@ phone_profile_validate="$(grep -n -F '      require_non_empty_baseline_profile' 
   echo "FAIL: phone runner must validate copied baseline profile rules before declaring collection complete." >&2
   exit 1
 }
+grep -Fq 'Authenticated ABBA Home measurement on API 33 requires a rooted instrumentation shell' "$PHONE_RUNNER" || {
+  echo "FAIL: API 33 ABBA measurement must protect signed-in benchmark state before Macrobenchmark can reinstall the app." >&2
+  exit 1
+}
 grep -Fq 'validate_macrobenchmark_statistics() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must validate the actual per-iteration metric statistics." >&2
   exit 1
@@ -105,7 +109,7 @@ grep -Fq 'expected_iterations = 3' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must match the ten requested iterations." >&2
   exit 1
 }
-grep -Fq 'sample_count != expected_iterations' "$PHONE_RUNNER" || {
+grep -Fq 'n != expected_iterations' "$PHONE_RUNNER" || {
   echo "FAIL: phone result validation must reject missing startup samples." >&2
   exit 1
 }
