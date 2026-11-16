@@ -7,7 +7,6 @@ import androidx.benchmark.macro.CompilationMode;
 import androidx.benchmark.macro.StartupMode;
 import androidx.benchmark.macro.StartupTimingMetric;
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
@@ -15,6 +14,8 @@ import androidx.test.uiautomator.Until;
 import android.os.SystemClock;
 import androidx.test.filters.LargeTest;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 
 import kotlin.Unit;
@@ -22,19 +23,27 @@ import kotlin.Unit;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /**
- * Compares cold-start time with no AOT compilation against a required,
+ * Compares the same cold-start journey under no AOT compilation and a required,
  * packaged Nuvio Baseline Profile.
  *
- * Run manually on a physical API 33+ device. The test target package is
- * resolved from the installed app variant, so the isolated .benchmark
- * application ID is used without touching the production installation.
+ * The eight parameterized blocks use two ABBA rounds (A/B/B/A, A/B/B/A), with
+ * three cold starts per block. This gives twelve samples per compilation mode
+ * while balancing which mode runs before and after the other. Every block is a
+ * separate Macrobenchmark measurement so AndroidX applies its requested
+ * compilation mode before that block.
+ *
+ * Run on a physical API 33+ device. The target package is isolated from the
+ * production installation and remains the same across both distribution flavors.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(Parameterized.class)
 @LargeTest
 public final class StartupBenchmark {
-    private static final int ITERATIONS = 10;
+    private static final int ITERATIONS_PER_BLOCK = 3;
+    private static final int BLOCK_COUNT = 8;
+    private static final int SAMPLES_PER_MODE = 12;
     private static final long FULLY_DRAWN_TIMEOUT_MS = 30_000L;
 
     // Analyze the same Perfetto traces used for timing so common startup blockers
@@ -49,6 +58,33 @@ public final class StartupBenchmark {
     // context is the test APK itself, not the app being measured. Both distribution
     // flavors deliberately share this isolated benchmark application ID.
     private static final String TARGET_APP_PACKAGE = "com.nuvio.media.benchmark";
+
+    private final String blockLabel;
+    private final CompilationMode compilationMode;
+
+    public StartupBenchmark(String blockLabel, CompilationMode compilationMode) {
+        this.blockLabel = blockLabel;
+        this.compilationMode = compilationMode;
+    }
+
+    /**
+     * Ordered parameter list, matching the A/B/B/A design used by Sentry's
+     * production Macrobenchmark comparison. Repeating ABBA makes each mode the
+     * trailing arm equally often without increasing the total sample count much.
+     */
+    @Parameterized.Parameters(name = "{0}")
+    public static Collection<Object[]> comparisonBlocks() {
+        return Arrays.<Object[]>asList(
+                new Object[] {"01-none-a", new CompilationMode.None()},
+                new Object[] {"02-profile-b", new CompilationMode.Partial(BaselineProfileMode.Require)},
+                new Object[] {"03-profile-b", new CompilationMode.Partial(BaselineProfileMode.Require)},
+                new Object[] {"04-none-a", new CompilationMode.None()},
+                new Object[] {"05-none-a", new CompilationMode.None()},
+                new Object[] {"06-profile-b", new CompilationMode.Partial(BaselineProfileMode.Require)},
+                new Object[] {"07-profile-b", new CompilationMode.Partial(BaselineProfileMode.Require)},
+                new Object[] {"08-none-a", new CompilationMode.None()}
+        );
+    }
 
     private static String targetPackageName() {
         return TARGET_APP_PACKAGE;
@@ -122,22 +158,17 @@ public final class StartupBenchmark {
     }
 
     @Test
-    public void startupNoCompilation() {
-        runColdStartupBenchmark(new CompilationMode.None());
+    public void startup() {
+        runColdStartupBenchmark(compilationMode);
     }
 
-    @Test
-    public void startupWithBaselineProfile() {
-        runColdStartupBenchmark(new CompilationMode.Partial(BaselineProfileMode.Require));
-    }
-
-    private void runColdStartupBenchmark(CompilationMode compilationMode) {
+    private void runColdStartupBenchmark(CompilationMode mode) {
         benchmarkRule.measureRepeated(
                 targetPackageName(),
                 Collections.singletonList(new StartupTimingMetric()),
-                ITERATIONS,
+                ITERATIONS_PER_BLOCK,
                 STARTUP_INSIGHTS_CONFIG,
-                compilationMode,
+                mode,
                 StartupMode.COLD,
                 scope -> {
                     scope.pressHome();
