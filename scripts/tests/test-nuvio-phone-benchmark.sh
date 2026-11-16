@@ -660,6 +660,8 @@ for expected in \
   }
 done
 
+# Temporary diagnostic tracing for the signing-key recovery regression.
+set -x
 # Verify the signing-key recovery path uninstalls only the isolated benchmark
 # and self-instrumenting test packages, never production com.nuvio.media.
 rm -rf "$TMP/output"
