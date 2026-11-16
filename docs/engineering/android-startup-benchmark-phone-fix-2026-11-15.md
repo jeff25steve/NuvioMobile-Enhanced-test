@@ -1328,3 +1328,47 @@ Recent R8 evidence was checked against Nuvio's source. Monzo's March 2026 case s
 No source/runtime/configuration changes were made. No Gradle task, build, APK/AAB, device measurement, profile collection, workflow dispatch or CI was run. No startup speedup is claimed.
 
 References: [JUnit 4.13.2 method ordering](https://junit.org/junit4/xref/org/junit/internal/MethodSorter.html), [AndroidX A/B Macrobenchmark README](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/development/ab-benchmarking/app/src/main/kotlin/androidx/abbenchmarking/macrobenchmarking/README-MACRO.md), [Sentry ABBA PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [Monzo R8 case study](https://android-developers.googleblog.com/2026/03/monzo-boosts-performance-metrics-by-up-to-35-percent.html).
+
+## 16 November 2026 — deeper benchmark-validity and R8 audit
+
+### Cycle 54 — avoid the ART install-state false positive
+
+Expensify's Android Baseline Profile work ([issue #99839](https://github.com/Expensify/App/issues/99839)) is a cautionary example for this exact comparison. An initial ten-cold-start-per-arm result appeared to show an 827 ms / 22% profile gain on a Samsung Galaxy A37. The team later discovered that the unprofiled arm was in raw ADB-sideload state (`run-from-apk`) while the profile arm had also been verified/compiled. After matching the baseline to Play's checked (`verify`) state, the measured difference was about +15 ms before splash and +75 ms with full compilation, both within noise. The initial gain was an ART state mismatch, not a demonstrated profile benefit.
+
+Nuvio's pinned AndroidX Benchmark 1.5.0 is already designed to avoid that specific error on API 34+:
+
+- `CompilationMode.None()` resets to ART `verify` and clears app profiles; AndroidX additionally handles runtime-image effects.
+- `CompilationMode.Partial(BaselineProfileMode.Require)` requires the profile packaged in the tested APK and applies profile-guided compilation.
+- Therefore, interpret this comparison as **verified no-Baseline-Profile AOT versus required packaged Baseline Profile**, not raw sideload versus compiled.
+- API 33 remains a separate pre-34 path: rooted instrumentation can reset compilation without app-data loss; unrooted reset may uninstall/reinstall and erase the signed-in test Home. Keep API 33 separate from API 34+ and do not infer instrumentation-shell root from the outer LADB shell.
+
+Do not add manual ART commands or use `CompilationMode.Ignore` to work around API 33; Ignore skips reset and makes compilation state uncontrolled. The API 33 root-capability preflight exists only in the unmerged archival source branch and remains unverified by its full shell suite.
+
+### Cycle 55 — inspect R8 on the APK that is actually measured
+
+Nuvio already uses `proguard-android-optimize.txt`, minification/resource shrinking default to enabled, AGP 9.4.0, and does not opt out of R8 full mode. The broad keep rules in `composeApp/proguard-rules.pro` are an analyzer investigation target, not a reason for blind removal: Supabase/Ktor, QuickJS/plugins, P2P/JNI, Media3/ExoPlayer and MPV rules may preserve reflection or runtime contracts.
+
+**Corrected target for the next authorized R8 Analyzer session:** Macrobenchmark measures `fullBenchmarkRelease` and `playstoreBenchmarkRelease`, so the analyzer should cover those exact generated variants first. The earlier suggestion to inspect only `fullRelease` and `playstoreRelease` does not answer whether the measured benchmark APKs have avoidable keep-rule blockers. Production release variants can be analyzed separately for comparison. The exact generated analyzer task names must be discovered from Gradle's task list; do not guess them. AGP 9.4.0 satisfies the analyzer's AGP 9.3+ minimum, and the standalone analyzer report avoids full APK/AAB packaging, but running it is still a Gradle task requiring authorization.
+
+Do not narrow a rule until the report identifies its affected classes/members and percentage of code blocked, reflective/JNI/serialization/plugin use is confirmed, and functional tests cover the behavior.
+
+### Cycle 56 — separate Macrobenchmark results from production field claims
+
+The current phone run answers a controlled lab question for one physical device, API level, install channel, account/data state and packaged APK. It does not measure the field-wide improvement for all Nuvio users. Android Calendar's Baseline Profile case study used controlled releases to quantify field results; Teachmint's 2026 report separately recorded device/API/boot cohorts and showed how local tests, Play dashboards and recent-boot devices can represent different populations.
+
+For the replacement app, preserve two distinct result tracks:
+
+- Controlled device experiments: fixed artifact/account/device/API, verified ART state, balanced/reversed arm order, raw chronological samples/traces, per-block environment snapshots, A/A null and known-delay sensitivity checks, confidence/uncertainty rather than median-only claims.
+- Field validation: controlled rollout or representative telemetry with p50/p90, slow-start rate, TTID and a meaningful interactive/Home-ready signal segmented by API/device, install/update and boot/uptime cohort.
+
+Keep TTID and Home-ready TTFD separate. A faster first frame is not proof that the app became usable sooner.
+
+### What is already present and what is not verified
+
+The current runner already validates ten raw samples for TTID and TTFD per arm, recomputes median and coefficient of variation, verifies twenty non-empty per-iteration Perfetto traces, preserves per-iteration trace association in the report, checks both JUnit cases, captures environment snapshots and reports medians as descriptive only. The manual workflow creates and verifies SHA-256 checksums for its phone bundle. Do not add duplicate controls.
+
+The latest stable AndroidX Benchmark remains 1.5.0; 1.6.0-alpha01 adds optional separate-pass heap profiling and broader fixed-performance-mode clock locking. Do not upgrade the timing baseline to alpha without a specific diagnostic need.
+
+No R8 Analyzer task, Gradle task, build, APK/AAB, profile capture, physical-device benchmark, workflow dispatch or CI was run. The full local shell regression suite remains unexecuted in this remote-only environment. No app/benchmark source or keep rule was modified; no Nuvio startup speedup is claimed.
+
+References: [Expensify ART profile-state correction](https://github.com/Expensify/App/issues/99839), [AndroidX CompilationMode](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [Android Calendar Baseline Profile case study](https://developer.android.com/topic/performance/baselineprofiles/case-study-android-calendar), [Teachmint field report](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
