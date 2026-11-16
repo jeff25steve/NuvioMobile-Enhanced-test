@@ -6372,3 +6372,36 @@ Sources:
 - No source or build configuration changed; no Gradle task/build, profile collection, device benchmark or CI was run.
 
 Sources: [TeachmintX engineering report](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [Grab engineering report](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+
+## 16 November 2026 — independent R8 evidence and benchmark decision
+
+### What the newer independent results actually establish
+
+- Google's Reddit case study (17 Nov 2025) reports a 40% production cold-start improvement after enabling R8's full optimisation, then a controlled Macrobenchmark comparison where the fully optimised combination (R8 + Baseline Profiles + Startup Profiles) started 55% faster and reached browsing 18% sooner than the unoptimised build. The controlled comparison also reported two-thirds fewer JIT compilation occurrences and one-third less JIT compilation time. These are combined-configuration results, not a 55% gain attributable to any one profile or to Nuvio.
+- Google's Grab case study (19 Oct 2026) remains the strongest recent multi-stage case: about 35% cumulative cold-start improvement after R8 compatibility mode, Baseline/Startup Profiles, R8 Full Mode and keep-rule refinement. Its phases are cumulative and must not be added together or attributed to one setting.
+- Sentry's 20 Oct 2026 report measured a 20–30% reduction in Sentry SDK initialisation duration from SDK 8.43.0 to 8.54.0, using a synthetic demo app and Perfetto. This is SDK initialisation time, not full application startup. Sentry used four interleaved rounds of ten runs per version (40 per version) on a Pixel 3 with locked clocks. Nuvio currently pins Sentry Android 8.64.0, already newer than the versions in that comparison; do not upgrade or defer Sentry again based on this report.
+- Reddit and Grab reinforce the importance of R8 and Startup Profile DEX layout, while Sentry reinforces balanced, interleaved measurement. None supplies a transferable expected percentage for Nuvio.
+
+### Concrete Nuvio implications
+
+1. **Keep the existing measurement contract.** The current runner already uses a physical phone, cold launches, ten samples per arm, TTID and TTFD, raw JSON samples, per-iteration Perfetto traces and before/after environment snapshots. The current-install attachment is not a result file, so there is still no evidence that ten iterations are noisy for this device or that a specific startup phase is slow. Do not alter iteration count, test order, readiness criteria or compilation modes without the first complete phone result.
+2. **R8 Configuration Analyzer is the highest-value next diagnostic.** Nuvio uses AGP 9.4.0, above Android's AGP 9.3.0 minimum for the standalone analyzer. It can report shrinking, optimization and obfuscation scores and identify which broad keep rules prevent optimization, without completing APK/AAB packaging. Run it for the actual full and playstore release variants in an authorized Gradle environment; inspect the per-rule report before touching any keep rule. Reflection, JNI, serialization, plugin and media paths need runtime regression coverage before a rule is narrowed.
+3. **Verify Startup Profile DEX placement, not just profile presence.** The current workflow verifies the compiled Baseline Profile exists in the benchmark APK and checks the R8 mapping file. Those checks do not prove that the Startup Profile successfully places startup classes in the primary DEX. Android's documented confirmation path is APK Analyzer or the AAB `BUNDLE-METADATA/com.android.tools/r8.json` `dexFiles[].startup` metadata, with matching DEX checksums. The present phone-only APK bundle does not include an AAB, so no primary-DEX success claim is justified yet.
+4. **Do not adopt Benchmark 1.6.0-alpha01 for the timing gate.** As of 16 Nov 2026, AndroidX Benchmark 1.5.0 is the latest stable release and 1.6.0-alpha01 (7 Oct 2026) is still alpha. Its `MemoryProfilingConfig` runs an additional Perfetto heap-profiling pass and is a useful future diagnostic if traces show allocation pressure; it is not a reason to change the stable timing dependency. Its expanded fixed-performance-mode clock locking is also not a reason to change Nuvio's Macrobenchmark until a supported phone-specific workflow is proven.
+5. **Keep the sideload caveat.** The phone workflow is explicitly sideloaded via `pm install`; the `playstore` flavor name does not mean the app was delivered by Google Play and does not reproduce Cloud Profile availability. Compare the two compilation arms as a controlled local profile experiment, not as a direct Play Store production forecast.
+
+### Decision and verification boundary
+
+- No app code, benchmark code, keep rules, profiles, dependencies or workflow triggers were changed in this research pass. The existing manual-only workflow remains manual-only.
+- The remote branch is at `3e1cfc9cdbec3ecddf4df5fdb82e8f6fbfcafdaa` at the start of this review. Its latest commit changes only this cumulative note; the branch has no reported commit status checks.
+- The repository's current phone-runner artifact is still not accompanied by a valid startup measurement report in the supplied `current-install.txt`. No Nuvio TTID/TTFD improvement or regression is claimed.
+- The available GitHub connector in this session exposes repository reads/writes and workflow-run inspection, but no `workflow_dispatch` action. The local runtime cannot resolve GitHub for a checkout. Therefore I cannot honestly claim to have dispatched the manual APK workflow or run its shell regression suite from this environment. Do not treat this note update as a build/test pass.
+
+Sources:
+- [Android Developers — How Reddit used the R8 optimizer](https://developer.android.com/blog/posts/how-reddit-used-the-r8-optimizer-for-high-impact-performance-improvements) (17 Nov 2025; production and Macrobenchmark results)
+- [Android Developers — Grab R8 and profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time) (19 Oct 2026)
+- [Sentry — Android SDK startup improvements and benchmark methodology](https://blog.sentry.io/android-sdk-faster-startup/) (20 Oct 2026)
+- [Android Developers — R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer) (AGP 9.3+ standalone report)
+- [Android Developers — Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles) (primary DEX and AAB R8 metadata)
+- [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) (1.5.0 stable; 1.6.0-alpha01)
