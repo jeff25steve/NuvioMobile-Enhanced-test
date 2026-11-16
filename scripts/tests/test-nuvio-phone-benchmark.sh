@@ -286,6 +286,10 @@ case " $* " in
   ]
 }
 JSON
+    if [ "${FAKE_API:-35}" = "33" ]; then
+      sed 's/"sdk": 35/"sdk": 33/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    fi
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "missing-trace-metadata" ]; then
       awk '
         /startupWithBaselineProfile-trace-9.perfetto-trace/ { next }
