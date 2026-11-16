@@ -186,7 +186,7 @@ require_macrobenchmark_cases() {
   done
 }
 
-count_json_occurrences() {
+count_json_occurrences() {count_json_occurrences() {
   awk -v needle="$1" '
     {
       remaining = $0
@@ -206,10 +206,10 @@ count_json_named_results() {
     }
     END {
       escaped = expected
-      gsub(/\\[/, "\\\\[", escaped)
-      gsub(/\\]/, "\\\\]", escaped)
+      gsub(/\[/, "\\[", escaped)
+      gsub(/\]/, "\\]", escaped)
+      pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" escaped "\""
       remaining = content
-      pattern = "\\"name\\"[[:space:]]*:[[:space:]]*\\"" escaped "\\""
       while (match(remaining, pattern)) {
         count++
         remaining = substr(remaining, RSTART + RLENGTH)
@@ -241,118 +241,87 @@ validate_macrobenchmark_statistics() {
       return ""
     }
 
-    function validate_metric_object(object, metric_name,    minimum, median, maximum, coefficient_variation, runs_text, start, rest, close_pos, samples, sample_count, i, value, sample_min, sample_max, run_key_count, sorted_samples, j, min_index, swap_value, median_position, lower_index, upper_index, interpolation_ratio, expected_median, median_difference, median_tolerance, sample_mean, squared_deviation_sum, expected_cv, cv_difference, cv_tolerance) {
+    function validate_metric_object(object, metric_name,    minimum, median, maximum, cv, start, rest, close_pos, runs_text, samples, n, i, value, sample_min, sample_max, sorted, j, min_index, swap, position, lower, upper, ratio, expected_median, difference, tolerance, mean, squared, expected_cv) {
       minimum = metric_field(object, "minimum")
       median = metric_field(object, "median")
       maximum = metric_field(object, "maximum")
-
-      if (minimum == "" || median == "" || maximum == "") {
-        print "FAIL: " metric_name " is missing a numeric minimum, median, or maximum."
+      cv = metric_field(object, "coefficientOfVariation")
+      if (minimum == "" || median == "" || maximum == "" || cv == "") {
+        print "FAIL: " metric_name " is missing numeric min/median/max/CV statistics."
         return 0
       }
-      if (minimum + 0 <= 0 || median + 0 <= 0 || maximum + 0 <= 0 || minimum + 0 > median + 0 || median + 0 > maximum + 0) {
-        print "FAIL: " metric_name " has invalid statistics; require 0 < minimum <= median <= maximum."
-        return 0
-      }
-
-      coefficient_variation = metric_field(object, "coefficientOfVariation")
-      if (coefficient_variation == "") {
-        print "FAIL: " metric_name " is missing its AndroidX coefficientOfVariation."
-        return 0
-      }
-      if (coefficient_variation !~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || coefficient_variation + 0 < 0) {
-        print "FAIL: " metric_name " has an invalid coefficientOfVariation."
+      if (minimum + 0 <= 0 || median + 0 <= 0 || maximum + 0 <= 0 || minimum + 0 > median + 0 || median + 0 > maximum + 0 || cv + 0 < 0) {
+        print "FAIL: " metric_name " has invalid min/median/max/CV statistics."
         return 0
       }
 
-      run_key_count = count_matches(object, "\\"runs\\"[[:space:]]*:")
-      if (run_key_count != 1) {
-        print "FAIL: " metric_name " must contain exactly one per-block runs array."
+      start = index(object, "\"runs\"")
+      if (start == 0) {
+        print "FAIL: " metric_name " has no raw runs array."
         return 0
       }
-      start = index(object, "\\"runs\\"")
-      rest = substr(object, start + length("\\"runs\\""))
+      rest = substr(object, start + length("\"runs\""))
       sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (substr(rest, 1, 1) != "[") {
-        print "FAIL: " metric_name " runs value is not an array."
-        return 0
-      }
+      if (substr(rest, 1, 1) != "[") return 0
       close_pos = index(rest, "]")
-      if (close_pos == 0) {
-        print "FAIL: " metric_name " runs array is incomplete."
-        return 0
-      }
+      if (close_pos == 0) return 0
       runs_text = substr(rest, 2, close_pos - 2)
       gsub(/[[:space:]]/, "", runs_text)
-      if (runs_text == "") sample_count = 0
-      else sample_count = split(runs_text, samples, ",")
-
-      if (sample_count != expected_iterations) {
-        print "FAIL: " metric_name " has " sample_count " samples; expected " expected_iterations " per ABBA block."
+      n = split(runs_text, samples, ",")
+      if (n != expected_iterations) {
+        print "FAIL: " metric_name " has " n " samples; expected " expected_iterations " per ABBA block."
         return 0
       }
 
-      sample_min = 0
-      sample_max = 0
-      for (i = 1; i <= sample_count; i++) {
+      for (i = 1; i <= n; i++) {
         value = samples[i]
-        if (value !~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || value + 0 <= 0) {
+        if (value !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || value + 0 <= 0) {
           print "FAIL: " metric_name " contains a non-numeric or non-positive sample."
           return 0
         }
         if (i == 1 || value + 0 < sample_min) sample_min = value + 0
         if (i == 1 || value + 0 > sample_max) sample_max = value + 0
-        if (value + 0 < minimum + 0 || value + 0 > maximum + 0) {
-          print "FAIL: " metric_name " sample falls outside its reported minimum/maximum."
-          return 0
-        }
+        sorted[i] = value + 0
       }
       if (sample_min != minimum + 0 || sample_max != maximum + 0) {
-        print "FAIL: " metric_name " reported minimum/maximum do not match the block samples."
+        print "FAIL: " metric_name " reported min/max do not match raw block samples."
         return 0
       }
 
-      # Match AndroidX MetricResult.getPercentile(sortedRuns, 50): the
-      # 50th-percentile index is 0.5 * (n - 1), with linear interpolation.
-      for (i = 1; i <= sample_count; i++) sorted_samples[i] = samples[i] + 0
-      for (i = 1; i < sample_count; i++) {
+      for (i = 1; i < n; i++) {
         min_index = i
-        for (j = i + 1; j <= sample_count; j++) {
-          if (sorted_samples[j] < sorted_samples[min_index]) min_index = j
-        }
+        for (j = i + 1; j <= n; j++) if (sorted[j] < sorted[min_index]) min_index = j
         if (min_index != i) {
-          swap_value = sorted_samples[i]
-          sorted_samples[i] = sorted_samples[min_index]
-          sorted_samples[min_index] = swap_value
+          swap = sorted[i]
+          sorted[i] = sorted[min_index]
+          sorted[min_index] = swap
         }
       }
-      median_position = 0.5 * (sample_count - 1)
-      lower_index = int(median_position) + 1
-      upper_index = lower_index + 1
-      if (upper_index > sample_count) upper_index = sample_count
-      interpolation_ratio = median_position - int(median_position)
-      expected_median = sorted_samples[lower_index] * (1 - interpolation_ratio) + sorted_samples[upper_index] * interpolation_ratio
-      median_difference = median + 0 - expected_median
-      if (median_difference < 0) median_difference = -median_difference
-      median_tolerance = 0.000001 * (1 + expected_median)
-      if (median_difference > median_tolerance) {
-        print "FAIL: " metric_name " reported block median does not match its raw samples."
+      position = 0.5 * (n - 1)
+      lower = int(position) + 1
+      upper = lower + 1
+      if (upper > n) upper = n
+      ratio = position - int(position)
+      expected_median = sorted[lower] * (1 - ratio) + sorted[upper] * ratio
+      difference = median + 0 - expected_median
+      if (difference < 0) difference = -difference
+      tolerance = 0.000001 * (1 + expected_median)
+      if (difference > tolerance) {
+        print "FAIL: " metric_name " median does not match the raw block samples."
         return 0
       }
 
-      # AndroidX MetricResult uses sample standard deviation (n - 1)
-      # divided by arithmetic mean for coefficientOfVariation.
-      sample_mean = 0
-      for (i = 1; i <= sample_count; i++) sample_mean += samples[i] + 0
-      sample_mean /= sample_count
-      squared_deviation_sum = 0
-      for (i = 1; i <= sample_count; i++) squared_deviation_sum += (samples[i] + 0 - sample_mean) ^ 2
-      expected_cv = sqrt(squared_deviation_sum / (sample_count - 1)) / sample_mean
-      cv_difference = coefficient_variation + 0 - expected_cv
-      if (cv_difference < 0) cv_difference = -cv_difference
-      cv_tolerance = 0.000001 * (1 + expected_cv)
-      if (cv_difference > cv_tolerance) {
-        print "FAIL: " metric_name " reported coefficientOfVariation does not match its block samples."
+      mean = 0
+      for (i = 1; i <= n; i++) mean += samples[i] + 0
+      mean /= n
+      squared = 0
+      for (i = 1; i <= n; i++) squared += (samples[i] + 0 - mean) ^ 2
+      expected_cv = sqrt(squared / (n - 1)) / mean
+      difference = cv + 0 - expected_cv
+      if (difference < 0) difference = -difference
+      tolerance = 0.000001 * (1 + expected_cv)
+      if (difference > tolerance) {
+        print "FAIL: " metric_name " coefficientOfVariation disagrees with raw block samples."
         return 0
       }
       return 1
@@ -372,17 +341,17 @@ validate_macrobenchmark_statistics() {
       test_names[7] = "startup[07-profile-b]"
       test_names[8] = "startup[08-none-a]"
 
-      class_count = count_matches(json, "\\"className\\"[[:space:]]*:[[:space:]]*\\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\\"")
+      class_count = count_matches(json, "\"className\"[[:space:]]*:[[:space:]]*\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\"")
       if (class_count != expected_blocks) {
-        print "FAIL: JSON must contain exactly eight parameterized StartupBenchmark block results."
+        print "FAIL: JSON must contain exactly eight parameterized StartupBenchmark blocks."
         exit 1
       }
       for (i = 1; i <= expected_blocks; i++) {
         escaped = test_names[i]
-        gsub(/\\[/, "\\\\[", escaped)
-        gsub(/\\]/, "\\\\]", escaped)
-        result_pattern = "\\"name\\"[[:space:]]*:[[:space:]]*\\"" escaped "\\""
-        if (count_matches(json, result_pattern) != 1) {
+        gsub(/\[/, "\\[", escaped)
+        gsub(/\]/, "\\]", escaped)
+        pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" escaped "\""
+        if (count_matches(json, pattern) != 1) {
           print "FAIL: JSON must contain exactly one result for " test_names[i] "."
           exit 1
         }
@@ -390,37 +359,32 @@ validate_macrobenchmark_statistics() {
 
       repeat_rest = json
       repeat_count = 0
-      repeat_pattern = "\\"repeatIterations\\"[[:space:]]*:[[:space:]]*[0-9]+"
+      repeat_pattern = "\"repeatIterations\"[[:space:]]*:[[:space:]]*[0-9]+"
       while (match(repeat_rest, repeat_pattern)) {
-        repeat_start = RSTART
-        repeat_length = RLENGTH
-        repeat_value = substr(repeat_rest, repeat_start, repeat_length)
+        repeat_value = substr(repeat_rest, RSTART, RLENGTH)
         sub(/^.*:[[:space:]]*/, "", repeat_value)
         if (repeat_value + 0 != expected_iterations) {
           print "FAIL: each ABBA block must report repeatIterations=3."
           exit 1
         }
         repeat_count++
-        repeat_rest = substr(repeat_rest, repeat_start + repeat_length)
+        repeat_rest = substr(repeat_rest, RSTART + RLENGTH)
       }
       if (repeat_count != expected_blocks) {
         print "FAIL: JSON must contain repeatIterations for all eight ABBA blocks."
         exit 1
       }
 
-      for (metric_name_index = 1; metric_name_index <= 2; metric_name_index++) {
-        if (metric_name_index == 1) metric_name = "timeToInitialDisplayMs"
-        else metric_name = "timeToFullDisplayMs"
-        metric_pattern = "\\"" metric_name "\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
-        metric_rest = json
+      for (metric_index = 1; metric_index <= 2; metric_index++) {
+        metric_name = metric_index == 1 ? "timeToInitialDisplayMs" : "timeToFullDisplayMs"
+        pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+        remaining = json
         metric_count = 0
-        while (match(metric_rest, metric_pattern)) {
-          metric_start = RSTART
-          metric_length = RLENGTH
-          metric_object = substr(metric_rest, metric_start, metric_length)
-          if (!validate_metric_object(metric_object, metric_name)) exit 1
+        while (match(remaining, pattern)) {
+          object = substr(remaining, RSTART, RLENGTH)
+          if (!validate_metric_object(object, metric_name)) exit 1
           metric_count++
-          metric_rest = substr(metric_rest, metric_start + metric_length)
+          remaining = substr(remaining, RSTART + RLENGTH)
         }
         if (metric_count != expected_blocks) {
           print "FAIL: JSON must contain exactly eight " metric_name " metric objects."
@@ -428,39 +392,37 @@ validate_macrobenchmark_statistics() {
         }
       }
 
-      trace_rest = json
-      trace_array_count = 0
-      trace_array_pattern = "\\"profilerOutputs\\"[[:space:]]*:[[:space:]]*\\\\[[^]]*\\\\]"
-      while (match(trace_rest, trace_array_pattern)) {
-        trace_start = RSTART
-        trace_length = RLENGTH
-        trace_array = substr(trace_rest, trace_start, trace_length)
-        trace_type_count = count_matches(trace_array, "\\"type\\"[[:space:]]*:[[:space:]]*\\"PerfettoTrace\\"")
-        trace_filename_count = count_matches(trace_array, "\\"filename\\"[[:space:]]*:[[:space:]]*\\"[^\\"]+\\"")
-        if (trace_type_count != expected_iterations || trace_filename_count != expected_iterations) {
-          print "FAIL: each ABBA block must reference three per-iteration Perfetto traces."
+      remaining = json
+      trace_count = 0
+      trace_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      while (match(remaining, trace_pattern)) {
+        trace_array = substr(remaining, RSTART, RLENGTH)
+        trace_types = count_matches(trace_array, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"")
+        trace_names = count_matches(trace_array, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"")
+        if (trace_types != expected_iterations || trace_names != expected_iterations) {
+          print "FAIL: each ABBA block must reference exactly three per-iteration Perfetto traces."
           exit 1
         }
-        for (trace_iteration = 0; trace_iteration < expected_iterations; trace_iteration++) {
-          trace_label_pattern = "\\"label\\"[[:space:]]*:[[:space:]]*\\"Trace Iteration " trace_iteration "\\""
-          if (count_matches(trace_array, trace_label_pattern) != 1) {
-            print "FAIL: each ABBA block must contain exactly one trace reference for every measured iteration."
+        for (iteration = 0; iteration < expected_iterations; iteration++) {
+          label_pattern = "\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " iteration "\""
+          if (count_matches(trace_array, label_pattern) != 1) {
+            print "FAIL: each ABBA block must contain one matching trace label per sample."
             exit 1
           }
         }
-        trace_array_count++
-        trace_rest = substr(trace_rest, trace_start + trace_length)
+        trace_count++
+        remaining = substr(remaining, RSTART + RLENGTH)
       }
-      if (trace_array_count != expected_blocks) {
+      if (trace_count != expected_blocks) {
         print "FAIL: JSON must contain profilerOutputs for all eight ABBA blocks."
         exit 1
       }
-      print "PASS: eight ABBA blocks contain three numeric TTID/TTFD samples each, valid block statistics and three Perfetto traces per block."
+      print "PASS: eight ABBA blocks contain three numeric TTID/TTFD samples each, validated statistics and three Perfetto traces per block."
     }
   ' "$1"
 }
 
-extract_macrobenchmark_trace_filenames() {
+extract_macrobenchmark_trace_filenames() {extract_macrobenchmark_trace_filenames() {
   awk '
     { json = json $0 "\n" }
     END {
@@ -517,8 +479,8 @@ write_macrobenchmark_summary() {
   result_file="$1"
   summary_file="$RUN_DIR/benchmark-summary.txt"
   awk '
-    function metric_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
+    function field(object, name,    needle, start, rest) {
+      needle = "\"" name "\""
       start = index(object, needle)
       if (start == 0) return ""
       rest = substr(object, start + length(needle))
@@ -526,9 +488,8 @@ write_macrobenchmark_summary() {
       if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) return substr(rest, 1, RLENGTH)
       return ""
     }
-
-    function metric_string_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
+    function string_field(object, name,    needle, start, rest) {
+      needle = "\"" name "\""
       start = index(object, needle)
       if (start == 0) return ""
       rest = substr(object, start + length(needle))
@@ -536,246 +497,202 @@ write_macrobenchmark_summary() {
       if (match(rest, /^"[^"]*"/)) return substr(rest, 2, RLENGTH - 2)
       return ""
     }
-
-    function metric_boolean_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
-      start = index(object, needle)
-      if (start == 0) return ""
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
-      return ""
-    }
-
-    function metric_runs(object, values,    needle, start, rest, close_pos, run_text) {
-      needle = "\"runs\""
-      start = index(object, needle)
-      if (start == 0) return 0
-      rest = substr(object, start + length(needle))
+    function runs(object, values,    start, rest, close_pos, text) {
+      start = index(object, "\"runs\"")
+      if (!start) return 0
+      rest = substr(object, start + length("\"runs\""))
       sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
       if (substr(rest, 1, 1) != "[") return 0
       close_pos = index(rest, "]")
-      if (close_pos == 0) return 0
-      run_text = substr(rest, 2, close_pos - 2)
-      gsub(/[[:space:]]/, "", run_text)
-      if (run_text == "") return 0
-      return split(run_text, values, ",")
+      if (!close_pos) return 0
+      text = substr(rest, 2, close_pos - 2)
+      gsub(/[[:space:]]/, "", text)
+      return split(text, values, ",")
     }
-
-    function trace_filename(result_object, iteration,    array_pattern, trace_array, trace_pattern, trace_object) {
-      array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
-      if (!match(result_object, array_pattern)) return ""
-      trace_array = substr(result_object, RSTART, RLENGTH)
-      trace_pattern = "\\{[^}]*\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " iteration "\"[^}]*\\}"
-      if (!match(trace_array, trace_pattern)) return ""
-      trace_object = substr(trace_array, RSTART, RLENGTH)
-      return metric_string_field(trace_object, "filename")
+    function trace_name(object, iteration,    pattern, array, trace) {
+      pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      if (!match(object, pattern)) return ""
+      array = substr(object, RSTART, RLENGTH)
+      pattern = "\\{[^}]*\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " iteration "\"[^}]*\\}"
+      if (!match(array, pattern)) return ""
+      trace = substr(array, RSTART, RLENGTH)
+      return string_field(trace, "filename")
     }
-
-    function sample_median(values, n,    sorted, i, j, value) {
+    function median(values, n,    sorted, i, j, x) {
       for (i = 1; i <= n; i++) sorted[i] = values[i]
       for (i = 2; i <= n; i++) {
-        value = sorted[i]
+        x = sorted[i]
         j = i - 1
-        while (j >= 1 && sorted[j] > value) {
+        while (j >= 1 && sorted[j] > x) {
           sorted[j + 1] = sorted[j]
           j--
         }
-        sorted[j + 1] = value
+        sorted[j + 1] = x
       }
-      if (n % 2 == 1) return sorted[(n + 1) / 2]
-      return (sorted[n / 2] + sorted[(n / 2) + 1]) / 2
+      if (n % 2) return sorted[(n + 1) / 2]
+      return (sorted[n / 2] + sorted[n / 2 + 1]) / 2
     }
-
-    function sample_min(values, n,    i, result) {
+    function min_value(values, n,    i, result) {
       result = values[1]
       for (i = 2; i <= n; i++) if (values[i] < result) result = values[i]
       return result
     }
-
-    function sample_max(values, n,    i, result) {
+    function max_value(values, n,    i, result) {
       result = values[1]
       for (i = 2; i <= n; i++) if (values[i] > result) result = values[i]
       return result
     }
-
-    function sample_cv(values, n,    i, mean, squared, deviation) {
+    function cv(values, n,    i, mean, squared, difference) {
       mean = 0
       for (i = 1; i <= n; i++) mean += values[i]
       mean /= n
       squared = 0
       for (i = 1; i <= n; i++) {
-        deviation = values[i] - mean
-        squared += deviation * deviation
+        difference = values[i] - mean
+        squared += difference * difference
       }
       return sqrt(squared / (n - 1)) / mean
     }
-
     { json = json $0 "\n" }
-
     END {
-      expected_blocks = 8
-      expected_iterations = 3
-      test_names[1] = "startup[01-none-a]"
-      test_names[2] = "startup[02-profile-b]"
-      test_names[3] = "startup[03-profile-b]"
-      test_names[4] = "startup[04-none-a]"
-      test_names[5] = "startup[05-none-a]"
-      test_names[6] = "startup[06-profile-b]"
-      test_names[7] = "startup[07-profile-b]"
-      test_names[8] = "startup[08-none-a]"
+      names[1] = "startup[01-none-a]"
+      names[2] = "startup[02-profile-b]"
+      names[3] = "startup[03-profile-b]"
+      names[4] = "startup[04-none-a]"
+      names[5] = "startup[05-none-a]"
+      names[6] = "startup[06-profile-b]"
+      names[7] = "startup[07-profile-b]"
+      names[8] = "startup[08-none-a]"
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
-
-      device_model = metric_string_field(json, "model")
-      android_api = metric_field(json, "sdk")
-      cpu_core_count = metric_field(json, "cpuCoreCount")
-      cpu_max_frequency = metric_field(json, "cpuMaxFreqHz")
-      cpu_locked = metric_boolean_field(json, "cpuLocked")
-      memory_total = metric_field(json, "memTotalBytes")
-      art_mainline_version = metric_field(json, "artMainlineVersion")
-      sustained_performance = metric_boolean_field(json, "sustainedPerformanceModeEnabled")
-      os_codename = metric_string_field(json, "osCodenameAbbreviated")
-      if (device_model == "") device_model = "not reported"
-      if (android_api == "") android_api = "not reported"
-      if (cpu_core_count == "") cpu_core_count = "not reported"
-      if (cpu_max_frequency == "") cpu_max_frequency = "not reported"
-      if (cpu_locked == "") cpu_locked = "not reported"
-      if (memory_total == "") memory_total = "not reported"
-      if (art_mainline_version == "") art_mainline_version = "not reported"
-      if (sustained_performance == "") sustained_performance = "not reported"
-      if (os_codename == "") os_codename = "not reported"
-
-      for (test_index = 1; test_index <= expected_blocks; test_index++) {
-        escaped_name = test_names[test_index]
-        gsub(/\\[/, "\\\\[", escaped_name)
-        gsub(/\\]/, "\\\\]", escaped_name)
-        test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" escaped_name "\""
-        if (!match(json, test_pattern)) {
-          print "FAIL: cannot find " test_names[test_index] " while writing benchmark summary."
+      for (b = 1; b <= 8; b++) {
+        escaped = names[b]
+        gsub(/\[/, "\\[", escaped)
+        gsub(/\]/, "\\]", escaped)
+        pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" escaped "\""
+        if (!match(json, pattern)) {
+          print "FAIL: missing " names[b] " while writing ABBA summary."
           exit 1
         }
-        result_rest = substr(json, RSTART + RLENGTH)
-        next_test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
-        if (match(result_rest, next_test_pattern)) result_object = substr(result_rest, 1, RSTART - 1)
-        else result_object = result_rest
-        test_objects[test_index] = result_object
-
-        for (metric_index = 1; metric_index <= 2; metric_index++) {
-          metric_pattern = "\"" metric_names[metric_index] "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
-          if (!match(result_object, metric_pattern)) {
-            print "FAIL: cannot find " metric_names[metric_index] " for " test_names[test_index] " while writing benchmark summary."
+        rest = substr(json, RSTART + RLENGTH)
+        next_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
+        if (match(rest, next_pattern)) object = substr(rest, 1, RSTART - 1)
+        else object = rest
+        objects[b] = object
+        is_none = (b == 1 || b == 4 || b == 5 || b == 8)
+        for (m = 1; m <= 2; m++) {
+          metric_pattern = "\"" metric_names[m] "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          if (!match(object, metric_pattern)) {
+            print "FAIL: missing " metric_names[m] " for " names[b] "."
             exit 1
           }
-          metric_object = substr(result_object, RSTART, RLENGTH)
-          run_count = metric_runs(metric_object, run_values)
-          if (run_count != expected_iterations) {
-            print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " must contain three raw samples."
+          metric_object = substr(object, RSTART, RLENGTH)
+          n = runs(metric_object, sample)
+          if (n != 3) {
+            print "FAIL: " metric_names[m] " for " names[b] " must contain three samples."
             exit 1
           }
-
-          for (run_index = 1; run_index <= run_count; run_index++) {
-            if (run_values[run_index] !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || run_values[run_index] + 0 <= 0) {
-              print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " contains an invalid raw sample."
+          for (i = 1; i <= n; i++) {
+            if (m == 1) block_ttid[b, i] = sample[i] + 0
+            else block_ttfd[b, i] = sample[i] + 0
+            if (is_none) {
+              if (m == 1) none_ttid[++none_ttid_n] = sample[i] + 0
+              else none_ttfd[++none_ttfd_n] = sample[i] + 0
+            } else {
+              if (m == 1) profile_ttid[++profile_ttid_n] = sample[i] + 0
+              else profile_ttfd[++profile_ttfd_n] = sample[i] + 0
+            }
+            block_trace[b, i] = trace_name(object, i - 1)
+            if (block_trace[b, i] == "") {
+              print "FAIL: missing trace reference for " names[b] " iteration " (i - 1) "."
               exit 1
             }
-            if (metric_index == 1) block_ttid[test_index, run_index] = run_values[run_index] + 0
-            else block_ttfd[test_index, run_index] = run_values[run_index] + 0
-          }
-        }
-
-        for (run_index = 1; run_index <= expected_iterations; run_index++) {
-          trace = trace_filename(result_object, run_index - 1)
-          if (trace == "") {
-            print "FAIL: missing Perfetto trace filename for " test_names[test_index] " iteration " (run_index - 1) "."
-            exit 1
-          }
-          block_trace[test_index, run_index] = trace
-          if (test_index == 1 || test_index == 4 || test_index == 5 || test_index == 8) {
-            none_ttid[++none_ttid_count] = block_ttid[test_index, run_index]
-            none_ttfd[++none_ttfd_count] = block_ttfd[test_index, run_index]
-          } else {
-            profile_ttid[++profile_ttid_count] = block_ttid[test_index, run_index]
-            profile_ttfd[++profile_ttfd_count] = block_ttfd[test_index, run_index]
           }
         }
       }
-
-      if (none_ttid_count != 12 || profile_ttid_count != 12 || none_ttfd_count != 12 || profile_ttfd_count != 12) {
-        print "FAIL: ABBA summary must pool twelve samples per compilation mode."
+      if (none_ttid_n != 12 || profile_ttid_n != 12 || none_ttfd_n != 12 || profile_ttfd_n != 12) {
+        print "FAIL: ABBA summary must pool twelve samples per comparison arm."
         exit 1
       }
 
+      device_model = string_field(json, "model")
+      api = field(json, "sdk")
+      cores = field(json, "cpuCoreCount")
+      max_freq = field(json, "cpuMaxFreqHz")
+      locked = "not reported"
+      if (match(json, "\"cpuLocked\"[[:space:]]*:[[:space:]]*(true|false)")) {
+        locked = substr(json, RSTART, RLENGTH)
+        sub(/^.*:[[:space:]]*/, "", locked)
+      }
+      memory = field(json, "memTotalBytes")
+      art = field(json, "artMainlineVersion")
+      sustained = "not reported"
+      if (match(json, "\"sustainedPerformanceModeEnabled\"[[:space:]]*:[[:space:]]*(true|false)")) {
+        sustained = substr(json, RSTART, RLENGTH)
+        sub(/^.*:[[:space:]]*/, "", sustained)
+      }
+      codename = string_field(json, "osCodenameAbbreviated")
+      if (device_model == "") device_model = "not reported"
+      if (api == "") api = "not reported"
+      if (cores == "") cores = "not reported"
+      if (max_freq == "") max_freq = "not reported"
+      if (memory == "") memory = "not reported"
+      if (art == "") art = "not reported"
+      if (codename == "") codename = "not reported"
+
       print "Nuvio Android cold-start benchmark"
       print "Benchmark device context"
-      printf "  Device: %s | Android API: %s\n", device_model, android_api
-      printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\n", cpu_core_count, cpu_max_frequency, cpu_locked
-      printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\n", memory_total, art_mainline_version, sustained_performance
-      printf "  Android release codename: %s\n", os_codename
+      printf "  Device: %s | Android API: %s\n", device_model, api
+      printf "  CPU: %s cores | max frequency %s Hz | clocks locked: %s\n", cores, max_freq, locked
+      printf "  Memory: %s bytes | ART Mainline: %s | sustained performance mode: %s\n", memory, art, sustained
+      printf "  Android release codename: %s\n", codename
       print "  Install path: APK sideload via pm install; not Google Play delivery."
       print "  The playstore build-flavor label does not mean this APK was installed from Google Play."
-      if (android_api ~ /^[0-9]+$/) {
-        if (android_api + 0 == 33) {
-          print "  ART comparability: API 33 uses the pre-34 reset path; unrooted user builds reinstall for CompilationMode.None."
-          print "  API 33 warning: do not treat this as a Play-equivalent isolated Baseline Profile comparison; ART verification state can differ."
-        } else if (android_api + 0 >= 34) {
-          print "  ART comparability: API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement."
-          print "  This controls the pre-34 verification-state confounder; the APK is still sideloaded, not Play-delivered."
-        } else {
-          print "  ART comparability: Android API below 33 is outside this runner supported range."
-        }
-      } else {
-        print "  ART comparability: Android API unavailable; do not infer Play-equivalent verification state."
+      if (api ~ /^[0-9]+$/ && api + 0 == 33) {
+        print "  ART comparability: API 33 uses the pre-34 reset path; unrooted user builds reinstall for CompilationMode.None."
+        print "  API 33 warning: do not treat this as a Play-equivalent isolated Baseline Profile comparison; ART verification state can differ."
+      } else if (api ~ /^[0-9]+$/ && api + 0 >= 34) {
+        print "  ART comparability: API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement."
+        print "  This controls the pre-34 verification-state confounder; the APK is still sideloaded, not Play-delivered."
       }
       print ""
       print "Comparison: no compilation vs required packaged Baseline Profile"
-      print "Design: ABBA (A/B/B/A) repeated twice; each block contains three cold starts."
+      print "Design: two ABBA rounds (A/B/B/A), with three cold starts per block."
       print "12 raw samples per comparison arm (24 cold starts total)"
       print "A = CompilationMode.None | B = Partial(BaselineProfileMode.Require)"
       print ""
-
-      for (metric_index = 1; metric_index <= 2; metric_index++) {
-        metric = metric_names[metric_index]
-        if (metric_index == 1) {
-          no_median = sample_median(none_ttid, none_ttid_count)
-          profile_median = sample_median(profile_ttid, profile_ttid_count)
-          no_min = sample_min(none_ttid, none_ttid_count)
-          no_max = sample_max(none_ttid, none_ttid_count)
-          profile_min = sample_min(profile_ttid, profile_ttid_count)
-          profile_max = sample_max(profile_ttid, profile_ttid_count)
-          no_cv = sample_cv(none_ttid, none_ttid_count)
-          profile_cv = sample_cv(profile_ttid, profile_ttid_count)
+      for (m = 1; m <= 2; m++) {
+        metric = metric_names[m]
+        if (m == 1) {
+          a = median(none_ttid, 12); b = median(profile_ttid, 12)
+          amin = min_value(none_ttid, 12); amax = max_value(none_ttid, 12)
+          bmin = min_value(profile_ttid, 12); bmax = max_value(profile_ttid, 12)
+          acv = cv(none_ttid, 12); bcv = cv(profile_ttid, 12)
         } else {
-          no_median = sample_median(none_ttfd, none_ttfd_count)
-          profile_median = sample_median(profile_ttfd, profile_ttfd_count)
-          no_min = sample_min(none_ttfd, none_ttfd_count)
-          no_max = sample_max(none_ttfd, none_ttfd_count)
-          profile_min = sample_min(profile_ttfd, profile_ttfd_count)
-          profile_max = sample_max(profile_ttfd, profile_ttfd_count)
-          no_cv = sample_cv(none_ttfd, none_ttfd_count)
-          profile_cv = sample_cv(profile_ttfd, profile_ttfd_count)
+          a = median(none_ttfd, 12); b = median(profile_ttfd, 12)
+          amin = min_value(none_ttfd, 12); amax = max_value(none_ttfd, 12)
+          bmin = min_value(profile_ttfd, 12); bmax = max_value(profile_ttfd, 12)
+          acv = cv(none_ttfd, 12); bcv = cv(profile_ttfd, 12)
         }
-        delta_ms = profile_median - no_median
-        delta_percent = delta_ms / no_median * 100
+        delta = b - a
+        percent = delta / a * 100
         print metric
-        printf "  No compilation: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", no_median, no_min, no_max, no_cv * 100
-        printf "  Baseline Profile: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", profile_median, profile_min, profile_max, profile_cv * 100
-        printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
-        print ""
+        printf "  No compilation: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", a, amin, amax, acv * 100
+        printf "  Baseline Profile: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", b, bmin, bmax, bcv * 100
+        printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n\n", delta, percent
       }
-
       print "Per-block samples and matching Perfetto traces"
-      print "The ABBA order is preserved in this section; each iteration is paired to its own trace."
+      print "The ABBA sequence is retained below; every measured sample links to its own trace."
       print ""
-      for (test_index = 1; test_index <= expected_blocks; test_index++) {
-        printf "%s (%s)\n", test_names[test_index], (test_index == 1 || test_index == 4 || test_index == 5 || test_index == 8) ? "A / no compilation" : "B / Baseline Profile"
-        for (run_index = 1; run_index <= expected_iterations; run_index++) {
-          printf "  Iteration %d: TTID %.1f ms | TTFD %.1f ms | trace %s\n", run_index - 1, block_ttid[test_index, run_index], block_ttfd[test_index, run_index], block_trace[test_index, run_index]
+      for (block = 1; block <= 8; block++) {
+        printf "%s (%s)\n", names[block], (block == 1 || block == 4 || block == 5 || block == 8) ? "A / no compilation" : "B / Baseline Profile"
+        for (i = 1; i <= 3; i++) {
+          printf "  Iteration %d: TTID %.1f ms | TTFD %.1f ms | trace %s\n", i - 1, block_ttid[block, i], block_ttfd[block, i], block_trace[block, i]
         }
         print ""
       }
       print "Interpretation: descriptive only; twelve samples per arm do not establish statistical significance."
-      print "Inspect individual traces and per-block distributions for skew, thermal throttling, and compilation-state effects."
+      print "Inspect per-block traces and raw samples for skew, thermal drift, and compilation-state effects."
     }
   ' "$result_file" > "$summary_file" || fail "Could not create the human-readable ABBA Macrobenchmark summary."
   [ -s "$summary_file" ] || fail "Macrobenchmark summary is empty."
@@ -794,7 +711,6 @@ require_macrobenchmark_result_data() {
     json_files=$((json_files + 1))
     [ -s "$result_file" ] || fail "Macrobenchmark result file is empty: $result_file."
     [ -n "$summary_result_file" ] || summary_result_file="$result_file"
-
     for block_name in 'startup[01-none-a]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[08-none-a]'; do
       no_compilation_results=$((no_compilation_results + $(count_json_named_results "$block_name" "$result_file")))
     done
@@ -817,7 +733,7 @@ require_macrobenchmark_result_data() {
   write_macrobenchmark_summary "$summary_result_file"
 }
 
-install_variant() {
+install_variant() {install_variant() {
   apk_paths
   [ -f "$APP_APK" ] || fail "Missing app APK: $APP_APK. Extract all eight APKs and this script into one folder."
   [ -f "$TEST_APK" ] || fail "Missing test APK: $TEST_APK. Extract all eight APKs and this script into one folder."
