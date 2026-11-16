@@ -179,9 +179,9 @@ require_non_empty_startup_profile() {
 }
 
 require_macrobenchmark_cases() {
-  for test_name in startupNoCompilation startupWithBaselineProfile; do
+  for test_name in 'startup[01-none-a]' 'startup[02-profile-b]' 'startup[03-profile-b]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[06-profile-b]' 'startup[07-profile-b]' 'startup[08-none-a]'; do
     grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
-      fail "Macrobenchmark did not execute required comparison case '$test_name'. See $RUN_DIR/instrumentation.log."
+      fail "Macrobenchmark did not execute required ABBA block '$test_name'. See $RUN_DIR/instrumentation.log."
     }
   done
 }
@@ -205,8 +205,11 @@ count_json_named_results() {
       content = content $0
     }
     END {
+      escaped = expected
+      gsub(/\\[/, "\\\\[", escaped)
+      gsub(/\\]/, "\\\\]", escaped)
       remaining = content
-      pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" expected "\""
+      pattern = "\\"name\\"[[:space:]]*:[[:space:]]*\\"" escaped "\\""
       while (match(remaining, pattern)) {
         count++
         remaining = substr(remaining, RSTART + RLENGTH)
@@ -234,9 +237,7 @@ validate_macrobenchmark_statistics() {
       if (start == 0) return ""
       rest = substr(object, start + length(needle))
       sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) {
-        return substr(rest, 1, RLENGTH)
-      }
+      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) return substr(rest, 1, RLENGTH)
       return ""
     }
 
@@ -264,13 +265,13 @@ validate_macrobenchmark_statistics() {
         return 0
       }
 
-      run_key_count = count_matches(object, "\"runs\"[[:space:]]*:")
+      run_key_count = count_matches(object, "\\"runs\\"[[:space:]]*:")
       if (run_key_count != 1) {
-        print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
+        print "FAIL: " metric_name " must contain exactly one per-block runs array."
         return 0
       }
-      start = index(object, "\"runs\"")
-      rest = substr(object, start + length("\"runs\""))
+      start = index(object, "\\"runs\\"")
+      rest = substr(object, start + length("\\"runs\\""))
       sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
       if (substr(rest, 1, 1) != "[") {
         print "FAIL: " metric_name " runs value is not an array."
@@ -287,7 +288,7 @@ validate_macrobenchmark_statistics() {
       else sample_count = split(runs_text, samples, ",")
 
       if (sample_count != expected_iterations) {
-        print "FAIL: " metric_name " has " sample_count " samples; expected " expected_iterations "."
+        print "FAIL: " metric_name " has " sample_count " samples; expected " expected_iterations " per ABBA block."
         return 0
       }
 
@@ -307,7 +308,7 @@ validate_macrobenchmark_statistics() {
         }
       }
       if (sample_min != minimum + 0 || sample_max != maximum + 0) {
-        print "FAIL: " metric_name " reported minimum/maximum do not match the sample extrema."
+        print "FAIL: " metric_name " reported minimum/maximum do not match the block samples."
         return 0
       }
 
@@ -335,7 +336,7 @@ validate_macrobenchmark_statistics() {
       if (median_difference < 0) median_difference = -median_difference
       median_tolerance = 0.000001 * (1 + expected_median)
       if (median_difference > median_tolerance) {
-        print "FAIL: " metric_name " reported median does not match the 50th percentile of its per-iteration runs."
+        print "FAIL: " metric_name " reported block median does not match its raw samples."
         return 0
       }
 
@@ -351,7 +352,7 @@ validate_macrobenchmark_statistics() {
       if (cv_difference < 0) cv_difference = -cv_difference
       cv_tolerance = 0.000001 * (1 + expected_cv)
       if (cv_difference > cv_tolerance) {
-        print "FAIL: " metric_name " reported coefficientOfVariation does not match its per-iteration runs."
+        print "FAIL: " metric_name " reported coefficientOfVariation does not match its block samples."
         return 0
       }
       return 1
@@ -360,40 +361,57 @@ validate_macrobenchmark_statistics() {
     { json = json $0 "\n" }
 
     END {
-      expected_iterations = 10
-      count_no = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupNoCompilation\"")
-      count_profile = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupWithBaselineProfile\"")
-      count_class = count_matches(json, "\"className\"[[:space:]]*:[[:space:]]*\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\"")
-      if (count_no != 1 || count_profile != 1 || count_class != 2) {
-        print "FAIL: JSON must contain exactly one result for each startup case and two StartupBenchmark class records."
+      expected_iterations = 3
+      expected_blocks = 8
+      test_names[1] = "startup[01-none-a]"
+      test_names[2] = "startup[02-profile-b]"
+      test_names[3] = "startup[03-profile-b]"
+      test_names[4] = "startup[04-none-a]"
+      test_names[5] = "startup[05-none-a]"
+      test_names[6] = "startup[06-profile-b]"
+      test_names[7] = "startup[07-profile-b]"
+      test_names[8] = "startup[08-none-a]"
+
+      class_count = count_matches(json, "\\"className\\"[[:space:]]*:[[:space:]]*\\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\\"")
+      if (class_count != expected_blocks) {
+        print "FAIL: JSON must contain exactly eight parameterized StartupBenchmark block results."
         exit 1
+      }
+      for (i = 1; i <= expected_blocks; i++) {
+        escaped = test_names[i]
+        gsub(/\\[/, "\\\\[", escaped)
+        gsub(/\\]/, "\\\\]", escaped)
+        result_pattern = "\\"name\\"[[:space:]]*:[[:space:]]*\\"" escaped "\\""
+        if (count_matches(json, result_pattern) != 1) {
+          print "FAIL: JSON must contain exactly one result for " test_names[i] "."
+          exit 1
+        }
       }
 
       repeat_rest = json
       repeat_count = 0
-      repeat_pattern = "\"repeatIterations\"[[:space:]]*:[[:space:]]*[0-9]+"
+      repeat_pattern = "\\"repeatIterations\\"[[:space:]]*:[[:space:]]*[0-9]+"
       while (match(repeat_rest, repeat_pattern)) {
         repeat_start = RSTART
         repeat_length = RLENGTH
         repeat_value = substr(repeat_rest, repeat_start, repeat_length)
         sub(/^.*:[[:space:]]*/, "", repeat_value)
         if (repeat_value + 0 != expected_iterations) {
-          print "FAIL: each benchmark result must report repeatIterations=" expected_iterations "."
+          print "FAIL: each ABBA block must report repeatIterations=3."
           exit 1
         }
         repeat_count++
         repeat_rest = substr(repeat_rest, repeat_start + repeat_length)
       }
-      if (repeat_count != 2) {
-        print "FAIL: JSON must contain repeatIterations for both startup results."
+      if (repeat_count != expected_blocks) {
+        print "FAIL: JSON must contain repeatIterations for all eight ABBA blocks."
         exit 1
       }
 
-      total_metric_objects = 0
       for (metric_name_index = 1; metric_name_index <= 2; metric_name_index++) {
         if (metric_name_index == 1) metric_name = "timeToInitialDisplayMs"
         else metric_name = "timeToFullDisplayMs"
-        metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+        metric_pattern = "\\"" metric_name "\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
         metric_rest = json
         metric_count = 0
         while (match(metric_rest, metric_pattern)) {
@@ -402,46 +420,42 @@ validate_macrobenchmark_statistics() {
           metric_object = substr(metric_rest, metric_start, metric_length)
           if (!validate_metric_object(metric_object, metric_name)) exit 1
           metric_count++
-          total_metric_objects++
           metric_rest = substr(metric_rest, metric_start + metric_length)
         }
-        if (metric_count != 2) {
-          print "FAIL: JSON must contain exactly two " metric_name " results, one per startup case."
+        if (metric_count != expected_blocks) {
+          print "FAIL: JSON must contain exactly eight " metric_name " metric objects."
           exit 1
         }
       }
-      if (total_metric_objects != 4) {
-        print "FAIL: JSON must contain exactly four startup metric objects."
-        exit 1
-      }
+
       trace_rest = json
       trace_array_count = 0
-      trace_array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
+      trace_array_pattern = "\\"profilerOutputs\\"[[:space:]]*:[[:space:]]*\\\\[[^]]*\\\\]"
       while (match(trace_rest, trace_array_pattern)) {
         trace_start = RSTART
         trace_length = RLENGTH
         trace_array = substr(trace_rest, trace_start, trace_length)
-        trace_type_count = count_matches(trace_array, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"")
-        trace_filename_count = count_matches(trace_array, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"")
+        trace_type_count = count_matches(trace_array, "\\"type\\"[[:space:]]*:[[:space:]]*\\"PerfettoTrace\\"")
+        trace_filename_count = count_matches(trace_array, "\\"filename\\"[[:space:]]*:[[:space:]]*\\"[^\\"]+\\"")
         if (trace_type_count != expected_iterations || trace_filename_count != expected_iterations) {
-          print "FAIL: each startup result must reference ten Perfetto trace files in profilerOutputs."
+          print "FAIL: each ABBA block must reference three per-iteration Perfetto traces."
           exit 1
         }
         for (trace_iteration = 0; trace_iteration < expected_iterations; trace_iteration++) {
-          trace_label_pattern = "\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " trace_iteration "\""
+          trace_label_pattern = "\\"label\\"[[:space:]]*:[[:space:]]*\\"Trace Iteration " trace_iteration "\\""
           if (count_matches(trace_array, trace_label_pattern) != 1) {
-            print "FAIL: each startup result must contain exactly one trace reference for every measured iteration."
+            print "FAIL: each ABBA block must contain exactly one trace reference for every measured iteration."
             exit 1
           }
         }
         trace_array_count++
         trace_rest = substr(trace_rest, trace_start + trace_length)
       }
-      if (trace_array_count != 2) {
-        print "FAIL: JSON must contain profilerOutputs for both startup comparison results."
+      if (trace_array_count != expected_blocks) {
+        print "FAIL: JSON must contain profilerOutputs for all eight ABBA blocks."
         exit 1
       }
-      print "PASS: both startup results contain ten numeric TTID/TTFD samples, valid statistics and ten Perfetto trace references each."
+      print "PASS: eight ABBA blocks contain three numeric TTID/TTFD samples each, valid block statistics and three Perfetto traces per block."
     }
   ' "$1"
 }
@@ -478,10 +492,10 @@ validate_macrobenchmark_trace_files() {
   trace_reference_file="$RUN_DIR/trace-references.txt"
   extract_macrobenchmark_trace_filenames "$result_file" > "$trace_reference_file"
   reference_count="$(awk 'END { print NR + 0 }' "$trace_reference_file")"
-  [ "$reference_count" -eq 20 ] || fail "Macrobenchmark trace output must reference twenty per-iteration Perfetto files (ten per startup case); found $reference_count references."
+  [ "$reference_count" -eq 24 ] || fail "Macrobenchmark trace output must reference twenty-four per-iteration Perfetto files (three for each of eight ABBA blocks); found $reference_count references."
 
   unique_reference_count="$(sort -u "$trace_reference_file" | wc -l | tr -d ' ')"
-  [ "$unique_reference_count" -eq 20 ] || fail "Macrobenchmark trace output contains duplicate filenames; expected twenty unique Perfetto traces, found $unique_reference_count."
+  [ "$unique_reference_count" -eq 24 ] || fail "Macrobenchmark trace output contains duplicate filenames; expected twenty-four unique Perfetto traces, found $unique_reference_count."
 
   while IFS= read -r trace_filename; do
     [ -n "$trace_filename" ] || fail "Macrobenchmark trace output contains an empty filename reference."
@@ -496,7 +510,7 @@ validate_macrobenchmark_trace_files() {
     [ -s "$trace_file" ] || fail "Macrobenchmark trace output is empty: $trace_file."
     trace_file_count=$((trace_file_count + 1))
   done
-  [ "$trace_file_count" -eq 20 ] || fail "Macrobenchmark trace output must contain exactly twenty non-empty per-iteration Perfetto traces; found $trace_file_count."
+  [ "$trace_file_count" -eq 24 ] || fail "Macrobenchmark trace output must contain exactly twenty-four non-empty per-iteration Perfetto traces; found $trace_file_count."
 }
 
 write_macrobenchmark_summary() {
@@ -558,12 +572,58 @@ write_macrobenchmark_summary() {
       return metric_string_field(trace_object, "filename")
     }
 
+    function sample_median(values, n,    sorted, i, j, value) {
+      for (i = 1; i <= n; i++) sorted[i] = values[i]
+      for (i = 2; i <= n; i++) {
+        value = sorted[i]
+        j = i - 1
+        while (j >= 1 && sorted[j] > value) {
+          sorted[j + 1] = sorted[j]
+          j--
+        }
+        sorted[j + 1] = value
+      }
+      if (n % 2 == 1) return sorted[(n + 1) / 2]
+      return (sorted[n / 2] + sorted[(n / 2) + 1]) / 2
+    }
+
+    function sample_min(values, n,    i, result) {
+      result = values[1]
+      for (i = 2; i <= n; i++) if (values[i] < result) result = values[i]
+      return result
+    }
+
+    function sample_max(values, n,    i, result) {
+      result = values[1]
+      for (i = 2; i <= n; i++) if (values[i] > result) result = values[i]
+      return result
+    }
+
+    function sample_cv(values, n,    i, mean, squared, deviation) {
+      mean = 0
+      for (i = 1; i <= n; i++) mean += values[i]
+      mean /= n
+      squared = 0
+      for (i = 1; i <= n; i++) {
+        deviation = values[i] - mean
+        squared += deviation * deviation
+      }
+      return sqrt(squared / (n - 1)) / mean
+    }
+
     { json = json $0 "\n" }
 
     END {
-      expected_iterations = 10
-      test_names[1] = "startupNoCompilation"
-      test_names[2] = "startupWithBaselineProfile"
+      expected_blocks = 8
+      expected_iterations = 3
+      test_names[1] = "startup[01-none-a]"
+      test_names[2] = "startup[02-profile-b]"
+      test_names[3] = "startup[03-profile-b]"
+      test_names[4] = "startup[04-none-a]"
+      test_names[5] = "startup[05-none-a]"
+      test_names[6] = "startup[06-profile-b]"
+      test_names[7] = "startup[07-profile-b]"
+      test_names[8] = "startup[08-none-a]"
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
 
@@ -586,8 +646,11 @@ write_macrobenchmark_summary() {
       if (sustained_performance == "") sustained_performance = "not reported"
       if (os_codename == "") os_codename = "not reported"
 
-      for (test_index = 1; test_index <= 2; test_index++) {
-        test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" test_names[test_index] "\""
+      for (test_index = 1; test_index <= expected_blocks; test_index++) {
+        escaped_name = test_names[test_index]
+        gsub(/\\[/, "\\\\[", escaped_name)
+        gsub(/\\]/, "\\\\]", escaped_name)
+        test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" escaped_name "\""
         if (!match(json, test_pattern)) {
           print "FAIL: cannot find " test_names[test_index] " while writing benchmark summary."
           exit 1
@@ -605,26 +668,42 @@ write_macrobenchmark_summary() {
             exit 1
           }
           metric_object = substr(result_object, RSTART, RLENGTH)
-          metric_key = test_names[test_index] SUBSEP metric_names[metric_index]
-          minimum[metric_key] = metric_field(metric_object, "minimum") + 0
-          median[metric_key] = metric_field(metric_object, "median") + 0
-          maximum[metric_key] = metric_field(metric_object, "maximum") + 0
-          cv[metric_key] = metric_field(metric_object, "coefficientOfVariation") + 0
-
           run_count = metric_runs(metric_object, run_values)
           if (run_count != expected_iterations) {
-            print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " must contain exactly " expected_iterations " raw samples."
+            print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " must contain three raw samples."
             exit 1
           }
+
           for (run_index = 1; run_index <= run_count; run_index++) {
             if (run_values[run_index] !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || run_values[run_index] + 0 <= 0) {
               print "FAIL: " metric_names[metric_index] " for " test_names[test_index] " contains an invalid raw sample."
               exit 1
             }
-            if (metric_index == 1) ttid_runs[test_index, run_index] = run_values[run_index] + 0
-            else ttfd_runs[test_index, run_index] = run_values[run_index] + 0
+            if (metric_index == 1) block_ttid[test_index, run_index] = run_values[run_index] + 0
+            else block_ttfd[test_index, run_index] = run_values[run_index] + 0
           }
         }
+
+        for (run_index = 1; run_index <= expected_iterations; run_index++) {
+          trace = trace_filename(result_object, run_index - 1)
+          if (trace == "") {
+            print "FAIL: missing Perfetto trace filename for " test_names[test_index] " iteration " (run_index - 1) "."
+            exit 1
+          }
+          block_trace[test_index, run_index] = trace
+          if (test_index == 1 || test_index == 4 || test_index == 5 || test_index == 8) {
+            none_ttid[++none_ttid_count] = block_ttid[test_index, run_index]
+            none_ttfd[++none_ttfd_count] = block_ttfd[test_index, run_index]
+          } else {
+            profile_ttid[++profile_ttid_count] = block_ttid[test_index, run_index]
+            profile_ttfd[++profile_ttfd_count] = block_ttfd[test_index, run_index]
+          }
+        }
+      }
+
+      if (none_ttid_count != 12 || profile_ttid_count != 12 || none_ttfd_count != 12 || profile_ttfd_count != 12) {
+        print "FAIL: ABBA summary must pool twelve samples per compilation mode."
+        exit 1
       }
 
       print "Nuvio Android cold-start benchmark"
@@ -643,48 +722,62 @@ write_macrobenchmark_summary() {
           print "  ART comparability: API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement."
           print "  This controls the pre-34 verification-state confounder; the APK is still sideloaded, not Play-delivered."
         } else {
-          print "  ART comparability: API below 33 is outside this runner supported range."
+          print "  ART comparability: Android API below 33 is outside this runner supported range."
         }
       } else {
         print "  ART comparability: Android API unavailable; do not infer Play-equivalent verification state."
       }
       print ""
       print "Comparison: no compilation vs required packaged Baseline Profile"
-      print "10 samples per comparison arm"
+      print "Design: ABBA (A/B/B/A) repeated twice; each block contains three cold starts."
+      print "12 raw samples per comparison arm (24 cold starts total)"
+      print "A = CompilationMode.None | B = Partial(BaselineProfileMode.Require)"
       print ""
+
       for (metric_index = 1; metric_index <= 2; metric_index++) {
         metric = metric_names[metric_index]
-        no_key = test_names[1] SUBSEP metric
-        profile_key = test_names[2] SUBSEP metric
-        delta_ms = median[profile_key] - median[no_key]
-        delta_percent = delta_ms / median[no_key] * 100
+        if (metric_index == 1) {
+          no_median = sample_median(none_ttid, none_ttid_count)
+          profile_median = sample_median(profile_ttid, profile_ttid_count)
+          no_min = sample_min(none_ttid, none_ttid_count)
+          no_max = sample_max(none_ttid, none_ttid_count)
+          profile_min = sample_min(profile_ttid, profile_ttid_count)
+          profile_max = sample_max(profile_ttid, profile_ttid_count)
+          no_cv = sample_cv(none_ttid, none_ttid_count)
+          profile_cv = sample_cv(profile_ttid, profile_ttid_count)
+        } else {
+          no_median = sample_median(none_ttfd, none_ttfd_count)
+          profile_median = sample_median(profile_ttfd, profile_ttfd_count)
+          no_min = sample_min(none_ttfd, none_ttfd_count)
+          no_max = sample_max(none_ttfd, none_ttfd_count)
+          profile_min = sample_min(profile_ttfd, profile_ttfd_count)
+          profile_max = sample_max(profile_ttfd, profile_ttfd_count)
+          no_cv = sample_cv(none_ttfd, none_ttfd_count)
+          profile_cv = sample_cv(profile_ttfd, profile_ttfd_count)
+        }
+        delta_ms = profile_median - no_median
+        delta_percent = delta_ms / no_median * 100
         print metric
-        printf "  No compilation: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[no_key], minimum[no_key], maximum[no_key], cv[no_key] * 100
-        printf "  Baseline Profile: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[profile_key], minimum[profile_key], maximum[profile_key], cv[profile_key] * 100
+        printf "  No compilation: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", no_median, no_min, no_max, no_cv * 100
+        printf "  Baseline Profile: pooled median %.1f ms (range %.1f..%.1f ms; CV %.2f%%; n=12)\n", profile_median, profile_min, profile_max, profile_cv * 100
         printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
         print ""
       }
 
-      print "Per-iteration samples and matching Perfetto traces"
-      print "AndroidX preserves measurement order in the raw runs and labels the corresponding trace with the same iteration index."
+      print "Per-block samples and matching Perfetto traces"
+      print "The ABBA order is preserved in this section; each iteration is paired to its own trace."
       print ""
-      for (test_index = 1; test_index <= 2; test_index++) {
-        print test_names[test_index]
+      for (test_index = 1; test_index <= expected_blocks; test_index++) {
+        printf "%s (%s)\n", test_names[test_index], (test_index == 1 || test_index == 4 || test_index == 5 || test_index == 8) ? "A / no compilation" : "B / Baseline Profile"
         for (run_index = 1; run_index <= expected_iterations; run_index++) {
-          iteration = run_index - 1
-          trace = trace_filename(test_objects[test_index], iteration)
-          if (trace == "") {
-            print "FAIL: missing Perfetto trace filename for " test_names[test_index] " iteration " iteration "."
-            exit 1
-          }
-          printf "  Iteration %d: TTID %.1f ms | TTFD %.1f ms | trace %s\n", iteration, ttid_runs[test_index, run_index], ttfd_runs[test_index, run_index], trace
+          printf "  Iteration %d: TTID %.1f ms | TTFD %.1f ms | trace %s\n", run_index - 1, block_ttid[test_index, run_index], block_ttfd[test_index, run_index], block_trace[test_index, run_index]
         }
         print ""
       }
-      print "Interpretation: descriptive only; ten iterations do not establish statistical significance."
-      print "Do not claim a speedup from the median difference alone. Inspect per-iteration traces for skew, thermal throttling, and warm-up effects."
+      print "Interpretation: descriptive only; twelve samples per arm do not establish statistical significance."
+      print "Inspect individual traces and per-block distributions for skew, thermal throttling, and compilation-state effects."
     }
-  ' "$result_file" > "$summary_file" || fail "Could not create the human-readable Macrobenchmark summary."
+  ' "$result_file" > "$summary_file" || fail "Could not create the human-readable ABBA Macrobenchmark summary."
   [ -s "$summary_file" ] || fail "Macrobenchmark summary is empty."
 }
 
@@ -702,20 +795,24 @@ require_macrobenchmark_result_data() {
     [ -s "$result_file" ] || fail "Macrobenchmark result file is empty: $result_file."
     [ -n "$summary_result_file" ] || summary_result_file="$result_file"
 
-    no_compilation_results=$((no_compilation_results + $(count_json_named_results startupNoCompilation "$result_file")))
-    baseline_profile_results=$((baseline_profile_results + $(count_json_named_results startupWithBaselineProfile "$result_file")))
+    for block_name in 'startup[01-none-a]' 'startup[04-none-a]' 'startup[05-none-a]' 'startup[08-none-a]'; do
+      no_compilation_results=$((no_compilation_results + $(count_json_named_results "$block_name" "$result_file")))
+    done
+    for block_name in 'startup[02-profile-b]' 'startup[03-profile-b]' 'startup[06-profile-b]' 'startup[07-profile-b]'; do
+      baseline_profile_results=$((baseline_profile_results + $(count_json_named_results "$block_name" "$result_file")))
+    done
     ttid_metrics=$((ttid_metrics + $(count_json_occurrences '"timeToInitialDisplayMs"' "$result_file")))
     ttfd_metrics=$((ttfd_metrics + $(count_json_occurrences '"timeToFullDisplayMs"' "$result_file")))
-    validate_macrobenchmark_statistics "$result_file" || fail "Macrobenchmark JSON contains incomplete or invalid per-iteration startup statistics: $result_file."
+    validate_macrobenchmark_statistics "$result_file" || fail "Macrobenchmark JSON contains incomplete or invalid per-block startup statistics: $result_file."
     validate_macrobenchmark_trace_files "$result_file"
   done
 
   [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
-  [ "$no_compilation_results" -ge 1 ] && [ "$baseline_profile_results" -ge 1 ] || {
-    fail "Macrobenchmark JSON must contain both startupNoCompilation and startupWithBaselineProfile results (found $no_compilation_results and $baseline_profile_results)."
+  [ "$no_compilation_results" -eq 4 ] && [ "$baseline_profile_results" -eq 4 ] || {
+    fail "Macrobenchmark JSON must contain all eight ABBA blocks (four A/no-compilation and four B/Baseline Profile; found $no_compilation_results and $baseline_profile_results)."
   }
-  [ "$ttid_metrics" -ge 2 ] && [ "$ttfd_metrics" -ge 2 ] || {
-    fail "Macrobenchmark JSON must contain TTID and TTFD metrics for both startup results (found $ttid_metrics and $ttfd_metrics)."
+  [ "$ttid_metrics" -eq 8 ] && [ "$ttfd_metrics" -eq 8 ] || {
+    fail "Macrobenchmark JSON must contain eight TTID and eight TTFD metric objects (one of each per ABBA block; found $ttid_metrics and $ttfd_metrics)."
   }
   write_macrobenchmark_summary "$summary_result_file"
 }
