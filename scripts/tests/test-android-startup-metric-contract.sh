@@ -216,8 +216,12 @@ grep -Fq 'if (( API_LEVEL <= 33 )); then' "$DESKTOP_RUNNER" || {
   echo "FAIL: desktop runner must require root for authenticated benchmark runs on API 33 and below." >&2
   exit 1
 }
-grep -Fq 'shell su root id' "$DESKTOP_RUNNER" || {
-  echo "FAIL: desktop runner must mirror AndroidX's su root id capability check." >&2
+grep -Fq 'shell id' "$DESKTOP_RUNNER" && grep -Fq 'shell su root id' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must mirror AndroidX's already-rooted and su root id capability checks." >&2
+  exit 1
+}
+grep -Fq 'root_id="$(id 2>/dev/null || true)"' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must accept an instrumentation shell that is already root." >&2
   exit 1
 }
 grep -Fq 'Authenticated Home measurement on API 33 requires a rooted instrumentation shell' "$PHONE_RUNNER" || {
