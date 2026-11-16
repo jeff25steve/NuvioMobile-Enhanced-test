@@ -6,6 +6,7 @@ BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 PHONE_RUNNER="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
 DESKTOP_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
+APP_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
 
 [ -f "$BENCHMARK_SOURCE" ] || {
   echo "FAIL: StartupBenchmark source not found: $BENCHMARK_SOURCE" >&2
@@ -21,6 +22,37 @@ WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.y
 }
 [ -f "$WORKFLOW_SOURCE" ] || {
   echo "FAIL: benchmark workflow not found: $WORKFLOW_SOURCE" >&2
+  exit 1
+}
+
+[ -f "$APP_BUILD_SOURCE" ] || {
+  echo "FAIL: Android app build configuration not found: $APP_BUILD_SOURCE" >&2
+  exit 1
+}
+
+# benchmarkRelease is the R8 measurement target. Custom AGP build types do not
+# inherit release minification/proguard settings unless initWith(release) is used.
+awk '
+  /create\("benchmarkRelease"\)/ { in_benchmark=1 }
+  in_benchmark && /initWith\(getByName\("release"\)\)/ { inherits_release=1 }
+  in_benchmark && /^        }/ { in_benchmark=0 }
+  END { exit !inherits_release }
+' "$APP_BUILD_SOURCE" || {
+  echo "FAIL: benchmarkRelease must inherit release R8/proguard settings." >&2
+  exit 1
+}
+
+# The profile-capture APK must remain readable, but retain release behavior
+# other than code/resource shrinking.
+awk '
+  /create\("nonMinifiedRelease"\)/ { in_profile_capture=1 }
+  in_profile_capture && /initWith\(getByName\("release"\)\)/ { inherits_release=1 }
+  in_profile_capture && /isMinifyEnabled[[:space:]]*=[[:space:]]*false/ { minify_disabled=1 }
+  in_profile_capture && /isShrinkResources[[:space:]]*=[[:space:]]*false/ { resources_disabled=1 }
+  in_profile_capture && /^        }/ { in_profile_capture=0 }
+  END { exit !(inherits_release && minify_disabled && resources_disabled) }
+' "$APP_BUILD_SOURCE" || {
+  echo "FAIL: nonMinifiedRelease must inherit release settings, then explicitly disable R8 and resource shrinking." >&2
   exit 1
 }
 
