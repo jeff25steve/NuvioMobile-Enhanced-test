@@ -1,7 +1,11 @@
 name: Android Startup Profile Benchmark Builds
 
-# Manual-only: source pushes never start an Android build.
+# Manual for maintainers; this branch-specific push trigger validates the ABBA
+# benchmark and builds its phone-ready APKs without running on normal branches.
 on:
+  push:
+    branches:
+      - ci/android-startup-abba-confirmation-20261116
   workflow_dispatch:
 
 permissions:
