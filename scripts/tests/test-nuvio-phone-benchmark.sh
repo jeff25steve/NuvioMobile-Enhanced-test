@@ -419,6 +419,11 @@ case "$2:$3" in
   *) echo null ;;
 esac
 STUB
+cat > "$TMP/bin/su" <<'STUB'
+#!/bin/sh
+[ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
+printf 'uid=0(root) gid=0(root)\n'
+STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_ROOT="$TMP/media"
@@ -437,6 +442,32 @@ if FAKE_ABI=x86_64 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full >/
   exit 1
 fi
 [ ! -s "$FAKE_COMMAND_LOG" ] || { echo 'FAIL: unsupported ABI invoked package manager.' >&2; exit 1; }
+
+# API 33 may collect profiles without root, but the authenticated Home
+# comparison must fail before instrumentation unless the instrumentation shell
+# can execute the same "su root id" check used by AndroidX Benchmark.
+API33_OUTPUT="$TMP/api33-rooted-output"
+NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full >/dev/null
+if NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-unrooted.log" 2>&1; then
+  echo 'FAIL: API 33 unrooted authenticated measurement should be rejected.' >&2
+  exit 1
+fi
+grep -Fq 'Authenticated Home measurement on API 33 requires a rooted instrumentation shell' "$TMP/api33-unrooted.log" || {
+  echo 'FAIL: API 33 rejection did not explain the signed-in app-data reset.' >&2
+  cat "$TMP/api33-unrooted.log" >&2
+  exit 1
+}
+NUVIO_PHONE_OUTPUT_DIR="$API33_OUTPUT" FAKE_API=33 FAKE_SU_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-rooted.log" 2>&1 || {
+  echo 'FAIL: rooted API 33 should pass the authenticated measurement preflight.' >&2
+  cat "$TMP/api33-rooted.log" >&2
+  exit 1
+}
+grep -Fq 'Saved results to:' "$TMP/api33-rooted.log" || {
+  echo 'FAIL: rooted API 33 did not complete the mocked Macrobenchmark run.' >&2
+  cat "$TMP/api33-rooted.log" >&2
+  exit 1
+}
+NUVIO_PHONE_OUTPUT_DIR="$TMP/output"
 
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
