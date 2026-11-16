@@ -1,8 +1,11 @@
 name: Android Startup Profile Benchmark Builds
 
-# Manual-only: source pushes never start an Android build.
+# One-time authorized benchmark build after preflight test-tail cleanup; restore manual-only immediately.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main-build-testing
 
 permissions:
   contents: read
