@@ -295,7 +295,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|missing-trace-metadata|missing-trace-file) ;;
+      complete|missing-trace-metadata|missing-trace-file|empty-trace-file) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
