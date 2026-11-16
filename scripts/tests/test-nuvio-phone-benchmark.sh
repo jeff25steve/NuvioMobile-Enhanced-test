@@ -204,7 +204,7 @@ case " $* " in
     mkdir -p "$FAKE_MEDIA_DIR"
     trace_file_limit=24
     empty_trace_index=-1
-    case "\${FAKE_BENCHMARK_JSON:-complete}" in
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
       missing-trace-file) trace_file_limit=23 ;;
       empty-trace-file) empty_trace_index=23 ;;
     esac
@@ -227,7 +227,7 @@ case " $* " in
     done
     for block_id in $block_ids; do
       test_name="startup[$block_id]"
-      if [ "\${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
+      if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
         printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
@@ -235,7 +235,7 @@ case " $* " in
     done
     {
       printf '{\n'
-      printf '  "context": {"build": {"model": "Fixture phone", "version": {"sdk": %s}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL", "compilationMode": "None"},\n' "\${FAKE_API:-35}"
+      printf '  "context": {"build": {"model": "Fixture phone", "version": {"sdk": %s}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL", "compilationMode": "None"},\n' "${FAKE_API:-35}"
       printf '  "benchmarks": [\n'
       comma=''
       for block_id in $block_ids; do
@@ -262,7 +262,7 @@ case " $* " in
       done
       printf '\n  ]\n}\n'
     } > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-    case "\${FAKE_BENCHMARK_JSON:-complete}" in
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
       complete|missing-trace-file|empty-trace-file) ;;
       empty)
         printf '{"benchmarks":[]}\n' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -304,12 +304,12 @@ case " $* " in
         ;;
       *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
     esac
-    if [ "\${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
+    if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
     fi
     echo 'OK (8 tests)'
-    if [ "\${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
+    if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
       printf 'INSTRUMENTATION_STATUS_CODE: -2\n'
     fi
     printf 'INSTRUMENTATION_CODE: -1\n'
