@@ -111,7 +111,7 @@ check_device() {
   case "$hardware" in ranchu|goldfish|qemu) fail "A physical Android phone is required; emulators are not supported for this comparison." ;; esac
 }
 
-apk_paths() {apk_paths() {
+apk_paths() {
   case "$FLAVOR:$ACTION" in
     full:install-profile)
       APP_APK="$SCRIPT_DIR/Nuvio-full-NonMinifiedRelease.apk"
@@ -208,7 +208,7 @@ require_macrobenchmark_cases() {
   done
 }
 
-count_json_occurrences() {count_json_occurrences() {
+count_json_occurrences() {
   awk -v needle="$1" '
     {
       remaining = $0
@@ -449,7 +449,7 @@ validate_macrobenchmark_statistics() {
   ' "$1"
 }
 
-extract_macrobenchmark_trace_filenames() {extract_macrobenchmark_trace_filenames() {
+extract_macrobenchmark_trace_filenames() {
   awk '
     { json = json $0 "\n" }
     END {
@@ -760,7 +760,7 @@ require_macrobenchmark_result_data() {
   write_macrobenchmark_summary "$summary_result_file"
 }
 
-install_variant() {install_variant() {
+install_variant() {
   apk_paths
   [ -f "$APP_APK" ] || fail "Missing app APK: $APP_APK. Extract all eight APKs and this script into one folder."
   [ -f "$TEST_APK" ] || fail "Missing test APK: $TEST_APK. Extract all eight APKs and this script into one folder."
