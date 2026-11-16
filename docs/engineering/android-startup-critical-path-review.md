@@ -476,6 +476,41 @@ References: [Macrobenchmark API/state guidance](https://developer.android.com/to
 
 GitHub Actions run [43781685987](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43781685987) was re-inspected. Checkout, Java, Gradle setup and runtime-properties preparation succeeded; the pre-build validation step failed at `test-android-benchmark-bundle-assembly.sh` with `FAIL: benchmark workflow must use workflow_dispatch only; automatic triggers are not allowed.` All Rust setup and APK build steps were skipped. This confirms the failure was the temporary push trigger in that run's workflow snapshot, not Gradle compilation or the benchmark source. The current `main-build-testing` head `472211a9dea084efa5a8a0ee7c0a45608c554b1b` restores `workflow_dispatch` only. Do not rerun the old failed run; it would retry the old workflow snapshot.
 
+## 16 November 2026 — paired-run bias and diagnostic roadmap
+
+### Cycle 49 — independent benchmark-harness review (Sentry ABBA implementation)
+
+A deeper review of Sentry's actual Macrobenchmark PR [#5991](https://github.com/getsentry/sentry-java/pull/5991) uncovered a stronger comparison design than simply increasing Nuvio's iteration count:
+
+- Sentry runs candidate and baseline on the same physical device in one session, using an **ABBA** order so each variant is the trailing arm equally often. This reduces systematic bias from thermal drift, battery/clock changes and device warming.
+- It pools the raw iteration samples across the rounds before calculating the comparison. It explicitly avoids comparing separate medians from tiny runs as though their difference were statistically meaningful.
+- It uses a permutation test on the difference of medians and validates the harness with an A/A null run and a deliberate injected delay (sensitivity test). This is important: an A/A run estimates the harness's noise floor, while an injected delay proves the harness can detect a known change.
+- Sentry's authors also documented the trade-off: their 24 cold starts can thermally throttle the device, but balanced order distributes that drift across both arms.
+
+**Nuvio gap confirmed from source:** `StartupBenchmark.java` currently has exactly two JUnit methods, `startupNoCompilation` and `startupWithBaselineProfile`, each running ten iterations. The phone runner reports each arm's median separately and explicitly labels the result descriptive only. It has no alternating A/B order, pooled multi-round distribution, A/A control, or sensitivity check. That is honest reporting, but it means small differences should not be treated as conclusive.
+
+**Next harness improvement (not implemented yet):** design a dedicated ABBA comparison with two arms repeated in balanced order, retain all per-iteration traces, pool raw samples by arm, and report a confidence/permutation result only after an A/A null and injected-delay sensitivity test establish the noise floor. Keep the current 10+10 run as a quick screening mode. Do not merely raise ITERATIONS or add sequential runs: that increases thermal drift without balancing it. This needs a deliberate test-runner/parser redesign and its own synthetic fixtures; it is not a safe one-line annotation change.
+
+### Cycle 50 — AndroidX diagnostic metrics and R8 analyzer verified against pinned versions
+
+- The repository pins AndroidX Benchmark **1.5.0** and AGP **9.4.0**. AndroidX 1.5.0's public `ArtMetric()` is available and reports JIT count/time (`artJitCount`, `artJitSumMs`), runtime class-load count/time when supported (`artClassLoadCount`, `artClassLoadSumMs`), and runtime class verification (`artVerifyClass`, `artVerifyClassSumMs`). Class-load tracing is available on API 35+, or API 31+ when ART Mainline is at least `341511000`; unsupported class-load values are omitted, not zero.
+- This matters for Nuvio because AGP 9.4/R8 can repackage classes. AndroidX Benchmark 1.5.0 alpha05 included the fix for ArtMetric class-load detection with top-level/repackaged classes. The fix is therefore already present in the pinned stable 1.5.0; no dependency upgrade is needed.
+- ArtMetric's interpretation needs care: JIT traces can include system-framework methods, and class verification during startup is usually zero in a release APK because ART verifies classes at install time. Class-load count/time is the more useful startup signal when the device supports it.
+- Nuvio already enables Startup Insights. The AndroidX implementation extracts insights from the Perfetto trace after the trace has been recorded; it does not insert app work into the measured launch. Keep it enabled on both arms.
+- Adding ArtMetric is a plausible **diagnostic-only** improvement, not an app optimization. It would require optional-field handling in the summary parser and fixtures for both present and absent class-load metrics. Do not make those fields mandatory on API 33/34 or older ART Mainline versions.
+
+### R8 Configuration Analyzer — exact low-cost next step
+
+Nuvio's current version catalog pins AGP 9.4.0, above the official AGP 9.3.0 minimum for the standalone R8 Configuration Analyzer task. The release build defaults to minification enabled unless explicitly overridden. The analyzer can produce shrinking, optimization and obfuscation scores and identify broad consumer keep rules without completing APK/AAB assembly.
+
+For Nuvio's `androidApp` module and `full` / `playstore` flavors, first inspect the generated task names (do not guess them) and then run the matching standalone analyzer tasks for both release variants when a Gradle diagnostic task is authorized. The official unflavored example is `:app:analyzeReleaseR8Config`; flavor-specific task naming should be confirmed from this project's Gradle task listing. Compare the rule origins and impact, especially broad third-party consumer rules. Do not edit keep rules from aggregate scores alone; trace the affected classes and run functional coverage before narrowing a rule.
+
+### Scope decision
+
+No code change was made in this cycle. The ABBA redesign and ArtMetric parser extension are evidence-backed opportunities but need a proper test-first implementation and local shell regression run, which are not available from the current remote-only environment. No Gradle task, APK/AAB build, profile collection, device benchmark, workflow dispatch or CI was run.
+
+References: [Sentry ABBA Macrobenchmark PR #5991](https://github.com/getsentry/sentry-java/pull/5991), [AndroidX ArtMetric API](https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric), [AndroidX Benchmark 1.5.0 release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [Tinder's measured R8 case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer), [Statistically Rigorous Android Macrobenchmarks](https://blog.p-y.wtf/statistically-rigorous-android-macrobenchmarks).
+
 ## 16 November 2026 — complete harness audit and legacy-rewrite handoff
 
 ### Cycle 51 — the two JUnit arms have a fixed, unbalanced execution order
