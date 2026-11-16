@@ -3,7 +3,8 @@ set -eu
 
 ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
-PHONE_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
+PHONE_RUNNER="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
+DESKTOP_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 
 [ -f "$BENCHMARK_SOURCE" ] || {
@@ -12,6 +13,10 @@ WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.y
 }
 [ -f "$PHONE_RUNNER" ] || {
   echo "FAIL: phone benchmark runner not found: $PHONE_RUNNER" >&2
+  exit 1
+}
+[ -f "$DESKTOP_RUNNER" ] || {
+  echo "FAIL: desktop benchmark runner not found: $DESKTOP_RUNNER" >&2
   exit 1
 }
 [ -f "$WORKFLOW_SOURCE" ] || {
@@ -58,16 +63,16 @@ grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 
-grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs; do' "$PHONE_RUNNER" || {
+grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs; do' "$DESKTOP_RUNNER" || {
   echo "FAIL: phone runner must require both TTID and TTFD output for every flavor." >&2
   exit 1
 }
-grep -Fq 'did not emit $metric' "$PHONE_RUNNER" || {
+grep -Fq 'did not emit $metric' "$DESKTOP_RUNNER" || {
   echo "FAIL: phone runner must fail clearly when a startup metric is missing." >&2
   exit 1
 }
 
-grep -Fq 'require_startup_metrics() {' "$PHONE_RUNNER" || {
+grep -Fq 'require_startup_metrics() {' "$DESKTOP_RUNNER" || {
   echo "FAIL: phone runner must centralize the TTID/TTFD validation for each flavor." >&2
   exit 1
 }
@@ -174,7 +179,7 @@ for metric_name in timeToInitialDisplayMs timeToFullDisplayMs; do
 done
 
 line_of() {
-  grep -n -F -- "$1" "$PHONE_RUNNER" | head -n 1 | cut -d: -f1
+  grep -n -F -- "$1" "$DESKTOP_RUNNER" | head -n 1 | cut -d: -f1
 }
 full_run="$(line_of 'run_gradle_step "03-benchmark-full-benchmarkRelease"')"
 full_check="$(line_of 'require_startup_metrics "03-benchmark-full-benchmarkRelease"')"
