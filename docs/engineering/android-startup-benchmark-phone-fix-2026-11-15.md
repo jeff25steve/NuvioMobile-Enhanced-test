@@ -1841,3 +1841,10 @@ The prior run #14 remains failed and its APKs must not be used as the benchmark 
 6. the 12-file bundle checksum validates and the artifact uploads.
 
 The previous CI branch is now stale relative to the updated `main-build-testing` commits. Do not reuse it. The next authorized CI branch must be created directly from the current `main-build-testing` HEAD, must pass the freshness guard, and must run only once after checking that no prior run remains active.
+
+
+### Fresh-run preflight follow-up — the stale checkpoint assertion was also still on main
+
+The fresh R8-fix run [44105881853](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44105881853), commit `4e08c3cbbc2f69deaf84a0bf8102841e1bb4b9bb`, passed the source-freshness guard and the new build-type inheritance assertions, then failed before Gradle for the same obsolete checkpoint-step assertion previously seen in run #13. The CI-only branch had the corrected string, but the canonical test on `main-build-testing` still contained `Upload full-distribution build checkpoint`; the workflow step is `Upload full profile-capture checkpoint`.
+
+Corrected on `main-build-testing` in commit `cbbd32f72dddfc3066b2782f13c2f64fb3561446`. This was a missed propagation of the earlier test correction, not a new app or R8 issue. Do not repeat the previous mistake: create the next isolated CI branch from the latest `main-build-testing` HEAD and verify the test file itself contains no reference to the obsolete step name before pushing. The run did not execute Gradle or produce APKs.
