@@ -171,10 +171,18 @@ android {
         // The same suffix on both build types lets profile capture and Macrobenchmark
         // upgrade the same app install without losing its signed-in test state.
         create("benchmarkRelease") {
+            // Existing custom build types are not given the plugin's default R8 settings.
+            // Inherit release inputs, then explicitly retain the optimized benchmark contract.
+            initWith(getByName("release"))
+            isMinifyEnabled = true
+            isShrinkResources = true
             applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
         create("nonMinifiedRelease") {
+            // The Baseline Profile plugin overrides minification off for this profile-capture type.
+            // Inherit release dependencies, ProGuard files and common build configuration first.
+            initWith(getByName("release"))
             applicationIdSuffix = ".benchmark"
             signingConfig = signingConfigs.getByName("debug")
         }
