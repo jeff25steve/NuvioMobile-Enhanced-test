@@ -97,6 +97,16 @@ grep -Fq 'native/target/' "$WORKFLOW" || {
   echo "FAIL: native Rust build outputs must be cached across CI runs." >&2
   exit 1
 }
+grep -Fq 'id: rust-toolchain' "$WORKFLOW" &&
+grep -Fq '>> "$GITHUB_OUTPUT"' "$WORKFLOW" &&
+grep -Fq 'steps.rust-toolchain.outputs.cache-key' "$WORKFLOW" || {
+  echo "FAIL: the Rust toolchain fingerprint must be passed as a step output into cache keys." >&2
+  exit 1
+}
+if grep -Fq 'env.RUSTC_CACHE_KEY' "$WORKFLOW"; then
+  echo "FAIL: cache expressions must not depend on a shell-only GITHUB_ENV variable." >&2
+  exit 1
+fi
 [ "$(grep -Fc './gradlew "$@"' "$WORKFLOW")" -eq 1 ] || {
   echo "FAIL: grouped Gradle build helper must have one measured Gradle entry point." >&2
   exit 1

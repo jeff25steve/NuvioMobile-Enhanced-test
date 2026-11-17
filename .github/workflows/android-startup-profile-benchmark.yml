@@ -94,11 +94,12 @@ jobs:
           EOF
 
       - name: Set up Rust Android targets
+        id: rust-toolchain
         shell: bash
         run: |
           set -euo pipefail
           rustup target add aarch64-linux-android
-          echo "RUSTC_CACHE_KEY=$(rustc --version | sha256sum | cut -c1-16)" >> "$GITHUB_ENV"
+          echo "cache-key=$(rustc --version | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Cargo registry
         uses: actions/cache@v6
@@ -115,16 +116,19 @@ jobs:
         uses: actions/cache@v6
         with:
           path: native/target/
-          key: ${{ runner.os }}-cargo-android-arm64-${{ env.RUSTC_CACHE_KEY }}-ndk-28.2.13676358-${{ hashFiles('native/Cargo.lock', 'native/Cargo.toml', 'native/**/*.toml', 'native/**/*.rs') }}
+          key: ${{ runner.os }}-cargo-android-arm64-${{ steps.rust-toolchain.outputs.cache-key }}-ndk-28.2.13676358-${{ hashFiles('native/Cargo.lock', 'native/Cargo.toml', 'native/**/*.toml', 'native/**/*.rs') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-android-arm64-${{ env.RUSTC_CACHE_KEY }}-ndk-28.2.13676358-
+            ${{ runner.os }}-cargo-android-arm64-${{ steps.rust-toolchain.outputs.cache-key }}-ndk-28.2.13676358-
+            ${{ runner.os }}-cargo-android-arm64--ndk-28.2.13676358-
 
       - name: Cache cargo-ndk
         id: cargo-ndk
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cargo-ndk
-          key: ${{ runner.os }}-cargo-ndk-4.1.2-${{ env.RUSTC_CACHE_KEY }}
+          key: ${{ runner.os }}-cargo-ndk-4.1.2
+          restore-keys: |
+            ${{ runner.os }}-cargo-ndk-4.1.2-
 
       - name: Install cargo-ndk
         if: steps.cargo-ndk.outputs.cache-hit != 'true'

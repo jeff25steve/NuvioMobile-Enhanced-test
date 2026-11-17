@@ -441,3 +441,8 @@ AGP 9.4.0 satisfies the AGP 9.3+ requirement for the R8 Configuration Analyzer. 
 The startup optimization decision is therefore to collect the reports for `fullBenchmarkRelease` and `playstoreBenchmarkRelease`, inspect each blocking rule and its origin, and then confirm runtime contracts before narrowing any keep rule. The benchmark workflow now preserves those reports, Gradle profile HTML, build logs and per-distribution elapsed timings as a separate diagnostic artifact. No ProGuard/R8 rule was modified and no runtime startup speedup is claimed.
 
 References: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [Grab R8/profile case study](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [Tinder keep-rule case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer).
+
+
+### CI cache-key contract follow-up — 17 November 2026
+
+The Rust compiler fingerprint is now emitted as a step output and referenced via `steps.rust-toolchain.outputs.cache-key`. GitHub's `env` expression context does not include arbitrary environment variables inherited from a previous step through `GITHUB_ENV`; using a step output avoids a silently empty compiler segment in the Cargo target cache key. The pinned `cargo-ndk` binary cache is independently keyed by its exact tool version. The bundle static contract now checks this distinction.

@@ -1527,3 +1527,19 @@ The next concrete R8 review is to inspect Nuvio's two generated Configuration An
 The modified canonical workflow remains `workflow_dispatch` only; source pushes on `main-build-testing` do not start the bundle build. The isolated CI branch runner remains the authorized push-triggered test route. The new bundle contract test checks the arm64-only target, caches, pinned cargo-ndk, grouped Gradle invocations, preserved diagnostic reports and separate diagnostics artifact, while retaining the existing APK and checksum validation.
 
 The corrected pre-build test suite and the optimized APK workflow still need to run together on the isolated branch. No new APK bundle or physical-device Macrobenchmark result is available yet.
+
+
+### Improvement cycle 4 — Fix the bundle-contract workflow reference and cache-key transport
+
+The next validation run, [43992388394](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43992388394), again passed the full phone-runner regression suite, then failed its new concurrency assertion before any APK build. The contract test inspects the canonical `android-startup-profile-benchmark.yml`; on the isolated CI branch that copy still retained the earlier `cancel-in-progress: true`, even though the active CI runner workflow had been changed to false. The correction is to keep both workflow copies consistent. The run also proved the diagnostics collector and separate upload step execute after a pre-build validation failure: diagnostics artifact 14288506595 was uploaded (373 bytes, containing the status/timing placeholders).
+
+A review of GitHub's official contexts documentation found a second configuration detail before relying on the new caches: values written to `GITHUB_ENV` are available to later shell processes, but are not part of the workflow-expression `env` context used to build an `actions/cache` key. The initial cache configuration incorrectly referenced that shell-only value in `steps.cache.with.key`.
+
+Correction:
+- Give the Rust setup step the ID `rust-toolchain` and write the compiler fingerprint to `GITHUB_OUTPUT`.
+- Reference `steps.rust-toolchain.outputs.cache-key` in the native target cache key.
+- Keep a fallback prefix for the earlier empty-fingerprint cache key, so the already-created target cache can be reused and saved under the corrected key on a subsequent run.
+- Key the pinned `cargo-ndk` executable by its own exact version (4.1.2), with a compatible restore prefix; its executable does not need to share the native crate's compiler-version key.
+- Add regression assertions to reject future uses of the runner-only `GITHUB_ENV` variable in cache key expressions.
+
+The same build optimization remains in place: arm64-only Rust target installation, Cargo registry/target/binary caching, two Gradle invocations (one per distribution), Gradle profile logs/timings, and a separate diagnostic artifact. No app source, benchmark parameters, profile, NDK version or R8 keep rule changed.
