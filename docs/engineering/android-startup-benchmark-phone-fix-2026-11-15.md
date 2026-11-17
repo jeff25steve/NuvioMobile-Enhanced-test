@@ -1711,3 +1711,26 @@ A fresh Actions read at 04:23:45 UTC confirmed both outstanding runs reached ter
 - Run #12 `44014834553` was cancelled while pending, before any job was assigned. It has no artifacts.
 
 This follow-up records the observed GitHub state only; it does not attribute the cancellation to a particular actor. The stale branch remains divergent and is not a valid source for another build.
+
+
+## 17 November 2026 — stale CI branch / pending-run incident and prevention
+
+### Incident facts
+
+The isolated bundle branch `ci/main-build-testing-startup-bundle-20261116` was pushed while it had diverged from `main-build-testing`. The GitHub compare at the time reported 14 commits ahead and 14 commits behind; the CI run therefore used branch HEAD `697bcc4a14de9c8ebc0ec9de2c2a324b17cda865`, not the current `main-build-testing` HEAD `6a0b89478687443c9944117b5b9f63ad36c714b3`. This is an avoidable source-integrity failure. Do not use that CI run as validation of current main-build-testing source.
+
+The last checked Actions metadata showed run #9 (`44014620882`) in progress and run #12 (`44014834553`) pending with zero jobs assigned. The available GitHub integration in this session exposed read-only Actions run/job operations and retry operations, but no cancel-workflow-run action. The cancellation request therefore could not be executed through the connected integration; no cancellation is claimed. Verify live run state and cancel stale runs through GitHub Actions UI or an authorized Actions API client before any new benchmark workflow is started.
+
+### Mandatory prevention gate before every bundle build
+
+1. Fetch the live `main-build-testing` branch head immediately before preparing the CI branch. Record the exact SHA.
+2. The CI branch must be based on that exact current main SHA. Do not push a previously created CI branch merely because it contains benchmark workflow changes.
+3. Compare both branches and inspect every unique commit and changed path. A non-zero ahead/behind count is a stop condition until the divergence is deliberately reconciled and reviewed. Never force-push to hide divergence.
+4. Verify that the CI branch contains the current app source, Gradle wrapper, version catalog, benchmark sources, runner scripts, tests and current engineering note. Compare exact file content/SHA for the benchmark-critical files.
+5. Check all active, queued and pending Actions runs for the same workflow/branch/concurrency group. Do not start another run while an old or ambiguous run remains active or queued. Cancel stale runs only through a confirmed Actions write-capable operation and verify their terminal `cancelled` state afterward.
+6. Confirm the workflow's resolved `head_sha` equals the intended current source SHA before allowing Gradle steps to begin. The canonical `main-build-testing` workflow must remain `workflow_dispatch` only.
+7. Only after all gates pass, trigger one build. Verify the completed run's SHA, all four Gradle phases, artifact contents (8 APKs + 2 scripts + START-HERE + checksum manifest), and checksum verification before calling the bundle ready.
+
+### No speculative benchmark changes
+
+This incident is a branch/CI orchestration defect, not evidence that startup measurement code or app runtime should change. Do not alter StartupTimingMetric, cold-start mode, ten measured iterations, BaselineProfileMode.Require, Startup Insights, readiness markers, generated profile rules, R8 rules, or production Gradle settings to compensate for stale source or queued jobs. Keep changes limited to proven workflow/branch integrity issues and failures supported by run logs or deterministic regression tests.
