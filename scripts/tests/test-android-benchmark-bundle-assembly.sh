@@ -5,6 +5,31 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 WORKFLOW="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 [ -f "$WORKFLOW" ] || { echo "FAIL: benchmark workflow not found: $WORKFLOW" >&2; exit 1; }
 
+APP_BUILD_FILE="$ROOT_DIR/androidApp/build.gradle.kts"
+[ -f "$APP_BUILD_FILE" ] || { echo "FAIL: Android app build configuration not found: $APP_BUILD_FILE" >&2; exit 1; }
+
+require_build_type_setting() {
+  build_type="$1"
+  expected="$2"
+  awk -v build_type="create(\"$build_type\")" -v expected="$expected" '
+    index($0, build_type) { in_block=1; next }
+    in_block && /^[[:space:]]*}/ { exit }
+    in_block && index($0, expected) { found=1 }
+    END { if (!found) exit 1 }
+  ' "$APP_BUILD_FILE" || {
+    echo "FAIL: $build_type must declare '$expected' in its custom build-type block." >&2
+    exit 1
+  }
+}
+
+# The Baseline Profile plugin preserves minification settings on pre-existing
+# custom benchmarkRelease build types. Guard the release inheritance and R8
+# settings so an apparently successful APK build cannot silently become unminified.
+require_build_type_setting benchmarkRelease 'initWith(getByName("release"))'
+require_build_type_setting benchmarkRelease 'isMinifyEnabled = true'
+require_build_type_setting benchmarkRelease 'isShrinkResources = true'
+require_build_type_setting nonMinifiedRelease 'initWith(getByName("release"))'
+
 # This APK workflow must remain explicit/manual; an accidental push or PR
 # trigger can start an expensive Android build without an authorized dispatch.
 awk '
