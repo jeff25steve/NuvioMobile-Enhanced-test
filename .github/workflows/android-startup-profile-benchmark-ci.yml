@@ -120,11 +120,11 @@ jobs:
             ) &
             local monitor_pid=$!
             started_at="$(date +%s)"
-            printf '\nCI JVM budget: Gradle heap <= 6 GiB; Kotlin daemon heap <= 3 GiB; Gradle workers <= 2.\n'
+            printf '\nCI JVM budget: Gradle heap <= 6 GiB; Kotlin daemon heap <= 6 GiB; Gradle workers <= 2.\n'
             set +e
             ./gradlew "$@" \
               -Dorg.gradle.jvmargs='-Xmx6g -Xms512m -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
-              -Pkotlin.daemon.jvmargs='-Xmx3g -Xms512m -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
+              -Pkotlin.daemon.jvmargs='-Xmx6g -Xms1g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
               --max-workers=2 \
               --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
             gradle_status=${PIPESTATUS[0]}
@@ -179,44 +179,62 @@ jobs:
         if: steps.cargo-ndk.outputs.cache-hit != 'true'
         run: cargo install cargo-ndk --version 4.1.2 --locked
 
-      # Build all artifacts for one distribution in the same Gradle invocation.
-      # composeApp selects a single Android source set from all requested task names,
-      # so full and playstore intentionally remain separate invocations.
-      # benchmarkRelease and nonMinifiedRelease both use arm64-v8a only.
-      - name: Build full profile-capture and R8 benchmark APK pairs
-        id: build-full
+      # Keep the four proven, isolated Gradle invocations from the successful
+      # 71cc598 run. Combining build types made composeApp:compileAndroidMain
+      # exceed the 3 GiB Kotlin daemon heap; each build phase now has its own
+      # task graph while Gradle's normal incremental state is retained.
+      - name: Build full profile-capture APK pair
+        id: build-full-profile
         shell: bash
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/run-gradle-group.sh"
-          run_gradle_group "full-distribution" \
+          run_gradle_group "full-profile-capture" \
             :androidApp:assembleFullNonMinifiedRelease \
             :baselineProfile:assembleFullNonMinifiedRelease \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Upload full profile-capture checkpoint
+        if: always() && steps.build-full-profile.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-full-profile-checkpoint-${{ github.sha }}
+          path: |
+            benchmark-diagnostics/gradle-logs/full-profile-capture.log
+            benchmark-diagnostics/runner-resources/full-profile-capture.log
+            benchmark-diagnostics/build-timings.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build Play Store profile-capture APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "playstore-profile-capture" \
+            :androidApp:assemblePlaystoreNonMinifiedRelease \
+            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
+            -Pnuvio.android.distribution=playstore \
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Build full R8 benchmark APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "full-r8-benchmark" \
             :androidApp:assembleFullBenchmarkRelease \
             :baselineProfile:assembleFullBenchmarkRelease \
             -Pnuvio.android.distribution=full \
             -Pnuvio.ios.distribution=appstore
 
-      - name: Upload full-distribution build checkpoint
-        if: always() && steps.build-full.outcome != 'skipped'
-        uses: actions/upload-artifact@v7
-        with:
-          name: nuvio-android-startup-full-checkpoint-${{ github.sha }}
-          path: |
-            benchmark-diagnostics/gradle-logs/full-distribution.log
-            benchmark-diagnostics/runner-resources/full-distribution.log
-            benchmark-diagnostics/build-timings.txt
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Build Play Store profile-capture and R8 benchmark APK pairs
+      - name: Build Play Store R8 benchmark APK pair
         shell: bash
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/run-gradle-group.sh"
-          run_gradle_group "playstore-distribution" \
-            :androidApp:assemblePlaystoreNonMinifiedRelease \
-            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
+          run_gradle_group "playstore-r8-benchmark" \
             :androidApp:assemblePlaystoreBenchmarkRelease \
             :baselineProfile:assemblePlaystoreBenchmarkRelease \
             -Pnuvio.android.distribution=playstore \
