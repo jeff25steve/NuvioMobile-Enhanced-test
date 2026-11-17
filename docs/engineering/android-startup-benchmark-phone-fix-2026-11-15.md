@@ -1802,3 +1802,42 @@ Google's current [AGP 9.3 release notes](https://developer.android.com/build/rel
 Do not jump directly to AGP 9.4.1, change DSLs, or manually set minification on the custom type without checking the exact AndroidX Baseline Profile plugin 1.5.0 implementation and the effective AGP 9.4.0 variant model. Any fix must result in observable `minify<Variant>WithR8` execution, non-empty mapping files for both flavors, generated R8 Configuration Analyzer reports, and a compiled Baseline Profile in both benchmark APKs. Keep the existing artifact checks as regression protection.
 
 No app runtime code, Macrobenchmark metric, iteration count, compilation mode, profile source, keep rule, signing behavior or phone-runner command was changed.
+
+
+### Root cause confirmed — manually pre-created benchmark build type bypassed R8 defaults
+
+The exact AndroidX Baseline Profile Gradle plugin **1.5.0** source was inspected at the 1.5.0 release merge commit [852ea00](https://android.googlesource.com/platform/frameworks/support/+/852ea00bf5d9b66c17a07d52320d7ea561b5d6fa/benchmark/baseline-profile-gradle-plugin/src/main/kotlin/androidx/baselineprofile/gradle/apptarget/BaselineProfileAppTargetPlugin.kt).
+
+For AGP 8.1+ the plugin creates the benchmark build type by copying the original build type. Its source explicitly distinguishes:
+- **New generated build type:** copies `base.isMinifyEnabled` and `base.isShrinkResources` to the extended type.
+- **Already-existing custom build type:** the plugin's `overrideConfigureBlock` sets JNI/debuggable/profileable and test-coverage properties, but deliberately does **not** set `isMinifyEnabled` or `isShrinkResources`. This preserves user customization.
+
+Nuvio had manually created both `benchmarkRelease` and `nonMinifiedRelease` in `androidApp/build.gradle.kts` without `initWith(getByName("release"))`. Because the existing `benchmarkRelease` did not inherit the release configuration and the plugin intentionally left its minification settings alone, R8 never ran. This exactly matches run #14's Gradle logs: neither benchmark flavor executed an R8 task, and neither generated `mapping.txt` or `configanalyzer.html`.
+
+This is the confirmed cause. The AGP 9.4.0 / issue 556343682 compatibility lead above is not needed to explain this failure and is not being changed as part of this fix.
+
+### Concrete fix committed
+
+On `main-build-testing`:
+- Commit `2730d3f7d576b8fa74c12606f7ce8280c2104ff2` updates `androidApp/build.gradle.kts`.
+- Both custom build types now call `initWith(getByName("release"))` before applying the benchmark package suffix and debug signing.
+- `benchmarkRelease` explicitly sets `isMinifyEnabled = true` and `isShrinkResources = true`, so the benchmark arm remains R8-optimized even if a developer intentionally disables minification for ordinary release builds.
+- `nonMinifiedRelease` inherits the release dependencies, ProGuard files and common configuration first; the Baseline Profile plugin's documented override then disables minification/shrinking for readable profile capture.
+
+Regression guard:
+- Commit `d0849733fdb1f83c543e933244806394d7bb84cb` updates `scripts/tests/test-android-benchmark-bundle-assembly.sh`.
+- The test now requires both custom build types to inherit `release`, and requires the benchmark type to explicitly enable code and resource shrinking. This prevents another successful-but-unminified benchmark build from passing the preflight contract.
+
+This is a build-configuration correction only. No app runtime code, R8 keep rule, Baseline Profile contents, Startup Profile journey, Macrobenchmark metrics, iterations, compilation modes or LADB commands changed.
+
+### Verification required before calling the bundle ready
+
+The prior run #14 remains failed and its APKs must not be used as the benchmark bundle. The new configuration and regression guard must be checked by a single fresh-source run. That run must show:
+1. the pre-build regression tests pass;
+2. actual R8 minification tasks execute for both `fullBenchmarkRelease` and `playstoreBenchmarkRelease`;
+3. non-empty mapping files and both R8 Configuration Analyzer reports exist;
+4. both benchmark APKs contain compiled Baseline Profiles;
+5. all eight APKs pass package ID, debuggable, profileable and arm64-only checks;
+6. the 12-file bundle checksum validates and the artifact uploads.
+
+The previous CI branch is now stale relative to the updated `main-build-testing` commits. Do not reuse it. The next authorized CI branch must be created directly from the current `main-build-testing` HEAD, must pass the freshness guard, and must run only once after checking that no prior run remains active.
