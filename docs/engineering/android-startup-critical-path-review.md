@@ -433,3 +433,11 @@ References: [Macrobenchmark cold-start source](https://github.com/androidx/andro
 - No code/configuration change was justified. No Gradle task/build, profile collection, device benchmark or CI was run.
 
 References: [Teachmint startup case study](https://shubhamsinghbisht.com/articles/android-app-start-25-percent-faster/), [Grab R8/profile-guided optimization](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark), [AndroidX CompilationMode](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt).
+
+## 17 November 2026 — R8 Analyzer as the next concrete optimization input
+
+AGP 9.4.0 satisfies the AGP 9.3+ requirement for the R8 Configuration Analyzer. A normal minified benchmark build should produce `configanalyzer.html` alongside its mapping file. Nuvio's existing shrinker file contains several wide keep scopes (Supabase/Ktor, dynamic plugins, P2P/JNI, Media3/ExoPlayer and MPV), but their necessity cannot be judged from their breadth alone: reflection, generated serialization, runtime plugin loading, native method names and player integration can make some scopes contractually required.
+
+The startup optimization decision is therefore to collect the reports for `fullBenchmarkRelease` and `playstoreBenchmarkRelease`, inspect each blocking rule and its origin, and then confirm runtime contracts before narrowing any keep rule. The benchmark workflow now preserves those reports, Gradle profile HTML, build logs and per-distribution elapsed timings as a separate diagnostic artifact. No ProGuard/R8 rule was modified and no runtime startup speedup is claimed.
+
+References: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [Grab R8/profile case study](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time), [Tinder keep-rule case study](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer).

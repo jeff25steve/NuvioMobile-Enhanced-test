@@ -1461,3 +1461,69 @@ Correction on `main-build-testing`:
 This is another validation-only repair; it does not alter either benchmark arm or the packaged Baseline Profile requirement.
 
 The corrected metric-contract test is committed on `main-build-testing` as `471922ebc2d4ddfee146bdeaddfcc344287cf891`. It still needs a full isolated workflow validation. No APK build has yet passed the pre-build validation gate.
+
+
+## 17 November 2026 — cancelled long build, CI efficiency and diagnostic capture
+
+### Latest build evidence: run 43979670892
+
+GitHub run [43979670892](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43979670892), commit `956327cc1a3c965e9cbb8f333c279a71be81568f`, completed the pre-build validation and Rust setup. The full profile-capture pair, Play Store profile-capture pair and full R8 benchmark pair all completed successfully. GitHub marked the final Play Store R8 benchmark build step **cancelled**; the bundle-assembly and artifact-upload steps were skipped.
+
+The job's configured timeout is 150 minutes; the run ended after approximately 62 minutes, so this is not the job timeout. No newer run on the same branch was present in the run history, and the completed job-log archive currently returns `BlobNotFound`. Consequently the available evidence does **not** identify who or what cancelled the Gradle step, and does not provide a Gradle compiler error. Do not describe it as an established Play Store source/build failure. No artifact was uploaded.
+
+The workflow previously used `cancel-in-progress: true`. That setting can cancel an active run when another run for the same concurrency group is queued, although no such overlapping run was seen in this case. The setting is now false so a subsequent push will not automatically kill a long-running benchmark job. This is a forward-looking protection, not a claimed explanation for the previous cancellation.
+
+### Improvement cycle 1 — Align Rust setup and caches with the APK's actual ABI
+
+The Android build configuration's `buildsArm64BenchmarkApks` branch sets the Rust build task to `listOf("arm64-v8a")` whenever a `BenchmarkRelease` or `NonMinifiedRelease` assembly is requested. The APK bundle workflow also rejects native APK contents other than `arm64-v8a`. The CI setup nevertheless installed four Rust standard-library targets.
+
+Correction:
+- Install only `aarch64-linux-android` for this phone-only bundle.
+- Cache the Cargo registry/Git dependency stores, the native workspace `native/target/` output, and the `cargo-ndk` executable using `actions/cache@v6`.
+- Pin `cargo-ndk` at the latest stable published release observed, `4.1.2` (9 August 2025), using `--locked`. The project Cargo lockfile remains the source of truth for the native workspace dependencies.
+- Include Rust compiler fingerprint, NDK version, lockfile and native source/manifest hashes in the native target cache key, with a same-toolchain fallback key for incremental reuse.
+
+This removes installation of three unused cross-compilation targets and avoids reinstalling the same Cargo tool on every ephemeral runner. It does not change the native crate, NDK, ABI, Rust optimization profile, or packaged native libraries.
+
+### Improvement cycle 2 — Build both variants together per distribution
+
+`composeApp/build.gradle.kts` derives the Android source set from the requested Gradle task names and explicitly rejects a single Gradle invocation that mixes `full` and `playstore` distributions. It is safe to batch both build types within one distribution, because all requested tasks then resolve to exactly one source set.
+
+The workflow now uses two Gradle invocations:
+- Full: `fullNonMinifiedRelease` app/test pair plus `fullBenchmarkRelease` app/test pair.
+- Play Store: `playstoreNonMinifiedRelease` app/test pair plus `playstoreBenchmarkRelease` app/test pair.
+
+Each invocation requests the app and self-instrumenting test APKs for both build types. This allows Gradle to form one shared task graph per distribution instead of starting four separate Gradle invocations. Full and Play Store remain separate, preserving the distribution source-set guard. The APK names, variant build types, package IDs, signing setup, and eight-APK output contract remain unchanged.
+
+Both flavor invocations also enable Gradle's `--profile` report, preserve the console output, and record elapsed seconds plus the Gradle exit status. This gives us actual phase/task timing evidence in the next run rather than inferring the bottleneck from wall-clock duration alone.
+
+### Improvement cycle 3 — Preserve R8 and Gradle diagnostics independently of phone bundle assembly
+
+Nuvio pins AGP 9.4.0, which is above the AGP 9.3 minimum for the R8 Configuration Analyzer. Official AGP documentation states that a regular R8 build automatically emits `configanalyzer.html` under `build/outputs/mapping/<variant>/`; the standalone `analyze<Variant>R8Config` task is also available, but is unnecessary to obtain the reports from the existing minified benchmark builds.
+
+The workflow now collects, when present:
+- `androidApp/build/outputs/mapping/fullBenchmarkRelease/configanalyzer.html`
+- `androidApp/build/outputs/mapping/playstoreBenchmarkRelease/configanalyzer.html`
+- Gradle `--profile` HTML reports
+- Both per-distribution Gradle console logs and build timing records
+
+These are uploaded as a separate always-attempted diagnostics artifact. They are **not** added to the phone bundle, whose contract remains eight APKs, two scripts, `START-HERE.txt` and `SHA256SUMS.txt` (12 files total). That keeps phone installation instructions and checksum behavior unchanged while preserving evidence for the next R8/CI optimization review.
+
+Official source: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer).
+
+### Current benchmark/research decision
+
+No change is justified to the startup benchmark's pinned AndroidX Benchmark 1.5.0, its ten-iteration paired cold-start cases, `CompilationMode.None()` versus `CompilationMode.Partial(BaselineProfileMode.Require)`, the real Home-ready/Compose fully-drawn contract, or its TTID/TTFD and Perfetto trace requirements. AndroidX 1.6.0 remains an alpha line in the current release notes; its optional heap profiling is a separate diagnostic pass, not a reason to move the timing baseline to an alpha dependency. [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+Current Google case studies continue to support inspecting R8 rules and real profile consumption before inventing startup-code changes:
+- Grab reports roughly 35% cumulative cold-start improvement across R8, Baseline/Startup Profiles, Full Mode and keep-rule refinement; the report describes several separate phases, not a transferable Nuvio target. [Grab](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time)
+- Tinder reports that a broad keep rule blocked R8 optimization and that targeted refinement coincided with 47% fewer users experiencing slow cold starts. [Tinder](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer)
+- Monzo's R8 Full Mode work reports cold, warm and hot start improvements, but its initial configuration differed from Nuvio's existing `proguard-android-optimize.txt`; copying that change would therefore not be justified here. [Monzo](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update)
+
+The next concrete R8 review is to inspect Nuvio's two generated Configuration Analyzer reports for broad keep rules and trace each warning to its reflection, serialization, dynamic plugin, JNI or media contract before changing any rule. No keep rule has been altered, and no Nuvio startup improvement is claimed.
+
+### Verification boundary
+
+The modified canonical workflow remains `workflow_dispatch` only; source pushes on `main-build-testing` do not start the bundle build. The isolated CI branch runner remains the authorized push-triggered test route. The new bundle contract test checks the arm64-only target, caches, pinned cargo-ndk, grouped Gradle invocations, preserved diagnostic reports and separate diagnostics artifact, while retaining the existing APK and checksum validation.
+
+The corrected pre-build test suite and the optimized APK workflow still need to run together on the isolated branch. No new APK bundle or physical-device Macrobenchmark result is available yet.

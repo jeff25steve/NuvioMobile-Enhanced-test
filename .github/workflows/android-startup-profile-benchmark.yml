@@ -9,7 +9,7 @@ permissions:
 
 concurrency:
   group: android-startup-profile-benchmark-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -71,51 +71,127 @@ jobs:
           sh scripts/tests/test-android-startup-readiness.sh
           sh scripts/tests/test-android-startup-metric-contract.sh
 
+      - name: Prepare benchmark build diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-diagnostics/gradle-logs benchmark-diagnostics/gradle-profiles benchmark-diagnostics/r8
+          cat > "$RUNNER_TEMP/run-gradle-group.sh" <<'EOF'
+          run_gradle_group() {
+            local group_name="$1"
+            shift
+            local started_at ended_at gradle_status
+            local log_file="benchmark-diagnostics/gradle-logs/${group_name}.log"
+            started_at="$(date +%s)"
+            set +e
+            ./gradlew "$@" --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
+            gradle_status=${PIPESTATUS[0]}
+            set -e
+            ended_at="$(date +%s)"
+            printf '%s status=%s elapsed_seconds=%s\n' "$group_name" "$gradle_status" "$((ended_at - started_at))" >> benchmark-diagnostics/build-timings.txt
+            return "$gradle_status"
+          }
+          EOF
+
       - name: Set up Rust Android targets
         shell: bash
         run: |
           set -euo pipefail
-          rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
-          cargo install cargo-ndk --locked
+          rustup target add aarch64-linux-android
+          echo "RUSTC_CACHE_KEY=$(rustc --version | sha256sum | cut -c1-16)" >> "$GITHUB_ENV"
 
-      # Profile rules are generated against nonMinifiedRelease. Both profiling
-      # build types share the isolated .benchmark package and signing config.
-      - name: Build full profile-capture APK pair
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('native/Cargo.lock') }}-cargo-ndk-4.1.2
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache native Android Cargo target
+        uses: actions/cache@v6
+        with:
+          path: native/target/
+          key: ${{ runner.os }}-cargo-android-arm64-${{ env.RUSTC_CACHE_KEY }}-ndk-28.2.13676358-${{ hashFiles('native/Cargo.lock', 'native/Cargo.toml', 'native/**/*.toml', 'native/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-android-arm64-${{ env.RUSTC_CACHE_KEY }}-ndk-28.2.13676358-
+
+      - name: Cache cargo-ndk
+        id: cargo-ndk
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ runner.os }}-cargo-ndk-4.1.2-${{ env.RUSTC_CACHE_KEY }}
+
+      - name: Install cargo-ndk
+        if: steps.cargo-ndk.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      # Build all artifacts for one distribution in the same Gradle invocation.
+      # composeApp selects a single Android source set from all requested task names,
+      # so full and playstore intentionally remain separate invocations.
+      # benchmarkRelease and nonMinifiedRelease both use arm64-v8a only.
+      - name: Build full profile-capture and R8 benchmark APK pairs
+        shell: bash
         run: |
-          ./gradlew \
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "full-distribution" \
             :androidApp:assembleFullNonMinifiedRelease \
             :baselineProfile:assembleFullNonMinifiedRelease \
-            -Pnuvio.android.distribution=full \
-            -Pnuvio.ios.distribution=appstore \
-            --stacktrace
-
-      - name: Build Play Store profile-capture APK pair
-        run: |
-          ./gradlew \
-            :androidApp:assemblePlaystoreNonMinifiedRelease \
-            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
-            -Pnuvio.android.distribution=playstore \
-            -Pnuvio.ios.distribution=appstore \
-            --stacktrace
-
-      # This is the actual non-debuggable, profileable R8 target for Macrobenchmark.
-      - name: Build full R8 benchmark APK pair
-        run: |
-          ./gradlew \
             :androidApp:assembleFullBenchmarkRelease \
             :baselineProfile:assembleFullBenchmarkRelease \
             -Pnuvio.android.distribution=full \
-            -Pnuvio.ios.distribution=appstore \
-            --stacktrace
+            -Pnuvio.ios.distribution=appstore
 
-      - name: Build Play Store R8 benchmark APK pair
+      - name: Build Play Store profile-capture and R8 benchmark APK pairs
+        shell: bash
         run: |
-          ./gradlew \
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "playstore-distribution" \
+            :androidApp:assemblePlaystoreNonMinifiedRelease \
+            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
             :androidApp:assemblePlaystoreBenchmarkRelease \
             :baselineProfile:assemblePlaystoreBenchmarkRelease \
             -Pnuvio.android.distribution=playstore \
-            -Pnuvio.ios.distribution=appstore \
-            --stacktrace
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Collect R8 Configuration Analyzer and Gradle profiles
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-diagnostics/r8 benchmark-diagnostics/gradle-profiles
+          for flavor in full playstore; do
+            report="androidApp/build/outputs/mapping/${flavor}BenchmarkRelease/configanalyzer.html"
+            if [[ -s "$report" ]]; then
+              cp "$report" "benchmark-diagnostics/r8/${flavor}-configanalyzer.html"
+            else
+              printf 'Not generated: %s\n' "$report" >> benchmark-diagnostics/report-status.txt
+            fi
+          done
+
+          while IFS= read -r -d '' report; do
+            relative="${report#./}"
+            destination_name="${relative//\//__}"
+            cp "$report" "benchmark-diagnostics/gradle-profiles/$destination_name"
+          done < <(find . -type f -path '*/build/reports/profile/profile-*.html' -print0)
+
+          test -s benchmark-diagnostics/build-timings.txt || : > benchmark-diagnostics/build-timings.txt
+          find benchmark-diagnostics -type f -printf '%P (%s bytes)\n' | sort
+
+      - name: Upload benchmark build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-build-diagnostics-${{ github.sha }}
+          path: benchmark-diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Assemble phone-ready benchmark bundle
         shell: bash
