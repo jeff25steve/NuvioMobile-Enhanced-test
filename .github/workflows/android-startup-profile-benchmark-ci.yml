@@ -1,0 +1,476 @@
+name: Android Startup Profile Benchmark CI Branch Runner
+
+# Push-triggered only on this isolated branch; main-build-testing remains manual-only.
+on:
+  push:
+    branches:
+      - ci/main-build-testing-startup-bundle-20261117
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-startup-profile-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build phone-ready R8 and profile-capture APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      LOCAL_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+      CONTRIBUTIONS_URL: https://api.github.com/repos/luqmanfadlli/NuvioMobile-Enhanced/contributors?per_page=100
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Guard against stale main-build-testing source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          comparison="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/compare/main-build-testing...${GITHUB_SHA}")"
+          printf '%s' "$comparison" | python3 -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+          base = data.get("base_commit", {}).get("sha")
+          merge_base = data.get("merge_base_commit", {}).get("sha")
+          behind = data.get("behind_by")
+          print(f"main-build-testing HEAD: {base}")
+          print(f"CI commit merge-base: {merge_base}")
+          print(f"CI commit behind_by: {behind}")
+          if base is None or merge_base != base or behind != 0:
+              raise SystemExit(
+                  "Refusing to build: CI branch does not contain the current "
+                  "main-build-testing HEAD."
+              )
+          print("Source freshness check passed.")
+          '
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Prepare runtime properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${LOCAL_PROPERTIES_BASE64}" ]]; then
+            printf '%s' "${LOCAL_PROPERTIES_BASE64}" | base64 --decode > local.properties
+          else
+            touch local.properties
+          fi
+
+          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE|NUVIO_SUPABASE_URL|NUVIO_SUPABASE_ANON_KEY|NUVIO_SUPABASE_FALLBACK_URL)[[:space:]]*=/d' local.properties
+
+          discovery_json="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            https://api.nuvio.tv/.well-known/nuvio)"
+          nuvio_backend_url="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["backend_url"])')"
+          nuvio_publishable_key="$(printf '%s' "$discovery_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["publishable_key"])')"
+          test -n "$nuvio_backend_url"
+          test -n "$nuvio_publishable_key"
+
+          cat >> local.properties <<EOF
+          NUVIO_SUPABASE_URL=$nuvio_backend_url
+          NUVIO_SUPABASE_ANON_KEY=$nuvio_publishable_key
+          NUVIO_SUPABASE_FALLBACK_URL=
+          EOF
+          printf 'CONTRIBUTIONS_URL=%s\n' "${CONTRIBUTIONS_URL}" >> local.properties
+
+      - name: Validate phone-only and desktop runner scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/run-android-startup-profile-benchmark.sh
+          sh -n scripts/nuvio-phone-benchmark.sh
+          sh scripts/tests/test-nuvio-phone-benchmark.sh
+          sh scripts/tests/test-android-benchmark-bundle-assembly.sh
+          sh scripts/tests/test-android-startup-readiness.sh
+          sh scripts/tests/test-android-startup-metric-contract.sh
+
+      - name: Prepare benchmark build diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-diagnostics/gradle-logs benchmark-diagnostics/gradle-profiles benchmark-diagnostics/r8 benchmark-diagnostics/runner-resources
+          cat > "$RUNNER_TEMP/run-gradle-group.sh" <<'EOF'
+          record_runner_snapshot() {
+            local group_name="$1"
+            local phase="$2"
+            local output_file="benchmark-diagnostics/runner-resources/${group_name}.log"
+            {
+              printf '\n=== %s %s ===\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$phase"
+              printf 'CPU count: '
+              nproc
+              printf '\n--- free -h ---\n'
+              free -h
+              printf '\n--- filesystem capacity ---\n'
+              df -hT "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+              df -i "$GITHUB_WORKSPACE"
+              printf '\n--- cgroup memory ---\n'
+              for file in memory.current memory.max memory.events; do
+                if [[ -r "/sys/fs/cgroup/$file" ]]; then
+                  printf '%s: ' "$file"
+                  cat "/sys/fs/cgroup/$file"
+                fi
+              done
+              printf '\n--- top resident processes (RSS in KiB) ---\n'
+              ps -eo pid,ppid,rss,%cpu,etime,comm --sort=-rss | head -n 12 || true
+            } | tee -a "$output_file"
+          }
+
+          run_gradle_group() {
+            local group_name="$1"
+            shift
+            local started_at ended_at gradle_status
+            local log_file="benchmark-diagnostics/gradle-logs/${group_name}.log"
+            local monitor_marker="$RUNNER_TEMP/${group_name}.resource-monitor"
+            record_runner_snapshot "$group_name" "before-gradle"
+            : > "$monitor_marker"
+            (
+              while [[ -e "$monitor_marker" ]]; do
+                record_runner_snapshot "$group_name" "during-gradle"
+                sleep 45
+              done
+            ) &
+            local monitor_pid=$!
+            started_at="$(date +%s)"
+            printf '\nCI JVM budget: Gradle heap <= 6 GiB; Kotlin daemon heap <= 6 GiB; Gradle workers <= 2.\n'
+            set +e
+            ./gradlew "$@" \
+              -Dorg.gradle.jvmargs='-Xmx6g -Xms512m -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
+              -Pkotlin.daemon.jvmargs='-Xmx6g -Xms1g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
+              --max-workers=2 \
+              --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
+            gradle_status=${PIPESTATUS[0]}
+            set -e
+            ended_at="$(date +%s)"
+            rm -f "$monitor_marker"
+            wait "$monitor_pid" || true
+            record_runner_snapshot "$group_name" "after-gradle"
+            printf '%s status=%s elapsed_seconds=%s\n' "$group_name" "$gradle_status" "$((ended_at - started_at))" >> benchmark-diagnostics/build-timings.txt
+            return "$gradle_status"
+          }
+          EOF
+
+      - name: Set up Rust Android targets
+        id: rust-toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          echo "cache-key=$(rustc --version | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('native/Cargo.lock') }}-cargo-ndk-4.1.2
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache native Android Cargo target
+        uses: actions/cache@v6
+        with:
+          path: native/target/
+          key: ${{ runner.os }}-cargo-android-arm64-${{ steps.rust-toolchain.outputs.cache-key }}-ndk-28.2.13676358-${{ hashFiles('native/Cargo.lock', 'native/Cargo.toml', 'native/**/*.toml', 'native/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-android-arm64-${{ steps.rust-toolchain.outputs.cache-key }}-ndk-28.2.13676358-
+            ${{ runner.os }}-cargo-android-arm64--ndk-28.2.13676358-
+
+      - name: Cache cargo-ndk
+        id: cargo-ndk
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: ${{ runner.os }}-cargo-ndk-4.1.2
+          restore-keys: |
+            ${{ runner.os }}-cargo-ndk-4.1.2-
+
+      - name: Install cargo-ndk
+        if: steps.cargo-ndk.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+
+      # Preserve the four isolated build phases proven by successful run 43895616216.
+      # A combined task graph exhausted the 3 GiB Kotlin daemon heap in composeApp.
+      - name: Build full profile-capture APK pair
+        id: build-full-profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "full-profile-capture" \
+            :androidApp:assembleFullNonMinifiedRelease \
+            :baselineProfile:assembleFullNonMinifiedRelease \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Upload full profile-capture checkpoint
+        if: always() && steps.build-full-profile.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-full-profile-checkpoint-${{ github.sha }}
+          path: |
+            benchmark-diagnostics/gradle-logs/full-profile-capture.log
+            benchmark-diagnostics/runner-resources/full-profile-capture.log
+            benchmark-diagnostics/build-timings.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build Play Store profile-capture APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "playstore-profile-capture" \
+            :androidApp:assemblePlaystoreNonMinifiedRelease \
+            :baselineProfile:assemblePlaystoreNonMinifiedRelease \
+            -Pnuvio.android.distribution=playstore \
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Build full R8 benchmark APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "full-r8-benchmark" \
+            :androidApp:assembleFullBenchmarkRelease \
+            :baselineProfile:assembleFullBenchmarkRelease \
+            -Pnuvio.android.distribution=full \
+            -Pnuvio.ios.distribution=appstore
+
+      - name: Build Play Store R8 benchmark APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "playstore-r8-benchmark" \
+            :androidApp:assemblePlaystoreBenchmarkRelease \
+            :baselineProfile:assemblePlaystoreBenchmarkRelease \
+            -Pnuvio.android.distribution=playstore \
+            -Pnuvio.ios.distribution=appstore
+      - name: Collect R8 Configuration Analyzer and Gradle profiles
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-diagnostics/r8 benchmark-diagnostics/gradle-profiles
+          for flavor in full playstore; do
+            report="androidApp/build/outputs/mapping/${flavor}BenchmarkRelease/configanalyzer.html"
+            if [[ -s "$report" ]]; then
+              cp "$report" "benchmark-diagnostics/r8/${flavor}-configanalyzer.html"
+            else
+              printf 'Not generated: %s\n' "$report" >> benchmark-diagnostics/report-status.txt
+            fi
+          done
+
+          while IFS= read -r -d '' report; do
+            relative="${report#./}"
+            destination_name="${relative//\//__}"
+            cp "$report" "benchmark-diagnostics/gradle-profiles/$destination_name"
+          done < <(find . -type f -path '*/build/reports/profile/profile-*.html' -print0)
+
+          test -s benchmark-diagnostics/build-timings.txt || : > benchmark-diagnostics/build-timings.txt
+          find benchmark-diagnostics -type f -printf '%P (%s bytes)\n' | sort
+
+      - name: Upload benchmark build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-build-diagnostics-${{ github.sha }}
+          path: benchmark-diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Assemble phone-ready benchmark bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p phone-benchmark
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apkanalyzer_bin="$(command -v apkanalyzer || true)"
+          if [[ -z "$apkanalyzer_bin" && -n "$sdk_root" && -d "$sdk_root/cmdline-tools" ]]; then
+            apkanalyzer_bin="$(find "$sdk_root/cmdline-tools" -type f -name apkanalyzer -perm -u+x -print | sort -V | tail -n 1)"
+          fi
+          [[ -n "$apkanalyzer_bin" && -x "$apkanalyzer_bin" ]] || {
+            echo "Android SDK apkanalyzer was not found; refusing to package unverified APKs." >&2
+            exit 1
+          }
+
+          for flavor in full playstore; do
+            for variant in nonMinifiedRelease benchmarkRelease; do
+              app_apk="$(find androidApp/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/$variant/*" -print | head -n 1)"
+              test_apk="$(find baselineProfile/build/outputs/apk -type f -name '*.apk' -path "*/$flavor/$variant/*" -print | head -n 1)"
+              [[ -n "$app_apk" ]] || { echo "Missing $flavor/$variant app APK." >&2; exit 1; }
+              [[ -n "$test_apk" ]] || { echo "Missing $flavor/$variant test APK." >&2; exit 1; }
+              [[ -s "$app_apk" ]] || { echo "Empty $flavor/$variant app APK." >&2; exit 1; }
+              [[ -s "$test_apk" ]] || { echo "Empty $flavor/$variant test APK." >&2; exit 1; }
+
+              app_id="$("$apkanalyzer_bin" manifest application-id "$app_apk")"
+              test_app_id="$("$apkanalyzer_bin" manifest application-id "$test_apk")"
+              [[ "$app_id" == "com.nuvio.media.benchmark" ]] || {
+                echo "$flavor/$variant app APK has unexpected application ID '$app_id'." >&2
+                exit 1
+              }
+              [[ "$test_app_id" == "com.nuvio.android.baselineprofile" ]] || {
+                echo "$flavor/$variant test APK has unexpected application ID '$test_app_id'." >&2
+                exit 1
+              }
+              debuggable="$("$apkanalyzer_bin" manifest debuggable "$app_apk")"
+              [[ "$debuggable" == "false" ]] || {
+                echo "$flavor/$variant app APK must not be debuggable (reported '$debuggable')." >&2
+                exit 1
+              }
+              manifest_xml="$("$apkanalyzer_bin" manifest print "$app_apk")"
+              grep -Fq '<profileable' <<<"$manifest_xml" && grep -Fq 'android:shell="true"' <<<"$manifest_xml" || {
+                echo "$flavor/$variant app APK is missing android:profileable android:shell=true." >&2
+                exit 1
+              }
+
+              if [[ "$variant" == "benchmarkRelease" ]]; then
+                mapping_file="androidApp/build/outputs/mapping/${flavor}BenchmarkRelease/mapping.txt"
+                [[ -s "$mapping_file" ]] || {
+                  echo "$flavor benchmarkRelease has no non-empty R8 mapping file; refusing to label it an R8 benchmark." >&2
+                  exit 1
+                }
+              fi
+
+              native_abis="$(unzip -Z1 "$app_apk" | awk -F/ '$1 == "lib" && NF >= 3 { print $2 }' | sort -u | tr '\\n' ' ' | xargs)"
+              [[ "$native_abis" == "arm64-v8a" ]] || {
+                echo "$flavor/$variant APK must contain only arm64-v8a native libraries; found '$native_abis'." >&2
+                exit 1
+              }
+              if [[ "$variant" == "nonMinifiedRelease" ]]; then
+                output_variant="NonMinifiedRelease"
+              else
+                output_variant="BenchmarkRelease"
+                profile_bytes="$(unzip -p "$app_apk" assets/dexopt/baseline.prof 2>/dev/null | wc -c | tr -d ' ' || true)"
+                [[ "$profile_bytes" =~ ^[0-9]+$ ]] || { echo "Could not inspect $flavor packaged Baseline Profile." >&2; exit 1; }
+                (( profile_bytes > 0 )) || { echo "$flavor benchmark APK has no packaged assets/dexopt/baseline.prof; BaselineProfileMode.Require would not be a valid comparison." >&2; exit 1; }
+                (( profile_bytes < 1572864 )) || { echo "$flavor packaged Baseline Profile is at least 1.5 MiB ($profile_bytes bytes)." >&2; exit 1; }
+                printf '%s benchmark APK contains %s bytes of compiled Baseline Profile.\n' "$flavor" "$profile_bytes"
+              fi
+              cp "$app_apk" "phone-benchmark/Nuvio-$flavor-$output_variant.apk"
+              cp "$test_apk" "phone-benchmark/Nuvio-$flavor-$output_variant-Tests.apk"
+            done
+          done
+
+          cp scripts/nuvio-phone-benchmark.sh phone-benchmark/
+          cp scripts/run-android-startup-profile-benchmark.sh phone-benchmark/
+          test "$(find phone-benchmark -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 8 || {
+            echo "Phone bundle must contain exactly eight APKs (four app/test pairs)." >&2
+            exit 1
+          }
+          test -s phone-benchmark/nuvio-phone-benchmark.sh
+          cat > phone-benchmark/START-HERE.txt <<'EOF'
+          NUVIO ANDROID STARTUP PROFILE / BENCHMARK — PHONE-ONLY BUNDLE
+
+          You do not need a computer. This phone-only bundle has eight arm64-v8a APKs
+          for 64-bit ARM Android phones (including the Samsung Galaxy S25+):
+          - full + playstore, each with a nonMinifiedRelease profile-capture pair
+          - full + playstore, each with an R8 benchmarkRelease pair
+
+          Benchmark variants install as com.nuvio.media.benchmark, not production
+          com.nuvio.media. Your normal Nuvio app and its data stay installed and
+          untouched. All variants in this one artifact share a temporary signing key
+          and the isolated .benchmark package, so signed-in state survives upgrades.
+
+          SET UP YOUR SAMSUNG PHONE
+          1. Download this ZIP artifact from the GitHub Actions run and extract all
+             files into Internal storage/Download/NuvioBenchmark-Fixed.
+          2. Install LADB from Google Play:
+             https://play.google.com/store/apps/details?id=com.draco.ladb
+          3. Enable Developer options by tapping Build number seven times in
+             Settings > About phone > Software information (skip if already enabled).
+          4. Settings > Developer options > Wireless debugging: turn it on.
+          5. Open LADB and Settings in Samsung split-screen.
+          6. In Wireless debugging, tap Pair device with pairing code. Keep that
+             dialog open, then enter its six-digit pairing code and the port shown
+             after the colon in the IP:port address into LADB and pair.
+
+          RUN THESE COMMANDS IN ORDER IN LADB
+          The runner automatically copies only the APK pair needed for each step
+          into Android's local temporary install directory. Do not manually copy
+          files or tap APKs in My Files.
+
+          FULL:
+          sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh install-profile full
+          Open Nuvio, sign in and leave it on the normal Home screen.
+          Then one command performs profile collection, installs the matching
+          benchmark build, and measures startup:
+          sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh run full
+
+          PLAY STORE:
+          sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh install-profile playstore
+          Confirm Nuvio remains signed in on the normal Home screen.
+          sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh run playstore
+
+          The test APK is self-instrumenting: Android correctly reports its
+          instrumentation target as com.nuvio.android.baselineprofile. The runner
+          validates that test package, while the test code explicitly benchmarks
+          com.nuvio.media.benchmark. These are intentionally different packages.
+
+          Do not clear data or uninstall between flavors. They share the isolated
+          .benchmark package and this artifact's signing certificate. If a previous
+          artifact used a different temporary signing key, the runner automatically
+          replaces ONLY com.nuvio.media.benchmark and the test runner package. You
+          may need to sign in again after that replacement. It never removes or clears
+          com.nuvio.media (the production app).
+
+          RESULTS
+          My Files > Internal storage > Download > NuvioStartupBenchmark contains
+          copied instrumentation logs, generated source profile text and Macrobenchmark
+          JSON/traces. Upload that folder here for review.
+
+          nonMinifiedRelease generates readable candidate profile rules.
+          benchmarkRelease is R8/minified, non-debuggable and profileable. Macrobenchmark
+          runs 10 cold launches with CompilationMode.None and 10 with
+          CompilationMode.Partial(BaselineProfileMode.Require). The profile-enabled
+          arm uses the profile already packaged in that APK. A newly collected profile
+          is not inserted into the APK automatically: send the text files for review,
+          then a new authorized build is needed to measure that candidate profile.
+
+          Keep the phone cool, plugged in and otherwise idle. Keep the same device and
+          signed-in Home state throughout. Login, onboarding or a missing Home-ready
+          signal causes the test to fail rather than count as a successful launch.
+          EOF
+          test -s phone-benchmark/START-HERE.txt || { echo "Missing or empty START-HERE.txt." >&2; exit 1; }
+
+          (
+            cd phone-benchmark
+            find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
+          test "$(find phone-benchmark -maxdepth 1 -type f | wc -l)" -eq 12 || {
+            echo "Phone bundle must contain eight APKs, two scripts, START-HERE.txt and SHA256SUMS.txt." >&2
+            exit 1
+          }
+          find phone-benchmark -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort
+
+      - name: Upload phone-ready benchmark APK bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-profile-${{ github.sha }}
+          path: phone-benchmark/
+          if-no-files-found: error
+          retention-days: 14
