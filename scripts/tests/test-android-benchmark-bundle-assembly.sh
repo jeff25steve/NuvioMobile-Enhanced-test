@@ -107,6 +107,37 @@ if grep -Fq 'env.RUSTC_CACHE_KEY' "$WORKFLOW"; then
   echo "FAIL: cache expressions must not depend on a shell-only GITHUB_ENV variable." >&2
   exit 1
 fi
+
+# Protect the hosted-runner resource budget and preserve a first-phase checkpoint.
+for required in \
+  '-Dorg.gradle.jvmargs=' \
+  '-Xmx6g' \
+  '-Pkotlin.daemon.jvmargs=' \
+  '-Xmx3g' \
+  '--max-workers=2' \
+  'record_runner_snapshot() {' \
+  'free -h' \
+  'df -hT' \
+  'memory.events' \
+  'ps -eo pid,ppid,rss,%cpu,etime,comm' \
+  'benchmark-diagnostics/runner-resources/' \
+  '- name: Upload full-distribution build checkpoint'; do
+  grep -Fq -- "$required" "$WORKFLOW" || {
+    echo "FAIL: benchmark runner resource control/telemetry is missing '$required'." >&2
+    exit 1
+  }
+done
+
+full_build_step="$(line_of '- name: Build full profile-capture and R8 benchmark APK pairs')"
+full_checkpoint_step="$(line_of '- name: Upload full-distribution build checkpoint')"
+playstore_build_step="$(line_of '- name: Build Play Store profile-capture and R8 benchmark APK pairs')"
+[ -n "$full_build_step" ] && [ -n "$full_checkpoint_step" ] && [ -n "$playstore_build_step" ] &&
+[ "$full_build_step" -lt "$full_checkpoint_step" ] &&
+[ "$full_checkpoint_step" -lt "$playstore_build_step" ] || {
+  echo "FAIL: the full-distribution diagnostics checkpoint must be uploaded before the Play Store build starts." >&2
+  exit 1
+}
+
 [ "$(grep -Fc './gradlew "$@"' "$WORKFLOW")" -eq 1 ] || {
   echo "FAIL: grouped Gradle build helper must have one measured Gradle entry point." >&2
   exit 1

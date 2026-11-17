@@ -1543,3 +1543,26 @@ Correction:
 - Add regression assertions to reject future uses of the runner-only `GITHUB_ENV` variable in cache key expressions.
 
 The same build optimization remains in place: arm64-only Rust target installation, Cargo registry/target/binary caching, two Gradle invocations (one per distribution), Gradle profile logs/timings, and a separate diagnostic artifact. No app source, benchmark parameters, profile, NDK version or R8 keep rule changed.
+
+
+## 17 November 2026 — hosted-runner loss during Play Store build; CI resource correction
+
+Run 43993311068 completed with failure at 02:05:04 UTC. GitHub's check-run annotation says: "The hosted runner lost communication with the server. Anything in your workflow that terminates the runner process, starves it for CPU/Memory, or blocks its network access can cause this error." The full-distribution build succeeded from 01:11:40–01:20:13 UTC (8m33s). The Play Store Gradle step began at 01:20:13 UTC and remained in_progress when the runner disappeared 44m51s later. Diagnostics upload and phone-bundle assembly never ran; the run has zero artifacts and the job logs return BlobNotFound. This is not a recorded Gradle/Kotlin compiler or R8 error; the exact runner termination cause cannot be proven from surviving metadata.
+
+The workflow had inherited developer JVM maxima of 12 GiB for the Gradle daemon and 8 GiB for the separate Kotlin compiler daemon. The repository is public and GitHub documents standard public ubuntu-latest runners as 4 CPU / 16 GB RAM / 14 GB SSD. The combined 20 GiB heap ceilings exceed physical RAM before metaspace, native JVM memory, Android tools and the OS. This is a concrete resource-budget risk, not proof this attempt was OOM-killed. Disk exhaustion and transient hosted-runner/network failure remain possible.
+
+Workflow-only mitigation: apply Gradle -Xmx6g and Kotlin daemon -Xmx3g, each with 512 MiB initial heap and 1 GiB metaspace caps, and set --max-workers=2. Keep workstation gradle.properties and app source unchanged. Gradle's command-line -Dorg.gradle.jvmargs overrides the daemon JVM property; Kotlin's -Pkotlin.daemon.jvmargs overrides the independent daemon's project property. The 6/3 GiB split is a conservative CI budget, not a measured Nuvio optimum.
+
+Recoverability improvements: capture CPU count, free memory, filesystem capacity/inodes, cgroup memory current/max/events and top resident processes before, every 45 seconds during, and after each distribution Gradle group. Stream the snapshots to the job log and save them in the diagnostics directory. Upload the full-distribution log/resource/timing checkpoint before starting the Play Store phase. Keep final R8 Analyzer and Gradle profile collection unchanged.
+
+Research context: Iñaki Villar's 28 March 2026 Process Watcher case study measured Gradle and Kotlin daemon RSS separately on a 16 GB GitHub runner; after testing multiple splits, 7 GiB Gradle / 3 GiB Kotlin was stable in that specific sample. His 21 March 2025 Now in Android experiment found no meaningful build-time benefit from increasing Gradle heap without limit; 4–5 GiB was a better balance in that sample. Neither result is a guarantee for Nuvio. GitHub runner-images issue #15267 documented missing logs and unfinished step states reproduced by filling a hosted runner's root disk; its reproduction required a 17.93 GB checkout and does not prove Nuvio's smaller checkout exhausted storage.
+
+References:
+- [GitHub-hosted runner hardware specifications](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+- [Kotlin daemon and Gradle compilation/cache documentation](https://kotlinlang.org/docs/gradle-compilation-and-caches.html)
+- [Gradle build environment and JVM configuration](https://docs.gradle.org/current/userguide/build_environment.html)
+- [Using RSS to Understand Memory Pressure in CI Builds — 28 March 2026](https://dev.to/cdsap/using-rss-to-understand-memory-pressure-in-ci-builds-1358)
+- [Balancing Memory Heap and Performance in Gradle Builds — 21 March 2025](https://dev.to/cdsap/balancing-memory-heap-and-performance-in-gradle-builds-454j)
+- [GitHub runner-images issue #15267](https://github.com/actions/runner-images/issues/15267)
+
+No app source, startup metrics, ten-iteration comparison, Baseline Profile, R8 rules, dependencies or production Gradle settings changed; no startup speedup is claimed. Next bundle verification must complete both flavors and produce the eight APKs and checksum manifest.
