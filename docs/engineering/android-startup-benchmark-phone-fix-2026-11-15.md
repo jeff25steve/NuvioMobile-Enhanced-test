@@ -1619,3 +1619,58 @@ Correction: restore four Gradle invocations; raise only the workflow Kotlin daem
 Kotlin documents that the compiler daemon is a separate JVM and that `kotlin.daemon.jvmargs` controls its heap. JetBrains' October 2026 support note describes heap exhaustion during compiler metadata loading and demonstrates a 5 GiB daemon heap. Sources: [Kotlin daemon](https://kotlinlang.org/docs/kotlin-daemon.html); [Kotlin compilation and caches](https://kotlinlang.org/docs/gradle-compilation-and-caches.html); [JetBrains compiler OOM guidance](https://support.jetbrains.com/hc/en-us/articles/40252810066066-Kotlin-compilation-fails-with-OutOfMemoryError-GC-overhead-limit-exceeded); [Kotlin Multiplatform community discussion](https://slack-chats.kotlinlang.org/t/34059118/hey-guys-has-anyone-faced-java-lang-outofmemoryerror-java-he).
 
 No startup-performance improvement is claimed. The next authorized run must validate all four phases and generate the phone bundle.
+
+
+## 17 November 2026 — LADB / on-device shell reliability review
+
+### Confirmed command model
+
+LADB is an ADB shell client over Android Wireless Debugging, not a desktop ADB executable. The phone runner correctly uses shell-native commands (`pm`, `am`, `getprop`, `dumpsys`, `settings`) and is invoked as `sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh ...`. Do not prefix the command with `adb shell`, and do not try to run desktop commands such as `adb install` inside LADB. The LADB README documents that its terminal is already an ADB shell; a Samsung GalaxyMaxHz support thread records the exact “permission denied / failed to open” mistake caused by using LADB's non-ADB-shell mode instead of its Pair and shell mode.
+
+### LADB community reports and what they do / do not prove
+
+- The official LADB README says assisted pairing can be sensitive to the Settings dialog closing, recommends keeping Settings and LADB in split-screen during pairing, documents incompatibility with Shizuku, and recommends clearing LADB app data, removing Wireless Debugging pairings and rebooting as a recovery path. This is LADB-specific maintainer guidance.
+- LADB issue #120 records a June 2024 connection regression in LADB 2.4.x on Pixel 7 Pro / Android 14 and Pixel 8 Pro / Android 15 beta; one Samsung S24 user also reported it. This is version-specific and does not establish a current universal defect. It does mean a failed LADB transport must not be misdiagnosed as a Macrobenchmark failure.
+- A Galaxy S23 / One UI 6 LADB support discussion identified the non-ADB-shell mode as the cause of install permission errors; the fix was enabling “Pair and shell” and completing pairing.
+- Recent Samsung One UI 8/8.5 Shizuku reports describe Wireless Debugging or the Shizuku service stopping after screen lock or after roughly a minute, even with battery optimization relaxed. These are reports about Shizuku, not proof that LADB itself or this benchmark script is broken. They nevertheless establish that Samsung wireless-debugging stability can be device/firmware dependent and that foregrounding an app alone is not a universal guarantee.
+- Community workarounds such as changing USB configuration, using unofficial Shizuku forks, or disabling process limits are not adopted as benchmark requirements. They are not verified LADB fixes and can change device state in ways that are inappropriate for a controlled performance measurement.
+
+### Existing runner protections inspected
+
+The current phone script already:
+- requires a physical arm64 device on API 33+;
+- stages only the matching APK pair into `/data/local/tmp/NuvioBenchmark`, avoiding Package Manager reading APKs directly from Downloads;
+- invokes `pm install` and `am instrument` as commands within the already-open shell;
+- resolves the actual self-instrumenting test component via `pm list instrumentation`;
+- rejects a foreground Wireless Debugging confirmation dialog before instrumentation;
+- checks instrumentation exit status and failure markers;
+- validates both Macrobenchmark comparison cases, ten samples per metric, the JSON summary and all 20 matching Perfetto traces;
+- writes environment and foreground snapshots around measurement and copies output from the instrumentation test package's external media directory.
+
+The latter output location matches AndroidX Macrobenchmark's documented default: test APK external media storage. AndroidX's CI guide also documents that direct shell instrumentation is run with `am instrument`, and that Macrobenchmark results/traces are written to the device and must be collected manually when not using Gradle-connected tests. We retain the explicit test-package media path rather than changing it speculatively.
+
+### Operational checklist for the LADB session
+
+1. Open LADB in its ADB-shell / Pair and shell mode and confirm the Wireless Debugging connection is active. Complete pairing while the Settings pairing dialog remains open as the LADB README instructs.
+2. Do not run Shizuku simultaneously with LADB; LADB's maintainer explicitly documents this incompatibility.
+3. Keep LADB in the foreground for the entire profile-collection and measurement command. Keep the phone awake and unlocked; do not switch Wi-Fi networks, enable airplane mode, reboot, or enter power-saving modes during a run.
+4. Keep the phone on stable Wi-Fi and power, allow it to cool before starting, and avoid Android Auto / USB mode changes during the session.
+5. Extract the entire phone bundle together. Start with the documented `install-profile full` command, finish sign-in/onboarding and leave the benchmark app on Home, then run the matching collection/measurement command. Repeat for Play Store only after Full is complete.
+6. If LADB itself disconnects, stop there and re-establish the shell before rerunning. Do not interpret a lost LADB transport as a benchmark result and do not repeatedly launch a second instrumentation run over an unknown first run.
+
+### Reliability boundary and next code decision
+
+No code can guarantee that a third-party LADB app, Samsung's Wireless Debugging service, Wi-Fi or Android's process manager will remain connected for the duration of a long command. The script can reject known-bad preconditions and report actual instrumentation failures, but it cannot transparently reconnect an in-flight `am instrument` process through a shell client whose transport has vanished.
+
+No additional phone-runner code change was made in this review: the researched LADB-specific failures are primarily pairing / shell-mode / transport lifecycle issues, and no reproducible failure in the current runner's ADB-shell command syntax was found. Adding unverified keepalive loops or changing Android debugging settings would risk masking a disconnected session or contaminating benchmark conditions.
+
+References:
+- [LADB official README and troubleshooting](https://github.com/tytydraco/LADB)
+- [LADB issue #120 — connection regression reports](https://github.com/tytydraco/LADB/issues/120)
+- [GalaxyMaxHz discussion #138 — LADB non-ADB-shell permission error](https://github.com/tribalfs/GalaxyMaxHzPub/discussions/138)
+- [LADB XDA discussion and ADB-shell command syntax](https://xdaforums.com/t/say-hello-to-ladb-a-local-adb-shell-without-needing-a-computer-or-root.4204855/)
+- [Shizuku discussion #2249 — One UI 8.5 wireless-debugging stability reports (Shizuku-specific)](https://github.com/RikkaApps/Shizuku/discussions/2249)
+- [Android benchmark in CI: shell instrumentation and on-device output paths](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci)
+- [AndroidX ADB shell protocol](https://android.googlesource.com/platform/packages/modules/adb/blob/main/client/commandline.cpp)
+
+The current workflow correction remains separate from phone-side LADB transport. The pending CI run #12 has not yet assigned a job; no additional build or CI run was started in this review.
