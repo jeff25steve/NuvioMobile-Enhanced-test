@@ -1370,3 +1370,199 @@ Sources: [AndroidX startup metrics](https://developer.android.com/topic/performa
 4. **Do not add noise:** no manual cache clearing, forced clock locking on this non-rooted phone, blanket lazy initialization, extra background dispatch, or alpha-only metrics without a trace question and a validation plan.
 
 No app source, benchmark parameters, dependency, profile, shrinker rule or build configuration was changed in this research cycle. The only implementation change in the preceding cycle remains the phone-runner Wireless debugging interruption guard. No build, Gradle task, device benchmark or CI was run.
+
+
+## 16 November 2026 — CI regression-fixture root cause and correction
+
+### Improvement cycle 1 — Keep instrumentation assertions with the run that emits them
+
+The diagnostic run `43976620274` failed before APK compilation. The traced failure was not the package-manager recovery implementation:
+
+- The injected `INSTALL_FAILED_UPDATE_INCOMPATIBLE` was observed by the phone-runner fixture.
+- The runner removed only `com.nuvio.media.benchmark` and `com.nuvio.android.baselineprofile`, retried the isolated app install, installed the matching test APK, resolved the self-instrumenting test component, and launched the benchmark app.
+- The test later failed on its final `androidx.benchmark.enabledRules BaselineProfile` grep. The shared fake command log had already been deliberately truncated before the Wireless debugging prompt negative test. The profile-collection invocation from the earlier successful combined run was therefore no longer present.
+- This was a test assertion lifetime/scope defect. The runner's signing-key recovery and protection of production `com.nuvio.media` were not implicated.
+
+Correction on `main-build-testing`:
+- Assert the Baseline Profile instrumentation invocation and Macrobenchmark instrumentation invocation immediately after each successful combined `run` journey, while the corresponding fake command log is still intact.
+- Keep the final signing-recovery assertions scoped to package install/recovery, instrumentation resolution and benchmark-app launch.
+- No phone-runner code, app startup code, benchmark parameters, build types, signing settings or dependencies were changed.
+
+The previous diagnostic `set -x` is temporary and must not remain in the final test source.
+
+### Improvement cycle 2 — Re-check what is worth changing in the benchmark itself
+
+The current benchmark source remains aligned with the official cold-start comparison contract: release-like, R8-minified and profileable target APK; separate instrumentation APK; `StartupMode.COLD`; `CompilationMode.None` against `CompilationMode.Partial(BaselineProfileMode.Require)`; ten measured iterations per arm; `StartupTimingMetric`; and a Compose-driven fully-drawn signal plus the real Home-ready guard. Startup Insights is enabled for trace diagnosis. The phone runner retains per-iteration Macrobenchmark JSON and Perfetto traces, device/thermal/battery/uptime context, and explicit API-level handling.
+
+Fresh external research checked against the pinned AndroidX version:
+- AndroidX Benchmark **1.5.0 remains the stable dependency used here**. The 1.6.0-alpha01 line adds opt-in Perfetto heap profiling and broader fixed-performance-mode clock-lock support, but neither is a concrete improvement to this non-rooted phone's current cold-start experiment. Do not move the benchmark onto an alpha simply to appear newer. [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
+- Android Developers defines TTID as the first displayed frame and TTFD as the app-reported fully-drawn state, recommends evaluating both, and says the median is the useful typical-startup summary. The current `ReportDrawnWhen` + Home-ready contract should remain; do not weaken it to make runs pass. [Macrobenchmark metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics)
+- The official Baseline Profile measurement guidance uses a no-compilation comparison and a required Baseline Profile comparison, recommends physical devices, and warns that an emulator is not representative. Nuvio already follows that structure. [Measure Baseline Profile impact](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
+- An independent 3 August 2026 Pixel 7 Pro / Android 16 write-up measured ten cold starts with Macrobenchmark 1.4.1: median TTID 500.8 ms without the profile vs 427.1 ms with it (14.7%). This supports the value of testing the actual shipped profile, but is not an expected Nuvio gain. [Method and result](https://shaheer.blog/how-we-measured-our-android-cold-start-and-got-15-back-from-a-text-file/)
+- Google's Android case studies show materially different gains by app and cohort, reinforcing that profile/R8 outcomes need app-specific measurement. Grab's R8 + Baseline/Startup Profile + R8 Full Mode work reports a cumulative ~35% cold-start improvement; Tinder documents a broad keep rule blocking optimization; Monzo reports gains from R8 Full Mode. These are reasons to inspect Nuvio's own R8 Configuration Analyzer reports, not to copy their percentages or alter keep rules speculatively. [Grab](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time) · [Tinder](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer) · [Monzo](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update)
+
+The exact AndroidX Benchmark dependency is pinned at 1.5.0 in `gradle/libs.versions.toml`. Context7 documentation lookup was used for the AndroidX Macrobenchmark `measureRepeated` Java API and compilation modes. No API or dependency change was justified.
+
+### Verification boundary and next highest-value work
+
+- GitHub Actions run `43976620274` failed in validation before Rust target setup, Gradle compilation or bundle assembly. It produced no new APK artifact.
+- The test correction is committed on `main-build-testing` as `9ca5eb25da214cfe2cb96f54877477d11be47e47`; the canonical benchmark workflow remains manual-dispatch-only on that branch.
+- The same corrected test, without diagnostic tracing, must pass on the isolated CI branch before the eight-APK bundle is built.
+- Once packaging succeeds, the highest-value app/build investigation remains the standalone R8 Configuration Analyzer report for both actual minified distribution variants, followed by inspection of consumed Baseline/Startup Profile and primary DEX metadata. These are report/artifact-led checks; do not narrow keep rules or change profile filters without evidence.
+- Keep the ten-iteration paired run as the practical diagnostic set, preserve all traces and per-run samples, and repeat complete paired sessions on the same physical phone. Treat settled-device and post-reboot conditions as separate cohorts. A small median delta from one ten-iteration session is not proof of a statistically significant Nuvio speedup.
+
+No Nuvio app startup optimization, measured startup claim, physical-device benchmark, APK build or successful CI run is claimed by this entry.
+
+
+### Improvement cycle 3 — Validate the correct runner for each contract
+
+After the signing-recovery fixture passed, run `43978450085` reached `test-android-startup-metric-contract.sh` and exposed a second static-test wiring error:
+
+- The contract test named its source variable `PHONE_RUNNER`, but assigned it to `scripts/run-android-startup-profile-benchmark.sh`, the desktop/ADB Gradle orchestrator.
+- The earlier TTID/TTFD log assertions and per-flavor Gradle check-order assertions belong to that desktop script.
+- The later per-JUnit-case status parsing, copied phone instrumentation artifacts, JSON/statistics validation, and phone device snapshots belong to `scripts/nuvio-phone-benchmark.sh`.
+- The test mixed the two files under one variable, so it looked for phone-only functions in the desktop script. Both production scripts already had the expected behavior.
+
+Correction on `main-build-testing`:
+- Declare separate `DESKTOP_RUNNER` and `PHONE_RUNNER` paths and check that both files exist.
+- Keep desktop log-emission and per-flavor TTID/TTFD validation-order assertions pointed at the ADB orchestrator.
+- Point per-test JUnit status checks, JSON/trace validation, profile-output validation and phone environmental snapshot assertions at the LADB phone runner.
+- Keep the final order assertion for `require_macrobenchmark_cases` → `copy_recent_outputs benchmark` → `require_macrobenchmark_result_data` specifically on the phone runner.
+
+This is a test-only correction. Neither runner, benchmark test, APK configuration, app behavior or metric contract was weakened.
+
+### R8 Configuration Analyzer follow-up — AGP capability confirmed
+
+The repository pins AGP 9.4.0 and does not set `android.experimental.r8.enableR8ConfigurationAnalyzer=false` in `gradle.properties`. Android's current guidance confirms that AGP 9.3+ can run the standalone analyzer task and also emits `configanalyzer.html` automatically during ordinary R8 builds. The documented standalone report path is under the module's `build/reports/r8`; reports generated during R8 builds are under `build/outputs/mapping/<variant>/configanalyzer.html`.
+
+For Nuvio, inspect the analyzer reports for the actual `fullBenchmarkRelease` and `playstoreBenchmarkRelease` variants after the bundle workflow completes, if the AGP build produces them. They are useful evidence about the same R8 rules used by these minified benchmark targets, but they are not a substitute for reports on production `fullRelease` and `playstoreRelease` if those variants differ. Do not add keep-rule edits based on a score alone; inspect the rule origin and runtime contracts first.
+
+Sources: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer), [AGP 9.3 standalone analyzer task](https://developer.android.com/build/releases/agp-9-3-0-release-notes).
+
+Verification boundary:
+- Run `43978450085` passed the full phone-runner shell regression, including the injected signing mismatch and all combined-run instrumentation assertions. It stopped at the separately wired desktop/phone static contract test, before Rust target setup or Gradle compilation.
+- The runner-source split is committed on `main-build-testing` as `8ec0135ea6ca5554d0716574309199a41ab2d264`. It still requires the isolated CI branch to execute the corrected contract test.
+- The R8 Analyzer report existence and exact variant output paths have not yet been confirmed by a completed build. No R8 rule change or performance improvement is claimed.
+
+
+### Improvement cycle 4 — Align the static profile contract with the actual phone export
+
+The next validation of the corrected runner-path split reached the phone-side assertions and identified another stale symbol in `test-android-startup-metric-contract.sh`: it required a function called `require_non_empty_baseline_profile`, while the phone runner deliberately uses `require_non_empty_startup_profile`.
+
+The current phone `collect` action is specifically the raw Startup Profile export. The integration test already makes that contract explicit: it requires a non-empty `startup-prof.txt` and rejects copying a separate `baseline-prof*.txt` artifact during that raw Startup Profile collection. The separate R8 `benchmarkRelease` APKs are validated for the compiled Baseline Profile asset `assets/dexopt/baseline.prof`; this is a different artifact and a different part of the workflow.
+
+Context7's AndroidX `BaselineProfileRule.collect` Java API confirms the current argument meanings: the two booleans in the generator call are `includeInStartupProfile` and `strictStability`. Both are set to true. The phone-runner validation should therefore assert the existing `require_non_empty_startup_profile()` function and ensure it executes after `copy_recent_outputs profile`. It must not invent a separate Baseline Profile text-file requirement for that raw Startup Profile export.
+
+Correction on `main-build-testing`:
+- Replaced the three stale `require_non_empty_baseline_profile` symbol checks in the static contract test with `require_non_empty_startup_profile`.
+- Updated the associated failure diagnostics to identify Startup Profile validation.
+- Left the runtime phone runner and the integration test's explicit Startup Profile-only output behavior unchanged.
+
+This is another validation-only repair; it does not alter either benchmark arm or the packaged Baseline Profile requirement.
+
+The corrected metric-contract test is committed on `main-build-testing` as `471922ebc2d4ddfee146bdeaddfcc344287cf891`. It still needs a full isolated workflow validation. No APK build has yet passed the pre-build validation gate.
+
+
+## 17 November 2026 — cancelled long build, CI efficiency and diagnostic capture
+
+### Latest build evidence: run 43979670892
+
+GitHub run [43979670892](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43979670892), commit `956327cc1a3c965e9cbb8f333c279a71be81568f`, completed the pre-build validation and Rust setup. The full profile-capture pair, Play Store profile-capture pair and full R8 benchmark pair all completed successfully. GitHub marked the final Play Store R8 benchmark build step **cancelled**; the bundle-assembly and artifact-upload steps were skipped.
+
+The job's configured timeout is 150 minutes; the run ended after approximately 62 minutes, so this is not the job timeout. No newer run on the same branch was present in the run history, and the completed job-log archive currently returns `BlobNotFound`. Consequently the available evidence does **not** identify who or what cancelled the Gradle step, and does not provide a Gradle compiler error. Do not describe it as an established Play Store source/build failure. No artifact was uploaded.
+
+The workflow previously used `cancel-in-progress: true`. That setting can cancel an active run when another run for the same concurrency group is queued, although no such overlapping run was seen in this case. The setting is now false so a subsequent push will not automatically kill a long-running benchmark job. This is a forward-looking protection, not a claimed explanation for the previous cancellation.
+
+### Improvement cycle 1 — Align Rust setup and caches with the APK's actual ABI
+
+The Android build configuration's `buildsArm64BenchmarkApks` branch sets the Rust build task to `listOf("arm64-v8a")` whenever a `BenchmarkRelease` or `NonMinifiedRelease` assembly is requested. The APK bundle workflow also rejects native APK contents other than `arm64-v8a`. The CI setup nevertheless installed four Rust standard-library targets.
+
+Correction:
+- Install only `aarch64-linux-android` for this phone-only bundle.
+- Cache the Cargo registry/Git dependency stores, the native workspace `native/target/` output, and the `cargo-ndk` executable using `actions/cache@v6`.
+- Pin `cargo-ndk` at the latest stable published release observed, `4.1.2` (9 August 2025), using `--locked`. The project Cargo lockfile remains the source of truth for the native workspace dependencies.
+- Include Rust compiler fingerprint, NDK version, lockfile and native source/manifest hashes in the native target cache key, with a same-toolchain fallback key for incremental reuse.
+
+This removes installation of three unused cross-compilation targets and avoids reinstalling the same Cargo tool on every ephemeral runner. It does not change the native crate, NDK, ABI, Rust optimization profile, or packaged native libraries.
+
+### Improvement cycle 2 — Build both variants together per distribution
+
+`composeApp/build.gradle.kts` derives the Android source set from the requested Gradle task names and explicitly rejects a single Gradle invocation that mixes `full` and `playstore` distributions. It is safe to batch both build types within one distribution, because all requested tasks then resolve to exactly one source set.
+
+The workflow now uses two Gradle invocations:
+- Full: `fullNonMinifiedRelease` app/test pair plus `fullBenchmarkRelease` app/test pair.
+- Play Store: `playstoreNonMinifiedRelease` app/test pair plus `playstoreBenchmarkRelease` app/test pair.
+
+Each invocation requests the app and self-instrumenting test APKs for both build types. This allows Gradle to form one shared task graph per distribution instead of starting four separate Gradle invocations. Full and Play Store remain separate, preserving the distribution source-set guard. The APK names, variant build types, package IDs, signing setup, and eight-APK output contract remain unchanged.
+
+Both flavor invocations also enable Gradle's `--profile` report, preserve the console output, and record elapsed seconds plus the Gradle exit status. This gives us actual phase/task timing evidence in the next run rather than inferring the bottleneck from wall-clock duration alone.
+
+### Improvement cycle 3 — Preserve R8 and Gradle diagnostics independently of phone bundle assembly
+
+Nuvio pins AGP 9.4.0, which is above the AGP 9.3 minimum for the R8 Configuration Analyzer. Official AGP documentation states that a regular R8 build automatically emits `configanalyzer.html` under `build/outputs/mapping/<variant>/`; the standalone `analyze<Variant>R8Config` task is also available, but is unnecessary to obtain the reports from the existing minified benchmark builds.
+
+The workflow now collects, when present:
+- `androidApp/build/outputs/mapping/fullBenchmarkRelease/configanalyzer.html`
+- `androidApp/build/outputs/mapping/playstoreBenchmarkRelease/configanalyzer.html`
+- Gradle `--profile` HTML reports
+- Both per-distribution Gradle console logs and build timing records
+
+These are uploaded as a separate always-attempted diagnostics artifact. They are **not** added to the phone bundle, whose contract remains eight APKs, two scripts, `START-HERE.txt` and `SHA256SUMS.txt` (12 files total). That keeps phone installation instructions and checksum behavior unchanged while preserving evidence for the next R8/CI optimization review.
+
+Official source: [R8 Configuration Analyzer](https://developer.android.com/topic/performance/app-optimization/r8-configuration-analyzer).
+
+### Current benchmark/research decision
+
+No change is justified to the startup benchmark's pinned AndroidX Benchmark 1.5.0, its ten-iteration paired cold-start cases, `CompilationMode.None()` versus `CompilationMode.Partial(BaselineProfileMode.Require)`, the real Home-ready/Compose fully-drawn contract, or its TTID/TTFD and Perfetto trace requirements. AndroidX 1.6.0 remains an alpha line in the current release notes; its optional heap profiling is a separate diagnostic pass, not a reason to move the timing baseline to an alpha dependency. [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark).
+
+Current Google case studies continue to support inspecting R8 rules and real profile consumption before inventing startup-code changes:
+- Grab reports roughly 35% cumulative cold-start improvement across R8, Baseline/Startup Profiles, Full Mode and keep-rule refinement; the report describes several separate phases, not a transferable Nuvio target. [Grab](https://developer.android.com/blog/posts/grab-r8-profile-guided-optimization-anr-startup-time)
+- Tinder reports that a broad keep rule blocked R8 optimization and that targeted refinement coincided with 47% fewer users experiencing slow cold starts. [Tinder](https://developer.android.com/blog/posts/tinder-cuts-app-cold-starts-by-47-with-new-r8-configuration-analyzer)
+- Monzo's R8 Full Mode work reports cold, warm and hot start improvements, but its initial configuration differed from Nuvio's existing `proguard-android-optimize.txt`; copying that change would therefore not be justified here. [Monzo](https://developer.android.com/blog/posts/monzo-boosts-performance-metrics-by-up-to-35-with-a-simple-r8-update)
+
+The next concrete R8 review is to inspect Nuvio's two generated Configuration Analyzer reports for broad keep rules and trace each warning to its reflection, serialization, dynamic plugin, JNI or media contract before changing any rule. No keep rule has been altered, and no Nuvio startup improvement is claimed.
+
+### Verification boundary
+
+The modified canonical workflow remains `workflow_dispatch` only; source pushes on `main-build-testing` do not start the bundle build. The isolated CI branch runner remains the authorized push-triggered test route. The new bundle contract test checks the arm64-only target, caches, pinned cargo-ndk, grouped Gradle invocations, preserved diagnostic reports and separate diagnostics artifact, while retaining the existing APK and checksum validation.
+
+The corrected pre-build test suite and the optimized APK workflow still need to run together on the isolated branch. No new APK bundle or physical-device Macrobenchmark result is available yet.
+
+
+### Improvement cycle 4 — Fix the bundle-contract workflow reference and cache-key transport
+
+The next validation run, [43992388394](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43992388394), again passed the full phone-runner regression suite, then failed its new concurrency assertion before any APK build. The contract test inspects the canonical `android-startup-profile-benchmark.yml`; on the isolated CI branch that copy still retained the earlier `cancel-in-progress: true`, even though the active CI runner workflow had been changed to false. The correction is to keep both workflow copies consistent. The run also proved the diagnostics collector and separate upload step execute after a pre-build validation failure: diagnostics artifact 14288506595 was uploaded (373 bytes, containing the status/timing placeholders).
+
+A review of GitHub's official contexts documentation found a second configuration detail before relying on the new caches: values written to `GITHUB_ENV` are available to later shell processes, but are not part of the workflow-expression `env` context used to build an `actions/cache` key. The initial cache configuration incorrectly referenced that shell-only value in `steps.cache.with.key`.
+
+Correction:
+- Give the Rust setup step the ID `rust-toolchain` and write the compiler fingerprint to `GITHUB_OUTPUT`.
+- Reference `steps.rust-toolchain.outputs.cache-key` in the native target cache key.
+- Keep a fallback prefix for the earlier empty-fingerprint cache key, so the already-created target cache can be reused and saved under the corrected key on a subsequent run.
+- Key the pinned `cargo-ndk` executable by its own exact version (4.1.2), with a compatible restore prefix; its executable does not need to share the native crate's compiler-version key.
+- Add regression assertions to reject future uses of the runner-only `GITHUB_ENV` variable in cache key expressions.
+
+The same build optimization remains in place: arm64-only Rust target installation, Cargo registry/target/binary caching, two Gradle invocations (one per distribution), Gradle profile logs/timings, and a separate diagnostic artifact. No app source, benchmark parameters, profile, NDK version or R8 keep rule changed.
+
+
+## 17 November 2026 — hosted-runner loss during Play Store build; CI resource correction
+
+Run 43993311068 completed with failure at 02:05:04 UTC. GitHub's check-run annotation says: "The hosted runner lost communication with the server. Anything in your workflow that terminates the runner process, starves it for CPU/Memory, or blocks its network access can cause this error." The full-distribution build succeeded from 01:11:40–01:20:13 UTC (8m33s). The Play Store Gradle step began at 01:20:13 UTC and remained in_progress when the runner disappeared 44m51s later. Diagnostics upload and phone-bundle assembly never ran; the run has zero artifacts and the job logs return BlobNotFound. This is not a recorded Gradle/Kotlin compiler or R8 error; the exact runner termination cause cannot be proven from surviving metadata.
+
+The workflow had inherited developer JVM maxima of 12 GiB for the Gradle daemon and 8 GiB for the separate Kotlin compiler daemon. The repository is public and GitHub documents standard public ubuntu-latest runners as 4 CPU / 16 GB RAM / 14 GB SSD. The combined 20 GiB heap ceilings exceed physical RAM before metaspace, native JVM memory, Android tools and the OS. This is a concrete resource-budget risk, not proof this attempt was OOM-killed. Disk exhaustion and transient hosted-runner/network failure remain possible.
+
+Workflow-only mitigation: apply Gradle -Xmx6g and Kotlin daemon -Xmx3g, each with 512 MiB initial heap and 1 GiB metaspace caps, and set --max-workers=2. Keep workstation gradle.properties and app source unchanged. Gradle's command-line -Dorg.gradle.jvmargs overrides the daemon JVM property; Kotlin's -Pkotlin.daemon.jvmargs overrides the independent daemon's project property. The 6/3 GiB split is a conservative CI budget, not a measured Nuvio optimum.
+
+Recoverability improvements: capture CPU count, free memory, filesystem capacity/inodes, cgroup memory current/max/events and top resident processes before, every 45 seconds during, and after each distribution Gradle group. Stream the snapshots to the job log and save them in the diagnostics directory. Upload the full-distribution log/resource/timing checkpoint before starting the Play Store phase. Keep final R8 Analyzer and Gradle profile collection unchanged.
+
+Research context: Iñaki Villar's 28 March 2026 Process Watcher case study measured Gradle and Kotlin daemon RSS separately on a 16 GB GitHub runner; after testing multiple splits, 7 GiB Gradle / 3 GiB Kotlin was stable in that specific sample. His 21 March 2025 Now in Android experiment found no meaningful build-time benefit from increasing Gradle heap without limit; 4–5 GiB was a better balance in that sample. Neither result is a guarantee for Nuvio. GitHub runner-images issue #15267 documented missing logs and unfinished step states reproduced by filling a hosted runner's root disk; its reproduction required a 17.93 GB checkout and does not prove Nuvio's smaller checkout exhausted storage.
+
+References:
+- [GitHub-hosted runner hardware specifications](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+- [Kotlin daemon and Gradle compilation/cache documentation](https://kotlinlang.org/docs/gradle-compilation-and-caches.html)
+- [Gradle build environment and JVM configuration](https://docs.gradle.org/current/userguide/build_environment.html)
+- [Using RSS to Understand Memory Pressure in CI Builds — 28 March 2026](https://dev.to/cdsap/using-rss-to-understand-memory-pressure-in-ci-builds-1358)
+- [Balancing Memory Heap and Performance in Gradle Builds — 21 March 2025](https://dev.to/cdsap/balancing-memory-heap-and-performance-in-gradle-builds-454j)
+- [GitHub runner-images issue #15267](https://github.com/actions/runner-images/issues/15267)
+
+No app source, startup metrics, ten-iteration comparison, Baseline Profile, R8 rules, dependencies or production Gradle settings changed; no startup speedup is claimed. Next bundle verification must complete both flavors and produce the eight APKs and checksum manifest.

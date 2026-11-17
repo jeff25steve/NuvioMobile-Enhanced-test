@@ -77,19 +77,62 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p benchmark-diagnostics/gradle-logs benchmark-diagnostics/gradle-profiles benchmark-diagnostics/r8
+          mkdir -p benchmark-diagnostics/gradle-logs benchmark-diagnostics/gradle-profiles benchmark-diagnostics/r8 benchmark-diagnostics/runner-resources
           cat > "$RUNNER_TEMP/run-gradle-group.sh" <<'EOF'
+          record_runner_snapshot() {
+            local group_name="$1"
+            local phase="$2"
+            local output_file="benchmark-diagnostics/runner-resources/${group_name}.log"
+            {
+              printf '\n=== %s %s ===\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$phase"
+              printf 'CPU count: '
+              nproc
+              printf '\n--- free -h ---\n'
+              free -h
+              printf '\n--- filesystem capacity ---\n'
+              df -hT "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
+              df -i "$GITHUB_WORKSPACE"
+              printf '\n--- cgroup memory ---\n'
+              for file in memory.current memory.max memory.events; do
+                if [[ -r "/sys/fs/cgroup/$file" ]]; then
+                  printf '%s: ' "$file"
+                  cat "/sys/fs/cgroup/$file"
+                fi
+              done
+              printf '\n--- top resident processes (RSS in KiB) ---\n'
+              ps -eo pid,ppid,rss,%cpu,etime,comm --sort=-rss | head -n 12 || true
+            } | tee -a "$output_file"
+          }
+
           run_gradle_group() {
             local group_name="$1"
             shift
             local started_at ended_at gradle_status
             local log_file="benchmark-diagnostics/gradle-logs/${group_name}.log"
+            local monitor_marker="$RUNNER_TEMP/${group_name}.resource-monitor"
+            record_runner_snapshot "$group_name" "before-gradle"
+            : > "$monitor_marker"
+            (
+              while [[ -e "$monitor_marker" ]]; do
+                record_runner_snapshot "$group_name" "during-gradle"
+                sleep 45
+              done
+            ) &
+            local monitor_pid=$!
             started_at="$(date +%s)"
+            printf '\nCI JVM budget: Gradle heap <= 6 GiB; Kotlin daemon heap <= 3 GiB; Gradle workers <= 2.\n'
             set +e
-            ./gradlew "$@" --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
+            ./gradlew "$@" \
+              -Dorg.gradle.jvmargs='-Xmx6g -Xms512m -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
+              -Pkotlin.daemon.jvmargs='-Xmx3g -Xms512m -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
+              --max-workers=2 \
+              --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
             gradle_status=${PIPESTATUS[0]}
             set -e
             ended_at="$(date +%s)"
+            rm -f "$monitor_marker"
+            wait "$monitor_pid" || true
+            record_runner_snapshot "$group_name" "after-gradle"
             printf '%s status=%s elapsed_seconds=%s\n' "$group_name" "$gradle_status" "$((ended_at - started_at))" >> benchmark-diagnostics/build-timings.txt
             return "$gradle_status"
           }
@@ -141,6 +184,7 @@ jobs:
       # so full and playstore intentionally remain separate invocations.
       # benchmarkRelease and nonMinifiedRelease both use arm64-v8a only.
       - name: Build full profile-capture and R8 benchmark APK pairs
+        id: build-full
         shell: bash
         run: |
           set -euo pipefail
@@ -152,6 +196,18 @@ jobs:
             :baselineProfile:assembleFullBenchmarkRelease \
             -Pnuvio.android.distribution=full \
             -Pnuvio.ios.distribution=appstore
+
+      - name: Upload full-distribution build checkpoint
+        if: always() && steps.build-full.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-android-startup-full-checkpoint-${{ github.sha }}
+          path: |
+            benchmark-diagnostics/gradle-logs/full-distribution.log
+            benchmark-diagnostics/runner-resources/full-distribution.log
+            benchmark-diagnostics/build-timings.txt
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Build Play Store profile-capture and R8 benchmark APK pairs
         shell: bash
