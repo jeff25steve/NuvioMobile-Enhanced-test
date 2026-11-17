@@ -113,7 +113,7 @@ for required in \
   '-Dorg.gradle.jvmargs=' \
   '-Xmx6g' \
   '-Pkotlin.daemon.jvmargs=' \
-  '-Xmx3g' \
+  '-Xmx6g' \
   '--max-workers=2' \
   'record_runner_snapshot() {' \
   'free -h' \
@@ -128,23 +128,27 @@ for required in \
   }
 done
 
-full_build_step="$(line_of '- name: Build full profile-capture and R8 benchmark APK pairs')"
-full_checkpoint_step="$(line_of '- name: Upload full-distribution build checkpoint')"
-playstore_build_step="$(line_of '- name: Build Play Store profile-capture and R8 benchmark APK pairs')"
-[ -n "$full_build_step" ] && [ -n "$full_checkpoint_step" ] && [ -n "$playstore_build_step" ] &&
-[ "$full_build_step" -lt "$full_checkpoint_step" ] &&
-[ "$full_checkpoint_step" -lt "$playstore_build_step" ] || {
-  echo "FAIL: the full-distribution diagnostics checkpoint must be uploaded before the Play Store build starts." >&2
+full_profile_step="$(line_of '- name: Build full profile-capture APK pair')"
+full_checkpoint_step="$(line_of '- name: Upload full profile-capture checkpoint')"
+playstore_profile_step="$(line_of '- name: Build Play Store profile-capture APK pair')"
+full_r8_step="$(line_of '- name: Build full R8 benchmark APK pair')"
+playstore_r8_step="$(line_of '- name: Build Play Store R8 benchmark APK pair')"
+[ -n "$full_profile_step" ] && [ -n "$full_checkpoint_step" ] &&
+[ -n "$playstore_profile_step" ] && [ -n "$full_r8_step" ] && [ -n "$playstore_r8_step" ] &&
+[ "$full_profile_step" -lt "$full_checkpoint_step" ] &&
+[ "$full_checkpoint_step" -lt "$playstore_profile_step" ] &&
+[ "$playstore_profile_step" -lt "$full_r8_step" ] &&
+[ "$full_r8_step" -lt "$playstore_r8_step" ] || {
+  echo "FAIL: four isolated profile/R8 build phases and the early checkpoint must remain ordered." >&2
   exit 1
 }
 
 [ "$(grep -Fc './gradlew "$@"' "$WORKFLOW")" -eq 1 ] || {
-  echo "FAIL: grouped Gradle build helper must have one measured Gradle entry point." >&2
+  echo "FAIL: measured Gradle helper must have one entry point." >&2
   exit 1
 }
-[ "$(grep -Fc 'run_gradle_group "full-distribution"' "$WORKFLOW")" -eq 1 ] &&
-[ "$(grep -Fc 'run_gradle_group "playstore-distribution"' "$WORKFLOW")" -eq 1 ] || {
-  echo "FAIL: benchmark APK tasks must be batched into one Gradle invocation per Android distribution." >&2
+[ "$(grep -Fc 'run_gradle_group "' "$WORKFLOW")" -eq 4 ] || {
+  echo "FAIL: each flavor/build-type pair must retain its own Gradle invocation to bound Kotlin compiler memory." >&2
   exit 1
 }
 for task in \
@@ -157,7 +161,7 @@ for task in \
   :androidApp:assemblePlaystoreBenchmarkRelease \
   :baselineProfile:assemblePlaystoreBenchmarkRelease; do
   grep -Fq "$task" "$WORKFLOW" || {
-    echo "FAIL: grouped Gradle build is missing required task $task." >&2
+    echo "FAIL: isolated Gradle phase is missing required task $task." >&2
     exit 1
   }
 done
