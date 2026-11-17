@@ -1702,3 +1702,12 @@ At this inspection, the available GitHub integration did not expose an Actions r
 ### Benchmark/source integrity decision
 
 This incident does not justify changing app startup code, benchmark iterations, compilation modes, metrics, profile contents, R8 rules, dependency versions or device-side LADB commands. The existing benchmark contract remains unchanged. The corrective work is branch freshness, CI queue discipline, and a pre-build stale-source guard—not an unmeasured application or benchmark modification.
+
+
+### Cancellation follow-up — verified final state
+
+A fresh Actions read at 04:23:45 UTC confirmed both outstanding runs reached terminal `completed / cancelled` status:
+- Run #9 `44014620882` was cancelled during `Build full R8 benchmark APK pair`. The two profile-capture APK pairs had completed. It uploaded a diagnostics artifact (`14298533732`) and the Full profile-capture checkpoint (`14298473881`); it did **not** assemble or upload the phone bundle.
+- Run #12 `44014834553` was cancelled while pending, before any job was assigned. It has no artifacts.
+
+This follow-up records the observed GitHub state only; it does not attribute the cancellation to a particular actor. The stale branch remains divergent and is not a valid source for another build.
