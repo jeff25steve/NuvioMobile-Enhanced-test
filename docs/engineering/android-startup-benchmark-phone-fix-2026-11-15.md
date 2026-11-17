@@ -1566,3 +1566,41 @@ References:
 - [GitHub runner-images issue #15267](https://github.com/actions/runner-images/issues/15267)
 
 No app source, startup metrics, ten-iteration comparison, Baseline Profile, R8 rules, dependencies or production Gradle settings changed; no startup speedup is claimed. Next bundle verification must complete both flavors and produce the eight APKs and checksum manifest.
+
+
+## 17 November 2026 — confirmed Kotlin compiler heap failure and restoration of the known-good build sequence
+
+### Run 44003964825: actual failure from job logs and Gradle profile
+
+The complete GitHub Actions log and uploaded diagnostics artifact identify the failure precisely. Task `:composeApp:compileAndroidMain` threw `java.lang.OutOfMemoryError: Java heap space`, surfaced as Kotlin's `OOMErrorException`. The Gradle profile reports 1h20m33s total build time. The Kotlin daemon was constrained to `-Xmx3g`; its observed RSS was approximately 3.5 GiB, while the Gradle process was approximately 4.6 GiB RSS. Resource snapshots still showed around 6.6–6.9 GiB available memory and 81 GiB free disk. This was a Kotlin compiler heap limit failure, not disk exhaustion or an observed host-wide OOM.
+
+The failed workflow combined both `NonMinifiedRelease` and `BenchmarkRelease` tasks for the full distribution into one Gradle invocation. The failure occurred at the shared Compose Multiplatform Android compile task. The combination increased the size/shape of the task graph, but the evidence does not isolate grouping as an independent cause; the explicit 3 GiB Kotlin heap limit is the direct failure.
+
+### Proven successful reference: run 43895616216 / commit 71cc598
+
+The successful screenshot corresponds to [run 43895616216](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43895616216), completed in 35m43s. Its logs confirm four separate Gradle invocations, all successful:
+
+1. Full `NonMinifiedRelease` profile-capture pair: 11m35s.
+2. Play Store `NonMinifiedRelease` profile-capture pair: 4m52s.
+3. Full `BenchmarkRelease` R8 pair: 8m27s.
+4. Play Store `BenchmarkRelease` R8 pair: 6m49s.
+
+The workflow used repository JVM settings of Gradle `-Xmx12288M` and Kotlin daemon `-Xmx8192M`. The complete 12-file phone bundle was assembled, checksummed and uploaded. This is the strongest available known-good reference, so the workflow is being returned to its four-phase sequence rather than retaining the unproven two-invocation optimization.
+
+### Corrective change
+
+- Restore the four separate flavor/build-type Gradle invocations from the successful run.
+- Raise the workflow-only Kotlin daemon heap from 3 GiB to 6 GiB. Keep Gradle at 6 GiB and workers at two as a bounded CI budget; do not alter developer `gradle.properties`.
+- Keep per-phase logs, Gradle profiles, resource snapshots and the early full-profile checkpoint.
+- Preserve all eight APKs, two scripts, START-HERE instructions, APK/package/profile/signing checks, SHA256 manifest and 12-file bundle contract.
+- Keep the canonical workflow manual-only; the isolated CI branch remains the push-triggered test route.
+
+Kotlin's official documentation confirms that the Kotlin daemon has a separate heap from Gradle and that `kotlin.daemon.jvmargs` controls it. JetBrains' October 2026 support note documents heap exhaustion while compiler metadata is loaded and demonstrates a 5 GiB Kotlin daemon heap. These sources support correcting the compiler heap specifically; they do not claim 6 GiB is universally optimal.
+
+Sources:
+- [Kotlin daemon](https://kotlinlang.org/docs/kotlin-daemon.html)
+- [Kotlin compilation and caches](https://kotlinlang.org/docs/gradle-compilation-and-caches.html)
+- [JetBrains: Kotlin compilation fails with OutOfMemoryError](https://support.jetbrains.com/hc/en-us/articles/40252810066066-Kotlin-compilation-fails-with-OutOfMemoryError-GC-overhead-limit-exceeded)
+- [Kotlin Multiplatform community discussion of compiler heap exhaustion](https://slack-chats.kotlinlang.org/t/34059118/hey-guys-has-anyone-faced-java-lang-outofmemoryerror-java-he)
+
+No application source, runtime behavior, benchmark iterations/metrics, Baseline Profile, R8 rules, dependencies or production Gradle settings changed. No startup-performance improvement is claimed. The next authorized build should validate all four phases and produce the 12-file phone bundle.
