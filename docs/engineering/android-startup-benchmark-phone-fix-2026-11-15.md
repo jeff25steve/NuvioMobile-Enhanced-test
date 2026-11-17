@@ -1604,3 +1604,18 @@ Sources:
 - [Kotlin Multiplatform community discussion of compiler heap exhaustion](https://slack-chats.kotlinlang.org/t/34059118/hey-guys-has-anyone-faced-java-lang-outofmemoryerror-java-he)
 
 No application source, runtime behavior, benchmark iterations/metrics, Baseline Profile, R8 rules, dependencies or production Gradle settings changed. No startup-performance improvement is claimed. The next authorized build should validate all four phases and produce the 12-file phone bundle.
+
+
+## 17 November 2026 — confirmed Kotlin compiler heap failure and restoration of the known-good build sequence
+
+Run [44003964825](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44003964825) failed specifically in `:composeApp:compileAndroidMain` with `java.lang.OutOfMemoryError: Java heap space`, surfaced as Kotlin `OOMErrorException`. Its Gradle profile records 1h20m33s. The Kotlin daemon was capped at `-Xmx3g` and reached about 3.5 GiB RSS; Gradle was about 4.6 GiB RSS. At the same time the runner reported 6.6–6.9 GiB available memory and 81 GiB free disk. The direct failure was the compiler daemon's own heap limit, not disk exhaustion or an observed host-wide OOM.
+
+The failed workflow grouped both non-minified profile-capture and R8 benchmark tasks into one full-distribution invocation. The failure occurred at the shared Compose Multiplatform Android compile task. Grouping may have increased task-graph memory pressure, but the evidence does not prove grouping alone caused the failure; the 3 GiB Kotlin cap is the direct error.
+
+The known-good reference, [run 43895616216](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/43895616216), completed in 35m43s and used four separate Gradle invocations: full profile-capture (11m35s), Play Store profile-capture (4m52s), full R8 (8m27s), and Play Store R8 (6m49s). It used the repository's Gradle 12 GiB / Kotlin 8 GiB JVM maxima and produced the complete 12-file phone bundle. The workflow is restored to these four isolated phases.
+
+Correction: restore four Gradle invocations; raise only the workflow Kotlin daemon heap from 3 GiB to 6 GiB; keep Gradle at 6 GiB and two workers; preserve phase logs, profiles, resource snapshots and early checkpoint; retain all APK/package/profile/signing validations and the 12-file checksum bundle. Developer `gradle.properties`, application source, runtime behavior, benchmark metrics, Baseline Profile and R8 rules remain unchanged. The canonical workflow remains manual-only.
+
+Kotlin documents that the compiler daemon is a separate JVM and that `kotlin.daemon.jvmargs` controls its heap. JetBrains' October 2026 support note describes heap exhaustion during compiler metadata loading and demonstrates a 5 GiB daemon heap. Sources: [Kotlin daemon](https://kotlinlang.org/docs/kotlin-daemon.html); [Kotlin compilation and caches](https://kotlinlang.org/docs/gradle-compilation-and-caches.html); [JetBrains compiler OOM guidance](https://support.jetbrains.com/hc/en-us/articles/40252810066066-Kotlin-compilation-fails-with-OutOfMemoryError-GC-overhead-limit-exceeded); [Kotlin Multiplatform community discussion](https://slack-chats.kotlinlang.org/t/34059118/hey-guys-has-anyone-faced-java-lang-outofmemoryerror-java-he).
+
+No startup-performance improvement is claimed. The next authorized run must validate all four phases and generate the phone bundle.
