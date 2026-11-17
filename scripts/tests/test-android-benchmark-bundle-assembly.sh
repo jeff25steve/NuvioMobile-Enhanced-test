@@ -146,7 +146,7 @@ for required in \
   'memory.events' \
   'ps -eo pid,ppid,rss,%cpu,etime,comm' \
   'benchmark-diagnostics/runner-resources/' \
-  '- name: Upload full-distribution build checkpoint'; do
+  '- name: Upload full profile-capture checkpoint'; do
   grep -Fq -- "$required" "$WORKFLOW" || {
     echo "FAIL: benchmark runner resource control/telemetry is missing '$required'." >&2
     exit 1
