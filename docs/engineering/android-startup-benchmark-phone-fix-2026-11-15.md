@@ -1781,3 +1781,24 @@ Relevant current-version research:
 ### No speculative edits
 
 No mapping-file path was broadened, no fallback file accepted, no R8 assertion weakened, no keep rules or Sentry configuration changed, and no AGP/Gradle/AndroidX version changed in response to this run. The next code change must follow direct evidence from the uploaded Gradle diagnostics and exact AGP/AndroidX behavior. Do not start another CI run until that investigation and a deterministic local/CI-level regression check are complete.
+
+
+### Diagnostics artifact inspection — confirmed R8 did not execute
+
+The complete diagnostics ZIP for run #14 was downloaded and inspected, not inferred from the short job summary. Its SHA-256 is `f5dad1a47e0bfa10425c4a07d76b1f90f5c83993067c38a65470b6685ebb6dc9`.
+
+Both complete Gradle phase logs show the same concrete pattern:
+- Full `benchmarkRelease`: `mergeDexFullBenchmarkRelease` → `l8DexDesugarLibFullBenchmarkRelease` → `compileFullBenchmarkReleaseArtProfile` → `packageFullBenchmarkRelease` → `assembleFullBenchmarkRelease`.
+- Play Store `benchmarkRelease`: `mergeDexPlaystoreBenchmarkRelease` → `l8DexDesugarLibPlaystoreBenchmarkRelease` → `compilePlaystoreBenchmarkReleaseArtProfile` → `packagePlaystoreBenchmarkRelease` → `assemblePlaystoreBenchmarkRelease`.
+
+Neither log contains an R8 minification task, mapping output, or R8 Configuration Analyzer report. The diagnostics status file explicitly says both expected `configanalyzer.html` reports were not generated. Both Gradle invocations succeeded, but they assembled non-R8 benchmark variants. Therefore the bundle validator correctly rejected them; the missing mapping is not merely a misplaced `mapping.txt` path. **Do not package these APKs as the R8 benchmark arm.**
+
+This narrows the issue: the actual `benchmarkRelease` variants were not passed through R8 in the successful Gradle task groups, despite the Baseline Profile plugin's documented intended configuration. The cause must be resolved in the effective build-type/AGP/plugin configuration before another bundle build.
+
+### Version compatibility lead, now higher priority
+
+Google's current [AGP 9.3 release notes](https://developer.android.com/build/releases/agp-9-3-0-release-notes) and [issue 556343682](https://issuetracker.google.com/issues/556343682) record that the new `optimization { enable = true }` DSL did not propagate `ApplicationVariant.isMinifyEnabled` in AGP 9.3.0. Google marks this fixed in AGP 9.3.3 and AGP 9.4.1; Nuvio pins AGP 9.4.0. This issue is now a high-priority compatibility check because Baseline Profile plugin variant setup and related Gradle plugins may inspect the public variant minification property. It is still not proven to be the exact cause here: the app's current `release` block uses the legacy DSL, and the full AGP/AndroidX interaction needs source-level verification against the exact resolved versions.
+
+Do not jump directly to AGP 9.4.1, change DSLs, or manually set minification on the custom type without checking the exact AndroidX Baseline Profile plugin 1.5.0 implementation and the effective AGP 9.4.0 variant model. Any fix must result in observable `minify<Variant>WithR8` execution, non-empty mapping files for both flavors, generated R8 Configuration Analyzer reports, and a compiled Baseline Profile in both benchmark APKs. Keep the existing artifact checks as regression protection.
+
+No app runtime code, Macrobenchmark metric, iteration count, compilation mode, profile source, keep rule, signing behavior or phone-runner command was changed.
