@@ -72,4 +72,78 @@ for required in \
 done
 
 
+# CI build efficiency and recoverability are part of the phone-bundle contract.
+grep -Fq 'cancel-in-progress: false' "$WORKFLOW" || {
+  echo "FAIL: a newer push must not cancel a long-running authorized benchmark build." >&2
+  exit 1
+}
+[ "$(grep -Fc 'uses: actions/cache@v6' "$WORKFLOW")" -eq 3 ] || {
+  echo "FAIL: benchmark CI must cache the Cargo registry, native target directory and cargo-ndk binary." >&2
+  exit 1
+}
+grep -Fq 'rustup target add aarch64-linux-android' "$WORKFLOW" || {
+  echo "FAIL: phone-only native builds must install the arm64 Rust target." >&2
+  exit 1
+}
+if grep -Eq 'rustup target add .* (armv7-linux-androideabi|i686-linux-android|x86_64-linux-android)' "$WORKFLOW"; then
+  echo "FAIL: phone-only benchmark CI must not install unused non-arm64 Rust targets." >&2
+  exit 1
+fi
+grep -Fq 'cargo install cargo-ndk --version 4.1.2 --locked' "$WORKFLOW" || {
+  echo "FAIL: cargo-ndk must be version-pinned and skipped on a cache hit." >&2
+  exit 1
+}
+grep -Fq 'native/target/' "$WORKFLOW" || {
+  echo "FAIL: native Rust build outputs must be cached across CI runs." >&2
+  exit 1
+}
+[ "$(grep -Fc './gradlew "$@"' "$WORKFLOW")" -eq 1 ] || {
+  echo "FAIL: grouped Gradle build helper must have one measured Gradle entry point." >&2
+  exit 1
+}
+[ "$(grep -Fc 'run_gradle_group "full-distribution"' "$WORKFLOW")" -eq 1 ] &&
+[ "$(grep -Fc 'run_gradle_group "playstore-distribution"' "$WORKFLOW")" -eq 1 ] || {
+  echo "FAIL: benchmark APK tasks must be batched into one Gradle invocation per Android distribution." >&2
+  exit 1
+}
+for task in \
+  :androidApp:assembleFullNonMinifiedRelease \
+  :baselineProfile:assembleFullNonMinifiedRelease \
+  :androidApp:assembleFullBenchmarkRelease \
+  :baselineProfile:assembleFullBenchmarkRelease \
+  :androidApp:assemblePlaystoreNonMinifiedRelease \
+  :baselineProfile:assemblePlaystoreNonMinifiedRelease \
+  :androidApp:assemblePlaystoreBenchmarkRelease \
+  :baselineProfile:assemblePlaystoreBenchmarkRelease; do
+  grep -Fq "$task" "$WORKFLOW" || {
+    echo "FAIL: grouped Gradle build is missing required task $task." >&2
+    exit 1
+  }
+done
+grep -Fq -- '--profile' "$WORKFLOW" || {
+  echo "FAIL: Gradle build profiling must be enabled for actionable CI timing evidence." >&2
+  exit 1
+}
+for required in \
+  'androidApp/build/outputs/mapping/' \
+  'configanalyzer.html' \
+  'benchmark-diagnostics/gradle-logs/' \
+  'benchmark-diagnostics/gradle-profiles/' \
+  'nuvio-android-startup-build-diagnostics-'; do
+  grep -Fq -- "$required" "$WORKFLOW" || {
+    echo "FAIL: build diagnostics are missing '$required'." >&2
+    exit 1
+  }
+done
+
+diagnostics_collect="$(line_of '- name: Collect R8 Configuration Analyzer and Gradle profiles')"
+diagnostics_upload="$(line_of '- name: Upload benchmark build diagnostics')"
+assembly_step="$(line_of '- name: Assemble phone-ready benchmark bundle')"
+[ -n "$diagnostics_collect" ] && [ -n "$diagnostics_upload" ] && [ -n "$assembly_step" ] &&
+[ "$diagnostics_collect" -lt "$diagnostics_upload" ] &&
+[ "$diagnostics_upload" -lt "$assembly_step" ] || {
+  echo "FAIL: diagnostics must be collected and uploaded before phone-bundle assembly." >&2
+  exit 1
+}
+
 printf 'PASS: START-HERE creation precedes validation; checksum and bundle-count checks precede upload.\n'
