@@ -1674,3 +1674,31 @@ References:
 - [AndroidX ADB shell protocol](https://android.googlesource.com/platform/packages/modules/adb/blob/main/client/commandline.cpp)
 
 The current workflow correction remains separate from phone-side LADB transport. The pending CI run #12 has not yet assigned a job; no additional build or CI run was started in this review.
+
+
+## 17 November 2026 — stale CI branch and queued benchmark runs
+
+### Incident evidence
+
+The isolated branch `ci/main-build-testing-startup-bundle-20261116` was pushed without first reconciling it with the current `main-build-testing` branch. GitHub's compare endpoint reported the branches as diverged: 14 commits ahead and 14 commits behind, with merge base `493f93b15b54afdb2f1aba0c61bd001b798a3945`. At inspection, `main-build-testing` was at `6a0b89478687443c9944117b5b9f63ad36c714b3`, while the CI branch head was `697bcc4a14de9c8ebc0ec9de2c2a324b17cda865`. Therefore a CI run from that branch was not a build of the latest `main-build-testing` source.
+
+Two runs were visible on the isolated branch at 04:21 UTC:
+- [Run 44014620882 / run #9](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44014620882), commit `f00cb05a55307c6b973f7bad5cdbefe0572515c1`, was still in progress in the Play Store profile-capture Gradle phase. Its Full profile-capture APK pair had completed and the diagnostic checkpoint had uploaded.
+- [Run 44014834553 / run #12](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44014834553), commit `697bcc4a14de9c8ebc0ec9de2c2a324b17cda865`, was pending with zero jobs assigned. Both use the same branch concurrency group; the observed active-plus-pending state is consistent with run #12 waiting behind run #9, not a Gradle failure in run #12.
+
+No completion, cancellation or phone-bundle artifact is claimed for either run in this record. The run state must be rechecked before any further CI dispatch.
+
+### Required safeguards before the next build
+
+1. **Start from the actual current source branch.** Read the live `main-build-testing` HEAD immediately before preparing CI. Do not reuse an old CI branch merely because it contains benchmark changes.
+2. **Prove branch freshness before any push.** The CI branch must contain the exact current `main-build-testing` HEAD as an ancestor; compare must report `behind_by = 0`. Record both branch HEAD SHAs and the merge-base SHA in the work note. If behind, reconcile the benchmark-only workflow/test/documentation deltas on top of the latest source. Do not force-push or blindly merge a diverged branch.
+3. **Add a fail-fast workflow guard.** Before Gradle, fetch `main-build-testing` and verify its current tip is an ancestor of the checked-out CI commit. Stop before expensive work if the branch is stale. This guard is not yet installed in the isolated CI workflow.
+4. **Check Actions state before pushing.** Inspect all queued, pending and in-progress runs for the isolated branch and its concurrency group. Do not push documentation-only changes or repeated fixes to a push-triggered CI branch; each push can queue another full build.
+5. **Keep the canonical workflow manual-only.** `.github/workflows/android-startup-profile-benchmark.yml` on `main-build-testing` must retain `workflow_dispatch` as its only trigger. Use a separately named, fresh CI branch for the authorized bundle run.
+6. **Verify the run's source SHA.** Before treating a run as the bundle build, confirm its `head_sha` is the intended fresh CI commit and that the freshness guard passed. After completion, verify all eight APKs, both scripts, `START-HERE.txt`, `SHA256SUMS.txt`, and the uploaded artifact contents.
+
+At this inspection, the available GitHub integration did not expose an Actions run-cancellation operation. The two run links above remain the authoritative place to confirm and, where required, cancel the outstanding runs before another CI run is started. No new run was dispatched as part of this note update.
+
+### Benchmark/source integrity decision
+
+This incident does not justify changing app startup code, benchmark iterations, compilation modes, metrics, profile contents, R8 rules, dependency versions or device-side LADB commands. The existing benchmark contract remains unchanged. The corrective work is branch freshness, CI queue discipline, and a pre-build stale-source guard—not an unmeasured application or benchmark modification.
