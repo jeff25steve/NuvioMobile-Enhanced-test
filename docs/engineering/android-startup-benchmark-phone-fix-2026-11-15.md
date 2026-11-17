@@ -1734,3 +1734,50 @@ The last checked Actions metadata showed run #9 (`44014620882`) in progress and 
 ### No speculative benchmark changes
 
 This incident is a branch/CI orchestration defect, not evidence that startup measurement code or app runtime should change. Do not alter StartupTimingMetric, cold-start mode, ten measured iterations, BaselineProfileMode.Require, Startup Insights, readiness markers, generated profile rules, R8 rules, or production Gradle settings to compensate for stale source or queued jobs. Keep changes limited to proven workflow/branch integrity issues and failures supported by run logs or deterministic regression tests.
+
+
+## 17 November 2026 — fresh-source CI failures and R8 mapping investigation
+
+### Run #13: stale checkpoint assertion (pre-build)
+
+[Run 44018086908](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44018086908), commit `1aa29985b6610e43c7d8280c6357bacaef5da785`, passed the new main-branch freshness guard. It failed in the pre-build shell validation before any Gradle assembly. The exact assertion expected the obsolete workflow step name `Upload full-distribution build checkpoint`; the workflow's actual step is `Upload full profile-capture checkpoint`. The `INSTALL_FAILED_UPDATE_INCOMPATIBLE` line was emitted by the phone-runner test's simulated package-manager response and was followed by its PASS message; it was not the failing assertion.
+
+The follow-up branch commit `28f9b0b9aa923b3ed8491ac2a51f448c48395212` changed that single test expectation. Run #14 then passed the complete shell validation, confirming that specific stale assertion was corrected.
+
+### Run #14: APK assembly succeeds; bundle validation rejects missing R8 mapping
+
+[Run 44018520176](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44018520176), commit `28f9b0b9aa923b3ed8491ac2a51f448c48395212`, passed:
+- source freshness guard;
+- all phone-runner, bundle-assembly, readiness and metric-contract shell tests;
+- Rust setup and native caches/install;
+- Full and Play Store nonMinifiedRelease app/test APK build groups;
+- Full and Play Store benchmarkRelease app/test APK build groups;
+- diagnostics upload.
+
+All four Gradle invocations ended with `BUILD SUCCESSFUL`. The final bundle assembly validated the APK package IDs, non-debuggable state and profileable shell manifest before stopping at the first R8 artifact assertion:
+
+`full benchmarkRelease has no non-empty R8 mapping file; refusing to label it an R8 benchmark.`
+
+The run did not upload the phone bundle. It did upload:
+- diagnostics artifact [14300827886](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44018520176/artifacts/14300827886), containing four Gradle logs, four runner resource snapshots, four Gradle profiling reports, timings and R8 report status;
+- Full profile-capture checkpoint [14300506825](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44018520176/artifacts/14300506825).
+
+The workflow currently expects the mapping at `androidApp/build/outputs/mapping/fullBenchmarkRelease/mapping.txt` and `.../playstoreBenchmarkRelease/mapping.txt`. The first missing file is the observed blocker. Do not remove this assertion or relax the R8 benchmark label: that would risk shipping an unminified APK as the R8 measurement target.
+
+### Evidence-based next investigation — do not guess at the mapping path
+
+The run's surviving console log confirms the four Gradle groups succeeded and the benchmark APK passed package-ID, debuggable and profileable checks. It does not show any R8 minify task names in the console output. That alone is not sufficient to conclude why the mapping output is absent. The diagnostics artifact contains the complete per-phase Gradle logs and should be examined for:
+1. resolved `fullBenchmarkRelease` and `playstoreBenchmarkRelease` optimization/minification state;
+2. whether the R8 task was scheduled/executed for either variant;
+3. the actual mapping artifact provider/output path, including any AGP 9.4 output relocation;
+4. whether Sentry's mapping integration or another artifact transform consumes/relocates the mapping output.
+
+Relevant current-version research:
+- Nuvio pins AGP `9.4.0`, Gradle `9.8.2`, and Baseline Profile/Macrobenchmark `1.5.0`.
+- Google issue [556343682](https://issuetracker.google.com/issues/556343682) documents an AGP 9.3.0 defect where the new `optimization { enable = true }` DSL did not propagate `ApplicationVariant.isMinifyEnabled`; Google lists fixes in AGP 9.3.3 and AGP 9.4.1. Nuvio currently pins 9.4.0. This is a relevant compatibility lead, not yet proven to be the cause of this mapping failure because the current app build script uses the legacy `isMinifyEnabled` DSL and the exact variant state/output has not been extracted from the diagnostics artifact.
+- Google's [AGP optimization guide](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization) says the new `optimization { enable = true }` DSL is available from AGP 9.3 and that the legacy DSL remains supported. Do not switch DSLs or bump AGP solely on the basis of the missing file without inspecting the resolved variant and the complete R8 logs.
+- Google's [Baseline Profile build-type guide](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles) confirms the plugin-generated `benchmarkRelease` is intended to be minified and profileable, while `nonMinifiedRelease` is intended for profile capture. Preserve this distinction.
+
+### No speculative edits
+
+No mapping-file path was broadened, no fallback file accepted, no R8 assertion weakened, no keep rules or Sentry configuration changed, and no AGP/Gradle/AndroidX version changed in response to this run. The next code change must follow direct evidence from the uploaded Gradle diagnostics and exact AGP/AndroidX behavior. Do not start another CI run until that investigation and a deterministic local/CI-level regression check are complete.
