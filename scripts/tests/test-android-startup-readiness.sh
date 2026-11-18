@@ -8,8 +8,9 @@ APP_GATE_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppGat
 MAIN_CONTENT_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
-for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
   [ -f "$source" ] || {
     echo "FAIL: startup readiness source not found: $source" >&2
     exit 1
@@ -59,6 +60,7 @@ grep -Fq 'nuvio_readiness_home_' "$MAIN_CONTENT_SOURCE" || {
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+  if [ "$source" != "$READINESS_SOURCE" ]; then
   grep -Fq 'By.res("nuvio_benchmark_home")' "$source" || {
     echo "FAIL: benchmark must first wait for the HomeScreen marker." >&2
     exit 1
@@ -85,14 +87,23 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: readiness diagnostics must report marker visibility safely." >&2
     exit 1
   }
-  grep -Fq 'Last package to report an accessibility event' "$source" || {
-    echo "FAIL: diagnostics must not mislabel the last accessibility-event package as foreground." >&2
-    exit 1
-  }
+  fi
   if grep -Fq 'dumpWindowHierarchy' "$source"; then
     echo "FAIL: diagnostics must not serialize the entire accessibility hierarchy." >&2
     exit 1
   fi
 done
 
-printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; diagnostics cannot fail on malformed accessibility text.\n'
+grep -Fq 'device.findWindow(By.Window.active(true))' "$READINESS_SOURCE" || {
+  echo "FAIL: foreground recovery must use UIAutomator's active-window API." >&2
+  exit 1
+}
+grep -Fq 'Active window package:' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness diagnostics must report the active-window package separately." >&2
+  exit 1
+}
+grep -Fq 'Last package to report an accessibility event:' "$READINESS_SOURCE" || {
+  echo "FAIL: diagnostics must retain the last accessibility-event package with its documented meaning." >&2
+  exit 1
+}
+printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; shared helper diagnostics use active-window semantics.\n'
