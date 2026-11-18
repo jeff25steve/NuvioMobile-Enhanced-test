@@ -1916,3 +1916,40 @@ Sources:
 - https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
 
 No app, benchmark, timeout, profile, or phone-runner code was changed for this incident because the supplied evidence does not yet prove which component prevented the readiness predicate from becoming true.
+
+
+## 18 November 2026 — UIAutomator foreground recovery and readiness-test contract
+
+### Confirmed API semantics and dependency
+
+The current version catalog pins `androidx.test.uiautomator:uiautomator` to **2.4.1**. The Baseline Profile test module consumes that alias.
+
+The official Android API reference and AndroidX source distinguish:
+- `UiDevice.getCurrentPackageName()` — the last package to report accessibility events. It is not a foreground-window query.
+- `UiDevice.findWindow(ByWindowSelector)` — returns the matching top-level window or null.
+- `By.Window.active(true)` — selects the active window.
+- `UiWindow.getPackageName()` — returns the package owning that window.
+- `UiWindow.isActive()` — the window the user is currently interacting with.
+- `UiWindow.isFocused()` — the window holding input focus.
+
+A null active window is unknown; it must not trigger recovery based on stale event metadata.
+
+References:
+- [UiDevice API](https://developer.android.com/reference/androidx/test/uiautomator/UiDevice)
+- [ByWindowSelector API](https://developer.android.com/reference/androidx/test/uiautomator/ByWindowSelector)
+- [UiWindow API](https://developer.android.com/reference/androidx/test/uiautomator/UiWindow)
+- [AndroidX Test source](https://github.com/android/android-test)
+
+### Concrete source correction
+
+`StartupReadiness` now reports the active-window package independently from the last accessibility-event package, and uses the active-window package (not `getCurrentPackageName()`) to decide whether a known LADB/Termux/terminal/shell package should be returned to Nuvio. An absent or unreadable active window is treated as unknown. The known-shell package predicate is shared by both polling paths.
+
+This changes only benchmark harness foreground-recovery and diagnostics. It does not change the measured app, readiness signal, timeout, TTFD contract, metrics, profile generation, profile rules or production UI.
+
+### Concrete regression-test correction
+
+The readiness script previously applied shared-helper checks to both `BaselineProfileGenerator.java` and `StartupBenchmark.java`, although the implementation now lives in `StartupReadiness.java` and both test classes delegate to it. The script now checks caller-owned marker wait paths in the two test classes and checks shared diagnostics/helper behavior in `StartupReadiness.java`.
+
+### Verification boundary
+
+The branch and files were fetched immediately before editing at head `6c17ef5f7e90dcccc2cf501d243e84b6904b6326`. The API signatures were checked against Android documentation for the dependency pinned in the repository. No Gradle build, device run, shell regression, GitHub Actions workflow or CI was started. The source and shell edits have not been executed in this session. A phone run remains necessary to validate Samsung/LADB active-window reporting and to establish whether app-side readiness now completes. Do not claim the readiness failure is fixed without that evidence.
