@@ -31,37 +31,37 @@
 ### Task 1: Bound hero backdrop and logo request dimensions
 
 **Files:**
+- Create: composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/components/HeroImagePrefetch.kt
 - Modify: composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/components/HomeHeroSection.kt
 - Create: composeApp/src/commonTest/kotlin/com/nuvio/app/features/home/components/HomeHeroPrefetchTest.kt
-- Test: scripts/tests/test-home-hero-prefetch.sh
 
 **Interfaces:**
-- Produces internal data class HeroPrefetchSize(val widthPx: Int, val heightPx: Int).
-- Produces internal fun heroLogoPrefetchSize(...): HeroPrefetchSize?, which returns null for non-positive available dimensions and otherwise caps logo width by the effective content width and the 2.6:1 aspect ratio.
+- Produces internal data class HeroPrefetchSize(val widthPx: Int, val heightPx: Int), HeroPrefetchTarget(url, size, scale), and pure target/sizing helpers in HeroImagePrefetch.kt.
+- Produces heroLogoPrefetchSize(...): HeroPrefetchSize?, which returns null for non-positive available dimensions and otherwise caps logo width by the effective content width and the 2.6:1 aspect ratio.
 
-- [ ] Step 1: Write failing tests first. Add Kotlin tests for exact logo aspect ratio, content-width fraction, max-width cap, horizontal padding, and invalid/zero available dimensions. Add a source-contract script asserting explicit backdrop size + Scale.FILL and logo size + Scale.FIT.
-- [ ] Step 2: Verify RED. Run sh scripts/tests/test-home-hero-prefetch.sh; it must fail because the prefetch requests are currently unbounded. Run focused Kotlin test only after an authorized test/build session; no build is authorized now.
-- [ ] Step 3: Implement minimal sizing. Calculate backdrop request size from heroWidthPx/heroHeightPx. Calculate logo width from available horizontal content after the same bar/edge padding used by rendered content, then apply contentWidthFraction, contentMaxWidth, and logoWidthFraction; derive logo height using 2.6:1.
-- [ ] Step 4: Verify GREEN. Re-run the source-contract script. Re-fetch changed Kotlin test and source to verify expected geometry/API use. Record that Kotlin compilation and unit tests remain pending because builds are not authorized.
+- [ ] Step 1: Write failing Kotlin tests first. Cover backdrop viewport bounds, full-bleed logo bounds, content-width fraction, max-width cap, horizontal padding, 2.6:1 aspect ratio, invalid dimensions, and omission of card-style logos.
+- [ ] Step 2: Verify RED. Compile the focused helper/test fixture with kotlinc and confirm it fails to resolve the missing helper API. No Gradle build is authorized.
+- [ ] Step 3: Implement minimal pure helpers in HeroImagePrefetch.kt. Calculate backdrop request size from heroWidthPx/heroHeightPx. Calculate logo width from available horizontal content after the same bar/edge padding used by rendered content, then apply contentWidthFraction, contentMaxWidth, and logoWidthFraction; derive logo height using 2.6:1.
+- [ ] Step 4: Verify GREEN. Compile the actual helper source with the focused local Kotlin fixture. Re-fetch changed Kotlin test and source to verify the production call site uses the tested helper. Record that the Gradle commonTest task remains pending because builds are not authorized.
 - [ ] Step 5: Commit. perf(home): bound hero neighbour image prefetch sizes.
 
 ### Task 2: Skip unused card-style logo prefetch
 
 **Files:**
 - Modify: composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/components/HomeHeroSection.kt
-- Modify: scripts/tests/test-home-hero-prefetch.sh
+- Modify: composeApp/src/commonTest/kotlin/com/nuvio/app/features/home/components/HomeHeroPrefetchTest.kt
 - Modify: docs/engineering/android-startup-critical-path-review.md
 
 **Interfaces:**
 - Consumes HeroPrefetchSize and heroLogoPrefetchSize from Task 1.
 
-- [ ] Step 1: Extend the failing source-contract test. Require logo enqueue to be guarded by the same !isCardStyle condition used by the rendered HeroContentBlock branch.
-- [ ] Step 2: Verify RED. Run the focused shell test and confirm it fails on the unconditional logo prefetch.
+- [ ] Step 1: Extend the failing Kotlin behavior test to prove card-style targets never include the supplied logo URL.
+- [ ] Step 2: Verify RED. Compile/run the focused helper fixture and confirm the card-style expectation fails with the current unconditional target selection.
 - [ ] Step 3: Implement the layout guard. Keep backdrop prefetch unconditional when a URL exists; enqueue logo requests only for full-bleed hero style and only when a valid bounded logo size is available.
-- [ ] Step 4: Verify GREEN. Run the focused shell test and re-fetch all changed files. Confirm the catalogue prefetcher and visible AsyncImage declarations are unchanged.
+- [ ] Step 4: Verify GREEN. Compile/run the focused helper fixture and re-fetch all changed files. Confirm the catalogue prefetcher and visible AsyncImage declarations are unchanged.
 - [ ] Step 5: Update notes. Record both cycles, exact Coil 3.6.3 rationale, test coverage, and the no-build/no-device validation boundary.
 - [ ] Step 6: Commit. perf(home): skip hidden card-hero logo prefetch.
 
 ## Verification boundary
 
-The shell contract can be run without Gradle. Kotlin unit tests require an authorized Gradle test invocation and remain pending. A physical-device trace is required to quantify reduced decode dimensions, memory use, and any impact on slide-transition latency.
+The pure helper will be compiled and exercised with a local kotlinc fixture; the Compose Multiplatform commonTest task still requires an authorized Gradle test invocation. A physical-device trace is required to quantify reduced decode dimensions, memory use, and any impact on slide-transition latency.
