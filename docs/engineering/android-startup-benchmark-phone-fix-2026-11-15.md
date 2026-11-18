@@ -2661,3 +2661,108 @@ AndroidX 1.5.0 source (Context7) confirms:
 ### Verification boundary
 
 No test, shell script, Gradle build, instrumentation, device benchmark, LADB session, or CI was run. No production Kotlin implementation was changed during this follow-up. This update is source research and a concrete prioritized plan only.
+
+## Deep startup-path investigation and non-copycat optimization priorities — 2026-11-18
+
+### Existing research reviewed
+
+Reopened the current engineering note rather than relying on previous conversation summaries. It already contains the original LADB failure and artifact provenance, Home/fully-drawn readiness contract, strict benchmark runner output contract, official Nuvio PR #2652 findings, mapped-state comparison, and historical CI results with explicit source/bundle mismatch caveats. Historical APK bundles must not be conflated with current branch source; every new device run needs a source/build hash match.
+
+### New source inspection: Enhanced app startup order
+
+Current main-build-testing files fetched:
+- MainActivity.kt — blob 6c4a9d4d3a360d33023ae4114bb522412c6bb997.
+- NuvioApplication.kt — blob e2b48a76898ba97a56d40900c1e12a6ba87a65db.
+- StartupPreloader.kt — blob df20de751d8d65aeebfda6a0b2c7391321c0b5bb.
+- HomeScreen.kt — blob dabb27b3784b463b44aeec40295a53ae6159689f.
+- ProfileRepository.kt — blob ef46d35b502beea02b211fd5b66305e3e1548a7a.
+- WatchedRepository.kt — blob b0c695d43c2f1871a16731189b46cfbf9839aaaf.
+- WatchProgressRepository.kt — blob da19e850ac9bc78b737d335e09cfe04e982e0493.
+- ContinueWatchingPreferencesRepository.kt — blob 25dedecaebbcaa9b7a54c10c76bdbc845945fcf1.
+- DownloadsPlatformDownloader.kt — blob c61590031300ee3ee0e2653847643df82e8aa5d7.
+
+#### MainActivity critical path
+
+The current Activity does the following before showContent() and Compose setContent:
+1. Installs SplashScreen with setKeepOnScreenCondition { !contentReady }. AndroidX docs say this condition is evaluated periodically on the main thread.
+2. Performs a long sequence of initialize(applicationContext) calls covering theme/icon/Sentry settings; auth and server configuration; addon, library, Live TV, app file cache and watched storage; player/seek preview/P2P; profile/avatar/PIN; search and settings stores; tracking providers; download infrastructure; updater; account cleanup and episode notification platform.
+3. Starts/awaits StartupPreloader's critical phase before calling showContent() when preloader is not ready.
+4. showContent() calls setContent, and the first-frame LaunchedEffect starts post-frame warmup only after withFrameNanos { }.
+
+This long synchronous initializer sequence is a plausible cold-start cost centre, but its duration and main-thread blocking are not known from source alone. Some initialize methods may be cheap object wiring; others may touch disk, services, native libraries or platform APIs. The initializer list length is not a performance measurement.
+
+The app Application.onCreate itself currently calls DnsPlatform.initialize(this); Coil's custom ImageLoader is constructed lazily via SingletonImageLoader.Factory and configured with OkHttp, DNS-related shared clients, image decoders and interceptors. This pipeline also deserves trace inspection, but should not be eagerly preloaded without evidence that first Home artwork is delayed by it.
+
+#### StartupPreloader critical and post-frame contracts
+
+The preloader is already partially parallelised:
+- DownloadsPlatformDownloader.prepareForStartup() begins on Dispatchers.IO.
+- Profile cache load runs through ProfileRepository.loadCachedProfiles(), which itself switches to Dispatchers.IO to decode the stored profile payload.
+- Watched repository, watch progress, Continue Watching preferences, and Home snapshot are loaded in an IO context.
+- It waits for the download-platform preparation before marking critical preload complete.
+- Post-frame phase loads download transfer store + DownloadsRepository, then Live TV, player settings, P2P settings, servers, meta settings and LibraryRepository in IO context.
+
+The preloader's step helper catches Throwable (while rethrowing cancellation), logs a warning and returns false. preloadCriticalPhase currently does not enforce the returned booleans; so failed profile/watched/progress/preferences/snapshot preparation can still result in the critical phase completing. The current isCriticalReady means the critical coroutine completed, not that every preload item succeeded. This matters for any readiness semantics change.
+
+HomeScreen also calls AddonRepository.initialize(), CollectionRepository.initialize(), ContinueWatchingPreferencesRepository.ensureLoaded(), WatchedRepository.ensureLoaded(), and WatchProgressRepository.ensureLoaded() in a LaunchedEffect(Unit). It directly collects corresponding state flows. These calls may be idempotent after preload, but the actual Android storage paths and ensureLoaded guards must be inspected before making scheduling changes.
+
+ContinueWatchingPreferencesRepository.ensureLoaded() is a synchronous function that can call loadFromDisk(), decode JSON, and update a StateFlow. It should not be called on the main thread before checking whether it is already loaded and what its storage adapter does. In this Activity's first screen flow, the preloader invokes this method from its IO context.
+
+ProfileRepository.loadCachedProfiles() explicitly uses Dispatchers.IO around payload decoding and has a mutex/generation guard. It should not be made asynchronous without preserving its generation/session protections and the active-profile initialization ordering.
+
+The Home skeleton logic is already driven by shouldShowInitialHomeLoading(hasRenderableHomeRows, addonManifestsLoading, homeCatalogLoading), and the hero slot by shouldShowHomeHeroSlot(...). This suggests the UI has loading/skeleton pathways, but it does not prove that profile, watched or playback-progress data can be deferred without changing initial Home or resume-prompt behavior.
+
+### New profiling hypothesis: time the real launch barriers before changing them
+
+Best next diagnostic is to capture the duration of real app startup phases rather than immediately deferring or removing initializers.
+
+Candidate trace sections (only once trace API signature/dependency is verified at stable versions):
+- Activity: Nuvio.Startup.Activity.PreSetContent, plus grouped sub-sections around storage groups and platform/network/native initializers.
+- Preloader: Nuvio.Startup.Preload.Critical, ProfileCache, Watched, WatchProgress, ContinueWatchingPreferences, HomeSnapshot, DownloadsPlatform, and post-frame warmups.
+- App root: Nuvio.Startup.AppGate.InitializeAuth, RuntimeServices, MainContentFirstComposition, and first Home readiness transitions.
+
+Use stable, low-overhead trace instrumentation and Macrobenchmark trace section metrics only after checking the exact stable API signature and dependency version. The Context7 lookup returned 1.5.0-RC source for some TraceSectionMetric constructors; that is not accepted as final evidence for stable 1.5.0. No new dependency should be added without approval. Android platform android.os.Trace or an already-pinned stable AndroidX tracing library may be considered only after exact version/API verification. Trace instrumentation must pair begin/end in finally blocks and not materially alter startup.
+
+Benchmark TTID/TTFD and per-phase trace durations on the same release-optimised APK and physical device. Compare p50/p90, not single runs. A long async operation can still hurt first frame through CPU/I/O contention, so its duration and thread must be inspected rather than assuming Dispatchers.IO makes it free.
+
+### Non-copycat optimization strategy vs official Nuvio
+
+Official PR #2652 reports improved startup mainly through reduced recomposition, off-main splash wordmark decode, memoized hidden-show lookups and throttled Next Up publication. Enhanced already has partial equivalents: Home catalog preparation offloaded to IO; Home catalog publish throttling; addon refresh signature/cache work; Continue Watching and Next Up processing/caching improvements; readiness gates and startup/profile benchmark infrastructure.
+
+The stronger Enhanced opportunity is to reduce pre-Compose blocking and unnecessary eager platform initialization, then use mapped state to limit Home invalidation. This is different from simply reproducing official code.
+
+Priority A — quantify Activity/preloader critical path using trace sections and strict startup TTID/TTFD. Do not change behavior yet.
+
+Priority B — after traces establish a measurable slow stage, classify each initializer by consumer: required before first Activity content and initial Home; required before fully drawn/interactive Home; can safely happen after first frame; or can be initialized only when the matching feature is opened. Any move must preserve account/profile switching, deep links, playback startup, player/download state, notification permission/binding, and background process entry points.
+
+Priority C — separate blocking storage preparation from pure object initialization only where source shows disk/network/binder/native work. Avoid moving mutable singleton initialization off-main if the implementation depends on main-thread ordering or has unsafe races.
+
+Priority D — narrow high-churn StateFlow projections for Home/root state after exact field-use inventory and behavior tests. Do not mechanically wrap every StateFlow.
+
+Priority E — implement additional non-startup profile CUJs only when their selectors and screen outcomes can be asserted reliably. Keep the Startup Profile strictly limited to the critical initial display path. The official generator's catch-and-continue journey helper is not a quality bar.
+
+### Official Android guidance checked
+
+Android developer documentation:
+- App startup analysis: identify long operations in Perfetto (e.g. >20ms), main-thread blocking, disk I/O, binder transactions and work that can move after first frame; use StrictMode on debug builds to expose main-thread disk/network I/O; optimize and re-measure. https://developer.android.com/topic/performance/appstartup/analysis-optimization
+- App launch/TTID/TTFD: cold start includes Application and Activity creation; Activity.onCreate commonly affects startup; TTFD must represent actual interactive readiness. https://developer.android.com/topic/performance/issues/launch-time
+- Best practices: lazy initialization for non-critical libraries, defer optional composition until later. https://developer.android.com/topic/performance/appstartup/best-practices
+- App Startup supports lazy initialization by disabling eager auto-init and calling AppInitializer for components only when needed; not a recommendation to migrate arbitrary hand-written initializers automatically. https://developer.android.com/topic/libraries/app-startup
+
+### Measurement caveat around ProfileInstaller
+
+AndroidX ProfileInstaller's Startup initializer deliberately schedules profile installation after the first frame and performs the actual write on a background thread. Its source warns against invoking profile installation during app initialization because it starts a thread and disk read/write immediately. Do not manually add an eager ProfileInstaller.writeProfile call to the critical Activity startup path. The AndroidX initializer's delayed strategy is preferable to forcing install during launch.
+
+### Candidate architectural risks ruled out for now
+
+- Do not remove the 60s startup-ready deadline or loosen the Home/fully-drawn gates.
+- Do not make profile, watched, or watch-progress preload optional until Home/Continue Watching/Resume Prompt consumer requirements are mapped.
+- Do not start P2P streaming engine lazily without checking whether initial Home/feature routes read its availability state and whether start races with playback.
+- Do not defer notification platform binding without checking process/service/permission callback lifecycle.
+- Do not add a new tracing dependency before checking the current catalog and exact stable API.
+- Do not add additional benchmark test methods that would break the runner's strict two-case JSON and Perfetto trace reference validation.
+- Do not use Startup Profile rules to cover post-startup browse interactions; those belong in Baseline Profile only.
+
+### Verification boundary
+
+This pass made no Kotlin, Java, Gradle or script source changes. It updated only the research note. No shell tests, Gradle tests, build, APK/AAB generation, instrumentation, Macrobenchmark, device run, LADB session, or CI workflow was run. The startup-cost centres identified above are source-level candidates, not measured bottlenecks. A trace-backed investigation is required before any initialization order change or performance claim.
