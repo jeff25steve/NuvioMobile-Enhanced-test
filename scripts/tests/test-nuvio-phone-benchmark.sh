@@ -448,6 +448,19 @@ case "$2:$3" in
   *) echo null ;;
 esac
 STUB
+cat > "$TMP/bin/id" <<'STUB'
+#!/bin/sh
+if [ "${FAKE_SHELL_ROOT:-0}" = "1" ]; then
+  printf 'uid=0(root) gid=0(root)\n'
+else
+  printf 'uid=2000(shell) gid=2000(shell)\n'
+fi
+STUB
+cat > "$TMP/bin/su" <<'STUB'
+#!/bin/sh
+[ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
+printf 'uid=0(root) gid=0(root)\n'
+STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_ROOT="$TMP/media"
@@ -656,8 +669,29 @@ if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full > "$TMP/api3
   cat "$TMP/api33-install.log" >&2
   exit 1
 fi
-if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1; then
-  echo "FAIL: API 33 benchmark measurement failed before summary validation." >&2
+# API 33 unrooted Home measurements must fail before instrumentation because
+# AndroidX may uninstall/reinstall the app while resetting compilation state.
+: > "$FAKE_COMMAND_LOG"
+if FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-unrooted.log" 2>&1; then
+  echo "FAIL: API 33 unrooted authenticated Home measurement should be rejected." >&2
+  exit 1
+fi
+grep -Fq 'Authenticated Home measurement on API 33 requires a rooted instrumentation shell' "$TMP/api33-unrooted.log" || {
+  echo "FAIL: API 33 preflight did not explain the signed-in app-data reset risk." >&2
+  cat "$TMP/api33-unrooted.log" >&2
+  exit 1
+}
+if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+  echo "FAIL: API 33 unrooted rejection happened after instrumentation had already started." >&2
+  cat "$FAKE_COMMAND_LOG" >&2
+  exit 1
+fi
+
+# The same API 33 measurement remains available when the instrumentation shell
+# can pass AndroidX's su root id capability check.
+: > "$FAKE_COMMAND_LOG"
+if ! FAKE_API=33 FAKE_SU_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1; then
+  echo "FAIL: rooted API 33 benchmark measurement failed before summary validation." >&2
   cat "$TMP/api33-art-caveat.log" >&2
   exit 1
 fi
