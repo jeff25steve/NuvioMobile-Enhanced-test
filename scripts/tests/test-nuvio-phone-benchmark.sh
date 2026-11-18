@@ -7,9 +7,10 @@ DESKTOP_RUNNER="$SCRIPT_DIR/run-android-startup-profile-benchmark.sh"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
-[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] || { echo "FAIL: baseline profile test sources are missing." >&2; exit 1; }
+[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
@@ -22,8 +23,12 @@ startup_profile_flags="$(printf '%s\n' "$collect_block" | grep -c '^            
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
-  grep -Fq 'TARGET_APP_PACKAGE = "com.nuvio.media.benchmark"' "$source" || {
-    echo "FAIL: self-instrumenting tests must explicitly target the isolated Nuvio benchmark app." >&2
+  grep -Fq 'StartupReadiness.TARGET_APP_PACKAGE' "$source" || {
+    echo "FAIL: benchmark journeys must target the isolated app through the shared readiness package constant." >&2
+    exit 1
+  }
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device)' "$source" || {
+    echo "FAIL: both benchmark journeys must wait for shared Home and fully-drawn readiness." >&2
     exit 1
   }
 
@@ -53,26 +58,6 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: self-instrumenting instrumentation context must not be mistaken for the target app package." >&2
     exit 1
   fi
-  grep -Fq 'device.getCurrentPackageName()' "$source" || {
-    echo "FAIL: readiness failures must record the last package to report an accessibility event." >&2
-    exit 1
-  }
-  grep -Fq 'Last package to report an accessibility event' "$source" || {
-    echo "FAIL: diagnostics must accurately label the accessibility-event package." >&2
-    exit 1
-  }
-  grep -Fq 'markerVisible(UiDevice device, String marker)' "$source" || {
-    echo "FAIL: readiness diagnostics must safely report both marker states." >&2
-    exit 1
-  }
-  grep -Fq 'HomeScreen marker visible now:' "$source" || {
-    echo "FAIL: readiness diagnostics must report HomeScreen marker visibility." >&2
-    exit 1
-  }
-  grep -Fq 'Fully-drawn marker visible now:' "$source" || {
-    echo "FAIL: readiness diagnostics must report fully-drawn marker visibility." >&2
-    exit 1
-  }
   if grep -Fq 'dumpWindowHierarchy' "$source"; then
     echo "FAIL: diagnostics must not XML-serialize potentially malformed accessibility text." >&2
     exit 1
@@ -82,6 +67,26 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     exit 1
   fi
 done
+
+# Readiness polling and failure diagnostics live in one shared helper, not
+# duplicated generator/benchmark code. Restrict the no-swallowed-error contract
+# to marker lookup; best-effort diagnostics may legitimately report unavailable.
+for expected in \
+  'device.getCurrentPackageName()' \
+  'Last package to report an accessibility event' \
+  'markerVisible(UiDevice device, String marker)' \
+  'HomeScreen marker visible now:' \
+  'Fully-drawn marker visible now:'; do
+  grep -Fq "$expected" "$READINESS_SOURCE" || {
+    echo "FAIL: shared startup readiness helper is missing '$expected'." >&2
+    exit 1
+  }
+done
+if grep -Fq 'dumpWindowHierarchy' "$READINESS_SOURCE"; then
+  echo "FAIL: readiness diagnostics must not serialize the complete accessibility hierarchy." >&2
+  exit 1
+fi
+
 if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
   exit 1
