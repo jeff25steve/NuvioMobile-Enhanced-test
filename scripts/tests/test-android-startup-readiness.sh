@@ -92,8 +92,20 @@ grep -Fq 'Unable to restore Nuvio while waiting for marker' "$READINESS_SOURCE" 
   echo "FAIL: failed foreground recovery commands must be surfaced." >&2
   exit 1
 }
-grep -Fq 'By.res(TARGET_APP_PACKAGE, marker)' "$READINESS_SOURCE" || {
-  echo "FAIL: marker lookup must scope resource IDs to the benchmark app package." >&2
+grep -Fq 'return By.res(marker);' "$READINESS_SOURCE" || {
+  echo "FAIL: Compose testTagsAsResourceId markers must use the bare resource-name selector." >&2
+  exit 1
+}
+grep -Fq 'device.findObject(By.pkg(TARGET_APP_PACKAGE))' "$READINESS_SOURCE" || {
+  echo "FAIL: bare Compose testTag lookup must be guarded by target-package presence." >&2
+  exit 1
+}
+grep -Fq 'rootReadinessStateDescription' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness diagnostics must report the visible root state description." >&2
+  exit 1
+}
+grep -Fq 'stateDescription =' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: visible root semantics must expose the home/profile readiness state." >&2
   exit 1
 }
 grep -Fq 'device.findWindow(By.Window.active(true))' "$READINESS_SOURCE" || {
