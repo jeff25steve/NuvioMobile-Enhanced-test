@@ -128,6 +128,32 @@ resolve_instrumentation() {
   [ -n "$INSTRUMENTATION" ] || fail "The self-instrumenting test APK ($TEST_PACKAGE) is not installed. Install the matching app and -Tests APK pair for this flavor first."
 }
 
+file_sha256() {
+  file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{ print $1 }'
+  elif command -v toybox >/dev/null 2>&1; then
+    toybox sha256sum "$file" | awk '{ print $1 }'
+  else
+    echo "unavailable"
+  fi
+}
+
+write_run_provenance() {
+  {
+    printf 'Runner path: %s\\n' "$SCRIPT_DIR/nuvio-phone-benchmark.sh"
+    printf 'Runner SHA-256: %s\\n' "$(file_sha256 "$SCRIPT_DIR/nuvio-phone-benchmark.sh")"
+    printf 'Runner staged path: %s\\n' "$STAGING_DIR/nuvio-phone-benchmark.sh"
+    printf 'Staged runner SHA-256: %s\\n' "$(file_sha256 "$STAGING_DIR/nuvio-phone-benchmark.sh")"
+    printf 'Flavor: %s\\nAction: %s\\n' "$FLAVOR" "$ACTION"
+    for apk in "$APP_APK" "$TEST_APK"; do
+      [ -f "$apk" ] || continue
+      printf 'APK: %s\\nSHA-256: %s\\n' "$apk" "$(file_sha256 "$apk")"
+    done
+    printf 'Instrumentation component: %s\\n' "$INSTRUMENTATION"
+  } > "$RUN_DIR/provenance.txt"
+}
+
 new_run_dir() {
   stamp="$(date '+%Y%m%d-%H%M%S')"
   RUN_DIR="$OUTPUT_ROOT/$FLAVOR/$ACTION-$stamp"
