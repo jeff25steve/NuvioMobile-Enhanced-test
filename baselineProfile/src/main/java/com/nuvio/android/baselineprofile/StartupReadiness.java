@@ -66,6 +66,8 @@ final class StartupReadiness {
                 + markerVisible(device, "nuvio_launch_overlay_transitioning")
                 + "\nMain content ready marker visible now: "
                 + markerVisible(device, "nuvio_main_content_ready")
+                + "\nMain content stateDescription: "
+                + rootReadinessStateDescription(device)
                 + "\nHomeScreen marker visible now: " + markerVisible(device, HOME_MARKER)
                 + "\nFully-drawn marker visible now: " + markerVisible(device, FULLY_DRAWN_MARKER)
                 + "\nNote: the last accessibility-event package is not a foreground indicator. "
