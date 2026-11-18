@@ -1953,3 +1953,69 @@ The readiness script previously applied shared-helper checks to both `BaselinePr
 ### Verification boundary
 
 The branch and files were fetched immediately before editing at head `6c17ef5f7e90dcccc2cf501d243e84b6904b6326`. The API signatures were checked against Android documentation for the dependency pinned in the repository. No Gradle build, device run, shell regression, GitHub Actions workflow or CI was started. The source and shell edits have not been executed in this session. A phone run remains necessary to validate Samsung/LADB active-window reporting and to establish whether app-side readiness now completes. Do not claim the readiness failure is fixed without that evidence.
+
+
+## 18 November 2026 — follow-up review of active-window recovery and readiness chain
+
+### Follow-up review of the previous commit set
+
+The three-commit comparison against the pre-change branch was clean (three commits ahead, zero behind). Reviewing the committed test script found that the first correction declared `READINESS_SOURCE` but iterated only `GENERATOR_SOURCE` and `BENCHMARK_SOURCE`. Consequently, the helper-specific assertions inside that loop were unreachable. This was a test implementation defect, not an Android runtime defect.
+
+The regression script has now been corrected again:
+- the two benchmark classes are checked for delegation to `StartupReadiness.awaitHomeAndFullyDrawn(device)`;
+- the shared helper is checked directly for package-scoped marker lookup, active-window lookup, correctly labelled diagnostic output, central shell-package matching and a shared elapsed-realtime budget;
+- the test does not require shared implementation details to be duplicated into the two caller classes.
+
+This is a source-level contract correction. The script has not been run in this session.
+
+### UIAutomator 2.4.1 research refinement
+
+The repository pins UIAutomator **2.4.1**. Android's release notes date this stable release to **4 November 2026**. The window selector API originated in the 2.4.0 line, and 2.4.1 exposes:
+- `UiDevice.findWindow(ByWindowSelector)`, returning the first matching top-level window or null;
+- `By.Window.active(true)` and `By.Window.focused(true)`;
+- `UiWindow.getPackageName()`, `isActive()`, and `isFocused()`.
+
+Android's API reference describes `isActive()` as the window the user is currently interacting with and `isFocused()` as the window with input focus. This supports using the active window for the recovery decision. It does not prove Samsung firmware always exposes the desired active accessibility window under every LADB/overlay condition; that remains a device validation item.
+
+Sources:
+- [UIAutomator release notes](https://developer.android.com/jetpack/androidx/releases/test-uiautomator)
+- [UiDevice API](https://developer.android.com/reference/androidx/test/uiautomator/UiDevice)
+- [ByWindowSelector API](https://developer.android.com/reference/androidx/test/uiautomator/ByWindowSelector)
+- [UiWindow API](https://developer.android.com/reference/androidx/test/uiautomator/UiWindow)
+
+### App readiness chain — findings and non-findings
+
+Current code separates these milestones:
+1. Home route marker mounted in `HomeScreen`;
+2. `MainAppContent` initial-home readiness condition;
+3. launch overlay fully exited;
+4. AppGate/root readiness callback;
+5. `MainActivity` `appReady` state;
+6. Compose `ReportDrawnWhen { appReady.value }` fully-drawn report.
+
+The Home marker is intentionally earlier than full readiness. Android's Macrobenchmark documentation confirms TTID is first frame and TTFD is determined by the app's fully-drawn report plus the following rendered frame. Retaining both signals is necessary; do not replace the TTFD callback with a Home marker or a fixed sleep.
+
+`rememberSaveable` can restore UI state when Android recreates an Activity/process with saved instance state. Android documents that it does not retain state after complete user dismissal (for example, swiping the app away from Recents). This means the remembered `gateScreen` state is a valid lifecycle-recreation consideration, but current evidence does not make it the cause of the reported LADB force-stop/cold-start timeout. Do not reset gate state or change its saveability based on speculation.
+
+The source path still lacks stage-timestamp evidence for a failed physical run. The next decisive record should correlate:
+- active window package and focused window package during marker wait;
+- target package hierarchy presence;
+- the app-side AppGate/MainAppContent readiness markers over time;
+- foreground/resumed-activity snapshots before and after instrumentation;
+- the first failure stack trace and exact APK provenance.
+
+### Official startup performance guidance
+
+Android recommends profiling cold startup with Macrobenchmark and system traces, separating TTID from TTFD, then investigating operations occupying long spans, main-thread blocking, unnecessary initialization, library loading, composition, layout and Binder calls. It recommends deferring nonessential startup work only after confirming from traces that it is nonessential.
+
+No startup optimizations were applied in this follow-up. This project needs a captured trace and readiness-stage timings before selecting work to move or remove.
+
+Sources:
+- [App startup analysis and optimization](https://developer.android.com/topic/performance/appstartup/analysis-optimization)
+- [Startup timing metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics)
+- [Inspect app performance with Macrobenchmark](https://developer.android.com/codelabs/android-macrobenchmark-inspect)
+- [Save UI state in Compose](https://developer.android.com/develop/ui/compose/state-saving)
+
+### Verification boundary
+
+The readiness test correction is committed to `main-build-testing`. No shell test, Gradle command, build, instrumentation test, phone benchmark or CI workflow was run. Remote source verification is not a substitute for executing the regression suite or validating on the Galaxy device. The app-side readiness failure remains open.
