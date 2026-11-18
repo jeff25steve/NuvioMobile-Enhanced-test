@@ -25,9 +25,15 @@ HARDWARE="$(adb -s "$DEVICE_SERIAL" shell getprop ro.hardware | tr -d '\r')"
 [[ "$API_LEVEL" =~ ^[0-9]+$ ]] || fail "Could not determine Android API level."
 [[ "$DEVICE_ABI" == "arm64-v8a" ]] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Connected device ABI is '$DEVICE_ABI'."
 [[ "$KERNEL_QEMU" != "1" && "$HARDWARE" != "ranchu" && "$HARDWARE" != "goldfish" && "$HARDWARE" != "qemu" ]] || fail "A physical device is required."
-if (( API_LEVEL < 33 )); then
-  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su -c id 2>/dev/null | tr -d '\r' || true)"
-  [[ "$ROOT_ID" == *"uid=0"* ]] || fail "Profile collection requires API 33+ without root, or API 28+ rooted. Device API: $API_LEVEL."
+if (( API_LEVEL <= 33 )); then
+  # The combined desktop workflow always performs authenticated Home measurement.
+  # Match AndroidX's instrumentation-shell capability probe before its compilation
+  # reset can uninstall/reinstall the app and erase sign-in data on API 33.
+  ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell id 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$ROOT_ID" != *"uid=0"* ]]; then
+    ROOT_ID="$(adb -s "$DEVICE_SERIAL" shell su root id 2>/dev/null | tr -d '\r' || true)"
+  fi
+  [[ "$ROOT_ID" == *"uid=0"* ]] || fail "Authenticated Home measurement requires API 34+ or a rooted API 28-33 device. AndroidX Macrobenchmark reinstalls the target app on unrooted pre-34 devices and clears sign-in data. Device API: $API_LEVEL."
 fi
 
 TIMESTAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
