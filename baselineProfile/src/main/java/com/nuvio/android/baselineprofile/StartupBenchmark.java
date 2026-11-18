@@ -1,6 +1,5 @@
 package com.nuvio.android.baselineprofile;
 
-import androidx.benchmark.macro.ArtMetric;
 import androidx.benchmark.macro.BaselineProfileMode;
 import androidx.benchmark.macro.CompilationMode;
 import androidx.benchmark.macro.StartupMode;
@@ -11,7 +10,6 @@ import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
-import java.util.Arrays;
 import java.util.Collections;
 
 import kotlin.Unit;
@@ -36,7 +34,7 @@ public final class StartupBenchmark {
     public final MacrobenchmarkRule benchmarkRule = new MacrobenchmarkRule();
 
     @Test
-    public void startupCompilationNone() {
+    public void startupNoCompilation() {
         runColdStartupBenchmark(
                 CompilationMode.None.INSTANCE,
                 Collections.singletonList(new StartupTimingMetric())
@@ -44,24 +42,10 @@ public final class StartupBenchmark {
     }
 
     @Test
-    public void startupCompilationBaselineProfile() {
+    public void startupWithBaselineProfile() {
         runColdStartupBenchmark(
                 new CompilationMode.Partial(BaselineProfileMode.Require),
                 Collections.singletonList(new StartupTimingMetric())
-        );
-    }
-
-    /**
-     * Diagnostic only: reports app-process ART JIT, verification, and
-     * class-loading activity while using the packaged Baseline Profile.
-     * ART class-load counters are omitted on devices without supported
-     * tracepoints; JIT counters can also include system-image framework code.
-     */
-    @Test
-    public void startupArtDiagnostics() {
-        runColdStartupBenchmark(
-                new CompilationMode.Partial(BaselineProfileMode.Require),
-                Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }
 
