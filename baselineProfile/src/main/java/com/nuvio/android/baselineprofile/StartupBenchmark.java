@@ -21,8 +21,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Compares cold-start timing with and without the packaged Baseline Profile,
- * and has a separate ART diagnostic case for runtime compilation/loading.
+ * Compares cold-start timing with no compilation against the packaged
+ * Baseline Profile. Both arms share identical readiness and iteration settings.
  *
  * Run manually on a physical API 33+ device with the isolated
  * {@code com.nuvio.media.benchmark} install signed in on Home.
