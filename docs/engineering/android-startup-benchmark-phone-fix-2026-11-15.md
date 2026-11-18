@@ -2901,3 +2901,58 @@ The explicitly invoked Exa search connector returned HTTP 402 because the accoun
 ### Verification boundary
 
 No Kotlin/Java/XML/Gradle/script production change was made. No tests (including shell tests), builds, APK/AAB generation, instrumentation, Macrobenchmark, phone, LADB or CI were run. This is a source and documentation research cycle only.
+## Follow-up: practitioner-forum request, profile coverage gap and AndroidX plugin findings — 2026-11-18
+
+### External community-search status
+
+User explicitly requested forums and social media (Reddit, Stack Overflow, GitHub discussions/issues, Android developer forums). The Exa connector was invoked with five targeted searches for these communities, including Android app startup/Perfetto, Compose recomposition/stability, Baseline Profile/ART, and anecdotal failure modes. Every search returned HTTP 402: account credits limit exceeded. A follow-up page fetch for the official Nuvio PR also returned HTTP 402. Thus no new forum/social posts were retrieved or validated in this cycle. Do not attribute techniques to Reddit/Stack Overflow developers without readable post evidence. The previous note records the same service limit from the earlier pass; quota is still exhausted at 05:02-05:03 UTC.
+
+### New confirmed coverage gap: Enhanced browse Baseline Profile
+
+Re-fetched the exact Enhanced benchmark module sources:
+- `BaselineProfileGenerator.java` blob 8db8e4f0bcb45a26046a71fbfdc289f0e1bd4207: a single `startup()` test calls `BaselineProfileRule.collect(... outputFilePrefix="startup", includeInStartupProfile=true, strictStability=true ...)` and waits for Home plus fully-drawn.
+- `StartupReadiness.java` blob bc26dc8209576bbb803f1c5ab8dc50e7242df18c: reliable cold-launch readiness but currently only startup/Home markers. It exposes no browse destination/interaction helpers.
+- `baselineProfile/build.gradle.kts` blob b4916e7ea4bda6994e6f81f9a3df24ac723250e1: `com.android.test`, separate full/playstore flavors, API 28+ and self-instrumenting.
+- `androidApp/build.gradle.kts` blob 771db6fae6403c5451fc202dc332cd51af273a48: `baselineProfile { mergeIntoMain = false; saveInSrc = true; automaticGenerationDuringBuild = false }`; app depends on `:baselineProfile`.
+
+Therefore Enhanced's current collection source explicitly collects the initial launcher path only. There is no browse pass in this generator. The official Mobile generator at release commit 6b7f15e uses a second `includeInStartupProfile=false` pass for Home scroll, hero details, poster details and tab navigation. This is a genuine profile coverage difference: Enhanced currently has fewer explicit non-startup journeys, not necessarily worse rules (generated profile artifacts remain uninspected).
+
+### AndroidX Baseline Profile collection API and consumer plugin
+
+Context7 query of AndroidX Baseline Profile plugin confirms `BaselineProfileRule.collect` supports `outputFilePrefix`, `includeInStartupProfile` and `strictStability`. The existing Enhanced call already enables strict stability. The API snippets retrieved from Context7 include current/RC references for some method overloads; do not change Java call signatures based on RC-only samples. Re-check stable 1.5.0 API exact overload before implementing additional calls.
+
+AndroidX Baseline Profile consumer plugin docs confirm:
+- `saveInSrc=true` stores generated profiles under source `src/<variant>/generated/baselineProfiles`.
+- `mergeIntoMain=false` keeps profiles per variant rather than combining all variants under `src/main`.
+- Automatic generation is disabled, so profile collection is manual and does not unexpectedly run during release builds.
+- Plugin registers generated profile files as baseline profile source-set entries. AGP packages `baseline-prof.txt` rules as APK `assets/dexopt/baseline.prof` (the source profile file naming/variant paths need to be verified against the actual generated output).
+
+Implication: design a second collection prefix such as `browse` or `journeys`, with `includeInStartupProfile=false`, while keeping the existing `startup` pass unchanged. The exact source output filenames and whether two collected prefixes are retained/merged by plugin and variant must be verified on an authorised profile collection before changing runner semantics. `saveInSrc`, `mergeIntoMain=false` makes a variant-specific storage plan possible, but does not by itself prove how the runner's artifact discovery handles multiple outputs.
+
+### Runner/benchmark compatibility constraint
+
+`scripts/nuvio-phone-benchmark.sh` currently uses `require_non_empty_startup_profile()` which searches only `*startup-prof*.txt`, and reports a startup-profile-specific failure if none is found. Do not change it to accept any arbitrary `baseline-prof*.txt` as a substitute. Its collect mode is tied to the `BaselineProfileGenerator` invocation and provenance artifacts. Add a separate validation rule for browse profile only after its filename prefix and output location are proven from an actual generated artifact. Keep the runner's strict Macrobenchmark three-method and two-timing-case contracts intact.
+
+### Revised next best improvement: two-profile strategy with real CUJ assertions
+
+Recommended follow-up implementation (blocked by current no-test/no-build restriction):
+1. Keep `startup()` as a dedicated launcher/Home/fully-drawn pass with `includeInStartupProfile=true`.
+2. Add a second `browseJourneys()` collection with `includeInStartupProfile=false`, output prefix distinct from startup, strict stability enabled, covering Home vertical scroll, horizontal rail interaction, details open/close, and tabs/Library/Search. Prioritise journeys used daily in actual app, not imitation of official paths.
+3. Before each CUJ, establish correct app state and confirm each navigation target/interaction by stable test marker or resource ID. After interaction, assert that expected destination loaded and app returned to Home when needed. No catch-and-continue for required journeys; a missing UI element must fail profile collection with a useful diagnostic.
+4. Validate collection success and generated text files. Verify startup rules are confined to startup path, browse rules are included only in Baseline Profile, generated binary packaging, size, DEX placement, and R8 metadata with exact app APK/source revision.
+5. Extend runner to collect/copy/verify both generated artifacts under separate provenance labels, preserving startup-only requirement and existing timing JSON/Perfetto validation.
+6. Benchmark the same optimized APK, with `BaselineProfileMode.Require` against a no-profile but equivalent partial compilation mode (e.g. `Partial(BaselineProfileMode.Disable, warmupIterations=3)`) to isolate profile value. Preserve current no-compilation case as a separate baseline. Do not compare `CompilationMode.None` vs profile mode as the only measure of Baseline Profile benefit because both mode and warmup/compilation state differ.
+
+### What is and is not proven
+
+Proven from repository source: current Enhanced has one startup-only collection call; official Mobile release generator has two passes, a startup pass and a non-startup browse pass; Enhanced consumer Gradle configuration allows manual per-variant profile outputs and keeps variants separate.
+
+Not proven: Enhanced's final compiled profile has worse coverage or performance than official; official Mobile generated rule count/profile text/DEX layout; whether a second profile pass increases speed on target hardware; any TTID/TTFD or scroll-jank superiority.
+
+### Community search limitation
+
+Do not claim social/forum research as complete until Exa access is restored. Search should resume with separate targeted searches for AndroidDev Reddit field reports, Stack Overflow accepted answers, GitHub androidx/performance-samples issue discussions, and Android Developers community threads. Filter to first-hand practitioners with code, Perfetto screenshots, APK/device/API details, and measured before/after results; exclude generic advice and Android TV profiles.
+
+### Verification boundary
+
+No code, Gradle, runner, generator, profile artefact or benchmark change was made in this cycle. No test, shell script, Gradle task, APK build, instrumentation, device benchmark, LADB or CI was run. The note update is research-only.
