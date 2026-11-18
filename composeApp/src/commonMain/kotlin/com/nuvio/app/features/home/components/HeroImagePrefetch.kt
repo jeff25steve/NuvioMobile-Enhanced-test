@@ -82,26 +82,25 @@ internal fun homeHeroPrefetchTargets(
     artworkSize: HeroPrefetchSize?,
     logoSize: HeroPrefetchSize?,
 ): List<HeroPrefetchTarget> = buildList {
-    if (!artworkUrl.isNullOrBlank() && artworkSize.isPositive()) {
+    val validArtworkSize = artworkSize?.takeIf { it.widthPx > 0 && it.heightPx > 0 }
+    if (!artworkUrl.isNullOrBlank() && validArtworkSize != null) {
         add(
             HeroPrefetchTarget(
                 url = artworkUrl,
-                size = artworkSize,
+                size = validArtworkSize,
                 scale = HeroPrefetchScale.CROP,
             ),
         )
     }
 
-    if (!isCardStyle && !logoUrl.isNullOrBlank() && logoSize.isPositive()) {
+    val validLogoSize = logoSize?.takeIf { it.widthPx > 0 && it.heightPx > 0 }
+    if (!isCardStyle && !logoUrl.isNullOrBlank() && validLogoSize != null) {
         add(
             HeroPrefetchTarget(
                 url = logoUrl,
-                size = logoSize,
+                size = validLogoSize,
                 scale = HeroPrefetchScale.FIT,
             ),
         )
     }
 }
-
-private fun HeroPrefetchSize?.isPositive(): Boolean =
-    this != null && widthPx > 0 && heightPx > 0
