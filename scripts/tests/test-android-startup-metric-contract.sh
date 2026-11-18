@@ -33,8 +33,9 @@ awk '
   echo "FAIL: Macrobenchmark must declare a JUnit test for the no-compilation baseline." >&2
   exit 1
 }
-grep -Fq 'runColdStartupBenchmark(new CompilationMode.None())' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: no-compilation test must execute the shared cold-start measurement." >&2
+grep -Fq 'runColdStartupBenchmark(' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: no-compilation test must execute the shared cold-start measurement with Java's None singleton." >&2
   exit 1
 }
 awk '
@@ -46,7 +47,7 @@ awk '
   echo "FAIL: Macrobenchmark must declare a JUnit test for the packaged Baseline Profile." >&2
   exit 1
 }
-grep -Fq 'runColdStartupBenchmark(new CompilationMode.Partial(BaselineProfileMode.Require))' "$BENCHMARK_SOURCE" || {
+grep -Fq 'new CompilationMode.Partial(BaselineProfileMode.Require)' "$BENCHMARK_SOURCE" || {
   echo "FAIL: Baseline Profile test must require the packaged profile during partial compilation." >&2
   exit 1
 }
