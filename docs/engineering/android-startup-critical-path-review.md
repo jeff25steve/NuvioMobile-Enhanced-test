@@ -643,3 +643,47 @@ Verification boundary:
 References:
 - https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
 - https://developer.android.com/reference/androidx/benchmark/macro/junit4/MacrobenchmarkRule
+
+
+## 18 November 2026 — improvement cycle 51: bound Home hero neighbour image prefetch
+
+### Finding
+
+The Home hero prefetch effect previously enqueued neighbour backdrop and logo requests using a bare `ImageRequest.Builder(context).data(url).build()`. Unlike the visible `AsyncImage`, this request did not inherit the image's measured Compose constraints.
+
+Coil 3.6.3's defaults leave an un-sized `ImageRequest.Builder` at `Size.ORIGINAL`. The visible hero backdrop is measured to the Home hero viewport and rendered with `ContentScale.Crop`; the full-bleed logo is constrained to its content area and rendered with `ContentScale.Fit`.
+
+### Change
+
+- Added `HeroImagePrefetch.kt` with pure, allocation-light sizing and target-selection helpers.
+- Backdrop prefetch requests now specify positive pixel dimensions derived from the measured hero viewport and map the existing crop rendering to Coil `Scale.FILL`.
+- Full-bleed logo requests now specify pixel dimensions derived from the same content width fraction, content maximum width, logo width fraction and horizontal content/vertical-bar padding as the displayed logo. The 2.6:1 aspect ratio is used to derive logo height, and Coil `Scale.FIT` matches the visible content scale.
+- Invalid/non-finite/zero bounds or blank URLs skip optional prefetch instead of falling back to an unbounded original-size request.
+- The existing neighbour selection, prefetch timing, singleton image loader, metadata prefetch and displayed image composables are unchanged.
+
+### Evidence
+
+- Coil 3.6.3 documentation confirms `AsyncImage` determines image size from composable constraints, whereas `rememberAsyncImagePainter` defaults to original dimensions unless a resolver is supplied; the Coil request defaults also use `Size.ORIGINAL`.
+- Coil 3.6.3 exposes `ImageRequest.Builder.size(width, height)` and `scale(Scale)`; `Scale.FILL` corresponds to crop/fill and `Scale.FIT` to fit behavior.
+- The existing catalogue poster prefetcher already passes rendered pixel sizes and was deliberately left unchanged.
+
+References:
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-compose/README.md
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/request/ImageRequest.kt
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/request/Scale.kt
+
+## 18 November 2026 — improvement cycle 52: omit hidden card-hero logo prefetch
+
+Card-style Home hero renders its poster/backdrop artwork but does not render the overlaid `HeroContentBlock` or its logo. The previous neighbour prefetch nevertheless queued each neighbour's logo URL in this layout.
+
+- The pure target selector now emits a logo target only when the hero is full-bleed, the URL is non-blank and the computed pixel bounds are valid.
+- The Compose layer avoids calculating logo bounds at all for card style. Backdrop artwork prefetch remains enabled.
+- Full-bleed tablet and phone content use their corresponding vertical-bar/edge padding calculations; card style does not enter the logo path.
+- Added commonTest cases for full-bleed crop/fit targets, card-style logo omission, aspect-ratio-derived logo dimensions, max-width/padding/fraction limits, narrow viewport, invalid dimensions and blank URLs.
+
+### Validation boundary
+
+- A local standalone `kotlinc` fixture compiled the fetched `HeroImagePrefetch.kt` helper source and executed eight behavioral assertions successfully.
+- The repository's Compose Multiplatform `commonTest` suite was not run. No Gradle task, build, CI, emulator or physical-device benchmark was started.
+- No memory, decode-time, transition-latency or user-perceived speedup is measured. The expected effect is to bound the neighbour backdrop/logo decode requests to useful rendered dimensions and avoid the hidden card-style logo request; Perfetto/Coil tracing and device comparison are still needed to quantify the impact.
+- No changes were made to catalogue poster prefetch, visible hero image rendering, trailer behavior or metadata-fetch ordering. No Enhanced-vs-official performance advantage is claimed.
