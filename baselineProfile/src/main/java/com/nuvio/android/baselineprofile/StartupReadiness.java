@@ -5,7 +5,7 @@ import android.os.SystemClock;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.UiDevice;
-import androidx.test.uiautomator.Until;
+import androidx.test.uiautomator.UiWindow;
 
 /**
  * Shared cold-start readiness waits for Baseline Profile generation and
@@ -41,6 +41,15 @@ final class StartupReadiness {
         return By.res(TARGET_APP_PACKAGE, marker);
     }
 
+    static String activeWindowPackage(UiDevice device) {
+        try {
+            UiWindow activeWindow = device.findWindow(By.Window.active(true));
+            return activeWindow == null ? "<unavailable>" : String.valueOf(activeWindow.getPackageName());
+        } catch (Exception ignored) {
+            return "<unavailable>";
+        }
+    }
+
     static String diagnostics(UiDevice device) {
         String lastAccessibilityEventPackage = "<unavailable>";
         try {
@@ -48,7 +57,9 @@ final class StartupReadiness {
         } catch (Exception ignored) {
             // best-effort
         }
-        return "\nLast package to report an accessibility event: " + lastAccessibilityEventPackage
+        String activePackage = activeWindowPackage(device);
+        return "\nActive window package: " + activePackage
+                + "\nLast package to report an accessibility event: " + lastAccessibilityEventPackage
                 + "\nExpected app package: " + TARGET_APP_PACKAGE
                 + "\nTarget package present in hierarchy: "
                 + (device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null)
@@ -63,8 +74,17 @@ final class StartupReadiness {
                 + markerVisible(device, "nuvio_main_content_ready")
                 + "\nHomeScreen marker visible now: " + markerVisible(device, HOME_MARKER)
                 + "\nFully-drawn marker visible now: " + markerVisible(device, FULLY_DRAWN_MARKER)
-                + "\nNote: if the last accessibility package is an on-device shell (e.g. com.draco.ladb),"
-                + " leave that app immediately after starting the test so Nuvio stays in front.";
+                + "\nNote: the last accessibility-event package is not a foreground indicator. "
+                + "Use the active-window package above to identify the active UI window.";
+    }
+
+    private static boolean isKnownShellPackage(String packageName) {
+        return packageName != null
+                && !TARGET_APP_PACKAGE.equals(packageName)
+                && (packageName.contains("ladb")
+                        || packageName.contains("termux")
+                        || packageName.contains("terminal")
+                        || packageName.contains("shell"));
     }
 
     /**
@@ -78,14 +98,9 @@ final class StartupReadiness {
                 if (device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null) {
                     return;
                 }
-                // Nudge the target only if a shell/terminal still owns the session.
-                String current = device.getCurrentPackageName();
-                if (current != null
-                        && !TARGET_APP_PACKAGE.equals(current)
-                        && (current.contains("ladb")
-                                || current.contains("termux")
-                                || current.contains("terminal")
-                                || current.contains("shell"))) {
+                // Recover only when a known shell/terminal owns the active window.
+                String current = activeWindowPackage(device);
+                if (isKnownShellPackage(current)) {
                     device.executeShellCommand(
                             "monkey -p " + TARGET_APP_PACKAGE
                                     + " -c android.intent.category.LAUNCHER 1");
@@ -103,15 +118,10 @@ final class StartupReadiness {
             if (markerVisible(device, marker)) {
                 return true;
             }
-            // If a terminal stole the foreground mid-wait, bring Nuvio back and continue.
+            // Recover only when a known shell/terminal owns the active window.
             try {
-                String current = device.getCurrentPackageName();
-                if (current != null
-                        && !TARGET_APP_PACKAGE.equals(current)
-                        && (current.contains("ladb")
-                                || current.contains("termux")
-                                || current.contains("terminal")
-                                || current.contains("shell"))) {
+                String current = activeWindowPackage(device);
+                if (isKnownShellPackage(current)) {
                     device.executeShellCommand(
                             "monkey -p " + TARGET_APP_PACKAGE
                                     + " -c android.intent.category.LAUNCHER 1");
