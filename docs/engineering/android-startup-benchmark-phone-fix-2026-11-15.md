@@ -1848,3 +1848,71 @@ The previous CI branch is now stale relative to the updated `main-build-testing`
 The fresh R8-fix run [44105881853](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44105881853), commit `4e08c3cbbc2f69deaf84a0bf8102841e1bb4b9bb`, passed the source-freshness guard and the new build-type inheritance assertions, then failed before Gradle for the same obsolete checkpoint-step assertion previously seen in run #13. The CI-only branch had the corrected string, but the canonical test on `main-build-testing` still contained `Upload full-distribution build checkpoint`; the workflow step is `Upload full profile-capture checkpoint`.
 
 Corrected on `main-build-testing` in commit `cbbd32f72dddfc3066b2782f13c2f64fb3561446`. This was a missed propagation of the earlier test correction, not a new app or R8 issue. Do not repeat the previous mistake: create the next isolated CI branch from the latest `main-build-testing` HEAD and verify the test file itself contains no reference to the obsolete step name before pushing. The run did not execute Gradle or produce APKs.
+
+
+## 18 November 2026 — on-device Baseline Profile readiness failure
+
+### User-provided LADB evidence
+
+Two screenshots from the Galaxy phone show the Baseline Profile instrumentation test failing in both the Full and Play Store profile-capture flows. The reported assertion is:
+
+`HomeScreen appeared, but Nuvio did not expose its fully-drawn marker 'nuvio_startup_ready' before the 30-second startup deadline.`
+
+The diagnostic snapshot printed by the test reports:
+- Last package to report an accessibility event: `com.draco.ladb`
+- Expected app package: `com.nuvio.media.benchmark`
+- AppGate main/profile-loading markers: false
+- Main-content loading/ready and launch-overlay markers: false
+- All home-ready/profile-switch diagnostic markers: false
+- HomeScreen marker and fully-drawn marker: false
+
+Important interpretation: the test had observed the HomeScreen marker at an earlier point (otherwise it would have thrown the separate “did not expose the HomeScreen marker” assertion), but it did not observe `nuvio_startup_ready` within the shared 30-second deadline. By the time diagnostics were sampled, neither marker was visible.
+
+### What the code proves
+
+- `BaselineProfileGenerator.awaitMainContentReady()` waits first for `nuvio_benchmark_home`, then waits for `nuvio_startup_ready` using the remaining time from one 30-second deadline.
+- `MainActivity` exposes `nuvio_startup_ready` only while its `appReady` state is true; `ReportDrawnWhen { appReady.value }` uses that same state for TTFD.
+- The callback is supplied by AppGate. MainAppContent reports root readiness only after `initialHomeReady && !profileSwitchLoading` and after the launch overlay has fully exited.
+- Therefore this is not evidence that the APK failed to install, that the Home test tag is globally unrecognised, or that a longer timeout is the fix. The measured failure is that the app's fully-drawn readiness predicate did not become observable after Home was seen.
+- `UiDevice.getCurrentPackageName()` is explicitly documented as the **last package to report accessibility events**, not the foreground package. The screenshot's `com.draco.ladb` value cannot prove that LADB displaced Nuvio or that Nuvio was foreground at timeout.
+
+### Root cause status: not yet proven
+
+The screenshots do not include the before/after resumed-activity snapshots or the full instrumentation log. The final false marker snapshot cannot distinguish:
+1. Nuvio leaving the foreground or its activity/process being stopped after the initial Home observation;
+2. Nuvio remaining visible while AppGate/MainAppContent readiness stayed false (for example, initial-home or launch-overlay state not settling);
+3. an activity/window transition that made the Compose markers unavailable to UI Automator.
+
+Do not change the 30-second timeout, remove the Home/fully-drawn waits, weaken `ReportDrawnWhen`, use a sleep, skip profile collection, or accept TTID-only output. Those changes would mask the missing readiness signal and weaken the benchmark contract.
+
+### Required evidence before a code fix
+
+For one failed Full run, preserve and inspect the run directory's:
+- `instrumentation.log`
+- `foreground-before.txt`
+- `foreground-after.txt`
+
+The phone runner already captures the foreground snapshots around instrumentation. Compare the resumed activity/package before and after the test and inspect the complete first assertion/stack trace. If those files are absent, collect a single failed run with the updated runner that retains them; do not repeat both flavors until the failure layer is known. The app-side readiness markers and instrumentation trace must be correlated before choosing a fix.
+
+### Separate CI preflight issue (17 November)
+
+The new fresh-source CI branch passed its stale-source guard (`main-build-testing` was its exact merge base; `behind_by = 0`) but run [#13](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/44018086908) failed before any Gradle build. The phone-runner shell test passed; the bundle-assembly test failed because its required-step list still expected `Upload full-distribution build checkpoint`, while the current workflow step and its own later assertion use `Upload full profile-capture checkpoint`. The `INSTALL_FAILED_UPDATE_INCOMPATIBLE` text in the log is a deliberately simulated response in the phone-runner test; that test printed PASS and it was not the failing assertion.
+
+This stale assertion is a concrete test/workflow contract mismatch, but it has not been edited in this checkpoint. The fresh CI branch is push-triggered, and the user explicitly said not to run builds/CI without authorization; do not push a fix to it or dispatch another run until explicitly authorized. The canonical `main-build-testing` workflow remains manual-only.
+
+### Research cross-check
+
+Official Android guidance confirms:
+- Macrobenchmark runs in a separate process and uses UI Automator to inspect target-app UI; Compose test tags must be exposed with `testTagsAsResourceId = true`.
+- `startActivityAndWait()` waits for the target activity to render its first frame; it does not mean asynchronous app content is fully ready.
+- `ReportDrawnWhen`/TTFD should be tied to the app's actual user-ready condition, and the benchmark should separately wait for the relevant content.
+- `UiDevice.getCurrentPackageName()` returns the last accessibility-event package, not the foreground package.
+
+Sources:
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-control-app
+- https://developer.android.com/codelabs/android-macrobenchmark-inspect
+- https://developer.android.com/topic/performance/baselineprofiles/create-baselineprofile
+- https://developer.android.com/reference/kotlin/androidx/test/uiautomator/UiDevice
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
+
+No app, benchmark, timeout, profile, or phone-runner code was changed for this incident because the supplied evidence does not yet prove which component prevented the readiness predicate from becoming true.
