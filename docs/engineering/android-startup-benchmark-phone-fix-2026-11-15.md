@@ -2571,3 +2571,93 @@ LADB or CI workflow was run for this review. All code/config observations above
 come from fetched GitHub source. No claim is made that Enhanced currently beats
 official Nuvio. A matched-device measurement and profile artifact inspection
 remain necessary.
+
+
+## Follow-up source-level comparison — mapped Compose state and profile collection reliability — 2026-11-18
+
+### Official mapped-state helper inspected
+
+Official source:
+[MappedState.kt](https://github.com/NuvioMedia/NuvioMobile/blob/cmp-rewrite/composeApp/src/commonMain/kotlin/com/nuvio/app/core/ui/MappedState.kt)
+(blob `fbf1e1ad2787aabfd836efd7afbb7fd43b718415`).
+
+Its implementation is:
+
+```kotlin
+@Composable
+fun <T, R> StateFlow<T>.collectMappedAsState(transform: (T) -> R): State<R> {
+    val flow = remember(this) { map(transform).distinctUntilChanged() }
+    return flow.collectAsStateWithLifecycle(initialValue = transform(value))
+}
+```
+
+This detail matters: it is not useful to append `distinctUntilChanged()` directly to a `StateFlow`. Kotlin's StateFlow documentation explicitly says StateFlow already uses equality-based conflation and that applying `distinctUntilChanged()` directly to a StateFlow is operator-fused/no-op. The official helper first maps the broad repository state to a smaller feature-facing value, then deduplicates the mapped output. It also remembers the mapped Flow by the source StateFlow instance so recomposition does not construct a new Flow chain each time.
+
+Official Kotlin references:
+- https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-state-flow/
+- https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/distinct-until-changed.html
+
+AndroidX Compose's `collectAsStateWithLifecycle` starts collection when lifecycle is at least STARTED and stops it below that state. The official helper therefore combines narrow projection, equality filtering, stable Flow identity and lifecycle-aware collection.
+
+### Enhanced code comparison
+
+The current Enhanced `main-build-testing` source was fetched:
+- `MainAppContent.kt`, blob `1a699f30d4516bd2c0b61aabe3c568178b70cc5e`.
+- `HomeScreen.kt`, blob `dabb27b3784b463b44aeec40295a53ae6159689f`.
+- `HomeRepository.kt`, blob `781ae95bbd7813261266909ac6a24de5adb69505`.
+- `AddonRepository.kt` was also fetched and confirms `uiState` remains a broad StateFlow of `AddonsUiState`.
+
+The inspected Enhanced code still directly calls `collectAsStateWithLifecycle()` for several full repository UI states, including:
+- In `MainAppContent`: `MetaScreenSettingsRepository.uiState` and other root-owned repository state collections.
+- In `HomeScreen`: `AddonRepository.uiState`, `HomeRepository.uiState`, `HomeCatalogSettingsRepository.uiState`, `CollectionRepository.collections`, Continue Watching preferences, watched state, and watch-progress state.
+
+The exact call-site inventory is larger than the excerpts captured in this remote fetch; re-read the relevant function ranges before editing any call site.
+
+Enhanced already has other optimizations that should be preserved:
+- Home catalog definition construction uses `withContext(Dispatchers.IO)`.
+- The Home repository maintains an addon catalog refresh signature to avoid equivalent refresh work.
+- Progressive Home catalog state publication is throttled by `HOME_CATALOG_PUBLISH_THROTTLE_MS`.
+- Continue Watching/Next Up processing includes caching/memoization improvements from previous work.
+
+These improvements do not automatically eliminate broad UI invalidations from repository StateFlow updates. A narrow mapped-state projection is therefore a credible candidate, but it is not yet measured as an Enhanced bottleneck on device.
+
+### Safe implementation target
+
+The best next code cycle is not to replace every StateFlow collection indiscriminately. Instead:
+
+1. Identify the largest state objects collected at the `MainAppContent` and `HomeScreen` roots, then list exactly which fields each composable actually reads.
+2. Define immutable, minimal feature-specific projection values for the high-churn sources (especially addon signals and any broad root-level repository state that changes during startup).
+3. Collect the derived flow via `remember(source) { source.map(transform).distinctUntilChanged() }`, then collect it using the platform-appropriate lifecycle-aware Compose collector.
+4. Keep state needed by downstream UI available without dropping behavior: every field read by the screen must be represented, and all existing side effects must stay triggered by equivalent dependencies.
+5. Add behavior-level regression tests for equality suppression and for updates to each field the UI depends on. Test the projection's observable output, not source-text presence.
+6. Only after the regression tests are run and pass should a cold-start Perfetto/Macrobenchmark comparison establish whether recomposition time and frame-budget misses improve.
+
+Avoid annotating broad mutable collection models as `@Stable` or `@Immutable` just to force skipping. Android Compose guidance warns that collection stability, equality semantics and copying cost must be considered; over-annotation can produce stale UI or expensive equality checks. Narrow projection is more defensible than falsely asserting mutability guarantees.
+
+### Official generator reliability finding
+
+The official `BaselineProfileGenerator.kt` at `cmp-rewrite` is confirmed to have two `collect` passes (startup only, then non-startup CUJs). Its `runJourney` helper catches `Throwable`, logs and continues; individual missing or failed journeys can therefore escape as warnings rather than failing profile generation. This makes source-level journey intent insufficient proof of actual collection coverage.
+
+Enhanced should not imitate this failure suppression. When a future non-startup profile pass is implemented, each expected journey should expose a concrete completion assertion; absent targets, unexpected screen transitions and interaction failures must fail collection. A run summary should identify each journey and its outcome.
+
+### Additional Benchmark result-contract finding
+
+Enhanced's phone runner currently validates the two timing cases with ten TTID/TTFD samples each and twenty unique Perfetto trace references. The separate ART diagnostic case has a separate test name, but the current timing JSON parser is intentionally strict about the two timing method names and associated metric objects. Do not broaden or relax this parser when adding profile journeys or benchmark modes. ART metric fields require a separate optional diagnostic parser/summary; class-load keys can be absent on unsupported ART versions, while JIT and verify count/sum values are emitted as zero when no slices are present.
+
+AndroidX 1.5.0 source (Context7) confirms:
+- `ArtMetric` emits `artJitCount` and `artJitSumMs`, plus `artVerifyClassCount` and `artVerifyClassSumMs`.
+- `artClassLoadCount` and `artClassLoadSumMs` are omitted if class-load tracing is unsupported.
+- Class-load tracing is available on API 35+, or API 31+ when ART mainline is unknown or at least 341511000.
+- JIT traces can include system-image framework code and do not all represent app profile misses.
+
+### Next engineering priorities
+
+1. Establish a field-by-field projection map for Home and root Compose collectors, starting with the most frequently updated large state (addons) and prove the UI only reads the projected data at the selected call sites.
+2. Add a separately collected non-startup Baseline Profile journey suite with explicit per-journey success and no swallowed failures. Keep `includeInStartupProfile = true` strictly limited to paths needed for initial usable Home.
+3. Extend the report format for ART metrics separately from TTID/TTFD timing metrics. Missing class-load fields mean unsupported tracepoints, not zero.
+4. Obtain and inspect generated official and Enhanced profile artifacts. The current public lookup still did not provide the official generated profile files, so official text-rule counts, package distributions and binary rule sizes remain unknown.
+5. Do matched-device performance measurements for actual superiority claims. No static source comparison can demonstrate that Enhanced is faster.
+
+### Verification boundary
+
+No test, shell script, Gradle build, instrumentation, device benchmark, LADB session, or CI was run. No production Kotlin implementation was changed during this follow-up. This update is source research and a concrete prioritized plan only.
