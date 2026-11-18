@@ -81,6 +81,26 @@ check_device() {
   api="$(getprop ro.build.version.sdk | tr -d '\r')"
   case "$api" in ''|*[!0-9]*) fail "Cannot determine Android API level." ;; esac
   [ "$api" -ge 33 ] || fail "Baseline Profile collection without root requires Android 13 / API 33 or later. This device reports API $api."
+  case "$ACTION" in
+    run|measure)
+      if [ "$api" -eq 33 ]; then
+        # AndroidX Macrobenchmark may uninstall/reinstall the target on unrooted
+        # pre-34 devices when resetting compilation, which erases signed-in Home.
+        # Mirror AndroidX's instrumentation-shell root capability check exactly.
+        root_id="$(id 2>/dev/null || true)"
+        case "$root_id" in
+          *"uid=0(root)"*) ;;
+          *)
+            root_id="$(su root id 2>/dev/null || true)"
+            case "$root_id" in
+              *"uid=0(root)"*) ;;
+              *) fail "Authenticated Home measurement on API 33 requires a rooted instrumentation shell because AndroidX resets compilation by reinstalling the app on unrooted pre-34 devices, which clears sign-in data. Use API 34+ or make 'su root id' available; profile collection alone remains supported on API 33." ;;
+            esac
+            ;;
+        esac
+      fi
+      ;;
+  esac
   abi="$(getprop ro.product.cpu.abi | tr -d '\r')"
   [ "$abi" = "arm64-v8a" ] || fail "This phone-only benchmark bundle contains arm64-v8a APKs. Device ABI is $abi; use an arm64 Android phone."
   qemu="$(getprop ro.kernel.qemu | tr -d '\r')"
