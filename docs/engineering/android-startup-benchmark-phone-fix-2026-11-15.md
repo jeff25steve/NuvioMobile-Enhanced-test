@@ -2074,3 +2074,67 @@ This is a recommended diagnostics-only follow-up, not a conclusion that LADB cau
 No application startup optimization is justified by the evidence currently available. The readiness condition is wired consistently from the app callback to both the accessibility marker and Compose's fully-drawn report. The unresolved issue is missing runtime evidence about which stage fails on the physical phone. The benchmark harness's current active-window recovery and diagnostic labels are consistent with the documented API semantics, but device validation remains outstanding.
 
 No build, shell test, instrumentation run, phone benchmark or CI workflow was executed during this review. The app-side readiness failure remains open.
+
+
+
+## 18 November 2026 — Grok clip review and UI Automator logging correction
+
+### Evidence extracted from the user-provided LADB recording
+
+The clip shows a Play Store Baseline Profile collection attempt failing after approximately 32.8 seconds. The visible output includes:
+- HomeScreen marker visible: true.
+- AppGate main marker visible: true.
+- Main content ready marker visible: true.
+- Initial-home readiness/profile-switch diagnostic: home-ready and profile-switch idle.
+- Fully-drawn marker visible: false.
+- The last accessibility-event package shown is the benchmark app package, not LADB, at the time of the final diagnostic snapshot.
+
+This is materially different from the earlier screenshot snapshot. It shows that the target app and Home content were present; the outstanding app signal was the fully-drawn marker. It does not prove LADB displaced Nuvio.
+
+The recording also shows a supplemental hierarchy-dump failure: the log says the XML hierarchy dumper can throw on invalid characters in accessibility text, and that diagnostic was omitted. This is a separate diagnostic serialization path; the clip's horizontally clipped stack does not let us identify a precise malformed string or prove that it caused the missing fully-drawn signal.
+
+### Confirmed code-level logging defect
+
+The shared `StartupReadiness.markerVisible()` implementation previously caught every `Exception` thrown by `UiDevice.findObject()` and returned `false`. That collapsed two distinct outcomes:
+1. selector completed normally and the marker was absent;
+2. UI Automator/accessibility traversal threw and the marker query did not complete.
+
+The second outcome could therefore be misreported as a normal marker timeout. The shared helper has been changed to let marker-query exceptions propagate and to wrap them at the Home or fully-drawn stage with the original cause attached. A marker-query failure is now identified as an accessibility query failure, not as "marker not visible".
+
+Foreground recovery command failures are also no longer silently ignored when the active window is a known shell/terminal; they are surfaced with the affected marker and active package context. The active-window decision, shared 60-second overall deadline, and separate Home and TTFD marker contract are unchanged.
+
+### External-source cross-check
+
+The official AndroidX UI Automator API documents `UiDevice.findObject(BySelector)` as a selector search that returns the matching object or null when no match exists. The AndroidX implementation delegates the search to `ByMatcher`, which traverses the accessibility-node hierarchy. This is not the XML dumper path.
+
+The AndroidX XML dumper separately serializes accessibility node properties (including text and content descriptions) into XML attributes and contains character-sanitization logic. The recording's omitted hierarchy dump is consistent with a diagnostic serialization problem; it should not be conflated with the actual selector lookup outcome.
+
+An independent real-world issue report also documents `ByMatcher` failing inside recursive `AccessibilityNodeInfo.getChild()` traversal when the accessibility framework returns broken node data. That report is not proof of the same defect on this Galaxy device, but it supports not suppressing traversal exceptions.
+
+References:
+- [UiDevice API](https://developer.android.com/reference/androidx/test/uiautomator/UiDevice)
+- [AndroidX AccessibilityNodeInfoDumper source](https://android.googlesource.com/platform/frameworks/support/+/48d9273f1facf771ff812a10d8bb46f6f8773ed4/test/uiautomator/uiautomator/src/main/java/androidx/test/uiautomator/AccessibilityNodeInfoDumper.java)
+- [AndroidX ByMatcher source change](https://github.com/friendboy1/androidx/commit/3f4b3cd915328e0539c135e3e12e1773a03a0689)
+- [Independent UI Automator accessibility-node traversal report](https://github.com/openatx/uiautomator2/issues/770)
+
+### Readiness chain follow-up
+
+The current Android app uses the normal AppGate path with `renderMainContent = true`. The normal path forwards `MainAppContent.onRootContentReady` to `MainActivity.appReady`. AppGate's alternate `!renderMainContent` path uses separate external readiness and overlay checks and is not the active Android startup path.
+
+In MainAppContent, root readiness is `initialHomeReady && !profileSwitchLoading`; the callback also waits for the launch overlay exit to be idle and not visible. The clip's Home-ready/profile-switch-idle diagnostic indicates those inputs were satisfied at the final snapshot, while the fully-drawn marker was still false. That narrows the remaining app-side question to whether the normal AppGate callback was invoked and propagated on this run, or whether the diagnostic snapshot and the marker query observed different states/times. It does not justify weakening TTFD or skipping the app-ready contract.
+
+### Remaining decisive evidence
+
+The next on-device capture should preserve:
+- the first complete exception and stack trace from the original instrumentation failure;
+- active and focused window packages during the wait;
+- marker query stage and original exception type/message, if one occurs;
+- app-side Home-ready, profile-switch-idle, overlay-idle, AppGate main, and appReady values at the same timestamps;
+- foreground/resumed activity before and after instrumentation;
+- exact APK flavor, package version and build/source commit.
+
+The current recording does not show enough of the first exception line or stack to identify a specific invalid character or prove which AndroidX call threw. Do not attribute the failure to LADB or XML text alone.
+
+### Verification boundary
+
+The logging correction and its source-level regression assertions were committed remotely. No test script, build, instrumentation run, phone benchmark, or CI workflow was run during this work. Therefore the changes are source-reviewed but unexecuted. The physical-device readiness problem remains unresolved until a fresh run captures the complete original exception and the updated stage evidence.
