@@ -115,6 +115,16 @@ class HomeHeroPrefetchTest {
         )
         assertNull(heroPrefetchSize(widthPx = Float.NaN, heightPx = 200f))
         assertNull(heroPrefetchSize(widthPx = 200f, heightPx = 0f))
+        assertNull(
+            heroLogoPrefetchSize(
+                heroWidthPx = Float.NaN,
+                horizontalStartPaddingPx = 0f,
+                horizontalEndPaddingPx = 0f,
+                contentWidthFraction = 1f,
+                contentMaxWidthPx = 400f,
+                logoWidthFraction = 0.5f,
+            ),
+        )
     }
 
     @Test
@@ -123,8 +133,8 @@ class HomeHeroPrefetchTest {
             artworkUrl = " ",
             logoUrl = "https://example.test/logo.png",
             isCardStyle = false,
-            artworkSize = null,
-            logoSize = null,
+            artworkSize = HeroPrefetchSize(widthPx = 0, heightPx = 720),
+            logoSize = HeroPrefetchSize(widthPx = 320, heightPx = -1),
         )
 
         assertEquals(emptyList(), targets)
