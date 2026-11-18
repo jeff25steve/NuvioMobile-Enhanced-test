@@ -672,6 +672,17 @@ done
 # Verify the API 33 report explicitly identifies its pre-34 ART verification caveat.
 # The preceding flavor loop leaves the Play Store variant installed. Restore Full
 # explicitly because the phone runner correctly requires a matching installed variant.
+# API 33 profile capture and variant installation remain available without root.
+if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile full > "$TMP/api33-profile-install.log" 2>&1; then
+  echo "FAIL: API 33 should still allow non-minified profile-capture installation without root." >&2
+  cat "$TMP/api33-profile-install.log" >&2
+  exit 1
+fi
+if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api33-profile-collect.log" 2>&1; then
+  echo "FAIL: API 33 should still allow Baseline Profile collection without root." >&2
+  cat "$TMP/api33-profile-collect.log" >&2
+  exit 1
+fi
 if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full > "$TMP/api33-install.log" 2>&1; then
   echo "FAIL: API 33 fixture could not install the matching Full benchmark variant." >&2
   cat "$TMP/api33-install.log" >&2
@@ -699,8 +710,14 @@ fi
 # can pass AndroidX's su root id capability check.
 : > "$FAKE_COMMAND_LOG"
 if ! FAKE_API=33 FAKE_SU_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-art-caveat.log" 2>&1; then
-  echo "FAIL: rooted API 33 benchmark measurement failed before summary validation." >&2
+  echo "FAIL: API 33 measurement should pass when 'su root id' is available." >&2
   cat "$TMP/api33-art-caveat.log" >&2
+  exit 1
+fi
+: > "$FAKE_COMMAND_LOG"
+if ! FAKE_API=33 FAKE_SHELL_ROOT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure full > "$TMP/api33-already-root.log" 2>&1; then
+  echo "FAIL: API 33 measurement should also pass when the shell is already root." >&2
+  cat "$TMP/api33-already-root.log" >&2
   exit 1
 fi
 api33_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
