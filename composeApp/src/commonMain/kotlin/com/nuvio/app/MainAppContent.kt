@@ -40,6 +40,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1578,6 +1580,13 @@ internal fun MainAppContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.nuvio.colors.background)
+                    .semantics {
+                        // Preserve state diagnostics on the visible root node. A tag-only 1dp
+                        // child is less reliable in AccessibilityNodeInfo than this visible node.
+                        stateDescription =
+                            "home_${if (initialHomeReady) "ready" else "pending"}_" +
+                                "profile_switch_${if (profileSwitchLoading) "loading" else "idle"}"
+                    }
                     .testTag(
                         when {
                             !rootContentReady -> "nuvio_main_content_loading"
@@ -1587,15 +1596,6 @@ internal fun MainAppContent(
                         },
                     ),
             ) {
-                // Non-drawing diagnostic node: reveal which root-readiness input is still pending.
-                Box(
-                    modifier = Modifier
-                        .size(1.dp)
-                        .testTag(
-                            "nuvio_readiness_home_${if (initialHomeReady) "ready" else "pending"}_" +
-                                "profile_switch_${if (profileSwitchLoading) "loading" else "idle"}",
-                        ),
-                )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
