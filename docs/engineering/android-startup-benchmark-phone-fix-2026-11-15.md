@@ -2377,3 +2377,46 @@ Sources:
 ### Verification boundary
 
 Remote source review confirms the edits landed. No shell regression script was executed, no Kotlin/Java compilation was run, no APK/AAB was built, no LADB run was started, and no CI was triggered. Runtime and performance benefits are unverified. The next device run should use the new provenance format and record APK hashes before conclusions are drawn.
+
+
+## 18 November 2026 — ART runtime diagnostics added to the phone benchmark
+
+### New research finding
+
+The AndroidX Macrobenchmark 1.5.0 source contains `ArtMetric`, which captures app-process ART events during a benchmark:
+- `artJitCount` / `artJitSumMs`: methods JIT-compiled at runtime;
+- `artVerifyClassCount` / `artVerifyClassSumMs`: classes verified at runtime;
+- `artClassLoadCount` / `artClassLoadSumMs`: classes loaded at runtime, only when the device's API/ART version exposes the relevant tracepoints.
+
+Important interpretation limits from AndroidX source:
+- ART JIT may include framework code from the system image, even for a profile-compiled app.
+- Class-load metrics may be absent on unsupported ART versions; absence is not proof of zero work.
+- High runtime verification can indicate install-time verification did not happen for some classes; debuggable applications are not verified at install time, one reason release/profileable builds are required.
+- A non-zero JIT total alone is not proof of incomplete Nuvio profile coverage.
+
+Sources:
+- [AndroidX ArtMetric source](https://android.googlesource.com/platform/frameworks/support/+/HEAD/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt)
+- [AndroidX ArtMetric API](https://android.googlesource.com/platform/frameworks/support/+/155b9eedc7a9732cce0505b492b2c15f5e70d1b9/benchmark/benchmark-macro/api/current.txt)
+- [Android performance test environment](https://developer.android.com/topic/performance/appstartup/setup-env)
+
+### Concrete implementation
+
+Added a separate `startupArtDiagnostics` instrumentation case to `StartupBenchmark.java`. It uses the exact same cold launch, app package, readiness wait, ten iterations and required packaged Baseline Profile as the profile timing case, but adds `ArtMetric` beside `StartupTimingMetric`.
+
+The original two timing cases remain unchanged and continue to produce the exact JSON names/shapes consumed by the strict phone-runner TTID/TTFD parser. The ART case is validated as an additional test method in the instrumentation log, but its optional device-specific ART metrics do not alter the original timing statistics or trace-count expectations.
+
+The phone runner now requires the ART diagnostic case to execute. The source regression guard protects the presence of that case and its `ArtMetric` configuration; a duplicated source-path assignment in the guard was also removed.
+
+### How to use the new evidence
+
+Compare the ART diagnostic result with the required-profile timing run:
+- large Nuvio-process JIT counts/duration suggest important executed methods still run interpreted or are outside the shipped profile;
+- runtime class verification can indicate verification was deferred for some classes;
+- class-load values are meaningful only when reported by the device's ART version;
+- correlate candidate methods/classes with Perfetto traces and the generated `startup-prof.txt` before editing application code.
+
+Do not automatically convert ART totals into a pass/fail threshold. They can include framework activity and ART-version differences. Their purpose is to identify what to inspect next.
+
+### Verification boundary
+
+The source and runner changes have been written to `main-build-testing` and will be re-fetched for confirmation. No build, instrumentation execution, LADB run, test script or CI was started. Compilation compatibility and runtime JSON output remain unverified until the next authorized benchmark build/run.
