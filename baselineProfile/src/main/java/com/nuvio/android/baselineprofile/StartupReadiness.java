@@ -24,17 +24,15 @@ final class StartupReadiness {
     private StartupReadiness() {}
 
     static boolean markerVisible(UiDevice device, String marker) {
-        try {
-            if (device.findObject(packageRes(marker)) != null) {
-                return true;
-            }
-            // Some Compose/accessibility bridges only expose the bare testTag.
-            // Accept that form only while the target app is present in the hierarchy.
-            return device.findObject(By.res(marker)) != null
-                    && device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null;
-        } catch (Exception ignored) {
-            return false;
+        // Do not convert accessibility/UiAutomator failures into "not found".
+        // A thrown exception is a harness failure, not evidence that the marker is absent.
+        if (device.findObject(packageRes(marker)) != null) {
+            return true;
         }
+        // Some Compose/accessibility bridges only expose the bare testTag.
+        // Accept that form only while the target app is present in the hierarchy.
+        return device.findObject(By.res(marker)) != null
+                && device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null;
     }
 
     static BySelector packageRes(String marker) {
@@ -94,19 +92,22 @@ final class StartupReadiness {
     static void waitForTargetAppPresent(UiDevice device, long timeoutMs) {
         long deadline = SystemClock.elapsedRealtime() + timeoutMs;
         while (SystemClock.elapsedRealtime() < deadline) {
-            try {
-                if (device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null) {
-                    return;
-                }
-                // Recover only when a known shell/terminal owns the active window.
-                String current = activeWindowPackage(device);
-                if (isKnownShellPackage(current)) {
+            if (device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null) {
+                return;
+            }
+            // Recover only when a known shell/terminal owns the active window.
+            String current = activeWindowPackage(device);
+            if (isKnownShellPackage(current)) {
+                try {
                     device.executeShellCommand(
                             "monkey -p " + TARGET_APP_PACKAGE
                                     + " -c android.intent.category.LAUNCHER 1");
+                } catch (Exception recoveryFailure) {
+                    throw new IllegalStateException(
+                            "Unable to restore Nuvio while the active window belongs to "
+                                    + current + ".",
+                            recoveryFailure);
                 }
-            } catch (Exception ignored) {
-                // keep polling
             }
             SystemClock.sleep(POLL_MS);
         }
@@ -119,15 +120,18 @@ final class StartupReadiness {
                 return true;
             }
             // Recover only when a known shell/terminal owns the active window.
-            try {
-                String current = activeWindowPackage(device);
-                if (isKnownShellPackage(current)) {
+            String current = activeWindowPackage(device);
+            if (isKnownShellPackage(current)) {
+                try {
                     device.executeShellCommand(
                             "monkey -p " + TARGET_APP_PACKAGE
                                     + " -c android.intent.category.LAUNCHER 1");
+                } catch (Exception recoveryFailure) {
+                    throw new IllegalStateException(
+                            "Unable to restore Nuvio while waiting for marker '"
+                                    + marker + "'; active window package is " + current + ".",
+                            recoveryFailure);
                 }
-            } catch (Exception ignored) {
-                // keep polling
             }
             SystemClock.sleep(POLL_MS);
         }
@@ -139,7 +143,13 @@ final class StartupReadiness {
         waitForTargetAppPresent(device, Math.min(15_000L, READY_TIMEOUT_MS));
 
         long remaining = deadline - SystemClock.elapsedRealtime();
-        if (remaining <= 0 || !waitForMarker(device, HOME_MARKER, remaining)) {
+        boolean homeVisible;
+        try {
+            homeVisible = remaining > 0 && waitForMarker(device, HOME_MARKER, remaining);
+        } catch (RuntimeException queryFailure) {
+            throw markerQueryFailure(HOME_MARKER, "HomeScreen", queryFailure, device);
+        }
+        if (!homeVisible) {
             throw new AssertionError(
                     "Nuvio did not expose the HomeScreen marker '" + HOME_MARKER
                             + "' within " + READY_TIMEOUT_MS + " ms."
@@ -147,12 +157,30 @@ final class StartupReadiness {
         }
 
         remaining = deadline - SystemClock.elapsedRealtime();
-        if (remaining <= 0 || !waitForMarker(device, FULLY_DRAWN_MARKER, remaining)) {
+        boolean fullyDrawnVisible;
+        try {
+            fullyDrawnVisible = remaining > 0
+                    && waitForMarker(device, FULLY_DRAWN_MARKER, remaining);
+        } catch (RuntimeException queryFailure) {
+            throw markerQueryFailure(
+                    FULLY_DRAWN_MARKER, "fully-drawn", queryFailure, device);
+        }
+        if (!fullyDrawnVisible) {
             throw new AssertionError(
                     "HomeScreen appeared, but Nuvio did not expose its fully-drawn marker '"
                             + FULLY_DRAWN_MARKER + "' before the "
                             + READY_TIMEOUT_MS + " ms startup deadline."
                             + diagnostics(device));
         }
+    }
+
+    private static AssertionError markerQueryFailure(
+            String marker, String stage, RuntimeException cause, UiDevice device) {
+        AssertionError failure = new AssertionError(
+                "UI Automator threw while looking for the " + stage + " marker '"
+                        + marker + "'. This is an accessibility query failure, not a marker timeout."
+                        + diagnostics(device));
+        failure.initCause(cause);
+        return failure;
     }
 }
