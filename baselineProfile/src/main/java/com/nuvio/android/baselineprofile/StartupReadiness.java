@@ -24,19 +24,15 @@ final class StartupReadiness {
     private StartupReadiness() {}
 
     static boolean markerVisible(UiDevice device, String marker) {
-        // Do not convert accessibility/UiAutomator failures into "not found".
-        // A thrown exception is a harness failure, not evidence that the marker is absent.
-        if (device.findObject(packageRes(marker)) != null) {
-            return true;
-        }
-        // Some Compose/accessibility bridges only expose the bare testTag.
-        // Accept that form only while the target app is present in the hierarchy.
-        return device.findObject(By.res(marker)) != null
+        // Compose testTagsAsResourceId maps Modifier.testTag to a bare resource name.
+        // Keep the app package guard because UI Automator can see multiple windows/packages.
+        return device.findObject(packageRes(marker)) != null
                 && device.findObject(By.pkg(TARGET_APP_PACKAGE)) != null;
     }
 
     static BySelector packageRes(String marker) {
-        return By.res(TARGET_APP_PACKAGE, marker);
+        // Compose testTagsAsResourceId exposes Modifier.testTag as the bare resource name.
+        return By.res(marker);
     }
 
     static String activeWindowPackage(UiDevice device) {
@@ -74,6 +70,17 @@ final class StartupReadiness {
                 + "\nFully-drawn marker visible now: " + markerVisible(device, FULLY_DRAWN_MARKER)
                 + "\nNote: the last accessibility-event package is not a foreground indicator. "
                 + "Use the active-window package above to identify the active UI window.";
+    }
+
+ 
+    private static String rootReadinessStateDescription(UiDevice device) {
+        try {
+            return device.findObject(By.res("nuvio_main_content_ready")) != null
+                    ? String.valueOf(device.findObject(By.res("nuvio_main_content_ready")).getContentDescription())
+                    : "<main content root not ready>";
+        } catch (Exception error) {
+            return "<unavailable: " + error.getClass().getSimpleName() + ">";
+        }
     }
 
     private static boolean isKnownShellPackage(String packageName) {
