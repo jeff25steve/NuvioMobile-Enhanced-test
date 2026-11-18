@@ -881,11 +881,16 @@ capture_foreground_state() {
 }
 
 reject_pending_wifi_debug_confirmation() {
-  focus_state="$(dumpsys window windows 2>&1; dumpsys activity activities 2>&1)"
-  if printf '%s\n' "$focus_state" | grep -Eiq 'WifiDebuggingActivity|mCurrentFocus=.*com[.]android[.]systemui|topResumedActivity=.*com[.]android[.]systemui'; then
-    printf '%s\n' "$focus_state" | grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' | head -n 12 >&2 || true
+  focus_state_file="$RUN_DIR/wireless-debug-focus-check.txt"
+  {
+    dumpsys window windows 2>&1
+    dumpsys activity activities 2>&1
+  } > "$focus_state_file"
+  if grep -Eiq 'WifiDebuggingActivity|mCurrentFocus=.*com[.]android[.]systemui|topResumedActivity=.*com[.]android[.]systemui' "$focus_state_file"; then
+    grep -Ei 'WifiDebuggingActivity|mCurrentFocus|mFocusedApp|topResumedActivity|mResumedActivity' "$focus_state_file" | head -n 12 >&2 || true
     fail "Wireless debugging confirmation is active in Android System UI. Unlock the phone, approve or dismiss the Wireless debugging prompt for this LADB session, then rerun the benchmark. Instrumentation was not started."
   fi
+  rm -f "$focus_state_file"
 }
 
 run_instrumentation() {
@@ -899,6 +904,7 @@ run_instrumentation() {
   capture_foreground_state before
   reject_pending_wifi_debug_confirmation
   resolve_instrumentation
+  write_run_provenance
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
