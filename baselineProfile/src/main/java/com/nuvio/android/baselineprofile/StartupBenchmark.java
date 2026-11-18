@@ -1,5 +1,6 @@
 package com.nuvio.android.baselineprofile;
 
+import androidx.benchmark.macro.ArtMetric;
 import androidx.benchmark.macro.BaselineProfileMode;
 import androidx.benchmark.macro.CompilationMode;
 import androidx.benchmark.macro.StartupMode;
@@ -10,6 +11,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import kotlin.Unit;
@@ -19,8 +21,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Compares cold-start time with no AOT compilation against a required,
- * packaged Nuvio Baseline Profile.
+ * Compares cold-start timing with and without the packaged Baseline Profile,
+ * and has a separate ART diagnostic case for runtime compilation/loading.
  *
  * Run manually on a physical API 33+ device with the isolated
  * {@code com.nuvio.media.benchmark} install signed in on Home.
@@ -35,20 +37,40 @@ public final class StartupBenchmark {
 
     @Test
     public void startupCompilationNone() {
-        runColdStartupBenchmark(CompilationMode.None.INSTANCE);
+        runColdStartupBenchmark(
+                CompilationMode.None.INSTANCE,
+                Collections.singletonList(new StartupTimingMetric())
+        );
     }
 
     @Test
     public void startupCompilationBaselineProfile() {
         runColdStartupBenchmark(
-                new CompilationMode.Partial(BaselineProfileMode.Require)
+                new CompilationMode.Partial(BaselineProfileMode.Require),
+                Collections.singletonList(new StartupTimingMetric())
         );
     }
 
-    private void runColdStartupBenchmark(CompilationMode compilationMode) {
+    /**
+     * Diagnostic only: reports app-process ART JIT, verification, and
+     * class-loading activity while using the packaged Baseline Profile.
+     * ART class-load counters are omitted on devices without supported
+     * tracepoints; JIT counters can also include system-image framework code.
+     */
+    @Test
+    public void startupArtDiagnostics() {
+        runColdStartupBenchmark(
+                new CompilationMode.Partial(BaselineProfileMode.Require),
+                Arrays.asList(new StartupTimingMetric(), new ArtMetric())
+        );
+    }
+
+    private void runColdStartupBenchmark(
+            CompilationMode compilationMode,
+            java.util.List<androidx.benchmark.macro.Metric> metrics) {
         benchmarkRule.measureRepeated(
                 StartupReadiness.TARGET_APP_PACKAGE,
-                Collections.singletonList(new StartupTimingMetric()),
+                metrics,
                 compilationMode,
                 StartupMode.COLD,
                 ITERATIONS,
