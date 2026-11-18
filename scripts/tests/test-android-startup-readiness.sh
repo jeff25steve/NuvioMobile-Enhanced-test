@@ -133,4 +133,20 @@ grep -Fq 'remaining' "$READINESS_SOURCE" || {
   exit 1
 }
 
-printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; shared helper diagnostics use active-window semantics.\n'
+grep -Fq 'write_run_provenance' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+  echo "FAIL: each benchmark run must save runner and APK provenance." >&2
+  exit 1
+}
+grep -Fq 'write_run_provenance' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+  echo "FAIL: provenance capture must be integrated into run_instrumentation." >&2
+  exit 1
+}
+grep -Fq 'focus_state_file="$RUN_DIR/wireless-debug-focus-check.txt"' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+  echo "FAIL: Wireless debugging state must be captured in a file, not a large shell variable." >&2
+  exit 1
+}
+if grep -Fq 'focus_state="$(dumpsys window windows' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"; then
+  echo "FAIL: runner must not keep combined dumpsys output in a shell variable." >&2
+  exit 1
+fi
+printf 'PASS: readiness selectors, visible-root diagnostics, provenance capture and file-backed dumpsys checks are guarded.\n'
