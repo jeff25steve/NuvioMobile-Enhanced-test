@@ -12,6 +12,7 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import coil3.size.Scale
 import coil3.size.Size
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -47,6 +48,8 @@ internal data class PosterPrefetchTarget(
     val imageUrl: String,
     val fallbackImageUrl: String?,
     val shape: NuvioPosterShape,
+    /** Scale used by the displayed artwork composable. */
+    val scale: PosterPrefetchScale = PosterPrefetchScale.CROP,
     /** Exact rendered image bounds for cards whose artwork region differs from the poster shape. */
     val sizeDp: DpSize? = null,
 )
@@ -93,6 +96,12 @@ internal fun PosterRowImagePrefetchEffect(
                     imageLoader.enqueue(
                         builder
                             .size(Size(widthPx.roundToInt(), heightPx.roundToInt()))
+                            .scale(
+                                when (target.scale) {
+                                    PosterPrefetchScale.CROP -> Scale.FILL
+                                    PosterPrefetchScale.FIT -> Scale.FIT
+                                },
+                            )
                             .build(),
                     )
                 }
