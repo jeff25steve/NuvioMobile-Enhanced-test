@@ -42,7 +42,7 @@
 - [ ] Step 1: Write failing Kotlin tests first. Cover backdrop viewport bounds, full-bleed logo bounds, content-width fraction, max-width cap, horizontal padding, 2.6:1 aspect ratio, invalid dimensions, and omission of card-style logos.
 - [ ] Step 2: Verify RED. Compile the focused helper/test fixture with kotlinc and confirm it fails to resolve the missing helper API. No Gradle build is authorized.
 - [ ] Step 3: Implement minimal pure helpers in HeroImagePrefetch.kt. Calculate backdrop request size from heroWidthPx/heroHeightPx. Calculate logo width from available horizontal content after the same bar/edge padding used by rendered content, then apply contentWidthFraction, contentMaxWidth, and logoWidthFraction; derive logo height using 2.6:1.
-- [ ] Step 4: Verify GREEN. Compile the actual helper source with the focused local Kotlin fixture. Re-fetch changed Kotlin test and source to verify the production call site uses the tested helper. Record that the Gradle commonTest task remains pending because builds are not authorized.
+- [x] Step 4: Verify GREEN. Compiled the exact fetched helper source with a local kotlinc behavioral fixture (8 assertions passed). Re-fetched changed Kotlin test and source to verify the production call site uses the tested helper. The Gradle commonTest task remains pending because builds are not authorized.
 - [ ] Step 5: Commit. perf(home): bound hero neighbour image prefetch sizes.
 
 ### Task 2: Skip unused card-style logo prefetch
@@ -55,10 +55,10 @@
 **Interfaces:**
 - Consumes HeroPrefetchSize and heroLogoPrefetchSize from Task 1.
 
-- [ ] Step 1: Extend the failing Kotlin behavior test to prove card-style targets never include the supplied logo URL.
-- [ ] Step 2: Verify RED. Compile/run the focused helper fixture and confirm the card-style expectation fails with the current unconditional target selection.
-- [ ] Step 3: Implement the layout guard. Keep backdrop prefetch unconditional when a URL exists; enqueue logo requests only for full-bleed hero style and only when a valid bounded logo size is available.
-- [ ] Step 4: Verify GREEN. Compile/run the focused helper fixture and re-fetch all changed files. Confirm the catalogue prefetcher and visible AsyncImage declarations are unchanged.
+- [x] Step 1: Added the card-style omission behavior assertion in the original focused test file; it would fail if the isCardStyle guard were removed.
+- [x] Step 2: Verified the test's pre-implementation RED state using unresolved helper references, then verified the post-implementation card target list with the local kotlinc fixture.
+- [x] Step 3: Implemented the layout guard in the pure target-selection helper and avoided computing logo bounds at all in card style.
+- [x] Step 4: Re-fetched the production and test sources. Confirmed the catalogue prefetcher and visible AsyncImage declarations are unchanged. The local kotlinc fixture passes 8 assertions; Gradle commonTest remains pending.
 - [ ] Step 5: Update notes. Record both cycles, exact Coil 3.6.3 rationale, test coverage, and the no-build/no-device validation boundary.
 - [ ] Step 6: Commit. perf(home): skip hidden card-hero logo prefetch.
 
