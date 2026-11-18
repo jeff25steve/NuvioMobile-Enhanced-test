@@ -2235,3 +2235,41 @@ Keep the hierarchy dump best-effort and ensure a dump failure never replaces the
 ### Verification boundary
 
 This is a source/recording review only. No build, shell test, instrumentation test, new phone run or CI was executed. The current branch code does not yet have the full timestamped stage telemetry or exact runner `E2BIG` root-cause evidence. The benchmark failure remains open; the recording does not verify the most recent source fix.
+
+
+## 18 November 2026 — prioritized diagnostics implementation (LADB user-run correction)
+
+The recording is the user's own LADB run, not a Grok-created or Grok-supplied recording. Any prior label implying otherwise is incorrect.
+
+### Prioritized source changes
+
+1. **Compose marker selector corrected.** All relevant markers originate from `Modifier.testTag` with root `testTagsAsResourceId = true`. Android's Compose interoperability guidance says this maps tags to the bare resource name and specifically cautions against `By.res(resourcePackage, resourceId)` for Compose tags. The shared helper now uses `By.res(marker)` and separately checks that the benchmark app package exists in the accessibility hierarchy.
+
+2. **Root readiness state moved onto visible semantics.** The former 1dp child exposed a tag-only diagnostic node. Compose's official accessibility implementation notes say testTag-only nodes are kept for UI Automator but marked unimportant for screen readers; they are more vulnerable to tree changes/visibility pruning than a visible semantics-bearing root. The main content root now includes a proper `stateDescription` with `home_ready|pending_profile_switch_idle|loading` state, while keeping the existing primary test tag unchanged. This avoids adding fake content descriptions or extra accessible UI elements.
+
+3. **Runner provenance recorded per invocation.** A new `provenance.txt` records runner path and SHA-256, staged runner SHA-256, flavor/action, APK paths/hashes and resolved instrumentation component. This should make a stale script or APK immediately apparent on the next LADB run.
+
+4. **Wireless debugging check no longer buffers large dumpsys text in a shell variable.** It captures the two dumpsys outputs to a temporary file, greps that file, and removes it when clear. This avoids passing the full combined value to an external filter/printf pipeline. The runner already writes `am instrument` directly to `instrumentation.log`, so no change was needed there.
+
+### Context7 / Exa verification
+
+- Context7 Compose docs: `Modifier.semantics` creates a semantics node; `testTag` is exposed through `testTagsAsResourceId` as a resource-name handle; `stateDescription` is an established accessibility semantics property.
+- Official Compose interoperability guide states to use `By.res("tag")` for Compose testTags and warns against the two-argument package/resource form.
+- AndroidX Compose implementation notes state that testTag-only nodes are marked unimportant for accessibility, and describe automatic pruning of invisible/occluded semantics.
+- AOSP Toybox marks `printf` as MAYFORK, so it can be executed as a separate process by the shell and subject to exec argument limits. This supports the general E2BIG concern, but does not identify the exact oversized argument from the prior run.
+
+References:
+- [Compose UI Automator interoperability](https://developer.android.com/develop/ui/compose/testing/interoperability)
+- [Compose semantics API](https://developer.android.com/reference/kotlin/androidx/compose/ui/semantics/package-summary)
+- [AndroidX accessibility implementation notes](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/accessibility/android_a11y_implementation_notes.md)
+- [AOSP Toybox generated command metadata](https://android.googlesource.com/platform/external/toybox/+/refs/tags/android-13.0.0_r28/android/device/generated/newtoys.h)
+- [AOSP Toybox printf MAYFORK change](https://landley.net/toybox/git/commit/7348ee6049cb)
+
+### Remaining uncertainty
+
+- The prior LADB APK's stack still points to an older generator implementation; this new source change must be built into a new benchmark APK before it can be tested.
+- The stateDescription is now on the already-visible main root, but its AccessibilityNodeInfo output still needs confirmation on the actual Samsung device.
+- The `printf: Argument list too long` line number in the video does not match the current runner. The new per-run checksum will identify the exact script used next time. The file-based wireless-debug check removes one large command-substitution path, but the exact old E2BIG origin remains unproven.
+- The root readiness stateDescription is diagnostic only. It does not replace the separate fully-drawn marker or change the TTFD requirement.
+
+No test script, build, instrumentation, LADB run or CI was executed. These changes are source-reviewed only.
