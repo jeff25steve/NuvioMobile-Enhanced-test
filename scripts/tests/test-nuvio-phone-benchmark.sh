@@ -87,6 +87,14 @@ if grep -Fq 'dumpWindowHierarchy' "$READINESS_SOURCE"; then
   exit 1
 fi
 
+grep -Fq 'if (( API_LEVEL <= 33 )); then' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must protect authenticated Home measurement on API 33 as well as older rooted devices." >&2
+  exit 1
+}
+grep -Fq 'shell id' "$DESKTOP_RUNNER" && grep -Fq 'shell su root id' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must mirror AndroidX's already-rooted and su root id capability checks." >&2
+  exit 1
+}
 if grep -Fq "tr -d '\\\\r'" "$DESKTOP_RUNNER"; then
   echo "FAIL: desktop runner's adb output cleanup strips literal characters instead of carriage returns." >&2
   exit 1
