@@ -7,6 +7,8 @@ HOME_SCREEN_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/fea
 APP_GATE_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppGate.kt"
 MAIN_CONTENT_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
+ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
+GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
@@ -55,8 +57,30 @@ grep -Fq '"nuvio_main_content_ready"' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: MainAppContent must expose its ready state." >&2
   exit 1
 }
-grep -Fq 'nuvio_readiness_home_' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: MainAppContent must expose the initial-home/profile-switch readiness combination." >&2
+grep -Fq 'stateDescription =' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: the visible main-content root must expose its readiness state." >&2
+  exit 1
+}
+# Only the launcher startup journey belongs in the Startup Profile.
+grep -Fq 'StartupReadiness.TARGET_APP_PACKAGE' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Baseline Profile generator must target the isolated benchmark app." >&2
+  exit 1
+}
+grep -Fq 'true,' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Startup Profile collection must remain enabled." >&2
+  exit 1
+}
+grep -Fq '"startup"' "$GENERATOR_SOURCE" || {
+  echo "FAIL: startup profile output prefix must remain explicit." >&2
+  exit 1
+}
+# Release/benchmark APK needs R8 optimization; the capture build stays non-minified.
+grep -Fq 'isMinifyEnabled = true' "$ANDROID_BUILD_SOURCE" || {
+  echo "FAIL: optimized benchmarkRelease must keep R8 enabled." >&2
+  exit 1
+}
+grep -Fq 'initWith(getByName("release"))' "$ANDROID_BUILD_SOURCE" || {
+  echo "FAIL: benchmarkRelease must inherit the optimized release configuration." >&2
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
@@ -149,4 +173,16 @@ if grep -Fq 'focus_state="$(dumpsys window windows' "$ROOT_DIR/scripts/nuvio-pho
   echo "FAIL: runner must not keep combined dumpsys output in a shell variable." >&2
   exit 1
 fi
+if grep -Fq 'printf '\''Runner path: %s\\\\n'\''' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"; then
+  echo "FAIL: provenance records must use real newline characters, not literal backslash-n text." >&2
+  exit 1
+fi
+grep -Fq 'printf '\''App APK SHA-256: %s\\n'\''' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+  echo "FAIL: provenance must record the application APK hash." >&2
+  exit 1
+}
+grep -Fq 'printf '\''Test APK SHA-256: %s\\n'\''' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+  echo "FAIL: provenance must record the instrumentation APK hash." >&2
+  exit 1
+}
 printf 'PASS: readiness selectors, visible-root diagnostics, provenance capture and file-backed dumpsys checks are guarded.\n'
