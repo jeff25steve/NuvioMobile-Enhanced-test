@@ -2273,3 +2273,55 @@ References:
 - The root readiness stateDescription is diagnostic only. It does not replace the separate fully-drawn marker or change the TTFD requirement.
 
 No test script, build, instrumentation, LADB run or CI was executed. These changes are source-reviewed only.
+
+
+## 18 November 2026 — upstream comparison and diagnostic API correction
+
+### Official Nuvio comparison
+
+Reviewed the official [NuvioMedia/NuvioMobile](https://github.com/NuvioMedia/NuvioMobile) repository on its current `cmp-rewrite` branch. Its README identifies the Android build as `:androidApp:assembleFullDebug` and confirms the shared Kotlin Multiplatform / Compose Multiplatform architecture.
+
+The official version catalog currently pins:
+- `androidx-benchmark = 1.5.0`
+- `androidx-uiautomator = 2.3.0`
+- `androidx-testRunner = 1.7.0`
+
+The enhanced benchmark branch pins UI Automator `2.4.1` (and has its own dedicated baseline-profile / macrobenchmark harness). Therefore upstream is not ahead of the enhanced branch on the UI Automator version. Do not downgrade to upstream's 2.3.0 merely for parity: the newer 2.4.1 dependency is deliberate and should remain unless a specific regression is found.
+
+The available upstream source evidence did not establish an equivalent phone-side LADB workflow, the same two-stage Home/fully-drawn marker contract, or a directly reusable benchmark-readiness implementation. No unsupported claim of parity or superiority is made from that gap.
+
+### Confirmed defect in our latest diagnostic reader
+
+A source re-read found that `rootReadinessStateDescription()` called `UiObject2.getContentDescription()` while trying to inspect Compose's `Modifier.semantics { stateDescription = ... }`. These are different accessibility properties. AndroidX API documentation and implementation identify `getContentDescription()` as content description only; `UiObject2.getAccessibilityNodeInfo()` exposes the underlying `AccessibilityNodeInfo`, whose `getStateDescription()` is the correct accessor.
+
+Corrected the diagnostic reader to:
+- resolve the main-content root once;
+- return a clear not-ready marker when absent;
+- call `root.getAccessibilityNodeInfo().getStateDescription()`;
+- distinguish a null state value from an inaccessible object;
+- retain best-effort exception handling so diagnostics do not replace the original benchmark failure.
+
+This correction changes diagnostics only. It does not change the Home marker, fully-drawn marker, `ReportDrawnWhen`, timeout budget, startup path or UI behaviour.
+
+### Video/log interpretation — still-open evidence
+
+The user's LADB recording demonstrates Home marker discovery but a timeout waiting for the separate fully-drawn marker. The dump failure on U+0000 is secondary. The `printf: Argument list too long` line is not mapped to a `printf` invocation at the matching line in the current remote runner, and the video stack/30-second timeout do not match the latest source's helper/60-second timeout. The exact APK and runner revision used for that capture therefore remain unproven.
+
+The next run's provenance record (runner and APK SHA-256 plus instrumentation component) is the correct way to remove that ambiguity. Do not claim that the diagnostic correction resolves the original fully-drawn timeout or the old `printf` error until a fresh, provenance-matched phone capture demonstrates it.
+
+### Upstream-informed improvement priorities
+
+1. Keep comparing actual source/config, not README claims or apparent feature parity.
+2. Keep UI Automator 2.4.1 unless a reproducible compatibility/performance regression justifies changing it; upstream's 2.3.0 pin is not evidence to downgrade.
+3. Preserve both TTID and TTFD. Android's official Macrobenchmark guidance recommends measuring both initial and full display; never relax the fully-drawn gate to make profile collection pass.
+4. Next instrumentation improvement should be a bounded timestamped stage timeline for app package present, Home marker, main-content stateDescription, and fully-drawn marker, plus resumed/active window package. Keep per-poll work low and do not add XML hierarchy dumps or unbounded shell-output arguments.
+5. The old `printf` E2BIG source remains unknown. Use the staged script checksum and a narrow execution trace around the actual failing call on the next reproduction, rather than editing unrelated printf sites.
+
+References:
+- [Official Nuvio repository](https://github.com/NuvioMedia/NuvioMobile)
+- [Official upstream version catalog](https://github.com/NuvioMedia/NuvioMobile/blob/cmp-rewrite/gradle/libs.versions.toml)
+- [AndroidX UiObject2 API](https://developer.android.com/reference/androidx/test/uiautomator/UiObject2)
+- [AccessibilityNodeInfo.getStateDescription](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo#getStateDescription())
+- [Macrobenchmark startup measurement guidance](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
+
+No build, shell test, instrumentation test, device run or CI was started. The change is source-only and awaits the next authorized phone benchmark.
