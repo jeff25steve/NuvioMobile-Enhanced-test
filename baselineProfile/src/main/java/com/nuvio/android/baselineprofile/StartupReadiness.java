@@ -72,12 +72,18 @@ final class StartupReadiness {
                 + "Use the active-window package above to identify the active UI window.";
     }
 
- 
+
     private static String rootReadinessStateDescription(UiDevice device) {
         try {
-            return device.findObject(By.res("nuvio_main_content_ready")) != null
-                    ? String.valueOf(device.findObject(By.res("nuvio_main_content_ready")).getContentDescription())
-                    : "<main content root not ready>";
+            androidx.test.uiautomator.UiObject2 root =
+                    device.findObject(By.res("nuvio_main_content_ready"));
+            if (root == null) {
+                return "<main content root not ready>";
+            }
+            // Compose stateDescription maps to AccessibilityNodeInfo.stateDescription,
+            // not contentDescription. Read the correct accessibility property directly.
+            CharSequence state = root.getAccessibilityNodeInfo().getStateDescription();
+            return state == null ? "<stateDescription unavailable>" : state.toString();
         } catch (Exception error) {
             return "<unavailable: " + error.getClass().getSimpleName() + ">";
         }
