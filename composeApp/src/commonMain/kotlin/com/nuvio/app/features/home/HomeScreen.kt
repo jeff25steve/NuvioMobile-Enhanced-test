@@ -1010,7 +1010,10 @@ fun HomeScreen(
 
         DynamicArtworkBackground(artworkUrl = activeHeroArtworkUrl) {
             NuvioScreen(
-                modifier = Modifier.fillMaxSize().then(heroStretchModifier),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(heroStretchModifier)
+                    .testTag("nuvio_benchmark_home_scroll"),
                 horizontalPadding = 0.dp,
                 topPadding = if (showHeroSlot) 0.dp else null,
                 listState = homeListState,
