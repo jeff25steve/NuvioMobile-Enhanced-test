@@ -446,3 +446,148 @@ References: [R8 Configuration Analyzer](https://developer.android.com/topic/perf
 ### CI cache-key contract follow-up — 17 November 2026
 
 The Rust compiler fingerprint is now emitted as a step output and referenced via `steps.rust-toolchain.outputs.cache-key`. GitHub's `env` expression context does not include arbitrary environment variables inherited from a previous step through `GITHUB_ENV`; using a step output avoids a silently empty compiler segment in the Cargo target cache key. The pinned `cargo-ndk` binary cache is independently keyed by its exact tool version. The bundle static contract now checks this distinction.
+
+## External performance research follow-up — 18 November 2026
+
+### Evidence reviewed
+
+The live branch was inspected at `main-build-testing`; the earlier checkpoint commit remains `42e3dcdc4e6506f5c652e7040d4ce226b9f4372e`. Relative to the current `enhanced` branch, GitHub reports that `main-build-testing` is 133 commits ahead and 2,249 behind, with merge base `0ce28ba7e64b887f1666196490be4cad14d58462`. This is a divergent-history comparison, not the previous screenshot's 24-ahead/0-behind comparison-base metric. Keep the benchmark measurement baseline separate from source-branch ancestry.
+
+Pinned versions on `main-build-testing`:
+- Android Gradle Plugin 9.4.0
+- AndroidX Macrobenchmark 1.5.0
+- Coil 3.6.3
+- Compose Multiplatform 1.13.0-beta01
+- Kotlin 2.4.10
+- kotlinx-coroutines 1.10.2
+
+Context7 verified Coil 3.6.3 documentation for request sizing, Compose painter sizing and cache preloading. Android Developers' current docs and AndroidX release notes were checked separately. Exa was not used.
+
+### 1. Baseline Profile distribution is a first-order performance variable
+
+Community reports in r/Nuvio repeatedly compare noticeably smoother Play Store installs with sideloaded GitHub APKs:
+- The 6 August post includes a side-by-side cold-start GUI comparison of Play Store and GitHub builds and was reported with 374 votes.
+- The follow-up guide, updated 11 November, describes forcing ART compilation on the sideloaded Android TV build and reports smoother behavior afterward.
+
+These are user reports, not controlled Android phone benchmarks, and the Reddit posters' explanations should not be treated as proof of the precise cause. However, Android's official documentation confirms that Baseline Profiles provide install-time optimization when delivered/installed correctly, and explicitly warns that non-Play distribution channels may not get equivalent install-time application; benefits may wait for background dexopt. Official verification is to inspect the built APK and confirm `assets/dexopt/baseline.prof` exists and is non-empty. Profile source text alone is not proof that ART received an installable profile.
+
+Implication for our measurement:
+- Keep the existing `CompilationMode.None()` vs `CompilationMode.Partial(BaselineProfileMode.Require)` cold-start A/B.
+- Validate each actual benchmark APK's compiled profile and package identity before installing.
+- Record installation path and ART compilation state; distinguish raw sideloaded first launch from a profile-installed/compiled install.
+- Do not claim “beats official Nuvio” based only on a profile-required Macrobenchmark arm. Also measure the ordinary distribution path that a user actually installs.
+
+References:
+- https://www.reddit.com/r/Nuvio/comments/1vgyx6q/nuvio_github_apk_vs_google_playstore_gui/
+- https://www.reddit.com/r/Nuvio/comments/1vw6vil/how_to_get_sideloadedgithub_nuvio_to_run_faster/
+- https://developer.android.com/topic/performance/baselineprofiles/overview
+- https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles
+
+### 2. Official Nuvio has since made performance-focused changes worth accounting for
+
+The official Nuvio profile generator at upstream commit `81f836d40070ad96f17d8ff132fc7b72dfb4aef6` has separate Startup Profile and non-startup Baseline Profile collection passes. The non-startup pass exercises home scrolling, hero details, poster details and tab visits. This is a stronger coverage model than a startup-only journey; Enhanced's own current profile and benchmark sources must be compared directly before claiming profile-coverage superiority.
+
+Upstream PR #2239 (`Optimize custom poster URL resolving performance`) explains a concrete Compose scrolling bottleneck:
+- Regex compilation, temporary maps and repeated string replacement occurred per custom-poster URL resolution.
+- The fix caches tokenized patterns and fills URLs with one StringBuilder pass.
+- Continue Watching custom poster URLs are remembered to avoid repeat resolution during recomposition.
+- The PR explicitly calls out allocation pressure, GC frequency, CPU spikes and UI stutter as the motivation; it reports manual output-equivalence checks, not a numeric benchmark.
+
+Enhanced's `CustomPosterUrlResolver.kt` already contains the same class of optimisation: a synchronized bounded prepared-pattern cache, one-pass token scanning and StringBuilder replacement. Do not port the upstream PR blindly; first verify the Home/Continue Watching call-site memoization and test that list recomposition does not redo URL resolution. The resolver internals are already implemented in the inspected branch.
+
+Upstream PR #2278 records separate fixes for binge reuse identity (filename, then infoHash fallback) and a bounded minimum lead time for next-episode prefetch. This is playback prefetch reliability rather than app cold-start performance, so keep it out of startup claims; it may inform a distinct player-responsiveness benchmark.
+
+References:
+- https://github.com/NuvioMedia/NuvioMobile/blob/81f836d40070ad96f17d8ff132fc7b72dfb4aef6/baselineprofile/src/main/kotlin/com/nuvio/baselineprofile/BaselineProfileGenerator.kt
+- https://github.com/NuvioMedia/NuvioMobile/pull/2239
+- https://github.com/NuvioMedia/NuvioMobile/pull/2278
+
+### 3. Coil 3.6.3 audit: catalog prefetch is bounded; Home hero prefetch merits a trace
+
+Enhanced's existing `PosterImagePrefetch.kt` explicitly computes the rendered poster dimensions (from its DpSize or card-shape width/aspect ratio) and passes a pixel `Size` to each upcoming catalogue request. This is a good existing optimization; do not replace it with custom `rememberAsyncImagePainter` calls or add a second prefetch layer without trace evidence.
+
+In `HomeHeroSection.kt`, neighbor backdrop and logo prefetch requests are enqueued with `ImageRequest.Builder(context).data(url).build()` and no explicit size. Coil 3.6.3 documents that `rememberAsyncImagePainter` defaults to `Size.ORIGINAL` unless a constraints resolver is supplied; `AsyncImage` has its own constraints-aware sizing behavior. A request enqueued without a target does not inherit the displayed AsyncImage's measured constraints. This is a candidate for unnecessary original-size decode/cache memory, particularly for original-resolution backdrop URLs, but the exact decoded dimensions, cache-key reuse and runtime cost have not been measured in Nuvio.
+
+Next evidence step:
+1. Inspect `heroArtworkUrl` output variants and actual image source dimensions for the benchmark dataset.
+2. Use a trace to count prefetch decode sizes, concurrent decodes, memory cache entries and time overlapping first interaction.
+3. Compare current behavior against explicit bounds matched to actual hero view dimensions. Also compare disk-only preloading via Coil's documented `BlackholeDecoder` path, with memory cache disabled.
+4. Retain whichever path improves first display / scroll smoothness without increasing network waits, repeat fetches or memory pressure. A disk-only preload is not automatically faster for the first visible image.
+
+Coil 3.6.3 API evidence:
+- `rememberConstraintsSizeResolver()` is intended when a custom painter needs on-screen constraints; it must be applied both to the ImageRequest and the Image modifier.
+- `ImageLoader.enqueue(ImageRequest)` preloads to disk and memory cache by default.
+- Coil's documented disk-only path disables memory cache and uses `BlackholeDecoder.Factory()` to avoid bitmap decoding; this is appropriate for warming disk cache only, not necessarily for a next-frame visible image.
+- Current Coil 3.6.3 upgrade docs confirm that the painter defaults to `Size.ORIGINAL` and that Compose image APIs are restartable/skippable.
+
+References:
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-compose/README.md
+- https://github.com/coil-kt/coil/blob/3.6.3/docs/faq.md
+- https://github.com/coil-kt/coil/blob/3.6.3/docs/upgrading_to_coil3.md
+
+### 4. Composition tracing should be added to the measurement-only configuration
+
+The Google `android/performance-samples` repository currently includes Macrobenchmark, Compose recomposition tracing and JankStats examples. Android Developers' current Macrobenchmark tracing instructions require:
+- `androidx.compose.runtime:runtime-tracing` in the target app variant.
+- `androidx.tracing:tracing-perfetto` and `tracing-perfetto-binary` in the Macrobenchmark test module, not the production app.
+- `androidx.benchmark.fullTracing.enable=true` as the instrumentation argument. The old `perfettoSdkTracing` name is deprecated.
+
+The existing project already retains Perfetto trace output for its startup A/B. Next step is to check whether Compose runtime tracing is present in the benchmark variant and the instrumentation arg is enabled; ordinary system traces alone do not guarantee named composable slices. If absent, add dependencies only to the benchmarkable app/test variants and preserve the production APK size boundary. Use the trace to locate high-cost Home rows, hero layers and first composition rather than assuming which component is slow.
+
+References:
+- https://github.com/android/performance-samples
+- https://developer.android.com/develop/ui/compose/tooling/tracing
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-instrumentation-args
+
+### 5. Separate first frame, usable Home and browse/jank
+
+The actual MainActivity source uses `ReportDrawnWhen { appReady.value }` and passes readiness from AppGate. This correctly makes TTFD more meaningful than a first-frame-only metric. The existing instrumentation also waits for a separate Home route marker and fully drawn marker. Preserve both; a route-mounted marker must not replace the app's readiness contract.
+
+The next benchmark matrix should report:
+- Cold TTID (first frame)
+- Cold TTFD (visible and usable Home, with the existing fully-drawn signal)
+- Home first-content readiness / first representative catalog poster only as separate supplementary milestones; do not redefine Android TTFD to wait for every remote catalog.
+- Browse: fixed scroll distance through a deterministic, preloaded set of poster rows with frame timing/jank metrics.
+- Navigation: fixed root-tab journey after warm-up, recording frame timing and transition latency.
+- Startup compilation: no compilation, required Baseline Profile, partial/profile-required; full compilation retained only as a diagnostic.
+
+Use the same APK signing/package, profile state, device, display refresh, network fixture, catalog data, account state, thermal/battery conditions and repeat count across arms. Report median and distribution, not a single run. Capture the profile output and Perfetto trace associated with every arm.
+
+Official Android docs define TTID as first UI frame and TTFD as first frame after `reportFullyDrawn`; Compose `ReportDrawn` APIs should represent actual user readiness. Median cold-start measurements on a physical device are the recommended comparison.
+
+References:
+- https://developer.android.com/reference/kotlin/androidx/benchmark/macro/StartupTimingMetric
+- https://developer.android.com/topic/performance/issues/launch-time
+- https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile
+- https://developer.android.com/codelabs/jetpack-compose-performance
+
+### 6. Community reports: separate app performance from add-on/network latency
+
+Public r/Nuvio and GitHub reports include complaints about slow poster/catalogue display, cold-start delay and sluggish UI. They are useful symptom reports, not controlled evidence that Nuvio's own renderer or networking is the cause:
+- A mobile issue reports slow metadata/poster and catalog rows; maintainer response says catalogue/add-on metadata is upstream of Nuvio.
+- A separate report says Cinemeta-fed posters lagged while another add-on loaded art quickly; it is anecdotal and tied to one provider.
+- Android TV users compare Play Store and GitHub builds and report significant differences; platform/device and distribution-specific results cannot be generalized to Android phone results.
+
+This reinforces a benchmark control requirement: fixed local or deterministic fixture content is required to isolate app rendering from third-party add-on response time. Run a second end-to-end benchmark with real catalogs after the isolated app benchmark, recording server/network wait separately.
+
+References:
+- https://github.com/NuvioMedia/NuvioMobile/issues/1486
+- https://github.com/NuvioMedia/NuvioMobile/issues/1129
+- https://www.reddit.com/r/Nuvio/comments/1wvzreb/android_tv_latest_update_takes_2030_seconds_stuck/
+
+### 7. Current priority order
+
+1. **Profile delivery audit:** inspect each actual full/playstore benchmark APK for non-empty `assets/dexopt/baseline.prof`; validate candidate profile paths and whether the user-facing distribution installs or applies it. Do not alter `mergeIntoMain=false` until variant output/package paths are proven.
+2. **Benchmark trace coverage:** confirm runtime-tracing is included in the benchmark variant and fullTracing instrumentation arg is set; use named composable slices for the Home startup and scroll trace.
+3. **Complete user-journey profile coverage:** add Home scroll, hero detail, poster detail and root-tab journeys as distinct non-startup profile rules only when deterministic state/fixtures exist. Require each journey to fail clearly rather than silently emit incomplete coverage.
+4. **Home hero prefetch sizing:** trace current default-size neighbor requests and compare bounded and disk-only approaches. Preserve catalogue poster prefetch sizing already in place.
+5. **Allocation/CPU audit:** inspect Continue Watching custom poster URL call-site memoization; resolver internals already cache tokens and use one-pass replacement.
+6. **R8/startup DEX analysis:** inspect Configuration Analyzer output, Startup Profile rule composition and primary DEX contents before applying keep-rule changes. Avoid broad keep rules; measure the resulting binary and startup.
+7. **Browse and navigation benchmark:** measure frame timing with deterministic datasets and repeatable scroll/tab journeys independently of cold startup.
+
+### Research coverage and limitations
+
+- GitHub: inspected Enhanced's branch source, existing benchmark research/phone notes, Baseline Profile configuration, Home hero, poster prefetch and custom poster URL resolver; inspected upstream Nuvio's profile generator and PRs #2239/#2278.
+- Public social/forum search: found Reddit r/Nuvio reports relevant to APK distribution, startup and poster loading. Targeted X/Twitter searches did not return verifiable relevant posts in this pass. Do not claim X/Twitter investigation produced findings.
+- Exa was intentionally not used as requested.
+- No production code, tests, build scripts, generated profiles, APKs, device runs or CI were changed or started in this research cycle. This document update is research-only. No Enhanced-vs-official speed superiority is claimed; it requires matched physical-device results.
