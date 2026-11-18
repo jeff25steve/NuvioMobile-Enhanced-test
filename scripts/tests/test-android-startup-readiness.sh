@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 MAIN_ACTIVITY_SOURCE="$ROOT_DIR/composeApp/src/androidMain/kotlin/com/nuvio/app/MainActivity.kt"
 HOME_SCREEN_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/HomeScreen.kt"
+HOME_CATALOG_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/components/HomeCatalogSection.kt"
 APP_GATE_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppGate.kt"
 MAIN_CONTENT_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
@@ -11,7 +12,7 @@ ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
-for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
+for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
   [ -f "$source" ] || {
     echo "FAIL: startup readiness source not found: $source" >&2
     exit 1
@@ -35,6 +36,14 @@ grep -Fq 'testTag = "nuvio_startup_ready"' "$MAIN_ACTIVITY_SOURCE" || {
 }
 grep -Fq 'BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("nuvio_benchmark_home"))' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: HomeScreen root must expose the benchmark Home marker." >&2
+  exit 1
+}
+grep -Fq '.testTag("nuvio_benchmark_home_scroll")' "$HOME_SCREEN_SOURCE" || {
+  echo "FAIL: HomeScreen vertical LazyColumn must expose a stable scroll selector." >&2
+  exit 1
+}
+grep -Fq 'rowModifier = Modifier.testTag("nuvio_benchmark_catalog_row")' "$HOME_CATALOG_SOURCE" || {
+  echo "FAIL: Home catalogue shelves must expose a stable horizontal scroll selector." >&2
   exit 1
 }
 grep -Fq '"nuvio_appgate_main"' "$APP_GATE_SOURCE" || {
@@ -72,6 +81,24 @@ grep -Fq 'true,' "$GENERATOR_SOURCE" || {
 }
 grep -Fq '"startup"' "$GENERATOR_SOURCE" || {
   echo "FAIL: startup profile output prefix must remain explicit." >&2
+  exit 1
+}
+# Browse-only collection complements the startup-only rule and must not enter Startup Profile.
+grep -Fq 'public void homeBrowseJourneys()' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Baseline Profile generator must include the Home browse journey." >&2
+  exit 1
+}
+grep -Fq '"home_browse"' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Home browse profile output prefix must remain explicit." >&2
+  exit 1
+}
+grep -Fq '"home_browse", false, true' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Home browse methods must be Baseline Profile rules only, not Startup Profile rules." >&2
+  exit 1
+}
+grep -Fq 'nuvio_benchmark_home_scroll' "$GENERATOR_SOURCE" &&
+  grep -Fq 'nuvio_benchmark_catalog_row' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Home browse profile must scroll both the vertical feed and a horizontal catalogue shelf." >&2
   exit 1
 }
 # ART metrics remain deliberately separate from the two-arm timing contract.
