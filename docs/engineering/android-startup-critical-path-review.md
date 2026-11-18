@@ -670,7 +670,7 @@ Coil 3.6.3's defaults leave an un-sized `ImageRequest.Builder` at `Size.ORIGINAL
 References:
 - https://github.com/coil-kt/coil/blob/3.6.3/coil-compose/README.md
 - https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/request/ImageRequest.kt
-- https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/request/Scale.kt
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/size/Scale.kt
 
 ## 18 November 2026 — improvement cycle 52: omit hidden card-hero logo prefetch
 
