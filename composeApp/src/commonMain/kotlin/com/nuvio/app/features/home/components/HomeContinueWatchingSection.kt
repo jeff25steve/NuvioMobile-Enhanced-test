@@ -58,6 +58,7 @@ import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.NuvioPosterShape
 import com.nuvio.app.core.ui.PosterLandscapeAspectRatio
 import com.nuvio.app.core.ui.PosterPrefetchTarget
+import com.nuvio.app.core.ui.posterPrefetchScale
 import com.nuvio.app.core.ui.PosterRowImagePrefetchEffect
 import com.nuvio.app.core.ui.posterImageModel
 import com.nuvio.app.core.ui.PosterCardStyleUiState
@@ -281,6 +282,10 @@ internal fun ContinueWatchingItem.toPosterPrefetchTarget(
         imageUrl = imageUrl,
         fallbackImageUrl = fallbackUrl,
         shape = shape,
+        scale = posterPrefetchScale(
+            isCardStyle = style == ContinueWatchingSectionStyle.Card,
+            isCloudLibraryItem = isCloudLibraryItem(),
+        ),
         sizeDp = sizeDp,
     )
 }
