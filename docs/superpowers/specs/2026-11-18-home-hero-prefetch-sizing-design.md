@@ -35,5 +35,5 @@ Bound neighbour-image prefetch work in the Home hero to the dimensions at which 
 - Backdrop neighbour requests specify positive pixel width/height matching the measured hero viewport and use the same crop scale as the visible backdrop.
 - Full-bleed logo neighbour requests specify positive pixel bounds derived from available hero content width, layout maximum width, content-width fraction and logo-width fraction, with the 2.6:1 logo aspect ratio and fit scale.
 - Card-style neighbour requests omit logos.
-- Focused tests cover logo-size calculations and source-level prefetch wiring.
+- Focused pure Kotlin tests cover pixel sizing, width limits, invalid dimensions, target scale intent, and omission of the card-style logo. The Compose call-site mapping to Coil Scale.FILL/FIT is verified by source review.
 - Notes distinguish the expected resource reduction from measured runtime performance; no speedup claim is made without device traces.
