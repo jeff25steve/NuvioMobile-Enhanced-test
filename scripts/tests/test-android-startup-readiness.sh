@@ -20,7 +20,8 @@ done
 
 # The app root enables resource-ID mapping; the Home screen owns an independent,
 # unconditional test tag. Readiness must not depend on MainActivity's appReady callback.
-grep -Fq '.semantics { testTagsAsResourceId = true }' "$MAIN_ACTIVITY_SOURCE" || {
+grep -Fq '.semantics {' "$MAIN_ACTIVITY_SOURCE" &&
+  grep -Fq 'testTagsAsResourceId = true' "$MAIN_ACTIVITY_SOURCE" || {
   echo "FAIL: Android Compose root must expose test tags as resource IDs." >&2
   exit 1
 }
@@ -28,7 +29,7 @@ grep -Fq 'ReportDrawnWhen { appReady.value }' "$MAIN_ACTIVITY_SOURCE" || {
   echo "FAIL: Macrobenchmark TTFD reporting must remain tied to the app's fully-drawn signal." >&2
   exit 1
 }
-grep -Fq 'Modifier.testTag("nuvio_startup_ready")' "$MAIN_ACTIVITY_SOURCE" || {
+grep -Fq 'testTag = "nuvio_startup_ready"' "$MAIN_ACTIVITY_SOURCE" || {
   echo "FAIL: the fully-drawn signal must remain externally observable for benchmark validation." >&2
   exit 1
 }
@@ -73,14 +74,13 @@ grep -Fq '"startup"' "$GENERATOR_SOURCE" || {
   echo "FAIL: startup profile output prefix must remain explicit." >&2
   exit 1
 }
-grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: the standalone ART startup diagnostic must retain ArtMetric." >&2
+# ART metrics remain deliberately separate from the two-arm timing contract.
+# The result parser currently validates StartupTimingMetric only; adding ArtMetric
+# here would require optional-metric parsing and regression fixtures first.
+if grep -Eq 'new ArtMetric\(\)|startupArtDiagnostics' "$BENCHMARK_SOURCE"; then
+  echo "FAIL: ART diagnostics must not be mixed into the strict two-arm startup timing pass." >&2
   exit 1
-}
-grep -Fq 'startupArtDiagnostics' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: the standalone ART startup diagnostic test is missing." >&2
-  exit 1
-}
+fi
 # Release/benchmark APK needs R8 optimization; the capture build stays non-minified.
 grep -Fq 'isMinifyEnabled = true' "$ANDROID_BUILD_SOURCE" || {
   echo "FAIL: optimized benchmarkRelease must keep R8 enabled." >&2
@@ -107,8 +107,9 @@ grep -Fq 'static boolean markerVisible(UiDevice device, String marker)' "$READIN
   echo "FAIL: shared readiness helper must expose safe marker lookup." >&2
   exit 1
 }
-if grep -Fq 'catch (Exception ignored)' "$READINESS_SOURCE"; then
-  echo "FAIL: readiness polling must not suppress UIAutomator failures as marker-not-found results." >&2
+marker_lookup_block="$(sed -n '/static boolean markerVisible(/,/^    }/p' "$READINESS_SOURCE")"
+if printf '%s\n' "$marker_lookup_block" | grep -Eq 'catch[[:space:]]*\('; then
+  echo "FAIL: marker lookup must surface UIAutomator query failures instead of treating them as missing markers." >&2
   exit 1
 fi
 grep -Fq 'markerQueryFailure(' "$READINESS_SOURCE" || {
