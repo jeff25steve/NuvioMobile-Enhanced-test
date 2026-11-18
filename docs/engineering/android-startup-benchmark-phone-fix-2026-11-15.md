@@ -2138,3 +2138,100 @@ The current recording does not show enough of the first exception line or stack 
 ### Verification boundary
 
 The logging correction and its source-level regression assertions were committed remotely. No test script, build, instrumentation run, phone benchmark, or CI workflow was run during this work. Therefore the changes are source-reviewed but unexecuted. The physical-device readiness problem remains unresolved until a fresh run captures the complete original exception and the updated stage evidence.
+
+
+
+## 18 November 2026 — full MP4 re-review: readiness state, revision mismatch and shell E2BIG
+
+### Full recording review and corrections to the earlier summary
+
+The uploaded MP4 is 16.13 seconds at 1080x2340, 120 fps. I reviewed the contact sheet and individual frames from the start, failure, middle and final result.
+
+The clip is a **Play Store Baseline Profile collection** attempt. Its visible instrumentation output reports a 30-second readiness deadline, not the 60-second value in the currently inspected shared helper. The test reports:
+- `HomeScreen marker visible now: true`;
+- `AppGate main marker visible now: true`;
+- `Main content ready marker visible now: true`;
+- `AppGate profile-loading marker visible now: false`;
+- `AppGate current gate marker: not visible`;
+- `Main content loading marker visible now: false`;
+- `Launch overlay transition marker visible now: false`;
+- `Readiness home-ready/profile-idle: false`;
+- `Readiness home-ready/profile-loading: false`;
+- `Readiness home-pending/profile-idle: false`;
+- `Readiness home-pending/profile-loading: false`;
+- `HomeScreen marker visible now: true`;
+- `Fully-drawn marker visible now: false`.
+
+The four false readiness tags mean the dedicated 1dp diagnostic node was not observed in the final accessibility snapshot. They do **not** prove the home-ready/profile-idle combination was true. The separate main-content-ready marker was visible at the same snapshot, so the marker set is internally inconsistent or the different node queries sampled different tree states; the exact reason cannot be determined from a single final snapshot.
+
+The last accessibility-event package is `com.nuvio.media.benchmark`. This is not a foreground-window assertion, but it is also not positive evidence that LADB owned the last accessibility event. The video does not establish that LADB stole foreground.
+
+### Critical source/APK revision mismatch
+
+The visible failure stack references:
+- `BaselineProfileGenerator.awaitMainContentReady(...:102)`;
+- `BaselineProfileGenerator.lambda$startup$1(...:123)`;
+- `BaselineProfileGenerator.startup(...:112)`.
+
+The currently fetched `BaselineProfileGenerator.java` on `main-build-testing` contains no `awaitMainContentReady()` method; it delegates to `StartupReadiness.awaitHomeAndFullyDrawn(device)`. That file is identical at the previous 6c17ef5 checkpoint and current a918aa3/bb78b9b follow-up history.
+
+Therefore, the APK used for this video was built from an **older or otherwise different source revision** than the current remote helper implementation. The recording cannot be used as a runtime verification of the 60-second shared helper or of the recent logging correction. The 30-second message and old stack line numbers are consistent with that mismatch. APK provenance must be established from the installed APK/build artifact (version/commit or checksum) before interpreting the next run as testing the latest source.
+
+### Hierarchy-dump exception is secondary diagnostic output
+
+The video explicitly states that Android's XML hierarchy dumper can throw on invalid characters in accessibility text and that the hierarchy was omitted so it would not mask the original benchmark failure.
+
+AndroidX UI Automator has a separate `AccessibilityNodeInfoDumper` implementation which traverses visible accessibility nodes and serializes text, resource IDs, class names, package names and content descriptions as XML attributes. Its character sanitization is not a guarantee that all malformed character sequences or serializer edge cases are safe. This failure means the optional hierarchy snapshot was unavailable. It does not demonstrate that `findObject(BySelector)` failed, and it is not the primary failure shown by the test assertion.
+
+References:
+- [AndroidX AccessibilityNodeInfoDumper source](https://android.googlesource.com/platform/frameworks/support/+/48d9273f1facf771ff812a10d8bb46f6f8773ed4/test/uiautomator/uiautomator/src/main/java/androidx/test/uiautomator/AccessibilityNodeInfoDumper.java)
+- [UiDevice API](https://developer.android.com/reference/androidx/test/uiautomator/UiDevice)
+
+### Separate Android shell error: printf argument-size failure
+
+The recording also visibly reports `/system/bin/printf: Argument list too long` and associates it with the phone runner script. This is consistent with an `execve()` `E2BIG` failure when an external utility is invoked with an oversized argument. The kernel limits each individual argument as well as the combined argument/environment size; passing a large multiline diagnostic as one argument is unsafe. Reading data via stdin or a file avoids that specific argument-vector limit.
+
+However, I inspected the current runner at the reported line and its `run_instrumentation()` function:
+- `am instrument -w -r` redirects output directly to `instrumentation.log`;
+- the completed log is displayed using `cat "$RUN_DIR/instrumentation.log"`;
+- there is no intentional `printf "$instrumentation_output"` call.
+
+The reported line number `nuvio-phone-benchmark.sh[948]` also does not map to a current `printf` call in the remote script (line 948 is the end of the case statement). This points to a runner-revision mismatch, generated/expanded command, or a different shell execution path. It would be unsafe to patch an unrelated `printf` site without the exact script copy that ran on the phone.
+
+Current runner evidence:
+- `run_instrumentation()` writes `am instrument` stdout/stderr to a file, then cats the file;
+- `resolve_instrumentation()` uses a short `pm list instrumentation` line inside command substitution;
+- foreground diagnostics use `dumpsys` output captured in a shell variable, then pass it to builtins/filters;
+- install output is captured in shell variables and later printed.
+The first item avoids carrying the full instrumentation stream as a shell argument. The other command substitutions are bounded by device output but should still avoid sending arbitrarily large captured values as one external command argument.
+
+Android kernel `execve` enforces `MAX_ARG_STRLEN` and combined argv/env limits. The error is therefore a genuine logging/runner concern, but the current file alone does not identify the exact oversized argument in this old run.
+
+References:
+- [Linux execve(2) argument/environment error limits](https://man7.org/linux/man-pages/man2/execve.2.html)
+- [AOSP Toybox shell execution source](https://android.googlesource.com/platform/external/toybox/+/android-6.0.1_r3/toys/pending/sh.c)
+- [Android Bionic exec implementation](https://android.googlesource.com/platform/bionic/+/HEAD/libc/bionic/exec.cpp)
+
+### What the current app source says (separate from this old APK)
+
+On the currently fetched source, the standard Android path has `renderMainContent = true`. The normal `AppGate` branch forwards `MainAppContent.onRootContentReady` to `MainActivity.appReady`. MainAppContent calculates:
+`rootContentReady = !ownsAppRuntime || (initialHomeReady && !profileSwitchLoading)`
+and only reports true after the launch-overlay transition is idle and not visible.
+
+This is a valid area to instrument on a fresh APK, but the video cannot tell whether the current code has the same state-flow issue because its stack points to the older generator path and its tag set was sampled at one final moment.
+
+### Required next capture and decision gates
+
+Before attributing the next failure or claiming the logging is fixed, capture:
+1. exact test APK and app APK hashes/build variant/build commit used by the phone;
+2. exact `nuvio-phone-benchmark.sh` copied into the staging directory, including a checksum and its own line 948;
+3. the untruncated `instrumentation.log` from the run folder;
+4. the exact `printf` command and argument/source which emitted `Argument list too long` (or a trace of shell command execution around that invocation);
+5. app readiness values from the same timestamp as `appReady` and the marker query;
+6. active/focused window package and resumed activity before/after plus a bounded stage timeline during the wait.
+
+Keep the hierarchy dump best-effort and ensure a dump failure never replaces the original assertion. Keep the original exception distinct from a normal marker timeout. Do not weaken the TTFD criterion or extend the timeout based only on this capture.
+
+### Verification boundary
+
+This is a source/recording review only. No build, shell test, instrumentation test, new phone run or CI was executed. The current branch code does not yet have the full timestamped stage telemetry or exact runner `E2BIG` root-cause evidence. The benchmark failure remains open; the recording does not verify the most recent source fix.
