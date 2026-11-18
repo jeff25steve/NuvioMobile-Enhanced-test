@@ -206,7 +206,7 @@ require_non_empty_startup_profile() {
 }
 
 require_macrobenchmark_cases() {
-  for test_name in startupNoCompilation startupWithBaselineProfile; do
+  for test_name in startupNoCompilation startupWithBaselineProfile startupArtDiagnostics; do
     grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
       fail "Macrobenchmark did not execute required comparison case '$test_name'. See $RUN_DIR/instrumentation.log."
     }
