@@ -39,16 +39,13 @@ internal fun heroLogoPrefetchSize(
     contentMaxWidthPx: Float,
     logoWidthFraction: Float,
 ): HeroPrefetchSize? {
-    val values = listOf(
-        heroWidthPx,
-        horizontalStartPaddingPx,
-        horizontalEndPaddingPx,
-        contentWidthFraction,
-        contentMaxWidthPx,
-        logoWidthFraction,
-    )
-    if (values.any { !it.isFinite() }) return null
     if (
+        !heroWidthPx.isFinite() ||
+        !horizontalStartPaddingPx.isFinite() ||
+        !horizontalEndPaddingPx.isFinite() ||
+        !contentWidthFraction.isFinite() ||
+        !contentMaxWidthPx.isFinite() ||
+        !logoWidthFraction.isFinite() ||
         heroWidthPx <= 0f ||
         horizontalStartPaddingPx < 0f ||
         horizontalEndPaddingPx < 0f ||
