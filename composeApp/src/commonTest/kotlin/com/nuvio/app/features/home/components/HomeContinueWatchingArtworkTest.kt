@@ -2,7 +2,9 @@ package com.nuvio.app.features.home.components
 
 import androidx.compose.ui.unit.DpSize
 import com.nuvio.app.core.ui.NuvioPosterShape
+import com.nuvio.app.core.ui.PosterPrefetchScale
 import com.nuvio.app.core.ui.PosterCardStyleUiState
+import com.nuvio.app.features.cloud.CloudLibraryContentType
 import com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 import kotlin.test.Test
@@ -78,6 +80,7 @@ class HomeContinueWatchingArtworkTest {
             target?.sizeDp,
         )
         assertEquals(NuvioPosterShape.Landscape, target?.shape)
+        assertEquals(PosterPrefetchScale.CROP, target?.scale)
     }
 
     @Test
@@ -102,6 +105,7 @@ class HomeContinueWatchingArtworkTest {
         assertEquals("raw-backdrop.jpg", target?.fallbackImageUrl)
         assertEquals(DpSize(layout.widePosterStripWidth, layout.wideCardHeight), target?.sizeDp)
         assertEquals(NuvioPosterShape.Landscape, target?.shape)
+        assertEquals(PosterPrefetchScale.CROP, target?.scale)
     }
 
     @Test
@@ -122,6 +126,36 @@ class HomeContinueWatchingArtworkTest {
         assertEquals("raw-poster.jpg", target?.fallbackImageUrl)
         assertEquals(DpSize(layout.posterCardWidth, layout.posterCardHeight), target?.sizeDp)
         assertEquals(NuvioPosterShape.Poster, target?.shape)
+        assertEquals(PosterPrefetchScale.CROP, target?.scale)
+    }
+
+    @Test
+    fun cloudLibraryWideAndPosterArtworkUseFitPrefetchScale() {
+        val item = item(progressFraction = 0.2f).copy(
+            parentMetaType = CloudLibraryContentType,
+            poster = "cloud-poster.jpg",
+            background = "cloud-backdrop.jpg",
+        )
+        val layout = rememberContinueWatchingLayout(390f)
+        val basePosterWidthDp = PosterCardStyleUiState().widthDp
+
+        val wideTarget = item.toPosterPrefetchTarget(
+            style = ContinueWatchingSectionStyle.Wide,
+            layout = layout,
+            basePosterWidthDp = basePosterWidthDp,
+            useEpisodeThumbnails = false,
+            preferBackdropForNextUp = false,
+        )
+        val posterTarget = item.toPosterPrefetchTarget(
+            style = ContinueWatchingSectionStyle.Poster,
+            layout = layout,
+            basePosterWidthDp = basePosterWidthDp,
+            useEpisodeThumbnails = false,
+            preferBackdropForNextUp = false,
+        )
+
+        assertEquals(PosterPrefetchScale.FIT, wideTarget?.scale)
+        assertEquals(PosterPrefetchScale.FIT, posterTarget?.scale)
     }
 
     @Test
