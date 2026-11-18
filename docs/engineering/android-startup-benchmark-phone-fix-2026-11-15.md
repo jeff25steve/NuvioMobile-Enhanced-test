@@ -2956,3 +2956,69 @@ Do not claim social/forum research as complete until Exa access is restored. Sea
 ### Verification boundary
 
 No code, Gradle, runner, generator, profile artefact or benchmark change was made in this cycle. No test, shell script, Gradle task, APK build, instrumentation, device benchmark, LADB or CI was run. The note update is research-only.
+## Follow-up: Android performance-samples, GitHub discussions, Compose tracing and Nuvio release-history lead — 2026-11-18
+
+### New source discovery: Android official performance-samples repository
+
+Inspected Android's `android/performance-samples` repository at commit `05c8130adfd2d7e35d4cd25033cb4f89b1008c1f` (MacrobenchmarkSample). This is primary-source sample code and documentation, not an informal blog.
+
+Files inspected:
+- `MacrobenchmarkSample/macrobenchmark/src/main/kotlin/com/example/macrobenchmark/baselineprofile/StartupProfileGenerator.kt` blob `45a7ca97e886c520d4d67249d8d4361b8bff51ea`: demonstrates a dedicated startup profile generator using BaselineProfileRule, 15 max iterations, 3 stable iterations and startup inclusion.
+- `MacrobenchmarkSample/macrobenchmark/src/main/kotlin/com/example/macrobenchmark/benchmark/startup/StartupBenchmark.kt` blob `b8d2ee3bc83e27237e96d39124a1035c65aab253`: benchmark suite compares `CompilationMode.None`, `Partial(BaselineProfileMode.Disable, warmupIterations=3)`, `Partial(BaselineProfileMode.Require)` and `Full`, using the same startup benchmark function and StartupTimingMetric.
+- `MacrobenchmarkSample/README.md`: says more than one profile file can be maintained in `src/main/baselineProfiles`; recommends separate profile generator classes per user journey, plus a separate generator for app startup. It also documents composition tracing during Macrobenchmark and shows an example report.
+
+Key implication for Enhanced: the no-profile partial compilation case from the sample should be included as a first-class comparison. Our existing `None` vs `Require` comparison cannot isolate the incremental benefit of the packaged Baseline Profile because compilation policy differs. The appropriate three-way comparison is None, Partial Disable with 3 warmup iterations, and Partial Require; Full can remain a diagnostic/control. Make each case use identical package, signed-in fixture, launch/readiness and metric. This requires updating the phone runner's currently strict three-method contract and result schema. Do not silently extend it without tests.
+
+### Compose composition tracing example and published measurements
+
+Android's performance-samples README links an explicit composition tracing sample and configures Macrobenchmark with instrumentation argument `androidx.benchmark.perfettoSdkTracing.enable=true`. It states that Composition Tracing displays when Composables compose/recompose and helps identify where UI time is spent. Its sample result for `EntryRow` showed count min 5, median 6, max 6 and row time min 10.2 ms, median 11.8 ms, max 16.2 ms; corresponding custom trace measured roughly 11.7 ms median. The same sample displayed frame CPU percentiles P50 4.8 ms, P90 6.8 ms, P95 8.9 ms and P99 15.3 ms for its sample scenario. These are example-sample results, NOT Nuvio/Enhanced measurements and NOT universal Compose costs.
+
+GitHub community discussion located in that repository:
+- Issue #212, https://github.com/android/performance-samples/issues/212, requested a composition tracing sample specifically with Macrobenchmark and links to Android's tracing guidance.
+- PR #263, https://github.com/android/performance-samples/pull/263, titled 'Add composition tracing example'.
+These are useful maintainer-community references: they led to a concrete sample showing how to measure Compose-specific work in the same frame benchmark, rather than guessing from recomposition counts.
+
+### Current Compose version/API caveat
+
+Enhanced's version catalog currently pins Kotlin 2.4.10 and Compose Multiplatform 1.13.0-beta01. Context7's JetBrains Compose Multiplatform documentation search did not return the exact 1.13.0-beta01 compiler/runtime tracing integration; returned Compose Multiplatform benchmark docs target a general repository benchmark framework (SIMPLE, VSYNC_EMULATION, REAL and STARTUP) and are not a drop-in replacement for Android Macrobenchmark. Do not add Android Compose runtime tracing dependency or `ComposeToolingFlags` API based on docs that say it was added in Compose 1.11.0 unless the exact KMP artifact/version and Android target compatibility are confirmed.
+
+Android official sample's composition tracing mechanism may require `androidx.tracing:tracing-perfetto` and `tracing-perfetto-binary` dependencies plus instrumentation setup. Confirm exact dependency versions and compatibility with current Kotlin/Compose/AGP before any modifications; not done in this cycle.
+
+### Official Nuvio older Android navigation profile lead
+
+Official Nuvio Mobile release metadata in `store.json`/`store-beta.json` surfaced an earlier Android performance entry: `bb1a5ffa perf(android): add root navigation baseline profile` dated in the release history around 2026-09-11. This is an additional upstream historical implementation worth investigating. A short-SHA file lookup and the available PR/issue search did not retrieve the exact commit source or confirm the PR number/body; issue 1888 was unrelated and must not be confused with this commit. Treat only the release-history entry and commit hash as verified, not its contents or claimed effect.
+
+Current official Nuvio source comparisons already completed remain valid: the later generator at commit `6b7f15e` uses a dedicated startup pass plus a separate non-startup Home scroll/details/tabs journey pass, with individual journeys catch-and-continue. Generated official mobile profile artifacts remain unavailable.
+
+### Current profile collection strategy recommended for Enhanced
+
+1. Keep Enhanced's existing dedicated `startup()` profile method and `startup` prefix; it waits for Home + fully-drawn and includes rules in Startup Profile.
+2. Add a dedicated browse-profile generator or second explicit collection pass (after exact AndroidX Benchmark 1.5.0 stable API verification) for Home scroll, poster/hero details, search, library and tab journeys, with startup inclusion false and strict stability true.
+3. Use separate generator classes or methods per journey rather than one large opaque block. Each journey must navigate to a deterministic target and assert the actual destination. Required journey failure must fail collection; no catch-and-continue.
+4. Verify output file naming and plugin handling of multiple profile files from a real generated result; keep `startup-prof*.txt` as a required artifact and add separately labelled browse profile validation. Existing Gradle consumer uses `mergeIntoMain=false`, `saveInSrc=true`, `automaticGenerationDuringBuild=false`.
+5. Benchmark with None, Partial Disable + 3 warmups, Partial Require. Optionally Full as a separate reference. All must use identical signed-in state and Home/fully-drawn readiness.
+6. For Compose diagnosis, use a separate profiling run with Perfetto SDK tracing and the exact supported dependency/argument combo for the pinned stack. Keep tracing-enabled numbers out of clean TTID/TTFD and frame-jank headlines unless overhead is quantified.
+
+### Coil 3.6.3 version-specific image loading discovery
+
+Context7 resolved Coil 3.6.3 exactly, matching the version catalog. Its documentation highlights a potentially important first-screen optimisation check: when using `rememberAsyncImagePainter`, apply `rememberConstraintsSizeResolver()` both to the ImageRequest `.size(sizeResolver)` and to the Image modifier. This allows Coil to load at on-screen dimensions rather than the original image resolution. Enhanced uses an ImageLoader factory and Compose image usage must be audited independently to see whether current `AsyncImage` already handles constraints automatically or whether any custom painter path accidentally decodes original-size assets.
+
+Coil 3.6.3 documentation also shows disk-only preloading using `BlackholeDecoder.Factory()` with memory cache disabled, avoiding decode and memory-cache work when the goal is only to populate disk cache. This is a conditional tool for measured prefetch; it is NOT a general recommendation to preload every poster. For Nuvio, use only when traces show a repeat imminent request and network latency dominates; don't compete with first-frame decode/network resources.
+
+Sources: https://github.com/coil-kt/coil/blob/3.6.3/coil-compose/README.md, https://github.com/coil-kt/coil/blob/3.6.3/docs/faq.md, https://github.com/coil-kt/coil/blob/3.6.3/docs/image_loaders.md
+
+### Forum/social/Twitter research status
+
+Exa was explicitly called with five distinct query workstreams covering broad Android practitioner cases, Reddit r/androiddev, Stack Overflow, GitHub Android performance discussions, and Twitter/X public posts. Every request returned HTTP 402 (account credits limit exceeded); timestamp at latest retry was 2026-11-18T05:10:18Z. Therefore no new Reddit, Stack Overflow or X/Twitter results were retrieved. GitHub's connected search did return the Android performance-samples discussion above. Do not claim a social-media sweep completed. Resume X/Twitter and community work when Exa access is restored; prioritize posts by Android performance engineers with Perfetto screenshots, APK/device/API metadata and reproducible before/after values.
+
+### Refined concrete implementation priorities
+
+1. Before broad source changes, introduce distinct startup/browse profile generation and assertions, and expand the benchmark comparison modes to isolate profile contribution. This closes the verified profile coverage gap against official Nuvio and follows Google's own sample architecture.
+2. Update the phone runner contract only alongside regression tests. Required artifacts should include startup and browse profile text, three distinct compilation comparisons, clean benchmark JSON and traces; maintain exact APK/test APK provenance and existing output invariants.
+3. Add a separate Compose profiling mode with composition trace output. Inspect the first Home screen and nested poster rows for time-consuming composables rather than merely counting recompositions.
+4. Audit Coil 3.6.3 usage in every image rendering helper, especially custom `rememberAsyncImagePainter` sites, request `SizeResolver`, original dimensions and decode results. Do not touch `AsyncImage` call sites already using automatic constraint-aware sizing without evidence.
+5. Continue the root Activity/preloader phase trace audit and selectively collect state projections after test coverage is available.
+
+### Verification boundary
+
+No Kotlin, Java, Kotlin DSL, manifest, dependency, runner or profile generation code was changed in this pass. No Gradle/test/shell command, APK/AAB, instrumentation, Macrobenchmark, LADB/device or CI was run. No Reddit, Stack Overflow or X/Twitter pages were fetched due Exa quota. The only intended repository modification is this research note.
