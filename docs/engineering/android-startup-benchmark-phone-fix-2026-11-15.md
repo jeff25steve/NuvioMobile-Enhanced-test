@@ -2420,3 +2420,154 @@ Do not automatically convert ART totals into a pass/fail threshold. They can inc
 ### Verification boundary
 
 The source and runner changes have been written to `main-build-testing` and will be re-fetched for confirmation. No build, instrumentation execution, LADB run, test script or CI was started. Compilation compatibility and runtime JSON output remain unverified until the next authorized benchmark build/run.
+
+
+## Official Nuvio Mobile startup/profile comparison — 2026-11-18
+
+### Sources inspected
+
+The official Nuvio Mobile repository is `NuvioMedia/NuvioMobile`, branch
+`cmp-rewrite`. The strongest source is merged PR
+[#2652 — perf: smoother cold start and home on Android](https://github.com/NuvioMedia/NuvioMobile/pull/2652),
+merged 2026-11-14 at merge commit
+`e5272769a6709d43aaecc3d7bbe8d66d5a200702`. This PR contains its own
+maintainer-authored investigation and numerical before/after results.
+
+### Official maintainer's published measurements
+
+The PR states that measurements were taken on a Xiaomi 120 Hz phone, with
+interleaved base/PR runs. Startup/Perfetto values use four cold starts per
+side. Other frame metrics use scripted `dumpsys gfxinfo` runs.
+
+| Metric | Base | PR result |
+| --- | ---: | ---: |
+| Main-thread recomposition time in first 4.5s of cold start | 244–324ms | 90–120ms |
+| Frames exceeding 8.3ms in same window | 8–11 | 2–5 |
+| Worst launch-splash frame | 47–60ms | 25–34ms |
+| MainAppContent recompositions in first 10s | about 17 | 3–4 |
+| HomeScreen recompositions in first 10s | about 85 | 38–51 |
+| Details open/back p99 frame | 34ms | 32ms |
+| Home scroll p95 frame | 7.3ms | 7ms |
+
+These are maintainer-reported results, not independently reproduced here.
+The published table is about recomposition/frame behavior, not a TTID/TTFD
+before/after table and not an isolated measurement of Baseline/Startup Profile
+contribution.
+
+### Official implementation found
+
+At `cmp-rewrite`, official `baselineprofile/build.gradle.kts` configures a
+self-instrumenting `:baselineprofile` test module and
+`useConnectedDevices = true`. The generator source is
+`baselineprofile/src/main/kotlin/com/nuvio/baselineprofile/BaselineProfileGenerator.kt`.
+
+The generator has two `BaselineProfileRule.collect` passes:
+
+1. `includeInStartupProfile = true`: launcher cold-start path only.
+2. `includeInStartupProfile = false`: launch plus Home vertical/horizontal
+   scrolling, hero details, poster details and Search/Library/Profile/Home tabs.
+
+Both use `maxIterations = 3` and `stableIterations = 2`. The generator uses
+`com.nuviodebug.com`, waits up to 15 seconds for the app package window, then
+sleeps 6 seconds after launch. Detail journeys use fixed settle delays.
+
+Important reliability caveat: the official `runJourney` helper catches
+`Throwable`, logs a warning and continues. Missing targets or journey errors
+can therefore be logged without failing the outer collection. The declared
+journey coverage is not proof that every step succeeded on every collection.
+This is a concrete opportunity for Enhanced to provide more reliable journey
+completion evidence, not a reason to blindly copy the official implementation.
+
+Official `androidApp/build.gradle.kts` uses a dedicated `benchmark` build type
+initialized from release, with minification and resource shrinking enabled,
+debug signing, and an isolated `com.nuviodebug.com` package ID. It enables
+`saveInSrc`, `mergeIntoMain`, and disables automatic generation during build.
+The version catalog pins AGP 9.2.0, AndroidX Benchmark/Baseline Profile 1.5.0,
+and UI Automator 2.3.0.
+
+Generated profile artifacts could not be reliably fetched from the current
+public branch path in this review. Do not infer the current rule count, profile
+size, exact rule distribution, or DEX placement from search snippets or
+unverified historical paths.
+
+### Enhanced branch comparison
+
+Remote `main-build-testing` was compared with base
+`371106f5df4bdd9f168fffa402cb829552eb0ef4`: 17 commits ahead, 0 behind at
+the time of this check. This is the fork's own branch comparison, not a
+comparison against the official Nuvio repository.
+
+Enhanced currently:
+- Collects one startup-only journey with `includeInStartupProfile = true`,
+  `filterPredicate = rule -> true`, 15 max iterations, 3 stable iterations.
+- Uses a shared readiness helper requiring Home marker and the app's actual
+  fully-drawn marker under one monotonic time budget.
+- Measures ten cold launches in separate no-compilation and
+  `Partial(BaselineProfileMode.Require)` cases.
+- Has a separate `ArtMetric` diagnostic case under the profile-enabled
+  compilation mode.
+- Builds an isolated `benchmarkRelease` with release optimization/R8 enabled
+  and `nonMinifiedRelease` for profile capture.
+
+Enhanced's stronger readiness gate is a meaningful measurement-contract
+difference from the official package-window + fixed-delay wait; it is not
+evidence of faster startup. Enhanced's broader 15/3 startup collection settings
+also do not prove a better quality profile than official 3/2 settings.
+
+### Research conclusions and priority
+
+1. **First priority — get a fair profile coverage comparison.** Add explicit,
+   observable post-startup journeys to Enhanced as a separate
+   `includeInStartupProfile = false` collection pass, preserving the
+   launcher-only Startup Profile. Every required journey must fail visibly
+   when its destination/interaction is unavailable; don't copy official
+   catch-and-continue behavior. The exact Enhanced journeys should align to
+   actual app entry points and be independently verifiable. Do not add detail,
+   tab, or scroll code to the Startup Profile pass.
+2. **Second priority — inspect compiled profile and DEX outputs.** Compare
+   actual generated Baseline/Startup rule files, rule counts and package
+   distribution, compiled `assets/dexopt/baseline.prof`, and AAB
+   `BUNDLE-METADATA/com.android.tools/r8.json`. Verify a DEX entry marked
+   `startup: true` and checksum matching the corresponding DEX. Profile text
+   line count/size alone does not establish quality or successful Startup
+   Profile DEX placement.
+3. **Third priority — make the benchmark comparison like-for-like.** Retain
+   TTID and TTFD, ten iterations, identical cold-start/sign-in state, APK
+   optimization, device/OS build and thermal conditions. Add the Android
+   documented Partial-without-Baseline warmup (3 iterations) and Full
+   compilation as diagnostic/reference modes when the runner output contract
+   can represent them without misparsing. Keep Full labelled as less
+   representative of fresh installs.
+4. **Fourth priority — investigate app-code causes using traces.** Official
+   PR #2652 gives concrete leads: whole-state collection triggering broad
+   recomposition, synchronous splash asset decode, and repeated per-entry
+   hidden-show lookup. Inspect Enhanced's corresponding data flows and profile
+   traces; only change code where a real equivalent hotspot or measured trace
+   supports it. The official PR's exact fixes must not be assumed already
+   present in the current Enhanced tree.
+
+### AndroidX 1.5.0 documentation findings
+
+AndroidX Benchmark 1.5.0 is the stable release (released 2026-09-09; release
+page updated 2026-10-07). Android's current documentation recommends four
+comparison modes: None, Partial requiring Baseline Profile, Partial with
+Baseline Profile disabled and three warmup iterations, and Full. Full is useful
+as a lower-JIT/noise diagnostic but is not a fresh-install representation.
+
+`ArtMetric` reports `artJitCount`/`artJitSumMs`,
+`artVerifyClassCount`/`artVerifyClassSumMs`, and on supporting devices
+`artClassLoadCount`/`artClassLoadSumMs`. Class-load tracepoints require API
+35, or API 31+ with ART mainline >= 341511000. Unsupported class-load
+measurements are omitted, not necessarily emitted as zero. JIT data may include
+system-image framework methods even with partial/full compilation.
+`ArtMetric` is diagnostic evidence, not itself a user-visible performance
+metric. Benchmark 1.5.0 also includes a fix for class-load tracking under
+top-level R8 packages / `-repackageclasses`, so the version pin matters.
+
+### Verification boundary
+
+No build, unit test, shell regression, instrumentation, Macrobenchmark, phone,
+LADB or CI workflow was run for this review. All code/config observations above
+come from fetched GitHub source. No claim is made that Enhanced currently beats
+official Nuvio. A matched-device measurement and profile artifact inspection
+remain necessary.
