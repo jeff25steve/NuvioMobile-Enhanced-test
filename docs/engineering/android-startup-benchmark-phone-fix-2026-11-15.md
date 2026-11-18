@@ -2325,3 +2325,55 @@ References:
 - [Macrobenchmark startup measurement guidance](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
 
 No build, shell test, instrumentation test, device run or CI was started. The change is source-only and awaits the next authorized phone benchmark.
+
+
+
+## 18 November 2026 — deeper performance research and next-cycle fixes
+
+### Repository research reviewed
+
+Re-read the startup benchmark investigation history and current sources it points to: the user's LADB recording and source/APK mismatch; the two-stage HomeScreen and ReportDrawnWhen contract; BaselineProfileGenerator.java, StartupBenchmark.java and StartupReadiness.java; androidApp/build.gradle.kts, baselineProfile/build.gradle.kts, the version catalog, phone runner, and source regression guard.
+
+The last LADB capture remains an older artifact: its stack trace and 30-second helper timeout do not match the current Java shared helper and 60-second deadline. It cannot verify current source. Home appeared; the separately reported fully-drawn signal timed out; the U+0000 XML dump failure was secondary; printf: Argument list too long remains unmapped to an exact current runner call.
+
+### Performance research — high-signal results
+
+1. Keep TTID and TTFD separate. StartupTimingMetric measures TTID from launch intent to first rendered frame and TTFD through the Activity's reportFullyDrawn() signal. The UI Automator wait is a verification/profile-journey completion gate, not a replacement for the system metric.
+2. Keep cold start as the primary optimisation target. Android's launch-time guidance says cold-start optimisation helps warm and hot starts too.
+3. Startup Profiles are worth pursuing, but only when rules are included in the optimized release build and R8 actually applies DEX layout ordering. Android guidance says Startup Profiles can often improve startup 15–30% over Baseline Profiles alone. This is platform potential, not a measured Nuvio result.
+4. Android documents validation of Startup Profile application through AAB metadata at BUNDLE-METADATA/com.android.tools/r8.json: at least one dexFiles entry should have startup: true, and DEX checksums should match the metadata.
+5. Macrobenchmark's official comparison guidance includes no compilation, partial compilation with required Baseline Profile, partial compilation without Baseline Profile, and full compilation. These comparison modes separate profile benefit from general AOT/JIT effects; fully compiled results are not the expected first-install experience.
+6. Baseline Profile journeys should mirror real high-value user journeys, and only app-entry flows should be included in Startup Profile. Do not add secondary navigation journeys simply to increase rule count.
+
+Sources:
+- [Android Startup Profiles and DEX layout optimizations](https://developer.android.com/topic/performance/startupprofiles/dex-layout-optimizations)
+- [Confirm Startup Profiles optimization](https://developer.android.com/topic/performance/baselineprofiles/confirm-startup-profiles)
+- [Macrobenchmark compilation-mode comparison](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
+- [App startup time](https://developer.android.com/topic/performance/issues/launch-time)
+- [Startup timing accuracy](https://developer.android.com/topic/performance/appstartup/analysis-optimization)
+- [AndroidX BaselineProfileRule 1.5.0 source/API](https://android.googlesource.com/platform/frameworks/support/+/HEAD/benchmark/benchmark-macro-junit4/src/main/java/androidx/benchmark/macro/junit4/BaselineProfileRule.kt)
+
+### Confirmed source configuration
+
+- BaselineProfileGenerator.java calls the Java overload with maxIterations=15, stableIterations=3, output prefix startup, includeInStartupProfile=true and strictStability=true. The collector already opts its launcher journey into Startup Profile generation; no generator flag change was needed.
+- benchmarkRelease inherits from release and explicitly keeps isMinifyEnabled=true and resource shrinking enabled. The profile-capture build type is intentionally non-minified.
+- AGP is pinned at 9.4.0. Android guidance says DEX layout optimization is enabled by default from AGP 8.3, but produced AAB metadata still needs to prove startup rules were applied.
+- The phone workflow currently exports APKs for installation and Macrobenchmark; Android's documented r8.json proof is in the AAB. This creates a verification gap: do not claim Startup Profile DEX ordering is verified from a non-empty startup-prof.txt alone. A retained AAB or reproducible metadata check on the release bundle is needed.
+
+### Concrete fixes made in this cycle
+
+1. Provenance is now parseable. The runner previously used printf format strings containing a literal backslash-n, making provenance a malformed logical line. It now emits real newlines and records app/test APK paths and SHA-256 values, in addition to runner hashes, flavor/action and instrumentation component.
+2. Failure diagnostics expose root readiness state. The helper appends the main-content root's AccessibilityNodeInfo.stateDescription using the correct API.
+3. Regression guards track the current contract. Removed an obsolete expectation for the former nuvio_readiness_home_ marker. The source guard now checks that Startup Profile collection remains enabled and benchmarkRelease inherits optimized release configuration with R8 enabled. It also checks newline-safe provenance and both APK hashes.
+
+### Next highest-value work
+
+1. Add missing benchmark comparison modes (Partial without Baseline Profile and Full) and validate output alongside current None/profile cases. Do this separately because the runner's JSON validation currently hardcodes the two existing cases and an exact two-result schema.
+2. Retain or create an AAB artifact for the optimized release variant and add deterministic r8.json/DEX checksum validation. This proves Startup Profile DEX ordering; do not add speculative Gradle toggles instead.
+3. Compare identical official and enhanced release variants on the same physical device, controlling account state, network, source config, build type, compilation mode and thermal state. Report TTID and TTFD P50/P90/P95, sample count and variability. Do not claim Enhanced outperforms official until the measurements show it.
+4. Add bounded stage timestamps (target package visible, Home marker, root stateDescription, fully-drawn marker, active/resumed package) without 250ms per-marker full-tree scans. Preserve one monotonic deadline and current readiness semantics.
+5. Continue isolating the old printf argument-size error. The malformed provenance was one confirmed runner defect, but it does not prove it caused the previous E2BIG error.
+
+### Verification boundary
+
+Remote source review confirms the edits landed. No shell regression script was executed, no Kotlin/Java compilation was run, no APK/AAB was built, no LADB run was started, and no CI was triggered. Runtime and performance benefits are unverified. The next device run should use the new provenance format and record APK hashes before conclusions are drawn.
