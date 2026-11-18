@@ -2019,3 +2019,58 @@ Sources:
 ### Verification boundary
 
 The readiness test correction is committed to `main-build-testing`. No shell test, Gradle command, build, instrumentation test, phone benchmark or CI workflow was run. Remote source verification is not a substitute for executing the regression suite or validating on the Galaxy device. The app-side readiness failure remains open.
+
+
+
+## 18 November 2026 — focused-window diagnostics and final source review
+
+### Active versus focused window: confirmed distinction
+
+A second independent review was made against the AndroidX UI Automator 2.4.1 API reference and the AndroidX source change that introduced multi-window support.
+
+- `By.Window.active(true)` matches the window marked active, meaning the window the user is currently interacting with.
+- `By.Window.focused(true)` matches the window holding input focus.
+- `UiWindow.isActive()` and `UiWindow.isFocused()` expose the corresponding states.
+- `UiDevice.findWindow(selector)` returns the first top-level match or null. `findWindows(selector)` returns all matching windows in descending layer Z-order (topmost first).
+
+These are distinct signals. Input focus can belong to a dialog or another input surface and must not be treated as a general foreground/recovery signal. The recovery decision should continue to use the active window. A focused-window package is useful as additional diagnostic context only.
+
+The UI Automator 2.4.1 release is dated 4 November 2026. Its release notes specifically mention a ShellServer random-port collision fix; that release note is not evidence of any fix to LADB foreground reporting.
+
+References:
+- [UI Automator 2.4.1 release notes](https://developer.android.com/jetpack/androidx/releases/test-uiautomator)
+- [ByWindowSelector API](https://developer.android.com/reference/androidx/test/uiautomator/ByWindowSelector)
+- [UiWindow API](https://developer.android.com/reference/androidx/test/uiautomator/UiWindow)
+- [UiDevice API](https://developer.android.com/reference/androidx/test/uiautomator/UiDevice)
+- [AndroidX multi-window API source change](https://android.googlesource.com/platform/frameworks/support/+/fb587b0d9d41b42ba86ad6a7fc441819275edabd)
+
+### App readiness / TTFD cross-check
+
+The current `MainActivity` calls `ReportDrawnWhen { appReady.value }` and exposes the `nuvio_startup_ready` accessibility tag from that same state. The state is set through the `App(onAppReady = ...)` callback. This matches Android's Compose guidance: `ReportDrawnWhen` adds a predicate to the conditions before `Activity.reportFullyDrawn` is called.
+
+The AndroidX Compose test suite verifies that `ReportDrawnWhen` reevaluates after recomposition, reports after its predicate becomes true, and does not report a second time after the initial report. This supports keeping the callback tied to the app-ready state; it does not support bypassing the readiness condition to make the benchmark pass.
+
+Android's Macrobenchmark definition also matters for interpreting results:
+- TTID ends at the first frame of the destination screen.
+- TTFD ends when the app reports fully drawn and the frame containing/after that signal is rendered.
+- A first-frame launch wait is not a substitute for waiting on asynchronously loaded content.
+
+References:
+- [ReportDrawnWhen API](https://developer.android.com/reference/kotlin/androidx/activity/compose/ReportDrawnWhen.composable)
+- [AndroidX ReportDrawn tests](https://android.googlesource.com/platform/frameworks/support/+/cb7b46e014cacd6427ee9ed0a1f422b74cd4c4a3/activity/activity-compose/src/androidTest/java/androidx/activity/compose/ReportDrawnTest.kt)
+- [Macrobenchmark startup metrics](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics)
+- [App startup time](https://developer.android.com/topic/performance/issues/launch-time)
+
+### Phone-runner evidence gap
+
+The existing phone runner captures foreground state before and after the entire instrumentation invocation. It preserves the instrumentation log and those snapshots in the run directory. It does not record the active/focused window or marker-stage state at each readiness polling interval. Therefore a before/after snapshot alone cannot establish whether LADB briefly owned the active window during the failed wait, or whether Nuvio remained active while its own ready predicate stayed false.
+
+The most informative next diagnostic run should capture a compact, timestamped stage trace while the wait is in progress: elapsed time, active-window package, focused-window package, target-package hierarchy presence, and each app-side readiness marker. It should retain the existing before/after resumed-activity snapshots and first failure. Keep this diagnostic capture bounded and opt-in to avoid adding repeated shell I/O to normal benchmark iterations.
+
+This is a recommended diagnostics-only follow-up, not a conclusion that LADB caused the timeout. No Samsung/LADB behavior has been proven without a phone capture.
+
+### Source review conclusion
+
+No application startup optimization is justified by the evidence currently available. The readiness condition is wired consistently from the app callback to both the accessibility marker and Compose's fully-drawn report. The unresolved issue is missing runtime evidence about which stage fails on the physical phone. The benchmark harness's current active-window recovery and diagnostic labels are consistent with the documented API semantics, but device validation remains outstanding.
+
+No build, shell test, instrumentation run, phone benchmark or CI workflow was executed during this review. The app-side readiness failure remains open.
