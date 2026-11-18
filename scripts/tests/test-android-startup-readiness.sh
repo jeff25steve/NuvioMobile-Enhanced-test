@@ -8,7 +8,6 @@ APP_GATE_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppGat
 MAIN_CONTENT_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
-GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
@@ -72,6 +71,14 @@ grep -Fq 'true,' "$GENERATOR_SOURCE" || {
 }
 grep -Fq '"startup"' "$GENERATOR_SOURCE" || {
   echo "FAIL: startup profile output prefix must remain explicit." >&2
+  exit 1
+}
+grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: the standalone ART startup diagnostic must retain ArtMetric." >&2
+  exit 1
+}
+grep -Fq 'startupArtDiagnostics' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: the standalone ART startup diagnostic test is missing." >&2
   exit 1
 }
 # Release/benchmark APK needs R8 optimization; the capture build stays non-minified.
