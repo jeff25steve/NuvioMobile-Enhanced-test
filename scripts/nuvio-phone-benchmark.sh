@@ -141,16 +141,17 @@ file_sha256() {
 
 write_run_provenance() {
   {
-    printf 'Runner path: %s\\n' "$SCRIPT_DIR/nuvio-phone-benchmark.sh"
-    printf 'Runner SHA-256: %s\\n' "$(file_sha256 "$SCRIPT_DIR/nuvio-phone-benchmark.sh")"
-    printf 'Runner staged path: %s\\n' "$STAGING_DIR/nuvio-phone-benchmark.sh"
-    printf 'Staged runner SHA-256: %s\\n' "$(file_sha256 "$STAGING_DIR/nuvio-phone-benchmark.sh")"
-    printf 'Flavor: %s\\nAction: %s\\n' "$FLAVOR" "$ACTION"
-    for apk in "$APP_APK" "$TEST_APK"; do
-      [ -f "$apk" ] || continue
-      printf 'APK: %s\\nSHA-256: %s\\n' "$apk" "$(file_sha256 "$apk")"
-    done
-    printf 'Instrumentation component: %s\\n' "$INSTRUMENTATION"
+    printf 'Runner path: %s\n' "$SCRIPT_DIR/nuvio-phone-benchmark.sh"
+    printf 'Runner SHA-256: %s\n' "$(file_sha256 "$SCRIPT_DIR/nuvio-phone-benchmark.sh")"
+    printf 'Runner staged path: %s\n' "$STAGING_DIR/nuvio-phone-benchmark.sh"
+    printf 'Staged runner SHA-256: %s\n' "$(file_sha256 "$STAGING_DIR/nuvio-phone-benchmark.sh")"
+    printf 'Flavor: %s\nAction: %s\n' "$FLAVOR" "$ACTION"
+    printf 'App package: %s\nTest package: %s\n' "$APP_PACKAGE" "$TEST_PACKAGE"
+    printf 'App APK: %s\n' "$APP_APK"
+    printf 'App APK SHA-256: %s\n' "$(file_sha256 "$APP_APK")"
+    printf 'Test APK: %s\n' "$TEST_APK"
+    printf 'Test APK SHA-256: %s\n' "$(file_sha256 "$TEST_APK")"
+    printf 'Instrumentation component: %s\n' "$INSTRUMENTATION"
   } > "$RUN_DIR/provenance.txt"
 }
 
