@@ -2766,3 +2766,77 @@ AndroidX ProfileInstaller's Startup initializer deliberately schedules profile i
 ### Verification boundary
 
 This pass made no Kotlin, Java, Gradle or script source changes. It updated only the research note. No shell tests, Gradle tests, build, APK/AAB generation, instrumentation, Macrobenchmark, device run, LADB session, or CI workflow was run. The startup-cost centres identified above are source-level candidates, not measured bottlenecks. A trace-backed investigation is required before any initialization order change or performance claim.
+## Follow-up: official profile evidence, Compose trace plan, and mapped-state audit — 2026-11-18
+
+### Official Nuvio release/profile evidence (mobile only)
+
+Revisited official Nuvio Mobile release tag 0.6.13-beta (commit 6b7f15e) and current cmp-rewrite source, and filtered out NuvioTV results. Release 0.6.13-beta lists PR #2652 as 'perf: smoother cold start and home on Android'; official 1.0.0 release notes say it has the same features/fixes as 0.6.13-beta. The PR's published metrics are from the maintainer's measurements, not independently reproduced here.
+
+Generated Mobile profile files (baseline-prof.txt/startup-prof.txt), compiled baseline.prof, or App Bundle r8.json for the official repository could not be retrieved/verified in this pass. Search results for 22k-26k profile line counts referred to NuvioTV's Android TV app and have been explicitly excluded. Do not attribute NuvioTV profile size/rule counts to Nuvio Mobile.
+
+The official Mobile generator source at release commit 6b7f15e is confirmed to make two collect passes: launcher-only with includeInStartupProfile=true and browse journeys with includeInStartupProfile=false. It uses maxIterations=3 and stableIterations=2. The browse run covers Home vertical/horizontal scroll, hero details, poster details and Search/Library/Profile/Home tabs. It uses package-window wait + fixed 6s and 3s settle delays. runJourney catches Throwable, logs and continues; that means collection success does not guarantee every journey ran successfully.
+
+Official source also confirms mapped state in active app code, not merely a helper file:
+- HomeScreen maps AddonRepository.uiState into HomeAddonSignals using enabled addons, then collects only this projection at that call site.
+- MainAppContent maps poster-transition setting, active profile / overlay profile, library source mode, stream auto-play policy, network condition and completed downloads into narrow derived values at different call sites.
+- Broad state is still collected where the composable needs broad state. The official pattern is selective field mapping, not a wholesale rewrite.
+
+Official HomeScreen's addon projection is feature-specific: it derives compact signals from enabled addons and uses that signal in refresh/readiness behavior, while full HomeRepository state remains broad. Do not assume their exact projection fields can be copied into Enhanced; first inspect all Enhanced reads and preserve its local behavior.
+
+### Android Compose tracing is a concrete next diagnostic
+
+Research verified these primary Android references:
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-metrics
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-instrumentation-args
+- https://developer.android.com/develop/ui/compose/tooling/tracing
+- https://developer.android.com/reference/android/os/Trace
+
+AndroidX Benchmark 1.5.0 is pinned in Enhanced (libs.versions.toml). Its Macrobenchmark documentation exposes TraceSectionMetric, an experimental metric, to measure named trace sections and counts, including sections produced by android.os.Trace.beginSection/endSection. A current official AndroidX package reference lists modes Average, Count, First, Max, Min and Sum; however Context7 source for the exact TraceSectionMetric constructor in stable 1.5.0 was incomplete/RC-biased during this pass. Before writing it into Java benchmark code, obtain the exact 1.5.0 API signature from the versioned artifact/tag, not an RC snippet.
+
+Android platform Trace.beginSection/endSection has been verified via Android API docs. Sections are synchronous and MUST begin/end on the same thread; names must be <=127 Unicode code units; nesting must be balanced. Trace.beginAsyncSection/endAsyncSection is appropriate for spans crossing dispatchers, with matching name/cookie and unique cookies for overlapping spans. Avoid holding a synchronous trace section open across coroutine suspension or dispatcher changes.
+
+Compose composition tracing (not high-overhead recomposition tracing) can add composable work to Perfetto. To capture it under Macrobenchmark, Android's docs specify androidx.tracing:tracing-perfetto and tracing-perfetto-binary dependencies in the benchmark module and instrumentation arg androidx.benchmark.fullTracing.enable=true. The Compose compiler tracing strings are already added by Compose compiler 1.3+, while the runtime-tracing library is required for Compose runtime trace output. The enhanced catalog currently shows Compose Multiplatform 1.13.0-beta01 but does not declare a runtime-tracing dependency. Need verify the exact JetBrains/AndroidX matching artifact coordinate for this KMP Compose version before adding anything. No dependency has been added.
+
+Android's docs explicitly warn that recomposition tracing captures state reads/writes and stack information with significant overhead; use it to diagnose causes, not as the official headline performance number. Keep clean timing runs without recomposition tracing and use separate diagnostic runs when possible.
+
+### Enhanced mapped-state source audit and exact fields
+
+Enhanced sources re-fetched:
+- AddonModels.kt blob 606a5200fe820a7987e6d315e4ea809c4c998884.
+- AddonRepository.kt blob b320ffc4d8e461a3e86adaf71299d950883b092b.
+- HomeScreen.kt blob dabb27b3784b463b44aeec40295a53ae6159689f.
+- MainAppContent.kt blob 1a699f30d4516bd2c0b61aabe3c568178b70cc5e.
+- Version catalog blob 0ec2bb5c69dab565b6d7d74d8b466637d26385fc.
+
+HomeScreen currently collects the full AddonsUiState. The actual Home-facing requirements include:
+- enabled addon values for HomeRepository.refresh() when network reconnects;
+- enabled/pending manifest state for initial Home loading/skeleton decisions;
+- the first enabled manifest error for Home error presentation;
+- enabled addon manifests/metadata required to assemble and refresh catalog definitions.
+
+Therefore a projection containing only enabled addon list is incomplete and can break skeleton/error/readiness behavior. A potential HomeAddonSignals immutable projection needs a complete consumer audit and tests covering every field that affects: enabled addon refresh input, has pending enabled manifests, first enabled manifest error, and catalog manifest readiness. To avoid large equality cost, prefer small primitive/list projections with stable ordering and avoid repeatedly copying complete manifests or catalogs unless a consuming path needs them. Full catalog data may remain in a separate state pipeline.
+
+MainAppContent directly collects full AddonRepository.uiState because it consumes several fields for profile-aware addon operations and UI/sync decisions. A narrow root projection cannot be designed from the partial code slice inspected; inventory every read in the whole composable before considering it. Some handlers can read the repository's current `.value` on demand to avoid making root composition depend on every update, but only if they don't need reactive UI updates and do not change closure semantics.
+
+Potential safe first implementation after authorization to run tests: create pure projection data class/helper in AddonModels.kt; add unit tests proving each required Home signal changes only for relevant source updates and preserves enabled addon order; add test that a disabled addon update with unchanged Home signals does not emit a new projection; then wire only HomeScreen to collectMappedAsState using `remember(source) { source.map(transform).distinctUntilChanged() }` and collectAsStateWithLifecycle. Avoid root and other screens until independently mapped.
+
+Current Kotlin Coroutines catalog pins 1.10.2; Context7 resolved the official Kotlinx Coroutines source. StateFlow itself conflates upstream values by Any.equals and direct distinctUntilChanged on a StateFlow is fused/no-op. The useful equality boundary is *after* mapping broad state into an independent smaller value. StateFlow emits current state immediately to collectors and may skip intermediate fast updates for slow collectors, always delivering the latest. Derived projection equality can suppress irrelevant downstream recompositions.
+
+### Benchmark/profile strategy updated
+
+1. Establish fair and reproducible startup baseline: unchanged 10-iteration cold-start TTID/TTFD timing tests, same signed-in profile state, same optimization configuration and physical device.
+2. Add separate diagnostic benchmark/trace collection only through a report-contract-safe path. Existing phone runner strictly validates the two timing method names, their two startup metrics, and twenty trace files. Keep any diagnostic trace/report output clearly independent instead of weakening timing validation.
+3. Add named activity/preloader phases with safe sync/async trace instrumentation: Activity pre-setContent initializers; preloader profile/watch/progress/preferences/home snapshot/download prep; AppGate auth/runtime; first Home composition/readiness. Keep diagnostic traces separate from headline timing runs if the tracing dependency or instrumentation changes overhead.
+4. Inspect Macrobenchmark 1.5.0 TraceSectionMetric exact stable API before adding metrics; use Perfetto slices for named app trace spans and CPU/thread analysis.
+5. Compare compiled Enhanced profile: text baseline-prof.txt/startup-prof.txt; binary assets/dexopt/baseline.prof; AAB BUNDLE-METADATA/com.android.tools/r8.json `dexFiles` with `startup: true` and matching DEX checksum; check primary classes.dex startup placement and profile size under documented 1.5 MB binary-profile packaging limit. Compare official only if we can obtain the equivalent official artifacts; do not substitute TV files.
+6. Add browse CUJs to Baseline Profile only, with explicit per-journey screen/assertion outcomes and no catch-and-continue. Keep launcher / initial Home readiness in Startup Profile only.
+
+### Conclusions
+
+The most promising performance improvement is still selective Compose state projection and reducing measured startup critical-path work, not indiscriminately enlarging profile rules. We now have stronger proof that official Nuvio uses mapped state at multiple large/root/UI boundaries, while Enhanced has some relevant broad collections. However, the precise Home addon projection requirements show why this needs a field-by-field design and regression coverage rather than a copy/paste helper.
+
+Official generated Mobile Baseline/Startup Profile artifact contents remain unavailable; official rule counts/package distribution/DEX placement remain unknown. Nuvio's PR #2652 reported frame/recomposition wins; it did not publish independent matched-device Macrobenchmark TTID/TTFD profile A/B results in the evidence retrieved here.
+
+### Verification boundary
+
+No production Kotlin/Java/Gradle/script changes were made in this pass. No tests, shell scripts, Gradle tasks, APK/AAB build, instrumentation, Macrobenchmark, phone, LADB or CI were run. The note is the only intended repository change.
