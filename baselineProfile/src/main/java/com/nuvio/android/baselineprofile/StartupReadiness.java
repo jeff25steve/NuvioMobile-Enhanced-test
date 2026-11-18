@@ -4,6 +4,8 @@ import android.os.SystemClock;
 
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiWindow;
 
@@ -151,6 +153,49 @@ final class StartupReadiness {
             SystemClock.sleep(POLL_MS);
         }
         return markerVisible(device, marker);
+    }
+
+    static void scrollRequired(
+            UiDevice device,
+            String marker,
+            Direction direction,
+            String journeyStep) {
+        boolean markerPresent;
+        try {
+            markerPresent = waitForMarker(device, marker, READY_TIMEOUT_MS);
+        } catch (RuntimeException queryFailure) {
+            throw markerQueryFailure(marker, journeyStep, queryFailure, device);
+        }
+        if (!markerPresent) {
+            throw new AssertionError(
+                    "Home browse journey could not find the " + journeyStep
+                            + " selector '" + marker + "' within " + READY_TIMEOUT_MS + " ms."
+                            + diagnostics(device));
+        }
+
+        UiObject2 scrollable = device.findObject(packageRes(marker));
+        if (scrollable == null || !scrollable.isScrollable()) {
+            throw new AssertionError(
+                    "Home browse journey found '" + marker
+                            + "' but it is not an accessible scrollable " + journeyStep + "."
+                            + diagnostics(device));
+        }
+
+        try {
+            if (!scrollable.scroll(direction, 0.75f)) {
+                throw new AssertionError(
+                        "Home browse journey could not scroll " + journeyStep
+                                + " in direction " + direction + "."
+                                + diagnostics(device));
+            }
+        } catch (RuntimeException scrollFailure) {
+            AssertionError failure = new AssertionError(
+                    "UI Automator failed while scrolling " + journeyStep
+                            + " in direction " + direction + "."
+                            + diagnostics(device));
+            failure.initCause(scrollFailure);
+            throw failure;
+        }
     }
 
     static void awaitHomeAndFullyDrawn(UiDevice device) {
