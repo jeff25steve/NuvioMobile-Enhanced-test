@@ -2840,3 +2840,64 @@ Official generated Mobile Baseline/Startup Profile artifact contents remain unav
 ### Verification boundary
 
 No production Kotlin/Java/Gradle/script changes were made in this pass. No tests, shell scripts, Gradle tasks, APK/AAB build, instrumentation, Macrobenchmark, phone, LADB or CI were run. The note is the only intended repository change.
+## Follow-up: expanded Android/Compose research and startup source audit — 2026-11-18
+
+### Research coverage and source-quality boundary
+
+Reopened the existing 330 KB note and the current branch's Activity, Application, Android manifest, benchmark/profile generator, root/Home composables, addon models and addon tests. Context7 was available for Compose and Coroutines. The connected Exa search provider returned HTTP 402 (credits limit) on the first broad multi-angle query; no new Exa results were available in this cycle. Do not claim an Exa sweep occurred or present stale snippets as new findings. Exa can be resumed after its account quota is restored.
+
+### New Compose performance findings from Android documentation
+
+Context7 selected official Android Compose reference docs. Useful documented facts:
+- Compose stability annotations are contracts, not hints. `@Stable` requires equality stability, observable notification for public property changes, and stable public property types. Violating the contract can lead to undefined optimization behavior. Do not add `@Stable` or `@Immutable` simply to force skipping.
+- A type annotated `@Immutable` must actually be immutable. Public lists/collections backed by mutable data or exposed mutable references make this unsafe. Prefer immutable projections and persistent immutable collections where project dependencies and API affordances justify them; don't blanket-annotate DTOs.
+- Stable parameters can be compared and composable calls skipped when equal. The key optimisation is to prevent irrelevant changes reaching the composable or to make stable values accurately represent equality.
+- LazyColumn/LazyRow/LazyGrid `contentType` lets lazy layouts reuse compatible item compositions more efficiently; use a small bounded set of types, not per-item unique values. Stable unique item keys preserve scroll position when items are inserted/removed ahead of the current visible item.
+- Lazy layout `cacheWindow` can trade memory and composition work for scroll smoothness. The Android docs describe a default ahead-prefetch window of 10%-50% of viewport based on observed item size; increasing cache ahead/behind has memory and CPU costs and is not inherently faster for cold launch. Do not change the app's cache window without scroll/jank traces on representative low/mid/high devices.
+
+Sources: https://developer.android.com/reference/kotlin/androidx/compose/runtime/Stable, https://developer.android.com/reference/kotlin/androidx/compose/runtime/Immutable, https://developer.android.com/reference/kotlin/androidx/compose/foundation/lazy/LazyColumn.composable, https://developer.android.com/reference/kotlin/androidx/compose/foundation/lazy/LazyListDefaults
+
+### New Enhanced Android startup findings
+
+Current AndroidManifest.xml explicitly declares `<profileable android:shell="true" />`, supporting production-like shell profiling while the app is non-debuggable. Keep it enabled for benchmark variants. Ensure release/profileable is not conflated with debuggable benchmark APKs.
+
+NuvioApplication constructs the custom Coil ImageLoader lazily through `SingletonImageLoader.Factory`. The code comment explains why: Coil's auto-init ContentProvider would otherwise create the singleton before MainActivity and later custom poster fallback interceptors would not be registered. The custom loader includes crossfade, memory/disk cache, custom poster fallback, SVG, Ktor/OkHttp, Cache-Control and in-flight request dedupe, plus platform GIF/animated decoding. This is an intentional correctness constraint: do not defer the registration/factory itself beyond first image request, and do not move loader creation earlier eagerly merely to warm it. Future image work should inspect the exact image request sizes/precision, decoded bitmap dimensions, cache hit/miss ratio, fallback interceptor latency and initial hero/artwork readiness. Coil cache hits and HTTP cache semantics should be traced separately.
+
+MainActivity currently calls `showContent()` only after its long synchronous storage/platform initialization sequence and `StartupPreloader.awaitCriticalReady()` when necessary. It sets the splash keep condition until `contentReady`, then calls `setContent`, sets `contentReady=true` immediately after composition setup, starts post-frame warmup only after one frame, and uses `ReportDrawnWhen { appReady.value }` for the fully-drawn signal. The benchmark helper separately waits for the app's explicit Home + fully-drawn state. Thus SplashScreen dismissal, first Compose frame, Android reportFullyDrawn, Home readiness, and usable Home are different milestones; preserve them as separate observables.
+
+Application.onCreate currently calls only `DnsPlatform.initialize(this)`; ImageLoader creation is lazy. This supports deferring broad additional initialization from Application rather than adding work there. However, DnsPlatform may be a dependency for the shared OkHttp/Coil stack and must remain before any client use until callers and provider initialization are traced.
+
+### What not to do: image-loader and lazy-list 'optimizations' without proof
+
+- Do not remove crossfade globally; perceived image pop-in and UX regression risk. For the first above-the-fold image only, a controlled crossfade policy may be considered after measuring first render and confirming existing request-level overrides.
+- Do not preload the entire initial Home image set. It can compete with startup CPU, memory bandwidth and network queueing, worsening TTFD. Measure only visible/near-visible image prefetch and cap concurrency if Perfetto/network traces show a problem.
+- Do not turn up Coil memory cache/disk cache blindly; existing policy is enabled, but exact cache sizes/keys and hit rates were not retrieved in this pass.
+- Do not increase LazyColumn/LazyRow cache windows just because docs expose the option; this can cause more compositions and memory retention and may not benefit startup.
+- Inspect item `key` and `contentType` on expensive/repeated lazy item groups. Stable unique keys prevent state movement; low-cardinality content types may improve composition reuse. Apply only after verifying each relevant lazy scope and item types, particularly nested horizontal Home rails.
+
+### New benchmark quality improvement candidates
+
+Existing Enhanced startup benchmark already has explicit Home + fully-drawn readiness and compares no-compilation with packaged Baseline Profile across 10 cold iterations, plus a separate ART diagnostic method. The phone runner's strict output contract requires three instrumentation test method names for collection but only parses two timing cases, and keeps a twenty-trace invariant. Do not add diagnostics that weaken or confuse these contracts.
+
+Additional high-value candidates after stable API validation:
+1. Baseline profile evidence bundle: store source revision, APK SHA-256, profile text, profile binary hash/size, device fingerprint/API level, ART package version, profile state, compilation state, test app variant and signed-in fixture. Current note already calls out source/APK mismatch as a major failure source; make it impossible to compare a result without provenance.
+2. Profile collection hardening: assert each CUJ reached its intended screen and completed; record journey failures and abort profile creation if any required journey is missing. Distinguish optional journeys only with an explicit allowlist and report.
+3. Profile semantics checks: startup profile should cover first Home display path; non-startup profile should cover scroll, details and tabs. Compare rules against app DEX method references and inspect generated binary / AAB metadata after an authorized build. Do not optimize raw rule count without proof of DEX layout, hot method coverage and startup results.
+4. Add launch timing distribution summary to phone runner from exact raw Macrobenchmark JSON while preserving the current parser invariants. Report median/P90 where raw results support it; Android Macrobenchmark default statistical output may need its own parser format and schema version.
+5. A/B test with BaselineProfileMode.Require vs Disable using same package build, data state and same device. The current `None` case and `Require` case are correct high-level comparisons, but `None` vs Baseline Profile mixes profile use and compilation mode; add `Partial(BaselineProfileMode.Disable, warmupIterations=3)` to isolate profile contribution only after updating runner/report schema and authorizing tests/build.
+
+### Refined priority queue
+
+1. Do a field/call-site inventory and build an immutable HomeAddonSignals projection containing all Home-required state. Existing AddonModelsTest covers enabled, pending and error helper behavior but not the projection contract or Flow distinct behavior. Add tests first and run them before wiring production code; this is blocked by the current no-test/no-build constraint.
+2. Add separately gated startup trace markers around Activity pre-setContent groups, critical preload stages and first Home composition. Use synchronous `android.os.Trace` blocks only on same-thread code and async slices for dispatcher-crossing work. Must pair begin/end in finally. Keep trace collection diagnostics out of headline timings unless its overhead is quantified.
+3. Inventory Home lazy scopes for stable keys and bounded contentType, focusing on expensive poster/card components and nested horizontal rails. No lazy cache-window tuning without FrameTimingMetric/Perfetto evidence.
+4. Audit Coil request precision, size resolution, hardware/software bitmap use, cache key and first-visible decode, then use traces to establish whether image decode or network is a top contributor. Keep custom fallback registration ordering intact.
+5. Map the `MainActivity` initialization calls to their actual implementation work. For each, classify as object wiring, DataStore/file/database read, binder/service, native init, thread/client startup or observer binding. Defer only proven non-critical work and cover deep links, playback, PiP, notification/permission callbacks, profile/account switching and secondary process entry.
+
+### Exa provider status
+
+The explicitly invoked Exa search connector returned HTTP 402 because the account's credits limit was reached at 2026-11-18T04:55:59Z. No alternate search system was substituted in this pass. This is a research blocker, not evidence that no new practitioner findings exist. Resume later with separate Exa query angles for Android startup Perfetto case studies, Compose recomposition/stability, Baseline Profile/Dex layout, Coil first-screen image loading, and ContentProvider/App Startup overhead.
+
+### Verification boundary
+
+No Kotlin/Java/XML/Gradle/script production change was made. No tests (including shell tests), builds, APK/AAB generation, instrumentation, Macrobenchmark, phone, LADB or CI were run. This is a source and documentation research cycle only.
