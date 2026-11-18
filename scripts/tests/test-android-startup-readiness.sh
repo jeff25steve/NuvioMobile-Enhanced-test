@@ -81,6 +81,30 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: fully-drawn wait must use the remaining shared timeout." >&2
     exit 1
   }
+  grep -Fq 'HomeScreen wait elapsed:' "$source" || {
+    echo "FAIL: readiness failures must report how long the HomeScreen wait consumed." >&2
+    exit 1
+  }
+  grep -Fq 'Remaining shared deadline when fully-drawn wait began:' "$source" || {
+    echo "FAIL: readiness failures must report the remaining shared deadline." >&2
+    exit 1
+  }
+  grep -Fq 'getUiAutomation()' "$source" || {
+    echo "FAIL: readiness failures must capture actual system window/activity state." >&2
+    exit 1
+  }
+  grep -Fq 'dumpsys activity activities' "$source" || {
+    echo "FAIL: failure diagnostics must include the resumed activity." >&2
+    exit 1
+  }
+  grep -Fq 'dumpsys window windows' "$source" || {
+    echo "FAIL: failure diagnostics must include the focused window." >&2
+    exit 1
+  }
+  grep -Fq 'pidof com.nuvio.media.benchmark' "$source" || {
+    echo "FAIL: readiness diagnostics must report whether the target process still exists." >&2
+    exit 1
+  }
   grep -Fq 'markerVisible(UiDevice device, String marker)' "$source" || {
     echo "FAIL: readiness diagnostics must report marker visibility safely." >&2
     exit 1
@@ -95,4 +119,4 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   fi
 done
 
-printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; diagnostics cannot fail on malformed accessibility text.\n'
+printf 'PASS: both benchmark journeys preserve Home/TTFD waits and capture timing plus failure-time device state.\n'

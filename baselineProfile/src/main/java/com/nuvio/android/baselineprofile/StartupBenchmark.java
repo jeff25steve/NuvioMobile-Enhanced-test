@@ -12,7 +12,12 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import androidx.test.filters.LargeTest;
 
 import java.util.Collections;
@@ -62,7 +67,44 @@ public final class StartupBenchmark {
         }
     }
 
-    private static String readinessDiagnostics(UiDevice device) {
+    private static String captureForegroundStateAtFailure() {
+        String command =
+                "echo 'Resumed activity:'; " +
+                "dumpsys activity activities 2>&1 | grep -E 'topResumedActivity|mResumedActivity|ResumedActivity' | head -n 8; " +
+                "echo 'Focused window:'; " +
+                "dumpsys window windows 2>&1 | grep -E 'mCurrentFocus|mFocusedApp' | head -n 4; " +
+                "echo 'Benchmark process PID:'; " +
+                "pidof com.nuvio.media.benchmark 2>&1";
+        try {
+            ParcelFileDescriptor descriptor = InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation()
+                    .executeShellCommand(command);
+            if (descriptor == null) {
+                return "<unavailable: shell command returned no output descriptor>";
+            }
+            try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(descriptor);
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, count);
+                }
+                String result = new String(output.toByteArray(), StandardCharsets.UTF_8).trim();
+                return result.isEmpty() ? "<empty shell output>" : result;
+            }
+        } catch (Exception error) {
+            return "<unavailable: " + error.getClass().getSimpleName() + ": " +
+                    String.valueOf(error.getMessage()) + ">";
+        }
+    }
+
+    private static String readinessDiagnostics(
+            UiDevice device,
+            String waitPhase,
+            long homeWaitElapsedMs,
+            long remainingMs,
+            long fullyDrawnWaitElapsedMs
+    ) {
         String lastAccessibilityEventPackage = "<unavailable>";
         try {
             // UiDevice documents this as the last package to report an accessibility event,
@@ -89,34 +131,57 @@ public final class StartupBenchmark {
                 "\nReadiness home-pending/profile-loading: " + markerVisible(device, "nuvio_readiness_home_pending_profile_switch_loading") +
                 "\nHomeScreen marker visible now: " + markerVisible(device, "nuvio_benchmark_home") +
                 "\nFully-drawn marker visible now: " + markerVisible(device, "nuvio_startup_ready") +
+                "\nReadiness wait phase: " + waitPhase +
+                "\nHomeScreen wait elapsed: " + homeWaitElapsedMs + " ms" +
+                "\nRemaining shared deadline when fully-drawn wait began: " + remainingMs + " ms" +
+                "\nFully-drawn wait elapsed: " +
+                    (fullyDrawnWaitElapsedMs < 0 ? "not started" : fullyDrawnWaitElapsedMs + " ms") +
+                "\nResumed activity and focused window at assertion (failure-only shell snapshot):\n" +
+                    captureForegroundStateAtFailure() +
                 "\nAccessibility hierarchy omitted: Android's XML dumper can throw on invalid " +
                 "characters in accessibility text, which must not mask the original benchmark failure.";
     }
 
     private static void awaitMainContentReady() {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        long deadline = SystemClock.elapsedRealtime() + FULLY_DRAWN_TIMEOUT_MS;
+        long waitStartedAt = SystemClock.elapsedRealtime();
+        long deadline = waitStartedAt + FULLY_DRAWN_TIMEOUT_MS;
         boolean homeVisible = device.wait(
                 Until.hasObject(By.res("nuvio_benchmark_home")),
                 FULLY_DRAWN_TIMEOUT_MS
         );
+        long homeWaitElapsedMs = SystemClock.elapsedRealtime() - waitStartedAt;
         if (!homeVisible) {
             throw new AssertionError(
                     "Nuvio did not expose the HomeScreen marker 'nuvio_benchmark_home' within 30 seconds." +
-                    readinessDiagnostics(device)
+                    readinessDiagnostics(
+                            device,
+                            "HomeScreen",
+                            homeWaitElapsedMs,
+                            deadline - SystemClock.elapsedRealtime(),
+                            -1
+                    )
             );
         }
 
         long remainingMs = deadline - SystemClock.elapsedRealtime();
+        long fullyDrawnWaitStartedAt = SystemClock.elapsedRealtime();
         boolean fullyDrawn = remainingMs > 0 && device.wait(
                 Until.hasObject(By.res("nuvio_startup_ready")),
                 remainingMs
         );
+        long fullyDrawnWaitElapsedMs = SystemClock.elapsedRealtime() - fullyDrawnWaitStartedAt;
         if (!fullyDrawn) {
             throw new AssertionError(
                     "HomeScreen appeared, but Nuvio did not expose its fully-drawn marker " +
                     "'nuvio_startup_ready' before the 30-second startup deadline." +
-                    readinessDiagnostics(device)
+                    readinessDiagnostics(
+                            device,
+                            "fully-drawn",
+                            homeWaitElapsedMs,
+                            remainingMs,
+                            fullyDrawnWaitElapsedMs
+                    )
             );
         }
     }

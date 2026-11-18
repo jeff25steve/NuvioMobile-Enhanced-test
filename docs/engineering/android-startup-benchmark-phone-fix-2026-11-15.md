@@ -1916,3 +1916,31 @@ Sources:
 - https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
 
 No app, benchmark, timeout, profile, or phone-runner code was changed for this incident because the supplied evidence does not yet prove which component prevented the readiness predicate from becoming true.
+
+
+## 18 November 2026 — uploaded foreground captures and failure-time diagnostics
+
+### Review of the additional phone files
+
+The user supplied two pairs of shell-side foreground captures and the install marker:
+
+- 00:24:25 before and 00:24:58 after: both report `com.draco.ladb/.views.MainActivity` as the focused and top-resumed activity.
+- 00:26:20 before and 00:26:52 after: both report the same LADB activity.
+- `current-install.txt` records `install-profile:playstore`.
+
+The phone runner captures these snapshots immediately before and after its `am instrument` command. They establish that LADB is foreground at the two shell-wrapper snapshots; they do **not** establish which app was foreground while the instrumentation test was waiting for Home and fully drawn. LADB being present at those two boundaries is expected when the benchmark is launched from its shell.
+
+The instrumentation output still establishes the same failure in the Play Store profile-capture variant: Home was observed, but `nuvio_startup_ready` was not observed before the 30-second deadline. The diagnostic value from `UiDevice.getCurrentPackageName()` remains only the last package to report an accessibility event. It must not be treated as the foreground app.
+
+### Concrete diagnostics gap and next patch
+
+Both benchmark journeys use one elapsed-realtime deadline for the Home marker and fully-drawn marker. Before this update, the failure message did not record how long the Home wait consumed, how much of the shared deadline remained when the fully-drawn wait started, or the actual resumed activity/window focus at the assertion. The shell wrapper's before/after captures cannot fill that gap.
+
+A new non-CI branch, `debug/main-build-testing-readiness-diagnostics-20261118`, adds failure-only diagnostics to both `BaselineProfileGenerator` and `StartupBenchmark`:
+
+- Record the Home marker wait duration, remaining shared-deadline budget, and fully-drawn wait duration.
+- On failure only, use Android `UiAutomation.executeShellCommand` to capture the resumed activity, focused window, and target benchmark process PID at the assertion.
+- Keep the old last-accessibility-event package field with its accurate label.
+- Keep the same 30-second shared deadline, both Home and fully-drawn selectors, and the `ReportDrawnWhen`/TTFD contract. No polling or shell commands are added to successful measured iterations.
+
+The readiness shell regression test now requires these diagnostics in both journeys. This is an evidence-capture improvement, **not a claim that the device-side readiness failure is fixed**. The branch has not been built or run on the phone. No build or CI workflow was started; the canonical benchmark workflow remains manual-only. A new matching test APK is required before the diagnostics can be exercised.
