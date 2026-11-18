@@ -591,3 +591,55 @@ References:
 - Public social/forum search: found Reddit r/Nuvio reports relevant to APK distribution, startup and poster loading. Targeted X/Twitter searches did not return verifiable relevant posts in this pass. Do not claim X/Twitter investigation produced findings.
 - Exa was intentionally not used as requested.
 - No production code, tests, build scripts, generated profiles, APKs, device runs or CI were changed or started in this research cycle. This document update is research-only. No Enhanced-vs-official speed superiority is claimed; it requires matched physical-device results.
+
+
+## 18 November 2026 — improvement cycle 49: benchmark diagnostics and source contracts
+
+### Startup Insights in both cold-start comparison arms
+
+- Enabled AndroidX Benchmark Startup Insights for the existing `startupNoCompilation` and `startupWithBaselineProfile` tests using `ExperimentalConfig(null, new StartupInsightsConfig(true))`.
+- Updated the Java `MacrobenchmarkRule.measureRepeated` call to the AndroidX 1.5.0 experimental-config overload. Its argument order is package, metrics, iterations, experimental config, compilation mode, startup mode, setup block and measure block.
+- The measurement still emits only the two existing `StartupTimingMetric` result records and keeps ten cold iterations per arm. Startup Insights adds trace-based diagnostic insight; it does not add application runtime work or change the app's startup behavior.
+- Kept `ArtMetric` deferred. The current result contract deliberately requires exactly the two timing arms and validates TTID/TTFD samples and traces. Optional ART fields need their own parser/report fixtures before they can safely join this run.
+
+API evidence:
+- AndroidX Benchmark 1.5.0 is the repository-pinned stable version.
+- The public MacrobenchmarkRule API exposes the `ExperimentalConfig` overload with the parameter order now used by StartupBenchmark.
+- Startup Insights is enabled through `StartupInsightsConfig` inside `ExperimentalConfig`.
+
+### Regression-contract corrections
+
+- Updated the readiness regression to assert the actual multiline Compose semantics block and the `testTag = "nuvio_startup_ready"` mapping used by MainActivity.
+- Restricted the no-swallowed-selector-exception assertion to `StartupReadiness.markerVisible`. Best-effort diagnostic helpers may legitimately return an unavailable state; they do not turn marker-query failures into timeouts.
+- Updated the metric-contract test to check Java's `CompilationMode.None.INSTANCE` interop and the actual `CompilationMode.Partial(BaselineProfileMode.Require)` construction.
+- Updated the phone test to check the shared `StartupReadiness` helper instead of expecting diagnostic methods to be duplicated in both benchmark callers.
+
+Verification boundary:
+- Source was re-fetched from `main-build-testing` after the changes. The shell regression scripts were not executed because this environment has no mounted repository checkout.
+- No Gradle task, APK build, device run, profile generation, Macrobenchmark or CI was started.
+- This improves benchmark diagnosis and prevents stale preflight assertions; it is not an app startup speedup. No TTID/TTFD improvement is claimed.
+
+References:
+- https://developer.android.com/reference/androidx/benchmark/macro/junit4/MacrobenchmarkRule
+- https://developer.android.com/reference/androidx/benchmark/ExperimentalConfig
+- https://developer.android.com/jetpack/androidx/releases/benchmark
+
+## 18 November 2026 — improvement cycle 50: protect authenticated API 33 benchmark state
+
+- The phone runner now distinguishes profile collection/variant installation from authenticated Home measurement. On API 33, only `run` and `measure` require the shell to pass an already-rooted `id` or `su root id` check.
+- This avoids starting Macrobenchmark on an unrooted API 33 device where AndroidX's pre-34 compilation reset may uninstall/reinstall the target app and erase the signed-in benchmark Home state.
+- API 33 profile collection without root remains supported; API 34+ measurement remains available without root.
+- Applied the equivalent capability check to the desktop ADB runner, whose combined workflow always proceeds from profile capture to authenticated measurement. API 28–33 require the root-capable shell; API 34+ remains the preferred non-rooted path.
+- Extended the mocked phone-runner fixture to cover API 33 unrooted profile capture, unrooted measurement rejection before `am instrument`, successful measurement through `su root id`, and an already-root shell. Added static assertions for the desktop runner's matching guard.
+
+This is a benchmark-state preservation and measurement-validity fix, not a runtime performance optimization.
+
+Verification boundary:
+- All changed files were re-fetched from the remote target branch and their expected guard/configuration fragments were confirmed.
+- The mocked shell suite has not been executed in this environment; the new fixtures therefore remain pending execution. No build, Gradle task, CI workflow, physical-device measurement or profile collection was started.
+- The current benchmark remains unauthorised for API 33 unrooted authenticated measurement. Use API 34+ for the normal unrooted path.
+- No Nuvio-vs-official performance advantage is claimed. Equivalent device measurements are still required.
+
+References:
+- https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview
+- https://developer.android.com/reference/androidx/benchmark/macro/junit4/MacrobenchmarkRule
