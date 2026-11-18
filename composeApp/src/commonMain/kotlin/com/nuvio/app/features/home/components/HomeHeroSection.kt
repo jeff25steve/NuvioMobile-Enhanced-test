@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,6 +66,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,6 +77,7 @@ import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import coil3.size.Scale
 import com.nuvio.app.core.build.AppFeaturePolicy
 import com.nuvio.app.core.build.TrailerPlaybackMode
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
@@ -311,8 +315,38 @@ internal fun HomeHeroSection(
             }
             val artworkParallax = if (isCardStyle) 0f else HERO_BACKGROUND_PARALLAX
             val artworkBaseScale = if (isCardStyle) 1f else HERO_BACKGROUND_SCALE
-            val heroWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
-            val heroHeightPx = with(LocalDensity.current) { layout.heroHeight.toPx() }
+            val density = LocalDensity.current
+            val heroWidthPx = with(density) { maxWidth.toPx() }
+            val heroHeightPx = with(density) { layout.heroHeight.toPx() }
+            val verticalBarPadding = LocalVerticalBarPadding.current
+            val layoutDirection = LocalLayoutDirection.current
+            val (logoHorizontalStartPaddingPx, logoHorizontalEndPaddingPx) = if (layout.isTablet) {
+                with(density) {
+                    (layout.contentHorizontalPadding + verticalBarPadding.calculateStartPadding(layoutDirection)).toPx() to
+                        (layout.contentHorizontalPadding + verticalBarPadding.calculateEndPadding(layoutDirection)).toPx()
+                }
+            } else {
+                val centeredPaddingPx = with(density) {
+                    maxOf(
+                        layout.contentHorizontalPadding,
+                        verticalBarPadding.calculateStartPadding(layoutDirection),
+                        verticalBarPadding.calculateEndPadding(layoutDirection),
+                    ).toPx()
+                }
+                centeredPaddingPx to centeredPaddingPx
+            }
+            val heroLogoSize = if (isCardStyle) {
+                null
+            } else {
+                heroLogoPrefetchSize(
+                    heroWidthPx = heroWidthPx,
+                    horizontalStartPaddingPx = logoHorizontalStartPaddingPx,
+                    horizontalEndPaddingPx = logoHorizontalEndPaddingPx,
+                    contentWidthFraction = layout.contentWidthFraction,
+                    contentMaxWidthPx = with(density) { layout.contentMaxWidth.toPx() },
+                    logoWidthFraction = layout.logoWidthFraction,
+                )
+            }
             val scrollOffsetPx by remember(listState, heroHeightPx) {
                 derivedStateOf {
                     when {
@@ -348,18 +382,43 @@ internal fun HomeHeroSection(
             }
 
             val platformContext = LocalPlatformContext.current
-            LaunchedEffect(pagerState.settledPage, items, effectiveArtworkSource) {
+            LaunchedEffect(
+                pagerState.settledPage,
+                items,
+                effectiveArtworkSource,
+                heroWidthPx,
+                heroHeightPx,
+                heroLogoSize,
+                isCardStyle,
+            ) {
                 val settled = pagerState.settledPage
                 val neighbours = listOf(settled + 1, settled - 1)
                     .filter { page -> page >= 0 && items.size > 1 }
                     .map { page -> items[page % items.size] }
                     .distinct()
                 val imageLoader = SingletonImageLoader.get(platformContext)
+                val artworkSize = heroPrefetchSize(heroWidthPx, heroHeightPx)
                 neighbours.forEach { item ->
-                    listOfNotNull(heroArtworkUrl(item, effectiveArtworkSource), item.logo?.takeIf { it.isNotBlank() })
-                        .forEach { url ->
-                            imageLoader.enqueue(ImageRequest.Builder(platformContext).data(url).build())
+                    val targets = homeHeroPrefetchTargets(
+                        artworkUrl = heroArtworkUrl(item, effectiveArtworkSource),
+                        logoUrl = item.logo,
+                        isCardStyle = isCardStyle,
+                        artworkSize = artworkSize,
+                        logoSize = heroLogoSize,
+                    )
+                    targets.forEach { target ->
+                        val scale = when (target.scale) {
+                            HeroPrefetchScale.CROP -> Scale.FILL
+                            HeroPrefetchScale.FIT -> Scale.FIT
                         }
+                        imageLoader.enqueue(
+                            ImageRequest.Builder(platformContext)
+                                .data(target.url)
+                                .size(target.size.widthPx, target.size.heightPx)
+                                .scale(scale)
+                                .build(),
+                        )
+                    }
                 }
                 neighbours.forEach { item ->
                     if (MetaDetailsRepository.peek(item.type, item.id) == null) {
