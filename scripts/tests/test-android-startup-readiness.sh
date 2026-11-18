@@ -76,6 +76,22 @@ grep -Fq 'static boolean markerVisible(UiDevice device, String marker)' "$READIN
   echo "FAIL: shared readiness helper must expose safe marker lookup." >&2
   exit 1
 }
+if grep -Fq 'catch (Exception ignored)' "$READINESS_SOURCE"; then
+  echo "FAIL: readiness polling must not suppress UIAutomator failures as marker-not-found results." >&2
+  exit 1
+fi
+grep -Fq 'markerQueryFailure(' "$READINESS_SOURCE" || {
+  echo "FAIL: selector exceptions must be reported separately from marker timeouts." >&2
+  exit 1
+}
+grep -Fq 'failure.initCause(cause)' "$READINESS_SOURCE" || {
+  echo "FAIL: original UIAutomator query cause must be preserved." >&2
+  exit 1
+}
+grep -Fq 'Unable to restore Nuvio while waiting for marker' "$READINESS_SOURCE" || {
+  echo "FAIL: failed foreground recovery commands must be surfaced." >&2
+  exit 1
+}
 grep -Fq 'By.res(TARGET_APP_PACKAGE, marker)' "$READINESS_SOURCE" || {
   echo "FAIL: marker lookup must scope resource IDs to the benchmark app package." >&2
   exit 1
