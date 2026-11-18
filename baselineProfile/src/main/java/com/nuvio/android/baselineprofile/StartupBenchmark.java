@@ -1,5 +1,7 @@
 package com.nuvio.android.baselineprofile;
 
+import androidx.benchmark.ExperimentalConfig;
+import androidx.benchmark.StartupInsightsConfig;
 import androidx.benchmark.macro.BaselineProfileMode;
 import androidx.benchmark.macro.CompilationMode;
 import androidx.benchmark.macro.StartupMode;
@@ -29,6 +31,8 @@ import org.junit.runner.RunWith;
 @LargeTest
 public final class StartupBenchmark {
     private static final int ITERATIONS = 10;
+    private static final ExperimentalConfig STARTUP_INSIGHTS_CONFIG =
+            new ExperimentalConfig(null, new StartupInsightsConfig(true));
 
     @Rule
     public final MacrobenchmarkRule benchmarkRule = new MacrobenchmarkRule();
@@ -55,9 +59,10 @@ public final class StartupBenchmark {
         benchmarkRule.measureRepeated(
                 StartupReadiness.TARGET_APP_PACKAGE,
                 metrics,
+                ITERATIONS,
+                STARTUP_INSIGHTS_CONFIG,
                 compilationMode,
                 StartupMode.COLD,
-                ITERATIONS,
                 scope -> {
                     scope.pressHome();
                     return Unit.INSTANCE;
