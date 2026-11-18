@@ -60,50 +60,49 @@ grep -Fq 'nuvio_readiness_home_' "$MAIN_CONTENT_SOURCE" || {
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
-  if [ "$source" != "$READINESS_SOURCE" ]; then
-  grep -Fq 'By.res("nuvio_benchmark_home")' "$source" || {
-    echo "FAIL: benchmark must first wait for the HomeScreen marker." >&2
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device)' "$source" || {
+    echo "FAIL: both benchmark journeys must delegate to the shared Home/fully-drawn readiness wait." >&2
     exit 1
   }
-  grep -Fq 'By.res("nuvio_startup_ready")' "$source" || {
-    echo "FAIL: benchmark must also wait for the fully-drawn marker to preserve TTFD coverage." >&2
-    exit 1
-  }
-  for marker in nuvio_appgate_main nuvio_appgate_profile_loading nuvio_main_content_loading nuvio_launch_overlay_transitioning nuvio_main_content_ready nuvio_readiness_home_ready_profile_switch_idle nuvio_readiness_home_ready_profile_switch_loading nuvio_readiness_home_pending_profile_switch_idle nuvio_readiness_home_pending_profile_switch_loading; do
-    grep -Fq "markerVisible(device, \"$marker\")" "$source" || {
-      echo "FAIL: readiness diagnostics must report $marker." >&2
-      exit 1
-    }
-  done
-  grep -Fq 'SystemClock.elapsedRealtime()' "$source" || {
-    echo "FAIL: both startup markers must share one elapsed-realtime deadline." >&2
-    exit 1
-  }
-  grep -Fq 'remainingMs' "$source" || {
-    echo "FAIL: fully-drawn wait must use the remaining shared timeout." >&2
-    exit 1
-  }
-  grep -Fq 'markerVisible(UiDevice device, String marker)' "$source" || {
-    echo "FAIL: readiness diagnostics must report marker visibility safely." >&2
-    exit 1
-  }
-  fi
   if grep -Fq 'dumpWindowHierarchy' "$source"; then
-    echo "FAIL: diagnostics must not serialize the entire accessibility hierarchy." >&2
+    echo "FAIL: benchmark callers must not serialize the entire accessibility hierarchy." >&2
     exit 1
   fi
 done
 
+# Shared readiness implementation owns marker discovery, deadline handling,
+# diagnostics and foreground recovery. Test it directly.
+grep -Fq 'static boolean markerVisible(UiDevice device, String marker)' "$READINESS_SOURCE" || {
+  echo "FAIL: shared readiness helper must expose safe marker lookup." >&2
+  exit 1
+}
+grep -Fq 'By.res(TARGET_APP_PACKAGE, marker)' "$READINESS_SOURCE" || {
+  echo "FAIL: marker lookup must scope resource IDs to the benchmark app package." >&2
+  exit 1
+}
 grep -Fq 'device.findWindow(By.Window.active(true))' "$READINESS_SOURCE" || {
   echo "FAIL: foreground recovery must use UIAutomator's active-window API." >&2
   exit 1
 }
 grep -Fq 'Active window package:' "$READINESS_SOURCE" || {
-  echo "FAIL: readiness diagnostics must report the active-window package separately." >&2
+  echo "FAIL: diagnostics must report the active-window package." >&2
   exit 1
 }
 grep -Fq 'Last package to report an accessibility event:' "$READINESS_SOURCE" || {
-  echo "FAIL: diagnostics must retain the last accessibility-event package with its documented meaning." >&2
+  echo "FAIL: diagnostics must label the last accessibility-event package accurately." >&2
   exit 1
 }
+grep -Fq 'private static boolean isKnownShellPackage(String packageName)' "$READINESS_SOURCE" || {
+  echo "FAIL: known-shell package matching must be centralized." >&2
+  exit 1
+}
+grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness waits must use monotonic elapsed-realtime deadlines." >&2
+  exit 1
+}
+grep -Fq 'remaining' "$READINESS_SOURCE" || {
+  echo "FAIL: Home and fully-drawn waits must share one total timeout budget." >&2
+  exit 1
+}
+
 printf 'PASS: both benchmark journeys wait for Home and fully-drawn markers; shared helper diagnostics use active-window semantics.\n'
