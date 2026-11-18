@@ -27,12 +27,4 @@ class PosterPrefetchScaleTest {
             posterPrefetchScale(isCardStyle = false, isCloudLibraryItem = true),
         )
     }
-
-    @Test
-    fun cloudPosterArtworkUsesFitScale() {
-        assertEquals(
-            PosterPrefetchScale.FIT,
-            posterPrefetchScale(isCardStyle = false, isCloudLibraryItem = true),
-        )
-    }
 }
