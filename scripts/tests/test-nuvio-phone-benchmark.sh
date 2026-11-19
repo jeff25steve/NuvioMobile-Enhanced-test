@@ -232,6 +232,10 @@ case "$1" in
           printf 'package:%s\n' "$FAKE_INSTALLED_DIR/stale-app.apk"
         elif [ "${FAKE_UNREADABLE_INSTALLED_PACKAGE:-}" = app ]; then
           printf 'package:%s\n' "$FAKE_INSTALLED_DIR/unreadable-app.apk"
+        elif [ "${FAKE_MISSING_INSTALLED_PACKAGE:-}" = app ]; then
+          :
+        elif [ "${FAKE_SPLIT_INSTALLED_PACKAGE:-}" = app ]; then
+          printf 'package:%s\npackage:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk" "$FAKE_INSTALLED_DIR/app-base.apk"
         else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk"; fi
         ;;
       com.nuvio.android.baselineprofile)
@@ -240,6 +244,10 @@ case "$1" in
           printf 'package:%s\n' "$FAKE_INSTALLED_DIR/stale-test.apk"
         elif [ "${FAKE_UNREADABLE_INSTALLED_PACKAGE:-}" = test ]; then
           printf 'package:%s\n' "$FAKE_INSTALLED_DIR/unreadable-test.apk"
+        elif [ "${FAKE_MISSING_INSTALLED_PACKAGE:-}" = test ]; then
+          :
+        elif [ "${FAKE_SPLIT_INSTALLED_PACKAGE:-}" = test ]; then
+          printf 'package:%s\npackage:%s\n' "$FAKE_INSTALLED_DIR/test-base.apk" "$FAKE_INSTALLED_DIR/test-base.apk"
         else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/test-base.apk"; fi
         ;;
       *) exit 1 ;;
@@ -933,6 +941,26 @@ for flavor in full playstore; do
   done
   : > "$FAKE_COMMAND_LOG"
   FAKE_UNREADABLE_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-unreadable-installed.log" 2>&1
+  for invalid_path_state in missing split; do
+    : > "$FAKE_COMMAND_LOG"
+    if [ "$invalid_path_state" = missing ]; then
+      if FAKE_MISSING_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-missing-installed-path.log" 2>&1; then
+        echo "FAIL: runner accepted an installed app with no pm path result ($flavor)." >&2
+        exit 1
+      fi
+      grep -Fq 'Android did not return exactly one installed APK path for app package' "$TMP/$flavor-missing-installed-path.log"
+    else
+      if FAKE_SPLIT_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-split-installed-path.log" 2>&1; then
+        echo "FAIL: runner accepted a split-installed app although the bundle contract supplies one standalone APK ($flavor)." >&2
+        exit 1
+      fi
+      grep -Fq 'exposes multiple APK paths' "$TMP/$flavor-split-installed-path.log"
+    fi
+    if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+      echo "FAIL: instrumentation started without an exact single installed app APK path ($flavor)." >&2
+      exit 1
+    fi
+  done
   unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   grep -Fq 'App installed APK verification: UNVERIFIED' "$unreadable_dir/provenance.txt" || {
     echo "FAIL: unreadable installed APK path must be labelled UNVERIFIED ($flavor)." >&2
