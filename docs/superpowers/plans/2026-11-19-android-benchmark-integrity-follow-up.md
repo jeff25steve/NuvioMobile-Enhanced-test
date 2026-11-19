@@ -136,3 +136,11 @@
 - [x] Re-fetch the remote runner, focused regression and parent test to verify the integrated source and paths.
 - The complete checked-in focused test and parent shell suite were not executed because no local repository checkout is available to this GitHub integration. The isolated checks used a verbatim copy of the changed function; they do not replace full repository regression execution.
 - No Gradle task, build, CI, instrumentation, LADB operation or device benchmark was run. No app startup speedup is claimed.
+
+
+### Cycle 82 — cover concurrent allocation races
+
+- [x] Extend the focused regression to launch 16 simultaneous shell subshells using the same fixed timestamp.
+- [x] Require all 16 processes to report a distinct existing result directory with its own `.started` marker.
+- [x] Execute the focused test logic in an isolated POSIX-shell harness with the updated function; it passed.
+- The full parent phone-runner regression remains unrun because a local checkout is not available through the GitHub integration.
