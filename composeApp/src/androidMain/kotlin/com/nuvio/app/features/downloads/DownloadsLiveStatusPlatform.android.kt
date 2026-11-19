@@ -24,10 +24,13 @@ internal actual object DownloadsLiveStatusPlatform {
 
     private var appContext: Context? = null
     private val lastRenderStateById = mutableMapOf<String, RenderState>()
+    private val notificationChannelLock = Any()
+
+    @Volatile
+    private var notificationChannelReady = false
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
-        ensureNotificationChannel()
     }
 
     actual fun onItemsChanged(items: List<DownloadItem>) {
@@ -104,6 +107,7 @@ internal actual object DownloadsLiveStatusPlatform {
     }
 
     internal fun buildNotification(context: Context, item: DownloadItem): android.app.Notification {
+        ensureNotificationChannel(context)
         val subtitle = buildSubtitle(item)
         val launchIntent = Intent().apply {
             component = AppIconPlatform.currentLauncherComponent(context)
@@ -253,23 +257,27 @@ internal actual object DownloadsLiveStatusPlatform {
         )
     }
 
-    private fun ensureNotificationChannel() {
-        val context = appContext ?: return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    private fun ensureNotificationChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || notificationChannelReady) return
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            ?: return
-        if (manager.getNotificationChannel(channelId) != null) return
+        synchronized(notificationChannelLock) {
+            if (notificationChannelReady) return
 
-        manager.createNotificationChannel(
-            NotificationChannel(
-                channelId,
-                runBlocking { getString(Res.string.downloads_channel_name) },
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = runBlocking { getString(Res.string.downloads_channel_description) }
-            },
-        )
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
+            if (manager.getNotificationChannel(channelId) == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        channelId,
+                        runBlocking { getString(Res.string.downloads_channel_name) },
+                        NotificationManager.IMPORTANCE_LOW,
+                    ).apply {
+                        description = runBlocking { getString(Res.string.downloads_channel_description) }
+                    },
+                )
+            }
+            notificationChannelReady = true
+        }
     }
 
     private fun canPostNotifications(context: Context): Boolean {
