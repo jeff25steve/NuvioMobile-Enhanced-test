@@ -40,12 +40,26 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     echo "FAIL: benchmark journeys must target the isolated app through the shared readiness package constant." >&2
     exit 1
   }
-  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device)' "$source" || {
-    echo "FAIL: both benchmark journeys must wait for shared Home and fully-drawn readiness." >&2
-    exit 1
-  }
+  if [ "$source" = "$GENERATOR_SOURCE" ]; then
+    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$source" &&
+      grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$source" || {
+      echo "FAIL: Baseline Profile journeys must label their readiness diagnostics." >&2
+      exit 1
+    }
+  else
+    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName)' "$source" || {
+      echo "FAIL: startup comparison arms must label their readiness diagnostics." >&2
+      exit 1
+    }
+  fi
 
   if [ "$source" = "$BENCHMARK_SOURCE" ]; then
+    grep -Fq 'runColdStartupBenchmark("startupNoCompilation"' "$source" &&
+      grep -Fq 'runColdStartupBenchmark("startupPartialWithoutBaselineProfile"' "$source" &&
+      grep -Fq 'runColdStartupBenchmark("startupWithBaselineProfile"' "$source" || {
+      echo "FAIL: all three comparison cases must retain stable diagnostic journey names." >&2
+      exit 1
+    }
     grep -Fq 'androidx-benchmark = "1.5.0"' "$ROOT_DIR/gradle/libs.versions.toml" || {
       echo "FAIL: Startup Insights usage must be checked against the repository's pinned AndroidX Benchmark version." >&2
       exit 1
