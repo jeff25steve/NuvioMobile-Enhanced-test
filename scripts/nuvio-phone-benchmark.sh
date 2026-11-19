@@ -644,7 +644,7 @@ validate_macrobenchmark_statistics() {
         print "FAIL: Macrobenchmark JSON must report Android API 33 or newer for this phone runner."
         exit 1
       }
-      ttfd_metric_pattern = "\\"timeToFullDisplayMs\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
+      ttfd_metric_pattern = "\"timeToFullDisplayMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
       ttfd_rest = json
       ttfd_metric_count = 0
       while (match(ttfd_rest, ttfd_metric_pattern)) {
