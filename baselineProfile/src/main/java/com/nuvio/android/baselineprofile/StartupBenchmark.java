@@ -83,7 +83,7 @@ public final class StartupBenchmark {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName);
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName, scope.getIteration());
                     return Unit.INSTANCE;
                 }
         );
