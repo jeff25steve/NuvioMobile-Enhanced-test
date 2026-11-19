@@ -1078,6 +1078,13 @@ for flavor in full playstore; do
           cat "$TMP/$flavor-$bad_json.log" >&2
           exit 1
         }
+        if [ "$bad_json" = misleading-global-sdk ]; then
+          grep -Fq 'top-level or unrelated sdk fields are ignored' "$TMP/$flavor-$bad_json.log" || {
+            echo "FAIL: misleading global SDK fixture did not identify the nested SDK rule ($flavor)." >&2
+            cat "$TMP/$flavor-$bad_json.log" >&2
+            exit 1
+          }
+        fi
         ;;
     esac
   done
