@@ -324,7 +324,11 @@ case " $* " in
 JSON
     case "$memory_mode" in
       missing-output)
-        sed '/Memory Profiling Iteration 0/d' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        awk '
+          /Memory Profiling Iteration 0/ { next }
+          /Trace Iteration 0/ { sub(/},[[:space:]]*$/, "}") }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       duplicate-output)
