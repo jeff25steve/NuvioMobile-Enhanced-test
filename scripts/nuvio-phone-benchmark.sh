@@ -749,7 +749,13 @@ validate_macrobenchmark_statistics() {
         while (match(metric_rest, metric_pattern)) {
           metric_start = RSTART
           metric_length = RLENGTH
-          metric_object = substr(metric_rest, metric_start, metric_length)
+          metric_text = substr(metric_rest, metric_start, metric_length)
+          metric_object_start = index(metric_text, "{")
+          if (metric_object_start == 0) {
+            print "FAIL: " metric_name " has no direct metric result object."
+            exit 1
+          }
+          metric_object = substr(metric_text, metric_object_start)
           if (!validate_metric_object(metric_object, metric_name)) exit 1
           metric_count++
           total_metric_objects++
@@ -776,7 +782,13 @@ validate_macrobenchmark_statistics() {
         while (match(metric_rest, metric_pattern)) {
           metric_start = RSTART
           metric_length = RLENGTH
-          metric_object = substr(metric_rest, metric_start, metric_length)
+          metric_text = substr(metric_rest, metric_start, metric_length)
+          metric_object_start = index(metric_text, "{")
+          if (metric_object_start == 0) {
+            print "FAIL: " metric_name " has no direct metric result object."
+            exit 1
+          }
+          metric_object = substr(metric_text, metric_object_start)
           if (!validate_art_metric_object(metric_object, metric_name)) exit 1
           metric_count++
           metric_rest = substr(metric_rest, metric_start + metric_length)
@@ -1103,9 +1115,10 @@ write_macrobenchmark_summary() {
           exit 1
         }
         result_rest = substr(json, RSTART + RLENGTH)
+        sub(/^[[:space:]]*,[[:space:]]*/, "", result_rest)
         next_test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
-        if (match(result_rest, next_test_pattern)) result_object = substr(result_rest, 1, RSTART - 1)
-        else result_object = result_rest
+        if (match(result_rest, next_test_pattern)) result_object = "{" substr(result_rest, 1, RSTART - 1)
+        else result_object = "{" result_rest
         expected_warmup_iterations = 0
         if (test_index == 2) expected_warmup_iterations = 3
         actual_warmup_iterations = metric_field(result_object, "warmupIterations")
@@ -1121,7 +1134,13 @@ write_macrobenchmark_summary() {
             print "FAIL: cannot find " metric_names[metric_index] " for " test_names[test_index] " while writing benchmark summary."
             exit 1
           }
-          metric_object = substr(result_object, RSTART, RLENGTH)
+          metric_text = substr(result_object, RSTART, RLENGTH)
+          metric_object_start = index(metric_text, "{")
+          if (metric_object_start == 0) {
+            print "FAIL: " metric_names[metric_index] " has no direct metric result object for " test_names[test_index] "."
+            exit 1
+          }
+          metric_object = substr(metric_text, metric_object_start)
           metric_key = test_names[test_index] SUBSEP metric_names[metric_index]
           minimum[metric_key] = metric_field(metric_object, "minimum") + 0
           median[metric_key] = metric_field(metric_object, "median") + 0
