@@ -135,17 +135,18 @@ resolve_instrumentation() {
   # com.android.test with android.experimental.self-instrumenting=true is
   # intentionally instrumented against its own test APK package. The app under
   # test is launched separately by Macrobenchmark using APP_PACKAGE.
-  INSTRUMENTATION="$(pm list instrumentation 2>/dev/null | while IFS= read -r line; do
-    case "$line" in
-      *"(target=$TEST_PACKAGE)"*)
-        component="$(printf '%s\n' "$line" | sed 's/^instrumentation://; s/[[:space:]].*//')"
-        case "$component" in
-          "$TEST_PACKAGE/"*) printf '%s\n' "$component" ;;
-        esac
-        ;;
-    esac
-  done | head -n 1)"
-  [ -n "$INSTRUMENTATION" ] || fail "The self-instrumenting test APK ($TEST_PACKAGE) is not installed. Install the matching app and -Tests APK pair for this flavor first."
+  instrumentation_candidates="$(pm list instrumentation 2>/dev/null | awk -v package="$TEST_PACKAGE" '
+    index($0, "(target=" package ")") {
+      component = $1
+      sub(/^instrumentation:/, "", component)
+      if (index(component, package "/") == 1) print component
+    }
+  ')"
+  instrumentation_count="$(printf '%s\n' "$instrumentation_candidates" | awk 'NF { count++ } END { print count + 0 }')"
+  [ "$instrumentation_count" -eq 1 ] || fail "Expected exactly one self-instrumenting instrumentation component for '$TEST_PACKAGE'; found $instrumentation_count. Reinstall the matching benchmark test APK."
+  INSTRUMENTATION="$instrumentation_candidates"
+  expected_instrumentation="$TEST_PACKAGE/androidx.test.runner.AndroidJUnitRunner"
+  [ "$INSTRUMENTATION" = "$expected_instrumentation" ] || fail "Unexpected instrumentation runner '$INSTRUMENTATION'; expected '$expected_instrumentation'. Reinstall the matching benchmark test APK."
 }
 
 file_sha256() {
