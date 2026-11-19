@@ -1365,6 +1365,10 @@ require_memory_profile_result_data() {
 
   [ "$json_files" -eq 1 ] || fail "Memory-profile result must contain exactly one benchmarkData.json file; found $json_files."
   [ "$result_count" -eq 1 ] || fail "Memory-profile result must contain exactly one startupWithBaselineProfileMemoryProfile result; found $result_count."
+  class_result_count="$(count_json_pattern_occurrences '"className"[[:space:]]*:[[:space:]]*"com[.]nuvio[.]android[.]baselineprofile[.]StartupMemoryBenchmark"' "$summary_result_file")"
+  repeat_iterations_count="$(count_json_pattern_occurrences '"repeatIterations"[[:space:]]*:[[:space:]]*1' "$summary_result_file")"
+  [ "$class_result_count" -eq 1 ] && [ "$repeat_iterations_count" -eq 1 ] ||
+    fail "Memory-profile result must identify StartupMemoryBenchmark and exactly one ordinary measurement iteration (class=$class_result_count, repeatIterations=$repeat_iterations_count)."
   grep -Fq 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupMemoryBenchmark' "$RUN_DIR/instrumentation.log" ||
     fail "Memory-profile result did not come from the dedicated StartupMemoryBenchmark class."
   grep -Fq 'INSTRUMENTATION_STATUS: test=startupWithBaselineProfileMemoryProfile' "$RUN_DIR/instrumentation.log" ||
