@@ -180,8 +180,16 @@ internal fun PlayerQualityPanel(
                                 ) {
                                     item(key = "auto") {
                                         QualityOptionRow(
-                                            title = state.labelFor(null)?.let { "Auto ($it)" } ?: "Auto",
-                                            subtitle = "Recommended compatible quality",
+                                            title = if (state.adaptiveAutoSelection) {
+                                                currentResolutionLabel?.let { "Auto ($it)" } ?: "Auto"
+                                            } else {
+                                                state.labelFor(null)?.let { "Auto ($it)" } ?: "Auto"
+                                            },
+                                            subtitle = if (state.adaptiveAutoSelection) {
+                                                "Adapts to network and device"
+                                            } else {
+                                                "Recommended compatible quality"
+                                            },
                                             isSelected = selectedQualityId == null,
                                             hasWarning = false,
                                             onClick = { onQualitySelected(null) },

@@ -75,6 +75,7 @@ data class PlayerQualitySelectionState(
     val recommendedVariantId: String? = null,
     val errorMessage: String? = null,
     val isResolved: Boolean = false,
+    val adaptiveAutoSelection: Boolean = false,
 ) {
     val hasSelectableQualities: Boolean
         get() = variants.size > 1
@@ -87,8 +88,13 @@ data class PlayerQualitySelectionState(
             else -> variants.firstOrNull { it.id == selectedVariantId }
         }
 
-    fun playbackUrlFor(selectedVariantId: String?): String? =
-        selectedVariantFor(selectedVariantId)?.playbackUrl ?: sourceUrl.takeIf { it.isNotBlank() }
+    fun playbackUrlFor(selectedVariantId: String?): String? {
+        val isAutoSelection = selectedVariantId.isNullOrBlank() || selectedVariantId == PlayerQualityAutoId
+        if (adaptiveAutoSelection && isAutoSelection) {
+            return sourceUrl.takeIf { it.isNotBlank() }
+        }
+        return selectedVariantFor(selectedVariantId)?.playbackUrl ?: sourceUrl.takeIf { it.isNotBlank() }
+    }
 
     fun labelFor(selectedVariantId: String?, forButton: Boolean = false): String? {
         val selected = selectedVariantFor(selectedVariantId)

@@ -818,6 +818,7 @@ internal fun PlayerScreenRuntime.saveDirectStreamForReuse(
 internal fun PlayerScreenRuntime.selectPlayerQuality(qualityId: String?) {
     selectedPlayerQualityId = qualityId.takeUnless { it == PlayerQualityAutoId }
     val selectedVariant = playerQualityState.selectedVariantFor(selectedPlayerQualityId)
+        .takeUnless { playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null }
     activePlaybackSourceUrl = playerQualityState.playbackUrlFor(selectedPlayerQualityId) ?: activeSourceUrl
     playbackSnapshot = playbackSnapshot.copy(
         isLoading = true,
@@ -834,7 +835,8 @@ internal fun PlayerScreenRuntime.selectPlayerQuality(qualityId: String?) {
     InAppLogger.info(
         "Player/Quality",
         "selected requested=${if (selectedPlayerQualityId == null) "auto" else selectedPlayerQualityId} " +
-            "label=${selectedVariant?.qualityName ?: "source"} variants=${playerQualityState.variants.size} " +
+            "label=${if (playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null) "adaptive" else selectedVariant?.qualityName ?: "source"} " +
+            "actual=${playbackSnapshot.videoWidth ?: 0}x${playbackSnapshot.videoHeight ?: 0} " +
             "declared=${selectedVariant?.width ?: 0}x${selectedVariant?.height ?: 0} " +
             "bandwidth=${selectedVariant?.bandwidth ?: 0L} codecs=${selectedVariant?.codecs.orEmpty()} " +
             "playbackUrl=${InAppLogger.redactUrl(activePlaybackSourceUrl)}",

@@ -204,6 +204,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
             isLoading = waitForQuality || useNativeAdaptivePlayback,
             sourceUrl = resolvingSourceUrl,
             isResolved = !shouldInspectHls,
+            adaptiveAutoSelection = useNativeAdaptivePlayback,
         )
         InAppLogger.debug(
             "Player/Quality",
@@ -315,7 +316,10 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
             return@LaunchedEffect
         }
 
-        playerQualityState = resolved.copy(isResolved = true)
+        playerQualityState = resolved.copy(
+            isResolved = true,
+            adaptiveAutoSelection = true,
+        )
         InAppLogger.info(
             "Player/Quality",
             "post-ready quality state ready variants=${resolved.variants.size} " +
@@ -726,9 +730,15 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             isPortraitPlayback = portraitPlayback,
             onInfoClick = {
                 val selectedQuality = playerQualityState.selectedVariantFor(selectedPlayerQualityId)
+                    .takeUnless { playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null }
+                val selectedQualityLabel = if (playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null) {
+                    playbackResolutionLabel(forButton = false)?.let { "Auto $it" } ?: "Auto"
+                } else {
+                    selectedQuality?.qualityName ?: "source"
+                }
                 InAppLogger.info(
                     "Player/Info",
-                    "open playback info selectedQuality=${selectedQuality?.qualityName ?: "source"} " +
+                    "open playback info selectedQuality=$selectedQualityLabel " +
                         "actual=${playbackSnapshot.videoWidth ?: 0}x${playbackSnapshot.videoHeight ?: 0} " +
                         "mediaInfoChars=${playbackSnapshot.mediaInfoJson.length} " +
                         "source=${InAppLogger.redactUrl(activePlaybackSourceUrl ?: activeSourceUrl)}",
@@ -1040,6 +1050,9 @@ private fun PlayerScreenRuntime.openQualityPanel() {
 }
 
 private fun PlayerScreenRuntime.playerQualityControlLabel(): String {
+    if (playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null) {
+        return playbackResolutionLabel(forButton = true)?.let { "Auto $it" } ?: "Auto"
+    }
     if (playerQualityState.isLoading) return playbackResolutionLabel(forButton = true) ?: "Quality"
     val label = playerQualityState.labelFor(selectedPlayerQualityId, forButton = true)
     if (label.isNullOrBlank() && selectedPlayerQualityId == null && playerQualityState.hasSelectableQualities) {
@@ -1057,6 +1070,7 @@ private fun PlayerScreenRuntime.playerQualityControlLabel(): String {
 
 private fun PlayerScreenRuntime.currentQualityPanelResolutionLabel(): String? {
     playbackResolutionLabel(forButton = false)?.let { return it }
+    if (playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null) return null
     return playerQualityState.labelFor(selectedPlayerQualityId, forButton = false)
 }
 
