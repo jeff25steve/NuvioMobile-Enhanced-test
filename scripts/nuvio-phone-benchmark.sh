@@ -7,6 +7,7 @@ APP_PACKAGE="com.nuvio.media.benchmark"
 TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
+MEMORY_BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupMemoryBenchmark"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 STAGING_DIR="${NUVIO_PHONE_STAGE_DIR:-/data/local/tmp/NuvioBenchmark}"
 OUTPUT_ROOT="${NUVIO_PHONE_OUTPUT_DIR:-/sdcard/Download/NuvioStartupBenchmark}"
@@ -32,10 +33,10 @@ if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
     install-profile:playstore)
       STAGE_APKS="Nuvio-playstore-NonMinifiedRelease.apk Nuvio-playstore-NonMinifiedRelease-Tests.apk"
       ;;
-    run:full|install:full)
+    run:full|install:full|memory-profile:full)
       STAGE_APKS="Nuvio-full-BenchmarkRelease.apk Nuvio-full-BenchmarkRelease-Tests.apk"
       ;;
-    run:playstore|install:playstore)
+    run:playstore|install:playstore|memory-profile:playstore)
       STAGE_APKS="Nuvio-playstore-BenchmarkRelease.apk Nuvio-playstore-BenchmarkRelease-Tests.apk"
       ;;
     *)
@@ -68,8 +69,10 @@ Keep all eight arm64-v8a APKs and this script together:
 Run from LADB (no computer required):
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run full
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh memory-profile full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile playstore
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run playstore
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh memory-profile playstore
 
 Results are copied to /sdcard/Download/NuvioStartupBenchmark.
 The benchmark app uses com.nuvio.media.benchmark; production Nuvio is untouched.
@@ -82,7 +85,7 @@ check_device() {
   case "$api" in ''|*[!0-9]*) fail "Cannot determine Android API level." ;; esac
   [ "$api" -ge 33 ] || fail "Baseline Profile collection without root requires Android 13 / API 33 or later. This device reports API $api."
   case "$ACTION" in
-    run|measure)
+    run|measure|memory-profile)
       if [ "$api" -eq 33 ]; then
         # AndroidX Macrobenchmark may uninstall/reinstall the target on unrooted
         # pre-34 devices when resetting compilation, which erases signed-in Home.
@@ -119,11 +122,11 @@ apk_paths() {
       APP_APK="$SCRIPT_DIR/Nuvio-playstore-NonMinifiedRelease.apk"
       TEST_APK="$SCRIPT_DIR/Nuvio-playstore-NonMinifiedRelease-Tests.apk"
       ;;
-    full:install|full:collect|full:measure)
+    full:install|full:collect|full:measure|full:memory-profile)
       APP_APK="$SCRIPT_DIR/Nuvio-full-BenchmarkRelease.apk"
       TEST_APK="$SCRIPT_DIR/Nuvio-full-BenchmarkRelease-Tests.apk"
       ;;
-    playstore:install|playstore:collect|playstore:measure)
+    playstore:install|playstore:collect|playstore:measure|playstore:memory-profile)
       APP_APK="$SCRIPT_DIR/Nuvio-playstore-BenchmarkRelease.apk"
       TEST_APK="$SCRIPT_DIR/Nuvio-playstore-BenchmarkRelease-Tests.apk"
       ;;
