@@ -493,6 +493,38 @@ JSON
         sed 's/"version": {"sdk": 35}/"version": "35"/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
+      duplicate-context)
+        awk '
+          /^  "benchmarks":/ {
+            print "  \"context\": {\"build\": {\"model\": \"Decoy phone\", \"version\": {\"sdk\": 35}}},"
+          }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      nested-metric-fields)
+        awk '
+          !replaced && /"timeToInitialDisplayMs":/ {
+            print "        \"timeToInitialDisplayMs\": {\"details\": {\"minimum\": 400, \"maximum\": 490, \"median\": 445, \"coefficientOfVariation\": 0.068037086608932, \"runs\": [400,410,420,430,440,450,460,470,480,490]}},"
+            replaced=1
+            next
+          }
+          { print }
+          END { if (!replaced) exit 1 }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      duplicate-metric-field)
+        awk '
+          !replaced && /"timeToInitialDisplayMs":/ {
+            sub(/"minimum": 400,/, "\"minimum\": 400, \"minimum\": 401,")
+            replaced=1
+          }
+          { print }
+          END { if (!replaced) exit 1 }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
     esac
 
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "misleading-root-metadata" ]; then
@@ -501,6 +533,16 @@ JSON
           print
           print "  \"diagnostic\": \"brace } and escaped \\\"build\\\" token\","
           print "  \"model\": \"Root decoy phone\", \"sdk\": 28, \"cpuCoreCount\": 2, \"cpuLocked\": false, \"cpuMaxFreqHz\": 1000000000, \"memTotalBytes\": 1, \"artMainlineVersion\": 1, \"sustainedPerformanceModeEnabled\": true, \"osCodenameAbbreviated\": \"DECOY\","
+          next
+        }
+        { print }
+      ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    fi
+    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "nested-context-metadata" ]; then
+      awk '
+        /^  "context":/ {
+          print "  \"context\": {\"build\": {\"model\": \"Fixture phone\", \"version\": {\"sdk\": 35}}, \"metadata\": {\"cpuCoreCount\": 2, \"cpuLocked\": false, \"cpuMaxFreqHz\": 1000000000, \"memTotalBytes\": 1, \"sustainedPerformanceModeEnabled\": true, \"artMainlineVersion\": 1, \"osCodenameAbbreviated\": \"DECOY\"}},"
           next
         }
         { print }
@@ -520,7 +562,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|misleading-root-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
+      complete|misleading-root-metadata|nested-context-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -897,6 +939,30 @@ for flavor in full playstore; do
       exit 1
     fi
   done
+  if ! FAKE_BENCHMARK_JSON=nested-context-metadata sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-nested-context-metadata.log" 2>&1; then
+    echo "FAIL: nested metadata decoys should not prevent a report with valid direct context metadata ($flavor)." >&2
+    cat "$TMP/$flavor-nested-context-metadata.log" >&2
+    exit 1
+  fi
+  nested_context_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  for expected in \
+    'Device: Fixture phone | Android API: 35' \
+    'CPU: not reported cores | max frequency not reported Hz | clocks locked: not reported' \
+    'Memory: not reported bytes | ART Mainline: not reported | sustained performance mode: not reported' \
+    'Android release codename: not reported'; do
+    grep -Fq "$expected" "$nested_context_summary" || {
+      echo "FAIL: summary used a nested decoy instead of the direct AndroidX context member '$expected' ($flavor)." >&2
+      cat "$nested_context_summary" >&2
+      exit 1
+    }
+  done
+  for decoy_value in 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+    if grep -Fq "$decoy_value" "$nested_context_summary"; then
+      echo "FAIL: summary accepted nested context metadata '$decoy_value' ($flavor)." >&2
+      cat "$nested_context_summary" >&2
+      exit 1
+    fi
+  done
   FAKE_TEST_ORDER=reverse sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-reverse-test-order.log" 2>&1
   reverse_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   reverse_summary="$reverse_result_dir/benchmark-summary.txt"
@@ -1164,7 +1230,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build non-object-context non-object-build non-object-version one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
+  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build non-object-context non-object-build non-object-version duplicate-context nested-metric-fields duplicate-metric-field one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
@@ -1182,7 +1248,7 @@ for flavor in full playstore; do
       }
     fi
     case "$bad_json" in
-      missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version)
+      missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|duplicate-context)
         grep -Fq 'context.build.version.sdk as Android API 33 or newer' "$TMP/$flavor-$bad_json.log" || {
           echo "FAIL: SDK metadata corruption was not rejected at the exact context path ($bad_json, $flavor)." >&2
           cat "$TMP/$flavor-$bad_json.log" >&2
