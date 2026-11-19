@@ -13,6 +13,17 @@ READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 [ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
+for expected in \
+  'The three cold-start comparison arms are:' \
+  'partial compilation without a Baseline Profile (3 warmups)' \
+  'partial compilation requiring the packaged Baseline Profile' \
+  'Compare TTID and TTFD medians and per-iteration traces.' \
+  'text rules collected by the separate collect step are not installed into this APK.'; do
+  grep -Fq "$expected" "$RUNNER_SOURCE" || {
+    echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
+    exit 1
+  }
+done
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
   echo "FAIL: profile collection output prefix must remain startup." >&2
