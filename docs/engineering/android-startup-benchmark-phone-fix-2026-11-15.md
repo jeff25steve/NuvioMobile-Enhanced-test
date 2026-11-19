@@ -3138,3 +3138,23 @@ Research: [AndroidX Macrobenchmark source — profiler output merging](https://g
 Verification and limits: the code and fixtures are committed remotely, but the repository regression scripts were not run because no local checkout is available and no CI/build was authorised. The guard has been inspected in the live source; this is not a claim that the full test script passes. No instrumentation or device measurement was performed.
 
 Research: [AndroidX Benchmark 1.5.0 StartupTimingMetric API](https://developer.android.com/reference/androidx/benchmark/macro/StartupTimingMetric) documents TTFD as dependent on Activity.reportFullyDrawn and potentially unavailable before API 29. [AndroidX Macrobenchmark Metric.kt](https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt) shows that timeToFullDisplayMs is omitted from the result map when the trace query has no full-display timestamp.
+
+### Cycle 68 — validate Android SDK from context.build.version.sdk
+
+- Cycle 67 introduced API 33+ and three-arm TTFD guards, but the SDK was extracted by searching the entire JSON document for the first "sdk" key. That was broader than AndroidX BenchmarkData's actual schema and could accept an unrelated value.
+- The runner now extracts sdk from the nested build.version object under context. Missing, malformed or pre-33 SDK metadata fails, and the error says that top-level or unrelated sdk fields are ignored.
+- This is a result-context integrity fix. It does not change the AndroidX version, Macrobenchmark measurements or user workload.
+
+### Cycle 69 — protect exact SDK metadata extraction with malformed fixtures
+
+- Added a missing-context-sdk fixture and a misleading-global-sdk fixture. The latter places a plausible top-level sdk=35 next to a missing context.build.version.sdk so the old global lookup would have accepted it.
+- Both cases are included in the invalid JSON fixture loop and assert the specific nested-context failure diagnostic.
+- The static contract protects the exact version-object extraction as well as the pre-existing API 33+ and TTFD completeness requirements.
+
+### Verification boundary for cycles 68–69
+
+- Re-fetched the live runner, phone regression fixture, static contract and both engineering notes after the changes. Source inspection confirmed all new fixture identifiers are in the executed bad-JSON loop, and the static contract checks the nested SDK extraction and TTFD guard.
+- The full repository shell scripts were not run because no local checkout is available. The connected GitHub tool can edit/read repository files but cannot execute their shell fixtures. No remote workflow was triggered.
+- No builds, CI, Gradle tasks, instrumentation, profile generation, LADB or physical-device benchmark was run. The malformed cases are fixtures, not measured data. No startup-speed gain is claimed.
+
+Research: [AndroidX BenchmarkData.kt](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) defines SDK as context.build.version.sdk. [Android Developers — Benchmark in CI](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) documents the JSON context structure.
