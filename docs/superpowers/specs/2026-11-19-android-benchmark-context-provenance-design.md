@@ -39,3 +39,15 @@ AndroidX BenchmarkData 1.5.0 source and its generated JSON example place device 
 ## Verification
 
 Extend the existing fake-device shell fixture with (a) a root-level `build.version.sdk` decoy while root `context` has no valid build, which must be rejected before a report is accepted, and (b) root-level device metadata decoys while the valid context remains present, which must not appear in the summary. Extend the static contract for the direct-object extraction and context-scoped fields. Re-fetch all edited files and inspect the remote diff. Full shell fixture execution remains unavailable through the connected GitHub file API; report that limitation accurately.
+
+## Follow-on contract — exact direct-member JSON reads
+
+The original object-path fix must not be weakened by a scalar reader that searches anywhere inside the selected parent object. All reads now follow these rules:
+
+1. A field lookup considers only direct members of the supplied object; nested object and array descendants do not satisfy it.
+2. A field must occur exactly once at that direct level. Missing and duplicate direct fields return unavailable, preventing ambiguous or forged metadata from being selected.
+3. Values may be JSON strings, primitive scalars, objects or arrays. Quoted values are scanned with escape handling; object/array values are consumed with balanced delimiters while ignoring braces inside strings.
+4. Numeric, string and boolean readers type-check the returned raw value. The raw `runs` reader accepts only one direct array.
+5. Every caller must pass an object beginning at its opening brace, not a regex match that still contains a preceding property name. This applies to TTID/TTFD, ART metric validation, optional class-loading validation, summary aggregation and device-context reporting.
+
+Regression fixtures cover nested context decoys, duplicate context, nested startup metric fields, nested ART metric fields and duplicate metric fields. A successful nested-context fixture ensures the benchmark remains reportable when optional direct device fields are absent, while explicitly rendering those fields as unavailable rather than borrowing nested values. Full repository shell regressions remain to be executed on a local checkout; isolated AWK checks do not constitute a full-suite pass.
