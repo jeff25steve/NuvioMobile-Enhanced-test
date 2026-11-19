@@ -1176,7 +1176,13 @@ write_macrobenchmark_summary() {
             print "FAIL: cannot find " metric_name " for " test_names[test_index] " while writing ART summary."
             exit 1
           }
-          metric_object = substr(result_object, RSTART, RLENGTH)
+          metric_text = substr(result_object, RSTART, RLENGTH)
+          metric_object_start = index(metric_text, "{")
+          if (metric_object_start == 0) {
+            print "FAIL: " metric_name " has no direct metric result object while writing ART summary."
+            exit 1
+          }
+          metric_object = substr(metric_text, metric_object_start)
           art_median[test_index, art_index] = metric_field(metric_object, "median") + 0
         }
         class_load_count_pattern = "\"artClassLoadCount\"[[:space:]]*:"
@@ -1184,10 +1190,28 @@ write_macrobenchmark_summary() {
         if (match(result_object, class_load_count_pattern) && match(result_object, class_load_time_pattern)) {
           class_load_count_object_pattern = "\"artClassLoadCount\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
           class_load_time_object_pattern = "\"artClassLoadSumMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
-          match(result_object, class_load_count_object_pattern)
-          class_load_count_object = substr(result_object, RSTART, RLENGTH)
-          match(result_object, class_load_time_object_pattern)
-          class_load_time_object = substr(result_object, RSTART, RLENGTH)
+          if (!match(result_object, class_load_count_object_pattern)) {
+            print "FAIL: artClassLoadCount has no direct metric result object while writing ART summary."
+            exit 1
+          }
+          class_load_count_text = substr(result_object, RSTART, RLENGTH)
+          class_load_count_start = index(class_load_count_text, "{")
+          if (class_load_count_start == 0) {
+            print "FAIL: artClassLoadCount has no direct metric result object while writing ART summary."
+            exit 1
+          }
+          class_load_count_object = substr(class_load_count_text, class_load_count_start)
+          if (!match(result_object, class_load_time_object_pattern)) {
+            print "FAIL: artClassLoadSumMs has no direct metric result object while writing ART summary."
+            exit 1
+          }
+          class_load_time_text = substr(result_object, RSTART, RLENGTH)
+          class_load_time_start = index(class_load_time_text, "{")
+          if (class_load_time_start == 0) {
+            print "FAIL: artClassLoadSumMs has no direct metric result object while writing ART summary."
+            exit 1
+          }
+          class_load_time_object = substr(class_load_time_text, class_load_time_start)
           art_class_load_count[test_index] = metric_field(class_load_count_object, "median") + 0
           art_class_load_ms[test_index] = metric_field(class_load_time_object, "median") + 0
           class_load_metrics_available = 1
