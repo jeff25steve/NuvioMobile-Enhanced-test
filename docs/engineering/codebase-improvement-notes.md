@@ -6743,3 +6743,35 @@ Added `scripts/tests/test-android-benchmark-run-directory.sh`. It extracts and i
 The focused result-directory regression now also starts 16 shell subshells concurrently with the same fixed timestamp. Each process invokes the runner's actual extracted `new_run_dir()` function and writes its reserved path to a separate fixture file. The test requires all 16 paths to exist, each to retain its own `.started` marker, and the sorted path list to contain no duplicates. This specifically guards the race that a sequential same-second test alone would not exercise.
 
 The expanded regression scenario was executed in a local isolated POSIX-shell harness using the updated function body and matching fixture logic; it passed. The committed checked-in test script itself and the complete parent phone-runner suite were not executed against a local repository checkout. No build, CI or device operation was performed.
+
+
+## Android startup benchmark — P0 readiness stage observations (Cycles 83–84, 19 November 2026)
+
+### Cycle 83 — capture the Home-to-fully-drawn observation gap
+
+The P0 source trace still shows a connected product path: Home's first real content callback updates initialHomeReady; MainAppContent combines that with profile-switch completion and overlay exit; the normal AppGate bridge forwards the result; and MainActivity exposes the state both to ReportDrawnWhen and the nuvio_startup_ready marker. No static callback break or product-ready shortcut was found. The original runtime observation therefore remains unproven until it is reproduced on a device.
+
+Added test-side timing to StartupReadiness.awaitHomeAndFullyDrawn. It records monotonic elapsed time for three separate waits: target active-window ownership, the Home content marker, and the product fully-drawn marker. It also records total time spent in this readiness helper and an outcome for each stage. Status is emitted through AndroidJUnitRunner's Instrumentation.REPORT_KEY_STREAMRESULT stream, which the phone runner already retains in instrumentation.log.
+
+The timing begins only after Macrobenchmark's startActivityAndWait() has returned. These numbers describe UIAutomator's subsequent readiness-observation waits; they are not TTID, TTFD, the Activity launch duration, or a replacement for the Perfetto-derived StartupTimingMetric. The summary labels this limitation explicitly. The Home/fully-drawn product state, callback ordering, timeout budgets, Activity reporter and app UI were not modified.
+
+Each caller now identifies its journey: the three startup comparison arms, Startup Profile collection, Home browse collection, and the isolated memory diagnostic. Timeout and query-failure outcomes are also sent before the existing assertion is raised, leaving the stage values in the raw instrumentation log if a run fails.
+
+### Cycle 84 — exclude unmeasured warm-ups and validate the full comparison
+
+Inspection of the repository-pinned AndroidX Macrobenchmark API/source exposed an important sampling detail: AndroidX invokes the supplied measure block for unmeasured startup setup and compilation warm-up launches. During these calls, MacrobenchmarkScope.iteration is null; measured launches have a zero-based iteration index. The startup and memory benchmark callers now pass scope.getIteration() into the readiness helper. Successful invocations with a null iteration are not emitted as comparison samples; a failed warm-up still emits an outcome marked iteration=warmup before the existing test failure.
+
+The phone runner's regular clean startup result now requires exactly thirty readiness rows: ten each for startupNoCompilation, startupPartialWithoutBaselineProfile and startupWithBaselineProfile, covering iterations 0–9. It rejects unexpected/duplicate/missing journeys or iterations, malformed and negative durations, inconsistent totals, durations outside the configured timeout budgets (with one UIAutomator polling interval of tolerance), and non-ready outcomes in a nominally successful run. Valid observations are preserved in benchmark-summary.txt alongside the existing TTID/TTFD/ART samples and traces. The separate memory-profile path is not subject to the three-arm/30-row requirement.
+
+The fake-device regression now emits the thirty measured status rows and includes missing-last and malformed-last cases. Static contracts also guard the AndroidX measured-iteration handoff and the instrumentation status protocol.
+
+### Verification boundary for Cycles 83–84
+
+- Re-fetched the live main-build-testing sources for the Activity readiness reporter, shared AndroidX readiness helper, all three benchmark/profile callers, the phone runner and the affected regression contracts.
+- Confirmed statically that MainActivity still uses ReportDrawnWhen { appReady.value } and the same nuvio_startup_ready tag; no app source or product readiness condition changed.
+- Queried AndroidX Activity Compose and AndroidX Test documentation/source for ReportDrawnWhen and raw instrumentation status semantics. Inspected AndroidX Macrobenchmark source for the measureBlock warm-up behavior and the public nullable MacrobenchmarkScope.iteration property.
+- Exercised an isolated POSIX AWK harness matching the runner parser: a complete set of thirty measured records was accepted; missing, malformed, duplicate and unexpected-journey records were all rejected. This was not the full committed phone-runner test script.
+- The committed test-nuvio-phone-benchmark.sh, test-android-startup-readiness.sh and test-android-startup-metric-contract.sh scripts were not run from a complete local checkout. Java compilation was not performed.
+- No Gradle task, build, CI, instrumentation, Baseline Profile collection, LADB operation, physical-device benchmark or Perfetto capture was started. No runtime readiness mismatch was reproduced and no startup improvement is claimed. An authorized device capture is still needed to establish whether Home-to-fully-drawn delay is actually present and which observation stage accounts for it.
+
+Sources: AndroidX Activity Compose ReportDrawnWhen implementation (https://github.com/androidx/androidx/blob/androidx-main/activity/activity-compose/src/main/java/androidx/activity/compose/ReportDrawn.kt) · AndroidX Test InstrumentationResultPrinter (https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/internal/runner/listener/InstrumentationResultPrinter.java) · AndroidX Macrobenchmark warm-up and iteration source (https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) · AndroidX MacrobenchmarkScope iteration property (https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/MacrobenchmarkScope.kt) · AndroidX CompilationMode.Partial warm-up source (https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/CompilationMode.kt)
