@@ -634,6 +634,18 @@ fi
 
 for flavor in full playstore; do
   sh "$BUNDLE/nuvio-phone-benchmark.sh" install-profile "$flavor" >/dev/null
+  install_provenance="$TMP/output/current-install-provenance.txt"
+  test -s "$install_provenance" || {
+    echo "FAIL: install must persist the APK source identities across LADB invocations ($flavor)." >&2
+    exit 1
+  }
+  app_profile_hash="$(sha256sum "$BUNDLE/Nuvio-$flavor-NonMinifiedRelease.apk" | awk '{ print $1 }')"
+  test_profile_hash="$(sha256sum "$BUNDLE/Nuvio-$flavor-NonMinifiedRelease-Tests.apk" | awk '{ print $1 }')"
+  grep -Fq "Variant: install-profile:$flavor" "$install_provenance"
+  grep -Fq "App APK source filename: Nuvio-$flavor-NonMinifiedRelease.apk" "$install_provenance"
+  grep -Fq "App APK source SHA-256: $app_profile_hash" "$install_provenance"
+  grep -Fq "Test APK source filename: Nuvio-$flavor-NonMinifiedRelease-Tests.apk" "$install_provenance"
+  grep -Fq "Test APK source SHA-256: $test_profile_hash" "$install_provenance"
   for startup_profile_fixture in missing empty blank; do
     case "$startup_profile_fixture" in
       missing) startup_profile_env=FAKE_MISSING_STARTUP_PROFILE ;;
