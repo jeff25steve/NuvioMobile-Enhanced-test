@@ -209,7 +209,21 @@ cat > "$TMP/bin/pm" <<'STUB'
 #!/bin/sh
 printf 'pm %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case "$1" in
-  list) echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)' ;;
+  list)
+    case "${FAKE_INSTRUMENTATION_MODE:-valid}" in
+      missing) ;;
+      wrong)
+        echo 'instrumentation:com.nuvio.android.baselineprofile/com.example.WrongRunner (target=com.nuvio.android.baselineprofile)'
+        ;;
+      ambiguous)
+        echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)'
+        echo 'instrumentation:com.nuvio.android.baselineprofile/com.example.AlternateRunner (target=com.nuvio.android.baselineprofile)'
+        ;;
+      *)
+        echo 'instrumentation:com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner (target=com.nuvio.android.baselineprofile)'
+        ;;
+    esac
+    ;;
   install)
     if [ "${FAKE_INCOMPATIBLE:-0}" = "1" ] && [ "$2" = "-r" ] && [ ! -f "$FAKE_INCOMPATIBLE_ONCE" ]; then
       : > "$FAKE_INCOMPATIBLE_ONCE"
@@ -922,6 +936,27 @@ for flavor in full playstore; do
     cat "$TMP/$flavor-negative-status.log" >&2
     exit 1
   }
+
+  # The package manager must expose one exact self-instrumenting AndroidJUnitRunner.
+  for instrumentation_mode in missing wrong ambiguous; do
+    : > "$FAKE_COMMAND_LOG"
+    if FAKE_INSTRUMENTATION_MODE="$instrumentation_mode" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-instrumentation-$instrumentation_mode.log" 2>&1; then
+      echo "FAIL: phone runner accepted $instrumentation_mode self-instrumentation metadata ($flavor)." >&2
+      exit 1
+    fi
+    case "$instrumentation_mode" in
+      wrong)
+        grep -Fq "Unexpected instrumentation runner" "$TMP/$flavor-instrumentation-$instrumentation_mode.log"
+        ;;
+      *)
+        grep -Fq "Expected exactly one self-instrumenting instrumentation component" "$TMP/$flavor-instrumentation-$instrumentation_mode.log"
+        ;;
+    esac
+    if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+      echo "FAIL: instrumentation started with $instrumentation_mode self-instrumentation metadata ($flavor)." >&2
+      exit 1
+    fi
+  done
 
   for stale_package in app test; do
     : > "$FAKE_COMMAND_LOG"
