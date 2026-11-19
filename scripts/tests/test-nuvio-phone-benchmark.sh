@@ -440,7 +440,8 @@ JSON
         END { if (!inserted) exit 1 }
       ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-    fi    case "${FAKE_BENCHMARK_JSON:-complete}" in
+    fi
+    case "${FAKE_BENCHMARK_JSON:-complete}" in
       missing-context-sdk)
         awk '
           /"version": \{"sdk": 35\}/ { sub(/"version": \{"sdk": 35\}/, "\"version\": {}") }
