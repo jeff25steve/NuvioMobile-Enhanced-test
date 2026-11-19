@@ -68,6 +68,11 @@ public final class BaselineProfileGenerator {
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
                     StartupReadiness.awaitHomeAndFullyDrawn(device);
+                    StartupReadiness.scrollRequired(
+                            device,
+                            "nuvio_benchmark_home_scroll",
+                            Direction.DOWN,
+                            "Home feed");
                     StartupReadiness.scrollUntilMarker(
                             device,
                             "nuvio_benchmark_home_scroll",
