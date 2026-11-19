@@ -721,14 +721,30 @@ validate_macrobenchmark_statistics() {
         trace_array = substr(trace_rest, trace_start, trace_length)
         trace_type_count = count_matches(trace_array, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"")
         trace_filename_count = count_matches(trace_array, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"")
+        profiler_output_count = count_matches(trace_array, "[{]")
+        if (profiler_output_count != expected_iterations) {
+          print "FAIL: Macrobenchmark JSON must contain exactly ten profiler output objects per startup case (one PerfettoTrace per measured iteration); additional profiler artifacts are not accepted in a clean timing comparison."
+          exit 1
+        }
         if (trace_type_count != expected_iterations || trace_filename_count != expected_iterations) {
-          print "FAIL: each startup result must reference ten Perfetto trace files in profilerOutputs."
+          print "FAIL: Macrobenchmark JSON clean-run contract requires ten PerfettoTrace entries with filenames per startup case."
           exit 1
         }
         for (trace_iteration = 0; trace_iteration < expected_iterations; trace_iteration++) {
           trace_label_pattern = "\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " trace_iteration "\""
           if (count_matches(trace_array, trace_label_pattern) != 1) {
             print "FAIL: each startup result must contain exactly one trace reference for every measured iteration."
+            exit 1
+          }
+          trace_object_pattern = "\\\\{[^}]*\\\"label\\\"[[:space:]]*:[[:space:]]*\\\"Trace Iteration " trace_iteration "\\\"[^}]*\\\\}"
+          if (!match(trace_array, trace_object_pattern)) {
+            print "FAIL: Macrobenchmark JSON is missing the profiler output object for Trace Iteration " trace_iteration "."
+            exit 1
+          }
+          trace_object = substr(trace_array, RSTART, RLENGTH)
+          if (count_matches(trace_object, "\"type\"[[:space:]]*:[[:space:]]*\"PerfettoTrace\"") != 1 ||
+              count_matches(trace_object, "\"filename\"[[:space:]]*:[[:space:]]*\"[^\"]+\"") != 1) {
+            print "FAIL: Trace Iteration " trace_iteration " must itself be one PerfettoTrace object with exactly one filename."
             exit 1
           }
         }
