@@ -82,8 +82,8 @@
 
 - [x] Record the AndroidX release/source findings, API version split, separate profiling-pass behavior and explicit no-speedup boundary.
 - [x] Record the Android Performance Analyzer / Perfetto viewing workflow and pprof conversion reference, plus heapprofd sampling semantics and profileable prerequisites.
-- [ ] Re-fetch every changed file and compare the branch against `11d334fda5ec4d5d5928b893d779c1533130caf9` (final remote diff pending).
-- [ ] Confirm only the benchmark test module, version catalog, phone runner, regression/static-contract scripts and benchmark docs changed (final remote diff pending).
+- [x] Re-fetch every changed file and compare the branch against `11d334fda5ec4d5d5928b893d779c1533130caf9`.
+- [x] Confirm only the benchmark test module, version catalog, phone runner, regression/static-contract scripts and benchmark docs changed.
 - [x] Confirm no app source or workflow changed, and no build/CI/instrumentation/LADB/device run was started.
 
 ## Execution record
@@ -116,3 +116,13 @@ The implementation will be integrated natively in this session because the reque
 - [x] Add the actual AndroidX heapprofd source settings (2,048-byte sampling interval, 500 ms continuous dumps, 8 MiB buffer) and sampling caveat to the generated memory summary.
 
 - [x] Record `block_client=true` and Perfetto's earliest Zygote-specialization coverage limitation in the diagnostic summary and engineering notes.
+
+
+## Final remote review — 19 November 2026
+
+- Final branch head at review: `6789dd058aacbc208eda176bdedfad1b446661b5`.
+- Compared with checkpoint `11d334fda5ec4d5d5928b893d779c1533130caf9`: 40 commits ahead, zero behind.
+- GitHub compare shows exactly nine changed paths: the new instrumentation test class, the benchmark version catalog, phone runner, two regression/static-contract scripts, two existing engineering notes and the new plan/spec.
+- No app manifest, production app source, Gradle build script, workflow or CI file changed. The app/profileability manifests were read-only inputs to a new static contract.
+- Re-fetched all nine changed paths and the unmodified `StartupBenchmark.java` and app manifest inputs. Source assertions confirmed the normal ten-iteration benchmark is unchanged; only the macrobenchmark instrumentation library uses 1.6.0-alpha02 while the Baseline Profile plugin remains 1.5.0.
+- Full shell scripts and Java compilation remain pending. No builds, CI, instrumentation, LADB or device actions were started.
