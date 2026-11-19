@@ -5,6 +5,8 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 MEMORY_BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupMemoryBenchmark.java"
 VERSION_CATALOG="$ROOT_DIR/gradle/libs.versions.toml"
+APP_MANIFEST="$ROOT_DIR/androidApp/src/main/AndroidManifest.xml"
+PLAYSTORE_MANIFEST="$ROOT_DIR/androidApp/src/playstore/AndroidManifest.xml"
 DESKTOP_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 PHONE_RUNNER="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
 WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
@@ -19,6 +21,10 @@ WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.y
 }
 [ -f "$VERSION_CATALOG" ] || {
   echo "FAIL: Gradle version catalog not found: $VERSION_CATALOG" >&2
+  exit 1
+}
+[ -f "$APP_MANIFEST" ] && [ -f "$PLAYSTORE_MANIFEST" ] || {
+  echo "FAIL: app/profileability manifest inputs are missing." >&2
   exit 1
 }
 [ -f "$DESKTOP_RUNNER" ] || {
@@ -421,6 +427,15 @@ grep -Fq 'androidx-benchmark = "1.5.0"' "$VERSION_CATALOG" &&
   echo "FAIL: only the Macrobenchmark instrumentation library may use 1.6.0-alpha02; the Baseline Profile Gradle plugin must remain at stable 1.5.0." >&2
   exit 1
 }
+grep -Fq '<profileable android:shell="true" />' "$APP_MANIFEST" || {
+  echo "FAIL: the app must remain shell-profileable so Perfetto heapprofd can sample ART/native allocations on non-debuggable user builds." >&2
+  exit 1
+}
+if grep -Eiq 'profileable.*tools:node="remove"|tools:node="remove".*profileable' "$PLAYSTORE_MANIFEST"; then
+  echo "FAIL: the Play Store manifest overlay must not remove shell profileability required by the memory diagnostic." >&2
+  exit 1
+}
+
 if grep -Fq 'MemoryProfilingConfig' "$BENCHMARK_SOURCE"; then
   echo "FAIL: the clean ten-iteration startup comparison must not enable heap profiling." >&2
   exit 1
