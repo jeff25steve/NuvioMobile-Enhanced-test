@@ -215,6 +215,29 @@ grep -Fq 'append_macrobenchmark_execution_order() {' "$PHONE_RUNNER" && \
   echo "FAIL: phone summary must report the actual AndroidJUnitRunner comparison-arm execution order." >&2
   exit 1
 }
+
+# Installed APK provenance must survive separate install/collect/measure shell invocations.
+for expected in \
+  'current-install-provenance.txt' \
+  'load_install_provenance() {' \
+  'App APK source SHA-256:' \
+  'Test APK source SHA-256:' \
+  'verify_installed_package_apk() {' \
+  'pm path "$package_name"' \
+  'Installed $package_label APK SHA-256 does not match the saved source APK' \
+  'App installed APK verification:' \
+  'Test installed APK verification:'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner is missing APK provenance integrity contract '$expected'." >&2
+    exit 1
+  }
+done
+provenance_write_line="$(grep -n -F '  write_run_provenance' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+instrumentation_line="$(grep -n -F '  am instrument -w -r' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+[ -n "$provenance_write_line" ] && [ -n "$instrumentation_line" ] && [ "$provenance_write_line" -lt "$instrumentation_line" ] || {
+  echo "FAIL: installed APK identity checks must complete before Macrobenchmark instrumentation starts." >&2
+  exit 1
+}
 for result_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
