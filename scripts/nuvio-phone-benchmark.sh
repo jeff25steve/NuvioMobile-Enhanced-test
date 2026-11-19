@@ -1397,14 +1397,14 @@ require_memory_profile_result_data() {
       }
     }
   ')"
-  [ -n "$memory_trace_filename" ] || fail "Memory-profile output has no filename."
+  [ -n "$memory_trace_filename" ] || fail "Memory-profile result has no profiler filename."
   case "$memory_trace_filename" in
     *-memoryProfiling.perfetto-trace) ;;
-    *) fail "Memory-profile output filename must end in -memoryProfiling.perfetto-trace; got '$memory_trace_filename'." ;;
+    *) fail "Memory-profile result filename must end in -memoryProfiling.perfetto-trace; got '$memory_trace_filename'." ;;
   esac
   memory_trace_basename="$(basename "$memory_trace_filename")"
   memory_trace_file="$RUN_DIR/$memory_trace_basename"
-  [ -s "$memory_trace_file" ] || fail "Memory-profile trace is missing or empty: $memory_trace_basename."
+  [ -s "$memory_trace_file" ] || fail "Memory-profile result trace is missing or empty: $memory_trace_basename."
   copied_memory_trace_count="$(find "$RUN_DIR" -maxdepth 1 -type f -name '*-memoryProfiling.perfetto-trace' -print | wc -l | tr -d ' ')"
   [ "$copied_memory_trace_count" -eq 1 ] || fail "Expected exactly one copied non-empty memory-profile trace; found $copied_memory_trace_count."
 
