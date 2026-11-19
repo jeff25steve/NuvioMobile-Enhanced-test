@@ -281,9 +281,9 @@ printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
   *StartupMemoryBenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
-    printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupMemoryBenchmark\\n'
-    printf 'INSTRUMENTATION_STATUS: test=startupWithBaselineProfileMemoryProfile\\n'
-    printf 'INSTRUMENTATION_STATUS_CODE: 0\\n'
+    printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupMemoryBenchmark\n'
+    printf 'INSTRUMENTATION_STATUS: test=startupWithBaselineProfileMemoryProfile\n'
+    printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
     memory_mode="${FAKE_MEMORY_PROFILE_MODE:-complete}"
     memory_filename="startupWithBaselineProfileMemoryProfile_iter000-memoryProfiling.perfetto-trace"
     memory_type="PerfettoTrace"
@@ -291,11 +291,11 @@ case " $* " in
       wrong-type) memory_type="MethodTrace" ;;
       wrong-suffix) memory_filename="startupWithBaselineProfileMemoryProfile_iter000-memoryProfiling.trace" ;;
     esac
-    printf 'fixture normal timing trace\\n' > "$FAKE_MEDIA_DIR/startupWithBaselineProfileMemoryProfile-trace-0.perfetto-trace"
+    printf 'fixture normal timing trace\n' > "$FAKE_MEDIA_DIR/startupWithBaselineProfileMemoryProfile-trace-0.perfetto-trace"
     case "$memory_mode" in
       missing-trace-file) ;;
       empty-trace-file) : > "$FAKE_MEDIA_DIR/$memory_filename" ;;
-      *) printf 'fixture pprof heap trace\\n' > "$FAKE_MEDIA_DIR/$memory_filename" ;;
+      *) printf 'fixture pprof heap trace\n' > "$FAKE_MEDIA_DIR/$memory_filename" ;;
     esac
     cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<JSON
 {
@@ -328,9 +328,17 @@ JSON
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       duplicate-output)
-        sed '/Memory Profiling Iteration 0/a\\      {"type": "PerfettoTrace", "label": "Memory Profiling Iteration 0", "filename": "duplicate-memoryProfiling.perfetto-trace"},' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        awk '
+          /Memory Profiling Iteration 0/ {
+            sub(/}[[:space:]]*$/, "},")
+            print
+            print "      {\\"type\\": \\"PerfettoTrace\\", \\"label\\": \\"Memory Profiling Iteration 0\\", \\"filename\\": \\"duplicate-memoryProfiling.perfetto-trace\\"}"
+            next
+          }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
-        printf 'duplicate trace\\n' > "$FAKE_MEDIA_DIR/duplicate-memoryProfiling.perfetto-trace"
+        printf 'duplicate trace\n' > "$FAKE_MEDIA_DIR/duplicate-memoryProfiling.perfetto-trace"
         ;;
     esac
     ;;
