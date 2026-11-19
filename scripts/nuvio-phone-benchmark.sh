@@ -1837,11 +1837,16 @@ run_instrumentation() {
       require_non_empty_home_browse_profile
       ;;
     macrobenchmark)
-      require_macrobenchmark_cases
       copy_recent_outputs benchmark
-      require_macrobenchmark_result_data
-      printf 'Generated benchmark summary -> %s\n' "$RUN_DIR/benchmark-summary.txt" >> "$RUN_DIR/copied-files.txt"
-      cat "$RUN_DIR/benchmark-summary.txt"
+      if [ "$ACTION" = memory-profile ]; then
+        require_memory_profile_result_data
+        cat "$RUN_DIR/memory-profile-summary.txt"
+      else
+        require_macrobenchmark_cases
+        require_macrobenchmark_result_data
+        printf 'Generated benchmark summary -> %s\n' "$RUN_DIR/benchmark-summary.txt" >> "$RUN_DIR/copied-files.txt"
+        cat "$RUN_DIR/benchmark-summary.txt"
+      fi
       ;;
   esac
   printf '\nSaved results to: %s\n' "$RUN_DIR"
@@ -1872,6 +1877,10 @@ case "$ACTION" in
     run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
     printf '\nThe JSON contains paired cold-start results for CompilationMode.None and CompilationMode.Partial(BaselineProfileMode.Require). Check both TTID and TTFD medians; the profile-enabled arm uses the profile already packaged in this benchmarkRelease APK, not the profile collected in the previous step.\n'
     ;;
+  memory-profile)
+    run_instrumentation macrobenchmark "$MEMORY_BENCHMARK_CLASS"
+    printf '\nMemory profiling completed as a separate diagnostic pass. Open the copied memory-profile trace in Perfetto UI or Android Performance Analyzer; do not treat its single timing sample as a startup comparison.\n'
+    ;;
   run)
     require_installed_variant install-profile
     run_instrumentation BaselineProfile "$GENERATOR_CLASS"
@@ -1882,5 +1891,5 @@ case "$ACTION" in
     run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
     printf '\nFull profile collection and startup measurement completed for %s.\n' "$FLAVOR"
     ;;
-  *) usage; fail "Unknown action '$ACTION'. Use install-profile, run, collect, install, measure or help." ;;
+  *) usage; fail "Unknown action '$ACTION'. Use install-profile, run, collect, install, measure, memory-profile or help." ;;
 esac
