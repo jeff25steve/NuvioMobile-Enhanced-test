@@ -6718,3 +6718,21 @@ The fake-phone fixture now deliberately includes an exact duplicate and known H/
 - No measured Nuvio startup improvement, Baseline Profile win, power reduction or outperformance over the official Nuvio app is claimed. A same-device, same-APK, rotated comparison and trace analysis remain necessary.
 
 Sources: [Bluesky startup benchmark PR #12092](https://github.com/bluesky-social/social-app/pull/12092) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [Android Developers — Measure Baseline Profile performance](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) · [Android Developers — Macrobenchmark CI and artifacts](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidJUnitRunner tests_regex implementation](https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/filters/TestsRegExFilter.java) · [Perfetto battery counters / ODPM](https://perfetto.dev/docs/data-sources/battery-counters)
+
+
+## Android startup benchmark — collision-safe result directories (Cycle 81, 19 November 2026)
+
+The phone runner previously built each result path from a second-resolution timestamp and used `mkdir -p`. Two overlapping invocations of the same action and flavor in the same second therefore selected the same result directory. This could overwrite the `.started` marker and mix or overwrite profiler outputs, making a run's artifact set ambiguous.
+
+Changed `new_run_dir()` to create the flavor output parent once, then reserve the timestamped result directory with a plain atomic `mkdir`. If that name already exists, the runner tries deterministic numeric suffixes (`-1`, `-2`, and so on) until it reserves a fresh directory. A non-collision creation failure stops with an explicit error. Existing result paths and marker files are never reused.
+
+Added `scripts/tests/test-android-benchmark-run-directory.sh`. It extracts and invokes the actual `new_run_dir` function with a fixed clock and a no-op sleep, then checks that three same-second invocations receive distinct paths and that earlier `.started` markers remain present. The existing `test-nuvio-phone-benchmark.sh` invokes this focused regression.
+
+### Verification boundary for Cycle 81
+
+- Reproduced the old implementation's failure using a fixed timestamp: two invocations selected the exact same path and the distinct-directory assertion failed.
+- Exercised the replacement POSIX-shell function with the same fixed timestamp: three invocations received the base path, `-1` and `-2` paths, with all three markers preserved.
+- Exercised 16 concurrent shell processes, each allocating three runs against the same fixed timestamp; all 48 result directories were distinct.
+- Re-fetched the runner, new focused regression, and parent phone-runner test from `main-build-testing`; confirmed the test is wired into the existing test entry point and the production function uses atomic directory reservation.
+- The committed focused test script and the complete phone-runner regression were not executed from a local repository checkout in this session. The local checks used a verbatim isolated copy of the updated function, not the full checked-in regression script. Full repository script execution remains outstanding.
+- No Gradle task, build, CI, instrumentation, profile collection, LADB command, device benchmark or app runtime source change was made. This prevents benchmark result-directory collisions; it does not improve app startup time or establish a performance gain.
