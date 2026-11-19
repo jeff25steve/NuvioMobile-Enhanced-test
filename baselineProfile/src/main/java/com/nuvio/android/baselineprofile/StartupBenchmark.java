@@ -2,6 +2,7 @@ package com.nuvio.android.baselineprofile;
 
 import androidx.benchmark.ExperimentalConfig;
 import androidx.benchmark.StartupInsightsConfig;
+import androidx.benchmark.macro.ArtMetric;
 import androidx.benchmark.macro.BaselineProfileMode;
 import androidx.benchmark.macro.CompilationMode;
 import androidx.benchmark.macro.StartupMode;
@@ -41,7 +42,7 @@ public final class StartupBenchmark {
     public void startupNoCompilation() {
         runColdStartupBenchmark(
                 CompilationMode.None.INSTANCE,
-                Collections.singletonList(new StartupTimingMetric())
+                java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }
 
