@@ -420,13 +420,13 @@ JSON
         ;;
     esac
     for test_name in $test_order; do
-      if [ "\${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
+      if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
         readiness_iteration=0
         while [ "$readiness_iteration" -lt 10 ]; do
           omit_readiness_record=0
-          readiness_mode="\${FAKE_READINESS_TIMING_MODE:-complete}"
+          readiness_mode="${FAKE_READINESS_TIMING_MODE:-complete}"
           if [ "$readiness_mode" = missing-last ] &&
              [ "$test_name" = startupWithBaselineProfile ] &&
              [ "$readiness_iteration" -eq 9 ]; then
