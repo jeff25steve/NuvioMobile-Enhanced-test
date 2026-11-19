@@ -811,3 +811,77 @@ Collecting ArtMetric alone would be insufficient if the phone runner ignored its
 - The values in the mocked JSON are test fixtures only and are not Nuvio measurements. The summary is descriptive and does not claim statistical significance or an Enhanced-vs-official speedup.
 - The next useful measurement step is to run the shell regression suite, then collect the paired startup results on a supported physical phone and inspect each referenced Perfetto trace. Separately, the Home browse CUJ should gain a FrameTimingMetric run once its seeded-device journey can be measured deterministically; do not add its results to the startup comparison or Startup Profile.
 
+
+## 19 November 2026 — improvement cycle 57: make Home content, not a timeout, own appReady
+
+### Screenshot claim review
+
+The screenshots correctly identified a product-path bug, not merely a test-harness problem. In the previous MainAppContent implementation, the five-second launch timeout set initialHomeReady = true even if Home catalog data had not arrived or any Home item had been laid out. That state fed rootContentReady and the MainActivity ReportDrawnWhen predicate, so a timeout could report the Activity fully drawn without the Home content being ready.
+
+A second issue was that HomeScreen's onFirstCatalogRendered callback was triggered by non-empty repository sections. That proved data had been published, not that the LazyColumn had produced a visible frame. Empty/error Home states also had no data-based callback and therefore depended on the timeout.
+
+### Changes
+
+- Removed the five-second promotion of initialHomeReady. The timer now changes a separate initialHomeFallbackElapsed state used only to dismiss the launch overlay. It cannot promote rootContentReady, trigger onRootContentReady(true), or release ReportDrawnWhen.
+- Home's loading predicate now remains active until the initial ServerRepository source snapshot is loaded, even when there are no configured server connections. ServerRepository.ensureLoaded() loads the active profile and increments its revision for both populated and empty connection lists.
+- Preserved the fast path for real cached Home rows: already renderable rows can draw while add-on manifests/catalog requests continue in the background.
+- Home readiness now waits for a Compose frame after the loading-state change and then observes LazyListState.layoutInfo through snapshotFlow. It requires a visible laid-out non-hero item (catalogue, collection, Continue Watching or intentional empty/error content), or a visible hero when actual hero items exist. A skeleton/reserved home_hero slot alone is not sufficient.
+- Stabilized the Home callback using rememberUpdatedState so a newly allocated callback lambda does not cancel/restart the readiness wait.
+- Stabilized MainAppContent's onRootContentReady callback in the same way. The LaunchedEffect no longer uses the callback lambda identity as a key.
+- Kept the launch overlay's own exit transition in the final TTFD condition. This is intentionally limited to the overlay that can still cover the Home screen; unrelated animations are not used as readiness gates. A fully-drawn report while the launch overlay remains visible would measure a screen that the user cannot yet see.
+
+### Validation evidence
+
+- MainActivity still reports fully drawn exclusively through ReportDrawnWhen { appReady.value }. AppGate's normal MainAppContent route delivers the callback directly to this state; there is no evidence that the normal route's callback is a no-op.
+- ServerRepository.ensureLoaded() calls load(activeProfileId) if the profile has not been loaded; load() increments ServersUiState.revision even when the active profile has zero server connections. The new source-loaded guard therefore does not require a server to be configured.
+- The Activity lifecycle restoration incident in the screenshots is historical, not an outstanding branch defect. Current MainActivity is byte-for-byte identical to the complete restoration commit 6c17ef5f7e90dcccc2cf501d243e84b6904b6326. Its onNewIntent, onUserLeaveHint, onPictureInPictureModeChanged and onDestroy handlers remain present. No new MainActivity rewrite was made.
+- Focused commonTest cases were added for overlay fallback vs app readiness and for cached, loading, source-unloaded, empty and error Home states.
+
+### Verification boundary
+
+- Remote source files and added tests were re-fetched. The tests were not executed; no Gradle test, compile, build, emulator, physical-device run, Macrobenchmark or CI workflow was started.
+- The 5-second overlay escape hatch remains a UI fallback only. If product Home readiness never becomes true, the harness must now fail rather than claim a successful fully-drawn startup.
+- No TTFD improvement is measured. A supported physical-device run is required to establish the real Home readiness and startup timings.
+
+
+## 19 November 2026 — improvement cycle 58: make UI Automator readiness target-owned and measurement-pure
+
+### Screenshot claim review
+
+The prior packageRes(marker) method returned By.res(marker) despite its comment claiming package scoping. markerVisible() separately checked whether the target package appeared anywhere in the hierarchy. That did not prove that the matched marker belonged to the benchmark app, nor that the target was the active foreground window.
+
+The prior readiness helper also ran monkey during marker waits when it detected a known terminal/shell package. Re-launching the benchmark app in the middle of a measured cold start changes Activity/process lifecycle state and contaminates the measurement. The same class also owned profile-journey scroll helpers, making readiness policy and browse actions harder to review separately.
+
+### Changes
+
+- packageRes() now builds a package-qualified selector with By.res(TARGET_APP_PACKAGE, marker). The stable AndroidX Test UI Automator API documents the two-String overload in resource-package, resource-id order.
+- Added targetMarker(), which requires the active UiWindow to belong to com.nuvio.media.benchmark, queries the marker within that active window, and independently confirms the resulting UiObject2.getApplicationPackage() is the benchmark package.
+- Package presence elsewhere in the hierarchy is retained only as diagnostic information; it cannot make a marker check pass.
+- Removed automatic monkey relaunch/re-foreground from startup waits. If LADB/Termux/another application owns the active window, the helper waits only for the short active-window budget and then fails with diagnostics. It never restarts the app during a Macrobenchmark iteration.
+- Split Home browse gesture actions into HomeBrowseReadiness.java. StartupReadiness now owns target/active-window marker discovery and the Home/fully-drawn wait; HomeBrowseReadiness owns bounded marker discovery, scrollability checks, visible bounds and scroll gestures.
+- Kept a 60-second total budget for the target app to become active and expose Home, then added a separate 15-second fully-drawn deadline after Home is visible. A post-Home failure is explicitly diagnosed as the product fully-drawn/appReady path, not as a generic 60-second startup timeout.
+- The static contract now guards the target-owned selectors, no relaunch during measurement, separate Home browse helper, product readiness/overlay contract, stable callbacks, MainActivity lifecycle methods and both ART metrics. It also removes the stale assertion that previously banned ArtMetric even after cycle 55 added it.
+
+### Research and API evidence
+
+- The repository pins AndroidX Test UI Automator 2.4.1. The official By API documents res(resourcePackage, resourceId), and the AndroidX source implements the selector as the package-qualified resource ID. The official API surface also exposes UiDevice.findWindow(By.Window.active(true)), UiWindow.findObject()/getPackageName(), UiObject2.getApplicationPackage() and getVisibleBounds(): https://developer.android.com/reference/androidx/test/uiautomator/By
+- AndroidX Activity Compose 1.12.2 ReportDrawnWhen is a predicate condition that releases the FullyDrawnReporter lock when true, allowing Activity.reportFullyDrawn() to be sent. TTFD should therefore reflect actual user-visible Home content rather than elapsed timeout: https://developer.android.com/reference/kotlin/androidx/activity/compose/ReportDrawnWhen
+- Compose LazyListState.layoutInfo reflects the last completed layout pass and is intended for side-effect observation through snapshotFlow. withFrameNanos waits for a new Compose frame before this code inspects the list: https://developer.android.com/reference/kotlin/androidx/compose/foundation/lazy/LazyListState and https://developer.android.com/reference/kotlin/androidx/compose/runtime/MonotonicFrameClock
+- BaselineProfileRule.collect documents filterPredicate defaulting to { true }, meaning no lines are filtered. This is not evidence of a bug by itself: the rule applies to application profile capture, and the Home browse pass remains includeInStartupProfile=false. Android recommends profile filtering in particular for library profiles; a Nuvio-specific package filter should be considered only after inspecting generated rule origins, obfuscation/mapping behavior and profile size: https://developer.android.com/reference/kotlin/androidx/benchmark/macro/junit4/BaselineProfileRule and https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles
+
+### Verification boundary
+
+- Current MainActivity was re-fetched and matched the complete historical restoration commit. The four lifecycle/intent handlers are also now part of the startup-readiness static contract.
+- The modified StartupReadiness, new HomeBrowseReadiness, generator and static regression contract were re-fetched from main-build-testing. The new commonTest files were also re-fetched.
+- No shell regression script, Gradle test/task, Java/Kotlin compile, build, instrumentation, Baseline Profile generation, APK, CI, LADB or device operation was run.
+- No cold-start measurement is published from this harness change. The intended effect is to prevent false-success readiness and re-launch contamination, not to claim a faster device launch.
+- The phone/desktop benchmark still uses its explicit install/launch steps before instrumentation. The removed behavior is only the automatic re-launch from inside a measured readiness wait.
+
+
+## Grok screenshot findings — disposition
+
+- **Accepted and fixed:** Home readiness was promoted by the timeout; Home callback used data publication rather than visible layout; marker lookup was not package scoped; target package presence was conflated with active foreground; monkey re-launch could perturb measured cold starts; the single 60-second wait masked a distinct post-Home appReady failure; readiness and browse gestures were mixed; the static test contradicted the new ART benchmark.
+- **Historical/already restored:** MainActivity's earlier truncation. The current file matches the full restoration commit and its lifecycle/intent handlers are retained.
+- **Not established as a defect:** The Baseline Profile generator's rule -> true predicate. This is AndroidX's documented no-filter default. No generated profile evidence currently justifies narrowing it; leave profile scope open for a measured rule-size/coverage review.
+- **Not adopted literally:** Removing the launch overlay transition from TTFD. The overlay is the one transition that can still obscure Home. The app now waits only for this explicit launch overlay to leave; it does not wait for unrelated animation state.
+- **Architecture split:** StartupReadiness remains responsible for startup/package/active-window conditions; HomeBrowseReadiness owns the scrolling journey. This is a maintainability improvement, not a runtime speed optimization.
