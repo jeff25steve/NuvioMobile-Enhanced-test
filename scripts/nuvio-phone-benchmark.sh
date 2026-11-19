@@ -303,6 +303,55 @@ require_non_empty_startup_profile() {
   [ "$startup_profile_count" -gt 0 ] || fail "No startup-prof text profile was produced. Check the Startup Profile collection and $RUN_DIR/instrumentation.log."
 }
 
+write_profile_audit_summary() {
+  profile_summary="$RUN_DIR/profile-audit-summary.txt"
+  profile_count=0
+  {
+    printf 'Nuvio Baseline Profile artifact audit\n'
+    printf 'Read-only inventory; profile rules are not rewritten or normalized.\n\n'
+    for profile_file in "$RUN_DIR"/*startup-prof*.txt "$RUN_DIR"/*home_browse-baseline-prof*.txt; do
+      [ -f "$profile_file" ] || continue
+      profile_count=$((profile_count + 1))
+      case "$profile_file" in
+        *startup-prof*) profile_label="Startup Profile" ;;
+        *home_browse-baseline-prof*) profile_label="Home browse Baseline Profile" ;;
+        *) profile_label="Profile artifact" ;;
+      esac
+      printf '%s\n' "$profile_label"
+      printf '  File: %s\n' "$(basename "$profile_file")"
+      printf '  SHA-256: %s\n' "$(file_sha256 "$profile_file")"
+      awk '
+        NF {
+          total++
+          if (!seen[$0]++) unique++
+          rule = $0
+          sub(/^[[:space:]]*/, "", rule)
+          if (index(rule, "->") > 0) method_rules++
+          else class_or_other_rules++
+          if (match(rule, /^[HSP]*L/)) {
+            flags = substr(rule, 1, RLENGTH - 1)
+            if (index(flags, "H")) hot_flag_rules++
+            if (index(flags, "S")) startup_flag_rules++
+            if (index(flags, "P")) post_startup_flag_rules++
+          }
+        }
+        END {
+          printf "  Nonblank rules: %d\n", total + 0
+          printf "  Unique exact rules: %d\n", unique + 0
+          printf "  Duplicate exact rules: %d\n", total - unique
+          printf "  Method-rule candidates: %d\n", method_rules + 0
+          printf "  Class/other-rule candidates: %d\n", class_or_other_rules + 0
+          printf "  Rules carrying H/S/P flags: H=%d S=%d P=%d\n", hot_flag_rules + 0, startup_flag_rules + 0, post_startup_flag_rules + 0
+        }
+      ' "$profile_file"
+      printf '\n'
+    done
+  } > "$profile_summary" || fail "Could not create the Baseline Profile artifact audit."
+  [ "$profile_count" -ge 2 ] || fail "Profile audit expected both the Startup Profile and Home browse Baseline Profile artifacts; found $profile_count files."
+  printf 'Generated profile artifact audit -> %s\n' "$profile_summary" >> "$RUN_DIR/copied-files.txt"
+  cat "$profile_summary"
+}
+
 require_non_empty_home_browse_profile() {
   home_browse_profile_count=0
   for profile_file in "$RUN_DIR"/*home_browse-baseline-prof*.txt; do
@@ -1088,6 +1137,77 @@ write_macrobenchmark_summary() {
       return split(run_text, values, ",")
     }
 
+    BEGIN {
+      BOOTSTRAP_REPLICATES = 10000
+      bootstrap_rng_state = 20261119
+    }
+
+    # Park-Miller PRNG: integer arithmetic stays below 2^53, so the sequence is
+    # reproducible across the POSIX awk implementations used by host and phone.
+    function bootstrap_random_index(count) {
+      bootstrap_rng_state = (bootstrap_rng_state * 48271) % 2147483647
+      return int((bootstrap_rng_state / 2147483647) * count) + 1
+    }
+
+    function sample_median(values, count,    ordered, i, j, current) {
+      for (i = 1; i <= count; i++) ordered[i] = values[i]
+      for (i = 2; i <= count; i++) {
+        current = ordered[i]
+        j = i - 1
+        while (j > 0 && ordered[j] > current) {
+          ordered[j + 1] = ordered[j]
+          j--
+        }
+        ordered[j + 1] = current
+      }
+      if (count % 2 == 1) return ordered[(count + 1) / 2]
+      return (ordered[count / 2] + ordered[count / 2 + 1]) / 2
+    }
+
+    function sort_numeric(values, left, right,    i, j, pivot, temporary) {
+      i = left
+      j = right
+      pivot = values[int((left + right) / 2)]
+      while (i <= j) {
+        while (values[i] < pivot) i++
+        while (values[j] > pivot) j--
+        if (i <= j) {
+          temporary = values[i]
+          values[i] = values[j]
+          values[j] = temporary
+          i++
+          j--
+        }
+      }
+      if (left < j) sort_numeric(values, left, j)
+      if (i < right) sort_numeric(values, i, right)
+    }
+
+    # Difference is right_arm median minus left_arm median. Each arm is
+    # resampled independently because the existing JUnit arms are not paired.
+    function bootstrap_median_difference(left_arm, right_arm, metric_index,    replicate, sample_index, random_index, left_sample, right_sample, differences, left_median, right_median, lower_index, upper_index) {
+      for (replicate = 1; replicate <= BOOTSTRAP_REPLICATES; replicate++) {
+        for (sample_index = 1; sample_index <= expected_iterations; sample_index++) {
+          random_index = bootstrap_random_index(expected_iterations)
+          if (metric_index == 1) {
+            left_sample[sample_index] = ttid_runs[left_arm, random_index]
+            right_sample[sample_index] = ttid_runs[right_arm, random_index]
+          } else {
+            left_sample[sample_index] = ttfd_runs[left_arm, random_index]
+            right_sample[sample_index] = ttfd_runs[right_arm, random_index]
+          }
+        }
+        left_median = sample_median(left_sample, expected_iterations)
+        right_median = sample_median(right_sample, expected_iterations)
+        differences[replicate] = right_median - left_median
+      }
+      sort_numeric(differences, 1, BOOTSTRAP_REPLICATES)
+      lower_index = int((BOOTSTRAP_REPLICATES - 1) * 0.025) + 1
+      upper_index = int((BOOTSTRAP_REPLICATES - 1) * 0.975) + 1
+      bootstrap_ci_lower = differences[lower_index]
+      bootstrap_ci_upper = differences[upper_index]
+    }
+
     function trace_filename(result_object, iteration,    array_pattern, trace_array, trace_pattern, trace_object) {
       array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
       if (!match(result_object, array_pattern)) return ""
@@ -1315,8 +1435,22 @@ write_macrobenchmark_summary() {
         }
         print ""
       }
+      print "Exploratory bootstrap intervals (difference in medians; 10,000 resamples)"
+      print "Difference is right-hand arm median minus left-hand arm median; each arm is resampled independently."
+      for (metric_index = 1; metric_index <= 2; metric_index++) {
+        metric = metric_names[metric_index]
+        print metric
+        bootstrap_median_difference(2, 3, metric_index)
+        printf "  Incremental Baseline Profile effect (profile - partial without profile): %.1f ms; 95%% percentile interval [%.1f, %.1f] ms\n", median[test_names[3] SUBSEP metric] - median[test_names[2] SUBSEP metric], bootstrap_ci_lower, bootstrap_ci_upper
+        bootstrap_median_difference(1, 3, metric_index)
+        printf "  Total effect (profile - no compilation): %.1f ms; 95%% percentile interval [%.1f, %.1f] ms\n", median[test_names[3] SUBSEP metric] - median[test_names[1] SUBSEP metric], bootstrap_ci_lower, bootstrap_ci_upper
+        print ""
+      }
+
       print "Interpretation: descriptive only; ten iterations do not establish statistical significance."
-      print "Do not claim a speedup from the median difference alone. Inspect per-iteration traces for skew, thermal throttling, and warm-up effects."
+      print "Bootstrap intervals quantify within-arm sampling uncertainty; they are not causal proof and do not correct systematic test-order, device-heating, or time-drift bias."
+      print "The three JUnit arms execute as grouped test blocks, not an interleaved rotation. For decision-grade comparisons, repeat captures in rotated/interleaved arm order on the same phone and compare the combined evidence."
+      print "Do not claim a speedup from the median difference or bootstrap interval alone. Inspect every per-iteration trace for skew, thermal throttling, and warm-up effects."
     }
   ' "$result_file" > "$summary_file" || fail "Could not create the human-readable Macrobenchmark summary."
   [ -s "$summary_file" ] || fail "Macrobenchmark summary is empty."
@@ -1846,6 +1980,7 @@ run_instrumentation() {
       copy_recent_outputs profile
       require_non_empty_startup_profile
       require_non_empty_home_browse_profile
+      write_profile_audit_summary
       ;;
     macrobenchmark)
       copy_recent_outputs benchmark
