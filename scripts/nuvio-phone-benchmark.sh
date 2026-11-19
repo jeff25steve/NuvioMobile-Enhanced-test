@@ -1002,6 +1002,11 @@ require_macrobenchmark_result_data() {
     fail "Macrobenchmark JSON must contain TTID and TTFD metrics for all three startup results (found $ttid_metrics and $ttfd_metrics)."
   }
   write_macrobenchmark_summary "$summary_result_file"
+  {
+    printf '\\nThermal integrity\\n'
+    cat "$RUN_DIR/thermal-integrity.txt"
+  } >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not append thermal integrity to the benchmark summary."
+  printf 'Generated thermal integrity -> %s\\n' "$RUN_DIR/thermal-integrity.txt" >> "$RUN_DIR/copied-files.txt"
 }
 
 install_variant() {
@@ -1118,6 +1123,74 @@ capture_device_environment() {
   }
 }
 
+read_thermal_status_from_snapshot() {
+  snapshot_file="$1"
+  [ -r "$snapshot_file" ] || {
+    printf 'unknown\\n'
+    return 0
+  }
+  awk '
+    tolower($0) ~ /^[[:space:]]*thermal status:[[:space:]]*[0-6]([[:space:]]|$)/ {
+      status_line = $0
+      sub(/^[^:]*:[[:space:]]*/, "", status_line)
+      sub(/[[:space:]].*$/, "", status_line)
+      if (status_line ~ /^[0-6]$/) {
+        print status_line
+        found = 1
+        exit
+      }
+    }
+    END {
+      if (!found) print "unknown"
+    }
+  ' "$snapshot_file"
+}
+
+thermal_status_label() {
+  case "$1" in
+    0) printf '0 (NONE)' ;;
+    1) printf '1 (LIGHT)' ;;
+    2) printf '2 (MODERATE)' ;;
+    3) printf '3 (SEVERE)' ;;
+    4) printf '4 (CRITICAL)' ;;
+    5) printf '5 (EMERGENCY)' ;;
+    6) printf '6 (SHUTDOWN)' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+write_thermal_integrity_summary() {
+  before_status="$1"
+  after_status="$2"
+  thermal_report="$RUN_DIR/thermal-integrity.txt"
+  {
+    printf 'Thermal status before measurement: %s\\n' "$(thermal_status_label "$before_status")"
+    printf 'Thermal status after measurement: %s\\n' "$(thermal_status_label "$after_status")"
+    case "$after_status" in
+      2|3|4|5|6)
+        printf 'VERDICT: THERMALLY CONTAMINATED\\n'
+        printf 'Do not interpret these timings as an unthrottled startup comparison; the post-run thermal status is moderate or higher.\\n'
+        ;;
+      unknown)
+        printf 'VERDICT: THERMAL STATUS UNKNOWN\\n'
+        printf 'Thermal integrity could not be verified from the device snapshots.\\n'
+        ;;
+      *)
+        case "$before_status" in
+          unknown)
+            printf 'VERDICT: THERMAL STATUS UNKNOWN\\n'
+            printf 'The pre-run thermal status could not be verified from the device snapshot.\\n'
+            ;;
+          *)
+            printf 'VERDICT: NO MODERATE-OR-HIGHER THERMAL STATUS OBSERVED AT THE TWO SNAPSHOTS\\n'
+            ;;
+        esac
+        ;;
+    esac
+    printf 'Limit: only the pre-run and post-run snapshots are checked; transient thermal-status changes between captures cannot be excluded.\\n'
+  } > "$thermal_report" || fail "Could not write thermal integrity report: $thermal_report."
+}
+
 capture_foreground_state() {
   label="$1"
   snapshot="$RUN_DIR/foreground-$label.txt"
@@ -1167,6 +1240,12 @@ run_instrumentation() {
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
+    THERMAL_STATUS_BEFORE="$(read_thermal_status_from_snapshot "$RUN_DIR/environment-before.txt")"
+    case "$THERMAL_STATUS_BEFORE" in
+      2|3|4|5|6)
+        fail "Thermal status $(thermal_status_label "$THERMAL_STATUS_BEFORE") is already active before Macrobenchmark. Moderate-or-higher throttling can affect foreground performance. Cool the phone until status is 0 or 1, then retry; instrumentation was not started."
+        ;;
+    esac
   fi
   set +e
   am instrument -w -r \
@@ -1178,6 +1257,8 @@ run_instrumentation() {
   capture_foreground_state after
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment after
+    THERMAL_STATUS_AFTER="$(read_thermal_status_from_snapshot "$RUN_DIR/environment-after.txt")"
+    write_thermal_integrity_summary "$THERMAL_STATUS_BEFORE" "$THERMAL_STATUS_AFTER"
   fi
   cat "$RUN_DIR/instrumentation.log"
   [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log and foreground-before.txt / foreground-after.txt in $RUN_DIR. These snapshots distinguish a Nuvio readiness timeout from an external Android System UI or LADB interruption."
