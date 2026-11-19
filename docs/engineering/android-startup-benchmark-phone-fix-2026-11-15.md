@@ -3190,3 +3190,26 @@ Research: [AndroidX BenchmarkData.kt](https://github.com/androidx/androidx/blob/
 
 Sources: [AOSP Power HAL Mode.aidl](https://android.googlesource.com/platform/hardware/interfaces/+/refs/heads/main/power/aidl/android/hardware/power/Mode.aidl) · [Android Developers — Test power-related issues](https://developer.android.com/topic/performance/power/test-power) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark source](https://android.googlesource.com/platform/frameworks/support/+/0c2ddcd70f6090ccc660e49c03048e1de85c2073/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
 
+## Android startup benchmark — exact context JSON provenance (Cycles 73–74)
+
+### Cycle 73 — make SDK eligibility depend on the real root context
+
+- Reproduced a false acceptance in the old validator: a root-level build.version.sdk=35 could qualify a report even when the actual AndroidX context object was empty.
+- Added a quote/escape-aware AWK direct-object extractor and changed SDK eligibility to follow only context.build.version.sdk.
+- Added fake-device cases for a root-level build decoy and non-object context, build and version values. Existing missing-SDK and unrelated-SDK fixtures remain.
+
+### Cycle 74 — keep summary metadata tied to the same AndroidX context
+
+- Replaced global first-key lookups for model, SDK, CPU, memory, ART Mainline, sustained-performance mode and OS codename with exact context/build/version object lookups.
+- Added a valid JSON fixture with root-level metadata decoys and a string containing escaped quotes and a brace. Regression assertions require context-owned values and reject root-level decoys.
+- Extended the static contract to check every context-owned metadata field and ensure the old global summary lookups do not return.
+
+### Verification and limits for cycles 73–74
+
+- Reproduced the original root-build false acceptance with the previous AWK logic.
+- Ran isolated AWK fixtures for valid/nested/decoy JSON, escaped quote and brace handling, and missing/non-object object-chain members. The direct-path assertions passed.
+- Independently validated the new fake JSON fixture output as syntactically valid JSON.
+- Re-fetched and source-inspected the remote runner, fake-device fixture and static-contract script. The full repository test scripts were not run because no local checkout is available through this session.
+- No build, CI, Gradle task, instrumentation, profile generation, LADB or physical-device measurement was started. No runtime-performance result or speedup is claimed.
+
+Sources: [AndroidX BenchmarkData](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
