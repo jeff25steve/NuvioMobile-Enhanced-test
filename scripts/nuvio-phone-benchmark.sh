@@ -176,6 +176,18 @@ load_install_provenance() {
   saved_test_name="$(sed -n 's/^Test APK source filename: //p' "$install_state")"
   saved_test_hash="$(sed -n 's/^Test APK source SHA-256: //p' "$install_state")"
   [ "$saved_variant" = "$expected_saved_variant" ] || fail "Saved APK provenance belongs to '$saved_variant', not '$expected_saved_variant'. Reinstall the matching APK pair."
+  case "$expected_saved_variant" in
+    install-profile:*)
+      expected_app_name="Nuvio-$FLAVOR-NonMinifiedRelease.apk"
+      expected_test_name="Nuvio-$FLAVOR-NonMinifiedRelease-Tests.apk"
+      ;;
+    install:*)
+      expected_app_name="Nuvio-$FLAVOR-BenchmarkRelease.apk"
+      expected_test_name="Nuvio-$FLAVOR-BenchmarkRelease-Tests.apk"
+      ;;
+    *) fail "Unsupported saved APK provenance variant '$expected_saved_variant'." ;;
+  esac
+  [ "$saved_app_name" = "$expected_app_name" ] && [ "$saved_test_name" = "$expected_test_name" ] || fail "Saved APK provenance filenames do not match the expected $expected_saved_variant APK pair."
   case "$saved_app_name:$saved_test_name" in
     *..*|*/*|:*|*:) fail "Saved APK provenance contains an invalid source filename." ;;
   esac
