@@ -169,7 +169,7 @@ grep -Fq 'nuvio_benchmark_home_scroll' "$GENERATOR_SOURCE" &&
   exit 1
 }
 grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both cold-start arms must continue to collect StartupTimingMetric." >&2
+  echo "FAIL: all three cold-start arms must continue to collect StartupTimingMetric." >&2
   exit 1
 }
 # Release/benchmark APK needs R8 optimization; the capture build stays non-minified.

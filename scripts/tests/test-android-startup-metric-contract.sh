@@ -69,7 +69,7 @@ grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 grep -Fq 'artJitCount' "$PHONE_RUNNER" && grep -Fq 'artVerifyClassSumMs' "$PHONE_RUNNER" || {
-  echo "FAIL: phone result validation must require ART JIT and runtime-verification metrics in both startup arms." >&2
+  echo "FAIL: phone result validation must require ART JIT and runtime-verification metrics in all three startup arms." >&2
   exit 1
 }
 grep -Fq 'optional ART class-load metrics must be emitted as a complete pair' "$PHONE_RUNNER" || {
@@ -85,7 +85,7 @@ grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 [ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 3 ] || {
-  echo "FAIL: ART diagnostics must be collected in both cold-start comparison arms." >&2
+  echo "FAIL: ART diagnostics must be collected in all three cold-start comparison arms." >&2
   exit 1
 }
 grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
@@ -115,7 +115,7 @@ grep -Fq 'require_startup_metrics() {' "$DESKTOP_RUNNER" || {
   exit 1
 }
 grep -Fq 'require_macrobenchmark_cases() {' "$PHONE_RUNNER" || {
-  echo "FAIL: phone runner must require both Macrobenchmark JUnit cases to execute." >&2
+  echo "FAIL: phone runner must require all three Macrobenchmark JUnit cases to execute." >&2
   exit 1
 }
 grep -Fq 'INSTRUMENTATION_STATUS: test=$test_name' "$PHONE_RUNNER" || {
@@ -256,8 +256,8 @@ phone_copy="$(grep -n -F '      copy_recent_outputs benchmark' "$PHONE_RUNNER" |
 phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
 [ -n "$phone_case_check" ] && [ -n "$phone_copy" ] && [ -n "$phone_json_check" ] &&
 [ "$phone_case_check" -lt "$phone_copy" ] && [ "$phone_copy" -lt "$phone_json_check" ] || {
-  echo "FAIL: phone runner must check both instrumentation cases, copy results, then validate JSON before reporting completion." >&2
+  echo "FAIL: phone runner must check all three instrumentation cases, copy results, then validate JSON before reporting completion." >&2
   exit 1
 }
 
-printf 'PASS: both cold-start Macrobenchmark cases are declared and phone results require both test arms plus TTID/TTFD JSON data.\n'
+printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
