@@ -33,7 +33,6 @@ import kotlin.time.TimeSource
 private const val LogTag = "App/StartupPreload"
 private const val SlowPreloadWarningMs = 6_000L
 
-
 /**
  * Overlaps independent local reads with an ordered sequence of startup reads.
  * All work stays on the supplied dispatcher and shares one cancellation scope.
