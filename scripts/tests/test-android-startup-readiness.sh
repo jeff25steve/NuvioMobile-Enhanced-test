@@ -307,6 +307,11 @@ grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
   echo "FAIL: readiness stage durations must use monotonic elapsed realtime." >&2
   exit 1
 }
+grep -Fq 'measurementIteration == null && "ready".equals(outcome)' "$READINESS_SOURCE" &&
+  grep -Fq '"warmup"' "$READINESS_SOURCE" || {
+  echo "FAIL: successful AndroidX warm-up invocations must not be counted as measured readiness samples, while failed warm-ups remain diagnosable." >&2
+  exit 1
+}
 grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$GENERATOR_SOURCE" &&
   grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$GENERATOR_SOURCE" &&
   grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName, scope.getIteration())' "$BENCHMARK_SOURCE" || {
