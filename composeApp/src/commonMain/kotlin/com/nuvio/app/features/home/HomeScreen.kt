@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -899,6 +900,9 @@ fun HomeScreen(
     val isResolvingHeroSources = addonManifestsLoading || homeUiState.isLoading
     LaunchedEffect(homeListState, isInitialHomeContentLoading, onFirstCatalogRendered) {
         val onContentPresented = onFirstCatalogRendered ?: return@LaunchedEffect
+        // Let the state-driven Home content complete a frame before inspecting
+        // layoutInfo, which always describes the previous completed layout pass.
+        withFrameNanos { }
         snapshotFlow {
             !isInitialHomeContentLoading &&
                 homeListState.layoutInfo.visibleItemsInfo.any { item -> item.size > 0 }
