@@ -197,6 +197,24 @@ grep -Fq 'environment-before.txt' "$PHONE_RUNNER" && grep -Fq 'environment-after
   echo "FAIL: phone runner must identify both device-condition snapshot files." >&2
   exit 1
 }
+grep -Fq 'read_thermal_status_from_snapshot() {' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must parse thermal status from the already-captured environment snapshot." >&2
+  exit 1
+}
+grep -Fq '2|3|4|5|6)' "$PHONE_RUNNER" && grep -Fq 'THERMAL_STATUS_BEFORE' "$PHONE_RUNNER" || {
+  echo "FAIL: moderate-or-higher pre-run thermal status must block measurement before instrumentation." >&2
+  exit 1
+}
+grep -Fq 'write_thermal_integrity_summary "$THERMAL_STATUS_BEFORE" "$THERMAL_STATUS_AFTER"' "$PHONE_RUNNER" && \
+  grep -Fq 'transient thermal-status changes between captures cannot be excluded' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must preserve and qualify pre/post thermal integrity evidence." >&2
+  exit 1
+}
+grep -Fq 'append_macrobenchmark_execution_order() {' "$PHONE_RUNNER" && \
+  grep -Fq 'Macrobenchmark JUnit execution order (from AndroidJUnitRunner status records)' "$PHONE_RUNNER" || {
+  echo "FAIL: phone summary must report the actual AndroidJUnitRunner comparison-arm execution order." >&2
+  exit 1
+}
 for result_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
