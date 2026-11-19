@@ -3258,3 +3258,5 @@ Sources: [AndroidX 1.6 API source](https://github.com/androidx/androidx/blob/ab7
 - Extended the dedicated memory-result validator to require the exact JSON `className` and `repeatIterations=1`, not just a matching test name. Fake-device invalid modes now include wrong class and unexpected iteration count.
 - Static contract coverage now also checks that the Full and Play Store manifest overlays do not remove the main manifest's shell-profileable entry.
 - The complete phone-runner and static-contract scripts remain unrun; the additional modes were checked only through isolated AWK/shell examples and source inspection.
+
+- The generated summary also records AndroidX's `block_client=true` behavior (allocation completeness/determinism is prioritized over frame timing) and Perfetto's startup-coverage caveat: some of the earliest Zygote-specialization allocations may occur before heapprofd attaches. These are interpretation constraints, not measured Nuvio outcomes.
