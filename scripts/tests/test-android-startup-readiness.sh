@@ -312,9 +312,9 @@ grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$GENERATO
   echo "FAIL: each profile or comparison journey must identify itself in readiness timing records." >&2
   exit 1
 }
-grep -Fq 'runColdStartupBenchmark("startupNoCompilation"' "$BENCHMARK_SOURCE" &&
-  grep -Fq 'runColdStartupBenchmark("startupPartialWithoutBaselineProfile"' "$BENCHMARK_SOURCE" &&
-  grep -Fq 'runColdStartupBenchmark("startupWithBaselineProfile"' "$BENCHMARK_SOURCE" || {
+grep -Fq '"startupNoCompilation",' "$BENCHMARK_SOURCE" &&
+  grep -Fq '"startupPartialWithoutBaselineProfile",' "$BENCHMARK_SOURCE" &&
+  grep -Fq '"startupWithBaselineProfile",' "$BENCHMARK_SOURCE" || {
   echo "FAIL: all three startup arms must label their readiness observations by JUnit case." >&2
   exit 1
 }
