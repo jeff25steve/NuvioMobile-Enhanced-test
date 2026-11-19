@@ -1428,6 +1428,8 @@ require_memory_profile_result_data() {
     printf 'Continuous dump interval: 500 ms\n'
     printf 'Shared-memory buffer: 8388608 bytes\n'
     printf 'Allocation evidence: sampled call stacks, not exact heap totals or RSS/PSS\n'
+    printf 'Heapprofd behavior: block_client=true; completeness prioritized over frame timing\n'
+    printf 'Startup coverage caveat: some earliest Zygote-specialization allocations may precede profiling\n'
     printf 'Memory profiler output: Memory Profiling Iteration 0\n'
     printf 'Memory profile trace: %s\n' "$memory_trace_basename"
     printf '\nThis is an allocation diagnostic, not a statistical startup comparison. It is not a Java heap-retention graph or a complete ledger of every allocation. Do not use its single TTID/TTFD sample to claim a startup improvement. The normal timing suite remains unprofiled.\n'
