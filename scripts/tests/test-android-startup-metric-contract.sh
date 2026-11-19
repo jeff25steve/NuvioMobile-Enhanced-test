@@ -55,6 +55,18 @@ grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
   echo "FAIL: both comparison arms must collect StartupTimingMetric." >&2
   exit 1
 }
+grep -Fq 'artJitCount' "$PHONE_RUNNER" && grep -Fq 'artVerifyClassSumMs' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must require ART JIT and runtime-verification metrics in both startup arms." >&2
+  exit 1
+}
+grep -Fq 'optional ART class-load metrics must be emitted as a complete pair' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must distinguish optional ART class-load tracepoints from zero measurements." >&2
+  exit 1
+}
+grep -Fq 'Runtime class loading: not emitted' "$PHONE_RUNNER" || {
+  echo "FAIL: phone report must identify unsupported ART class-load tracepoints instead of reporting a false zero." >&2
+  exit 1
+}
 grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
   echo "FAIL: both comparison arms must collect ART runtime diagnostics." >&2
   exit 1
