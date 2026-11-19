@@ -454,8 +454,33 @@ JSON
           sed 's/"compilationMode": "None"/"sdk": 35, "compilationMode": "None"/' > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
+      misleading-global-build)
+        awk '
+          NR == 1 {
+            print
+            print "  \"build\": {\"model\": \"Decoy phone\", \"version\": {\"sdk\": 35}},"
+            print "  \"context\": {},"
+            next
+          }
+          /^  \"context\":/ { next }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
     esac
 
+    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "misleading-root-metadata" ]; then
+      awk '
+        NR == 1 {
+          print
+          print "  \"diagnostic\": \"escaped quote \\\\"build\\\\" and closing brace } must not confuse object lookup\","
+          print "  \"model\": \"Root decoy phone\", \"sdk\": 28, \"cpuCoreCount\": 2, \"cpuLocked\": false, \"cpuMaxFreqHz\": 1000000000, \"memTotalBytes\": 1, \"artMainlineVersion\": 1, \"sustainedPerformanceModeEnabled\": true, \"osCodenameAbbreviated\": \"DECOY\","
+          next
+        }
+        { print }
+      ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    fi
     if [ "${FAKE_API:-35}" = "33" ]; then
       sed 's/"sdk": 35/"sdk": 33/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -469,7 +494,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|missing-context-sdk|misleading-global-sdk|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
+      complete|misleading-root-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -821,6 +846,31 @@ for flavor in full playstore; do
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+
+  if ! FAKE_BENCHMARK_JSON=misleading-root-metadata sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-root-metadata-decoys.log" 2>&1; then
+    echo "FAIL: valid context metadata should still produce a summary when unrelated root metadata is present ($flavor)." >&2
+    cat "$TMP/$flavor-root-metadata-decoys.log" >&2
+    exit 1
+  fi
+  decoy_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  for context_value in \
+    'Device: Fixture phone | Android API: 35' \
+    'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' \
+    'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' \
+    'Android release codename: REL'; do
+    grep -Fq "$context_value" "$decoy_summary" || {
+      echo "FAIL: summary did not retain context-owned metadata '$context_value' when root decoys were present ($flavor)." >&2
+      cat "$decoy_summary" >&2
+      exit 1
+    }
+  done
+  for decoy_value in 'Root decoy phone' 'Android API: 28' 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+    if grep -Fq "$decoy_value" "$decoy_summary"; then
+      echo "FAIL: summary accepted unrelated root-level metadata '$decoy_value' ($flavor)." >&2
+      cat "$decoy_summary" >&2
+      exit 1
+    fi
+  done
   FAKE_TEST_ORDER=reverse sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-reverse-test-order.log" 2>&1
   reverse_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   reverse_summary="$reverse_result_dir/benchmark-summary.txt"
@@ -1088,7 +1138,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
+  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
@@ -1106,15 +1156,15 @@ for flavor in full playstore; do
       }
     fi
     case "$bad_json" in
-      missing-context-sdk|misleading-global-sdk)
+      missing-context-sdk|misleading-global-sdk|misleading-global-build)
         grep -Fq 'context.build.version.sdk as Android API 33 or newer' "$TMP/$flavor-$bad_json.log" || {
           echo "FAIL: SDK metadata corruption was not rejected at the exact context path ($bad_json, $flavor)." >&2
           cat "$TMP/$flavor-$bad_json.log" >&2
           exit 1
         }
         if [ "$bad_json" = misleading-global-sdk ]; then
-          grep -Fq 'top-level or unrelated sdk fields are ignored' "$TMP/$flavor-$bad_json.log" || {
-            echo "FAIL: misleading global SDK fixture did not identify the nested SDK rule ($flavor)." >&2
+          grep -Fq 'top-level or unrelated metadata fields are ignored' "$TMP/$flavor-$bad_json.log" || {
+            echo "FAIL: misleading SDK/build fixture did not identify the exact context metadata rule ($flavor)." >&2
             cat "$TMP/$flavor-$bad_json.log" >&2
             exit 1
           }
