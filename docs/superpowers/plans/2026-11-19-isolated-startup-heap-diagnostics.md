@@ -126,3 +126,45 @@ The implementation will be integrated natively in this session because the reque
 - No app manifest, production app source, Gradle build script, workflow or CI file changed. The app/profileability manifests were read-only inputs to a new static contract.
 - Re-fetched all nine changed paths and the unmodified `StartupBenchmark.java` and app manifest inputs. Source assertions confirmed the normal ten-iteration benchmark is unchanged; only the macrobenchmark instrumentation library uses 1.6.0-alpha02 while the Baseline Profile plugin remains 1.5.0.
 - Full shell scripts and Java compilation remain pending. No builds, CI, instrumentation, LADB or device actions were started.
+
+
+## Follow-on engineering cycles — 19 November 2026
+
+The heap-diagnostic work above remains unchanged. Two further benchmark-only improvement cycles were added after the initial remote review.
+
+### Cycle 79 — deterministic bootstrap intervals
+
+- [x] Research a practitioner benchmark using interleaved cold starts and bootstrap confidence intervals. Source: Bluesky PR #12092.
+- [x] Add 10,000 fixed-seed, independent-arm bootstrap resamples for TTID and TTFD median differences (Baseline Profile vs partial/no profile).
+- [x] Keep the original three JUnit arms, ten measured iterations per arm, compilation modes, readiness gates and trace contract unchanged.
+- [x] State in the generated summary that the percentile intervals do not correct the existing grouped-arm ordering, thermal or time-drift confounders.
+- [x] Extend fake-phone and static-contract assertions for the new interval output and limitation.
+- [x] Run focused, isolated AWK checks for the fixed-seed bootstrap calculation.
+- [ ] Run the repository phone-runner and metric-contract scripts from a local checkout.
+
+**Design boundary:** the public experiment describes interleaving the three build/configuration runs, but does not provide a complete interleaving script in its checked-in Macrobenchmark class. Context7 confirms AndroidJUnitRunner supports tests_regex filtering by Class#method. A 30-method rotation was not added because each separate MacrobenchmarkRule invocation repeats compilation reset and the no-profile warmup, altering total device work and adding heat. A future interleaved harness must specify compilation/warmup state and validate each trace/result before being used as the main comparison.
+
+### Cycle 80 — profile artifact inventory
+
+- [x] Add a read-only profile audit after both the Startup Profile and Home-browse Baseline Profile pass their existing non-empty checks.
+- [x] Record per-file SHA-256, nonblank lines, unique exact rules, exact duplicates, method/class-or-other candidates and H/S/P flag counts.
+- [x] Keep original profile text unchanged; the audit does not normalize, deduplicate, sort, rewrite or reject AndroidX output.
+- [x] Extend fake profile fixtures with a duplicate and flag-bearing rules, then assert that the audit reports them.
+- [x] Add static-contract checks for audit presence and execution after profile validation.
+- [x] Run focused isolated AWK checks against synthetic profile data.
+
+### Evidence and deferred work
+
+- Bluesky PR #12092 (opened 20 October, updated 4 November 2026) reports 45 interleaved cold starts per configuration on a Pixel 7a, bootstrap 95% intervals and a TTID drift as the phone heated. It is a useful single-team result, not independent consensus and not a Nuvio measurement.
+- Searches did not identify a second independent, reproducible social/forum/GitHub method stronger than that PR and official AndroidX/Android documentation. AndroidX PowerMetric / ODPM rail profiling is hardware-dependent and not assumed available on arbitrary Android phones.
+- AndroidX Benchmark 1.6.0-alpha02 release improvements (thermal cooldown handling, Perfetto output buffering, target process shutdown behavior and optional trace categories) are already present via the pinned Macrobenchmark test dependency. No extra workaround was added.
+- The generated bootstrap intervals are exploratory. A rotated/interleaved same-device comparison is still needed to control grouped-arm order and thermal bias.
+- No Nuvio startup-speed improvement, memory reduction, power reduction or outperformance versus official Nuvio is claimed.
+
+### Verification and remote-state boundary
+
+- The deterministic bootstrap and profile-inventory AWK logic were exercised in isolation with synthetic sample/profile fixtures. These were not executions of the repository's test scripts.
+- GitHub source re-fetches confirmed the runner changes, test assertions and static contract are present.
+- The complete scripts/tests/test-nuvio-phone-benchmark.sh and scripts/tests/test-android-startup-metric-contract.sh suites remain unrun because no local checkout is available through the GitHub integration.
+- No Java/Kotlin compilation, Gradle build, CI, instrumentation, Baseline Profile collection, LADB command or physical-device benchmark was run.
+- The branch head when this addendum was prepared was 504e907e1e99366ae86255b79bc119ccdc459f37; the final branch head is verified separately after this plan update.
