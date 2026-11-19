@@ -33,9 +33,12 @@ final class StartupReadiness {
 
     private StartupReadiness() {}
 
-    static BySelector packageRes(String marker) {
-        // By.res(resourcePackage, resourceId) matches the complete package:id/name resource.
-        return By.res(TARGET_APP_PACKAGE, marker);
+    static BySelector composeTagSelector(String marker) {
+        // Compose testTagsAsResourceId exposes Modifier.testTag as a bare viewIdResourceName.
+        // The package-qualified By.res(package, id) form formats "package:id/id"
+        // and does not match the Compose tag. Scope the query to the target active window
+        // and verify the matched node's application package in targetMarker() instead.
+        return By.res(marker);
     }
 
     static String activeWindowPackage(UiDevice device) {
@@ -52,7 +55,7 @@ final class StartupReadiness {
         if (activeWindow == null || !TARGET_APP_PACKAGE.equals(activeWindow.getPackageName())) {
             return null;
         }
-        UiObject2 object = activeWindow.findObject(packageRes(marker));
+        UiObject2 object = activeWindow.findObject(composeTagSelector(marker));
         if (object == null || !TARGET_APP_PACKAGE.equals(object.getApplicationPackage())) {
             return null;
         }
