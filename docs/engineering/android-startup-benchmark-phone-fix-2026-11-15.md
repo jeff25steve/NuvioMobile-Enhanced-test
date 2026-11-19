@@ -3052,3 +3052,33 @@ Sources:
 - [AndroidX BaselineProfileMode API](https://developer.android.com/reference/androidx/benchmark/macro/BaselineProfileMode)
 - [Android performance-samples — MacrobenchmarkSample](https://github.com/android/performance-samples/tree/main/MacrobenchmarkSample)
 - [AndroidX Macrobenchmark API source](https://android.googlesource.com/platform/frameworks/support/blob/androidx-main/benchmark/benchmark-macro/api/restricted_current.txt)
+
+
+### Cycle 61 — make thermal state part of phone benchmark eligibility
+
+The phone runner already saved `dumpsys thermalservice` output in the pre/post environment snapshots, but no result-integrity check interpreted it. This left a material gap: the report asked users to inspect possible thermal throttling, yet did not identify a known moderate-or-higher thermal state itself.
+
+- Added a POSIX/AWK parser for the exact numeric `Thermal Status` field in the existing snapshot. No extra device command, polling loop, sensor read, or timed-workload instrumentation was added.
+- A pre-run status of 2–6 now blocks the measurement before `am instrument` starts. Status 0 (NONE) and 1 (LIGHT) remain eligible; Android's guidance says light status does not impact UX, while moderate status affects foreground activities.
+- Missing, unreadable or vendor-formatted diagnostics are recorded as `unknown` and do not get silently treated as a clean status.
+- After the run, a status of 2–6 writes `VERDICT: THERMALLY CONTAMINATED`. The JSON and traces remain available for diagnosis, but the summary explicitly says not to use the timings as an unthrottled comparison. The new `thermal-integrity.txt` is also referenced from the copied-files manifest.
+- Where both snapshots are 0–1, the result says only that no moderate-or-higher status was observed at those two capture points. It does not claim that transient status changes could not occur between them.
+
+Regression fixtures cover pre-run moderate rejection, light-only acceptance, a post-run rise to moderate, and unavailable thermal diagnostics. The static metric-contract test protects the snapshot parser, preflight gate, qualification text and report integration.
+
+### Cycle 62 — expose the actual Macrobenchmark test-arm order
+
+The summary displayed the three comparison arms in a fixed explanatory order, but did not show the order in which AndroidJUnitRunner actually executed the JUnit test methods. That order is relevant context when reviewing results from a multi-arm run.
+
+- The phone summary now derives the first-observed sequence from the three recognized `INSTRUMENTATION_STATUS: test=` records in the saved instrumentation log.
+- It de-duplicates repeated status records for the same method, requires all three expected comparison cases, and records the observed sequence rather than assuming a particular ordering.
+- Added a reverse-order fixture. It verifies that a profile/partial/no-compilation execution sequence is preserved in the report as-is, not rewritten to the display order.
+
+### Verification boundary for cycles 61–62
+
+- Re-fetched the remote runner and regression sources after each change. The isolated POSIX shell/AWK parser, verdict writer and execution-order collector passed local fixtures for status values 0, 1, 2 and 6, unknown/missing diagnostics, contaminated/unknown verdicts and reversed method order.
+- The full `test-nuvio-phone-benchmark.sh` and `test-android-startup-metric-contract.sh` repository scripts were **not run**. There is no local checkout available in this session, and no remote workflow was triggered.
+- No Gradle task, Java/Kotlin compilation, APK build, profile generation, instrumentation, Macrobenchmark, LADB or physical-device measurement was run. No numerical performance improvement is claimed.
+- No workflow, app-runtime, Kotlin/Java benchmark API, dependencies, variants, package identity or CI trigger was changed.
+
+Research source: [AOSP — Thermal mitigation and thermal status codes](https://source.android.com/docs/core/power/thermal-mitigation), last updated 9 October 2026. Its severity table defines NONE as no throttling, LIGHT as throttling without UX impact, MODERATE as foreground-activity impact, and the higher states as increasingly severe. The benchmark continues to rely on AndroidX Macrobenchmark's existing JSON and Perfetto outputs; see [Android Developers — Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
