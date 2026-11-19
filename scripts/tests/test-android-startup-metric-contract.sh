@@ -312,4 +312,15 @@ grep -Fq 'additional profiler artifacts are not accepted in a clean timing compa
   exit 1
 }
 
+for expected in \
+  'reported_api = metric_field(json, "sdk")' \
+  'reported_api + 0 < 33' \
+  'ttfd_metric_count != 3' \
+  'one for each startup comparison arm'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone startup result validation is missing required TTFD completeness guard '$expected'." >&2
+    exit 1
+  }
+done
+
 printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
