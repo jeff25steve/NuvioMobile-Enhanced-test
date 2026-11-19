@@ -1,4 +1,4 @@
-# Nuvio Mobile Enhanced — Engineering Improvement Notes
+# 01 — Nuvio Mobile Enhanced — Engineering Improvement Notes
 
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Working branch:** `main-build-testing`  
@@ -6563,3 +6563,28 @@ This closes a concrete metadata-integrity gap without changing the benchmark wor
 **Verification boundary:** remote source files were re-fetched after edits and source-contract/fixture wiring was inspected. The complete phone-runner and static-contract scripts were not executed because there is no local checkout available. No Gradle tasks, build, CI, instrumentation, profile generation, LADB action or device benchmark was run. No startup-speed improvement is claimed.
 
 Research: [AndroidX BenchmarkData source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) defines SDK at context.build.version.sdk. [Android Developers — Benchmark in CI](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) provides the benchmark JSON context example and result format.
+
+## 19 November 2026 — benchmark integrity follow-up (Cycles 70–72)
+
+### Benchmark cycle 70 — repair the stale SDK static-contract assertion
+
+Cycle 68 correctly narrowed SDK extraction to AndroidX's `context.build.version.sdk`, but the static-contract script still required the removed global expression `metric_field(json, "sdk")`. That expectation no longer existed in the runner, so the workflow's pre-build static contract would fail despite the production guard being correct. Removed the obsolete assertion while retaining the API 33+ and exact nested-context checks. The success message was also moved after all contract assertions so it cannot print before a later check fails.
+
+### Benchmark cycle 71 — make Battery Saver a measured device condition
+
+The runner already captured `settings get global low_power` before and after Macrobenchmark but did not use the value. AOSP's Power HAL describes `LOW_POWER` as saving battery at the cost of performance. The runner now parses the existing snapshot value without adding device commands or polling. It refuses to start instrumentation when the pre-run state is `1`; a post-run transition to `1` marks the saved run `BATTERY-SAVER CONTAMINATED`. Missing/unparseable state remains `unknown`, never an implicit clean result. The report is appended to the benchmark summary and copied-files manifest. Fake-device fixtures cover an enabled preflight and a post-run transition.
+
+### Benchmark cycle 72 — require a single Macrobenchmark JSON result file
+
+The result collector previously accepted one or more `*benchmarkData.json` files, aggregated counts across them, and summarized only the first file. That made the report ambiguous if multiple new result files were copied from one invocation. Android's Macrobenchmark CI documentation describes the module-level `*-benchmarkData.json` report, while measured iterations are represented by separate Perfetto traces. The runner now requires exactly one result JSON for this one self-instrumenting benchmark module and reports the observed count otherwise. A fake-device fixture creates a second result file and checks the specific rejection. The existing 30-trace contract remains unchanged.
+
+### Verification boundary for benchmark cycles 70–72
+
+- Re-fetched the updated runner, phone-runner fixture, static-contract script and both engineering notes from `main-build-testing`.
+- Inspected that the obsolete SDK assertion is gone, the exact context SDK contract remains, the Battery Saver fixture toggles the captured `low_power` state around the instrumentation sentinel, and the duplicate-JSON fixture writes a second `benchmarkData.json` candidate.
+- Exercised the Battery Saver AWK extraction logic in isolation for values `0`, `1` and `unavailable`; results were `0`, `1` and `unknown` respectively.
+- The repository shell scripts were not executed: the GitHub integration can read/update files but cannot run the test scripts, and there is no local repository checkout available. The fixture edits and static contract were source-reviewed only.
+- No Gradle task, build, CI, instrumentation, profile generation, LADB session or physical-device benchmark was run. No startup-speed improvement is claimed; these cycles improve benchmark eligibility and artifact integrity.
+
+Sources: [AOSP Power HAL Mode.aidl — LOW_POWER intent](https://android.googlesource.com/platform/hardware/interfaces/+/refs/heads/main/power/aidl/android/hardware/power/Mode.aidl) · [Android Developers — Test power-related issues](https://developer.android.com/topic/performance/power/test-power) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark source — appendTestResult and profiler outputs](https://android.googlesource.com/platform/frameworks/support/+/0c2ddcd70f6090ccc660e49c03048e1de85c2073/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
+
