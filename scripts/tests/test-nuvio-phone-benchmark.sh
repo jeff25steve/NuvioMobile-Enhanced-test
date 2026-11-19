@@ -153,14 +153,18 @@ grep -Fq '      require_non_empty_startup_profile' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must execute Startup Profile validation after collection." >&2
   exit 1
 }
+grep -Fq 'require_non_empty_home_browse_profile() {' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must validate the separate Home browse Baseline Profile output." >&2
+  exit 1
+}
+grep -Fq '      require_non_empty_home_browse_profile' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must validate the Home browse profile after collection." >&2
+  exit 1
+}
 grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must scope AndroidX output collection to the self-instrumenting test package." >&2
   exit 1
 }
-if grep -Fq '      require_non_empty_baseline_profile' "$RUNNER_SOURCE"; then
-  echo "FAIL: raw Startup Profile collection must not require a separate baseline-prof artifact." >&2
-  exit 1
-fi
 grep -Fq 'find "$TEST_MEDIA_ROOT" -type f -newer "$MARKER"' "$RUNNER_SOURCE" || {
   echo "FAIL: profile and Macrobenchmark artifacts must be discovered only beneath the test package media directory." >&2
   exit 1
