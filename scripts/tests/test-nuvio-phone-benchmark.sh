@@ -161,6 +161,18 @@ grep -Fq '      require_non_empty_home_browse_profile' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must validate the Home browse profile after collection." >&2
   exit 1
 }
+grep -Fq '*home_browse-baseline-prof*.txt' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must validate the named Home browse Baseline Profile output." >&2
+  exit 1
+}
+grep -Fq 'horizontally scrollable catalogue shelf' "$RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must tell users that browse profile collection requires a populated, horizontally scrollable Home catalogue." >&2
+  exit 1
+}
+grep -Fq 'horizontally scrollable catalogue shelf' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must tell users that browse profile collection requires a populated, horizontally scrollable Home catalogue." >&2
+  exit 1
+}
 grep -Fq 'TEST_MEDIA_ROOT="${MEDIA_ROOT%/}/$TEST_PACKAGE"' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must scope AndroidX output collection to the self-instrumenting test package." >&2
   exit 1
