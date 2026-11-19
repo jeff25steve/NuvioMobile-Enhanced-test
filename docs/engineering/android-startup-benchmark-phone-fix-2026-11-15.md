@@ -3082,3 +3082,26 @@ The summary displayed the three comparison arms in a fixed explanatory order, bu
 - No workflow, app-runtime, Kotlin/Java benchmark API, dependencies, variants, package identity or CI trigger was changed.
 
 Research source: [AOSP — Thermal mitigation and thermal status codes](https://source.android.com/docs/core/power/thermal-mitigation), last updated 9 October 2026. Its severity table defines NONE as no throttling, LIGHT as throttling without UX impact, MODERATE as foreground-activity impact, and the higher states as increasingly severe. The benchmark continues to rely on AndroidX Macrobenchmark's existing JSON and Perfetto outputs; see [Android Developers — Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview).
+
+
+### Cycle 63 — Persist APK source identity across LADB commands
+
+- Fixed the process-local provenance gap: install actions now persist the exact app and test APK basenames and SHA-256 values to `current-install-provenance.txt` alongside the existing action/flavor marker.
+- Profile collection and measurement load the persisted record in their own later shell process, verify the saved action/flavor, verify the expected variant-specific filenames, and reject unavailable or malformed hashes.
+- The combined `run` command deliberately validates the NonMinifiedRelease source pair during its profile phase, then validates the BenchmarkRelease pair after installing it for measurement.
+
+### Cycle 64 — Verify installed app and instrumentation APK bytes before measurement
+
+- Query AOSP package-manager code paths for both `com.nuvio.media.benchmark` and `com.nuvio.android.baselineprofile` using `pm path` before instrumentation.
+- Require exactly one APK path for each package because this benchmark bundle supplies standalone APKs. No path or multiple paths blocks the run; a readable installed APK whose SHA-256 differs from the saved source also blocks the run.
+- If Android returns a path but the shell cannot read the file, provenance records `UNVERIFIED` rather than claiming a byte match. This preserves compatibility with OEM builds that restrict shell access.
+- Added fixtures for source identity persistence, both stale-package cases, unreadable APK paths, missing path output and split APK output. Static checks enforce verification before `am instrument`.
+
+### Verification boundary for cycles 63–64
+
+- An isolated POSIX shell helper fixture passed cases for exact-byte match, stale-byte rejection, unreadable path, missing path and multiple-path rejection.
+- The full `test-nuvio-phone-benchmark.sh` and `test-android-startup-metric-contract.sh` scripts were not executed. No local checkout was available; only the current remote sources were inspected and updated.
+- No Gradle task, build, CI, profile generation, instrumentation, LADB/device action or real startup measurement was run. No startup-speedup claim is made.
+- Scope is limited to the phone runner, its regression/static-contract fixtures and benchmark notes/spec/plan. No production app code, benchmark Java code, dependency, build configuration or workflow was changed.
+
+Research source: [AOSP PackageManagerShellCommand.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/services/core/java/com/android/server/pm/PackageManagerShellCommand.java) — `pm path` emits the base `sourceDir` and each `splitSourceDirs` path with a `package:` prefix. The shell-readable status of those files is not treated as guaranteed; inaccessible bytes remain `UNVERIFIED`.
