@@ -55,6 +55,14 @@ grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
   echo "FAIL: both comparison arms must collect StartupTimingMetric." >&2
   exit 1
 }
+grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: both comparison arms must collect ART runtime diagnostics." >&2
+  exit 1
+}
+[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 2 ] || {
+  echo "FAIL: ART diagnostics must be collected in both cold-start comparison arms." >&2
+  exit 1
+}
 grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
   echo "FAIL: both comparison arms must measure cold starts." >&2
   exit 1
