@@ -168,6 +168,11 @@ grep -Fq 'validate_macrobenchmark_statistics "$result_file"' "$PHONE_RUNNER" || 
   echo "FAIL: phone runner must apply metric-statistics validation to the copied result file." >&2
   exit 1
 }
+grep -Fq 'metric_field(result_object, "warmupIterations")' "$PHONE_RUNNER" &&
+  grep -Fq 'expected_warmup_iterations = 3' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must validate the exported warmup count for each startup comparison arm." >&2
+  exit 1
+}
 grep -Fq 'capture_device_environment() {' "$PHONE_RUNNER" || {
   echo "FAIL: phone runner must record the device conditions surrounding Macrobenchmark." >&2
   exit 1

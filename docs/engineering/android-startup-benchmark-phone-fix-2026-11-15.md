@@ -3022,3 +3022,33 @@ Exa was explicitly called with five distinct query workstreams covering broad An
 ### Verification boundary
 
 No Kotlin, Java, Kotlin DSL, manifest, dependency, runner or profile generation code was changed in this pass. No Gradle/test/shell command, APK/AAB, instrumentation, Macrobenchmark, LADB/device or CI was run. No Reddit, Stack Overflow or X/Twitter pages were fetched due Exa quota. The only intended repository modification is this research note.
+
+## 19 November 2026 — Cycles 59–60: isolate profile benefit and validate benchmark provenance
+
+### Cycle 59 — add a profile-disabled partial-compilation control
+
+- The live `main-build-testing` checkpoint was `8b5547dd9a60f53be50df640bdd2d38fc62c61ed`. The two-arm benchmark compared `CompilationMode.None` to `Partial(BaselineProfileMode.Require)`; that is useful as a worst-case vs packaged-profile comparison, but it does not isolate the incremental effect of the Baseline Profile from the effect of partial compilation and warmup.
+- Added `startupPartialWithoutBaselineProfile()` using `new CompilationMode.Partial(BaselineProfileMode.Disable, 3)`. It shares the exact existing launch, Home/fully-drawn readiness, `StartupTimingMetric`, `ArtMetric`, cold-start mode and ten measured iterations. No app-runtime behavior or product code changed.
+- Updated the phone runner's per-test, JSON, metrics and Perfetto contracts from two to three cases (30 unique per-iteration traces). Its report now separates: partial/no-profile vs no compilation; incremental profile vs partial/no-profile; and total profile vs no compilation, for TTID and TTFD. ART JIT, verification and optional class-load data are reported for all three arms.
+- Updated the matching source-contract and phone-runner fixture checks; the in-memory JSON fixture now has three arms, ten samples and ten distinct Perfetto references per arm. The fixture is deliberately synthetic and is not a performance result.
+- Evidence: Android's Macrobenchmark guide recommends comparing enabled and disabled Baseline Profile compilation. The current official Android performance sample also demonstrates `None`, `Partial(Disable, warmup=3)`, `Partial(Require)` and `Full` as distinct comparison states. The repository pins Macrobenchmark 1.5.0; Context7 confirmed the Java `Partial(BaselineProfileMode, int warmupIterations)` constructor.
+- The Exa connector returned research results successfully during this session, so its previously recorded quota failure is no longer the current access state. This does not mean an exhaustive social-media sweep was completed; the useful evidence retrieved here was Android's official guide, API reference and performance sample.
+
+### Cycle 60 — reject JSON that misstates warmup configuration
+
+- Extended the phone runner's summary parser to require `warmupIterations=0` for `startupNoCompilation`, `warmupIterations=3` for `startupPartialWithoutBaselineProfile`, and `warmupIterations=0` for `startupWithBaselineProfile`. A JSON artifact that contains the right case names but reports a different warmup policy now fails before the summary can be accepted.
+- Added a dedicated `wrong-warmup-iterations` fake JSON fixture and a static contract check for the exported-field validation. This protects the comparison from a future benchmark method/runner drift; it does not claim AndroidX has executed those modes on a device.
+- No speculative change was made to Home scroll detection: UI Automator 2.4.1 documents `UiObject2.scroll()` as returning whether the object can still scroll in the requested direction after the gesture, so `false` at a boundary is not proof of a failed gesture.
+
+### Review and verification boundary
+
+- Both cycles were integrated as ordinary fast-forward commits on `main-build-testing`, using an expected-head lease; the branch head was fetched again after each update.
+- Static source checks and an in-memory parse of the synthetic three-arm JSON fixture were performed during authoring. The repository's shell regression scripts were **not executed**: this session had no usable local checkout (the container could not resolve GitHub), and no remote test workflow was triggered.
+- No Gradle task, Java/Kotlin compilation, APK/AAB build, profile generation, instrumentation, Macrobenchmark, CI, LADB or physical-device measurement was run. This was intentional under the no-build/no-CI instruction. Therefore no real Nuvio startup improvement or numerical speedup is claimed.
+
+Sources:
+- [Android Developers — Benchmark Baseline Profiles with Macrobenchmark](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile)
+- [AndroidX CompilationMode.Partial API](https://developer.android.com/reference/androidx/benchmark/macro/CompilationMode.Partial)
+- [AndroidX BaselineProfileMode API](https://developer.android.com/reference/androidx/benchmark/macro/BaselineProfileMode)
+- [Android performance-samples — MacrobenchmarkSample](https://github.com/android/performance-samples/tree/main/MacrobenchmarkSample)
+- [AndroidX Macrobenchmark API source](https://android.googlesource.com/platform/frameworks/support/blob/androidx-main/benchmark/benchmark-macro/api/restricted_current.txt)

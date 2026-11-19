@@ -820,6 +820,13 @@ write_macrobenchmark_summary() {
         next_test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
         if (match(result_rest, next_test_pattern)) result_object = substr(result_rest, 1, RSTART - 1)
         else result_object = result_rest
+        expected_warmup_iterations = 0
+        if (test_index == 2) expected_warmup_iterations = 3
+        actual_warmup_iterations = metric_field(result_object, "warmupIterations")
+        if (actual_warmup_iterations == "" || actual_warmup_iterations + 0 != expected_warmup_iterations) {
+          print "FAIL: Macrobenchmark JSON must report warmupIterations=" expected_warmup_iterations " for " test_names[test_index] "."
+          exit 1
+        }
         test_objects[test_index] = result_object
 
         for (metric_index = 1; metric_index <= 2; metric_index++) {

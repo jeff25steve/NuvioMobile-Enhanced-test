@@ -6419,3 +6419,13 @@ Sources:
 - Sentry's SDK-initialization experiment used a Pixel 3 with locked clocks, but Android's current performance-measurement guidance explicitly says `lockClocks` is not recommended for user-experience-focused tests such as app launch and jank. It is primarily a microbenchmark control.
 - Therefore, do not add `:lockClocks`, root-only CPU/GPU frequency controls or fixed-performance-mode requirements to Nuvio's cold-start Macrobenchmark just to imitate Sentry's experiment. Keep the existing physical-device, same-device/same-OS comparison, thermal/battery/uptime snapshots and repeated paired sessions. Benchmark 1.6 alpha's expanded clock-locking support does not change that decision.
 - Reference: [Android Developers — Overview of measuring app performance](https://developer.android.com/topic/performance/measuring-performance).
+
+
+### 19 November 2026 — startup benchmark comparison controls (Cycles 59–60)
+
+- Added a third, profile-disabled partial-compilation comparison (`BaselineProfileMode.Disable`, three warmup iterations) beside the existing no-compilation and required-profile arms. The runner now validates all three result records, 30 unique trace files, TTID/TTFD and ART metrics, and reports the profile's incremental difference separately from the total difference.
+- Added an exported-`warmupIterations` check requiring 0 / 3 / 0 across the three arms, plus a malformed-JSON regression fixture for a profile-disabled arm that reports the wrong warmup count.
+- These changes improve benchmark interpretability and artifact integrity, not application runtime performance. Android's official Macrobenchmark guide and sample support the comparison modes. Exa research access succeeded again during this session.
+- Changes are on `main-build-testing`; see [the focused startup benchmark note](android-startup-benchmark-phone-fix-2026-11-15.md). No shell regression scripts, Gradle tasks, builds, profile generation, device measurements or CI were run, so compilation and device behavior remain unverified.
+
+References: [Android Baseline Profile benchmarking](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) · [CompilationMode.Partial](https://developer.android.com/reference/androidx/benchmark/macro/CompilationMode.Partial) · [Android Macrobenchmark sample](https://github.com/android/performance-samples/tree/main/MacrobenchmarkSample)
