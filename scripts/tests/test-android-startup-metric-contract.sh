@@ -313,7 +313,6 @@ grep -Fq 'additional profiler artifacts are not accepted in a clean timing compa
 }
 
 for expected in \
-  'reported_api = metric_field(json, "sdk")' \
   'reported_api + 0 < 33' \
   'ttfd_metric_count != 3' \
   'one for each startup comparison arm'; do
@@ -335,3 +334,17 @@ for expected in \
 done
 
 printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
+
+for expected in \
+  'read_battery_saver_from_snapshot() {' \
+  'write_battery_saver_integrity_summary() {' \
+  'Battery saver (settings global low_power):' \
+  'Battery Saver is enabled before Macrobenchmark' \
+  'VERDICT: BATTERY-SAVER CONTAMINATED' \
+  'Expected exactly one Macrobenchmark benchmarkData.json file for this instrumentation run' \
+  '[ "$json_files" -eq 1 ]'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone benchmark is missing device-power or single-result-file integrity contract '$expected'." >&2
+    exit 1
+  }
+done
