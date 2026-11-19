@@ -332,7 +332,8 @@ JSON
           /Memory Profiling Iteration 0/ {
             sub(/}[[:space:]]*$/, "},")
             print
-            print "      {\\"type\\": \\"PerfettoTrace\\", \\"label\\": \\"Memory Profiling Iteration 0\\", \\"filename\\": \\"duplicate-memoryProfiling.perfetto-trace\\"}"
+            quote = sprintf("%c", 34)
+            print "      {" quote "type" quote ": " quote "PerfettoTrace" quote ", " quote "label" quote ": " quote "Memory Profiling Iteration 0" quote ", " quote "filename" quote ": " quote "duplicate-memoryProfiling.perfetto-trace" quote "}"
             next
           }
           { print }
