@@ -1498,6 +1498,119 @@ append_macrobenchmark_execution_order() {
   ' "$execution_log" >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not derive the actual Macrobenchmark JUnit execution order from instrumentation.log."
 }
 
+append_startup_readiness_timings() {
+  execution_log="$1"
+  awk '
+    BEGIN {
+      prefix = "INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING: "
+      journeys[1] = "startupNoCompilation"
+      journeys[2] = "startupPartialWithoutBaselineProfile"
+      journeys[3] = "startupWithBaselineProfile"
+      for (journey_index = 1; journey_index <= 3; journey_index++) {
+        expected_journey[journeys[journey_index]] = 1
+      }
+    }
+
+    function reject(message) {
+      printf "FAIL: %s\n", message > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+
+    index($0, prefix) == 1 {
+      payload = substr($0, length(prefix) + 1)
+      token_count = split(payload, tokens, /[[:space:]]+/)
+      if (token_count != 7) {
+        reject("readiness timing record must contain journey, iteration, three stage durations, total duration and outcome.")
+      }
+
+      journey_token = tokens[1]
+      iteration_token = tokens[2]
+      active_token = tokens[3]
+      home_token = tokens[4]
+      fully_drawn_token = tokens[5]
+      total_token = tokens[6]
+      outcome_token = tokens[7]
+
+      if (journey_token !~ /^journey=[A-Za-z0-9_]+$/ ||
+          iteration_token !~ /^iteration=[0-9]+$/ ||
+          active_token !~ /^active_window_wait_ms=[0-9]+$/ ||
+          home_token !~ /^home_marker_wait_ms=[0-9]+$/ ||
+          fully_drawn_token !~ /^fully_drawn_marker_wait_ms=[0-9]+$/ ||
+          total_token !~ /^total_wait_ms=[0-9]+$/ ||
+          outcome_token !~ /^outcome=[a-z_]+$/) {
+        reject("readiness timing record contains a missing or malformed field.")
+      }
+
+      sub(/^journey=/, "", journey_token)
+      sub(/^iteration=/, "", iteration_token)
+      sub(/^active_window_wait_ms=/, "", active_token)
+      sub(/^home_marker_wait_ms=/, "", home_token)
+      sub(/^fully_drawn_marker_wait_ms=/, "", fully_drawn_token)
+      sub(/^total_wait_ms=/, "", total_token)
+      sub(/^outcome=/, "", outcome_token)
+
+      iteration = iteration_token + 0
+      active_wait = active_token + 0
+      home_wait = home_token + 0
+      fully_drawn_wait = fully_drawn_token + 0
+      total_wait = total_token + 0
+
+      if (!(journey_token in expected_journey)) {
+        reject("readiness timing record names an unexpected startup comparison journey: " journey_token)
+      }
+      if (iteration < 0 || iteration > 9) {
+        reject("readiness timing iteration must be between 0 and 9 for " journey_token ".")
+      }
+      if (active_wait > 15000 || home_wait > 60000 || fully_drawn_wait > 15000 ||
+          total_wait > 90000 || total_wait < active_wait + home_wait + fully_drawn_wait) {
+        reject("readiness timing durations are outside the configured timeout budgets or inconsistent.")
+      }
+      if (outcome_token != "ready") {
+        reject("successful Macrobenchmark output contains a non-ready startup observation for " journey_token ".")
+      }
+
+      key = journey_token SUBSEP iteration
+      if (key in seen) {
+        reject("duplicate readiness timing record for " journey_token " iteration " iteration ".")
+      }
+      seen[key] = 1
+      case_count[journey_token]++
+      record_count++
+      records[record_count] = payload
+    }
+
+    END {
+      if (failed) exit 1
+      if (record_count != 30) {
+        printf "FAIL: Startup readiness timing records must contain exactly thirty valid per-launch samples; found %d.\n", record_count > "/dev/stderr"
+        exit 1
+      }
+      for (journey_index = 1; journey_index <= 3; journey_index++) {
+        journey = journeys[journey_index]
+        if (case_count[journey] != 10) {
+          printf "FAIL: Startup readiness timing records must contain ten samples for %s; found %d.\n", journey, case_count[journey] + 0 > "/dev/stderr"
+          exit 1
+        }
+        for (iteration = 0; iteration < 10; iteration++) {
+          if (!((journey SUBSEP iteration) in seen)) {
+            printf "FAIL: Startup readiness timing records are missing %s iteration %d.\n", journey, iteration > "/dev/stderr"
+            exit 1
+          }
+        }
+      }
+
+      print ""
+      print "UIAutomator readiness observations after startActivityAndWait"
+      print "Each row measures only the test-side waits for active-window ownership, Home marker and fully-drawn marker after Macrobenchmark returned from startActivityAndWait."
+      print "These stage timings are diagnostic only; they are not TTID, TTFD, or total launch time."
+      for (record_index = 1; record_index <= record_count; record_index++) {
+        printf "  NUVIO_STARTUP_READINESS_TIMING: %s\n", records[record_index]
+      }
+    }
+  ' "$execution_log" >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not validate and append the thirty per-launch startup readiness timing records from instrumentation.log."
+}
+
 require_memory_profile_result_data() {
   json_files=0
   result_count=0
@@ -1635,6 +1748,7 @@ require_macrobenchmark_result_data() {
   } >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not append Battery Saver integrity to the benchmark summary."
   printf 'Generated Battery Saver integrity -> %s\n' "$RUN_DIR/battery-saver-integrity.txt" >> "$RUN_DIR/copied-files.txt"
   append_macrobenchmark_execution_order "$RUN_DIR/instrumentation.log"
+  append_startup_readiness_timings "$RUN_DIR/instrumentation.log"
 }
 
 install_variant() {
