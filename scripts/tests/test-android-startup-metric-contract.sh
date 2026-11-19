@@ -323,15 +323,30 @@ for expected in \
 done
 
 for expected in \
-  'context.build.version.sdk' \
-  'version_object = substr(version_rest, 1, version_close)' \
+  'function json_member_object(source, field' \
+  'reported_context = json_member_object(json, "context")' \
+  'reported_build = json_member_object(reported_context, "build")' \
+  'reported_version = json_member_object(reported_build, "version")' \
+  'reported_api = metric_field(reported_version, "sdk")' \
+  'context_object = json_member_object(json, "context")' \
+  'build_object = json_member_object(context_object, "build")' \
+  'version_object = json_member_object(build_object, "version")' \
+  'device_model = metric_string_field(build_object, "model")' \
+  'android_api = metric_field(version_object, "sdk")' \
+  'cpu_core_count = metric_field(context_object, "cpuCoreCount")' \
+  'cpu_locked = metric_boolean_field(context_object, "cpuLocked")' \
   'reported_api + 0 < 33' \
   'ttfd_metric_count != 3'; do
   grep -Fq "$expected" "$PHONE_RUNNER" || {
-    echo "FAIL: phone runner must validate the exact Macrobenchmark SDK context path and complete TTFD contract '$expected'." >&2
+    echo "FAIL: phone runner must bind SDK eligibility and summary metadata to AndroidX context '$expected'." >&2
     exit 1
   }
 done
+if grep -Fq 'android_api = metric_field(json, "sdk")' "$PHONE_RUNNER" ||
+   grep -Fq 'device_model = metric_string_field(json, "model")' "$PHONE_RUNNER"; then
+  echo "FAIL: phone summary must not read device metadata from unscoped JSON keys." >&2
+  exit 1
+fi
 
 for expected in \
   'read_battery_saver_from_snapshot() {' \
