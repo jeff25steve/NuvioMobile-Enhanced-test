@@ -795,6 +795,7 @@ Collecting ArtMetric alone would be insufficient if the phone runner ignored its
 - Correctly handles all-zero metrics: when the mean is zero, AndroidX reports coefficient of variation as zero; the validator now mirrors that rule rather than dividing by zero.
 - Class-load count and duration are treated as one optional pair. The pair must be present and valid in both arms or absent in both; a half-present pair is rejected.
 - Added an ART section to benchmark-summary.txt showing the median JIT methods/time and runtime verification classes/time for each arm. When class-load tracing is unavailable, the report explicitly says that the metrics were not emitted instead of presenting fabricated zero values.
+- Brought the desktop ADB runner's output contract into line with the phone path: it now requires all four always-emitted ART metric names in every flavor's Macrobenchmark log, while optional class-load metrics remain non-mandatory. The shared static metric contract checks both runners.
 - Extended the mocked phone-runner fixtures with representative ART values, all-zero metrics, missing required ART data, negative sample values, inconsistent CV values, an unpaired optional class-load metric, and a valid result with both class-load metrics omitted. The no-class-load and unpaired fixtures preserve valid JSON structure.
 
 ### Research and API evidence
