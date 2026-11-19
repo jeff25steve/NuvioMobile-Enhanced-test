@@ -47,16 +47,16 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
       exit 1
     }
   else
-    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName)' "$source" || {
+    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName, scope.getIteration())' "$source" || {
       echo "FAIL: startup comparison arms must label their readiness diagnostics." >&2
       exit 1
     }
   fi
 
   if [ "$source" = "$BENCHMARK_SOURCE" ]; then
-    grep -Fq 'runColdStartupBenchmark("startupNoCompilation"' "$source" &&
-      grep -Fq 'runColdStartupBenchmark("startupPartialWithoutBaselineProfile"' "$source" &&
-      grep -Fq 'runColdStartupBenchmark("startupWithBaselineProfile"' "$source" || {
+    grep -Fq '"startupNoCompilation",' "$source" &&
+      grep -Fq '"startupPartialWithoutBaselineProfile",' "$source" &&
+      grep -Fq '"startupWithBaselineProfile",' "$source" || {
       echo "FAIL: all three comparison cases must retain stable diagnostic journey names." >&2
       exit 1
     }
