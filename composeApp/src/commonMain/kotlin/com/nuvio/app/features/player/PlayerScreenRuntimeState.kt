@@ -130,8 +130,13 @@ internal class PlayerScreenRuntime(
         if (shouldResolveInitialPlayerQuality) null else sourceUrl,
     )
     var playerQualityState by mutableStateOf(
-        PlayerQualitySelectionState(isLoading = shouldResolveInitialPlayerQuality, sourceUrl = sourceUrl),
+        PlayerQualitySelectionState(
+            isLoading = shouldResolveInitialPlayerQuality,
+            sourceUrl = sourceUrl,
+            isResolved = !shouldResolveInitialPlayerQuality,
+        ),
     )
+    var nativeHlsAdaptivePlayback by mutableStateOf(false)
 
     var activeSourceHeaders by mutableStateOf(sanitizePlaybackHeaders(sourceHeaders))
     var activeSourceResponseHeaders by mutableStateOf(sanitizePlaybackResponseHeaders(sourceResponseHeaders))

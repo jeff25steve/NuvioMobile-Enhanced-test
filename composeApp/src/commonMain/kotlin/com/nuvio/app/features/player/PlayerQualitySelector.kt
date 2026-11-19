@@ -74,6 +74,7 @@ data class PlayerQualitySelectionState(
     val variants: List<PlayerQualityVariant> = emptyList(),
     val recommendedVariantId: String? = null,
     val errorMessage: String? = null,
+    val isResolved: Boolean = false,
 ) {
     val hasSelectableQualities: Boolean
         get() = variants.size > 1
@@ -98,6 +99,13 @@ data class PlayerQualitySelectionState(
         }
     }
 }
+
+internal fun shouldResolveHlsQualityAfterPlaybackReady(
+    nativeAdaptivePlayback: Boolean,
+    initialLoadCompleted: Boolean,
+    qualityState: PlayerQualitySelectionState,
+): Boolean =
+    nativeAdaptivePlayback && initialLoadCompleted && !qualityState.isResolved
 
 internal object PlayerQualityResolver {
     private val log = Logger.withTag("PlayerQuality")

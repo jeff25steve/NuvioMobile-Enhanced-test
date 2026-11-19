@@ -165,6 +165,22 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
     val panelModifier = if (fold != null) Modifier.fillMaxSize().padding(top = fold.bottom) else Modifier.fillMaxSize()
     val playbackGesturesEnabled = initialLoadCompleted && errorMessage == null
 
+    val sourceAutoPlaybackEngine = resolveAutoPlaybackEngine(
+        playbackEngineSetting = playerSettingsUiState.androidPlaybackEngine,
+        videoId = activeVideoId,
+        streamFilename = activeTorrentFilename ?: activeStreamFilename,
+        streamName = activeStreamTitle,
+        streamDescription = activeStreamSubtitle,
+        contentTitle = title,
+        genres = playerMeta?.genres.orEmpty(),
+        country = playerMeta?.country,
+    )
+    val sourcePlaybackEngine = playbackEngineOverride
+        ?: sourceAutoPlaybackEngine
+        ?: playerSettingsUiState.androidPlaybackEngine
+    val canUseNativeHlsAdaptivePlayback = !isIos &&
+        sourcePlaybackEngine == AndroidPlaybackEngine.ExoPlayer
+
     LaunchedEffect(activeSourceUrl, activeSourceAudioUrl, activeSourceHeaders, activeTorrentInfoHash) {
         val resolvingSourceUrl = activeSourceUrl
         val resolvingAudioUrl = activeSourceAudioUrl
@@ -172,23 +188,32 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
         val resolvingTorrentInfoHash = activeTorrentInfoHash
 
         selectedPlayerQualityId = null
+        initialLoadCompleted = false
         val shouldInspectHls = activeTorrentInfoHash == null &&
             activeSourceAudioUrl == null &&
             activeSourceUrl.contains(".m3u8", ignoreCase = true)
-        val waitForQuality = shouldInspectHls && !isLiveTvPlayback
-        activePlaybackSourceUrl = if (waitForQuality) null else activeSourceUrl
+        val useNativeAdaptivePlayback = shouldInspectHls && canUseNativeHlsAdaptivePlayback
+        nativeHlsAdaptivePlayback = useNativeAdaptivePlayback
+        val waitForQuality = shouldInspectHls && !isLiveTvPlayback && !useNativeAdaptivePlayback
+        activePlaybackSourceUrl = when {
+            useNativeAdaptivePlayback -> resolvingSourceUrl
+            waitForQuality -> null
+            else -> resolvingSourceUrl
+        }
         playerQualityState = PlayerQualitySelectionState(
-            isLoading = waitForQuality,
-            sourceUrl = activeSourceUrl,
+            isLoading = waitForQuality || useNativeAdaptivePlayback,
+            sourceUrl = resolvingSourceUrl,
+            isResolved = !shouldInspectHls,
         )
         InAppLogger.debug(
             "Player/Quality",
-            "source changed inspectHls=$shouldInspectHls url=${InAppLogger.redactUrl(resolvingSourceUrl)} " +
+            "source changed inspectHls=$shouldInspectHls nativeAdaptive=$useNativeAdaptivePlayback " +
+                "waitForQuality=$waitForQuality url=${InAppLogger.redactUrl(resolvingSourceUrl)} " +
                 "audio=${!resolvingAudioUrl.isNullOrBlank()} torrent=${!resolvingTorrentInfoHash.isNullOrBlank()} " +
                 "requestHeaders=${InAppLogger.headerKeys(resolvingHeaders)}",
         )
 
-        if (shouldInspectHls) {
+        if (shouldInspectHls && !useNativeAdaptivePlayback) {
             val resolved = runCatching {
                 PlayerQualityResolver.resolve(
                     sourceUrl = resolvingSourceUrl,
@@ -203,6 +228,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
                 PlayerQualitySelectionState(
                     sourceUrl = resolvingSourceUrl,
                     errorMessage = error.message ?: "Unable to inspect HLS quality variants.",
+                    isResolved = true,
                 )
             }
 
@@ -218,10 +244,10 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
             }
 
             if (isLiveTvPlayback) {
-                playerQualityState = resolved.copy(recommendedVariantId = null)
+                playerQualityState = resolved.copy(recommendedVariantId = null, isResolved = true)
                 if (selectedPlayerQualityId == null) activePlaybackSourceUrl = resolvingSourceUrl
             } else {
-                playerQualityState = resolved
+                playerQualityState = resolved.copy(isResolved = true)
                 activePlaybackSourceUrl = resolved.playbackUrlFor(null) ?: resolvingSourceUrl
             }
             InAppLogger.info(
@@ -230,9 +256,72 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
                     "recommended=${resolved.labelFor(null).orEmpty()} " +
                     "playbackUrl=${InAppLogger.redactUrl(activePlaybackSourceUrl)}",
             )
-        } else {
-            playerQualityState = PlayerQualitySelectionState(sourceUrl = resolvingSourceUrl)
+        } else if (!shouldInspectHls) {
+            playerQualityState = PlayerQualitySelectionState(
+                sourceUrl = resolvingSourceUrl,
+                isResolved = true,
+            )
         }
+    }
+
+    LaunchedEffect(
+        activeSourceUrl,
+        activeSourceAudioUrl,
+        activeSourceHeaders,
+        activeTorrentInfoHash,
+        initialLoadCompleted,
+        nativeHlsAdaptivePlayback,
+        playerQualityState.isResolved,
+    ) {
+        if (!shouldResolveHlsQualityAfterPlaybackReady(
+                nativeAdaptivePlayback = nativeHlsAdaptivePlayback,
+                initialLoadCompleted = initialLoadCompleted,
+                qualityState = playerQualityState,
+            )
+        ) {
+            return@LaunchedEffect
+        }
+
+        val resolvingSourceUrl = activeSourceUrl
+        val resolvingAudioUrl = activeSourceAudioUrl
+        val resolvingHeaders = activeSourceHeaders
+        val resolvingTorrentInfoHash = activeTorrentInfoHash
+        val resolved = runCatching {
+            PlayerQualityResolver.resolve(
+                sourceUrl = resolvingSourceUrl,
+                requestHeaders = resolvingHeaders,
+            )
+        }.getOrElse { error ->
+            InAppLogger.warn(
+                "Player/Quality",
+                "post-ready quality inspection failed url=${InAppLogger.redactUrl(resolvingSourceUrl)} " +
+                    "error=${InAppLogger.throwableSummary(error)}",
+            )
+            PlayerQualitySelectionState(
+                sourceUrl = resolvingSourceUrl,
+                errorMessage = error.message ?: "Unable to inspect HLS quality variants.",
+            )
+        }
+
+        if (activeSourceUrl != resolvingSourceUrl ||
+            activeSourceAudioUrl != resolvingAudioUrl ||
+            activeSourceHeaders != resolvingHeaders ||
+            activeTorrentInfoHash != resolvingTorrentInfoHash
+        ) {
+            InAppLogger.debug(
+                "Player/Quality",
+                "discard stale post-ready quality result url=${InAppLogger.redactUrl(resolvingSourceUrl)}",
+            )
+            return@LaunchedEffect
+        }
+
+        playerQualityState = resolved.copy(isResolved = true)
+        InAppLogger.info(
+            "Player/Quality",
+            "post-ready quality state ready variants=${resolved.variants.size} " +
+                "recommended=${resolved.labelFor(null).orEmpty()} " +
+                "source=${InAppLogger.redactUrl(resolvingSourceUrl)}",
+        )
     }
 
     val keyboardFocusRequester = remember { FocusRequester() }
@@ -305,16 +394,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
             mutableStateOf<AndroidPlaybackEngine?>(null)
         }
         if (!initialLoadCompleted || resolvedAutoEngineState.value == null) {
-            resolvedAutoEngineState.value = resolveAutoPlaybackEngine(
-                playbackEngineSetting = playerSettingsUiState.androidPlaybackEngine,
-                videoId = activeVideoId,
-                streamFilename = activeTorrentFilename ?: activeStreamFilename,
-                streamName = activeStreamTitle,
-                streamDescription = activeStreamSubtitle,
-                contentTitle = title,
-                genres = playerMeta?.genres.orEmpty(),
-                country = playerMeta?.country,
-            )
+            resolvedAutoEngineState.value = sourceAutoPlaybackEngine
         }
         val resolvedAutoEngine = resolvedAutoEngineState.value
 
