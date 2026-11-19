@@ -6429,3 +6429,16 @@ Sources:
 - Changes are on `main-build-testing`; see [the focused startup benchmark note](android-startup-benchmark-phone-fix-2026-11-15.md). No shell regression scripts, Gradle tasks, builds, profile generation, device measurements or CI were run, so compilation and device behavior remain unverified.
 
 References: [Android Baseline Profile benchmarking](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) · [CompilationMode.Partial](https://developer.android.com/reference/androidx/benchmark/macro/CompilationMode.Partial) · [Android Macrobenchmark sample](https://github.com/android/performance-samples/tree/main/MacrobenchmarkSample)
+
+
+### 19 November 2026 — HLS stream startup critical-path improvement (Cycles 61–63)
+
+- Found a real serial preflight on Android HLS VOD: the app fetched and rewrote the master playlist into per-quality temporary playlists before it allowed the ExoPlayer surface to prepare. Media3 already supports the original multivariant HLS master URL and native adaptive selection.
+- Changed Android ExoPlayer HLS Auto to start directly from the original master URL. Moved quality metadata inspection out of pre-prepare and then made it lazy: only fetch/parse variants after the player is ready and the user opens the quality panel.
+- Auto now retains native adaptive selection. Explicit quality options still use the previous sanitized single-variant playlists. iOS/libmpv and other non-native routes retain their existing behaviour.
+- Updated Auto labels to show the actual decoded resolution and “Adapts to network and device”; prevented Playback Info from presenting the recommended variant as a locked selection.
+- Added eight common player-quality state tests for adaptive master URL mapping, explicit-variant routing, legacy Auto, lazy panel gating, resolved-state reuse and truthful Auto display. Test source and static contracts were inspected, but tests were not executed.
+- Expected benefit: removes an additional app-owned master-playlist GET, parse and temporary playlist generation from the Android ExoPlayer HLS entry critical path. This is an architectural reduction, not a measured latency claim. Existing Media3 prepare-to-first-frame diagnostics remain available for later device validation.
+- Changes are on `main-build-testing`; see [player stream startup optimization](player-stream-startup-optimization-2026-11-19.md). No builds, Gradle tasks, tests, CI, APK generation, Macrobenchmark or phone playback measurements were run.
+
+References: [Media3 HLS](https://developer.android.com/media/media3/exoplayer/hls) · [Media3 track selection](https://developer.android.com/media/media3/exoplayer/track-selection) · [Media3 1.8.0 HlsMediaSource](https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer_hls/src/main/java/androidx/media3/exoplayer/hls/HlsMediaSource.java) · [HLS playback guidance](https://medium.com/google-exoplayer/hls-playback-in-exoplayer-a33959a47be7)

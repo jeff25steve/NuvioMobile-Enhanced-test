@@ -1,0 +1,60 @@
+# Player stream startup optimization — 19 November 2026
+
+## Finding
+
+The Android ExoPlayer HLS VOD path had an avoidable serial preflight. Before the player surface could be created, the Compose runtime performed its own HTTP GET for an HLS master playlist, parsed the variants, generated a sanitized single-variant playlist for each quality and only then passed a URL to the native player. Media3 then prepared the stream from that derived URL. This put application-owned quality discovery ahead of the first player request and made the master-playlist request part of the player-entry critical path.
+
+The Android Media3 HLS module accepts a multivariant/master playlist directly. Media3's HLS implementation chooses and adapts among `#EXT-X-STREAM-INF` variants using bandwidth and device capability. Its HLS factory enables chunkless preparation by default. That makes the separate preflight unnecessary for ordinary Auto playback on the native ExoPlayer route.
+
+## Changes integrated
+
+### Cycle 61 — start native HLS immediately
+
+- For Android playback routed to ExoPlayer, the original HLS master URL is now handed to the player immediately rather than setting `activePlaybackSourceUrl` to null while the app fetches and rewrites the master playlist.
+- Variant inspection was moved out of the pre-prepare path. It runs only after the player reaches the existing initial-ready signal.
+- iOS and libmpv continue to use the existing app-side quality resolver and its sanitized per-variant playlists.
+- Non-HLS sources, P2P/torrent sources, HLS with a separate audio URL and Live TV keep their existing routing boundaries.
+- The existing HLS parameter-set compatibility DataSource, stream request/response headers, subtitle handling, Media3 load control and post-error MIME probing were not changed.
+
+### Cycle 62 — make Auto genuinely adaptive
+
+- Native Android ExoPlayer Auto now retains the original multivariant master playlist. This allows Media3's native adaptive track selection to respond to bandwidth and decoder capability instead of locking Auto to the app's highest recommended single variant.
+- Explicit quality choices continue to use the existing sanitized single-variant playlists. The user's manual 720p/1080p-style choice therefore remains a deliberate fixed selection.
+- The quality UI reports Auto plus the actual decoded resolution and describes Auto as adaptive. The playback-info overlay no longer presents the resolver's recommended variant as though it were the selected fixed quality.
+- The existing iOS/libmpv Auto recommendation behaviour is preserved.
+
+### Cycle 63 — make quality discovery on-demand
+
+- Native HLS variant inspection now runs only if the user opens the quality panel after the player is ready. Normal playback does not perform a second app-owned master-playlist GET or create temporary variant playlists.
+- The resolved variant list is retained for the source and reused on subsequent panel openings. Closing the panel before resolving cancels the Compose effect; reopening can request the list again.
+- If the panel is opened before playback reaches ready, the existing loading state remains visible and inspection waits until the player is ready.
+
+## Regression coverage added (not executed)
+
+Added `composeApp/src/commonTest/kotlin/com/nuvio/app/features/player/PlayerQualitySelectionStateTest.kt` with contracts covering:
+
+- Adaptive Auto maps to the original multivariant URL (both null and explicit Auto ID).
+- A manual quality ID still maps to the sanitized single-variant playlist.
+- Legacy/non-native Auto still maps to the recommended compatible variant.
+- The quality resolver waits for a visible panel and a ready native player.
+- An already-resolved source does not trigger another inspection.
+- Adaptive Auto is not displayed as a locked recommended variant; a manual selection remains visible.
+
+The test source was reviewed and the synthetic state mappings were checked in memory. The common test suite, Gradle compilation, APK generation and device playback were not run.
+
+## Evidence and expected effect
+
+- The direct-master and automatic-adaptation contract is documented in [Android Developers — HLS playback](https://developer.android.com/media/media3/exoplayer/hls).
+- The post-prepare track availability and adaptive-group behaviour are documented in [Android Developers — Track selection](https://developer.android.com/media/media3/exoplayer/track-selection).
+- The repository pins Media3 1.8.0; the [1.8.0 HlsMediaSource implementation](https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer_hls/src/main/java/androidx/media3/exoplayer/hls/HlsMediaSource.java) was checked directly. Its factory defaults `allowChunklessPreparation` to true.
+- The AndroidX performance explanation [HLS playback in ExoPlayer](https://medium.com/google-exoplayer/hls-playback-in-exoplayer-a33959a47be7) notes that complete multivariant metadata supports efficient first selection and can avoid wasted segment downloads.
+- The primary expected gain is removing a serial, app-owned master-playlist GET, parse and temporary-playlist generation before ExoPlayer begins preparation. This is a reduction in critical-path work, not a measured millisecond claim.
+- The existing `PLAYER_DIAGNOSTIC_TAG` `prepareStartedAtMs` and `onRenderedFirstFrame` elapsed-time logs remain available for later real-device before/after comparison.
+
+## Compatibility boundaries and verification
+
+- Only Android ExoPlayer playback for HLS sources without separate audio is switched to native adaptive master-playlist playback.
+- Manual quality selection continues through the existing variant-specific playlist route. The quality panel's metadata fetch happens after ready and only on demand.
+- iOS, libmpv, P2P, non-HLS, source headers, subtitles, HLS SPS/PPS compatibility and buffer/load-control behaviour were deliberately left unchanged.
+- Changes were integrated into `main-build-testing` as four fast-forward commits after the starting checkpoint, each using an expected-head branch lease and followed by a remote branch refetch.
+- Static source checks and in-memory fixture/state checks were performed. The actual common tests, shell tests, Kotlin compilation, Gradle tasks, APK/AAB builds, Macrobenchmark, CI, LADB and physical-device playback were not run. No real TTID/first-frame improvement or quality regression is claimed.
