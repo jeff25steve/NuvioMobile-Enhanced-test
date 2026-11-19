@@ -150,16 +150,73 @@ resolve_instrumentation() {
 
 file_sha256() {
   file="$1"
+  [ -r "$file" ] || { printf 'unavailable\n'; return 0; }
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$file" | awk '{ print $1 }'
+    hash_output="$(sha256sum "$file" 2>/dev/null)" || hash_output=""
   elif command -v toybox >/dev/null 2>&1; then
-    toybox sha256sum "$file" | awk '{ print $1 }'
+    hash_output="$(toybox sha256sum "$file" 2>/dev/null)" || hash_output=""
   else
-    echo "unavailable"
+    hash_output=""
   fi
+  hash_value="$(printf '%s\n' "$hash_output" | awk 'NF >= 1 && $1 ~ /^[0-9a-fA-F]{64}$/ { print $1; exit }')"
+  [ -n "$hash_value" ] && printf '%s\n' "$hash_value" || printf 'unavailable\n'
+}
+
+install_provenance_file() {
+  printf '%s/current-install-provenance.txt\n' "$OUTPUT_ROOT"
+}
+
+load_install_provenance() {
+  install_state="$(install_provenance_file)"
+  [ -r "$install_state" ] || fail "No APK provenance was saved for the installed variant. Reinstall the matching benchmark APK pair."
+  saved_variant="$(sed -n 's/^Variant: //p' "$install_state")"
+  saved_app_name="$(sed -n 's/^App APK source filename: //p' "$install_state")"
+  saved_app_hash="$(sed -n 's/^App APK source SHA-256: //p' "$install_state")"
+  saved_test_name="$(sed -n 's/^Test APK source filename: //p' "$install_state")"
+  saved_test_hash="$(sed -n 's/^Test APK source SHA-256: //p' "$install_state")"
+  [ "$saved_variant" = "$ACTION:$FLAVOR" ] || fail "Saved APK provenance belongs to '$saved_variant', not '$ACTION:$FLAVOR'. Reinstall the matching APK pair."
+  case "$saved_app_name:$saved_test_name" in
+    *..*|*/*|:*|*:) fail "Saved APK provenance contains an invalid source filename." ;;
+  esac
+  case "$saved_app_hash:$saved_test_hash" in
+    unavailable:*|*:unavailable|:*) fail "Saved APK provenance has an unavailable SHA-256. Reinstall from a bundle with working SHA-256 support." ;;
+  esac
+  [ "${#saved_app_hash}" -eq 64 ] && [ "${#saved_test_hash}" -eq 64 ] || fail "Saved APK provenance contains an invalid SHA-256 value."
+}
+
+verify_installed_package_apk() {
+  package_name="$1"
+  expected_hash="$2"
+  package_label="$3"
+  package_paths="$(pm path "$package_name" 2>/dev/null | awk '/^package:/ { path=substr($0,9); if (path != "") { count++; result=path } } END { if (count == 1) print result; else if (count > 1) print "MULTIPLE" }')"
+  [ -n "$package_paths" ] || fail "Android did not return exactly one installed APK path for $package_label package '$package_name'. Reinstall the matching benchmark APK pair."
+  [ "$package_paths" != MULTIPLE ] || fail "Installed $package_label package '$package_name' exposes multiple APK paths; the benchmark bundle expects one standalone APK."
+  if [ ! -r "$package_paths" ]; then
+    printf 'UNVERIFIED|%s|unavailable\n' "$package_paths"
+    return 0
+  fi
+  installed_hash="$(file_sha256 "$package_paths")"
+  if [ "$installed_hash" = unavailable ]; then
+    printf 'UNVERIFIED|%s|unavailable\n' "$package_paths"
+    return 0
+  fi
+  if [ "$installed_hash" != "$expected_hash" ]; then
+    fail "Installed $package_label APK SHA-256 does not match the saved source APK. Reinstall the matching variant before measuring."
+  fi
+  printf 'MATCH|%s|%s\n' "$package_paths" "$installed_hash"
 }
 
 write_run_provenance() {
+  app_installed_result="$(verify_installed_package_apk "$APP_PACKAGE" "$saved_app_hash" app)"
+  test_installed_result="$(verify_installed_package_apk "$TEST_PACKAGE" "$saved_test_hash" test)"
+  app_installed_verdict="${app_installed_result%%|*}"
+  app_installed_rest="${app_installed_result#*|}"
+  app_installed_path="${app_installed_rest%%|*}"
+  app_installed_hash="${app_installed_rest#*|}"
+  test_installed_verdict="${test_installed_result%%|*}"
+  test_installed_rest="${test_installed_result#*|}"
+  test_installed_path="${test_installed_rest%%|*}"
+  test_installed_hash="${test_installed_rest#*|}"
   {
     printf 'Runner path: %s\n' "$SCRIPT_DIR/nuvio-phone-benchmark.sh"
     printf 'Runner SHA-256: %s\n' "$(file_sha256 "$SCRIPT_DIR/nuvio-phone-benchmark.sh")"
@@ -167,13 +224,14 @@ write_run_provenance() {
     printf 'Staged runner SHA-256: %s\n' "$(file_sha256 "$STAGING_DIR/nuvio-phone-benchmark.sh")"
     printf 'Flavor: %s\nAction: %s\n' "$FLAVOR" "$ACTION"
     printf 'App package: %s\nTest package: %s\n' "$APP_PACKAGE" "$TEST_PACKAGE"
-    printf 'App APK: %s\n' "$APP_APK"
-    printf 'App APK SHA-256: %s\n' "$(file_sha256 "$APP_APK")"
-    printf 'Test APK: %s\n' "$TEST_APK"
-    printf 'Test APK SHA-256: %s\n' "$(file_sha256 "$TEST_APK")"
+    printf 'App APK source filename: %s\nApp APK source SHA-256: %s\n' "$saved_app_name" "$saved_app_hash"
+    printf 'Test APK source filename: %s\nTest APK source SHA-256: %s\n' "$saved_test_name" "$saved_test_hash"
+    printf 'App installed APK path: %s\nApp installed APK SHA-256: %s\nApp installed APK verification: %s\n' "$app_installed_path" "$app_installed_hash" "$app_installed_verdict"
+    printf 'Test installed APK path: %s\nTest installed APK SHA-256: %s\nTest installed APK verification: %s\n' "$test_installed_path" "$test_installed_hash" "$test_installed_verdict"
     printf 'Instrumentation component: %s\n' "$INSTRUMENTATION"
   } > "$RUN_DIR/provenance.txt"
 }
+
 
 new_run_dir() {
   stamp="$(date '+%Y%m%d-%H%M%S')"
@@ -1086,6 +1144,14 @@ install_variant() {
   monkey -p "$APP_PACKAGE" 1 >/dev/null 2>&1 || fail "Could not launch the benchmark app."
   mkdir -p "$OUTPUT_ROOT"
   printf '%s:%s\n' "$ACTION" "$FLAVOR" > "$OUTPUT_ROOT/current-install.txt"
+  app_source_hash="$(file_sha256 "$APP_APK")"
+  test_source_hash="$(file_sha256 "$TEST_APK")"
+  [ "$app_source_hash" != unavailable ] && [ "$test_source_hash" != unavailable ] || fail "Could not calculate SHA-256 for the installed app/test APK pair."
+  {
+    printf 'Variant: %s:%s\n' "$ACTION" "$FLAVOR"
+    printf 'App APK source filename: %s\nApp APK source SHA-256: %s\n' "$(basename "$APP_APK")" "$app_source_hash"
+    printf 'Test APK source filename: %s\nTest APK source SHA-256: %s\n' "$(basename "$TEST_APK")" "$test_source_hash"
+  } > "$(install_provenance_file)" || fail "Could not persist APK install provenance."
   printf '\nInstalled %s (%s). Open Nuvio, sign in, finish onboarding if needed, and leave it on Home.\n' "$FLAVOR" "$ACTION"
   printf 'For profile collection, Home must contain at least one catalogue shelf with enough entries to scroll horizontally; the home_browse profile fails if it is absent.\n'
   printf 'Do not clear app data between full and playstore; both flavors share the isolated .benchmark app ID and signing key.\n'
@@ -1097,6 +1163,15 @@ require_installed_variant() {
   [ -f "$OUTPUT_ROOT/current-install.txt" ] || fail "No benchmark variant state was recorded. Run the matching install action first."
   installed="$(cat "$OUTPUT_ROOT/current-install.txt")"
   [ "$installed" = "$expected" ] || fail "Currently installed variant is '$installed', but '$expected' is required. Run the matching install action first."
+}
+
+load_expected_install_provenance() {
+  expected_action="$1"
+  expected_variant="$expected_action:$FLAVOR"
+  [ -f "$OUTPUT_ROOT/current-install.txt" ] || fail "No benchmark variant state was recorded. Run the matching install action first."
+  installed="$(cat "$OUTPUT_ROOT/current-install.txt")"
+  [ "$installed" = "$expected_variant" ] || fail "Currently installed variant is '$installed', but '$expected_variant' is required. Run the matching install action first."
+  load_install_provenance
 }
 
 capture_device_environment() {
@@ -1265,6 +1340,10 @@ run_instrumentation() {
   capture_foreground_state before
   reject_pending_wifi_debug_confirmation
   resolve_instrumentation
+  case "$rule" in
+    BaselineProfile) load_expected_install_provenance install-profile ;;
+    macrobenchmark) load_expected_install_provenance install ;;
+  esac
   write_run_provenance
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   if [ "$rule" = macrobenchmark ]; then
