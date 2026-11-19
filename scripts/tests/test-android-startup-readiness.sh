@@ -110,6 +110,11 @@ grep -Fq 'snapshotFlow {' "$HOME_SCREEN_SOURCE" && \
   echo "FAIL: Home readiness must wait for a laid-out visible list item after initial loading resolves." >&2
   exit 1
 }
+grep -Fq 'item.key != "home_hero"' "$HOME_SCREEN_SOURCE" && \
+  grep -Fq 'homeUiState.heroItems.isNotEmpty()' "$HOME_SCREEN_SOURCE" || {
+  echo "FAIL: Home readiness must not count a hero skeleton/reserved slot as real content." >&2
+  exit 1
+}
 grep -Fq 'homeSourcesLoaded = serversUiState.revision > 0' "$HOME_SCREEN_SOURCE" && \
   grep -Fq 'homeSourcesLoaded' "$HOME_MODELS_SOURCE" || {
   echo "FAIL: empty Home must not report readiness before initial source configuration has loaded." >&2
