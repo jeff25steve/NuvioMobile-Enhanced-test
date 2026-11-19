@@ -3,12 +3,22 @@ set -eu
 
 ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+MEMORY_BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupMemoryBenchmark.java"
+VERSION_CATALOG="$ROOT_DIR/gradle/libs.versions.toml"
 DESKTOP_RUNNER="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 PHONE_RUNNER="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
 WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 
 [ -f "$BENCHMARK_SOURCE" ] || {
   echo "FAIL: StartupBenchmark source not found: $BENCHMARK_SOURCE" >&2
+  exit 1
+}
+[ -f "$MEMORY_BENCHMARK_SOURCE" ] || {
+  echo "FAIL: isolated StartupMemoryBenchmark source not found: $MEMORY_BENCHMARK_SOURCE" >&2
+  exit 1
+}
+[ -f "$VERSION_CATALOG" ] || {
+  echo "FAIL: Gradle version catalog not found: $VERSION_CATALOG" >&2
   exit 1
 }
 [ -f "$DESKTOP_RUNNER" ] || {
@@ -402,4 +412,58 @@ for expected in \
   }
 done
 
-printf 'PASS: all three cold-start Macrobenchmark cases and phone-result integrity contracts are present.\n'
+# Keep the experimental macrobenchmark library isolated from the stable
+# Baseline Profile Gradle plugin. The ordinary timing class must stay clean.
+grep -Fq 'androidx-benchmark = "1.5.0"' "$VERSION_CATALOG" &&
+  grep -Fq 'androidx-benchmark-macro = "1.6.0-alpha02"' "$VERSION_CATALOG" &&
+  grep -Fq 'androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "androidx-benchmark-macro" }' "$VERSION_CATALOG" &&
+  grep -Fq 'baselineProfile = { id = "androidx.baselineprofile", version.ref = "androidx-benchmark" }' "$VERSION_CATALOG" || {
+  echo "FAIL: only the Macrobenchmark instrumentation library may use 1.6.0-alpha02; the Baseline Profile Gradle plugin must remain at stable 1.5.0." >&2
+  exit 1
+}
+if grep -Fq 'MemoryProfilingConfig' "$BENCHMARK_SOURCE"; then
+  echo "FAIL: the clean ten-iteration startup comparison must not enable heap profiling." >&2
+  exit 1
+fi
+grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: the clean startup comparison must keep ten iterations per arm." >&2
+  exit 1
+}
+for expected in \
+  'import androidx.benchmark.ExperimentalConfig;' \
+  'import androidx.benchmark.MemoryProfilingConfig;' \
+  'import androidx.benchmark.StartupInsightsConfig;' \
+  'new MemoryProfilingConfig(true, true)' \
+  'new CompilationMode.Partial(BaselineProfileMode.Require)' \
+  'StartupMode.COLD' \
+  'StartupReadiness.awaitHomeAndFullyDrawn(device)' \
+  'private static final int ITERATIONS = 1;' \
+  'startupWithBaselineProfileMemoryProfile'; do
+  grep -Fq "$expected" "$MEMORY_BENCHMARK_SOURCE" || {
+    echo "FAIL: isolated heap diagnostic is missing required AndroidX 1.6.0-alpha02 behavior '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), new MemoryProfilingConfig(true, true))' "$MEMORY_BENCHMARK_SOURCE" || {
+  echo "FAIL: isolated memory diagnostic must opt into both ART and native heap sampling with Startup Insights." >&2
+  exit 1
+}
+
+for expected in \
+  'MEMORY_BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupMemoryBenchmark"' \
+  'memory-profile)' \
+  'require_memory_profile_result_data() {' \
+  'Memory Profiling Iteration 0' \
+  '-memoryProfiling.perfetto-trace' \
+  'memory-profile-summary.txt'; do
+  grep -Fq -- "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner is missing the isolated memory-profile action contract '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq 'run_instrumentation macrobenchmark "$MEMORY_BENCHMARK_CLASS"' "$PHONE_RUNNER" || {
+  echo "FAIL: memory-profile must run only the dedicated memory diagnostic JUnit class." >&2
+  exit 1
+}
+
+printf 'PASS: clean startup comparison and isolated heap-diagnostic contracts are present.\n'
