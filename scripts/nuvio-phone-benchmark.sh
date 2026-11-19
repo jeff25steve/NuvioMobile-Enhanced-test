@@ -1512,7 +1512,7 @@ append_startup_readiness_timings() {
     }
 
     function reject(message) {
-      printf "FAIL: %s\n", message > "/dev/stderr"
+      printf "FAIL: Startup readiness timing records must contain exactly thirty valid per-launch samples: %s\n", message > "/dev/stderr"
       failed = 1
       exit 1
     }
