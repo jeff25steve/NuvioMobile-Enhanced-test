@@ -58,3 +58,11 @@ The test source was reviewed and the synthetic state mappings were checked in me
 - iOS, libmpv, P2P, non-HLS, source headers, subtitles, HLS SPS/PPS compatibility and buffer/load-control behaviour were deliberately left unchanged.
 - Changes were integrated into `main-build-testing` as four fast-forward commits after the starting checkpoint, each using an expected-head branch lease and followed by a remote branch refetch.
 - Static source checks and in-memory fixture/state checks were performed. The actual common tests, shell tests, Kotlin compilation, Gradle tasks, APK/AAB builds, Macrobenchmark, CI, LADB and physical-device playback were not run. No real TTID/first-frame improvement or quality regression is claimed.
+
+## Android custom DNS startup follow-up (Cycle 67)
+
+- The Android custom DoH resolver used to issue A then AAAA sequentially. It now queues AAAA asynchronously before performing the required A lookup, overlapping the two independent requests. System-DNS users are unchanged.
+- A failure remains authoritative and cancels AAAA; an AAAA failure remains optional. Response closure, existing TTL/cache expiry logic and IPv4-first ordering are preserved.
+- Added three host-test contracts for request ordering, optional AAAA failure and cancellation on A failure. Test source reviewed, not executed.
+- Expected effect is lower custom-DoH lookup critical-path latency when A and AAAA responses have meaningful independent delay. No measured stream-startup gain is claimed.
+- Details and the separate dependency audit: [Android DoH parallelization](player-doh-parallel-dns-2026-11-19.md). No Gradle tasks, tests, builds or CI were run.
