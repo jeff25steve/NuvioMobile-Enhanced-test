@@ -62,29 +62,40 @@ class PlayerQualitySelectionStateTest {
     }
 
     @Test
-    fun hlsQualityInspectionWaitsForNativePlayerReadiness() {
+    fun hlsQualityInspectionIsLazyUntilTheReadyPlayerOpensTheQualityPanel() {
         val pending = PlayerQualitySelectionState(
             isLoading = true,
             sourceUrl = sourceUrl,
         )
 
         assertFalse(
-            shouldResolveHlsQualityAfterPlaybackReady(
+            shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = false,
+                qualityPanelVisible = true,
                 initialLoadCompleted = true,
                 qualityState = pending,
             ),
         )
         assertFalse(
-            shouldResolveHlsQualityAfterPlaybackReady(
+            shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = true,
+                qualityPanelVisible = false,
+                initialLoadCompleted = true,
+                qualityState = pending,
+            ),
+        )
+        assertFalse(
+            shouldResolveHlsQualityForPanel(
+                nativeAdaptivePlayback = true,
+                qualityPanelVisible = true,
                 initialLoadCompleted = false,
                 qualityState = pending,
             ),
         )
         assertTrue(
-            shouldResolveHlsQualityAfterPlaybackReady(
+            shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = true,
+                qualityPanelVisible = true,
                 initialLoadCompleted = true,
                 qualityState = pending,
             ),
@@ -99,8 +110,9 @@ class PlayerQualitySelectionStateTest {
         )
 
         assertFalse(
-            shouldResolveHlsQualityAfterPlaybackReady(
+            shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = true,
+                qualityPanelVisible = true,
                 initialLoadCompleted = true,
                 qualityState = resolved,
             ),
@@ -116,8 +128,9 @@ class PlayerQualitySelectionStateTest {
 
         assertFalse(resolved.isLoading)
         assertFalse(
-            shouldResolveHlsQualityAfterPlaybackReady(
+            shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = false,
+                qualityPanelVisible = true,
                 initialLoadCompleted = true,
                 qualityState = resolved,
             ),

@@ -106,12 +106,16 @@ data class PlayerQualitySelectionState(
     }
 }
 
-internal fun shouldResolveHlsQualityAfterPlaybackReady(
+internal fun shouldResolveHlsQualityForPanel(
     nativeAdaptivePlayback: Boolean,
+    qualityPanelVisible: Boolean,
     initialLoadCompleted: Boolean,
     qualityState: PlayerQualitySelectionState,
 ): Boolean =
-    nativeAdaptivePlayback && initialLoadCompleted && !qualityState.isResolved
+    nativeAdaptivePlayback &&
+        qualityPanelVisible &&
+        initialLoadCompleted &&
+        !qualityState.isResolved
 
 internal object PlayerQualityResolver {
     private val log = Logger.withTag("PlayerQuality")

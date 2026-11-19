@@ -270,12 +270,14 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
         activeSourceAudioUrl,
         activeSourceHeaders,
         activeTorrentInfoHash,
+        showQualityPanel,
         initialLoadCompleted,
         nativeHlsAdaptivePlayback,
         playerQualityState.isResolved,
     ) {
-        if (!shouldResolveHlsQualityAfterPlaybackReady(
+        if (!shouldResolveHlsQualityForPanel(
                 nativeAdaptivePlayback = nativeHlsAdaptivePlayback,
+                qualityPanelVisible = showQualityPanel,
                 initialLoadCompleted = initialLoadCompleted,
                 qualityState = playerQualityState,
             )
