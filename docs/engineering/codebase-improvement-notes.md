@@ -6442,3 +6442,16 @@ References: [Android Baseline Profile benchmarking](https://developer.android.co
 - Changes are on `main-build-testing`; see [player stream startup optimization](player-stream-startup-optimization-2026-11-19.md). No builds, Gradle tasks, tests, CI, APK generation, Macrobenchmark or phone playback measurements were run.
 
 References: [Media3 HLS](https://developer.android.com/media/media3/exoplayer/hls) · [Media3 track selection](https://developer.android.com/media/media3/exoplayer/track-selection) · [Media3 1.8.0 HlsMediaSource](https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer_hls/src/main/java/androidx/media3/exoplayer/hls/HlsMediaSource.java) · [HLS playback guidance](https://medium.com/google-exoplayer/hls-playback-in-exoplayer-a33959a47be7)
+
+
+### 19 November 2026 — progressive DataSource creation deferral (Cycles 64–66)
+
+- Inspected the pinned Media3 1.8.0 threading boundary: ProgressiveMediaSource creates its DataSource in createPeriod() on the player playback thread; ProgressiveMediaPeriod performs DataSource.open() from a Loader worker.
+- The previous SelectiveBufferedDataSource eagerly constructed both plain and cache/read-ahead sources before it knew which URL would be opened. Changed it to retain factories and create only the selected DataSource inside open(). This removes one unused DataSource allocation and moves CacheDataSource construction/cache singleton lookup off the playback-thread factory call for progressive streams.
+- Transfer listeners are retained before open and attached to the selected source before first open. The selected source is reused across open/close cycles. The existing cache singleton, eviction sizing, database provider, cache flags, buffered URL routing and load-control values remain unchanged.
+- Added three host-test contracts for lazy creation, buffered/unbuffered selection and DataSource reuse. Test source reviewed; tests not executed.
+- A temporary background prewarm wrapper was removed after exact SimpleCache 1.8.0 source review showed its constructor starts its own initialization thread and opens its condition variable before the full directory/index scan. The final implementation avoids introducing a second initialization thread.
+- Expected effect: less work and fewer allocations in the player playback-thread media-period setup, especially when VOD disk cache/read-ahead is enabled. No measured first-frame gain is claimed.
+- Details: [progressive DataSource deferral](player-progressive-datasource-lazy-creation-2026-11-19.md). No Gradle tests, builds, Macrobenchmark, CI or device playback were run.
+
+References: [ProgressiveMediaSource 1.8.0](https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/source/ProgressiveMediaSource.java) · [ProgressiveMediaPeriod 1.8.0](https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/source/ProgressiveMediaPeriod.java) · [SimpleCache 1.8.0](https://github.com/androidx/media/blob/1.8.0/libraries/datasource/src/main/java/androidx/media3/datasource/cache/SimpleCache.java)
