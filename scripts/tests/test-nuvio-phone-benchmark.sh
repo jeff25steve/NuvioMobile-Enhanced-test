@@ -75,8 +75,8 @@ for expected in \
   'device.getCurrentPackageName()' \
   'Last package to report an accessibility event' \
   'markerVisible(UiDevice device, String marker)' \
-  'HomeScreen marker visible now:' \
-  'Fully-drawn marker visible now:'; do
+  'HomeScreen marker in target active window:' \
+  'Fully-drawn marker in target active window:'; do
   grep -Fq "$expected" "$READINESS_SOURCE" || {
     echo "FAIL: shared startup readiness helper is missing '$expected'." >&2
     exit 1
