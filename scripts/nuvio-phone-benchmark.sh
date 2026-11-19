@@ -644,21 +644,16 @@ validate_macrobenchmark_statistics() {
         print "FAIL: Macrobenchmark JSON must report Android API 33 or newer for this phone runner."
         exit 1
       }
-      for (ttfd_case_index = 1; ttfd_case_index <= 3; ttfd_case_index++) {
-        if (ttfd_case_index == 1) ttfd_case_name = "startupNoCompilation"
-        else if (ttfd_case_index == 2) ttfd_case_name = "startupPartialWithoutBaselineProfile"
-        else ttfd_case_name = "startupWithBaselineProfile"
-        ttfd_case_pattern = "\\"timeToFullDisplayMs\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
-        ttfd_case_rest = json
-        ttfd_case_count = 0
-        while (match(ttfd_case_rest, ttfd_case_pattern)) {
-          ttfd_case_count++
-          ttfd_case_rest = substr(ttfd_case_rest, RSTART + RLENGTH)
-        }
-        if (ttfd_case_count != 3) {
-          print "FAIL: JSON must contain exactly three timeToFullDisplayMs metric objects, one for each startup comparison arm."
-          exit 1
-        }
+      ttfd_metric_pattern = "\\"timeToFullDisplayMs\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
+      ttfd_rest = json
+      ttfd_metric_count = 0
+      while (match(ttfd_rest, ttfd_metric_pattern)) {
+        ttfd_metric_count++
+        ttfd_rest = substr(ttfd_rest, RSTART + RLENGTH)
+      }
+      if (ttfd_metric_count != 3) {
+        print "FAIL: JSON must contain exactly three timeToFullDisplayMs metric objects, one for each startup comparison arm; found " ttfd_metric_count "."
+        exit 1
       }
 
       total_metric_objects = 0
