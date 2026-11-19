@@ -527,6 +527,30 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  for browse_profile_fixture in missing empty blank; do
+    case "$browse_profile_fixture" in
+      missing) browse_profile_env=FAKE_MISSING_HOME_BROWSE_PROFILE ;;
+      empty) browse_profile_env=FAKE_EMPTY_HOME_BROWSE_PROFILE ;;
+      blank) browse_profile_env=FAKE_BLANK_HOME_BROWSE_PROFILE ;;
+    esac
+    if env "$browse_profile_env=1" sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-$browse_profile_fixture-home-browse-profile.log" 2>&1; then
+      echo "FAIL: phone runner accepted a $browse_profile_fixture Home browse Baseline Profile ($flavor)." >&2
+      exit 1
+    fi
+    case "$browse_profile_fixture" in
+      missing)
+        expected_browse_failure="No home_browse Baseline Profile text file was produced"
+        ;;
+      empty|blank)
+        expected_browse_failure="Generated Home browse Baseline Profile contains no rules"
+        ;;
+    esac
+    grep -Fq "$expected_browse_failure" "$TMP/$flavor-$browse_profile_fixture-home-browse-profile.log" || {
+      echo "FAIL: $browse_profile_fixture Home browse profile rejection did not identify the missing rules ($flavor)." >&2
+      cat "$TMP/$flavor-$browse_profile_fixture-home-browse-profile.log" >&2
+      exit 1
+    }
+  done
   if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
