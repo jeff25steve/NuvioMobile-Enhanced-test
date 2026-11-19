@@ -49,6 +49,7 @@ internal suspend fun runStartupPreloadWork(
     yield()
     withContext(dispatcher) { sequential() }
     independentReads.awaitAll()
+    Unit
 }
 
 /** Coordinates work required before Compose appears with work that may wait for its first frame. */
