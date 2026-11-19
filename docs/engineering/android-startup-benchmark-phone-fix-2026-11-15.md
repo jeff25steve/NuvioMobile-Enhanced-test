@@ -3127,3 +3127,14 @@ Research source: [AOSP PackageManagerShellCommand.java](https://android.googleso
 - No Gradle task, Kotlin/Java compilation, APK build, profile generation, instrumentation, Macrobenchmark, LADB session, device benchmark or CI was run. No Nuvio startup speedup is claimed.
 
 Research: [AndroidX Macrobenchmark source — profiler output merging](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) shows that measured iteration traces and additional profiler results are combined into profilerOutputs. [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) documents per-iteration Perfetto traces and the presence of profiling trace files in the output directory.
+
+### Cycle 67 — fail closed when API 33+ startup output omits TTFD
+
+- AndroidX Macrobenchmark 1.5.0 StartupTimingMetric emits timeToFullDisplayMs only when its trace query finds a fully-drawn event. The metric documentation says TTFD may be unavailable before API 29; the phone runner already refuses API levels below 33.
+- The phone JSON validator now requires the exported Android SDK value to be numeric and at least 33, and requires exactly three timeToFullDisplayMs metric objects for the three startup comparison arms. A missing fully-drawn measurement can no longer be confused with a valid TTID-only startup report.
+- Added fixtures for a missing single-arm TTFD metric and a shortened TTFD raw-sample list. The existing per-metric sample validation enforces ten positive samples and recomputes reported statistics against the raw runs.
+- No benchmark method, startup readiness signal, Android app code, dependency, metric, compilation mode or iteration count changed.
+
+Verification and limits: the code and fixtures are committed remotely, but the repository regression scripts were not run because no local checkout is available and no CI/build was authorised. The guard has been inspected in the live source; this is not a claim that the full test script passes. No instrumentation or device measurement was performed.
+
+Research: [AndroidX Benchmark 1.5.0 StartupTimingMetric API](https://developer.android.com/reference/androidx/benchmark/macro/StartupTimingMetric) documents TTFD as dependent on Activity.reportFullyDrawn and potentially unavailable before API 29. [AndroidX Macrobenchmark Metric.kt](https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt) shows that timeToFullDisplayMs is omitted from the result map when the trace query has no full-display timestamp.
