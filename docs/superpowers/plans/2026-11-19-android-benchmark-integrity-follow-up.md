@@ -124,3 +124,15 @@
 - [x] Re-fetched the edited remote sources and confirmed that the new regression scripts are invoked from the existing benchmark test path.
 - No full repository shell test suite was run from a complete checkout. No Gradle task, build, CI, instrumentation, physical-device benchmark, Perfetto capture, APK artifact inspection or ProfileVerifier run was started.
 - The only product runtime change in these priority cycles is the lazy download notification channel setup. No measured startup-speed improvement is asserted.
+
+
+### Cycle 81 — isolate same-second and overlapping benchmark outputs
+
+- [x] Reproduce the current timestamp collision with a fixed clock: two invocations of the old `mkdir -p` allocation reuse the same action/flavor directory.
+- [x] Add a focused shell regression that executes the real `new_run_dir()` function with a fixed clock and verifies distinct result paths and preserved markers.
+- [x] Wire the focused regression into `scripts/tests/test-nuvio-phone-benchmark.sh`.
+- [x] Replace `mkdir -p "$RUN_DIR"` with atomic directory reservation and deterministic numeric collision suffixes; retain the existing timestamp prefix and marker delay.
+- [x] Run an isolated POSIX-shell check of the replacement with three fixed-time invocations and a 16-process overlap exercise (48 distinct allocations).
+- [x] Re-fetch the remote runner, focused regression and parent test to verify the integrated source and paths.
+- The complete checked-in focused test and parent shell suite were not executed because no local repository checkout is available to this GitHub integration. The isolated checks used a verbatim copy of the changed function; they do not replace full repository regression execution.
+- No Gradle task, build, CI, instrumentation, LADB operation or device benchmark was run. No app startup speedup is claimed.
