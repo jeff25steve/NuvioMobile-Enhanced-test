@@ -1,4 +1,4 @@
-# 02 — Android startup benchmark phone workflow correction — 2026-11-15
+# Android startup benchmark phone workflow correction — 2026-11-15
 
 ## User-visible failure
 
@@ -3260,3 +3260,25 @@ Sources: [AndroidX 1.6 API source](https://github.com/androidx/androidx/blob/ab7
 - The complete phone-runner and static-contract scripts remain unrun; the additional modes were checked only through isolated AWK/shell examples and source inspection.
 
 - The generated summary also records AndroidX's `block_client=true` behavior (allocation completeness/determinism is prioritized over frame timing) and Perfetto's startup-coverage caveat: some of the earliest Zygote-specialization allocations may occur before heapprofd attaches. These are interpretation constraints, not measured Nuvio outcomes.
+
+
+## Follow-on benchmark analysis improvements — 19 November 2026
+
+### Bootstrap intervals (Cycle 79)
+
+- Added 10,000 deterministic independent-arm bootstrap resamples for the median differences in TTID and TTFD. The report includes the incremental Baseline Profile effect versus partial compilation without the profile, and the total effect versus no compilation.
+- The fixed-seed Park–Miller generator avoids relying on AWK-specific rand() sequences, keeping the result repeatable across target POSIX awk implementations.
+- The new interval is exploratory, not a causal significance test. The three JUnit arms remain grouped rather than interleaved; the report explicitly states that the interval does not remove thermal, time or test-order bias. The existing ten measured launches per arm and all timing workloads remain unchanged.
+- The engineering trigger was Bluesky PR #12092, which reports 45 interleaved cold starts per configuration and bootstrap intervals; the PR's Pixel 7a results are not assumed to apply to Nuvio.
+
+### Profile artifact audit (Cycle 80)
+
+- After the Startup Profile and Home-browse Baseline Profile pass their existing non-empty checks, the phone runner now emits profile-audit-summary.txt.
+- The audit records each original profile's SHA-256, nonblank and unique exact-rule counts, duplicate count, method/class-or-other candidate counts and H/S/P flag counts.
+- This is inventory-only. It does not rewrite, deduplicate, normalize, reorder or reject generated profile rules.
+
+### Verification
+
+Focused POSIX awk checks passed for the deterministic bootstrap calculation and for the read-only profile inventory with synthetic duplicate rules. The updated fake-device test fixtures assert the new summary output and duplicate counts; the static contract checks the seed/resample count, order-bias warning and audit placement. The complete phone-runner and static-contract scripts were not run because no local checkout is available. No build, CI, compilation, instrumentation, LADB action or device benchmark was run. No app startup improvement or outperformance claim is established by these reporting changes.
+
+Research sources: [Bluesky Android startup benchmark PR #12092](https://github.com/bluesky-social/social-app/pull/12092) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [AndroidJUnitRunner test filtering source](https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/filters/TestsRegExFilter.java)
