@@ -46,10 +46,10 @@
 - Configure `ExperimentalConfig(null, new StartupInsightsConfig(true), new MemoryProfilingConfig(true, true))`.
 - Use `CompilationMode.Partial(BaselineProfileMode.Require)`, `StartupMode.COLD`, one normal measured iteration, `StartupTimingMetric` + `ArtMetric`, and the existing `StartupReadiness` helper.
 
-- [ ] Add static contract assertions for the split version references and stable plugin pin.
-- [ ] Add static contract assertions that the original `StartupBenchmark` remains ten iterations and does not enable heap profiling.
-- [ ] Add the new Java class with the documented 1.6.0-alpha02 experimental API and shared readiness flow.
-- [ ] Re-fetch the catalog, both benchmark classes and static contract; verify only the macrobenchmark library moved to alpha.
+- [x] Add static contract assertions for the split version references and stable plugin pin.
+- [x] Add static contract assertions that the original `StartupBenchmark` remains ten iterations and does not enable heap profiling.
+- [x] Add the new Java class with the documented 1.6.0-alpha02 experimental API and shared readiness flow.
+- [x] Re-fetch the catalog, both benchmark classes and static contract; verify only the macrobenchmark library moved to alpha.
 
 ### Task 2: Add the isolated phone action and strict memory-trace validation
 
@@ -67,11 +67,11 @@
 - Create a dedicated `memory-profile-summary.txt` that labels the output as an allocation diagnostic, lists ART/native sampling as enabled, records the trace filename and device/thermal/Battery Saver/provenance evidence, and provides Perfetto/APA opening guidance.
 - The action reuses the existing install-variant/provenance and physical-device/thermal/Battery Saver checks. API 33 keeps the existing rooted instrumentation-shell requirement.
 
-- [ ] Add fake-device fixture generation for a valid isolated memory-profile result and trace.
-- [ ] Add negative fake fixtures for missing output, duplicate output, wrong profiler type, wrong suffix, missing file and empty file; wire each into the executed invalid-fixture loop.
-- [ ] Add the new `memory-profile` action, staging rules, API 33 gate, filtered instrumentation call and dedicated output validation.
-- [ ] Verify the normal `measure` and `run` paths still use the original three-case validator and exactly thirty timing traces.
-- [ ] Re-fetch all shell sources and inspect action routing, trace validation and fixture wiring.
+- [x] Add fake-device fixture generation for a valid isolated memory-profile result and trace.
+- [x] Add negative fake fixtures for missing output, duplicate output, wrong profiler type, wrong suffix, missing file and empty file; wire each into the executed invalid-fixture loop.
+- [x] Add the new `memory-profile` action, staging rules, API 33 gate, filtered instrumentation call and dedicated output validation.
+- [x] Source-review the normal `measure` and `run` paths: they still call the original three-case validator and its exact ten-iterations-per-arm / 30-trace contract.
+- [x] Re-fetch all shell sources and inspect action routing, trace validation and fixture wiring.
 
 ### Task 3: Engineering record and remote review
 
@@ -80,12 +80,29 @@
 - Modify: `docs/engineering/android-startup-benchmark-phone-fix-2026-11-15.md`
 - Modify: this plan and its design spec.
 
-- [ ] Record the AndroidX release/source findings, API version split, separate profiling-pass behavior and explicit no-speedup boundary.
-- [ ] Record the Android Performance Analyzer / Perfetto viewing workflow and pprof conversion reference.
-- [ ] Re-fetch every changed file and compare the branch against `11d334fda5ec4d5d5928b893d779c1533130caf9`.
-- [ ] Confirm only the benchmark test module, version catalog, phone runner, regression/static-contract scripts and benchmark docs changed.
-- [ ] Confirm no app source or workflow changed, and no build/CI/instrumentation/LADB/device run was started.
+- [x] Record the AndroidX release/source findings, API version split, separate profiling-pass behavior and explicit no-speedup boundary.
+- [x] Record the Android Performance Analyzer / Perfetto viewing workflow and pprof conversion reference, plus heapprofd sampling semantics and profileable prerequisites.
+- [ ] Re-fetch every changed file and compare the branch against `11d334fda5ec4d5d5928b893d779c1533130caf9` (final remote diff pending).
+- [ ] Confirm only the benchmark test module, version catalog, phone runner, regression/static-contract scripts and benchmark docs changed (final remote diff pending).
+- [x] Confirm no app source or workflow changed, and no build/CI/instrumentation/LADB/device run was started.
 
 ## Execution record
 
 The implementation will be integrated natively in this session because the request explicitly asks to continue implementation. No local repository checkout is available through the GitHub file integration, so full shell-suite execution and Java/Kotlin compilation cannot be claimed. The phone regression scripts will be extended and source-reviewed; the new APK/class becomes runnable only after a separately authorized build creates an updated benchmark test APK.
+
+
+## Verification tasks deliberately left pending
+
+- [ ] Run `sh scripts/tests/test-nuvio-phone-benchmark.sh` from a local checkout.
+- [ ] Run `sh scripts/tests/test-android-startup-metric-contract.sh` from a local checkout.
+- [ ] Compile the Baseline Profile test module and inspect the merged Full/Play Store BenchmarkRelease manifests after an explicitly authorized build.
+
+## Execution record — 19 November 2026
+
+- Added the version-catalog split, isolated Java benchmark class, separate phone action, dedicated summary and strict trace validation. Regression fixtures cover valid output and the six invalid cases.
+- Added static protection for the app's existing shell-profileable declaration and the Play Store manifest overlay not removing it.
+- Ran isolated POSIX AWK/shell checks against the same memory-output extraction/filename logic and the seven fixture modes (valid + six invalid). Focused checks passed. These are not the repository test scripts.
+- Re-fetched the new runner, fixture script, static contract, version catalog, Java class and engineering notes. The normal timing path remains separate by source inspection.
+- **Not verified:** the complete repository phone-runner and static-contract scripts were not run; Java was not compiled; the merged APK manifest was not built/inspected. The GitHub integration cannot execute source files and no local checkout is available in this session (the attempted clone could not resolve github.com).
+- **Final review:** self-review (no subagent tool available). Findings and residual limitations are recorded here; a fresh reviewer and full test run remain outstanding.
+- No Gradle task, build, CI, instrumentation, profile collection, LADB action or physical-device capture was started. The memory-profile action requires a newly built BenchmarkRelease test APK containing `StartupMemoryBenchmark`.
