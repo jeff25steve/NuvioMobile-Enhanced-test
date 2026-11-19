@@ -14,6 +14,7 @@ HOME_BROWSE_READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/
 ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
+STARTUP_INITIALIZATION_TEST="$ROOT_DIR/scripts/tests/test-android-startup-initialization.sh"
 
 for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$APP_READINESS_SOURCE" "$HOME_MODELS_SOURCE" "$GENERATOR_SOURCE" "$HOME_BROWSE_READINESS_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
   [ -f "$source" ] || {
@@ -21,6 +22,12 @@ for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURC
     exit 1
   }
 done
+
+[ -f "$STARTUP_INITIALIZATION_TEST" ] || {
+  echo "FAIL: startup initialization regression test is missing." >&2
+  exit 1
+}
+sh "$STARTUP_INITIALIZATION_TEST" "$ROOT_DIR"
 
 # Home visibility is independently observable, but Android TTFD must follow the full
 # product readiness chain: Home -> MainAppContent -> AppGate -> Activity ReportDrawnWhen.
