@@ -970,6 +970,34 @@ write_macrobenchmark_summary() {
   [ -s "$summary_file" ] || fail "Macrobenchmark summary is empty."
 }
 
+append_macrobenchmark_execution_order() {
+  execution_log="$1"
+  awk '
+    /^INSTRUMENTATION_STATUS: test=/ {
+      test_name = $0
+      sub(/^INSTRUMENTATION_STATUS: test=/, "", test_name)
+      if (test_name == "startupNoCompilation" ||
+          test_name == "startupPartialWithoutBaselineProfile" ||
+          test_name == "startupWithBaselineProfile") {
+        if (!(test_name in seen)) {
+          seen[test_name] = 1
+          execution_order[++execution_count] = test_name
+        }
+      }
+    }
+    END {
+      if (execution_count != 3) {
+        printf "FAIL: expected the three startup comparison cases in the instrumentation execution log; found %d.\n", execution_count > "/dev/stderr"
+        exit 1
+      }
+      printf "\nMacrobenchmark JUnit execution order (from AndroidJUnitRunner status records)\n"
+      for (index = 1; index <= execution_count; index++) {
+        printf "  %d. %s\n", index, execution_order[index]
+      }
+    }
+  ' "$execution_log" >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not derive the actual Macrobenchmark JUnit execution order from instrumentation.log."
+}
+
 require_macrobenchmark_result_data() {
   json_files=0
   no_compilation_results=0
@@ -1007,6 +1035,7 @@ require_macrobenchmark_result_data() {
     cat "$RUN_DIR/thermal-integrity.txt"
   } >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not append thermal integrity to the benchmark summary."
   printf 'Generated thermal integrity -> %s\n' "$RUN_DIR/thermal-integrity.txt" >> "$RUN_DIR/copied-files.txt"
+  append_macrobenchmark_execution_order "$RUN_DIR/instrumentation.log"
 }
 
 install_variant() {
