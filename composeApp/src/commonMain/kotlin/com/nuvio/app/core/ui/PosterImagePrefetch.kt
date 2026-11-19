@@ -48,10 +48,10 @@ internal data class PosterPrefetchTarget(
     val imageUrl: String,
     val fallbackImageUrl: String?,
     val shape: NuvioPosterShape,
-    /** Scale used by the displayed artwork composable. */
-    val scale: PosterPrefetchScale = PosterPrefetchScale.CROP,
     /** Exact rendered image bounds for cards whose artwork region differs from the poster shape. */
     val sizeDp: DpSize? = null,
+    /** Scale used by the displayed artwork composable. */
+    val scale: PosterPrefetchScale = PosterPrefetchScale.CROP,
 )
 
 @Composable
