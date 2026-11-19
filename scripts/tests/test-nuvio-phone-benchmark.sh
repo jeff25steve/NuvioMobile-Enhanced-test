@@ -254,7 +254,19 @@ case " $* " in
         i=$((i + 1))
       done
     done
-    for test_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
+    case "${FAKE_TEST_ORDER:-default}" in
+      default)
+        test_order="startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile"
+        ;;
+      reverse)
+        test_order="startupWithBaselineProfile startupPartialWithoutBaselineProfile startupNoCompilation"
+        ;;
+      *)
+        echo "Unknown fake test execution order: $FAKE_TEST_ORDER" >&2
+        exit 2
+        ;;
+    esac
+    for test_name in $test_order; do
       if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
@@ -685,6 +697,19 @@ for flavor in full playstore; do
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+  FAKE_TEST_ORDER=reverse sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-reverse-test-order.log" 2>&1
+  reverse_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
+  reverse_summary="$reverse_result_dir/benchmark-summary.txt"
+  grep -Fq 'Macrobenchmark JUnit execution order (from AndroidJUnitRunner status records)' "$reverse_summary"
+  order_profile_line="$(grep -n -F '  1. startupWithBaselineProfile' "$reverse_summary" | tail -n 1 | cut -d: -f1)"
+  order_partial_line="$(grep -n -F '  2. startupPartialWithoutBaselineProfile' "$reverse_summary" | tail -n 1 | cut -d: -f1)"
+  order_no_compilation_line="$(grep -n -F '  3. startupNoCompilation' "$reverse_summary" | tail -n 1 | cut -d: -f1)"
+  [ -n "$order_profile_line" ] && [ -n "$order_partial_line" ] && [ -n "$order_no_compilation_line" ] &&
+    [ "$order_profile_line" -lt "$order_partial_line" ] && [ "$order_partial_line" -lt "$order_no_compilation_line" ] || {
+      echo "FAIL: benchmark summary did not preserve the reversed AndroidJUnitRunner test execution order ($flavor)." >&2
+      cat "$reverse_summary" >&2
+      exit 1
+    }
   for iteration in 0 1 2 3 4 5 6 7 8 9; do
     no_ttid=$((400 + iteration * 10))
     no_ttfd=$((700 + iteration * 10))
