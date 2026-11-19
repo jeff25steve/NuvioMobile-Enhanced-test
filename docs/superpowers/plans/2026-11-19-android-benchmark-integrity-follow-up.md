@@ -73,3 +73,10 @@
 - The focused shell fixtures were exercised locally. The full repository shell regression scripts were not run because a complete local checkout was unavailable.
 - No Gradle task, build, CI, instrumentation, physical-device benchmark, or device trace was started.
 - Runtime sources, dependencies, generated profiles, workflow files, and benchmark measurement settings were not changed.
+
+
+### Baseline Profile artifact metadata clarification
+
+- [x] Verify the GitHub Contents API metadata for `androidApp/src/main/baseline-prof.txt`: blob `100a8b7d1fb814292afac304ace5c8d98ec02a54`, checked-in text size `1,409,345` bytes.
+- [x] Independently inspect the branch's raw file and confirm it contains non-empty class/method rules; the empty `fetch_file` body was a large-file retrieval limitation, not an empty profile.
+- The 1,409,345-byte value is the source text size only. It does not establish the packaged `assets/dexopt/baseline.prof` size, the profile installation result, ART compilation status, or an actual runtime performance gain. Those require artifact inspection and device-side `ProfileVerifier`/Macrobenchmark evidence.
