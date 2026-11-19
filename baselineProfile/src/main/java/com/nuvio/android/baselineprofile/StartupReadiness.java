@@ -151,6 +151,11 @@ final class StartupReadiness {
     }
 
     static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName) {
+        awaitHomeAndFullyDrawn(device, journeyName, Integer.valueOf(0));
+    }
+
+    static void awaitHomeAndFullyDrawn(
+            UiDevice device, String journeyName, Integer measurementIteration) {
         long readinessStartedAt = SystemClock.elapsedRealtime();
         long activeWindowStartedAt = readinessStartedAt;
         long activeWindowWaitMs = 0L;
@@ -164,6 +169,7 @@ final class StartupReadiness {
         if (!targetAppActive) {
             reportReadinessTiming(
                     journeyName,
+                    measurementIteration,
                     activeWindowWaitMs,
                     homeMarkerWaitMs,
                     fullyDrawnMarkerWaitMs,
@@ -184,6 +190,7 @@ final class StartupReadiness {
             homeMarkerWaitMs = SystemClock.elapsedRealtime() - homeMarkerStartedAt;
             reportReadinessTiming(
                     journeyName,
+                    measurementIteration,
                     activeWindowWaitMs,
                     homeMarkerWaitMs,
                     fullyDrawnMarkerWaitMs,
@@ -195,6 +202,7 @@ final class StartupReadiness {
         if (!homeVisible) {
             reportReadinessTiming(
                     journeyName,
+                    measurementIteration,
                     activeWindowWaitMs,
                     homeMarkerWaitMs,
                     fullyDrawnMarkerWaitMs,
@@ -217,6 +225,7 @@ final class StartupReadiness {
             fullyDrawnMarkerWaitMs = SystemClock.elapsedRealtime() - fullyDrawnMarkerStartedAt;
             reportReadinessTiming(
                     journeyName,
+                    measurementIteration,
                     activeWindowWaitMs,
                     homeMarkerWaitMs,
                     fullyDrawnMarkerWaitMs,
@@ -228,6 +237,7 @@ final class StartupReadiness {
         if (!fullyDrawnVisible) {
             reportReadinessTiming(
                     journeyName,
+                    measurementIteration,
                     activeWindowWaitMs,
                     homeMarkerWaitMs,
                     fullyDrawnMarkerWaitMs,
@@ -244,6 +254,7 @@ final class StartupReadiness {
 
         reportReadinessTiming(
                 journeyName,
+                measurementIteration,
                 activeWindowWaitMs,
                 homeMarkerWaitMs,
                 fullyDrawnMarkerWaitMs,
@@ -253,15 +264,25 @@ final class StartupReadiness {
 
     private static void reportReadinessTiming(
             String journeyName,
+            Integer measurementIteration,
             long activeWindowWaitMs,
             long homeMarkerWaitMs,
             long fullyDrawnMarkerWaitMs,
             long totalWaitMs,
             String outcome) {
+        if (measurementIteration == null && "ready".equals(outcome)) {
+            // Macrobenchmark calls measureBlock for cold-start and compilation warm-ups too.
+            // Only measured iterations contribute samples to the comparison summary.
+            return;
+        }
+        String iterationLabel = measurementIteration == null
+                ? "warmup"
+                : String.valueOf(measurementIteration);
         Bundle status = new Bundle();
         status.putString(
                 Instrumentation.REPORT_KEY_STREAMRESULT,
                 "NUVIO_STARTUP_READINESS_TIMING: journey=" + journeyName
+                        + " iteration=" + iterationLabel
                         + " active_window_wait_ms=" + activeWindowWaitMs
                         + " home_marker_wait_ms=" + homeMarkerWaitMs
                         + " fully_drawn_marker_wait_ms=" + fullyDrawnMarkerWaitMs
