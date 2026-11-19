@@ -269,7 +269,13 @@ case " $* " in
       "name": "startupNoCompilation",
       "metrics": {
         "timeToInitialDisplayMs": {"minimum": 400, "maximum": 490, "median": 445, "coefficientOfVariation": 0.068037086608932, "runs": [400,410,420,430,440,450,460,470,480,490]},
-        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "coefficientOfVariation": 0.040639602068423, "runs": [700,710,720,730,740,750,760,770,780,790]}
+        "timeToFullDisplayMs": {"minimum": 700, "maximum": 790, "median": 745, "coefficientOfVariation": 0.040639602068423, "runs": [700,710,720,730,740,750,760,770,780,790]},
+        "artJitCount": {"minimum": 1, "maximum": 10, "median": 5.5, "coefficientOfVariation": 0.5504818825631803, "runs": [1,2,3,4,5,6,7,8,9,10]},
+        "artJitSumMs": {"minimum": 10, "maximum": 19, "median": 14.5, "coefficientOfVariation": 0.20880347269637875, "runs": [10,11,12,13,14,15,16,17,18,19]},
+        "artVerifyClassCount": {"minimum": 0, "maximum": 9, "median": 4.5, "coefficientOfVariation": 0.6728111897994427, "runs": [0,1,2,3,4,5,6,7,8,9]},
+        "artVerifyClassSumMs": {"minimum": 0, "maximum": 9, "median": 4.5, "coefficientOfVariation": 0.6728111897994427, "runs": [0,1,2,3,4,5,6,7,8,9]},
+        "artClassLoadCount": {"minimum": 0, "maximum": 4, "median": 2, "coefficientOfVariation": 0.7453559924999299, "runs": [0,0,1,1,2,2,3,3,4,4]},
+        "artClassLoadSumMs": {"minimum": 0, "maximum": 4, "median": 2, "coefficientOfVariation": 0.7453559924999299, "runs": [0,0,1,1,2,2,3,3,4,4]}
       },
       "sampledMetrics": {},
       "warmupIterations": 0,
@@ -293,7 +299,13 @@ case " $* " in
       "name": "startupWithBaselineProfile",
       "metrics": {
         "timeToInitialDisplayMs": {"minimum": 330, "maximum": 420, "median": 375, "coefficientOfVariation": 0.080737342775933, "runs": [330,340,350,360,370,380,390,400,410,420]},
-        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "coefficientOfVariation": 0.046223669528206, "runs": [610,620,630,640,650,660,670,680,690,700]}
+        "timeToFullDisplayMs": {"minimum": 610, "maximum": 700, "median": 655, "coefficientOfVariation": 0.046223669528206, "runs": [610,620,630,640,650,660,670,680,690,700]},
+        "artJitCount": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]},
+        "artJitSumMs": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]},
+        "artVerifyClassCount": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]},
+        "artVerifyClassSumMs": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]},
+        "artClassLoadCount": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]},
+        "artClassLoadSumMs": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0,0,0,0,0,0,0,0,0,0]}
       },
       "sampledMetrics": {},
       "warmupIterations": 0,
@@ -315,6 +327,10 @@ case " $* " in
   ]
 }
 JSON
+    if [ "${FAKE_BENCHMARK_JSON:-complete}" = "no-classload" ]; then
+      awk '!/"artClassLoad(Count|SumMs)"/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+    fi
     if [ "${FAKE_API:-35}" = "33" ]; then
       sed 's/"sdk": 35/"sdk": 33/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -328,7 +344,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|missing-trace-metadata|missing-trace-file|empty-trace-file) ;;
+      complete|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -355,6 +371,18 @@ JSON
         # Keep the reported median within min/max, but make it disagree with
         # the 50th percentile recomputed from the ten raw samples.
         sed 's/"median": 445/"median": 446/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      wrong-art-cv)
+        sed 's/"coefficientOfVariation": 0.5504818825631803/"coefficientOfVariation": 0.5604818825631803/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      negative-art-run)
+        sed 's/"runs": \[1,2,3,4,5,6,7,8,9,10\]/"runs": [-1,2,3,4,5,6,7,8,9,10]/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      unpaired-classload)
+        sed '/"artClassLoadSumMs":/d' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       wrong-cv)
@@ -595,6 +623,10 @@ for flavor in full playstore; do
   grep -Fq 'descriptive only' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToInitialDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'ART runtime compilation and verification' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'No compilation: JIT 5.5 methods / 14.50 ms; runtime verification 4.5 classes / 4.50 ms' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Baseline Profile: JIT 0.0 methods / 0.00 ms; runtime verification 0.0 classes / 0.00 ms' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Runtime class loading: no compilation 2.0 classes / 2.00 ms; Baseline Profile 0.0 classes / 0.00 ms' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Benchmark device context' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Device: Fixture phone | Android API: 35' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Install path: APK sideload via pm install; not Google Play delivery.' "$benchmark_result_dir/benchmark-summary.txt"
@@ -613,6 +645,13 @@ for flavor in full playstore; do
   done
   grep -Fq -- '-70.0 ms (-15.7%)' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq -- '-90.0 ms (-12.1%)' "$benchmark_result_dir/benchmark-summary.txt"
+  if ! FAKE_BENCHMARK_JSON=no-classload sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-no-classload.log" 2>&1; then
+    echo "FAIL: runner should accept AndroidX output where optional ART class-load tracepoints are unavailable ($flavor)." >&2
+    cat "$TMP/$flavor-no-classload.log" >&2
+    exit 1
+  fi
+  no_load_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  grep -Fq 'Runtime class loading: not emitted (ART class-load tracepoints unavailable on this device)' "$no_load_summary"
   if grep -R -Fq "$FAKE_MEDIA_ROOT/com.example.other/" "$TMP/output/$flavor"; then
     echo "FAIL: phone runner copied benchmark/profile output from another app media directory ($flavor)." >&2
     exit 1
@@ -704,7 +743,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
