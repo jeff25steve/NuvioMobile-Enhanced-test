@@ -47,6 +47,8 @@ Device serial: redacted
 App package: $BENCHMARK_PACKAGE
 Flavors: full, playstore
 Startup state: signed-in Home; enforced by nuvio_startup_ready
+Profile journeys: launcher startup + Home vertical and horizontal catalogue browsing
+Home browse requires a populated, horizontally scrollable catalogue shelf
 Startup benchmark: 10 cold iterations per compilation mode and flavor
 META
 
@@ -77,7 +79,8 @@ printf 'Physical device: %s (API %s)\n' "$DEVICE_MODEL" "$API_LEVEL"
 printf 'Benchmark package: %s (production com.nuvio.media remains installed)\n' "$BENCHMARK_PACKAGE"
 printf 'Logs and results: %s\n' "$OUTPUT_DIR"
 printf 'The benchmark app is isolated from production Nuvio; do not uninstall com.nuvio.media.\n'
-printf 'Sign in to the benchmark app and leave it on Home when prompted.\n\n'
+printf 'Sign in to the benchmark app and leave it on Home when prompted.\n'
+printf 'For the Home browse Baseline Profile, ensure Home contains at least one catalogue shelf with enough entries to scroll horizontally.\n\n'
 
 run_gradle_step "00-build-full-benchmarkRelease" \
   :androidApp:assembleFullBenchmarkRelease :baselineProfile:assembleFullBenchmarkRelease \
@@ -88,7 +91,7 @@ if ! adb -s "$DEVICE_SERIAL" install -r "$full_apk"; then
   fail "Could not install benchmark APK. If a previous benchmark build uses another signing key, save its results and remove only $BENCHMARK_PACKAGE. Do not uninstall production com.nuvio.media."
 fi
 adb -s "$DEVICE_SERIAL" shell monkey -p "$BENCHMARK_PACKAGE" 1 >/dev/null 2>&1 || fail "Could not launch the benchmark app."
-read -r -p "Press Enter once the benchmark app is signed in and its Home screen is visible: " _
+read -r -p "Press Enter once the app is signed in, Home is visible, and a horizontally scrollable catalogue shelf is populated: " _
 
 run_gradle_step "01-generate-full-nonMinifiedRelease-profile" \
   :baselineProfile:generateFullNonMinifiedReleaseBaselineProfile \
