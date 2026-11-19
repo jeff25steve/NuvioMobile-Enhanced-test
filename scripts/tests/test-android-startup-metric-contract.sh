@@ -519,5 +519,20 @@ grep -Fq 'run_instrumentation macrobenchmark "$MEMORY_BENCHMARK_CLASS"' "$PHONE_
   echo "FAIL: memory-profile must run only the dedicated memory diagnostic JUnit class." >&2
   exit 1
 }
+for expected in \
+  'append_startup_readiness_timings() {' \
+  'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING:' \
+  'Startup readiness timing records must contain exactly thirty valid per-launch samples' \
+  'scope.getIteration()' \
+  'total_wait < active_wait + home_wait + fully_drawn_wait'; do
+  grep -Fq -- "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner is missing the measured-iteration readiness integrity contract '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq 'append_startup_readiness_timings "$RUN_DIR/instrumentation.log"' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must validate and preserve the per-launch readiness observations after each clean startup comparison." >&2
+  exit 1
+}
 
 printf 'PASS: clean startup comparison and isolated heap-diagnostic contracts are present.\n'
