@@ -6543,3 +6543,23 @@ This is a benchmark-evidence correctness change, not a startup optimisation. No 
 Verification: the updated runner, fake-device regression fixtures and static contract were re-fetched from GitHub. The full repository test scripts were not executed because no local checkout is available. No Gradle task, build, instrumentation, physical-device benchmark or CI was run. Do not treat the added synthetic fixtures as measured performance results.
 
 Sources: [AndroidX Benchmark 1.5.0 StartupTimingMetric API](https://developer.android.com/reference/androidx/benchmark/macro/StartupTimingMetric) · [AndroidX Macrobenchmark Metric.kt](https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt)
+
+## Android startup benchmark — enforce exact SDK provenance in Macrobenchmark JSON (19 November 2026)
+
+### Cycle 68 — read the SDK from AndroidX's exact nested context path
+
+The Cycle 67 API guard checked the first text occurrence of the key "sdk" in the entire JSON document. AndroidX BenchmarkData stores the OS SDK at context.build.version.sdk. A global text lookup could therefore accept an unrelated "sdk" field while the actual build context was missing or malformed.
+
+The phone validator now enters the build object, then its version object, and reads sdk only from that nested version object. Missing, non-numeric or pre-33 values fail before a result is accepted. The diagnostic explicitly states that top-level or unrelated sdk fields are ignored.
+
+### Cycle 69 — add adversarial SDK metadata fixtures
+
+The fake benchmark JSON now includes two focused malformed-context variants: a missing nested version.sdk value, and a deliberately misleading unrelated top-level sdk value while the true nested value is absent. Both are included in the invalid-JSON fixture loop and must fail with the exact context-path diagnostic. The static contract checks for the nested version-object extraction as well as the existing minimum API and three-arm TTFD guard.
+
+This closes a concrete metadata-integrity gap without changing the benchmark workload or AndroidX API usage. The output parser continues to use the existing POSIX/AWK environment; no dependency on jq, Python, or a non-portable JSON utility was introduced. A complete general-purpose JSON parser was not added because the Android shell runner cannot assume one is installed and a partial parser would create another unverified failure mode.
+
+**Scope:** only the phone shell runner, fake-device fixture, static source-contract checks and the two existing benchmark engineering notes changed. No app source, Java/Kotlin Macrobenchmark cases, metrics, iterations, compilation modes, APK variants, dependency or workflow changed.
+
+**Verification boundary:** remote source files were re-fetched after edits and source-contract/fixture wiring was inspected. The complete phone-runner and static-contract scripts were not executed because there is no local checkout available. No Gradle tasks, build, CI, instrumentation, profile generation, LADB action or device benchmark was run. No startup-speed improvement is claimed.
+
+Research: [AndroidX BenchmarkData source](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) defines SDK at context.build.version.sdk. [Android Developers — Benchmark in CI](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) provides the benchmark JSON context example and result format.
