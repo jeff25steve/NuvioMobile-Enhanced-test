@@ -406,9 +406,30 @@ JSON
         ;;
     esac
     for test_name in $test_order; do
-      if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
+      if [ "\${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
+        readiness_iteration=0
+        while [ "$readiness_iteration" -lt 10 ]; do
+          omit_readiness_record=0
+          readiness_mode="\${FAKE_READINESS_TIMING_MODE:-complete}"
+          if [ "$readiness_mode" = missing-last ] &&
+             [ "$test_name" = startupWithBaselineProfile ] &&
+             [ "$readiness_iteration" -eq 9 ]; then
+            omit_readiness_record=1
+          fi
+          if [ "$omit_readiness_record" -eq 0 ]; then
+            home_wait_ms=150
+            if [ "$readiness_mode" = malformed-last ] &&
+               [ "$test_name" = startupWithBaselineProfile ] &&
+               [ "$readiness_iteration" -eq 9 ]; then
+              home_wait_ms=invalid
+            fi
+            printf 'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING: journey=%s iteration=%s active_window_wait_ms=0 home_marker_wait_ms=%s fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready\n' \
+              "$test_name" "$readiness_iteration" "$home_wait_ms"
+          fi
+          readiness_iteration=$((readiness_iteration + 1))
+        done
         printf 'INSTRUMENTATION_STATUS_CODE: 0\n'
       fi
     done
@@ -1019,6 +1040,28 @@ for flavor in full playstore; do
   grep -Fq 'do not correct systematic test-order, device-heating, or time-drift bias' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'three JUnit arms execute as grouped test blocks, not an interleaved rotation' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'UIAutomator readiness observations after startActivityAndWait' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'These stage timings are diagnostic only; they are not TTID, TTFD, or total launch time.' "$benchmark_result_dir/benchmark-summary.txt"
+  [ "$(grep -c '  NUVIO_STARTUP_READINESS_TIMING:' "$benchmark_result_dir/benchmark-summary.txt")" -eq 30 ] || {
+    echo "FAIL: benchmark summary must retain all thirty per-launch readiness observations ($flavor)." >&2
+    exit 1
+  }
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupNoCompilation iteration=0 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupPartialWithoutBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupWithBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+
+  for readiness_mode in missing-last malformed-last; do
+    if FAKE_READINESS_TIMING_MODE="$readiness_mode" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-readiness-$readiness_mode.log" 2>&1; then
+      echo "FAIL: phone runner accepted incomplete or malformed per-launch readiness diagnostics ($flavor, $readiness_mode)." >&2
+      exit 1
+    fi
+    grep -Fq 'Startup readiness timing records must contain exactly thirty valid per-launch samples' "$TMP/$flavor-readiness-$readiness_mode.log" || {
+      echo "FAIL: readiness timing rejection did not identify the missing or malformed records ($flavor, $readiness_mode)." >&2
+      cat "$TMP/$flavor-readiness-$readiness_mode.log" >&2
+      exit 1
+    }
+  done
+
 
   # The optional heap diagnostic must stay separate from the clean ten-iteration timing run.
   if ! sh "$BUNDLE/nuvio-phone-benchmark.sh" memory-profile "$flavor" > "$TMP/$flavor-memory-profile.log" 2>&1; then
