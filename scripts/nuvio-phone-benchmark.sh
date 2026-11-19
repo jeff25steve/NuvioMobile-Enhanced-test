@@ -991,8 +991,8 @@ append_macrobenchmark_execution_order() {
         exit 1
       }
       printf "\nMacrobenchmark JUnit execution order (from AndroidJUnitRunner status records)\n"
-      for (index = 1; index <= execution_count; index++) {
-        printf "  %d. %s\n", index, execution_order[index]
+      for (position = 1; position <= execution_count; position++) {
+        printf "  %d. %s\n", position, execution_order[position]
       }
     }
   ' "$execution_log" >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not derive the actual Macrobenchmark JUnit execution order from instrumentation.log."
