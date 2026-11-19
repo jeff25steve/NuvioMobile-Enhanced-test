@@ -328,7 +328,11 @@ case " $* " in
 }
 JSON
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "no-classload" ]; then
-      awk '!/"artClassLoad(Count|SumMs)"/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+      awk '
+        /"artClassLoad(Count|SumMs)"/ { next }
+        /"artVerifyClassSumMs":/ { sub(/,[[:space:]]*$/, "") }
+        { print }
+      ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     if [ "${FAKE_API:-35}" = "33" ]; then
@@ -382,7 +386,15 @@ JSON
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       unpaired-classload)
-        sed '/"artClassLoadSumMs":/d' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        awk '
+          /"artClassLoadSumMs":/ { next }
+          /"artClassLoadCount":/ { sub(/,[[:space:]]*$/, "") }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      missing-art-jit)
+        awk '!"artJitCount":' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
       wrong-cv)
@@ -743,7 +755,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
+  for bad_json in empty missing-profile missing-ttfd one-arm-metrics wrong-repeat-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
