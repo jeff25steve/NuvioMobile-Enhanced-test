@@ -85,3 +85,32 @@
 - **Not verified:** the full phone benchmark regression script and static metric-contract shell script were not run because there is no local repository checkout in this session. This prevents marking the two implementation tasks fully complete under the test-driven-development completion contract.
 - **Final review:** self-review (no subagent tool is available). Remote changed-file comparison and source-level checks were performed; an independent fresh reviewer and full script run remain outstanding.
 - No build, CI, device, instrumentation or LADB operation was started.
+
+## Follow-on implementation — exact direct JSON member semantics
+
+### Cycle 75: direct members and ambiguous-key rejection
+
+- [x] Add `json_member_value(source, field)` to both AWK programs, scanning only direct object members while respecting quoted/escaped strings and nested object/array values.
+- [x] Route numeric, string, boolean, object and raw `runs` access through the direct-member helper.
+- [x] Treat missing or duplicate direct members as unavailable; do not silently accept the first duplicate.
+- [x] Add fake-device fixtures for nested context metadata and duplicate root `context`; add nested/duplicate startup-metric fixtures.
+- [x] Add nested ART metric fixture and wire it into invalid fake-result execution.
+
+### Cycle 76: normalize metric object handoffs
+
+- [x] Make TTID/TTFD validation pass the extracted metric object (starting at `{`) to the direct-member validator.
+- [x] Make ART and optional class-loading validation pass extracted metric objects.
+- [x] Make summary aggregation pass extracted startup, ART and class-loading metric objects to the direct readers.
+- [x] Keep missing class-loading metric objects explicit rather than reading stale `RSTART/RLENGTH` captures.
+- [x] Extend the static contract to guard against old prefixed metric-object handoffs.
+- [x] Preserve the existing fixture assertions for non-zero ART and class-loading summaries.
+
+### Verification and review limits
+
+- [x] Run isolated AWK checks for direct context/metadata, nested decoys, duplicates, escaped quote/brace strings, nested arrays/objects, numeric/boolean/string values and raw metric samples.
+- [x] Re-fetch the runner, fake-device test and static-contract sources; audit every scalar/array reader call site and confirm the known prefixed-object ART paths are converted.
+- [x] Update the engineering notes and this plan with the evidence and scope.
+- [ ] Run `scripts/tests/test-nuvio-phone-benchmark.sh` on a local checkout.
+- [ ] Run `scripts/tests/test-android-startup-metric-contract.sh` on a local checkout.
+
+The two full repository shell scripts remain unrun because this GitHub integration can read and update remote files but cannot execute them and this session has no local checkout. Isolated AWK checks and remote source inspection are not substitutes for those full regressions. No build, CI, Gradle task, device test, instrumentation or LADB action was started.
