@@ -3252,3 +3252,9 @@ Evidence: [AndroidX BenchmarkData JSON model](https://github.com/androidx/androi
 **Verification limits:** Focused isolated AWK/shell checks passed for valid memory output and six invalid variants. The repository phone-runner and static-contract scripts were not executed, Java was not compiled, and the merged APK manifest was not built/inspected. No build, CI, instrumentation, LADB or physical-device run was started. A new benchmarkRelease test APK containing `StartupMemoryBenchmark` is required before the opt-in action can run. No startup-speed or memory-reduction claim is made.
 
 Sources: [AndroidX 1.6 API source](https://github.com/androidx/androidx/blob/ab755341f6b7c8bd7126458878b2a8de9c02bdd1/benchmark/benchmark-common/src/main/java/androidx/benchmark/ExperimentalBenchmarkConfigApi.kt) · [Macrobenchmark additional memory pass](https://github.com/androidx/androidx/blob/ab755341f6b7c8bd7126458878b2a8de9c02bdd1/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) · [AndroidX heapprofd sampling configuration](https://github.com/androidx/androidx/blob/ab755341f6b7c8bd7126458878b2a8de9c02bdd1/benchmark/benchmark-common/src/main/java/androidx/benchmark/perfetto/PerfettoConfig.kt) · [Perfetto heapprofd](https://perfetto.dev/docs/data-sources/native-heap-profiler)
+
+### Follow-on result-identity and app-profileability checks
+
+- Extended the dedicated memory-result validator to require the exact JSON `className` and `repeatIterations=1`, not just a matching test name. Fake-device invalid modes now include wrong class and unexpected iteration count.
+- Static contract coverage now also checks that the Full and Play Store manifest overlays do not remove the main manifest's shell-profileable entry.
+- The complete phone-runner and static-contract scripts remain unrun; the additional modes were checked only through isolated AWK/shell examples and source inspection.
