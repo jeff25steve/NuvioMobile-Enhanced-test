@@ -516,7 +516,7 @@ BATTERY
     if [ -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed" ]; then
       thermal_status="${FAKE_THERMAL_STATUS_AFTER:-$thermal_status}"
     fi
-    printf 'Current Thermal Status: %s (fixture)\\nThermal Status: %s\\n' "$thermal_status" "$thermal_status"
+    printf 'Current Thermal Status: %s (fixture)\nThermal Status: %s\n' "$thermal_status" "$thermal_status"
     ;;
   window)
     case "$2" in
