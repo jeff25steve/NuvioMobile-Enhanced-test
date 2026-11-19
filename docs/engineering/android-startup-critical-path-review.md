@@ -579,17 +579,17 @@ References:
 
 1. **Profile delivery audit:** inspect each actual full/playstore benchmark APK for non-empty `assets/dexopt/baseline.prof`; validate candidate profile paths and whether the user-facing distribution installs or applies it. Do not alter `mergeIntoMain=false` until variant output/package paths are proven.
 2. **Benchmark trace coverage:** confirm runtime-tracing is included in the benchmark variant and fullTracing instrumentation arg is set; use named composable slices for the Home startup and scroll trace.
-3. **Complete user-journey profile coverage:** add Home scroll, hero detail, poster detail and root-tab journeys as distinct non-startup profile rules only when deterministic state/fixtures exist. Require each journey to fail clearly rather than silently emit incomplete coverage.
-4. **Home hero prefetch sizing:** trace current default-size neighbor requests and compare bounded and disk-only approaches. Preserve catalogue poster prefetch sizing already in place.
+3. **Complete user-journey profile coverage:** the generator now adds a separate Home feed + catalogue shelf browse pass. Next, add hero/poster detail and root-tab journeys only when deterministic seeded content and selectors exist; keep each journey fail-fast.
+4. **Image prefetch decode/cache parity:** bounded Home hero prefetch and display-matched shelf scale are implemented. Use Coil/Perfetto traces to verify memory-cache reuse, decoded pixel sizes and transition behavior before claiming a measurable improvement.
 5. **Allocation/CPU audit:** inspect Continue Watching custom poster URL call-site memoization; resolver internals already cache tokens and use one-pass replacement.
 6. **R8/startup DEX analysis:** inspect Configuration Analyzer output, Startup Profile rule composition and primary DEX contents before applying keep-rule changes. Avoid broad keep rules; measure the resulting binary and startup.
-7. **Browse and navigation benchmark:** measure frame timing with deterministic datasets and repeatable scroll/tab journeys independently of cold startup.
+7. **Browse and navigation benchmark:** add measured frame timing/jank metrics for deterministic vertical scroll, horizontal shelves and root-tab journeys; Baseline Profile collection alone does not quantify frame performance.
 
 ### Research coverage and limitations
 
 - GitHub: inspected Enhanced's branch source, existing benchmark research/phone notes, Baseline Profile configuration, Home hero, poster prefetch and custom poster URL resolver; inspected upstream Nuvio's profile generator and PRs #2239/#2278.
 - Public social/forum search: found Reddit r/Nuvio reports relevant to APK distribution, startup and poster loading. Targeted X/Twitter searches did not return verifiable relevant posts in this pass. Do not claim X/Twitter investigation produced findings.
-- Exa was intentionally not used as requested.
+- Exa was unavailable during the earlier research snapshot but was restored on 18 November. This follow-up used Exa to cross-check Coil 3.6.3 image sizing/cache guidance, practitioner Baseline Profile journeys and current AndroidX profile/UIAutomator guidance.
 - No production code, tests, build scripts, generated profiles, APKs, device runs or CI were changed or started in this research cycle. This document update is research-only. No Enhanced-vs-official speed superiority is claimed; it requires matched physical-device results.
 
 
@@ -687,3 +687,68 @@ Card-style Home hero renders its poster/backdrop artwork but does not render the
 - The repository's Compose Multiplatform `commonTest` suite was not run. No Gradle task, build, CI, emulator or physical-device benchmark was started.
 - No memory, decode-time, transition-latency or user-perceived speedup is measured. The expected effect is to bound the neighbour backdrop/logo decode requests to useful rendered dimensions and avoid the hidden card-style logo request; Perfetto/Coil tracing and device comparison are still needed to quantify the impact.
 - No changes were made to catalogue poster prefetch, visible hero image rendering, trailer behavior or metadata-fetch ordering. No Enhanced-vs-official performance advantage is claimed.
+
+
+## 18 November 2026 — improvement cycle 53: match shelf prefetch scale to displayed artwork
+
+### Finding
+
+The shared `PosterRowImagePrefetchEffect` already requested rendered pixel dimensions, but it did not set Coil's scale. Coil's bare `ImageRequest.Builder` default is `Scale.FIT`. The visible Home catalogue cards use `ContentScale.Crop`, and the normal Continue Watching card/wide/poster artwork also uses Crop. Cloud-library artwork is the exception in wide and poster layouts, where the visible composable explicitly uses Fit; the card layout still uses Crop.
+
+For Coil 3.6.3, `AsyncImage` maps `ContentScale.Fit` / `Inside` to `Scale.FIT` and other content scales such as Crop to `Scale.FILL`. The size/scale pair affects the decoded result and whether a prefetched memory-cache entry is suitable for the visible request. A generic prefetch Fit request can therefore produce an image size that does not match the Crop display request.
+
+### Change
+
+- Added `PosterPrefetchScale` to carry display scale with each prefetch target.
+- Shelf prefetch now maps Crop targets to Coil `Scale.FILL` and Fit targets to Coil `Scale.FIT`.
+- Home catalogue targets retain Crop. Continue Watching target creation selects Crop for card style and all non-cloud artwork, and Fit for cloud-library wide/poster layouts only.
+- Preserved the existing fallback URL cache-key extras, rendered pixel sizing, prefetch window, queue-ahead count and skip count.
+- Kept the new scale field after the existing optional `sizeDp` property to preserve the data class's previous positional constructor shape.
+
+### Tests and evidence
+
+- Added focused commonTest cases for catalogue Crop, normal Continue Watching Crop, cloud card Crop and cloud wide/poster Fit.
+- A standalone `kotlinc` fixture compiled the exact pure scale helper and passed four behavior cases. The Compose commonTest suite itself remains unexecuted.
+- Coil 3.6.3 source maps Compose content scale to `Scale.FILL` / `Scale.FIT`; its `Precision.INEXACT` documentation confirms that a sufficiently large cached image can be reused by a smaller AsyncImage request. We did not force `Precision.INEXACT` on prefetch requests; the change addresses the proven scale mismatch without changing precision policy.
+
+References:
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-compose-core/src/commonMain/kotlin/coil3/compose/internal/utils.kt
+- https://github.com/coil-kt/coil/blob/3.6.3/coil-core/src/commonMain/kotlin/coil3/request/ImageRequest.kt
+- https://coil-kt.github.io/coil/api/coil-core/coil3.size/-precision/-i-n-e-x-a-c-t/index.html
+- https://github.com/coil-kt/coil/issues/2766
+
+### Verification boundary
+
+- Remote source/test files were re-fetched. Four local helper assertions passed.
+- The repository's commonTest suite was not run. No Gradle task, APK build, CI, emulator or device test was started.
+- No cache hit-rate, decode-time, memory or scroll-jank measurement is available yet. The likely benefit is better prefetch/display decode parity and less avoidable reloading, but it requires Coil/Perfetto traces to measure.
+- No app visible rendering or content scale was changed; only the prefetch request matches the existing visible scale.
+
+
+## 18 November 2026 — improvement cycle 54: extend Baseline Profile coverage to Home browsing
+
+### Finding
+
+The branch's `BaselineProfileGenerator` only collected the launcher startup journey. Android's Baseline Profile guidance recommends covering important in-app journeys as well, including scrolling lists. The app already exposes `testTagsAsResourceId` and a Home-ready marker, so it can use Compose test tags as stable UI Automator selectors without adding debug-only code paths.
+
+### Change
+
+- Added `nuvio_benchmark_home_scroll` to the Home vertical `NuvioScreen` LazyColumn and `nuvio_benchmark_catalog_row` to Home catalogue shelf LazyRows.
+- Added a separate `homeBrowseJourneys` Baseline Profile collection pass. It launches the signed-in benchmark app, waits for the existing Home + fully-drawn markers, scrolls the Home feed until a catalogue shelf is found, scrolls that shelf in both horizontal directions, then returns the Home feed upward.
+- Set the new collection to `includeInStartupProfile=false`. The existing `startup` pass remains the only Startup Profile input; `home_browse` contributes only Baseline Profile rules. Existing `mergeIntoMain=false`, `saveInSrc=true`, flavor-specific generation and manual profile workflow settings are unchanged.
+- Added bounded, condition-based `StartupReadiness.scrollUntilMarker` and fail-fast `scrollRequired` helpers. They verify that selectors resolve to scrollable nodes and that actual scroll gestures succeed; a missing or non-scrollable shelf fails with diagnostics rather than silently generating incomplete coverage.
+- Updated the startup-readiness regression contract to require both Compose selectors, the browse profile test, the non-Startup-Profile flag and the scroll-helper checks.
+
+### Research and API evidence
+
+- Android's guidance recommends Baseline Profiles for important journeys in addition to startup, and its debug guide calls out covering important user journeys: https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles
+- `BaselineProfileRule.collect` documents `outputFilePrefix` per critical journey and `includeInStartupProfile` to restrict Startup Profile inclusion to startup flows: https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule
+- Repository pins UI Automator 2.4.1. The official release notes confirm that version and the 2.4 API series: https://developer.android.com/jetpack/androidx/releases/test-uiautomator
+- The Home browse profile requires a signed-in benchmark account and at least one populated, horizontally scrollable catalogue. This is deliberately explicit in the generator documentation; a blank account must not produce a false-success profile.
+
+### Verification boundary
+
+- Remote Home, catalogue, profile generator, readiness helper and regression script were re-fetched after the changes. Source-level assertions confirm both markers and the Baseline Profile-only collection wiring.
+- The pure scale helper's four local cases passed; the repo's Android instrumentation/Compose test suites were not run.
+- No Gradle task, Baseline Profile generation, APK build, CI, device interaction or Macrobenchmark was started. The new browse journey still needs a supported physical device and a seeded signed-in benchmark catalogue before the generated profile can be validated.
+- This adds code paths to the profile collection source; it does not itself change a user's installed Baseline Profile until the profile is generated, reviewed and packaged. No runtime performance advantage is claimed yet.
