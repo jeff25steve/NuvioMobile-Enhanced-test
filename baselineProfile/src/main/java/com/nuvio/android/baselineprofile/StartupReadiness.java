@@ -237,12 +237,9 @@ final class StartupReadiness {
         }
 
         try {
-            if (!scrollable.scroll(direction, 0.75f)) {
-                throw new AssertionError(
-                        "Home browse journey could not scroll " + journeyStep
-                                + " in direction " + direction + "."
-                                + diagnostics(device));
-            }
+            // UiObject2.scroll returns false when the gesture reaches the end of
+            // that direction; false is a boundary result, not a failed gesture.
+            scrollable.scroll(direction, 0.75f);
         } catch (RuntimeException scrollFailure) {
             AssertionError failure = new AssertionError(
                     "UI Automator failed while scrolling " + journeyStep
