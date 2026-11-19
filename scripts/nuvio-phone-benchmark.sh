@@ -1156,7 +1156,7 @@ require_macrobenchmark_result_data() {
     validate_macrobenchmark_trace_files "$result_file"
   done
 
-  [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
+  [ "$json_files" -eq 1 ] || fail "Expected exactly one Macrobenchmark benchmarkData.json file for this instrumentation run; found $json_files. A single startup benchmark invocation must produce one module-level result report; multiple reports make summary selection ambiguous."
   [ "$no_compilation_results" -ge 1 ] && [ "$partial_without_profile_results" -ge 1 ] && [ "$baseline_profile_results" -ge 1 ] || {
     fail "Macrobenchmark JSON must contain all three startup comparison results (found no-compilation=$no_compilation_results, partial-without-profile=$partial_without_profile_results, Baseline-Profile=$baseline_profile_results)."
   }
@@ -1169,6 +1169,11 @@ require_macrobenchmark_result_data() {
     cat "$RUN_DIR/thermal-integrity.txt"
   } >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not append thermal integrity to the benchmark summary."
   printf 'Generated thermal integrity -> %s\n' "$RUN_DIR/thermal-integrity.txt" >> "$RUN_DIR/copied-files.txt"
+  {
+    printf '\nBattery Saver integrity\n'
+    cat "$RUN_DIR/battery-saver-integrity.txt"
+  } >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not append Battery Saver integrity to the benchmark summary."
+  printf 'Generated Battery Saver integrity -> %s\n' "$RUN_DIR/battery-saver-integrity.txt" >> "$RUN_DIR/copied-files.txt"
   append_macrobenchmark_execution_order "$RUN_DIR/instrumentation.log"
 }
 
@@ -1326,6 +1331,37 @@ read_thermal_status_from_snapshot() {
   ' "$snapshot_file"
 }
 
+read_battery_saver_from_snapshot() {
+  snapshot_file="$1"
+  [ -r "$snapshot_file" ] || {
+    printf 'unknown\n'
+    return 0
+  }
+  awk '
+    tolower($0) ~ /^[[:space:]]*battery saver \\(settings global low_power\\):[[:space:]]*[01]([[:space:]]|$)/ {
+      status_line = $0
+      sub(/^[^:]*:[[:space:]]*/, "", status_line)
+      sub(/[[:space:]].*$/, "", status_line)
+      if (status_line == "0" || status_line == "1") {
+        print status_line
+        found = 1
+        exit
+      }
+    }
+    END {
+      if (!found) print "unknown"
+    }
+  ' "$snapshot_file"
+}
+
+battery_saver_status_label() {
+  case "$1" in
+    0) printf '0 (OFF)' ;;
+    1) printf '1 (ON)' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
 thermal_status_label() {
   case "$1" in
     0) printf '0 (NONE)' ;;
@@ -1369,6 +1405,38 @@ write_thermal_integrity_summary() {
     esac
     printf 'Limit: only the pre-run and post-run snapshots are checked; transient thermal-status changes between captures cannot be excluded.\n'
   } > "$thermal_report" || fail "Could not write thermal integrity report: $thermal_report."
+}
+
+write_battery_saver_integrity_summary() {
+  before_status="$1"
+  after_status="$2"
+  battery_saver_report="$RUN_DIR/battery-saver-integrity.txt"
+  {
+    printf 'Battery Saver state before measurement: %s\n' "$(battery_saver_status_label "$before_status")"
+    printf 'Battery Saver state after measurement: %s\n' "$(battery_saver_status_label "$after_status")"
+    case "$after_status" in
+      1)
+        printf 'VERDICT: BATTERY-SAVER CONTAMINATED\n'
+        printf 'Do not compare these timings as a normal-power startup run; Android low-power mode was active at the post-run capture.\n'
+        ;;
+      unknown)
+        printf 'VERDICT: BATTERY SAVER STATUS UNKNOWN\n'
+        printf 'Battery Saver state could not be verified at the post-run capture.\n'
+        ;;
+      0)
+        case "$before_status" in
+          unknown)
+            printf 'VERDICT: BATTERY SAVER STATUS UNKNOWN\n'
+            printf 'Battery Saver state could not be verified at the pre-run capture.\n'
+            ;;
+          *)
+            printf 'VERDICT: BATTERY SAVER OFF AT THE TWO SNAPSHOTS\n'
+            ;;
+        esac
+        ;;
+    esac
+    printf 'Limit: only the pre-run and post-run settings snapshots are checked; transient state changes between captures cannot be excluded.\n'
+  } > "$battery_saver_report" || fail "Could not write Battery Saver integrity report: $battery_saver_report."
 }
 
 capture_foreground_state() {
@@ -1425,9 +1493,15 @@ run_instrumentation() {
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
     THERMAL_STATUS_BEFORE="$(read_thermal_status_from_snapshot "$RUN_DIR/environment-before.txt")"
+    BATTERY_SAVER_BEFORE="$(read_battery_saver_from_snapshot "$RUN_DIR/environment-before.txt")"
     case "$THERMAL_STATUS_BEFORE" in
       2|3|4|5|6)
         fail "Thermal status $(thermal_status_label "$THERMAL_STATUS_BEFORE") is already active before Macrobenchmark. Moderate-or-higher throttling can affect foreground performance. Cool the phone until status is 0 or 1, then retry; instrumentation was not started."
+        ;;
+    esac
+    case "$BATTERY_SAVER_BEFORE" in
+      1)
+        fail "Battery Saver is enabled before Macrobenchmark (settings global low_power=1). Android low-power mode is intended to save battery at the cost of performance. Disable Battery Saver and retry; instrumentation was not started."
         ;;
     esac
   fi
@@ -1442,7 +1516,9 @@ run_instrumentation() {
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment after
     THERMAL_STATUS_AFTER="$(read_thermal_status_from_snapshot "$RUN_DIR/environment-after.txt")"
+    BATTERY_SAVER_AFTER="$(read_battery_saver_from_snapshot "$RUN_DIR/environment-after.txt")"
     write_thermal_integrity_summary "$THERMAL_STATUS_BEFORE" "$THERMAL_STATUS_AFTER"
+    write_battery_saver_integrity_summary "$BATTERY_SAVER_BEFORE" "$BATTERY_SAVER_AFTER"
   fi
   cat "$RUN_DIR/instrumentation.log"
   [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log and foreground-before.txt / foreground-after.txt in $RUN_DIR. These snapshots distinguish a Nuvio readiness timeout from an external Android System UI or LADB interruption."
