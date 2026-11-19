@@ -124,8 +124,8 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     val finalBufferedFactory = bufferedFactory
     return DataSource.Factory {
         SelectiveBufferedDataSource(
-            plain = plainFactory.createDataSource(),
-            buffered = finalBufferedFactory.createDataSource(),
+            plainFactory = plainFactory,
+            bufferedFactory = finalBufferedFactory,
             bufferedUrls = bufferedUrls,
         )
     }
@@ -206,32 +206,49 @@ private object PlaybackDiskCache {
     }
 }
 
-private class SelectiveBufferedDataSource(
-    private val plain: DataSource,
-    private val buffered: DataSource,
+internal class SelectiveBufferedDataSource(
+    private val plainFactory: DataSource.Factory,
+    private val bufferedFactory: DataSource.Factory,
     private val bufferedUrls: Set<String>,
 ) : DataSource {
-    private var active: DataSource = plain
+    private val transferListeners = ArrayList<TransferListener>()
+    private var plain: DataSource? = null
+    private var buffered: DataSource? = null
+    private var active: DataSource? = null
 
     override fun addTransferListener(transferListener: TransferListener) {
-        plain.addTransferListener(transferListener)
-        buffered.addTransferListener(transferListener)
+        transferListeners += transferListener
+        plain?.addTransferListener(transferListener)
+        buffered?.addTransferListener(transferListener)
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        active = if (dataSpec.uri.toString() in bufferedUrls) buffered else plain
-        return active.open(dataSpec)
+        val useBufferedSource = dataSpec.uri.toString() in bufferedUrls
+        val selected = if (useBufferedSource) {
+            buffered ?: bufferedFactory.createDataSource().also { created ->
+                transferListeners.forEach(created::addTransferListener)
+                buffered = created
+            }
+        } else {
+            plain ?: plainFactory.createDataSource().also { created ->
+                transferListeners.forEach(created::addTransferListener)
+                plain = created
+            }
+        }
+        active = selected
+        return selected.open(dataSpec)
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-        active.read(buffer, offset, length)
+        checkNotNull(active) { "DataSource.open must be called before read" }.read(buffer, offset, length)
 
-    override fun getUri(): Uri? = active.uri
+    override fun getUri(): Uri? = active?.uri
 
-    override fun getResponseHeaders(): Map<String, List<String>> = active.responseHeaders
+    override fun getResponseHeaders(): Map<String, List<String>> = active?.responseHeaders.orEmpty()
 
     override fun close() {
-        active.close()
+        active?.close()
+        active = null
     }
 }
 
