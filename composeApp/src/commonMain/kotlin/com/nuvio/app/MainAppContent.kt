@@ -32,6 +32,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -603,17 +604,17 @@ internal fun MainAppContent(
     }
     launchOverlayState.targetState = launchOverlayVisible
 
+    val currentOnRootContentReady by rememberUpdatedState(onRootContentReady)
     LaunchedEffect(
         rootContentReady,
         ownsAppRuntime,
-        onRootContentReady,
         launchOverlayState.currentState,
         launchOverlayState.isIdle,
     ) {
         if (ownsAppRuntime) {
-            // Root data can be ready before the launch overlay finishes its exit.
-            // Report the user-visible state only after that transition is fully gone.
-            onRootContentReady?.invoke(
+            // The launch overlay is the only visual transition gating TTFD: do not
+            // report the Activity fully drawn while it still covers the Home content.
+            currentOnRootContentReady?.invoke(
                 shouldReportMainContentReady(
                     rootContentReady = rootContentReady,
                     overlayIdle = launchOverlayState.isIdle,
