@@ -155,6 +155,48 @@ final class StartupReadiness {
         return markerVisible(device, marker);
     }
 
+    static void scrollUntilMarker(
+            UiDevice device,
+            String scrollMarker,
+            String targetMarker,
+            Direction direction,
+            String journeyStep) {
+        boolean sourcePresent;
+        try {
+            sourcePresent = waitForMarker(device, scrollMarker, READY_TIMEOUT_MS);
+        } catch (RuntimeException queryFailure) {
+            throw markerQueryFailure(scrollMarker, journeyStep, queryFailure, device);
+        }
+        if (!sourcePresent) {
+            throw new AssertionError(
+                    "Home browse journey could not find the " + journeyStep
+                            + " scroll container '" + scrollMarker + "'."
+                            + diagnostics(device));
+        }
+
+        UiObject2 scrollable = device.findObject(packageRes(scrollMarker));
+        if (scrollable == null || !scrollable.isScrollable()) {
+            throw new AssertionError(
+                    "Home browse journey found '" + scrollMarker
+                            + "' but it is not a scrollable " + journeyStep + "."
+                            + diagnostics(device));
+        }
+
+        for (int attempt = 0; attempt < 6; attempt++) {
+            if (markerVisible(device, targetMarker)) {
+                return;
+            }
+            if (!scrollable.scroll(direction, 0.75f)) {
+                break;
+            }
+        }
+
+        throw new AssertionError(
+                "Home browse journey could not reveal selector '" + targetMarker
+                        + "' by scrolling " + journeyStep + " " + direction + "."
+                        + diagnostics(device));
+    }
+
     static void scrollRequired(
             UiDevice device,
             String marker,
