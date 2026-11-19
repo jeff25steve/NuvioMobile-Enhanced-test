@@ -549,6 +549,9 @@ JSON
         ;;
       *) echo "Unknown fake benchmark JSON fixture: $FAKE_BENCHMARK_JSON" >&2; exit 2 ;;
     esac
+    if [ "${FAKE_DUPLICATE_BENCHMARK_JSON:-0}" = "1" ]; then
+      cp "$FAKE_MEDIA_DIR/fake-benchmarkData.json" "$FAKE_MEDIA_DIR/second-benchmarkData.json"
+    fi
     if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
@@ -654,7 +657,13 @@ if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
   exit 1
 fi
 case "$2:$3" in
-  global:low_power) echo 0 ;;
+  global:low_power)
+    if [ -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed" ]; then
+      echo "${FAKE_BATTERY_SAVER_AFTER:-${FAKE_BATTERY_SAVER:-0}}"
+    else
+      echo "${FAKE_BATTERY_SAVER:-0}"
+    fi
+    ;;
   system:screen_brightness_mode) echo 0 ;;
   system:screen_brightness) echo 128 ;;
   *) echo null ;;
@@ -955,6 +964,30 @@ for flavor in full playstore; do
   grep -Fq 'Thermal status after measurement: 2 (MODERATE)' "$post_thermal_summary"
   grep -Fq 'VERDICT: THERMALLY CONTAMINATED' "$post_thermal_summary"
 
+  # Low-power mode is a known performance-affecting device condition.
+  : > "$FAKE_COMMAND_LOG"
+  if FAKE_BATTERY_SAVER=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-battery-saver-preflight.log" 2>&1; then
+    echo "FAIL: Macrobenchmark must reject an enabled Battery Saver state ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq 'Battery Saver is enabled before Macrobenchmark' "$TMP/$flavor-battery-saver-preflight.log" || {
+    echo "FAIL: Battery Saver preflight did not explain the low-power measurement conflict ($flavor)." >&2
+    cat "$TMP/$flavor-battery-saver-preflight.log" >&2
+    exit 1
+  }
+  if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+    echo "FAIL: instrumentation started while Battery Saver was enabled ($flavor)." >&2
+    exit 1
+  fi
+
+  # A state change after measurement is retained in the report, not silently qualified as clean.
+  rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
+  FAKE_BATTERY_SAVER=0 FAKE_BATTERY_SAVER_AFTER=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-battery-saver-after.log" 2>&1
+  battery_saver_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  grep -Fq 'Battery Saver state before measurement: 0 (OFF)' "$battery_saver_summary"
+  grep -Fq 'Battery Saver state after measurement: 1 (ON)' "$battery_saver_summary"
+  grep -Fq 'VERDICT: BATTERY-SAVER CONTAMINATED' "$battery_saver_summary"
+
   : > "$FAKE_COMMAND_LOG"
   if FAKE_WIFI_DEBUG_PROMPT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-wifi-prompt.log" 2>&1; then
     echo "FAIL: phone runner must stop before instrumentation when Android's Wi-Fi debugging confirmation is foregrounded ($flavor)." >&2
@@ -1088,6 +1121,17 @@ for flavor in full playstore; do
         ;;
     esac
   done
+
+  : > "$FAKE_COMMAND_LOG"
+  if FAKE_DUPLICATE_BENCHMARK_JSON=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-multiple-json-files.log" 2>&1; then
+    echo "FAIL: phone runner accepted multiple Macrobenchmark JSON result files for one instrumentation run ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq 'Expected exactly one Macrobenchmark benchmarkData.json file for this instrumentation run; found 2' "$TMP/$flavor-multiple-json-files.log" || {
+    echo "FAIL: ambiguous Macrobenchmark result files were not diagnosed ($flavor)." >&2
+    cat "$TMP/$flavor-multiple-json-files.log" >&2
+    exit 1
+  }
 done
 
 # Verify the API 33 report explicitly identifies its pre-34 ART verification caveat.
