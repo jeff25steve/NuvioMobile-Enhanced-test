@@ -285,6 +285,40 @@ grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
   exit 1
 }
 
+# Record per-launch UIAutomator stage timings through AndroidJUnitRunner's raw
+# instrumentation status stream; do not change the app's reportFullyDrawn gate.
+for expected in \
+  'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName)' \
+  'InstrumentationRegistry.getInstrumentation().sendStatus(0, status)' \
+  'Instrumentation.REPORT_KEY_STREAMRESULT' \
+  'NUVIO_STARTUP_READINESS_TIMING:' \
+  'active_window_wait_ms=' \
+  'home_marker_wait_ms=' \
+  'fully_drawn_marker_wait_ms=' \
+  'total_wait_ms=' \
+  'outcome='; do
+  grep -Fq "$expected" "$READINESS_SOURCE" || {
+    echo "FAIL: shared readiness timing diagnostics are missing '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness stage durations must use monotonic elapsed realtime." >&2
+  exit 1
+}
+grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$GENERATOR_SOURCE" &&
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$GENERATOR_SOURCE" &&
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: each profile or comparison journey must identify itself in readiness timing records." >&2
+  exit 1
+}
+grep -Fq 'runColdStartupBenchmark("startupNoCompilation"' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'runColdStartupBenchmark("startupPartialWithoutBaselineProfile"' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'runColdStartupBenchmark("startupWithBaselineProfile"' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: all three startup arms must label their readiness observations by JUnit case." >&2
+  exit 1
+}
+
 # Home browse scrolling is a distinct responsibility from startup readiness waits.
 grep -Fq 'static void scrollUntilMarker(' "$HOME_BROWSE_READINESS_SOURCE" && \
   grep -Fq 'static void scrollRequired(' "$HOME_BROWSE_READINESS_SOURCE" || {
