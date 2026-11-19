@@ -663,7 +663,7 @@ validate_macrobenchmark_statistics() {
         }
       }
       if (reported_api == "" || reported_api !~ /^[0-9]+$/ || reported_api + 0 < 33) {
-        print "FAIL: Macrobenchmark JSON must report context.build.version.sdk as Android API 33 or newer for this phone runner."
+        print "FAIL: Macrobenchmark JSON must report context.build.version.sdk as Android API 33 or newer for this phone runner; top-level or unrelated sdk fields are ignored."
         exit 1
       }
       ttfd_metric_pattern = "\"timeToFullDisplayMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
