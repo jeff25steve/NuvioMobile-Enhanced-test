@@ -114,3 +114,5 @@ The implementation will be integrated natively in this session because the reque
 - [x] Add fake invalid-result variants for a wrong JSON class name and an unexpected repeat-iteration count; include both in the memory-profile invalid-fixture loop.
 - [x] Protect the shared app `profileable android:shell="true"` declaration and assert that neither Full nor Play Store overlays removes it.
 - [x] Add the actual AndroidX heapprofd source settings (2,048-byte sampling interval, 500 ms continuous dumps, 8 MiB buffer) and sampling caveat to the generated memory summary.
+
+- [x] Record `block_client=true` and Perfetto's earliest Zygote-specialization coverage limitation in the diagnostic summary and engineering notes.
