@@ -144,3 +144,23 @@
 - [x] Require all 16 processes to report a distinct existing result directory with its own `.started` marker.
 - [x] Execute the focused test logic in an isolated POSIX-shell harness with the updated function; it passed.
 - The full parent phone-runner regression remains unrun because a local checkout is not available through the GitHub integration.
+
+
+### Cycle 83 — instrument the P0 readiness observation stages
+
+- [x] Re-trace the current Home → MainAppContent → AppGate → MainActivity callback chain; retain the existing product-ready gate because no source-proven callback defect was found.
+- [x] Add monotonic timing for active-window ownership, Home marker, fully-drawn marker, and total UIAutomator readiness wait after startActivityAndWait().
+- [x] Emit timings through AndroidJUnitRunner REPORT_KEY_STREAMRESULT, including stage-specific failure outcomes in instrumentation.log.
+- [x] Give StartupBenchmark, BaselineProfileGenerator and StartupMemoryBenchmark stable journey names.
+- [x] Keep Android Activity/Compose readiness state, ReportDrawnWhen, TTID/TTFD definitions, timeouts and production UI unchanged.
+
+### Cycle 84 — count only measured iterations and reject incomplete timing evidence
+
+- [x] Verify AndroidX Macrobenchmark runs the supplied measure block for unmeasured startup/compilation warm-ups and exposes a nullable public MacrobenchmarkScope.iteration value.
+- [x] Pass the measured iteration index from StartupBenchmark and StartupMemoryBenchmark. Omit successful warm-up observations from the comparison summary; retain failed warm-up outcomes in the raw status log.
+- [x] Require exactly ten readiness records for each of the three measured startup arms (30 total, iterations 0–9).
+- [x] Reject missing, duplicate, malformed, unexpected, non-ready or internally inconsistent records.
+- [x] Add fake instrumentation records and missing/malformed fixtures; extend startup-readiness, metric-contract and phone-runner source assertions.
+- [x] Run isolated POSIX AWK parser fixtures: valid 30-record data accepted; missing, malformed, duplicate and unexpected-journey data rejected.
+- The committed shell regression scripts were not run because a complete local checkout is unavailable. The isolated parser check is not a full suite pass. Java/Kotlin compilation is unverified.
+- No Gradle task, build, CI, instrumentation, Baseline Profile collection or real-device benchmark was started. P0 runtime diagnosis remains pending an authorized device capture; no startup speedup is claimed.
