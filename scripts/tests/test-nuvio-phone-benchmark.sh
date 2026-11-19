@@ -801,6 +801,7 @@ for flavor in full playstore; do
   grep -Fq 'Thermal status before measurement: unknown' "$diagnostic_summary"
   grep -Fq 'VERDICT: THERMAL STATUS UNKNOWN' "$diagnostic_summary"
   # Moderate-or-higher pre-existing throttling must stop the run before instrumentation.
+  rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
   : > "$FAKE_COMMAND_LOG"
   if FAKE_THERMAL_STATUS=2 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-preflight.log" 2>&1; then
     echo "FAIL: phone runner accepted a device already in moderate thermal throttling ($flavor)." >&2
@@ -817,6 +818,7 @@ for flavor in full playstore; do
   fi
 
   # Light throttling is explicitly distinct from moderate-or-higher throttling.
+  rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
   FAKE_THERMAL_STATUS=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-light.log" 2>&1
   light_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
   grep -Fq 'Thermal status before measurement: 1 (LIGHT)' "$light_summary"
@@ -824,6 +826,7 @@ for flavor in full playstore; do
 
   # A run that reaches moderate throttling after the final iteration remains saved,
   # but is marked as thermally contaminated and unsuitable for clean comparison.
+  rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
   FAKE_THERMAL_STATUS=0 FAKE_THERMAL_STATUS_AFTER=2 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-after.log" 2>&1
   post_thermal_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
   grep -Fq 'Thermal status before measurement: 0 (NONE)' "$post_thermal_summary"
