@@ -22,8 +22,33 @@ for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURC
   }
 done
 
+# Home visibility is independently observable, but Android TTFD must follow the full
+# product readiness chain: Home -> MainAppContent -> AppGate -> Activity ReportDrawnWhen.
+grep -Fq 'App(onAppReady = { ready -> appReady.value = ready })' "$MAIN_ACTIVITY_SOURCE" || {
+  echo "FAIL: MainActivity must pass the product app-ready state into the Activity draw reporter." >&2
+  exit 1
+}
+grep -Fq 'ReportDrawnWhen { appReady.value }' "$MAIN_ACTIVITY_SOURCE" || {
+  echo "FAIL: Activity fully-drawn reporting must remain tied to the app-ready state." >&2
+  exit 1
+}
+grep -Fq 'val rootContentReady = !ownsAppRuntime || (initialHomeReady && !profileSwitchLoading)' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent root readiness must depend on real initial Home readiness and profile-switch completion." >&2
+  exit 1
+}
+grep -Fq 'currentOnRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent must forward the overlay-gated root readiness result." >&2
+  exit 1
+}
+main_content_ready_bridge="$(sed -n '/onRootContentReady = { ready ->/,/^[[:space:]]*},/p' "$APP_GATE_SOURCE")"
+printf '%s\\n' "$main_content_ready_bridge" | grep -Fq 'onAppReady?.invoke(' &&
+  printf '%s\\n' "$main_content_ready_bridge" | grep -Fq 'ready && gateScreen == AppGateScreen.Main.name && !profileSelectionLoading,' || {
+  echo "FAIL: the normal AppGate main-content bridge must forward readiness only while Main is active and profile selection is complete." >&2
+  exit 1
+}
 # The app root enables resource-ID mapping; the Home screen owns an independent,
-# unconditional test tag. Readiness must not depend on MainActivity's appReady callback.
+# unconditional Home marker so the benchmark can distinguish Home-visible from TTFD.
 grep -Fq '.semantics {' "$MAIN_ACTIVITY_SOURCE" &&
   grep -Fq 'testTagsAsResourceId = true' "$MAIN_ACTIVITY_SOURCE" || {
   echo "FAIL: Android Compose root must expose test tags as resource IDs." >&2
