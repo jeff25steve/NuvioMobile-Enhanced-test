@@ -753,3 +753,60 @@ The branch's `BaselineProfileGenerator` only collected the launcher startup jour
 - The pure scale helper's four local cases passed; the repo's Android instrumentation/Compose test suites were not run.
 - No Gradle task, Baseline Profile generation, APK build, CI, device interaction or Macrobenchmark was started. The new browse journey still needs a supported physical device and a seeded signed-in benchmark catalogue before the generated profile can be validated.
 - This adds code paths to the profile collection source; it does not itself change a user's installed Baseline Profile until the profile is generated, reviewed and packaged. No runtime performance advantage is claimed yet.
+
+## 19 November 2026 — improvement cycle 55: measure ART work in both cold-start arms
+
+### Finding
+
+The existing cold-start comparison measured TTID and TTFD and enabled Startup Insights, but it did not collect Android Runtime compilation/verification metrics. That meant the comparison could show a startup-time difference without showing whether the packaged Baseline Profile reduced runtime JIT work or class verification during the measured launch.
+
+The repository pins AndroidX Benchmark/Macrobenchmark 1.5.0. AndroidX 1.5.0 provides androidx.benchmark.macro.ArtMetric; its always-emitted measurements are artJitCount, artJitSumMs, artVerifyClassCount and artVerifyClassSumMs. Class-load measurements are conditional: artClassLoadCount and artClassLoadSumMs are omitted when the device does not expose the required ART tracepoints (API 35+, or API 31+ with ART Mainline version at least 341511000, with AndroidX's documented unknown-version handling).
+
+### Change
+
+- Added ArtMetric to the no-compilation and required-Baseline-Profile StartupBenchmark measurement arms.
+- Both arms continue to share the same ten cold iterations, StartupTimingMetric, Startup Insights configuration, pressHome setup and Home/fully-drawn readiness.
+- Kept compilation modes unchanged: the baseline remains CompilationMode.None; the profile arm remains CompilationMode.Partial(BaselineProfileMode.Require).
+- Extended the static startup metric contract to require exactly two ArtMetric instances, one per comparison arm.
+
+### Evidence
+
+- AndroidX Benchmark 1.5.0 release notes: https://developer.android.com/jetpack/androidx/releases/benchmark
+- AndroidX ArtMetric API reference: https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric
+- AndroidX 1.5.0 ArtMetric implementation and MetricResult behavior were checked through Context7 against the AndroidX repository. MetricResult uses sample standard deviation (n - 1) for coefficient of variation and reports CV as zero when the mean is zero.
+
+### Verification boundary
+
+- Remote benchmark source and contract were re-fetched after the edits and confirm both arms instantiate ArtMetric.
+- No Gradle compilation, Macrobenchmark execution, physical-device test, profile generation, APK build or CI workflow was run. The source-level contract script has not been executed.
+- No reduction in JIT count, verification work, TTID or TTFD is claimed. The added metric is diagnostic; actual ART measurements are required before drawing a performance conclusion.
+
+
+## 19 November 2026 — improvement cycle 56: validate and report ART startup diagnostics
+
+### Finding
+
+Collecting ArtMetric alone would be insufficient if the phone runner ignored its output or treated missing optional class-load tracepoints as zero work. The reporting path must validate the ART samples against AndroidX's statistics and distinguish "not emitted" from a measured zero.
+
+### Change
+
+- Extended phone-runner JSON validation to require both startup result records and exactly ten samples for each always-emitted ART metric in each arm: JIT count/time and runtime class-verification count/time.
+- ART measurements are validated as non-negative values. The runner cross-checks sample extrema, the interpolated median and AndroidX coefficient of variation against the raw per-iteration samples.
+- Correctly handles all-zero metrics: when the mean is zero, AndroidX reports coefficient of variation as zero; the validator now mirrors that rule rather than dividing by zero.
+- Class-load count and duration are treated as one optional pair. The pair must be present and valid in both arms or absent in both; a half-present pair is rejected.
+- Added an ART section to benchmark-summary.txt showing the median JIT methods/time and runtime verification classes/time for each arm. When class-load tracing is unavailable, the report explicitly says that the metrics were not emitted instead of presenting fabricated zero values.
+- Extended the mocked phone-runner fixtures with representative ART values, all-zero metrics, missing required ART data, negative sample values, inconsistent CV values, an unpaired optional class-load metric, and a valid result with both class-load metrics omitted. The no-class-load and unpaired fixtures preserve valid JSON structure.
+
+### Research and API evidence
+
+- AndroidX 1.5.0 ArtMetric emits JIT and runtime verification measurements for each capture; class-load measurements are conditionally omitted according to device API level and ART Mainline support: https://developer.android.com/reference/androidx/benchmark/macro/ArtMetric
+- AndroidX MetricResult calculates median from sorted raw measurements, coefficient of variation from sample standard deviation divided by the mean, and zero CV when the mean is zero. This behavior was checked against AndroidX source via Context7.
+- The runner deliberately does not infer that class loading is zero when fields are absent. Unsupported tracepoints and a measured zero are different states.
+
+### Verification boundary
+
+- The modified phone runner, benchmark fixture and static contract were re-fetched from main-build-testing. The new source fragments and mocked fixture branches were reviewed, including the JSON-removal transforms.
+- The shell regression suite has not been executed in this environment; all new fixtures remain pending a future authorized test run. No build, CI, Gradle task, instrumentation run, device measurement, profile generation or APK operation was started.
+- The values in the mocked JSON are test fixtures only and are not Nuvio measurements. The summary is descriptive and does not claim statistical significance or an Enhanced-vs-official speedup.
+- The next useful measurement step is to run the shell regression suite, then collect the paired startup results on a supported physical phone and inspect each referenced Perfetto trace. Separately, the Home browse CUJ should gain a FrameTimingMetric run once its seeded-device journey can be measured deterministically; do not add its results to the startup comparison or Startup Profile.
+
