@@ -1562,8 +1562,10 @@ append_startup_readiness_timings() {
       if (iteration < 0 || iteration > 9) {
         reject("readiness timing iteration must be between 0 and 9 for " journey_token ".")
       }
-      if (active_wait > 15000 || home_wait > 60000 || fully_drawn_wait > 15000 ||
-          total_wait > 90000 || total_wait < active_wait + home_wait + fully_drawn_wait) {
+      # UIAutomator polls every 250ms and performs one final visibility check
+      # after each deadline, so allow one polling interval beyond each budget.
+      if (active_wait > 15250 || home_wait > 60250 || fully_drawn_wait > 15250 ||
+          total_wait > 90750 || total_wait < active_wait + home_wait + fully_drawn_wait) {
         reject("readiness timing durations are outside the configured timeout budgets or inconsistent.")
       }
       if (outcome_token != "ready") {
