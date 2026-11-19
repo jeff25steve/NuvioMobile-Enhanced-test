@@ -718,16 +718,8 @@ for flavor in full playstore; do
     echo "FAIL: measure-* directory must contain the Macrobenchmark JSON result ($flavor)." >&2
     exit 1
   }
-  profile_provenance="$profile_result_dir/provenance.txt"
   benchmark_provenance="$benchmark_result_dir/provenance.txt"
-  test -s "$profile_provenance"
   test -s "$benchmark_provenance"
-  grep -Fq "App APK source filename: Nuvio-$flavor-NonMinifiedRelease.apk" "$profile_provenance" || {
-    echo "FAIL: profile collection lost the installed NonMinifiedRelease source APK identity ($flavor)." >&2
-    cat "$profile_provenance" >&2
-    exit 1
-  }
-  grep -Fq "Test APK source filename: Nuvio-$flavor-NonMinifiedRelease-Tests.apk" "$profile_provenance"
   grep -Fq "App APK source filename: Nuvio-$flavor-BenchmarkRelease.apk" "$benchmark_provenance" || {
     echo "FAIL: measurement lost the installed BenchmarkRelease source APK identity ($flavor)." >&2
     cat "$benchmark_provenance" >&2
@@ -800,6 +792,14 @@ for flavor in full playstore; do
   fi
   baseline_profile_copy="$(find "$TMP/output/$flavor" -name '*baseline-prof*.txt' -print -quit)"
   profile_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'run-*' -print | sort | tail -n 1)"
+  profile_provenance="$profile_result_dir/provenance.txt"
+  test -s "$profile_provenance"
+  grep -Fq "App APK source filename: Nuvio-$flavor-NonMinifiedRelease.apk" "$profile_provenance" || {
+    echo "FAIL: profile collection lost the installed NonMinifiedRelease source APK identity ($flavor)." >&2
+    cat "$profile_provenance" >&2
+    exit 1
+  }
+  grep -Fq "Test APK source filename: Nuvio-$flavor-NonMinifiedRelease-Tests.apk" "$profile_provenance"
   [ -n "$profile_result_dir" ] || {
     echo "FAIL: combined run must store a run-* directory ($flavor)." >&2
     exit 1
