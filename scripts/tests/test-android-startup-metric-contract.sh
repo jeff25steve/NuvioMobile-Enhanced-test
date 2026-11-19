@@ -470,6 +470,8 @@ for expected in \
   'MEMORY_BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupMemoryBenchmark"' \
   'memory-profile)' \
   'require_memory_profile_result_data() {' \
+  'class_result_count="$(count_json_pattern_occurrences' \
+  'repeat_iterations_count="$(count_json_pattern_occurrences' \
   'Memory Profiling Iteration 0' \
   '-memoryProfiling.perfetto-trace' \
   'memory-profile-summary.txt'; do
