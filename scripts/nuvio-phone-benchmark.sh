@@ -353,6 +353,69 @@ count_json_named_results() {
 
 validate_macrobenchmark_statistics() {
   awk '
+    function json_member_object(source, field,    source_length, brace_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_depth, value_in_string, value_escaped, value_character, value_position) {
+      sub(/^[[:space:]]*/, "", source)
+      if (substr(source, 1, 1) != "{") return ""
+      source_length = length(source)
+      brace_depth = 0
+      in_string = 0
+      escaped = 0
+      key_start = 0
+
+      for (position = 1; position <= source_length; position++) {
+        character = substr(source, position, 1)
+        if (in_string) {
+          if (escaped) {
+            escaped = 0
+            continue
+          }
+          if (character == "\\") {
+            escaped = 1
+            continue
+          }
+          if (character == "\"") {
+            in_string = 0
+            if (brace_depth == 1) {
+              key = substr(source, key_start + 1, position - key_start - 1)
+              colon_position = position + 1
+              while (colon_position <= source_length && substr(source, colon_position, 1) ~ /[[:space:]]/) colon_position++
+              if (substr(source, colon_position, 1) == ":" && key == field) {
+                value_start = colon_position + 1
+                while (value_start <= source_length && substr(source, value_start, 1) ~ /[[:space:]]/) value_start++
+                if (substr(source, value_start, 1) != "{") return ""
+                value_depth = 0
+                value_in_string = 0
+                value_escaped = 0
+                for (value_position = value_start; value_position <= source_length; value_position++) {
+                  value_character = substr(source, value_position, 1)
+                  if (value_in_string) {
+                    if (value_escaped) value_escaped = 0
+                    else if (value_character == "\\") value_escaped = 1
+                    else if (value_character == "\"") value_in_string = 0
+                  } else {
+                    if (value_character == "\"") value_in_string = 1
+                    else if (value_character == "{") value_depth++
+                    else if (value_character == "}") {
+                      value_depth--
+                      if (value_depth == 0) return substr(source, value_start, value_position - value_start + 1)
+                    }
+                  }
+                }
+                return ""
+              }
+            }
+          }
+        } else {
+          if (character == "\"") {
+            in_string = 1
+            key_start = position
+          } else if (character == "{") brace_depth++
+          else if (character == "}") brace_depth--
+        }
+      }
+      return ""
+    }
+
     function count_matches(source, pattern,    rest, count) {
       rest = source
       count = 0
@@ -635,35 +698,14 @@ validate_macrobenchmark_statistics() {
         exit 1
       }
 
-      # AndroidX BenchmarkData stores SDK only at context.build.version.sdk.
-      # Require that exact nested field; an unrelated metric or top-level "sdk"
-      # property must not qualify the result as a supported phone capture.
-      reported_api = ""
-      build_start = index(json, "\"build\"")
-      if (build_start > 0) {
-        build_rest = substr(json, build_start + length("\"build\""))
-        sub(/^[[:space:]]*:[[:space:]]*/, "", build_rest)
-        if (substr(build_rest, 1, 1) == "{") {
-          build_close = index(build_rest, "}")
-          if (build_close > 0) {
-            build_object = substr(build_rest, 1, build_close)
-            version_start = index(build_object, "\"version\"")
-            if (version_start > 0) {
-              version_rest = substr(build_object, version_start + length("\"version\""))
-              sub(/^[[:space:]]*:[[:space:]]*/, "", version_rest)
-              if (substr(version_rest, 1, 1) == "{") {
-                version_close = index(version_rest, "}")
-                if (version_close > 0) {
-                  version_object = substr(version_rest, 1, version_close)
-                  reported_api = metric_field(version_object, "sdk")
-                }
-              }
-            }
-          }
-        }
-      }
+      # AndroidX BenchmarkData places device metadata under the root context object.
+      # Resolve each direct child explicitly; a sibling or nested decoy must not satisfy the API floor.
+      reported_context = json_member_object(json, "context")
+      reported_build = json_member_object(reported_context, "build")
+      reported_version = json_member_object(reported_build, "version")
+      reported_api = metric_field(reported_version, "sdk")
       if (reported_api == "" || reported_api !~ /^[0-9]+$/ || reported_api + 0 < 33) {
-        print "FAIL: Macrobenchmark JSON must report context.build.version.sdk as Android API 33 or newer for this phone runner; top-level or unrelated sdk fields are ignored."
+        print "FAIL: Macrobenchmark JSON must report context.build.version.sdk as Android API 33 or newer; top-level or unrelated metadata fields are ignored."
         exit 1
       }
       ttfd_metric_pattern = "\"timeToFullDisplayMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
@@ -860,6 +902,69 @@ write_macrobenchmark_summary() {
   result_file="$1"
   summary_file="$RUN_DIR/benchmark-summary.txt"
   awk '
+    function json_member_object(source, field,    source_length, brace_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_depth, value_in_string, value_escaped, value_character, value_position) {
+      sub(/^[[:space:]]*/, "", source)
+      if (substr(source, 1, 1) != "{") return ""
+      source_length = length(source)
+      brace_depth = 0
+      in_string = 0
+      escaped = 0
+      key_start = 0
+
+      for (position = 1; position <= source_length; position++) {
+        character = substr(source, position, 1)
+        if (in_string) {
+          if (escaped) {
+            escaped = 0
+            continue
+          }
+          if (character == "\\") {
+            escaped = 1
+            continue
+          }
+          if (character == "\"") {
+            in_string = 0
+            if (brace_depth == 1) {
+              key = substr(source, key_start + 1, position - key_start - 1)
+              colon_position = position + 1
+              while (colon_position <= source_length && substr(source, colon_position, 1) ~ /[[:space:]]/) colon_position++
+              if (substr(source, colon_position, 1) == ":" && key == field) {
+                value_start = colon_position + 1
+                while (value_start <= source_length && substr(source, value_start, 1) ~ /[[:space:]]/) value_start++
+                if (substr(source, value_start, 1) != "{") return ""
+                value_depth = 0
+                value_in_string = 0
+                value_escaped = 0
+                for (value_position = value_start; value_position <= source_length; value_position++) {
+                  value_character = substr(source, value_position, 1)
+                  if (value_in_string) {
+                    if (value_escaped) value_escaped = 0
+                    else if (value_character == "\\") value_escaped = 1
+                    else if (value_character == "\"") value_in_string = 0
+                  } else {
+                    if (value_character == "\"") value_in_string = 1
+                    else if (value_character == "{") value_depth++
+                    else if (value_character == "}") {
+                      value_depth--
+                      if (value_depth == 0) return substr(source, value_start, value_position - value_start + 1)
+                    }
+                  }
+                }
+                return ""
+              }
+            }
+          }
+        } else {
+          if (character == "\"") {
+            in_string = 1
+            key_start = position
+          } else if (character == "{") brace_depth++
+          else if (character == "}") brace_depth--
+        }
+      }
+      return ""
+    }
+
     function metric_field(object, field,    needle, start, rest) {
       needle = "\"" field "\""
       start = index(object, needle)
@@ -925,15 +1030,19 @@ write_macrobenchmark_summary() {
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
 
-      device_model = metric_string_field(json, "model")
-      android_api = metric_field(json, "sdk")
-      cpu_core_count = metric_field(json, "cpuCoreCount")
-      cpu_max_frequency = metric_field(json, "cpuMaxFreqHz")
-      cpu_locked = metric_boolean_field(json, "cpuLocked")
-      memory_total = metric_field(json, "memTotalBytes")
-      art_mainline_version = metric_field(json, "artMainlineVersion")
-      sustained_performance = metric_boolean_field(json, "sustainedPerformanceModeEnabled")
-      os_codename = metric_string_field(json, "osCodenameAbbreviated")
+      # Keep every reported device field tied to AndroidX's root context object.
+      context_object = json_member_object(json, "context")
+      build_object = json_member_object(context_object, "build")
+      version_object = json_member_object(build_object, "version")
+      device_model = metric_string_field(build_object, "model")
+      android_api = metric_field(version_object, "sdk")
+      cpu_core_count = metric_field(context_object, "cpuCoreCount")
+      cpu_max_frequency = metric_field(context_object, "cpuMaxFreqHz")
+      cpu_locked = metric_boolean_field(context_object, "cpuLocked")
+      memory_total = metric_field(context_object, "memTotalBytes")
+      art_mainline_version = metric_field(context_object, "artMainlineVersion")
+      sustained_performance = metric_boolean_field(context_object, "sustainedPerformanceModeEnabled")
+      os_codename = metric_string_field(context_object, "osCodenameAbbreviated")
       if (device_model == "") device_model = "not reported"
       if (android_api == "") android_api = "not reported"
       if (cpu_core_count == "") cpu_core_count = "not reported"
