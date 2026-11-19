@@ -88,6 +88,11 @@ data class PlayerQualitySelectionState(
             else -> variants.firstOrNull { it.id == selectedVariantId }
         }
 
+    fun selectedVariantForDisplay(selectedVariantId: String?): PlayerQualityVariant? {
+        val isAutoSelection = selectedVariantId.isNullOrBlank() || selectedVariantId == PlayerQualityAutoId
+        return selectedVariantFor(selectedVariantId).takeUnless { adaptiveAutoSelection && isAutoSelection }
+    }
+
     fun playbackUrlFor(selectedVariantId: String?): String? {
         val isAutoSelection = selectedVariantId.isNullOrBlank() || selectedVariantId == PlayerQualityAutoId
         if (adaptiveAutoSelection && isAutoSelection) {

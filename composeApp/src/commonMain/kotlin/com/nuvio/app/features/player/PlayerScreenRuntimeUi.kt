@@ -731,8 +731,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             } else null,
             isPortraitPlayback = portraitPlayback,
             onInfoClick = {
-                val selectedQuality = playerQualityState.selectedVariantFor(selectedPlayerQualityId)
-                    .takeUnless { playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null }
+                val selectedQuality = playerQualityState.selectedVariantForDisplay(selectedPlayerQualityId)
                 val selectedQualityLabel = if (playerQualityState.adaptiveAutoSelection && selectedPlayerQualityId == null) {
                     playbackResolutionLabel(forButton = false)?.let { "Auto $it" } ?: "Auto"
                 } else {
@@ -1228,7 +1227,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals() {
         playerQualityState = playerQualityState,
         selectedPlayerQualityId = selectedPlayerQualityId,
         currentQualityLabel = currentQualityPanelResolutionLabel(),
-        selectedQualityVariant = playerQualityState.selectedVariantFor(selectedPlayerQualityId),
+        selectedQualityVariant = playerQualityState.selectedVariantForDisplay(selectedPlayerQualityId),
         selectedQualityIsAuto = selectedPlayerQualityId == null && playerQualityState.hasSelectableQualities,
         onPlayerQualitySelected = { qualityId -> selectPlayerQuality(qualityId) },
         onQualityPanelDismissed = {

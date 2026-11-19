@@ -48,6 +48,21 @@ class PlayerQualitySelectionStateTest {
     }
 
     @Test
+    fun adaptiveAutoDoesNotPresentTheRecommendedVariantAsLockedQuality() {
+        val state = qualityState(adaptive = true)
+
+        assertEquals(null, state.selectedVariantForDisplay(null))
+        assertEquals(null, state.selectedVariantForDisplay(PlayerQualityAutoId))
+    }
+
+    @Test
+    fun manualQualityDisplaysItsSelectedVariant() {
+        val state = qualityState(adaptive = true)
+
+        assertEquals("720", state.selectedVariantForDisplay("720")?.id)
+    }
+
+    @Test
     fun explicitQualityStillUsesItsSanitizedSingleVariantPlaylist() {
         val state = qualityState(adaptive = true)
 
