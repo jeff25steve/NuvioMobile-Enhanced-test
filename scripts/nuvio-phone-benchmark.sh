@@ -1338,16 +1338,18 @@ read_battery_saver_from_snapshot() {
     return 0
   }
   awk '
-    line = tolower($0)
-    sub(/^[[:space:]]*/, "", line)
-    if (index(line, "battery saver (settings global low_power):") == 1) {
-      status_line = line
-      sub(/^.*:[[:space:]]*/, "", status_line)
-      sub(/[[:space:]].*$/, "", status_line)
-      if (status_line == "0" || status_line == "1") {
-        print status_line
-        found = 1
-        exit
+    {
+      line = tolower($0)
+      sub(/^[[:space:]]*/, "", line)
+      if (index(line, "battery saver (settings global low_power):") == 1) {
+        status_line = line
+        sub(/^.*:[[:space:]]*/, "", status_line)
+        sub(/[[:space:]].*$/, "", status_line)
+        if (status_line == "0" || status_line == "1") {
+          print status_line
+          found = 1
+          exit
+        }
       }
     }
     END {
