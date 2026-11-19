@@ -467,6 +467,32 @@ JSON
         ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
+      non-object-context)
+        awk '
+          NR == 1 {
+            print
+            print "  \"build\": {\"version\": {\"sdk\": 35}},"
+            next
+          }
+          /^  \"context\":/ { print "  \"context\": \"not an object\","; next }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      non-object-build)
+        awk '
+          /^  \"context\":/ {
+            print "  \"context\": {\"build\": \"not an object\", \"cpuCoreCount\": 8, \"cpuLocked\": true, \"cpuMaxFreqHz\": 2800000000, \"memTotalBytes\": 12884901888, \"sustainedPerformanceModeEnabled\": false, \"artMainlineVersion\": 123456789, \"osCodenameAbbreviated\": \"REL\"},"
+            next
+          }
+          { print }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      non-object-version)
+        sed 's/"version": {"sdk": 35}/"version": "35"/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
     esac
 
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "misleading-root-metadata" ]; then
@@ -494,7 +520,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|misleading-root-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
+      complete|misleading-root-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -1138,7 +1164,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
+  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build non-object-context non-object-build non-object-version one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
@@ -1156,13 +1182,13 @@ for flavor in full playstore; do
       }
     fi
     case "$bad_json" in
-      missing-context-sdk|misleading-global-sdk|misleading-global-build)
+      missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version)
         grep -Fq 'context.build.version.sdk as Android API 33 or newer' "$TMP/$flavor-$bad_json.log" || {
           echo "FAIL: SDK metadata corruption was not rejected at the exact context path ($bad_json, $flavor)." >&2
           cat "$TMP/$flavor-$bad_json.log" >&2
           exit 1
         }
-        if [ "$bad_json" = misleading-global-sdk ]; then
+        if [ "$bad_json" = misleading-global-sdk ] || [ "$bad_json" = misleading-global-build ] || [ "$bad_json" = non-object-context ]; then
           grep -Fq 'top-level or unrelated metadata fields are ignored' "$TMP/$flavor-$bad_json.log" || {
             echo "FAIL: misleading SDK/build fixture did not identify the exact context metadata rule ($flavor)." >&2
             cat "$TMP/$flavor-$bad_json.log" >&2
