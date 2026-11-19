@@ -754,7 +754,7 @@ JSON
       elif [ "${FAKE_BLANK_STARTUP_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
       else
-        printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
+        printf 'Lcom/nuvio/Foo;\nHSPLcom/nuvio/Foo;->bar()V\nHSPLcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
       fi
     fi
     if [ "${FAKE_MISSING_HOME_BROWSE_PROFILE:-0}" != "1" ]; then
@@ -763,7 +763,7 @@ JSON
       elif [ "${FAKE_BLANK_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       else
-        printf 'Lcom/nuvio/HomeCatalog;->scroll()V\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+        printf 'Lcom/nuvio/HomeCatalog;\nSPLcom/nuvio/HomeCatalog;->scroll()V\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       fi
     fi
     if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
@@ -1001,6 +1001,10 @@ for flavor in full playstore; do
   grep -Fq 'API 34+ CompilationMode.None uses verify and clears app ART profiles before measurement.' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Exploratory bootstrap intervals (difference in medians; 10,000 resamples)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq '95% percentile interval' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'do not correct systematic test-order, device-heating, or time-drift bias' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'three JUnit arms execute as grouped test blocks, not an interleaved rotation' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
 
   # The optional heap diagnostic must stay separate from the clean ten-iteration timing run.
@@ -1148,6 +1152,15 @@ for flavor in full playstore; do
   test -n "$startup_profile_copy"
   test -s "$startup_profile_copy"
   grep -Eq '[^[:space:]]' "$startup_profile_copy"
+  profile_audit="$profile_result_dir/profile-audit-summary.txt"
+  test -s "$profile_audit"
+  grep -Fq 'Startup Profile' "$profile_audit"
+  grep -Fq 'Home browse Baseline Profile' "$profile_audit"
+  grep -Fq 'Nonblank rules: 3' "$profile_audit"
+  grep -Fq 'Unique exact rules: 2' "$profile_audit"
+  grep -Fq 'Duplicate exact rules: 1' "$profile_audit"
+  grep -Fq 'Rules carrying H/S/P flags: H=1 S=1 P=1' "$profile_audit"
+  grep -Fq 'profile-audit-summary.txt' "$profile_result_dir/copied-files.txt"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
   environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
   environment_after="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print -quit)"
