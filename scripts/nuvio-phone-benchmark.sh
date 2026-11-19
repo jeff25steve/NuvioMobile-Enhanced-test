@@ -816,7 +816,13 @@ validate_macrobenchmark_statistics() {
           while (match(metric_rest, metric_pattern)) {
             metric_start = RSTART
             metric_length = RLENGTH
-            metric_object = substr(metric_rest, metric_start, metric_length)
+            metric_text = substr(metric_rest, metric_start, metric_length)
+            metric_object_start = index(metric_text, "{")
+            if (metric_object_start == 0) {
+              print "FAIL: " metric_name " has no direct metric result object."
+              exit 1
+            }
+            metric_object = substr(metric_text, metric_object_start)
             if (!validate_art_metric_object(metric_object, metric_name)) exit 1
             metric_count++
             metric_rest = substr(metric_rest, metric_start + metric_length)
