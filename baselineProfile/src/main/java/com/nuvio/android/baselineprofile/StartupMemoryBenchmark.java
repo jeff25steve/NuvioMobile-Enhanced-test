@@ -67,7 +67,7 @@ public final class StartupMemoryBenchmark {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startupWithBaselineProfileMemoryProfile");
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startupWithBaselineProfileMemoryProfile", scope.getIteration());
                     return Unit.INSTANCE;
                 }
         );
