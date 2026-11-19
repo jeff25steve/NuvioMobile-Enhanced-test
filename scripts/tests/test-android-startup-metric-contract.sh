@@ -233,6 +233,43 @@ grep -Fq 'append_macrobenchmark_execution_order() {' "$PHONE_RUNNER" && \
   exit 1
 }
 
+# The timing report must quantify sample uncertainty without hiding the grouped
+# execution-order/thermal-drift limitation of the current three-arm JUnit suite.
+for expected in \
+  'BOOTSTRAP_REPLICATES = 10000' \
+  'bootstrap_rng_state = 20261119' \
+  'function bootstrap_median_difference(' \
+  'function sort_numeric(' \
+  'Exploratory bootstrap intervals (difference in medians; 10,000 resamples)' \
+  'do not correct systematic test-order, device-heating, or time-drift bias' \
+  'three JUnit arms execute as grouped test blocks, not an interleaved rotation'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: startup benchmark is missing the deterministic bootstrap/ordering contract '$expected'." >&2
+    exit 1
+  }
+done
+
+# Profile collection must retain immutable source artifacts and report hashes,
+# exact-rule duplicates, and H/S/P rule-flag counts without rewriting profiles.
+for expected in \
+  'write_profile_audit_summary() {' \
+  'SHA-256: %s' \
+  'Duplicate exact rules: %d' \
+  'Method-rule candidates: %d' \
+  'Rules carrying H/S/P flags:' \
+  'Generated profile artifact audit ->'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: collected Baseline/Startup Profile artifact audit is missing '$expected'." >&2
+    exit 1
+  }
+done
+profile_validate_line="$(grep -n -F '      require_non_empty_startup_profile' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+profile_audit_line="$(grep -n -F '      write_profile_audit_summary' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
+[ -n "$profile_validate_line" ] && [ -n "$profile_audit_line" ] && [ "$profile_validate_line" -lt "$profile_audit_line" ] || {
+  echo "FAIL: profile audit must run only after both profile artifacts pass non-empty validation." >&2
+  exit 1
+}
+
 # Installed APK provenance must survive separate install/collect/measure shell invocations.
 for expected in \
   'current-install-provenance.txt' \
