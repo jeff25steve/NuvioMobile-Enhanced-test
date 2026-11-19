@@ -67,7 +67,9 @@ internal fun shouldShowInitialHomeLoading(
     hasRenderableHomeRows: Boolean,
     addonManifestsLoading: Boolean,
     homeCatalogLoading: Boolean,
-): Boolean = !hasRenderableHomeRows && (addonManifestsLoading || homeCatalogLoading)
+    homeSourcesLoaded: Boolean = true,
+): Boolean = !hasRenderableHomeRows &&
+    (!homeSourcesLoaded || addonManifestsLoading || homeCatalogLoading)
 
 internal fun shouldShowHomeHeroSlot(
     heroEnabled: Boolean,
