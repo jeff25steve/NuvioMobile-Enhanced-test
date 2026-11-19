@@ -16,6 +16,14 @@ class PosterPrefetchScaleTest {
     fun regularContinueWatchingCardUsesCropScale() {
         assertEquals(
             PosterPrefetchScale.CROP,
+            posterPrefetchScale(isCardStyle = true, isCloudLibraryItem = false),
+        )
+    }
+
+    @Test
+    fun cloudLibraryCardLayoutStillUsesCropScale() {
+        assertEquals(
+            PosterPrefetchScale.CROP,
             posterPrefetchScale(isCardStyle = true, isCloudLibraryItem = true),
         )
     }
