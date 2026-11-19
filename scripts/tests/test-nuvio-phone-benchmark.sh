@@ -382,6 +382,15 @@ JSON
         printf 'Lcom/nuvio/Foo;->bar()V\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
       fi
     fi
+    if [ "${FAKE_MISSING_HOME_BROWSE_PROFILE:-0}" != "1" ]; then
+      if [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+        : > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+      elif [ "${FAKE_BLANK_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+        printf '  \\n\\t\\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+      else
+        printf 'Lcom/nuvio/HomeCatalog;->scroll()V\\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+      fi
+    fi
     if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       : > "$FAKE_MEDIA_ROOT/com.example.other/foreign-baseline-prof-decoy.txt"
