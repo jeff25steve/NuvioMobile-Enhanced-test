@@ -347,6 +347,27 @@ for expected in \
     exit 1
   }
 done
+
+for expected in \
+  'function json_member_value(source, field' \
+  'value = json_member_value(source, field)' \
+  'value = json_member_value(object, field)' \
+  'runs_value = json_member_value(object, "runs")' \
+  'if (found_count != 1) return ""' \
+  'metric_object = substr(metric_text, metric_object_start)' \
+  'result_object = "{" substr(result_rest, 1, RSTART - 1)' \
+  'result_object = "{" result_rest'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone benchmark JSON reads must use exact direct object members and reject ambiguous duplicate keys '$expected'." >&2
+    exit 1
+  }
+done
+if grep -Fq 'start = index(object, needle)' "$PHONE_RUNNER" ||
+   grep -Fq 'count_matches(object, "\\"runs\\"' "$PHONE_RUNNER"; then
+  echo "FAIL: phone benchmark must not use unscoped substring lookups for JSON object fields or raw runs arrays." >&2
+  exit 1
+fi
+
 if grep -Fq 'android_api = metric_field(json, "sdk")' "$PHONE_RUNNER" ||
    grep -Fq 'device_model = metric_string_field(json, "model")' "$PHONE_RUNNER" ||
    grep -Fq 'cpu_core_count = metric_field(json, "cpuCoreCount")' "$PHONE_RUNNER" ||
