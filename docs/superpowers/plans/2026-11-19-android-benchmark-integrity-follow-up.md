@@ -41,3 +41,35 @@
 - Static source-contract checks protect the runner behavior. A targeted local POSIX shell/AWK fragment check passed after an AWK reserved-word issue was found and fixed.
 - The full repository shell regression scripts were not executed because no local checkout was available in this session. No Gradle task, build, instrumentation, physical-device benchmark or CI run was started.
 - Final remote scope review confirmed that the change set contains only the phone benchmark runner, its two regression scripts, this plan and the two engineering notes. No workflow, production app source, Android benchmark class, dependency or build configuration changed.
+
+
+## Additional review cycles — 19 November 2026
+
+### Cycle 3 — align readiness diagnostic assertions
+
+- [x] Replace the stale `HomeScreen marker visible now:` and `Fully-drawn marker visible now:` expectations in `scripts/tests/test-nuvio-phone-benchmark.sh` with the current active-window diagnostic labels emitted by `StartupReadiness.java`.
+- [x] Reproduce the mismatch with an isolated POSIX shell fixture before editing: the old assertion exited 1 against the current diagnostic text.
+- [x] Re-fetch the updated test from the remote branch and verify both new labels are present and both stale labels are absent.
+- Scope: regression-test repair only; no product readiness behavior changed.
+
+### Cycle 4 — guard the complete Activity fully-drawn callback chain
+
+- [x] Extend `scripts/tests/test-android-startup-readiness.sh` to assert that `MainActivity` passes `appReady` into `ReportDrawnWhen`.
+- [x] Assert that `MainAppContent` derives root readiness from real Home readiness and profile-switch completion, then forwards the overlay-gated result.
+- [x] Assert that the normal `AppGate` bridge forwards the ready state to `onAppReady` only while the Main gate is active and profile selection is complete.
+- [x] Exercise the new bridge assertions with a deliberately broken local fixture (expected exit 1) and a valid bridge fixture (exit 0).
+- Scope: additional regression coverage; no product readiness behavior changed.
+
+### Evidence-led non-changes
+
+- The inspected normal Android path is connected end-to-end: Home's initial-content callback updates `initialHomeReady`; `MainAppContent` combines it with profile-switch state and overlay exit; `AppGate` forwards the result; `MainActivity` exposes the same state to `ReportDrawnWhen` and the `nuvio_startup_ready` marker. No static callback break was found. A device trace is still required to reproduce the Grok-reported mismatch before changing runtime readiness semantics.
+- The 78 `.initialize(...)` call count is not a cost measurement. The inspected P2P engine and subtitle cache initializers only store the application context. Sentry initialization does perform SDK startup synchronously, but it was not moved: no trace establishes its cost, and deferring crash reporting would change early-startup diagnostics.
+- The large Baseline Profile file is not empty. The GitHub file-content retrieval returned an empty body for that large file, but an independent read of the branch's raw file showed non-empty profile rules. The inclusive `rule -> true` filter was not changed because no verified rule-coverage defect was established.
+- UiAutomator's `UiObject2.scroll()` return value indicates whether the object can still scroll in the requested direction after the gesture. A false result can mean a successful scroll reached the boundary, so it is not a reliable no-movement test; `HomeBrowseReadiness.scrollRequired()` was left unchanged.
+
+### Verification boundary
+
+- Remote commits: `06922df65280346d697635f3e31a95f6c3aba688` (diagnostic assertion repair), `e3d36e382bab72f44550a58c361c6dac6fbec60f` (full readiness-chain guard), and `bfe82cedb2908cf879f740dda69be4123867cef6` (shell newline-format correction in the guard).
+- The focused shell fixtures were exercised locally. The full repository shell regression scripts were not run because a complete local checkout was unavailable.
+- No Gradle task, build, CI, instrumentation, physical-device benchmark, or device trace was started.
+- Runtime sources, dependencies, generated profiles, workflow files, and benchmark measurement settings were not changed.
