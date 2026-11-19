@@ -195,6 +195,9 @@ load_install_provenance() {
     unavailable:*|*:unavailable|:*) fail "Saved APK provenance has an unavailable SHA-256. Reinstall from a bundle with working SHA-256 support." ;;
   esac
   [ "${#saved_app_hash}" -eq 64 ] && [ "${#saved_test_hash}" -eq 64 ] || fail "Saved APK provenance contains an invalid SHA-256 value."
+  case "$saved_app_hash$saved_test_hash" in
+    *[!0-9a-fA-F]*) fail "Saved APK provenance contains a non-hexadecimal SHA-256 value." ;;
+  esac
 }
 
 verify_installed_package_apk() {
