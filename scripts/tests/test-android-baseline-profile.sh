@@ -1,0 +1,88 @@
+#!/bin/sh
+set -eu
+
+ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
+PROFILE_SOURCE="$ROOT_DIR/androidApp/src/main/baseline-prof.txt"
+GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
+BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+
+for source in "$PROFILE_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+  [ -s "$source" ] || {
+    echo "FAIL: required Baseline Profile source is missing or empty: $source" >&2
+    exit 1
+  }
+done
+
+# Audit the committed human-readable profile itself. This is deliberately a
+# text-integrity check; the compiled assets/dexopt/baseline.prof size and ART
+# installation status can only be verified from a built artifact/device.
+awk '
+  NF {
+    rules++
+    if (seen[$0]++) duplicates++
+    if ($0 !~ /^[SHP]*L[^;]+;(->.*)?$/) malformed++
+    if ($0 ~ /^L[^;]+;$/) classes++
+    if ($0 ~ /^[SHP]*L[^;]+;->/) methods++
+    flags = $0
+    sub(/L.*/, "", flags)
+    if (index(flags, "S") > 0 && $0 ~ /;->/) startupMethods++
+    if (index(flags, "P") > 0 && $0 ~ /;->/) baselineMethods++
+  }
+  END {
+    if (rules == 0 || duplicates > 0 || malformed > 0 ||
+        classes == 0 || methods == 0 || startupMethods == 0 || baselineMethods == 0) {
+      printf "FAIL: profile integrity: rules=%d duplicates=%d malformed=%d classes=%d methods=%d startupMethods=%d baselineMethods=%d\n", \
+        rules, duplicates, malformed, classes, methods, startupMethods, baselineMethods > "/dev/stderr"
+      exit 1
+    }
+    printf "PROFILE: rules=%d classes=%d methods=%d startupMethods=%d baselineMethods=%d duplicates=0 malformed=0\n", \
+      rules, classes, methods, startupMethods, baselineMethods
+  }
+' "$PROFILE_SOURCE"
+
+startup_collect_block="$(awk '
+  /baselineProfileRule.collect\(/ { collection++ }
+  collection == 1 { print }
+  collection == 1 && /^[[:space:]]*\);/ { exit }
+' "$GENERATOR_SOURCE")"
+browse_collect_block="$(awk '
+  /baselineProfileRule.collect\(/ { collection++ }
+  collection == 2 { print }
+  collection == 2 && /^[[:space:]]*\);/ { exit }
+' "$GENERATOR_SOURCE")"
+
+printf '%s\n' "$startup_collect_block" | grep -Fq '"startup",' || {
+  echo "FAIL: the launcher journey must retain the startup profile output prefix." >&2
+  exit 1
+}
+startup_flags="$(printf '%s\n' "$startup_collect_block" | grep -c '^                true,$' || true)"
+[ "$startup_flags" -eq 2 ] || {
+  echo "FAIL: launcher startup must set includeInStartupProfile=true and strictStability=true." >&2
+  exit 1
+}
+printf '%s\n' "$browse_collect_block" | grep -Fq '"home_browse", false, true,' || {
+  echo "FAIL: Home browse must remain Baseline-Profile-only with strict stability enabled." >&2
+  exit 1
+}
+
+for collect_block in "$startup_collect_block" "$browse_collect_block"; do
+  printf '%s\n' "$collect_block" | grep -Fq '                15,' &&
+    printf '%s\n' "$collect_block" | grep -Fq '                3,' &&
+    printf '%s\n' "$collect_block" | grep -Fq 'rule -> true' || {
+    echo "FAIL: both journeys must retain 15 max iterations, 3 stable iterations and an unfiltered complete rule set." >&2
+    exit 1
+  }
+done
+
+grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'BaselineProfileMode.Disable' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'BaselineProfileMode.Require' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup comparison must retain no-compilation, partial-without-profile and required-profile arms." >&2
+  exit 1
+}
+grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup comparison iteration count changed without an explicit review." >&2
+  exit 1
+}
+
+printf 'PASS: Baseline Profile artifact integrity, startup/browse separation and comparison arms are guarded.\n'
