@@ -398,9 +398,9 @@ JSON
       if [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       elif [ "${FAKE_BLANK_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
-        printf '  \\n\\t\\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+        printf '  \n\t\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       else
-        printf 'Lcom/nuvio/HomeCatalog;->scroll()V\\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+        printf 'Lcom/nuvio/HomeCatalog;->scroll()V\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       fi
     fi
     if [ "${FAKE_FOREIGN_OUTPUTS:-0}" = "1" ]; then
