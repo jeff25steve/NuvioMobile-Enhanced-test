@@ -29,7 +29,7 @@
 
 - [x] Re-fetch the changed files and inspect the complete remote diff and branch ancestry.
 - [x] Update the existing benchmark/engineering notes with rationale, source evidence, scope, and verification limits.
-- [x] Do not claim the shell regression suite passed unless it was actually executed. This session has remote GitHub access but no repository checkout in the local container; no builds, tests, CI, instrumentation or real-device measurements are authorized.
+- [x] Do not claim the full repository shell regression suite passed: it was not executed because no local checkout was available. Only isolated POSIX shell/AWK helper fixtures were run. No Gradle task, build, CI, instrumentation or real-device measurement was started.
 - [x] Verify no workflow file or production app source changed, and verify the final `main-build-testing` head and changed paths.
 
 
@@ -40,4 +40,4 @@
 - Regression fixtures cover pre-run moderate rejection, light status, post-run moderate contamination, unavailable diagnostics and reversed JUnit case order.
 - Static source-contract checks protect the runner behavior. A targeted local POSIX shell/AWK fragment check passed after an AWK reserved-word issue was found and fixed.
 - The full repository shell regression scripts were not executed because no local checkout was available in this session. No Gradle task, build, instrumentation, physical-device benchmark or CI run was started.
-- Final scope review must confirm no workflow or production app source changed; final remote branch/head verification is recorded in the session summary.
+- Final remote scope review confirmed that the change set contains only the phone benchmark runner, its two regression scripts, this plan and the two engineering notes. No workflow, production app source, Android benchmark class, dependency or build configuration changed.
