@@ -7,12 +7,15 @@ HOME_SCREEN_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/fea
 HOME_CATALOG_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/components/HomeCatalogSection.kt"
 APP_GATE_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppGate.kt"
 MAIN_CONTENT_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/MainAppContent.kt"
+APP_READINESS_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/AppReadiness.kt"
+HOME_MODELS_SOURCE="$ROOT_DIR/composeApp/src/commonMain/kotlin/com/nuvio/app/features/home/HomeModels.kt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
+HOME_BROWSE_READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/HomeBrowseReadiness.java"
 ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
 
-for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
+for source in "$MAIN_ACTIVITY_SOURCE" "$HOME_SCREEN_SOURCE" "$HOME_CATALOG_SOURCE" "$APP_GATE_SOURCE" "$MAIN_CONTENT_SOURCE" "$APP_READINESS_SOURCE" "$HOME_MODELS_SOURCE" "$GENERATOR_SOURCE" "$HOME_BROWSE_READINESS_SOURCE" "$BENCHMARK_SOURCE" "$READINESS_SOURCE"; do
   [ -f "$source" ] || {
     echo "FAIL: startup readiness source not found: $source" >&2
     exit 1
@@ -70,6 +73,32 @@ grep -Fq 'stateDescription =' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: the visible main-content root must expose its readiness state." >&2
   exit 1
 }
+# The launch-overlay timeout may reveal the Home UI, but must never promote appReady.
+grep -Fq 'initialHomeFallbackElapsed = true' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent must keep a separate visual overlay fallback state." >&2
+  exit 1
+}
+grep -Fq 'shouldShowMainLaunchOverlay(' "$MAIN_CONTENT_SOURCE" && \
+  grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: launch-overlay visibility and Activity fully-drawn reporting must use separate predicates." >&2
+  exit 1
+}
+fallback_effect="$(sed -n '/LaunchedEffect(appContentGeneration)/,/^    }/p' "$MAIN_CONTENT_SOURCE")"
+if printf '%s\n' "$fallback_effect" | grep -Fq 'initialHomeReady = true'; then
+  echo "FAIL: timeout fallback must not set product Home readiness." >&2
+  exit 1
+fi
+grep -Fq 'snapshotFlow {' "$HOME_SCREEN_SOURCE" && \
+  grep -Fq 'homeListState.layoutInfo.visibleItemsInfo' "$HOME_SCREEN_SOURCE" && \
+  grep -Fq 'isInitialHomeContentLoading' "$HOME_SCREEN_SOURCE" || {
+  echo "FAIL: Home readiness must wait for a laid-out visible list item after initial loading resolves." >&2
+  exit 1
+}
+grep -Fq 'homeSourcesLoaded = serversUiState.revision > 0' "$HOME_SCREEN_SOURCE" && \
+  grep -Fq 'homeSourcesLoaded' "$HOME_MODELS_SOURCE" || {
+  echo "FAIL: empty Home must not report readiness before initial source configuration has loaded." >&2
+  exit 1
+}
 # Only the launcher startup journey belongs in the Startup Profile.
 grep -Fq 'StartupReadiness.TARGET_APP_PACKAGE' "$GENERATOR_SOURCE" || {
   echo "FAIL: Baseline Profile generator must target the isolated benchmark app." >&2
@@ -101,13 +130,15 @@ grep -Fq 'nuvio_benchmark_home_scroll' "$GENERATOR_SOURCE" &&
   echo "FAIL: Home browse profile must scroll both the vertical feed and a horizontal catalogue shelf." >&2
   exit 1
 }
-# ART metrics remain deliberately separate from the two-arm timing contract.
-# The result parser currently validates StartupTimingMetric only; adding ArtMetric
-# here would require optional-metric parsing and regression fixtures first.
-if grep -Eq 'new ArtMetric\(\)|startupArtDiagnostics' "$BENCHMARK_SOURCE"; then
-  echo "FAIL: ART diagnostics must not be mixed into the strict two-arm startup timing pass." >&2
+# Both cold-start arms now collect the AndroidX ART diagnostics as well as startup timing.
+[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 2 ] || {
+  echo "FAIL: both cold-start arms must collect ART runtime diagnostics." >&2
   exit 1
-fi
+}
+grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: both cold-start arms must continue to collect StartupTimingMetric." >&2
+  exit 1
+}
 # Release/benchmark APK needs R8 optimization; the capture build stays non-minified.
 grep -Fq 'isMinifyEnabled = true' "$ANDROID_BUILD_SOURCE" || {
   echo "FAIL: optimized benchmarkRelease must keep R8 enabled." >&2
@@ -128,90 +159,87 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
   fi
 done
 
-# Shared readiness implementation owns marker discovery, deadline handling,
-# diagnostics and foreground recovery. Test it directly.
-grep -Fq 'static boolean markerVisible(UiDevice device, String marker)' "$READINESS_SOURCE" || {
-  echo "FAIL: shared readiness helper must expose safe marker lookup." >&2
-  exit 1
-}
-marker_lookup_block="$(sed -n '/static boolean markerVisible(/,/^    }/p' "$READINESS_SOURCE")"
-if printf '%s\n' "$marker_lookup_block" | grep -Eq 'catch[[:space:]]*\('; then
-  echo "FAIL: marker lookup must surface UIAutomator query failures instead of treating them as missing markers." >&2
-  exit 1
-fi
-grep -Fq 'markerQueryFailure(' "$READINESS_SOURCE" || {
-  echo "FAIL: selector exceptions must be reported separately from marker timeouts." >&2
-  exit 1
-}
-grep -Fq 'failure.initCause(cause)' "$READINESS_SOURCE" || {
-  echo "FAIL: original UIAutomator query cause must be preserved." >&2
-  exit 1
-}
-grep -Fq 'Unable to restore Nuvio while waiting for marker' "$READINESS_SOURCE" || {
-  echo "FAIL: failed foreground recovery commands must be surfaced." >&2
-  exit 1
-}
-grep -Fq 'return By.res(marker);' "$READINESS_SOURCE" || {
-  echo "FAIL: Compose testTagsAsResourceId markers must use the bare resource-name selector." >&2
-  exit 1
-}
-grep -Fq 'device.findObject(By.pkg(TARGET_APP_PACKAGE))' "$READINESS_SOURCE" || {
-  echo "FAIL: bare Compose testTag lookup must be guarded by target-package presence." >&2
-  exit 1
-}
-grep -Fq 'static void scrollUntilMarker(' "$READINESS_SOURCE" || {
-  echo "FAIL: shared readiness helper must expose bounded scrolling until a Home browse target is visible." >&2
-  exit 1
-}
-grep -Fq 'static void scrollRequired(' "$READINESS_SOURCE" || {
-  echo "FAIL: shared readiness helper must validate required Home browse scroll actions." >&2
-  exit 1
-}
-grep -Fq 'scrollable.isScrollable()' "$READINESS_SOURCE" &&
-  grep -Fq 'scrollable.scroll(direction, 0.75f)' "$READINESS_SOURCE" || {
-  echo "FAIL: Home browse collection must verify real scrollable accessibility nodes before scrolling." >&2
-  exit 1
-}
-grep -Fq 'markerHasVisibleBounds(device, targetMarker)' "$READINESS_SOURCE" &&
-  grep -Fq 'object.getVisibleBounds()' "$READINESS_SOURCE" || {
-  echo "FAIL: Home shelf discovery must wait until the catalogue row is actually visible on screen." >&2
-  exit 1
-}
-grep -Fq 'Direction.DOWN' "$GENERATOR_SOURCE" && grep -Fq 'Direction.UP' "$GENERATOR_SOURCE" &&
-  grep -Fq 'Direction.RIGHT' "$GENERATOR_SOURCE" && grep -Fq 'Direction.LEFT' "$GENERATOR_SOURCE" || {
-  echo "FAIL: Home browse profile must exercise vertical and horizontal scroll in both directions." >&2
-  exit 1
-}
-grep -Fq 'rootReadinessStateDescription' "$READINESS_SOURCE" || {
-  echo "FAIL: readiness diagnostics must report the visible root state description." >&2
-  exit 1
-}
-grep -Fq 'stateDescription =' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: visible root semantics must expose the home/profile readiness state." >&2
+# Startup readiness accepts only marker nodes owned by the target app in its active window.
+grep -Fq 'static UiObject2 targetMarker(UiDevice device, String marker)' "$READINESS_SOURCE" || {
+  echo "FAIL: shared readiness helper must expose active-window, package-owned marker lookup." >&2
   exit 1
 }
 grep -Fq 'device.findWindow(By.Window.active(true))' "$READINESS_SOURCE" || {
-  echo "FAIL: foreground recovery must use UIAutomator's active-window API." >&2
+  echo "FAIL: marker lookup must start from UI Automator's active accessibility window." >&2
   exit 1
 }
-grep -Fq 'Active window package:' "$READINESS_SOURCE" || {
-  echo "FAIL: diagnostics must report the active-window package." >&2
+grep -Fq 'activeWindow.findObject(packageRes(marker))' "$READINESS_SOURCE" || {
+  echo "FAIL: marker lookup must be scoped to the active target window, not global hierarchy." >&2
   exit 1
 }
-grep -Fq 'Last package to report an accessibility event:' "$READINESS_SOURCE" || {
-  echo "FAIL: diagnostics must label the last accessibility-event package accurately." >&2
+grep -Fq 'By.res(TARGET_APP_PACKAGE, marker)' "$READINESS_SOURCE" || {
+  echo "FAIL: Compose testTag selectors must be resource-package qualified." >&2
   exit 1
 }
-grep -Fq 'private static boolean isKnownShellPackage(String packageName)' "$READINESS_SOURCE" || {
-  echo "FAIL: known-shell package matching must be centralized." >&2
+grep -Fq 'object.getApplicationPackage()' "$READINESS_SOURCE" || {
+  echo "FAIL: marker ownership must be verified on the matched UI node itself." >&2
   exit 1
 }
-grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
-  echo "FAIL: readiness waits must use monotonic elapsed-realtime deadlines." >&2
+if grep -Fq 'monkey -p' "$READINESS_SOURCE"; then
+  echo "FAIL: readiness waits must not relaunch or re-foreground the app during a measurement." >&2
+  exit 1
+fi
+grep -Fq 'waitForTargetAppActive' "$READINESS_SOURCE" || {
+  echo "FAIL: benchmark readiness must require the target app to own the active window." >&2
   exit 1
 }
-grep -Fq 'remaining' "$READINESS_SOURCE" || {
-  echo "FAIL: Home and fully-drawn waits must share one total timeout budget." >&2
+grep -Fq 'FULLY_DRAWN_AFTER_HOME_TIMEOUT_MS = 15_000L' "$READINESS_SOURCE" || {
+  echo "FAIL: fully-drawn readiness must have a short, separate post-Home timeout." >&2
+  exit 1
+}
+grep -Fq 'HOME_STARTUP_TIMEOUT_MS = 60_000L' "$READINESS_SOURCE" || {
+  echo "FAIL: reaching the Home screen must retain a reasonable cold-start budget." >&2
+  exit 1
+}
+grep -Fq 'HomeScreen is visible, but the product fully-drawn marker' "$READINESS_SOURCE" || {
+  echo "FAIL: post-Home readiness failures must be distinguished from launch timeouts." >&2
+  exit 1
+}
+grep -Fq 'markerQueryFailure(' "$READINESS_SOURCE" && \
+  grep -Fq 'failure.initCause(cause)' "$READINESS_SOURCE" || {
+  echo "FAIL: accessibility query failures must retain their original causes." >&2
+  exit 1
+}
+grep -Fq 'rootReadinessStateDescription' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness diagnostics must report the root state description." >&2
+  exit 1
+}
+grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
+  grep -Fq 'Last package to report an accessibility event:' "$READINESS_SOURCE" || {
+  echo "FAIL: diagnostics must distinguish the active window from the last accessibility event." >&2
+  exit 1
+}
+
+# Home browse scrolling is a distinct responsibility from startup readiness waits.
+grep -Fq 'static void scrollUntilMarker(' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'static void scrollRequired(' "$HOME_BROWSE_READINESS_SOURCE" || {
+  echo "FAIL: Home browse scrolling must live in its dedicated readiness helper." >&2
+  exit 1
+}
+grep -Fq 'StartupReadiness.targetMarker(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'scrollable.isScrollable()' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'scrollable.scroll(direction, SCROLL_PERCENT)' "$HOME_BROWSE_READINESS_SOURCE" || {
+  echo "FAIL: Home browse must re-resolve package-owned scroll nodes and verify scrollability." >&2
+  exit 1
+}
+grep -Fq 'markerHasVisibleBounds(device, targetMarker)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'object.getVisibleBounds()' "$HOME_BROWSE_READINESS_SOURCE" || {
+  echo "FAIL: Home shelf discovery must wait until the target row has visible screen bounds." >&2
+  exit 1
+}
+grep -Fq 'HomeBrowseReadiness.scrollRequired(' "$GENERATOR_SOURCE" && \
+  grep -Fq 'HomeBrowseReadiness.scrollUntilMarker(' "$GENERATOR_SOURCE" || {
+  echo "FAIL: the Home browse profile must use the dedicated browse readiness helper." >&2
+  exit 1
+}
+grep -Fq 'Direction.DOWN' "$GENERATOR_SOURCE" && grep -Fq 'Direction.UP' "$GENERATOR_SOURCE" && \
+  grep -Fq 'Direction.RIGHT' "$GENERATOR_SOURCE" && grep -Fq 'Direction.LEFT' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Home browse profile must exercise vertical and horizontal scroll in both directions." >&2
   exit 1
 }
 
