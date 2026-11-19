@@ -158,7 +158,7 @@ file_sha256() {
   else
     hash_output=""
   fi
-  hash_value="$(printf '%s\n' "$hash_output" | awk 'NF >= 1 && $1 ~ /^[0-9a-fA-F]{64}$/ { print $1; exit }')"
+  hash_value="$(printf '%s\n' "$hash_output" | awk 'NF >= 1 && length($1) == 64 && $1 !~ /[^0-9a-fA-F]/ { print $1; exit }')"
   [ -n "$hash_value" ] && printf '%s\n' "$hash_value" || printf 'unavailable\n'
 }
 
@@ -167,6 +167,7 @@ install_provenance_file() {
 }
 
 load_install_provenance() {
+  expected_saved_variant="$1"
   install_state="$(install_provenance_file)"
   [ -r "$install_state" ] || fail "No APK provenance was saved for the installed variant. Reinstall the matching benchmark APK pair."
   saved_variant="$(sed -n 's/^Variant: //p' "$install_state")"
@@ -174,7 +175,7 @@ load_install_provenance() {
   saved_app_hash="$(sed -n 's/^App APK source SHA-256: //p' "$install_state")"
   saved_test_name="$(sed -n 's/^Test APK source filename: //p' "$install_state")"
   saved_test_hash="$(sed -n 's/^Test APK source SHA-256: //p' "$install_state")"
-  [ "$saved_variant" = "$ACTION:$FLAVOR" ] || fail "Saved APK provenance belongs to '$saved_variant', not '$ACTION:$FLAVOR'. Reinstall the matching APK pair."
+  [ "$saved_variant" = "$expected_saved_variant" ] || fail "Saved APK provenance belongs to '$saved_variant', not '$expected_saved_variant'. Reinstall the matching APK pair."
   case "$saved_app_name:$saved_test_name" in
     *..*|*/*|:*|*:) fail "Saved APK provenance contains an invalid source filename." ;;
   esac
@@ -1171,7 +1172,7 @@ load_expected_install_provenance() {
   [ -f "$OUTPUT_ROOT/current-install.txt" ] || fail "No benchmark variant state was recorded. Run the matching install action first."
   installed="$(cat "$OUTPUT_ROOT/current-install.txt")"
   [ "$installed" = "$expected_variant" ] || fail "Currently installed variant is '$installed', but '$expected_variant' is required. Run the matching install action first."
-  load_install_provenance
+  load_install_provenance "$expected_variant"
 }
 
 capture_device_environment() {
