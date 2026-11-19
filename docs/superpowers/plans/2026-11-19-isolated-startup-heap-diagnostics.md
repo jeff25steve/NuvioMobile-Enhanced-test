@@ -101,7 +101,7 @@ The implementation will be integrated natively in this session because the reque
 
 - Added the version-catalog split, isolated Java benchmark class, separate phone action, dedicated summary and strict trace validation. Regression fixtures cover valid output and the eight invalid cases.
 - Added static protection for the app's existing shell-profileable declaration and the Play Store manifest overlay not removing it.
-- Ran isolated POSIX AWK/shell checks against the same memory-output extraction/filename logic and the seven fixture modes (valid + six invalid). Focused checks passed. These are not the repository test scripts.
+- Ran isolated POSIX AWK/shell checks against the same memory-output extraction/filename logic and nine fixture modes (valid + eight invalid). Focused checks passed. These are not the repository test scripts.
 - Re-fetched the new runner, fixture script, static contract, version catalog, Java class and engineering notes. The normal timing path remains separate by source inspection.
 - **Not verified:** the complete repository phone-runner and static-contract scripts were not run; Java was not compiled; the merged APK manifest was not built/inspected. The GitHub integration cannot execute source files and no local checkout is available in this session (the attempted clone could not resolve github.com).
 - **Final review:** self-review (no subagent tool available). Findings and residual limitations are recorded here; a fresh reviewer and full test run remain outstanding.
