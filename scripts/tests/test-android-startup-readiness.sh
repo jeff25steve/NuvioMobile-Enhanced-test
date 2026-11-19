@@ -172,6 +172,16 @@ grep -Fq 'scrollable.isScrollable()' "$READINESS_SOURCE" &&
   echo "FAIL: Home browse collection must verify real scrollable accessibility nodes before scrolling." >&2
   exit 1
 }
+grep -Fq 'markerHasVisibleBounds(device, targetMarker)' "$READINESS_SOURCE" &&
+  grep -Fq 'object.getVisibleBounds()' "$READINESS_SOURCE" || {
+  echo "FAIL: Home shelf discovery must wait until the catalogue row is actually visible on screen." >&2
+  exit 1
+}
+grep -Fq 'Direction.DOWN' "$GENERATOR_SOURCE" && grep -Fq 'Direction.UP' "$GENERATOR_SOURCE" &&
+  grep -Fq 'Direction.RIGHT' "$GENERATOR_SOURCE" && grep -Fq 'Direction.LEFT' "$GENERATOR_SOURCE" || {
+  echo "FAIL: Home browse profile must exercise vertical and horizontal scroll in both directions." >&2
+  exit 1
+}
 grep -Fq 'rootReadinessStateDescription' "$READINESS_SOURCE" || {
   echo "FAIL: readiness diagnostics must report the visible root state description." >&2
   exit 1
