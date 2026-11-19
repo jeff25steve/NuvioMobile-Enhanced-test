@@ -635,13 +635,35 @@ validate_macrobenchmark_statistics() {
         exit 1
       }
 
-      # StartupTimingMetric omits timeToFullDisplayMs when the trace has no
-      # fully-drawn event. This phone runner requires API 33+, so every arm
-      # must provide ten positive TTFD samples rather than silently reporting
-      # TTID-only results or mixing incomplete arms.
-      reported_api = metric_field(json, "sdk")
+      # AndroidX BenchmarkData stores SDK only at context.build.version.sdk.
+      # Require that exact nested field; an unrelated metric or top-level "sdk"
+      # property must not qualify the result as a supported phone capture.
+      reported_api = ""
+      build_start = index(json, "\"build\"")
+      if (build_start > 0) {
+        build_rest = substr(json, build_start + length("\"build\""))
+        sub(/^[[:space:]]*:[[:space:]]*/, "", build_rest)
+        if (substr(build_rest, 1, 1) == "{") {
+          build_close = index(build_rest, "}")
+          if (build_close > 0) {
+            build_object = substr(build_rest, 1, build_close)
+            version_start = index(build_object, "\"version\"")
+            if (version_start > 0) {
+              version_rest = substr(build_object, version_start + length("\"version\""))
+              sub(/^[[:space:]]*:[[:space:]]*/, "", version_rest)
+              if (substr(version_rest, 1, 1) == "{") {
+                version_close = index(version_rest, "}")
+                if (version_close > 0) {
+                  version_object = substr(version_rest, 1, version_close)
+                  reported_api = metric_field(version_object, "sdk")
+                }
+              }
+            }
+          }
+        }
+      }
       if (reported_api == "" || reported_api !~ /^[0-9]+$/ || reported_api + 0 < 33) {
-        print "FAIL: Macrobenchmark JSON must report Android API 33 or newer for this phone runner."
+        print "FAIL: Macrobenchmark JSON must report context.build.version.sdk as Android API 33 or newer for this phone runner."
         exit 1
       }
       ttfd_metric_pattern = "\"timeToFullDisplayMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
