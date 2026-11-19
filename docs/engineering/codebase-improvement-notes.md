@@ -6736,3 +6736,10 @@ Added `scripts/tests/test-android-benchmark-run-directory.sh`. It extracts and i
 - Re-fetched the runner, new focused regression, and parent phone-runner test from `main-build-testing`; confirmed the test is wired into the existing test entry point and the production function uses atomic directory reservation.
 - The committed focused test script and the complete phone-runner regression were not executed from a local repository checkout in this session. The local checks used a verbatim isolated copy of the updated function, not the full checked-in regression script. Full repository script execution remains outstanding.
 - No Gradle task, build, CI, instrumentation, profile collection, LADB command, device benchmark or app runtime source change was made. This prevents benchmark result-directory collisions; it does not improve app startup time or establish a performance gain.
+
+
+### Cycle 82 — exercise true concurrent output allocation
+
+The focused result-directory regression now also starts 16 shell subshells concurrently with the same fixed timestamp. Each process invokes the runner's actual extracted `new_run_dir()` function and writes its reserved path to a separate fixture file. The test requires all 16 paths to exist, each to retain its own `.started` marker, and the sorted path list to contain no duplicates. This specifically guards the race that a sequential same-second test alone would not exercise.
+
+The expanded checked-in focused regression was executed in an isolated POSIX-shell harness with the updated function and passed. The complete parent phone-runner suite remains unrun because a local repository checkout is unavailable. No build, CI or device operation was performed.
