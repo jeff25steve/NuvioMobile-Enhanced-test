@@ -1,11 +1,15 @@
 package com.nuvio.app.core.network
 
+import java.io.IOException
+
 import java.net.InetAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertSame
 
 class NuvioDnsTest {
     @Test
@@ -219,3 +223,79 @@ private fun answerRecord(
         length.toByte(),
     ) + data
 }
+
+
+    @Test
+    fun startsIpv6LookupBeforeIpv4LookupRuns() {
+        val ipv4 = DohAnswer(
+            addresses = listOf(address(1)),
+            ttlSeconds = 60L,
+            hasAnswerRecords = true,
+            cacheExpiresAtMs = 61_000L,
+        )
+        val ipv6Address = InetAddress.getByAddress(
+            byteArrayOf(0x20, 0x01, 0x0d, 0xb8.toByte(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1),
+        )
+        val ipv6 = DohAnswer(
+            addresses = listOf(ipv6Address),
+            ttlSeconds = 30L,
+            hasAnswerRecords = true,
+            cacheExpiresAtMs = 31_000L,
+        )
+        var ipv6Started = false
+
+        val result = resolveDohAnswers(
+            queryIpv4 = {
+                assertTrue(ipv6Started, "IPv6 must be enqueued before the blocking IPv4 request")
+                ipv4
+            },
+            startIpv6 = { complete ->
+                ipv6Started = true
+                complete(Result.success(ipv6))
+                {}
+            },
+        )
+
+        assertEquals(listOf(address(1), ipv6Address), result.addresses)
+        assertEquals(31_000L, result.cacheExpiresAtMs)
+    }
+
+    @Test
+    fun ipv6LookupFailureDoesNotDiscardIpv4Answer() {
+        val ipv4Address = address(4)
+        val result = resolveDohAnswers(
+            queryIpv4 = {
+                DohAnswer(
+                    addresses = listOf(ipv4Address),
+                    ttlSeconds = 45L,
+                    hasAnswerRecords = true,
+                    cacheExpiresAtMs = 46_000L,
+                )
+            },
+            startIpv6 = { complete ->
+                complete(Result.failure(IOException("AAAA lookup failed")))
+                {}
+            },
+        )
+
+        assertEquals(listOf(ipv4Address), result.addresses)
+        assertEquals(46_000L, result.cacheExpiresAtMs)
+    }
+
+    @Test
+    fun cancelsIpv6LookupWhenIpv4LookupFails() {
+        val ipv4Failure = IOException("A lookup failed")
+        var ipv6Cancelled = false
+
+        val actual = assertFailsWith<IOException> {
+            resolveDohAnswers(
+                queryIpv4 = { throw ipv4Failure },
+                startIpv6 = {
+                    { ipv6Cancelled = true }
+                },
+            )
+        }
+
+        assertSame(ipv4Failure, actual)
+        assertTrue(ipv6Cancelled)
+    }
