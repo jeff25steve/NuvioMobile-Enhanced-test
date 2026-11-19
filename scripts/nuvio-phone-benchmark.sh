@@ -1379,7 +1379,7 @@ require_memory_profile_result_data() {
   memory_output_object="$(awk '
     { json = json $0 "\n" }
     END {
-      pattern = "\\\\{[^{}]*\\\"label\\\"[[:space:]]*:[[:space:]]*\\\"Memory Profiling Iteration 0\\\"[^{}]*\\\\}"
+      pattern = "\\{[^{}]*\"label\"[[:space:]]*:[[:space:]]*\"Memory Profiling Iteration 0\"[^{}]*\\}"
       if (!match(json, pattern)) exit 1
       printf "%s", substr(json, RSTART, RLENGTH)
     }
