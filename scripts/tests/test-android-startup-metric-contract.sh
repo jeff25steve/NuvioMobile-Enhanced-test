@@ -333,8 +333,6 @@ for expected in \
   }
 done
 
-printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
-
 for expected in \
   'read_battery_saver_from_snapshot() {' \
   'write_battery_saver_integrity_summary() {' \
@@ -348,3 +346,5 @@ for expected in \
     exit 1
   }
 done
+
+printf 'PASS: all three cold-start Macrobenchmark cases and phone-result integrity contracts are present.\n'
