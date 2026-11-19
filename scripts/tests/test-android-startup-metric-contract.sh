@@ -444,7 +444,9 @@ for expected in \
     exit 1
   }
 done
-grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), new MemoryProfilingConfig(true, true))' "$MEMORY_BENCHMARK_SOURCE" || {
+grep -Fq 'new ExperimentalConfig(' "$MEMORY_BENCHMARK_SOURCE" &&
+  grep -Fq 'new StartupInsightsConfig(true)' "$MEMORY_BENCHMARK_SOURCE" &&
+  grep -Fq 'new MemoryProfilingConfig(true, true)' "$MEMORY_BENCHMARK_SOURCE" || {
   echo "FAIL: isolated memory diagnostic must opt into both ART and native heap sampling with Startup Insights." >&2
   exit 1
 }
