@@ -279,6 +279,61 @@ cat > "$TMP/bin/am" <<'STUB'
 #!/bin/sh
 printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
+  *StartupMemoryBenchmark*)
+    mkdir -p "$FAKE_MEDIA_DIR"
+    printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupMemoryBenchmark\\n'
+    printf 'INSTRUMENTATION_STATUS: test=startupWithBaselineProfileMemoryProfile\\n'
+    printf 'INSTRUMENTATION_STATUS_CODE: 0\\n'
+    memory_mode="${FAKE_MEMORY_PROFILE_MODE:-complete}"
+    memory_filename="startupWithBaselineProfileMemoryProfile_iter000-memoryProfiling.perfetto-trace"
+    memory_type="PerfettoTrace"
+    case "$memory_mode" in
+      wrong-type) memory_type="MethodTrace" ;;
+      wrong-suffix) memory_filename="startupWithBaselineProfileMemoryProfile_iter000-memoryProfiling.trace" ;;
+    esac
+    printf 'fixture normal timing trace\\n' > "$FAKE_MEDIA_DIR/startupWithBaselineProfileMemoryProfile-trace-0.perfetto-trace"
+    case "$memory_mode" in
+      missing-trace-file) ;;
+      empty-trace-file) : > "$FAKE_MEDIA_DIR/$memory_filename" ;;
+      *) printf 'fixture pprof heap trace\\n' > "$FAKE_MEDIA_DIR/$memory_filename" ;;
+    esac
+    cat > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" <<JSON
+{
+  "context": {"build": {"model": "Fixture phone", "version": {"sdk": 35}}, "cpuCoreCount": 8, "cpuLocked": true, "cpuMaxFreqHz": 2800000000, "memTotalBytes": 12884901888, "sustainedPerformanceModeEnabled": false, "artMainlineVersion": 123456789, "osCodenameAbbreviated": "REL"},
+  "benchmarks": [{
+    "className": "com.nuvio.android.baselineprofile.StartupMemoryBenchmark",
+    "name": "startupWithBaselineProfileMemoryProfile",
+    "metrics": {
+      "timeToInitialDisplayMs": {"minimum": 420, "maximum": 420, "median": 420, "coefficientOfVariation": 0, "runs": [420]},
+      "timeToFullDisplayMs": {"minimum": 680, "maximum": 680, "median": 680, "coefficientOfVariation": 0, "runs": [680]},
+      "artJitCount": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0]},
+      "artJitSumMs": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0]},
+      "artVerifyClassCount": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0]},
+      "artVerifyClassSumMs": {"minimum": 0, "maximum": 0, "median": 0, "coefficientOfVariation": 0, "runs": [0]}
+    },
+    "sampledMetrics": {},
+    "warmupIterations": 0,
+    "repeatIterations": 1,
+    "thermalThrottleSleepSeconds": 0,
+    "profilerOutputs": [
+      {"type": "PerfettoTrace", "label": "Trace Iteration 0", "filename": "startupWithBaselineProfileMemoryProfile-trace-0.perfetto-trace"},
+      {"type": "$memory_type", "label": "Memory Profiling Iteration 0", "filename": "$memory_filename"}
+    ]
+  }]
+}
+JSON
+    case "$memory_mode" in
+      missing-output)
+        sed '/Memory Profiling Iteration 0/d' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      duplicate-output)
+        sed '/Memory Profiling Iteration 0/a\\      {"type": "PerfettoTrace", "label": "Memory Profiling Iteration 0", "filename": "duplicate-memoryProfiling.perfetto-trace"},' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        printf 'duplicate trace\\n' > "$FAKE_MEDIA_DIR/duplicate-memoryProfiling.perfetto-trace"
+        ;;
+    esac
+    ;;
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
     rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
@@ -926,6 +981,35 @@ for flavor in full playstore; do
   grep -Fq 'CPU: 8 cores | max frequency 2800000000 Hz | clocks locked: true' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Memory: 12884901888 bytes | ART Mainline: 123456789 | sustained performance mode: false' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Per-iteration samples and matching Perfetto traces' "$benchmark_result_dir/benchmark-summary.txt"
+
+  # The optional heap diagnostic must stay separate from the clean ten-iteration timing run.
+  if ! sh "$BUNDLE/nuvio-phone-benchmark.sh" memory-profile "$flavor" > "$TMP/$flavor-memory-profile.log" 2>&1; then
+    echo "FAIL: isolated ART/native memory-profile diagnostic should succeed for $flavor." >&2
+    cat "$TMP/$flavor-memory-profile.log" >&2
+    exit 1
+  fi
+  memory_result_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'memory-profile-*' -print | sort | tail -n 1)"
+  [ -n "$memory_result_dir" ] || { echo "FAIL: memory-profile action must use a dedicated result directory ($flavor)." >&2; exit 1; }
+  test -s "$memory_result_dir/fake-benchmarkData.json"
+  test -s "$memory_result_dir/startupWithBaselineProfileMemoryProfile_iter000-memoryProfiling.perfetto-trace"
+  test -s "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'ART heap sampling: enabled' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'Native heap sampling: enabled' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'not a statistical startup comparison' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'Memory Profiling Iteration 0' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'memory-profile-summary.txt' "$memory_result_dir/copied-files.txt"
+
+  for memory_fixture in missing-output duplicate-output wrong-type wrong-suffix missing-trace-file empty-trace-file; do
+    if FAKE_MEMORY_PROFILE_MODE="$memory_fixture" sh "$BUNDLE/nuvio-phone-benchmark.sh" memory-profile "$flavor" > "$TMP/$flavor-memory-$memory_fixture.log" 2>&1; then
+      echo "FAIL: memory-profile accepted invalid profiler output fixture '$memory_fixture' ($flavor)." >&2
+      exit 1
+    fi
+    grep -Fq 'Memory-profile result' "$TMP/$flavor-memory-$memory_fixture.log" || {
+      echo "FAIL: invalid memory-profile output was not diagnosed ($memory_fixture, $flavor)." >&2
+      cat "$TMP/$flavor-memory-$memory_fixture.log" >&2
+      exit 1
+    }
+  done
 
   if ! FAKE_BENCHMARK_JSON=misleading-root-metadata sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-root-metadata-decoys.log" 2>&1; then
     echo "FAIL: valid context metadata should still produce a summary when unrelated root metadata is present ($flavor)." >&2
