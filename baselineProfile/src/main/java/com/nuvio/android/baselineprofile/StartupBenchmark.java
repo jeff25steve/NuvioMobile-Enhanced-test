@@ -13,8 +13,6 @@ import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
-import java.util.Collections;
-
 import kotlin.Unit;
 
 import org.junit.Rule;
@@ -50,7 +48,7 @@ public final class StartupBenchmark {
     public void startupWithBaselineProfile() {
         runColdStartupBenchmark(
                 new CompilationMode.Partial(BaselineProfileMode.Require),
-                Collections.singletonList(new StartupTimingMetric())
+                java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }
 
