@@ -170,9 +170,6 @@ class NuvioDnsTest {
         assertEquals(oldGeneration + 1L, cache.generation())
     }
 
-
-
-
     @Test
     fun startsIpv6LookupBeforeIpv4LookupRuns() {
         val ipv4 = DohAnswer(
@@ -239,8 +236,10 @@ class NuvioDnsTest {
             resolveDohAnswers(
                 queryIpv4 = { throw ipv4Failure },
                 startIpv6 = { _ ->
-                { ipv6Cancelled = true }
-            },
+                    {
+                        ipv6Cancelled = true
+                    }
+                },
             )
         }
 
