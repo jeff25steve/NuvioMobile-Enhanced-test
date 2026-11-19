@@ -225,6 +225,19 @@ require_non_empty_startup_profile() {
   [ "$startup_profile_count" -gt 0 ] || fail "No startup-prof text profile was produced. Check the Startup Profile collection and $RUN_DIR/instrumentation.log."
 }
 
+require_non_empty_home_browse_profile() {
+  home_browse_profile_count=0
+  for profile_file in "$RUN_DIR"/*home_browse-baseline-prof*.txt; do
+    [ -f "$profile_file" ] || continue
+    home_browse_profile_count=$((home_browse_profile_count + 1))
+    [ -s "$profile_file" ] || fail "Generated Home browse Baseline Profile contains no rules: $profile_file."
+    grep -Eq '[^[:space:]]' "$profile_file" || {
+      fail "Generated Home browse Baseline Profile contains no rules: $profile_file."
+    }
+  done
+  [ "$home_browse_profile_count" -gt 0 ] || fail "No home_browse Baseline Profile text file was produced. Ensure Home has a populated, horizontally scrollable catalogue and check $RUN_DIR/instrumentation.log."
+}
+
 require_macrobenchmark_cases() {
   for test_name in startupNoCompilation startupWithBaselineProfile; do
     grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
@@ -816,6 +829,7 @@ install_variant() {
   mkdir -p "$OUTPUT_ROOT"
   printf '%s:%s\n' "$ACTION" "$FLAVOR" > "$OUTPUT_ROOT/current-install.txt"
   printf '\nInstalled %s (%s). Open Nuvio, sign in, finish onboarding if needed, and leave it on Home.\n' "$FLAVOR" "$ACTION"
+  printf 'For profile collection, Home must contain at least one catalogue shelf with enough entries to scroll horizontally; the home_browse profile fails if it is absent.\n'
   printf 'Do not clear app data between full and playstore; both flavors share the isolated .benchmark app ID and signing key.\n'
   printf 'Production app com.nuvio.media and its data are separate and were not changed.\n'
 }
@@ -950,6 +964,7 @@ run_instrumentation() {
     BaselineProfile)
       copy_recent_outputs profile
       require_non_empty_startup_profile
+      require_non_empty_home_browse_profile
       ;;
     macrobenchmark)
       require_macrobenchmark_cases
