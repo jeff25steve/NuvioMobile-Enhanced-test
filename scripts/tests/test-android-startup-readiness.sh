@@ -100,6 +100,10 @@ grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: the root readiness effect must use the latest callback without restarting on lambda identity changes." >&2
   exit 1
 }
+grep -Fq 'onRootContentReady != null,' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: root readiness must restart only when callback availability changes, not callback identity." >&2
+  exit 1
+}
 grep -Fq 'rememberUpdatedState(onFirstCatalogRendered)' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: Home readiness must use the latest callback without restarting on lambda identity changes." >&2
   exit 1
