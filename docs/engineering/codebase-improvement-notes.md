@@ -1,4 +1,4 @@
-# 01 — Nuvio Mobile Enhanced — Engineering Improvement Notes
+# Nuvio Mobile Enhanced — Engineering Improvement Notes
 
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Working branch:** `main-build-testing`  
@@ -6682,3 +6682,39 @@ Sources: [AndroidX Benchmark release notes](https://developer.android.com/jetpac
 - The complete phone-runner and static-contract scripts remain unrun; the additional modes were checked only through isolated AWK/shell examples and source inspection.
 
 - The generated summary also records AndroidX's `block_client=true` behavior (allocation completeness/determinism is prioritized over frame timing) and Perfetto's startup-coverage caveat: some of the earliest Zygote-specialization allocations may occur before heapprofd attaches. These are interpretation constraints, not measured Nuvio outcomes.
+
+
+## Android startup benchmark — bootstrap intervals and profile artifact audit (Cycles 79–80, 19 November 2026)
+
+### Cycle 79 — add reproducible uncertainty intervals without disguising order bias
+
+Research found a useful practitioner result in Bluesky's public Android startup benchmark PR [#12092](https://github.com/bluesky-social/social-app/pull/12092). Their Pixel 7a experiment rotated 45 cold-start launches per configuration and reported bootstrap 95% confidence intervals. The PR's reported TTID for one configuration drifted from 862 ms to 1,068 ms over the sequence as the phone heated, while the custom-profile configuration stayed around 708–721 ms. This is a useful demonstration of thermal/order confounding and of reporting uncertainty, not transferable Nuvio performance evidence. The PR's external build-rotation procedure is described in the discussion; its checked-in Macrobenchmark class itself runs each compilation-mode method in its own block.
+
+The phone runner now computes 10,000 deterministic independent-arm bootstrap resamples for the difference in medians, for both TTID and TTFD. It reports the incremental effect (Baseline Profile minus partial compilation without the Baseline Profile) and total effect (Baseline Profile minus no compilation), each with a 95% percentile interval in milliseconds. The Park–Miller generator uses a fixed seed (20261119) with integer-safe arithmetic so the analysis is reproducible across the POSIX awk implementations targeted by the host and Android phone scripts. The bootstrap is independent-arm, not paired, because the current three JUnit test arms are separate result groups.
+
+**Interpretation boundary:** this quantifies within-arm sampling uncertainty only. The three comparison arms still execute as grouped JUnit blocks. A bootstrap interval cannot remove a systematic order, thermal or time-drift confounder, and an interval excluding zero is not causal proof. The report now states that rotated/interleaved captures are required before treating the difference as decision-grade. The existing test class, 10 measured iterations per arm, cold-start workload, compilation modes, metrics, APK variants and application source remain unchanged.
+
+Context7's Android Test documentation confirms AndroidJUnitRunner tests_regex filters by fully qualified Class#method, which could support a carefully designed future interleaved runner. It is not added here: invoking separate Macrobenchmark methods repeatedly also repeats compilation reset and no-profile warmup behavior, and a simplistic 30-test rotation would change the effective workload and create extra device heating. Any future runner must keep compilation state, warmup, launch count, trace naming and execution order explicit rather than merely randomizing JUnit method names.
+
+### Cycle 80 — fingerprint and inventory collected profile artifacts
+
+The collect/run phone workflow now writes profile-audit-summary.txt for both the Startup Profile and Home-browse Baseline Profile. For each original text file it records the filename, SHA-256, nonblank rule count, unique exact rule count, exact duplicate count, method-rule candidates, class/other-rule candidates, and counts of rules carrying H/S/P flags. This is a read-only audit: it does not deduplicate, reorder, rewrite, normalize or reject profile rules. Preserving the raw AndroidX artifacts avoids silently changing the profile being evaluated.
+
+The fake-phone fixture now deliberately includes an exact duplicate and known H/S/P flags, then checks that the audit reports the duplicate rather than hiding it. The static contract protects both the deterministic bootstrap configuration and the placement of the artifact audit after the two non-empty profile checks.
+
+### New findings assessed but not adopted
+
+- AndroidX Benchmark 1.6.0-alpha02's current release notes include thermal-throttle cooldown handling, safer target-process shutdown before capture, buffered Perfetto artifact writing and optional in-process tracing categories. Nuvio's Macrobenchmark test dependency is already pinned to 1.6.0-alpha02, so no parallel workaround or speculative source patch was added.
+- AndroidX PowerMetric / Perfetto power-rail measurement is not a generally available app-specific power metric. High-precision rail tracking depends on compatible physical-device power-monitor hardware; ODPM rails are vendor/hardware dependent. It was not added as an assumed capability for arbitrary Android phones.
+- Bluesky's Pixel 7a experiment did not observe a Startup Profile benefit in its page-cache-cleared scenario. This is not grounds to remove Nuvio's Startup Profile: the result is device/workload-specific, and Nuvio must compare the packaged startup profile on its own target devices and build variants.
+- Recent Reddit/X/forum searches did not yield an independent, reproducible implementation stronger than the Bluesky PR and official AndroidX/Android documentation. The PR has a small comment thread; it should be treated as a valuable single-team experiment, not community consensus.
+
+### Verification boundary for Cycles 79–80
+
+- Exercised the deterministic bootstrap calculation in isolation with ten synthetic samples per arm. The four interval paths (TTID/TTFD, incremental/total) returned the expected fixed differences and repeated deterministically. This was a focused AWK check, not the repository test script.
+- Exercised the profile inventory AWK against synthetic Startup and Home-browse profile text with a deliberate duplicate. It reported 3 nonblank / 2 unique / 1 duplicate in the Startup fixture and the expected method/class and H/S/P counts. The fixtures did not represent a generated Nuvio profile.
+- Re-fetched the runner, fake-phone tests and static contract from main-build-testing; source assertions confirmed the new output strings, fixture checks and static contract are present.
+- The complete scripts/tests/test-nuvio-phone-benchmark.sh and scripts/tests/test-android-startup-metric-contract.sh scripts were **not run** because no local repository checkout is available through this GitHub integration. Java/Kotlin compilation and a device benchmark were not needed for these shell/report changes and were not run. No build or CI was started.
+- No measured Nuvio startup improvement, Baseline Profile win, power reduction or outperformance over the official Nuvio app is claimed. A same-device, same-APK, rotated comparison and trace analysis remain necessary.
+
+Sources: [Bluesky startup benchmark PR #12092](https://github.com/bluesky-social/social-app/pull/12092) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [Android Developers — Measure Baseline Profile performance](https://developer.android.com/topic/performance/baselineprofiles/measure-baselineprofile) · [Android Developers — Macrobenchmark CI and artifacts](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidJUnitRunner tests_regex implementation](https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/filters/TestsRegExFilter.java) · [Perfetto battery counters / ODPM](https://perfetto.dev/docs/data-sources/battery-counters)
