@@ -96,6 +96,14 @@ grep -Fq 'onInitialHomeContentRendered = { initialHomeReady = true }' "$MAIN_CON
   echo "FAIL: the product Home-ready state must be updated by the Home content callback." >&2
   exit 1
 }
+grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: the root readiness effect must use the latest callback without restarting on lambda identity changes." >&2
+  exit 1
+}
+grep -Fq 'rememberUpdatedState(onFirstCatalogRendered)' "$HOME_SCREEN_SOURCE" || {
+  echo "FAIL: Home readiness must use the latest callback without restarting on lambda identity changes." >&2
+  exit 1
+}
 
 # MainActivity must retain its complete Android lifecycle/intent integration.
 for activity_method in 'override fun onCreate(' 'override fun onNewIntent(' 'override fun onUserLeaveHint(' 'override fun onPictureInPictureModeChanged(' 'override fun onDestroy('; do
