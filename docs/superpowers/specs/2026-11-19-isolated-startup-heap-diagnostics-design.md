@@ -39,7 +39,7 @@ Android Performance Analyzer is an official open-beta tool that can inspect Perf
 - Add a separate opt-in memory-profile startup test and `memory-profile full|playstore` phone action.
 - Profile both ART and native heaps during one additional cold launch using the packaged Baseline Profile.
 - Keep the normal ten-iteration three-arm timing benchmark, its metrics, trace count, APK provenance, environment gates and summary unchanged.
-- Require exactly one memory-profile result, exactly one labelled `Memory Profiling Iteration 0` Perfetto output with the documented filename suffix, and a copied non-empty trace file.
+- Require exactly one memory-profile result with the expected class and `repeatIterations=1`, exactly one labelled `Memory Profiling Iteration 0` Perfetto output with the documented filename suffix, and a copied non-empty trace file.
 - Produce a dedicated summary that clearly identifies this as a diagnostic profile, not a timing comparison or performance win.
 - Document opening the trace in Perfetto UI / Android Performance Analyzer and converting embedded pprof data with Perfetto's `traceconv`.
 
@@ -56,7 +56,7 @@ Android Performance Analyzer is an official open-beta tool that can inspect Perf
 ## Verification
 
 - Add source-contract checks proving the clean `StartupBenchmark` remains free of heap profiling and the separate test has the new ExperimentalConfig.
-- Add fake-phone result fixtures for a valid memory-profile output, missing memory output, duplicate memory output, wrong filename suffix and empty/missing trace artifact.
+- Add fake-phone result fixtures for a valid memory-profile output, missing memory output, duplicate memory output, wrong filename suffix, empty/missing trace artifact, wrong JSON class and an unexpected repeat-iteration count.
 - Ensure the regular fake timing run still requires only the original three comparison results and thirty clean traces.
 - Re-fetch all changed files and compare the branch against the starting checkpoint.
 - Full shell tests and compilation remain unverified unless run from a local checkout; no build/CI is authorized in this task.
