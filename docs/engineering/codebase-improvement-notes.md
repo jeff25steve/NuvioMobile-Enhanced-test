@@ -6566,9 +6566,11 @@ Research: [AndroidX BenchmarkData source](https://github.com/androidx/androidx/b
 
 ## 19 November 2026 — benchmark integrity follow-up (Cycles 70–72)
 
-### Benchmark cycle 70 — repair the stale SDK static-contract assertion
+### Benchmark cycle 70 — repair stale shell and SDK static contracts
 
 Cycle 68 correctly narrowed SDK extraction to AndroidX's `context.build.version.sdk`, but the static-contract script still required the removed global expression `metric_field(json, "sdk")`. That expectation no longer existed in the runner, so the workflow's pre-build static contract would fail despite the production guard being correct. Removed the obsolete assertion while retaining the API 33+ and exact nested-context checks. The success message was also moved after all contract assertions so it cannot print before a later check fails.
+
+Final review also found an invalid `fi    case` adjacency in the phone-runner regression harness. With no newline or command separator, POSIX shell rejects the compound command; the statements are now separated onto their own lines. The exact adjacency was checked with the local POSIX shell (`sh`), but the complete test file was not run.
 
 ### Benchmark cycle 71 — make Battery Saver a measured device condition
 
