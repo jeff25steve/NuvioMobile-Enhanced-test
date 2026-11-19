@@ -1,5 +1,6 @@
 package com.nuvio.android.baselineprofile;
 
+import android.graphics.Rect;
 import android.os.SystemClock;
 
 import androidx.test.uiautomator.By;
@@ -183,18 +184,30 @@ final class StartupReadiness {
         }
 
         for (int attempt = 0; attempt < 6; attempt++) {
-            if (markerVisible(device, targetMarker)) {
+            if (markerVisible(device, targetMarker)
+                    && markerHasVisibleBounds(device, targetMarker)) {
                 return;
             }
             if (!scrollable.scroll(direction, 0.75f)) {
                 break;
             }
         }
+        if (markerVisible(device, targetMarker)
+                && markerHasVisibleBounds(device, targetMarker)) {
+            return;
+        }
 
         throw new AssertionError(
                 "Home browse journey could not reveal selector '" + targetMarker
                         + "' by scrolling " + journeyStep + " " + direction + "."
                         + diagnostics(device));
+    }
+
+    private static boolean markerHasVisibleBounds(UiDevice device, String marker) {
+        UiObject2 object = device.findObject(packageRes(marker));
+        if (object == null) return false;
+        Rect bounds = object.getVisibleBounds();
+        return bounds.width() > 0 && bounds.height() > 0;
     }
 
     static void scrollRequired(
