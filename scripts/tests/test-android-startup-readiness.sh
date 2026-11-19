@@ -289,6 +289,7 @@ grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
 # instrumentation status stream; do not change the app's reportFullyDrawn gate.
 for expected in \
   'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName)' \
+  'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName, Integer measurementIteration)' \
   'InstrumentationRegistry.getInstrumentation().sendStatus(0, status)' \
   'Instrumentation.REPORT_KEY_STREAMRESULT' \
   'NUVIO_STARTUP_READINESS_TIMING:' \
@@ -308,7 +309,7 @@ grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
 }
 grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$GENERATOR_SOURCE" &&
   grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$GENERATOR_SOURCE" &&
-  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName)' "$BENCHMARK_SOURCE" || {
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName, scope.getIteration())' "$BENCHMARK_SOURCE" || {
   echo "FAIL: each profile or comparison journey must identify itself in readiness timing records." >&2
   exit 1
 }
