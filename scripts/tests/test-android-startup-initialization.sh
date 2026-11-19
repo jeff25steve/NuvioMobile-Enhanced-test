@@ -35,7 +35,7 @@ builder_line="$(grep -nF 'NotificationCompat.Builder(context, channelId)' "$SOUR
   echo "FAIL: the notification channel must be ensured before the notification is built." >&2
   exit 1
 }
-[ "$(printf '%s\n' "$ensure_line" | wc -l | tr -d ' ')" -eq 1 ] || {
+[ "$(grep -Fc 'ensureNotificationChannel(context)' "$SOURCE")" -eq 1 ] || {
   echo "FAIL: the lazy channel setup call must have one central owner." >&2
   exit 1
 }
