@@ -417,6 +417,116 @@ validate_macrobenchmark_statistics() {
       return 1
     }
 
+
+    function validate_art_metric_object(object, metric_name,    minimum, median, maximum, coefficient_variation, start, rest, close_pos, runs_text, samples, sample_count, i, value, sample_min, sample_max, sorted_samples, j, min_index, swap_value, median_position, lower_index, upper_index, interpolation_ratio, expected_median, median_difference, median_tolerance, sample_mean, squared_deviation_sum, expected_cv, cv_difference, cv_tolerance) {
+      minimum = metric_field(object, "minimum")
+      median = metric_field(object, "median")
+      maximum = metric_field(object, "maximum")
+
+      if (minimum == "" || median == "" || maximum == "") {
+        print "FAIL: " metric_name " is missing a numeric minimum, median, or maximum."
+        return 0
+      }
+      if (minimum + 0 < 0 || median + 0 < 0 || maximum + 0 < 0 || minimum + 0 > median + 0 || median + 0 > maximum + 0) {
+        print "FAIL: " metric_name " has invalid statistics; require 0 <= minimum <= median <= maximum."
+        return 0
+      }
+
+      coefficient_variation = metric_field(object, "coefficientOfVariation")
+      if (coefficient_variation == "" || coefficient_variation !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/) {
+        print "FAIL: " metric_name " is missing a valid non-negative AndroidX coefficientOfVariation."
+        return 0
+      }
+
+      start = index(object, "\"runs\"")
+      if (start == 0 || count_matches(object, "\"runs\"[[:space:]]*:") != 1) {
+        print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
+        return 0
+      }
+      rest = substr(object, start + length("\"runs\""))
+      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
+      if (substr(rest, 1, 1) != "[") {
+        print "FAIL: " metric_name " runs value is not an array."
+        return 0
+      }
+      close_pos = index(rest, "]")
+      if (close_pos == 0) {
+        print "FAIL: " metric_name " runs array is incomplete."
+        return 0
+      }
+      runs_text = substr(rest, 2, close_pos - 2)
+      gsub(/[[:space:]]/, "", runs_text)
+      if (runs_text == "") sample_count = 0
+      else sample_count = split(runs_text, samples, ",")
+
+      if (sample_count != expected_iterations) {
+        print "FAIL: " metric_name " has " sample_count " samples; expected " expected_iterations "."
+        return 0
+      }
+
+      sample_min = 0
+      sample_max = 0
+      sample_mean = 0
+      for (i = 1; i <= sample_count; i++) {
+        value = samples[i]
+        if (value !~ /^[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/ || value + 0 < 0) {
+          print "FAIL: " metric_name " contains a non-numeric or negative sample."
+          return 0
+        }
+        if (i == 1 || value + 0 < sample_min) sample_min = value + 0
+        if (i == 1 || value + 0 > sample_max) sample_max = value + 0
+        if (value + 0 < minimum + 0 || value + 0 > maximum + 0) {
+          print "FAIL: " metric_name " sample falls outside its reported minimum/maximum."
+          return 0
+        }
+        sample_mean += value + 0
+        sorted_samples[i] = value + 0
+      }
+      sample_mean /= sample_count
+      if (sample_min != minimum + 0 || sample_max != maximum + 0) {
+        print "FAIL: " metric_name " reported minimum/maximum do not match the sample extrema."
+        return 0
+      }
+
+      for (i = 1; i < sample_count; i++) {
+        min_index = i
+        for (j = i + 1; j <= sample_count; j++) {
+          if (sorted_samples[j] < sorted_samples[min_index]) min_index = j
+        }
+        if (min_index != i) {
+          swap_value = sorted_samples[i]
+          sorted_samples[i] = sorted_samples[min_index]
+          sorted_samples[min_index] = swap_value
+        }
+      }
+      median_position = 0.5 * (sample_count - 1)
+      lower_index = int(median_position) + 1
+      upper_index = lower_index + 1
+      if (upper_index > sample_count) upper_index = sample_count
+      interpolation_ratio = median_position - int(median_position)
+      expected_median = sorted_samples[lower_index] * (1 - interpolation_ratio) + sorted_samples[upper_index] * interpolation_ratio
+      median_difference = median + 0 - expected_median
+      if (median_difference < 0) median_difference = -median_difference
+      median_tolerance = 0.000001 * (1 + expected_median)
+      if (median_difference > median_tolerance) {
+        print "FAIL: " metric_name " reported median does not match the 50th percentile of its per-iteration runs."
+        return 0
+      }
+
+      squared_deviation_sum = 0
+      for (i = 1; i <= sample_count; i++) squared_deviation_sum += (samples[i] + 0 - sample_mean) ^ 2
+      if (sample_mean == 0) expected_cv = 0
+      else expected_cv = sqrt(squared_deviation_sum / (sample_count - 1)) / sample_mean
+      cv_difference = coefficient_variation + 0 - expected_cv
+      if (cv_difference < 0) cv_difference = -cv_difference
+      cv_tolerance = 0.000001 * (1 + expected_cv)
+      if (cv_difference > cv_tolerance) {
+        print "FAIL: " metric_name " reported coefficientOfVariation does not match its per-iteration runs."
+        return 0
+      }
+      return 1
+    }
+
     { json = json $0 "\n" }
 
     END {
@@ -474,6 +584,58 @@ validate_macrobenchmark_statistics() {
         print "FAIL: JSON must contain exactly four startup metric objects."
         exit 1
       }
+      art_metric_names[1] = "artJitCount"
+      art_metric_names[2] = "artJitSumMs"
+      art_metric_names[3] = "artVerifyClassCount"
+      art_metric_names[4] = "artVerifyClassSumMs"
+      for (art_metric_index = 1; art_metric_index <= 4; art_metric_index++) {
+        metric_name = art_metric_names[art_metric_index]
+        metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+        metric_rest = json
+        metric_count = 0
+        while (match(metric_rest, metric_pattern)) {
+          metric_start = RSTART
+          metric_length = RLENGTH
+          metric_object = substr(metric_rest, metric_start, metric_length)
+          if (!validate_art_metric_object(metric_object, metric_name)) exit 1
+          metric_count++
+          metric_rest = substr(metric_rest, metric_start + metric_length)
+        }
+        if (metric_count != 2) {
+          print "FAIL: JSON must contain exactly two " metric_name " results, one per startup case."
+          exit 1
+        }
+      }
+
+      class_load_count = count_matches(json, "\"artClassLoadCount\"[[:space:]]*:")
+      class_load_time_count = count_matches(json, "\"artClassLoadSumMs\"[[:space:]]*:")
+      if ((class_load_count == 0 && class_load_time_count != 0) ||
+          (class_load_count != 0 && (class_load_count != 2 || class_load_time_count != 2))) {
+        print "FAIL: optional ART class-load metrics must be emitted as a complete pair for both startup cases or omitted entirely."
+        exit 1
+      }
+      if (class_load_count == 2) {
+        for (art_metric_index = 1; art_metric_index <= 2; art_metric_index++) {
+          if (art_metric_index == 1) metric_name = "artClassLoadCount"
+          else metric_name = "artClassLoadSumMs"
+          metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          metric_rest = json
+          metric_count = 0
+          while (match(metric_rest, metric_pattern)) {
+            metric_start = RSTART
+            metric_length = RLENGTH
+            metric_object = substr(metric_rest, metric_start, metric_length)
+            if (!validate_art_metric_object(metric_object, metric_name)) exit 1
+            metric_count++
+            metric_rest = substr(metric_rest, metric_start + metric_length)
+          }
+          if (metric_count != 2) {
+            print "FAIL: optional " metric_name " must contain one valid result for each startup case."
+            exit 1
+          }
+        }
+      }
+
       trace_rest = json
       trace_array_count = 0
       trace_array_pattern = "\"profilerOutputs\"[[:space:]]*:[[:space:]]*\\[[^]]*\\]"
@@ -501,7 +663,7 @@ validate_macrobenchmark_statistics() {
         print "FAIL: JSON must contain profilerOutputs for both startup comparison results."
         exit 1
       }
-      print "PASS: both startup results contain ten numeric TTID/TTFD samples, valid statistics and ten Perfetto trace references each."
+      print "PASS: both startup results contain ten numeric TTID/TTFD and ART samples, valid statistics and ten Perfetto trace references each."
     }
   ' "$1"
 }
