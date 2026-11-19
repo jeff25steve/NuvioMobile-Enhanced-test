@@ -3213,3 +3213,29 @@ Sources: [AOSP Power HAL Mode.aidl](https://android.googlesource.com/platform/ha
 - No build, CI, Gradle task, instrumentation, profile generation, LADB or physical-device measurement was started. No runtime-performance result or speedup is claimed.
 
 Sources: [AndroidX BenchmarkData](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
+
+## Android startup benchmark — direct JSON member integrity (19 November 2026)
+
+### Cycle 75 — read only direct JSON members and reject duplicate keys
+
+The context fix in Cycles 73–74 still left a narrower parsing flaw: the scalar readers used substring searches inside the selected object. A nested `metadata.cpuCoreCount` could still be mistaken for the direct `context.cpuCoreCount`, and a duplicate direct key would silently use the first value. This affected both device labels and metric integrity.
+
+Added a quote/escape-aware `json_member_value(source, field)` to the two AWK programs in the phone runner. It reads only direct members at the current object depth, skips object/array descendants, handles braces and escaped quotes inside string values, and returns unavailable for missing or repeated direct members. Numeric, string and boolean readers, object extraction and raw `runs` array extraction now use this one rule.
+
+The fake-phone cases now include nested context metadata, duplicate root `context`, nested metric fields and duplicate direct metric fields. A nested-context success case proves direct AndroidX values remain visible while nested values are reported as unavailable rather than substituted.
+
+### Cycle 76 — keep all metric call sites compatible with exact object parsing
+
+Switching scalar reads to direct-member semantics exposed a caller mismatch: some regex matches still included the property-name prefix (for example, `"artJitCount":`) instead of passing the JSON object beginning at `{`. The TTID/TTFD, ART validation, ART summary and class-loading summary paths have now all been adapted to pass the actual metric object. The class-loading paths also check that their metric objects were found before reading medians.
+
+Added an invalid fake report with ART metric values nested under a child object, and extended the static contract to reject old prefixed metric-object handoffs. Existing fake-report assertions still require non-zero ART and class-loading summaries, so the stricter parser cannot silently turn valid values into zeros without the fixture detecting it.
+
+### Verification boundary for cycles 75–76
+
+- Ran isolated POSIX AWK checks using the same direct-member helper implementation: valid context values; ignored root/nested decoys; duplicate direct fields; escaped quotes and braces; nested arrays/objects; direct numeric/boolean/string reads; raw metric samples; nested-only metric values; and duplicate metric fields. All focused assertions returned the expected values or unavailable result.
+- Re-fetched the live runner, phone-runner fixtures and static contract after the edits. Audited every metric reader call site, including ART validation and ART class-loading summary handoffs; the previous prefixed-object call sites were corrected.
+- Confirmed that nested-context, nested-startup-metric, nested-ART-metric, duplicate-context and duplicate-metric fixtures are included in the fake-phone invalid or summary test paths, and that existing summary assertions check the expected ART/class-loading values.
+- The complete repository scripts `scripts/tests/test-nuvio-phone-benchmark.sh` and `scripts/tests/test-android-startup-metric-contract.sh` were **not run**: the session has no local repository checkout and the GitHub file integration cannot execute shell scripts. Source/fixture wiring and isolated AWK behavior are verified; a complete regression-suite pass is not claimed.
+- No Gradle task, build, CI workflow, instrumentation, Baseline Profile collection, LADB action or physical-device benchmark was run. The app, Java benchmark workload, comparison arms, metrics, iterations, profiles, APK variants and dependencies are unchanged. These cycles improve report correctness only; no startup-speed improvement is claimed.
+
+Evidence: [AndroidX BenchmarkData JSON model](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) defines device context and metric result structures; [Android Developers — Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) documents the 1.5.0 release and benchmark JSON context additions; [AndroidX Macrobenchmark implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) writes profiler outputs and iteration traces.
