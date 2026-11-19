@@ -20,8 +20,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Compares cold-start timing with no compilation against the packaged
- * Baseline Profile. Both arms share identical readiness and iteration settings.
+ * Compares cold-start timing with no compilation, partial compilation
+ * without a Baseline Profile, and the packaged Baseline Profile. All arms
+ * share identical readiness and iteration settings.
  *
  * Run manually on a physical API 33+ device with the isolated
  * {@code com.nuvio.media.benchmark} install signed in on Home.
@@ -40,6 +41,14 @@ public final class StartupBenchmark {
     public void startupNoCompilation() {
         runColdStartupBenchmark(
                 CompilationMode.None.INSTANCE,
+                java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
+        );
+    }
+
+    @Test
+    public void startupPartialWithoutBaselineProfile() {
+        runColdStartupBenchmark(
+                new CompilationMode.Partial(BaselineProfileMode.Disable, 3),
                 java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }

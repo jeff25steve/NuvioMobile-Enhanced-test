@@ -47,12 +47,25 @@ awk '
   echo "FAIL: Macrobenchmark must declare a JUnit test for the packaged Baseline Profile." >&2
   exit 1
 }
+awk '
+  /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
+  /^[[:space:]]*public void startupPartialWithoutBaselineProfile[[:space:]]*\(/ && annotated { found=1 }
+  { if ($0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*@Test[[:space:]]*$/) annotated=0 }
+  END { exit !found }
+' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: Macrobenchmark must declare the partial no-profile control arm as a JUnit test." >&2
+  exit 1
+}
+grep -Fq 'new CompilationMode.Partial(BaselineProfileMode.Disable, 3)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: partial no-profile control must disable Baseline Profile compilation and use three warmup iterations." >&2
+  exit 1
+}
 grep -Fq 'new CompilationMode.Partial(BaselineProfileMode.Require)' "$BENCHMARK_SOURCE" || {
   echo "FAIL: Baseline Profile test must require the packaged profile during partial compilation." >&2
   exit 1
 }
 grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both comparison arms must collect StartupTimingMetric." >&2
+  echo "FAIL: all three comparison arms must collect StartupTimingMetric." >&2
   exit 1
 }
 grep -Fq 'artJitCount' "$PHONE_RUNNER" && grep -Fq 'artVerifyClassSumMs' "$PHONE_RUNNER" || {
@@ -68,15 +81,15 @@ grep -Fq 'Runtime class loading: not emitted' "$PHONE_RUNNER" || {
   exit 1
 }
 grep -Fq 'new ArtMetric()' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both comparison arms must collect ART runtime diagnostics." >&2
+  echo "FAIL: all three comparison arms must collect ART runtime diagnostics." >&2
   exit 1
 }
-[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 2 ] || {
+[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 3 ] || {
   echo "FAIL: ART diagnostics must be collected in both cold-start comparison arms." >&2
   exit 1
 }
 grep -Fq 'StartupMode.COLD' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: both comparison arms must measure cold starts." >&2
+  echo "FAIL: all three comparison arms must measure cold starts." >&2
   exit 1
 }
 grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
@@ -179,7 +192,7 @@ grep -Fq 'environment-before.txt' "$PHONE_RUNNER" && grep -Fq 'environment-after
   echo "FAIL: phone runner must identify both device-condition snapshot files." >&2
   exit 1
 }
-for result_name in startupNoCompilation startupWithBaselineProfile; do
+for result_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
   grep -Fq "$result_name" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner must require JSON results for $result_name." >&2
     exit 1
@@ -187,7 +200,7 @@ for result_name in startupNoCompilation startupWithBaselineProfile; do
 done
 for metric_name in timeToInitialDisplayMs timeToFullDisplayMs; do
   grep -Fq "$metric_name" "$PHONE_RUNNER" || {
-    echo "FAIL: phone runner must require JSON $metric_name values for both comparison arms." >&2
+    echo "FAIL: phone runner must require JSON $metric_name values for all three comparison arms." >&2
     exit 1
   }
 done

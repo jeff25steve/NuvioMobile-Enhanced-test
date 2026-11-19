@@ -239,7 +239,7 @@ require_non_empty_home_browse_profile() {
 }
 
 require_macrobenchmark_cases() {
-  for test_name in startupNoCompilation startupWithBaselineProfile; do
+  for test_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
     grep -Fq "INSTRUMENTATION_STATUS: test=$test_name" "$RUN_DIR/instrumentation.log" || {
       fail "Macrobenchmark did not execute required comparison case '$test_name'. See $RUN_DIR/instrumentation.log."
     }
@@ -532,10 +532,11 @@ validate_macrobenchmark_statistics() {
     END {
       expected_iterations = 10
       count_no = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupNoCompilation\"")
+      count_partial = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupPartialWithoutBaselineProfile\"")
       count_profile = count_matches(json, "\"name\"[[:space:]]*:[[:space:]]*\"startupWithBaselineProfile\"")
       count_class = count_matches(json, "\"className\"[[:space:]]*:[[:space:]]*\"com[.]nuvio[.]android[.]baselineprofile[.]StartupBenchmark\"")
-      if (count_no != 1 || count_profile != 1 || count_class != 2) {
-        print "FAIL: JSON must contain exactly one result for each startup case and two StartupBenchmark class records."
+      if (count_no != 1 || count_partial != 1 || count_profile != 1 || count_class != 3) {
+        print "FAIL: JSON must contain exactly one result for each of the three startup cases and three StartupBenchmark class records."
         exit 1
       }
 
@@ -554,8 +555,8 @@ validate_macrobenchmark_statistics() {
         repeat_count++
         repeat_rest = substr(repeat_rest, repeat_start + repeat_length)
       }
-      if (repeat_count != 2) {
-        print "FAIL: JSON must contain repeatIterations for both startup results."
+      if (repeat_count != 3) {
+        print "FAIL: JSON must contain repeatIterations for all three startup results."
         exit 1
       }
 
@@ -575,13 +576,13 @@ validate_macrobenchmark_statistics() {
           total_metric_objects++
           metric_rest = substr(metric_rest, metric_start + metric_length)
         }
-        if (metric_count != 2) {
-          print "FAIL: JSON must contain exactly two " metric_name " results, one per startup case."
+        if (metric_count != 3) {
+          print "FAIL: JSON must contain exactly three " metric_name " results, one per startup comparison arm."
           exit 1
         }
       }
-      if (total_metric_objects != 4) {
-        print "FAIL: JSON must contain exactly four startup metric objects."
+      if (total_metric_objects != 6) {
+        print "FAIL: JSON must contain exactly six startup metric objects."
         exit 1
       }
       art_metric_names[1] = "artJitCount"
@@ -601,8 +602,8 @@ validate_macrobenchmark_statistics() {
           metric_count++
           metric_rest = substr(metric_rest, metric_start + metric_length)
         }
-        if (metric_count != 2) {
-          print "FAIL: JSON must contain exactly two " metric_name " results, one per startup case."
+        if (metric_count != 3) {
+          print "FAIL: JSON must contain exactly three " metric_name " results, one per startup comparison arm."
           exit 1
         }
       }
@@ -610,11 +611,11 @@ validate_macrobenchmark_statistics() {
       class_load_count = count_matches(json, "\"artClassLoadCount\"[[:space:]]*:")
       class_load_time_count = count_matches(json, "\"artClassLoadSumMs\"[[:space:]]*:")
       if ((class_load_count == 0 && class_load_time_count != 0) ||
-          (class_load_count != 0 && (class_load_count != 2 || class_load_time_count != 2))) {
-        print "FAIL: optional ART class-load metrics must be emitted as a complete pair for both startup cases or omitted entirely."
+          (class_load_count != 0 && (class_load_count != 3 || class_load_time_count != 3))) {
+        print "FAIL: optional ART class-load metrics must be emitted as a complete pair for all three startup cases or omitted entirely."
         exit 1
       }
-      if (class_load_count == 2) {
+      if (class_load_count == 3) {
         for (art_metric_index = 1; art_metric_index <= 2; art_metric_index++) {
           if (art_metric_index == 1) metric_name = "artClassLoadCount"
           else metric_name = "artClassLoadSumMs"
@@ -629,7 +630,7 @@ validate_macrobenchmark_statistics() {
             metric_count++
             metric_rest = substr(metric_rest, metric_start + metric_length)
           }
-          if (metric_count != 2) {
+          if (metric_count != 3) {
             print "FAIL: optional " metric_name " must contain one valid result for each startup case."
             exit 1
           }
@@ -659,11 +660,11 @@ validate_macrobenchmark_statistics() {
         trace_array_count++
         trace_rest = substr(trace_rest, trace_start + trace_length)
       }
-      if (trace_array_count != 2) {
-        print "FAIL: JSON must contain profilerOutputs for both startup comparison results."
+      if (trace_array_count != 3) {
+        print "FAIL: JSON must contain profilerOutputs for all three startup comparison results."
         exit 1
       }
-      print "PASS: both startup results contain ten numeric TTID/TTFD and ART samples, valid statistics and ten Perfetto trace references each."
+      print "PASS: all three startup results contain ten numeric TTID/TTFD and ART samples, valid statistics and ten Perfetto trace references each."
     }
   ' "$1"
 }
@@ -700,10 +701,10 @@ validate_macrobenchmark_trace_files() {
   trace_reference_file="$RUN_DIR/trace-references.txt"
   extract_macrobenchmark_trace_filenames "$result_file" > "$trace_reference_file"
   reference_count="$(awk 'END { print NR + 0 }' "$trace_reference_file")"
-  [ "$reference_count" -eq 20 ] || fail "Macrobenchmark trace output must reference twenty per-iteration Perfetto files (ten per startup case); found $reference_count references."
+  [ "$reference_count" -eq 30 ] || fail "Macrobenchmark trace output must reference thirty per-iteration Perfetto files (ten per comparison arm); found $reference_count references."
 
   unique_reference_count="$(sort -u "$trace_reference_file" | wc -l | tr -d ' ')"
-  [ "$unique_reference_count" -eq 20 ] || fail "Macrobenchmark trace output contains duplicate filenames; expected twenty unique Perfetto traces, found $unique_reference_count."
+  [ "$unique_reference_count" -eq 30 ] || fail "Macrobenchmark trace output contains duplicate filenames; expected thirty unique Perfetto traces, found $unique_reference_count."
 
   while IFS= read -r trace_filename; do
     [ -n "$trace_filename" ] || fail "Macrobenchmark trace output contains an empty filename reference."
@@ -718,7 +719,7 @@ validate_macrobenchmark_trace_files() {
     [ -s "$trace_file" ] || fail "Macrobenchmark trace output is empty: $trace_file."
     trace_file_count=$((trace_file_count + 1))
   done
-  [ "$trace_file_count" -eq 20 ] || fail "Macrobenchmark trace output must contain exactly twenty non-empty per-iteration Perfetto traces; found $trace_file_count."
+  [ "$trace_file_count" -eq 30 ] || fail "Macrobenchmark trace output must contain exactly thirty non-empty per-iteration Perfetto traces; found $trace_file_count."
 }
 
 write_macrobenchmark_summary() {
@@ -785,7 +786,8 @@ write_macrobenchmark_summary() {
     END {
       expected_iterations = 10
       test_names[1] = "startupNoCompilation"
-      test_names[2] = "startupWithBaselineProfile"
+      test_names[2] = "startupPartialWithoutBaselineProfile"
+      test_names[3] = "startupWithBaselineProfile"
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
 
@@ -808,7 +810,7 @@ write_macrobenchmark_summary() {
       if (sustained_performance == "") sustained_performance = "not reported"
       if (os_codename == "") os_codename = "not reported"
 
-      for (test_index = 1; test_index <= 2; test_index++) {
+      for (test_index = 1; test_index <= 3; test_index++) {
         test_pattern = "\"name\"[[:space:]]*:[[:space:]]*\"" test_names[test_index] "\""
         if (!match(json, test_pattern)) {
           print "FAIL: cannot find " test_names[test_index] " while writing benchmark summary."
@@ -853,7 +855,7 @@ write_macrobenchmark_summary() {
       art_metric_names[2] = "artJitSumMs"
       art_metric_names[3] = "artVerifyClassCount"
       art_metric_names[4] = "artVerifyClassSumMs"
-      for (test_index = 1; test_index <= 2; test_index++) {
+      for (test_index = 1; test_index <= 3; test_index++) {
         result_object = test_objects[test_index]
         for (art_index = 1; art_index <= 4; art_index++) {
           metric_name = art_metric_names[art_index]
@@ -902,27 +904,37 @@ write_macrobenchmark_summary() {
         print "  ART comparability: Android API unavailable; do not infer Play-equivalent verification state."
       }
       print ""
-      print "Comparison: no compilation vs required packaged Baseline Profile"
+      print "Comparison: no compilation, profile-disabled partial compilation, and Baseline Profile"
+      print "The profile-disabled partial arm uses three warmup iterations before measurement."
       print "10 samples per comparison arm"
       print ""
       for (metric_index = 1; metric_index <= 2; metric_index++) {
         metric = metric_names[metric_index]
         no_key = test_names[1] SUBSEP metric
-        profile_key = test_names[2] SUBSEP metric
-        delta_ms = median[profile_key] - median[no_key]
-        delta_percent = delta_ms / median[no_key] * 100
+        partial_key = test_names[2] SUBSEP metric
+        profile_key = test_names[3] SUBSEP metric
+        partial_delta_ms = median[partial_key] - median[no_key]
+        partial_delta_percent = partial_delta_ms / median[no_key] * 100
+        profile_delta_ms = median[profile_key] - median[partial_key]
+        profile_delta_percent = profile_delta_ms / median[partial_key] * 100
+        total_delta_ms = median[profile_key] - median[no_key]
+        total_delta_percent = total_delta_ms / median[no_key] * 100
         print metric
         printf "  No compilation: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[no_key], minimum[no_key], maximum[no_key], cv[no_key] * 100
+        printf "  Partial without Baseline Profile (3 warmups): median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[partial_key], minimum[partial_key], maximum[partial_key], cv[partial_key] * 100
         printf "  Baseline Profile: median %.1f ms (range %.1f..%.1f ms; CV %.2f%%)\n", median[profile_key], minimum[profile_key], maximum[profile_key], cv[profile_key] * 100
-        printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
+        printf "  Difference (partial without profile - no compilation): %+.1f ms (%+.1f%%)\n", partial_delta_ms, partial_delta_percent
+        printf "  Incremental Baseline Profile difference (profile - partial without profile): %+.1f ms (%+.1f%%)\n", profile_delta_ms, profile_delta_percent
+        printf "  Total difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", total_delta_ms, total_delta_percent
         print ""
       }
 
       print "ART runtime compilation and verification (median per cold launch)"
       printf "  No compilation: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[1,1], art_median[1,2], art_median[1,3], art_median[1,4]
-      printf "  Baseline Profile: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[2,1], art_median[2,2], art_median[2,3], art_median[2,4]
+      printf "  Partial without Baseline Profile: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[2,1], art_median[2,2], art_median[2,3], art_median[2,4]
+      printf "  Baseline Profile: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[3,1], art_median[3,2], art_median[3,3], art_median[3,4]
       if (class_load_metrics_available) {
-        printf "  Runtime class loading: no compilation %.1f classes / %.2f ms; Baseline Profile %.1f classes / %.2f ms\n", art_class_load_count[1], art_class_load_ms[1], art_class_load_count[2], art_class_load_ms[2]
+        printf "  Runtime class loading: no compilation %.1f classes / %.2f ms; partial without profile %.1f classes / %.2f ms; Baseline Profile %.1f classes / %.2f ms\n", art_class_load_count[1], art_class_load_ms[1], art_class_load_count[2], art_class_load_ms[2], art_class_load_count[3], art_class_load_ms[3]
       } else {
         print "  Runtime class loading: not emitted (ART class-load tracepoints unavailable on this device)"
       }
@@ -931,7 +943,7 @@ write_macrobenchmark_summary() {
       print "Per-iteration samples and matching Perfetto traces"
       print "AndroidX preserves measurement order in the raw runs and labels the corresponding trace with the same iteration index."
       print ""
-      for (test_index = 1; test_index <= 2; test_index++) {
+      for (test_index = 1; test_index <= 3; test_index++) {
         print test_names[test_index]
         for (run_index = 1; run_index <= expected_iterations; run_index++) {
           iteration = run_index - 1
@@ -954,6 +966,7 @@ write_macrobenchmark_summary() {
 require_macrobenchmark_result_data() {
   json_files=0
   no_compilation_results=0
+  partial_without_profile_results=0
   baseline_profile_results=0
   ttid_metrics=0
   ttfd_metrics=0
@@ -966,6 +979,7 @@ require_macrobenchmark_result_data() {
     [ -n "$summary_result_file" ] || summary_result_file="$result_file"
 
     no_compilation_results=$((no_compilation_results + $(count_json_named_results startupNoCompilation "$result_file")))
+    partial_without_profile_results=$((partial_without_profile_results + $(count_json_named_results startupPartialWithoutBaselineProfile "$result_file")))
     baseline_profile_results=$((baseline_profile_results + $(count_json_named_results startupWithBaselineProfile "$result_file")))
     ttid_metrics=$((ttid_metrics + $(count_json_occurrences '"timeToInitialDisplayMs"' "$result_file")))
     ttfd_metrics=$((ttfd_metrics + $(count_json_occurrences '"timeToFullDisplayMs"' "$result_file")))
@@ -974,11 +988,11 @@ require_macrobenchmark_result_data() {
   done
 
   [ "$json_files" -gt 0 ] || fail "Macrobenchmark did not produce a benchmarkData.json result file."
-  [ "$no_compilation_results" -ge 1 ] && [ "$baseline_profile_results" -ge 1 ] || {
-    fail "Macrobenchmark JSON must contain both startupNoCompilation and startupWithBaselineProfile results (found $no_compilation_results and $baseline_profile_results)."
+  [ "$no_compilation_results" -ge 1 ] && [ "$partial_without_profile_results" -ge 1 ] && [ "$baseline_profile_results" -ge 1 ] || {
+    fail "Macrobenchmark JSON must contain all three startup comparison results (found no-compilation=$no_compilation_results, partial-without-profile=$partial_without_profile_results, Baseline-Profile=$baseline_profile_results)."
   }
-  [ "$ttid_metrics" -ge 2 ] && [ "$ttfd_metrics" -ge 2 ] || {
-    fail "Macrobenchmark JSON must contain TTID and TTFD metrics for both startup results (found $ttid_metrics and $ttfd_metrics)."
+  [ "$ttid_metrics" -ge 3 ] && [ "$ttfd_metrics" -ge 3 ] || {
+    fail "Macrobenchmark JSON must contain TTID and TTFD metrics for all three startup results (found $ttid_metrics and $ttfd_metrics)."
   }
   write_macrobenchmark_summary "$summary_result_file"
 }

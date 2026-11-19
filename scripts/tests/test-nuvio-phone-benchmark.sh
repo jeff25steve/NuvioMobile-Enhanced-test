@@ -231,14 +231,14 @@ printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
-    trace_file_limit=20
+    trace_file_limit=30
     empty_trace_index=-1
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      missing-trace-file) trace_file_limit=19 ;;
-      empty-trace-file) empty_trace_index=19 ;;
+      missing-trace-file) trace_file_limit=29 ;;
+      empty-trace-file) empty_trace_index=29 ;;
     esac
     trace_index=0
-    for trace_prefix in startupNoCompilation startupWithBaselineProfile; do
+    for trace_prefix in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
       i=0
       while [ "$i" -lt 10 ]; do
         trace_file="$trace_prefix-trace-$i.perfetto-trace"
@@ -253,7 +253,7 @@ case " $* " in
         i=$((i + 1))
       done
     done
-    for test_name in startupNoCompilation startupWithBaselineProfile; do
+    for test_name in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
       if [ "${FAKE_MISSING_TEST_CASE:-}" != "$test_name" ]; then
         printf 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupBenchmark\n'
         printf 'INSTRUMENTATION_STATUS: test=%s\n' "$test_name"
@@ -292,6 +292,36 @@ case " $* " in
         {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupNoCompilation-trace-7.perfetto-trace"},
         {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupNoCompilation-trace-8.perfetto-trace"},
         {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupNoCompilation-trace-9.perfetto-trace"}
+      ]
+    },
+    {
+      "className": "com.nuvio.android.baselineprofile.StartupBenchmark",
+      "name": "startupPartialWithoutBaselineProfile",
+      "metrics": {
+        "timeToInitialDisplayMs": {"minimum": 360, "maximum": 450, "median": 405, "coefficientOfVariation": 0.074756798866605, "runs": [360,370,380,390,400,410,420,430,440,450]},
+        "timeToFullDisplayMs": {"minimum": 650, "maximum": 740, "median": 695, "coefficientOfVariation": 0.043563314447446, "runs": [650,660,670,680,690,700,710,720,730,740]},
+        "artJitCount": {"minimum": 1, "maximum": 10, "median": 5.5, "coefficientOfVariation": 0.5504818825631803, "runs": [1,2,3,4,5,6,7,8,9,10]},
+        "artJitSumMs": {"minimum": 10, "maximum": 19, "median": 14.5, "coefficientOfVariation": 0.20880347269637875, "runs": [10,11,12,13,14,15,16,17,18,19]},
+        "artVerifyClassCount": {"minimum": 0, "maximum": 9, "median": 4.5, "coefficientOfVariation": 0.6728111897994427, "runs": [0,1,2,3,4,5,6,7,8,9]},
+        "artVerifyClassSumMs": {"minimum": 0, "maximum": 9, "median": 4.5, "coefficientOfVariation": 0.6728111897994427, "runs": [0,1,2,3,4,5,6,7,8,9]},
+        "artClassLoadCount": {"minimum": 0, "maximum": 4, "median": 2, "coefficientOfVariation": 0.7453559924999299, "runs": [0,0,1,1,2,2,3,3,4,4]},
+        "artClassLoadSumMs": {"minimum": 0, "maximum": 4, "median": 2, "coefficientOfVariation": 0.7453559924999299, "runs": [0,0,1,1,2,2,3,3,4,4]}
+      },
+      "sampledMetrics": {},
+      "warmupIterations": 3,
+      "repeatIterations": 10,
+      "thermalThrottleSleepSeconds": 0,
+      "profilerOutputs": [
+        {"type":"PerfettoTrace","label":"Trace Iteration 0","filename":"startupPartialWithoutBaselineProfile-trace-0.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 1","filename":"startupPartialWithoutBaselineProfile-trace-1.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 2","filename":"startupPartialWithoutBaselineProfile-trace-2.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 3","filename":"startupPartialWithoutBaselineProfile-trace-3.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 4","filename":"startupPartialWithoutBaselineProfile-trace-4.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 5","filename":"startupPartialWithoutBaselineProfile-trace-5.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 6","filename":"startupPartialWithoutBaselineProfile-trace-6.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 7","filename":"startupPartialWithoutBaselineProfile-trace-7.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 8","filename":"startupPartialWithoutBaselineProfile-trace-8.perfetto-trace"},
+        {"type":"PerfettoTrace","label":"Trace Iteration 9","filename":"startupPartialWithoutBaselineProfile-trace-9.perfetto-trace"}
       ]
     },
     {
@@ -416,7 +446,7 @@ JSON
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
     fi
-    echo 'OK (2 tests)'
+    echo 'OK (3 tests)'
     if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
       printf 'INSTRUMENTATION_STATUS_CODE: -2\n'
     fi
@@ -637,8 +667,9 @@ for flavor in full playstore; do
   grep -Fq 'timeToFullDisplayMs' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'ART runtime compilation and verification' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'No compilation: JIT 5.5 methods / 14.50 ms; runtime verification 4.5 classes / 4.50 ms' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Partial without Baseline Profile: JIT 5.5 methods / 14.50 ms; runtime verification 4.5 classes / 4.50 ms' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Baseline Profile: JIT 0.0 methods / 0.00 ms; runtime verification 0.0 classes / 0.00 ms' "$benchmark_result_dir/benchmark-summary.txt"
-  grep -Fq 'Runtime class loading: no compilation 2.0 classes / 2.00 ms; Baseline Profile 0.0 classes / 0.00 ms' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'Runtime class loading: no compilation 2.0 classes / 2.00 ms; partial without profile 2.0 classes / 2.00 ms; Baseline Profile 0.0 classes / 0.00 ms' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Benchmark device context' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Device: Fixture phone | Android API: 35' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq 'Install path: APK sideload via pm install; not Google Play delivery.' "$benchmark_result_dir/benchmark-summary.txt"
@@ -650,11 +681,18 @@ for flavor in full playstore; do
   for iteration in 0 1 2 3 4 5 6 7 8 9; do
     no_ttid=$((400 + iteration * 10))
     no_ttfd=$((700 + iteration * 10))
+    partial_ttid=$((360 + iteration * 10))
+    partial_ttfd=$((650 + iteration * 10))
     profile_ttid=$((330 + iteration * 10))
     profile_ttfd=$((610 + iteration * 10))
     grep -Fq "Iteration $iteration: TTID $no_ttid.0 ms | TTFD $no_ttfd.0 ms | trace startupNoCompilation-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
+    grep -Fq "Iteration $iteration: TTID $partial_ttid.0 ms | TTFD $partial_ttfd.0 ms | trace startupPartialWithoutBaselineProfile-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
     grep -Fq "Iteration $iteration: TTID $profile_ttid.0 ms | TTFD $profile_ttfd.0 ms | trace startupWithBaselineProfile-trace-$iteration.perfetto-trace" "$benchmark_result_dir/benchmark-summary.txt"
   done
+  grep -Fq -- '-40.0 ms (-9.0%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-50.0 ms (-6.7%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-30.0 ms (-7.4%)' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq -- '-40.0 ms (-5.8%)' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq -- '-70.0 ms (-15.7%)' "$benchmark_result_dir/benchmark-summary.txt"
   grep -Fq -- '-90.0 ms (-12.1%)' "$benchmark_result_dir/benchmark-summary.txt"
   if ! FAKE_BENCHMARK_JSON=no-classload sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-no-classload.log" 2>&1; then
@@ -743,7 +781,7 @@ for flavor in full playstore; do
     exit 1
   }
 
-  for missing_case in startupNoCompilation startupWithBaselineProfile; do
+  for missing_case in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted a run missing $missing_case." >&2
       exit 1

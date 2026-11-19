@@ -163,9 +163,9 @@ grep -Fq 'nuvio_benchmark_home_scroll' "$GENERATOR_SOURCE" &&
   echo "FAIL: Home browse profile must scroll both the vertical feed and a horizontal catalogue shelf." >&2
   exit 1
 }
-# Both cold-start arms now collect the AndroidX ART diagnostics as well as startup timing.
-[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 2 ] || {
-  echo "FAIL: both cold-start arms must collect ART runtime diagnostics." >&2
+# All three cold-start arms collect AndroidX ART diagnostics as well as startup timing.
+[ "$(grep -Fc 'new ArtMetric()' "$BENCHMARK_SOURCE")" -eq 3 ] || {
+  echo "FAIL: all three cold-start arms must collect ART runtime diagnostics." >&2
   exit 1
 }
 grep -Fq 'new StartupTimingMetric()' "$BENCHMARK_SOURCE" || {
