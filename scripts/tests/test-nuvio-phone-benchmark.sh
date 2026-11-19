@@ -323,6 +323,14 @@ case " $* " in
 }
 JSON
     case "$memory_mode" in
+      wrong-class)
+        sed 's/StartupMemoryBenchmark/OtherMemoryBenchmark/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
+      wrong-iterations)
+        sed 's/"repeatIterations": 1/"repeatIterations": 2/' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
       missing-output)
         awk '
           /Memory Profiling Iteration 0/ { next }
@@ -1015,7 +1023,7 @@ for flavor in full playstore; do
   grep -Fq 'Memory Profiling Iteration 0' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'memory-profile-summary.txt' "$memory_result_dir/copied-files.txt"
 
-  for memory_fixture in missing-output duplicate-output wrong-type wrong-suffix missing-trace-file empty-trace-file; do
+  for memory_fixture in wrong-class wrong-iterations missing-output duplicate-output wrong-type wrong-suffix missing-trace-file empty-trace-file; do
     if FAKE_MEMORY_PROFILE_MODE="$memory_fixture" sh "$BUNDLE/nuvio-phone-benchmark.sh" memory-profile "$flavor" > "$TMP/$flavor-memory-$memory_fixture.log" 2>&1; then
       echo "FAIL: memory-profile accepted invalid profiler output fixture '$memory_fixture' ($flavor)." >&2
       exit 1
