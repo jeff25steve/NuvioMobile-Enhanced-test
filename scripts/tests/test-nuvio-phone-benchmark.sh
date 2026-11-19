@@ -231,6 +231,7 @@ printf 'am %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 case " $* " in
   *macrobenchmark*)
     mkdir -p "$FAKE_MEDIA_DIR"
+    rm -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
     trace_file_limit=30
     empty_trace_index=-1
     case "${FAKE_BENCHMARK_JSON:-complete}" in
@@ -450,6 +451,7 @@ JSON
       mkdir -p "$FAKE_MEDIA_ROOT/com.example.other"
       printf '{"benchmarks":[]}' > "$FAKE_MEDIA_ROOT/com.example.other/foreign-benchmarkData.json"
     fi
+    : > "$FAKE_MEDIA_DIR/.macrobenchmark-completed"
     echo 'OK (3 tests)'
     if [ "${FAKE_NEGATIVE_STATUS_CODE:-0}" = "1" ]; then
       printf 'INSTRUMENTATION_STATUS_CODE: -2\n'
@@ -510,10 +512,11 @@ BATTERY
       echo 'thermal service unavailable'
       exit 1
     fi
-    cat <<'THERMAL'
-Current Thermal Status: 0 (NONE)
-Thermal Status: 0
-THERMAL
+    thermal_status="${FAKE_THERMAL_STATUS:-0}"
+    if [ -f "$FAKE_MEDIA_DIR/.macrobenchmark-completed" ]; then
+      thermal_status="${FAKE_THERMAL_STATUS_AFTER:-$thermal_status}"
+    fi
+    printf 'Current Thermal Status: %s (fixture)\\nThermal Status: %s\\n' "$thermal_status" "$thermal_status"
     ;;
   window)
     case "$2" in
@@ -732,6 +735,13 @@ for flavor in full playstore; do
   grep -Fq 'level: 88' "$environment_before"
   grep -Fq 'temperature: 320' "$environment_before"
   grep -Fq 'Current Thermal Status: 0' "$environment_before"
+  thermal_integrity="$(dirname "$environment_before")/thermal-integrity.txt"
+  test -s "$thermal_integrity"
+  grep -Fq 'Thermal status before measurement: 0 (NONE)' "$thermal_integrity"
+  grep -Fq 'Thermal status after measurement: 0 (NONE)' "$thermal_integrity"
+  grep -Fq 'NO MODERATE-OR-HIGHER THERMAL STATUS OBSERVED AT THE TWO SNAPSHOTS' "$thermal_integrity"
+  grep -Fq 'thermal-integrity.txt' "$(dirname "$environment_before")/copied-files.txt"
+  grep -Fq 'Thermal integrity' "$(dirname "$environment_before")/benchmark-summary.txt"
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   foreground_before="$(find "$TMP/output/$flavor" -name 'foreground-before.txt' -print -quit)"
@@ -762,6 +772,38 @@ for flavor in full playstore; do
   diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
+  diagnostic_summary="$(dirname "$diagnostic_snapshot")/benchmark-summary.txt"
+  grep -Fq 'Thermal status before measurement: unknown' "$diagnostic_summary"
+  grep -Fq 'VERDICT: THERMAL STATUS UNKNOWN' "$diagnostic_summary"
+  # Moderate-or-higher pre-existing throttling must stop the run before instrumentation.
+  : > "$FAKE_COMMAND_LOG"
+  if FAKE_THERMAL_STATUS=2 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-preflight.log" 2>&1; then
+    echo "FAIL: phone runner accepted a device already in moderate thermal throttling ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq 'Thermal status 2 (MODERATE) is already active' "$TMP/$flavor-thermal-preflight.log" || {
+    echo "FAIL: thermal preflight did not explain the active throttling state ($flavor)." >&2
+    cat "$TMP/$flavor-thermal-preflight.log" >&2
+    exit 1
+  }
+  if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+    echo "FAIL: Macrobenchmark instrumentation started despite moderate-or-higher pre-existing throttling ($flavor)." >&2
+    exit 1
+  fi
+
+  # Light throttling is explicitly distinct from moderate-or-higher throttling.
+  FAKE_THERMAL_STATUS=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-light.log" 2>&1
+  light_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  grep -Fq 'Thermal status before measurement: 1 (LIGHT)' "$light_summary"
+  grep -Fq 'NO MODERATE-OR-HIGHER THERMAL STATUS OBSERVED AT THE TWO SNAPSHOTS' "$light_summary"
+
+  # A run that reaches moderate throttling after the final iteration remains saved,
+  # but is marked as thermally contaminated and unsuitable for clean comparison.
+  FAKE_THERMAL_STATUS=0 FAKE_THERMAL_STATUS_AFTER=2 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-thermal-after.log" 2>&1
+  post_thermal_summary="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)/benchmark-summary.txt"
+  grep -Fq 'Thermal status before measurement: 0 (NONE)' "$post_thermal_summary"
+  grep -Fq 'Thermal status after measurement: 2 (MODERATE)' "$post_thermal_summary"
+  grep -Fq 'VERDICT: THERMALLY CONTAMINATED' "$post_thermal_summary"
 
   : > "$FAKE_COMMAND_LOG"
   if FAKE_WIFI_DEBUG_PROMPT=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-wifi-prompt.log" 2>&1; then
