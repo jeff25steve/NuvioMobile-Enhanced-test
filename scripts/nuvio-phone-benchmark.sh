@@ -354,6 +354,20 @@ count_json_named_results() {
   ' "$2"
 }
 
+count_json_pattern_occurrences() {
+  awk -v pattern="$1" '
+    { content = content $0 "\n" }
+    END {
+      remaining = content
+      while (match(remaining, pattern)) {
+        count++
+        remaining = substr(remaining, RSTART + RLENGTH)
+      }
+      print count + 0
+    }
+  ' "$2"
+}
+
 validate_macrobenchmark_statistics() {
   awk '
     function json_member_value(source, field,    source_length, object_depth, array_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_end, scan_position, scan_character, scan_in_string, scan_escaped, value_object_depth, value_array_depth, value, found_count, found_value) {
@@ -1334,6 +1348,89 @@ append_macrobenchmark_execution_order() {
       }
     }
   ' "$execution_log" >> "$RUN_DIR/benchmark-summary.txt" || fail "Could not derive the actual Macrobenchmark JUnit execution order from instrumentation.log."
+}
+
+require_memory_profile_result_data() {
+  json_files=0
+  result_count=0
+  summary_result_file=""
+
+  for result_file in "$RUN_DIR"/*benchmarkData.json; do
+    [ -f "$result_file" ] || continue
+    json_files=$((json_files + 1))
+    [ -s "$result_file" ] || fail "Memory-profile result is empty: $result_file."
+    [ -n "$summary_result_file" ] || summary_result_file="$result_file"
+    result_count=$((result_count + $(count_json_named_results startupWithBaselineProfileMemoryProfile "$result_file")))
+  done
+
+  [ "$json_files" -eq 1 ] || fail "Memory-profile result must contain exactly one benchmarkData.json file; found $json_files."
+  [ "$result_count" -eq 1 ] || fail "Memory-profile result must contain exactly one startupWithBaselineProfileMemoryProfile result; found $result_count."
+  grep -Fq 'INSTRUMENTATION_STATUS: class=com.nuvio.android.baselineprofile.StartupMemoryBenchmark' "$RUN_DIR/instrumentation.log" ||
+    fail "Memory-profile result did not come from the dedicated StartupMemoryBenchmark class."
+  grep -Fq 'INSTRUMENTATION_STATUS: test=startupWithBaselineProfileMemoryProfile' "$RUN_DIR/instrumentation.log" ||
+    fail "Memory-profile result did not execute startupWithBaselineProfileMemoryProfile."
+
+  memory_label_count="$(count_json_pattern_occurrences '"label"[[:space:]]*:[[:space:]]*"Memory Profiling Iteration 0"' "$summary_result_file")"
+  ordinary_label_count="$(count_json_pattern_occurrences '"label"[[:space:]]*:[[:space:]]*"Trace Iteration 0"' "$summary_result_file")"
+  total_output_labels="$(count_json_pattern_occurrences '"label"[[:space:]]*:' "$summary_result_file")"
+  [ "$memory_label_count" -eq 1 ] && [ "$ordinary_label_count" -eq 1 ] && [ "$total_output_labels" -eq 2 ] ||
+    fail "Memory-profile result must contain exactly one ordinary Trace Iteration 0 and one Memory Profiling Iteration 0 output object; got memory=$memory_label_count ordinary=$ordinary_label_count total=$total_output_labels."
+
+  memory_output_object="$(awk '
+    { json = json $0 "\n" }
+    END {
+      pattern = "\\\\{[^{}]*\\\"label\\\"[[:space:]]*:[[:space:]]*\\\"Memory Profiling Iteration 0\\\"[^{}]*\\\\}"
+      if (!match(json, pattern)) exit 1
+      printf "%s", substr(json, RSTART, RLENGTH)
+    }
+  ' "$summary_result_file")" || fail "Memory-profile result has no complete Memory Profiling Iteration 0 output object."
+  printf '%s\n' "$memory_output_object" | grep -Eq '"type"[[:space:]]*:[[:space:]]*"PerfettoTrace"' ||
+    fail "Memory-profile result must report the memory output as a PerfettoTrace."
+  memory_trace_filename="$(printf '%s\n' "$memory_output_object" | awk '
+    {
+      if (match($0, /"filename"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
+        value = substr($0, RSTART, RLENGTH)
+        sub(/^[^:]*:[[:space:]]*"/, "", value)
+        sub(/"$/, "", value)
+        print value
+        exit
+      }
+    }
+  ')"
+  [ -n "$memory_trace_filename" ] || fail "Memory-profile output has no filename."
+  case "$memory_trace_filename" in
+    *-memoryProfiling.perfetto-trace) ;;
+    *) fail "Memory-profile output filename must end in -memoryProfiling.perfetto-trace; got '$memory_trace_filename'." ;;
+  esac
+  memory_trace_basename="$(basename "$memory_trace_filename")"
+  memory_trace_file="$RUN_DIR/$memory_trace_basename"
+  [ -s "$memory_trace_file" ] || fail "Memory-profile trace is missing or empty: $memory_trace_basename."
+  copied_memory_trace_count="$(find "$RUN_DIR" -maxdepth 1 -type f -name '*-memoryProfiling.perfetto-trace' -print | wc -l | tr -d ' ')"
+  [ "$copied_memory_trace_count" -eq 1 ] || fail "Expected exactly one copied non-empty memory-profile trace; found $copied_memory_trace_count."
+
+  {
+    printf 'Nuvio Android startup heap allocation diagnostic\n'
+    printf 'Target app: %s\n' "$APP_PACKAGE"
+    printf 'Instrumentation: %s\n' "$INSTRUMENTATION"
+    printf 'Test: startupWithBaselineProfileMemoryProfile\n'
+    printf 'Compilation mode: CompilationMode.Partial(BaselineProfileMode.Require)\n'
+    printf 'Startup mode: COLD\n'
+    printf 'Ordinary measured launches: one unprofiled iteration (diagnostic context only)\n'
+    printf 'Additional memory profiling launches: one dedicated AndroidX profiling pass\n'
+    printf 'ART heap sampling: enabled\n'
+    printf 'Native heap sampling: enabled\n'
+    printf 'Memory profiler output: Memory Profiling Iteration 0\n'
+    printf 'Memory profile trace: %s\n' "$memory_trace_basename"
+    printf '\nThis is an allocation diagnostic, not a statistical startup comparison. Do not use its single TTID/TTFD sample to claim a startup improvement. The normal timing suite remains unprofiled.\n'
+    printf '\nInspect the trace in Perfetto UI (https://ui.perfetto.dev/) or Android Performance Analyzer. The trace embeds pprof heap-profile data; Perfetto traceconv can export pprof data for offline analysis.\n'
+    printf '\nRun provenance\n'
+    cat "$RUN_DIR/provenance.txt"
+    printf '\nThermal integrity\n'
+    cat "$RUN_DIR/thermal-integrity.txt"
+    printf '\nBattery Saver integrity\n'
+    cat "$RUN_DIR/battery-saver-integrity.txt"
+  } > "$RUN_DIR/memory-profile-summary.txt" || fail "Could not write the memory-profile summary."
+  printf 'Generated memory-profile summary -> %s\n' "$RUN_DIR/memory-profile-summary.txt" >> "$RUN_DIR/copied-files.txt"
 }
 
 require_macrobenchmark_result_data() {
