@@ -3,15 +3,22 @@ package com.nuvio.app.core.network
 import android.os.SystemClock
 import android.util.Base64
 import co.touchlab.kermit.Logger
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.LinkedHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 private const val MAX_DNS_CACHE_TTL_SECONDS = 3_600L
 
@@ -211,6 +218,65 @@ internal data class DohResolution(
     val cacheExpiresAtMs: Long?,
 )
 
+
+/**
+ * Starts the independent IPv6 query before running the blocking IPv4 query.
+ * IPv4 remains required; IPv6 is optional, matching the previous resolver contract.
+ */
+internal fun resolveDohAnswers(
+    queryIpv4: () -> DohAnswer,
+    startIpv6: (complete: (Result<DohAnswer>) -> Unit) -> (() -> Unit),
+): DohResolution {
+    val ipv6Finished = CountDownLatch(1)
+    val ipv6Answer = AtomicReference<DohAnswer?>()
+    val completionClaimed = AtomicBoolean(false)
+    val completeIpv6: (Result<DohAnswer>) -> Unit = { result ->
+        if (completionClaimed.compareAndSet(false, true)) {
+            ipv6Answer.set(result.getOrNull())
+            ipv6Finished.countDown()
+        }
+    }
+
+    val cancelIpv6 = try {
+        startIpv6(completeIpv6)
+    } catch (error: Exception) {
+        completeIpv6(Result.failure(error))
+        {}
+    }
+
+    val ipv4 = try {
+        queryIpv4()
+    } catch (failure: Throwable) {
+        cancelIpv6()
+        throw failure
+    }
+
+    try {
+        ipv6Finished.await()
+    } catch (interrupted: InterruptedException) {
+        cancelIpv6()
+        Thread.currentThread().interrupt()
+        throw InterruptedIOException("Interrupted while resolving DNS addresses").apply {
+            initCause(interrupted)
+        }
+    }
+
+    return combineDohAnswers(ipv4, ipv6Answer.get())
+}
+
+internal fun combineDohAnswers(v4: DohAnswer, v6: DohAnswer?): DohResolution {
+    val answerBearingResponses = listOfNotNull(v4, v6).filter { it.hasAnswerRecords }
+    val cacheExpiresAtMs = if (
+        answerBearingResponses.isNotEmpty() &&
+        answerBearingResponses.all { it.cacheExpiresAtMs != null }
+    ) {
+        answerBearingResponses.minOf { requireNotNull(it.cacheExpiresAtMs) }
+    } else {
+        null
+    }
+    return DohResolution(v4.addresses + v6?.addresses.orEmpty(), cacheExpiresAtMs)
+}
+
 internal fun remainingDnsTtlSeconds(ttlSeconds: Long?, ageHeader: String?): Long? {
     val ttl = ttlSeconds?.takeIf { it > 0L } ?: return null
     val age = when (ageHeader) {
@@ -250,48 +316,75 @@ internal object DohClient {
             .build()
     }
 
-    fun resolve(endpoint: DohEndpoint, hostname: String): DohResolution {
-        val v4 = query(endpoint, hostname, TYPE_A)
-        val v6 = runCatching { query(endpoint, hostname, TYPE_AAAA) }.getOrNull()
-        val addresses = v4.addresses + v6?.addresses.orEmpty()
-        val answerBearingResponses = listOfNotNull(v4, v6).filter { it.hasAnswerRecords }
-        val cacheExpiresAtMs = if (
-            answerBearingResponses.isNotEmpty() &&
-            answerBearingResponses.all { it.cacheExpiresAtMs != null }
-        ) {
-            answerBearingResponses.minOf { requireNotNull(it.cacheExpiresAtMs) }
-        } else {
-            null
-        }
-        return DohResolution(addresses, cacheExpiresAtMs)
-    }
+    fun resolve(endpoint: DohEndpoint, hostname: String): DohResolution =
+        resolveDohAnswers(
+            queryIpv4 = { query(endpoint, hostname, TYPE_A) },
+            startIpv6 = { complete -> queryAsync(endpoint, hostname, TYPE_AAAA, complete) },
+        )
 
     private fun query(endpoint: DohEndpoint, hostname: String, type: Int): DohAnswer {
+        val requestStartedAtMs = SystemClock.elapsedRealtime()
+        client.newCall(createRequest(endpoint, hostname, type)).execute().use { response ->
+            return parseResponse(endpoint, hostname, type, requestStartedAtMs, response)
+        }
+    }
+
+    private fun queryAsync(
+        endpoint: DohEndpoint,
+        hostname: String,
+        type: Int,
+        complete: (Result<DohAnswer>) -> Unit,
+    ): () -> Unit {
+        val requestStartedAtMs = SystemClock.elapsedRealtime()
+        val call = client.newCall(createRequest(endpoint, hostname, type))
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                complete(Result.failure(e))
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                complete(runCatching {
+                    response.use {
+                        parseResponse(endpoint, hostname, type, requestStartedAtMs, it)
+                    }
+                })
+            }
+        })
+        return { call.cancel() }
+    }
+
+    private fun createRequest(endpoint: DohEndpoint, hostname: String, type: Int): Request {
         val message = Base64.encodeToString(
             DnsMessage.query(hostname, type),
             Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
         )
-        val request = Request.Builder()
+        return Request.Builder()
             .url("${endpoint.url}?dns=$message")
             .header("Accept", "application/dns-message")
             .build()
-        val requestStartedAtMs = SystemClock.elapsedRealtime()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code} from ${endpoint.host}")
-            val body = response.body?.bytes() ?: throw IOException("Empty response from ${endpoint.host}")
-            val parsed = DnsMessage.parseAnswer(hostname, body, type)
-            return parsed.copy(
-                cacheExpiresAtMs = if (parsed.hasAnswerRecords) {
-                    dnsCacheExpiryAtMs(
-                        ttlSeconds = parsed.ttlSeconds,
-                        ageHeader = response.headers.values("Age").firstOrNull(),
-                        requestStartedAtMs = requestStartedAtMs,
-                    )
-                } else {
-                    null
-                },
-            )
-        }
+    }
+
+    private fun parseResponse(
+        endpoint: DohEndpoint,
+        hostname: String,
+        type: Int,
+        requestStartedAtMs: Long,
+        response: Response,
+    ): DohAnswer {
+        if (!response.isSuccessful) throw IOException("HTTP ${response.code} from ${endpoint.host}")
+        val body = response.body?.bytes() ?: throw IOException("Empty response from ${endpoint.host}")
+        val parsed = DnsMessage.parseAnswer(hostname, body, type)
+        return parsed.copy(
+            cacheExpiresAtMs = if (parsed.hasAnswerRecords) {
+                dnsCacheExpiryAtMs(
+                    ttlSeconds = parsed.ttlSeconds,
+                    ageHeader = response.headers.values("Age").firstOrNull(),
+                    requestStartedAtMs = requestStartedAtMs,
+                )
+            } else {
+                null
+            },
+        )
     }
 }
 
