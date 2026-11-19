@@ -611,12 +611,11 @@ for flavor in full playstore; do
     echo "FAIL: combined run must store a run-* directory ($flavor)." >&2
     exit 1
   }
-  baseline_profile_copy="$(find "$profile_result_dir" -name '*baseline-prof*.txt' -print -quit)"
+  home_browse_profile_copy="$(find "$profile_result_dir" -name '*home_browse-baseline-prof*.txt' -print -quit)"
   startup_profile_copy="$(find "$profile_result_dir" -name '*startup-prof*.txt' -print -quit)"
-  [ -z "$baseline_profile_copy" ] || {
-    echo "FAIL: raw Startup Profile collection unexpectedly copied a separate baseline-prof artifact ($flavor)." >&2
-    exit 1
-  }
+  test -n "$home_browse_profile_copy"
+  test -s "$home_browse_profile_copy"
+  grep -Eq '[^[:space:]]' "$home_browse_profile_copy"
   test -n "$startup_profile_copy"
   test -s "$startup_profile_copy"
   grep -Eq '[^[:space:]]' "$startup_profile_copy"
