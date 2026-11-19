@@ -486,7 +486,7 @@ for expected in \
   'new MemoryProfilingConfig(true, true)' \
   'new CompilationMode.Partial(BaselineProfileMode.Require)' \
   'StartupMode.COLD' \
-  'StartupReadiness.awaitHomeAndFullyDrawn(device, "startupWithBaselineProfileMemoryProfile")' \
+  'StartupReadiness.awaitHomeAndFullyDrawn(device, "startupWithBaselineProfileMemoryProfile", scope.getIteration())' \
   'private static final int ITERATIONS = 1;' \
   'startupWithBaselineProfileMemoryProfile'; do
   grep -Fq "$expected" "$MEMORY_BENCHMARK_SOURCE" || {
