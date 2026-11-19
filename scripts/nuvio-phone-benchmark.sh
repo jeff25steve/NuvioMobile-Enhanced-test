@@ -849,6 +849,37 @@ write_macrobenchmark_summary() {
         }
       }
 
+      art_metric_names[1] = "artJitCount"
+      art_metric_names[2] = "artJitSumMs"
+      art_metric_names[3] = "artVerifyClassCount"
+      art_metric_names[4] = "artVerifyClassSumMs"
+      for (test_index = 1; test_index <= 2; test_index++) {
+        result_object = test_objects[test_index]
+        for (art_index = 1; art_index <= 4; art_index++) {
+          metric_name = art_metric_names[art_index]
+          metric_pattern = "\"" metric_name "\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          if (!match(result_object, metric_pattern)) {
+            print "FAIL: cannot find " metric_name " for " test_names[test_index] " while writing ART summary."
+            exit 1
+          }
+          metric_object = substr(result_object, RSTART, RLENGTH)
+          art_median[test_index, art_index] = metric_field(metric_object, "median") + 0
+        }
+        class_load_count_pattern = "\"artClassLoadCount\"[[:space:]]*:"
+        class_load_time_pattern = "\"artClassLoadSumMs\"[[:space:]]*:"
+        if (match(result_object, class_load_count_pattern) && match(result_object, class_load_time_pattern)) {
+          class_load_count_object_pattern = "\"artClassLoadCount\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          class_load_time_object_pattern = "\"artClassLoadSumMs\"[[:space:]]*:[[:space:]]*\\{[^}]*\\}"
+          match(result_object, class_load_count_object_pattern)
+          class_load_count_object = substr(result_object, RSTART, RLENGTH)
+          match(result_object, class_load_time_object_pattern)
+          class_load_time_object = substr(result_object, RSTART, RLENGTH)
+          art_class_load_count[test_index] = metric_field(class_load_count_object, "median") + 0
+          art_class_load_ms[test_index] = metric_field(class_load_time_object, "median") + 0
+          class_load_metrics_available = 1
+        }
+      }
+
       print "Nuvio Android cold-start benchmark"
       print "Benchmark device context"
       printf "  Device: %s | Android API: %s\n", device_model, android_api
@@ -886,6 +917,16 @@ write_macrobenchmark_summary() {
         printf "  Median difference (profile - no compilation): %+.1f ms (%+.1f%%)\n", delta_ms, delta_percent
         print ""
       }
+
+      print "ART runtime compilation and verification (median per cold launch)"
+      printf "  No compilation: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[1,1], art_median[1,2], art_median[1,3], art_median[1,4]
+      printf "  Baseline Profile: JIT %.1f methods / %.2f ms; runtime verification %.1f classes / %.2f ms\n", art_median[2,1], art_median[2,2], art_median[2,3], art_median[2,4]
+      if (class_load_metrics_available) {
+        printf "  Runtime class loading: no compilation %.1f classes / %.2f ms; Baseline Profile %.1f classes / %.2f ms\n", art_class_load_count[1], art_class_load_ms[1], art_class_load_count[2], art_class_load_ms[2]
+      } else {
+        print "  Runtime class loading: not emitted (ART class-load tracepoints unavailable on this device)"
+      }
+      print ""
 
       print "Per-iteration samples and matching Perfetto traces"
       print "AndroidX preserves measurement order in the raw runs and labels the corresponding trace with the same iteration index."
