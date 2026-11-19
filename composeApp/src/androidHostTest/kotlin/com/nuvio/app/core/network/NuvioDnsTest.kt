@@ -1,16 +1,14 @@
 package com.nuvio.app.core.network
 
 import java.io.IOException
-
 import java.net.InetAddress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlin.test.assertSame
-
+import kotlin.test.assertTrue
 class NuvioDnsTest {
     @Test
     fun answerTtlIncludesShorterLivedCnameRecord() {
@@ -240,9 +238,9 @@ class NuvioDnsTest {
         val actual = assertFailsWith<IOException> {
             resolveDohAnswers(
                 queryIpv4 = { throw ipv4Failure },
-                startIpv6 = {
-                    { ipv6Cancelled = true }
-                },
+                startIpv6 = { _ ->
+                { ipv6Cancelled = true }
+            },
             )
         }
 
