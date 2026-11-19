@@ -1,6 +1,10 @@
 package com.nuvio.android.baselineprofile;
 
+import android.app.Instrumentation;
+import android.os.Bundle;
 import android.os.SystemClock;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
@@ -146,10 +150,25 @@ final class StartupReadiness {
         return markerVisible(device, marker);
     }
 
-    static void awaitHomeAndFullyDrawn(UiDevice device) {
-        long homeDeadline = SystemClock.elapsedRealtime() + HOME_STARTUP_TIMEOUT_MS;
+    static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName) {
+        long readinessStartedAt = SystemClock.elapsedRealtime();
+        long activeWindowStartedAt = readinessStartedAt;
+        long activeWindowWaitMs = 0L;
+        long homeMarkerWaitMs = -1L;
+        long fullyDrawnMarkerWaitMs = -1L;
+
+        long homeDeadline = readinessStartedAt + HOME_STARTUP_TIMEOUT_MS;
         long activeWindowBudget = Math.min(ACTIVE_WINDOW_TIMEOUT_MS, HOME_STARTUP_TIMEOUT_MS);
-        if (!waitForTargetAppActive(device, activeWindowBudget)) {
+        boolean targetAppActive = waitForTargetAppActive(device, activeWindowBudget);
+        activeWindowWaitMs = SystemClock.elapsedRealtime() - activeWindowStartedAt;
+        if (!targetAppActive) {
+            reportReadinessTiming(
+                    journeyName,
+                    activeWindowWaitMs,
+                    homeMarkerWaitMs,
+                    fullyDrawnMarkerWaitMs,
+                    SystemClock.elapsedRealtime() - readinessStartedAt,
+                    "active_window_timeout");
             throw new AssertionError(
                     "The benchmark app is not the active foreground window. Refusing to relaunch "
                             + "it during a measured startup; leave " + TARGET_APP_PACKAGE
@@ -158,12 +177,29 @@ final class StartupReadiness {
 
         long remaining = homeDeadline - SystemClock.elapsedRealtime();
         boolean homeVisible;
+        long homeMarkerStartedAt = SystemClock.elapsedRealtime();
         try {
             homeVisible = remaining > 0 && waitForMarker(device, HOME_MARKER, remaining);
         } catch (RuntimeException queryFailure) {
+            homeMarkerWaitMs = SystemClock.elapsedRealtime() - homeMarkerStartedAt;
+            reportReadinessTiming(
+                    journeyName,
+                    activeWindowWaitMs,
+                    homeMarkerWaitMs,
+                    fullyDrawnMarkerWaitMs,
+                    SystemClock.elapsedRealtime() - readinessStartedAt,
+                    "home_marker_query_failure");
             throw markerQueryFailure(HOME_MARKER, "HomeScreen", queryFailure, device);
         }
+        homeMarkerWaitMs = SystemClock.elapsedRealtime() - homeMarkerStartedAt;
         if (!homeVisible) {
+            reportReadinessTiming(
+                    journeyName,
+                    activeWindowWaitMs,
+                    homeMarkerWaitMs,
+                    fullyDrawnMarkerWaitMs,
+                    SystemClock.elapsedRealtime() - readinessStartedAt,
+                    "home_marker_timeout");
             throw new AssertionError(
                     "Nuvio did not expose the HomeScreen marker '" + HOME_MARKER
                             + "' within " + HOME_STARTUP_TIMEOUT_MS + " ms after launch."
@@ -171,15 +207,32 @@ final class StartupReadiness {
         }
 
         boolean fullyDrawnVisible;
+        long fullyDrawnMarkerStartedAt = SystemClock.elapsedRealtime();
         try {
             fullyDrawnVisible = waitForMarker(
                     device,
                     FULLY_DRAWN_MARKER,
                     FULLY_DRAWN_AFTER_HOME_TIMEOUT_MS);
         } catch (RuntimeException queryFailure) {
+            fullyDrawnMarkerWaitMs = SystemClock.elapsedRealtime() - fullyDrawnMarkerStartedAt;
+            reportReadinessTiming(
+                    journeyName,
+                    activeWindowWaitMs,
+                    homeMarkerWaitMs,
+                    fullyDrawnMarkerWaitMs,
+                    SystemClock.elapsedRealtime() - readinessStartedAt,
+                    "fully_drawn_marker_query_failure");
             throw markerQueryFailure(FULLY_DRAWN_MARKER, "fully-drawn", queryFailure, device);
         }
+        fullyDrawnMarkerWaitMs = SystemClock.elapsedRealtime() - fullyDrawnMarkerStartedAt;
         if (!fullyDrawnVisible) {
+            reportReadinessTiming(
+                    journeyName,
+                    activeWindowWaitMs,
+                    homeMarkerWaitMs,
+                    fullyDrawnMarkerWaitMs,
+                    SystemClock.elapsedRealtime() - readinessStartedAt,
+                    "fully_drawn_marker_timeout");
             throw new AssertionError(
                     "HomeScreen is visible, but the product fully-drawn marker '"
                             + FULLY_DRAWN_MARKER + "' did not appear within "
@@ -187,6 +240,37 @@ final class StartupReadiness {
                             + " ms after Home. This is an app readiness failure, not a reason "
                             + "to restart the activity or extend the cold-start wait."
                             + diagnostics(device));
+        }
+
+        reportReadinessTiming(
+                journeyName,
+                activeWindowWaitMs,
+                homeMarkerWaitMs,
+                fullyDrawnMarkerWaitMs,
+                SystemClock.elapsedRealtime() - readinessStartedAt,
+                "ready");
+    }
+
+    private static void reportReadinessTiming(
+            String journeyName,
+            long activeWindowWaitMs,
+            long homeMarkerWaitMs,
+            long fullyDrawnMarkerWaitMs,
+            long totalWaitMs,
+            String outcome) {
+        Bundle status = new Bundle();
+        status.putString(
+                Instrumentation.REPORT_KEY_STREAMRESULT,
+                "NUVIO_STARTUP_READINESS_TIMING: journey=" + journeyName
+                        + " active_window_wait_ms=" + activeWindowWaitMs
+                        + " home_marker_wait_ms=" + homeMarkerWaitMs
+                        + " fully_drawn_marker_wait_ms=" + fullyDrawnMarkerWaitMs
+                        + " total_wait_ms=" + totalWaitMs
+                        + " outcome=" + outcome);
+        try {
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, status);
+        } catch (RuntimeException ignored) {
+            // A diagnostic transport failure must not replace the readiness result.
         }
     }
 
