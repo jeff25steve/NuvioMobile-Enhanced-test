@@ -46,8 +46,10 @@ internal suspend fun runStartupPreloadWork(
     val independentReads = independent.map { read ->
         async(dispatcher) { read() }
     }
-    yield()
-    withContext(dispatcher) { sequential() }
+    withContext(dispatcher) {
+        yield()
+        sequential()
+    }
     independentReads.awaitAll()
     Unit
 }
