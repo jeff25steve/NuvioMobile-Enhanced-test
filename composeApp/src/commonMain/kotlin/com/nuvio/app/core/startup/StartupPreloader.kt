@@ -14,21 +14,42 @@ import com.nuvio.app.features.servers.ServerRepository
 import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watchprogress.ContinueWatchingPreferencesRepository
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.TimeSource
 
 private const val LogTag = "App/StartupPreload"
 private const val SlowPreloadWarningMs = 6_000L
+
+
+/**
+ * Overlaps independent local reads with an ordered sequence of startup reads.
+ * All work stays on the supplied dispatcher and shares one cancellation scope.
+ */
+internal suspend fun runStartupPreloadWork(
+    dispatcher: CoroutineDispatcher,
+    sequential: suspend () -> Unit,
+    independent: List<suspend () -> Unit>,
+) = coroutineScope {
+    val independentReads = independent.map { read ->
+        async(dispatcher) { read() }
+    }
+    yield()
+    withContext(dispatcher) { sequential() }
+    independentReads.awaitAll()
+}
 
 /** Coordinates work required before Compose appears with work that may wait for its first frame. */
 internal class StartupPhaseCoordinator(
@@ -85,12 +106,18 @@ object StartupPreloader {
                 step("downloadsPlatform") { DownloadsPlatformDownloader.prepareForStartup() }
             }
             profileCachePreloaded = step("profiles") { ProfileRepository.loadCachedProfiles() }
-            withContext(Dispatchers.IO) {
-                step("watched") { WatchedRepository.ensureLoaded() }
-                step("watchProgress") { WatchProgressRepository.ensureLoaded() }
-                step("continueWatching") { ContinueWatchingPreferencesRepository.ensureLoaded() }
-                step("homeSnapshot") { HomeRepository.preloadSnapshot() }
-            }
+            runStartupPreloadWork(
+                dispatcher = Dispatchers.IO,
+                sequential = {
+                    // Both repositories initialize the shared tracking-provider registry.
+                    step("watched") { WatchedRepository.ensureLoaded() }
+                    step("watchProgress") { WatchProgressRepository.ensureLoaded() }
+                },
+                independent = listOf(
+                    { step("continueWatching") { ContinueWatchingPreferencesRepository.ensureLoaded() } },
+                    { step("homeSnapshot") { HomeRepository.preloadSnapshot() } },
+                ),
+            )
             downloadsPlatform.await()
         }
         InAppLogger.info(LogTag, "critical preload completed in ${started.elapsedNow().inWholeMilliseconds}ms")
