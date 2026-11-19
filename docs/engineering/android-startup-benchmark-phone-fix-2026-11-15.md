@@ -3161,11 +3161,12 @@ Research: [AndroidX BenchmarkData.kt](https://github.com/androidx/androidx/blob/
 
 ## 19 November 2026 — Benchmark cycles 70–72: power-state and result-file integrity
 
-### Cycle 70 — correct the SDK static contract
+### Cycle 70 — repair stale SDK and shell static contracts
 
 - Removed a stale static assertion that still expected the old global SDK lookup after Cycle 68 changed extraction to `context.build.version.sdk`.
 - Preserved the nested SDK, API 33+ and TTFD completeness checks.
 - Moved the static-contract PASS line after all assertions, so a later failure cannot follow an already printed success message.
+- Corrected invalid `fi    case` adjacency in the fake-device test harness. The missing command separator caused POSIX shell syntax rejection; the exact fragment was verified locally in both failing and corrected forms. The full repository test script remains unexecuted.
 
 ### Cycle 71 — reject and report Battery Saver contamination
 
