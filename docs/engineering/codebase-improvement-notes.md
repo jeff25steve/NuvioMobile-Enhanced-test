@@ -6590,3 +6590,27 @@ The result collector previously accepted one or more `*benchmarkData.json` files
 
 Sources: [AOSP Power HAL Mode.aidl — LOW_POWER intent](https://android.googlesource.com/platform/hardware/interfaces/+/refs/heads/main/power/aidl/android/hardware/power/Mode.aidl) · [Android Developers — Test power-related issues](https://developer.android.com/topic/performance/power/test-power) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark source — appendTestResult and profiler outputs](https://android.googlesource.com/platform/frameworks/support/+/0c2ddcd70f6090ccc660e49c03048e1de85c2073/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
 
+## Android startup benchmark — exact context JSON provenance (19 November 2026)
+
+### Cycle 73 — require the root AndroidX context object for SDK eligibility
+
+The phone runner's earlier nested-path check still found the first "build" key anywhere in the JSON. A root-level build.version.sdk=35 decoy could therefore satisfy the API 33 floor even when the actual root context was empty. This was a concrete false-acceptance path: an isolated replay of the previous AWK logic accepted a report with an empty context and an unrelated root build object as API 35.
+
+Added a quote/escape-aware AWK helper, json_member_object(source, field), that extracts a named direct child object and skips nested keys and braces/escaped quotes inside JSON strings. The validator now follows only root context → direct build → direct version → direct sdk. Missing and non-object context/build/version values fail closed. The fake-device invalid-result matrix now includes root-build and global-SDK decoys plus non-object variants.
+
+### Cycle 74 — make every reported device field context-owned
+
+The summary previously used global first-key lookups for model, SDK, CPU, memory, ART Mainline, sustained-performance mode and Android codename. Contradictory root-level values could silently mislabel a valid benchmark report. The summary now obtains model only from context.build.model, SDK from context.build.version.sdk, and CPU/memory/ART fields only from direct members of context.
+
+Added a valid-result fixture that places contradictory device metadata at the JSON root before the real context, alongside a string containing an escaped quote and a closing brace. The summary assertions require the real context values (Fixture phone, API 35, eight CPU cores, expected frequency/memory/ART values and REL codename) and reject each decoy. The static source contract now checks all scoped field paths and rejects the former unscoped lookups.
+
+### Verification boundary for cycles 73–74
+
+- Reproduced the original defect using the pre-change AWK lookup: it accepted the root-level build.version.sdk=35 decoy while context was empty.
+- Ran isolated POSIX-shell/AWK object-extraction fixtures against valid context data with root/nested decoys, escaped quote/brace content, and missing/non-object context, build and version values. All isolated assertions produced the expected result.
+- Ran the newly added fake-fixture printer independently and validated its output with Python's JSON parser.
+- Re-fetched the live runner, phone-runner fixture and static-contract script. Source-level checks confirmed every context-bound path exists, no old global device-metadata lookups remain, and all adversarial fixture names are wired into the invalid-result or summary checks.
+- The complete repository scripts scripts/tests/test-nuvio-phone-benchmark.sh and scripts/tests/test-android-startup-metric-contract.sh were NOT run because this session has no local repository checkout and the GitHub file integration cannot execute shell files. The changes are not being represented as a full-suite pass.
+- No Gradle task, build, CI workflow, instrumentation, Baseline Profile collection, LADB action or physical-device benchmark was run. The benchmark workload, metrics, iterations, compilation modes, profiles, APK variants and dependencies are unchanged. No startup-speed improvement is claimed.
+
+Evidence: [AndroidX BenchmarkData 1.5.0 JSON model](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) places device information in the root context object and the SDK in context.build.version.sdk; [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) documents the generated report context; [AndroidX Macrobenchmark 1.5.0 implementation](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) confirms the benchmark result/iteration structure.
