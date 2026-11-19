@@ -353,55 +353,86 @@ count_json_named_results() {
 
 validate_macrobenchmark_statistics() {
   awk '
-    function json_member_object(source, field,    source_length, brace_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_depth, value_in_string, value_escaped, value_character, value_position) {
+    function json_member_value(source, field,    source_length, object_depth, array_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_end, scan_position, scan_character, scan_in_string, scan_escaped, value_object_depth, value_array_depth, value, found_count, found_value) {
       sub(/^[[:space:]]*/, "", source)
       if (substr(source, 1, 1) != "{") return ""
       source_length = length(source)
-      brace_depth = 0
+      object_depth = 0
+      array_depth = 0
       in_string = 0
       escaped = 0
       key_start = 0
+      found_count = 0
+      found_value = ""
 
       for (position = 1; position <= source_length; position++) {
         character = substr(source, position, 1)
         if (in_string) {
-          if (escaped) {
-            escaped = 0
-            continue
-          }
-          if (character == "\\") {
-            escaped = 1
-            continue
-          }
-          if (character == "\"") {
+          if (escaped) escaped = 0
+          else if (character == "\\") escaped = 1
+          else if (character == "\"") {
             in_string = 0
-            if (brace_depth == 1) {
+            if (object_depth == 1 && array_depth == 0) {
               key = substr(source, key_start + 1, position - key_start - 1)
               colon_position = position + 1
               while (colon_position <= source_length && substr(source, colon_position, 1) ~ /[[:space:]]/) colon_position++
               if (substr(source, colon_position, 1) == ":" && key == field) {
                 value_start = colon_position + 1
                 while (value_start <= source_length && substr(source, value_start, 1) ~ /[[:space:]]/) value_start++
-                if (substr(source, value_start, 1) != "{") return ""
-                value_depth = 0
-                value_in_string = 0
-                value_escaped = 0
-                for (value_position = value_start; value_position <= source_length; value_position++) {
-                  value_character = substr(source, value_position, 1)
-                  if (value_in_string) {
-                    if (value_escaped) value_escaped = 0
-                    else if (value_character == "\\") value_escaped = 1
-                    else if (value_character == "\"") value_in_string = 0
-                  } else {
-                    if (value_character == "\"") value_in_string = 1
-                    else if (value_character == "{") value_depth++
-                    else if (value_character == "}") {
-                      value_depth--
-                      if (value_depth == 0) return substr(source, value_start, value_position - value_start + 1)
+                if (value_start > source_length) return ""
+                character = substr(source, value_start, 1)
+                if (character == "\"") {
+                  scan_in_string = 1
+                  scan_escaped = 0
+                  for (scan_position = value_start + 1; scan_position <= source_length; scan_position++) {
+                    scan_character = substr(source, scan_position, 1)
+                    if (scan_escaped) scan_escaped = 0
+                    else if (scan_character == "\\") scan_escaped = 1
+                    else if (scan_character == "\"") break
+                  }
+                  if (scan_position > source_length) return ""
+                  value_end = scan_position
+                } else if (character == "{" || character == "[") {
+                  value_object_depth = 0
+                  value_array_depth = 0
+                  scan_in_string = 0
+                  scan_escaped = 0
+                  for (scan_position = value_start; scan_position <= source_length; scan_position++) {
+                    scan_character = substr(source, scan_position, 1)
+                    if (scan_in_string) {
+                      if (scan_escaped) scan_escaped = 0
+                      else if (scan_character == "\\") scan_escaped = 1
+                      else if (scan_character == "\"") scan_in_string = 0
+                    } else {
+                      if (scan_character == "\"") scan_in_string = 1
+                      else if (scan_character == "{") value_object_depth++
+                      else if (scan_character == "}") {
+                        value_object_depth--
+                        if (value_object_depth == 0 && value_array_depth == 0) break
+                      } else if (scan_character == "[") value_array_depth++
+                      else if (scan_character == "]") {
+                        value_array_depth--
+                        if (value_object_depth == 0 && value_array_depth == 0) break
+                      }
                     }
                   }
+                  if (scan_position > source_length) return ""
+                  value_end = scan_position
+                } else {
+                  value_end = value_start
+                  while (value_end <= source_length) {
+                    scan_character = substr(source, value_end, 1)
+                    if (scan_character == "," || scan_character == "}") break
+                    value_end++
+                  }
+                  value_end--
+                  while (value_end >= value_start && substr(source, value_end, 1) ~ /[[:space:]]/) value_end--
+                  if (value_end < value_start) return ""
                 }
-                return ""
+                value = substr(source, value_start, value_end - value_start + 1)
+                found_count++
+                if (found_count == 1) found_value = value
+                else return ""
               }
             }
           }
@@ -409,10 +440,19 @@ validate_macrobenchmark_statistics() {
           if (character == "\"") {
             in_string = 1
             key_start = position
-          } else if (character == "{") brace_depth++
-          else if (character == "}") brace_depth--
+          } else if (character == "{") object_depth++
+          else if (character == "}") object_depth--
+          else if (character == "[") array_depth++
+          else if (character == "]") array_depth--
         }
       }
+      if (found_count != 1) return ""
+      return found_value
+    }
+
+    function json_member_object(source, field, value) {
+      value = json_member_value(source, field)
+      if (substr(value, 1, 1) == "{") return value
       return ""
     }
 
@@ -426,15 +466,9 @@ validate_macrobenchmark_statistics() {
       return count
     }
 
-    function metric_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
-      start = index(object, needle)
-      if (start == 0) return ""
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) {
-        return substr(rest, 1, RLENGTH)
-      }
+    function metric_field(object, field, value) {
+      value = json_member_value(object, field)
+      if (value ~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/) return value
       return ""
     }
 
@@ -462,24 +496,16 @@ validate_macrobenchmark_statistics() {
         return 0
       }
 
-      run_key_count = count_matches(object, "\"runs\"[[:space:]]*:")
-      if (run_key_count != 1) {
-        print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
+      runs_value = json_member_value(object, "runs")
+      if (runs_value == "") {
+        print "FAIL: " metric_name " must contain exactly one direct per-iteration runs array; missing or duplicate members are not accepted."
         return 0
       }
-      start = index(object, "\"runs\"")
-      rest = substr(object, start + length("\"runs\""))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (substr(rest, 1, 1) != "[") {
-        print "FAIL: " metric_name " runs value is not an array."
+      if (substr(runs_value, 1, 1) != "[" || substr(runs_value, length(runs_value), 1) != "]") {
+        print "FAIL: " metric_name " runs value is not a complete array."
         return 0
       }
-      close_pos = index(rest, "]")
-      if (close_pos == 0) {
-        print "FAIL: " metric_name " runs array is incomplete."
-        return 0
-      }
-      runs_text = substr(rest, 2, close_pos - 2)
+      runs_text = substr(runs_value, 2, length(runs_value) - 2)
       gsub(/[[:space:]]/, "", runs_text)
       if (runs_text == "") sample_count = 0
       else sample_count = split(runs_text, samples, ",")
@@ -576,23 +602,16 @@ validate_macrobenchmark_statistics() {
         return 0
       }
 
-      start = index(object, "\"runs\"")
-      if (start == 0 || count_matches(object, "\"runs\"[[:space:]]*:") != 1) {
-        print "FAIL: " metric_name " must contain exactly one per-iteration runs array."
+      runs_value = json_member_value(object, "runs")
+      if (runs_value == "") {
+        print "FAIL: " metric_name " must contain exactly one direct per-iteration runs array; missing or duplicate members are not accepted."
         return 0
       }
-      rest = substr(object, start + length("\"runs\""))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (substr(rest, 1, 1) != "[") {
-        print "FAIL: " metric_name " runs value is not an array."
+      if (substr(runs_value, 1, 1) != "[" || substr(runs_value, length(runs_value), 1) != "]") {
+        print "FAIL: " metric_name " runs value is not a complete array."
         return 0
       }
-      close_pos = index(rest, "]")
-      if (close_pos == 0) {
-        print "FAIL: " metric_name " runs array is incomplete."
-        return 0
-      }
-      runs_text = substr(rest, 2, close_pos - 2)
+      runs_text = substr(runs_value, 2, length(runs_value) - 2)
       gsub(/[[:space:]]/, "", runs_text)
       if (runs_text == "") sample_count = 0
       else sample_count = split(runs_text, samples, ",")
@@ -902,55 +921,86 @@ write_macrobenchmark_summary() {
   result_file="$1"
   summary_file="$RUN_DIR/benchmark-summary.txt"
   awk '
-    function json_member_object(source, field,    source_length, brace_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_depth, value_in_string, value_escaped, value_character, value_position) {
+    function json_member_value(source, field,    source_length, object_depth, array_depth, in_string, escaped, key_start, position, character, key, colon_position, value_start, value_end, scan_position, scan_character, scan_in_string, scan_escaped, value_object_depth, value_array_depth, value, found_count, found_value) {
       sub(/^[[:space:]]*/, "", source)
       if (substr(source, 1, 1) != "{") return ""
       source_length = length(source)
-      brace_depth = 0
+      object_depth = 0
+      array_depth = 0
       in_string = 0
       escaped = 0
       key_start = 0
+      found_count = 0
+      found_value = ""
 
       for (position = 1; position <= source_length; position++) {
         character = substr(source, position, 1)
         if (in_string) {
-          if (escaped) {
-            escaped = 0
-            continue
-          }
-          if (character == "\\") {
-            escaped = 1
-            continue
-          }
-          if (character == "\"") {
+          if (escaped) escaped = 0
+          else if (character == "\\") escaped = 1
+          else if (character == "\"") {
             in_string = 0
-            if (brace_depth == 1) {
+            if (object_depth == 1 && array_depth == 0) {
               key = substr(source, key_start + 1, position - key_start - 1)
               colon_position = position + 1
               while (colon_position <= source_length && substr(source, colon_position, 1) ~ /[[:space:]]/) colon_position++
               if (substr(source, colon_position, 1) == ":" && key == field) {
                 value_start = colon_position + 1
                 while (value_start <= source_length && substr(source, value_start, 1) ~ /[[:space:]]/) value_start++
-                if (substr(source, value_start, 1) != "{") return ""
-                value_depth = 0
-                value_in_string = 0
-                value_escaped = 0
-                for (value_position = value_start; value_position <= source_length; value_position++) {
-                  value_character = substr(source, value_position, 1)
-                  if (value_in_string) {
-                    if (value_escaped) value_escaped = 0
-                    else if (value_character == "\\") value_escaped = 1
-                    else if (value_character == "\"") value_in_string = 0
-                  } else {
-                    if (value_character == "\"") value_in_string = 1
-                    else if (value_character == "{") value_depth++
-                    else if (value_character == "}") {
-                      value_depth--
-                      if (value_depth == 0) return substr(source, value_start, value_position - value_start + 1)
+                if (value_start > source_length) return ""
+                character = substr(source, value_start, 1)
+                if (character == "\"") {
+                  scan_in_string = 1
+                  scan_escaped = 0
+                  for (scan_position = value_start + 1; scan_position <= source_length; scan_position++) {
+                    scan_character = substr(source, scan_position, 1)
+                    if (scan_escaped) scan_escaped = 0
+                    else if (scan_character == "\\") scan_escaped = 1
+                    else if (scan_character == "\"") break
+                  }
+                  if (scan_position > source_length) return ""
+                  value_end = scan_position
+                } else if (character == "{" || character == "[") {
+                  value_object_depth = 0
+                  value_array_depth = 0
+                  scan_in_string = 0
+                  scan_escaped = 0
+                  for (scan_position = value_start; scan_position <= source_length; scan_position++) {
+                    scan_character = substr(source, scan_position, 1)
+                    if (scan_in_string) {
+                      if (scan_escaped) scan_escaped = 0
+                      else if (scan_character == "\\") scan_escaped = 1
+                      else if (scan_character == "\"") scan_in_string = 0
+                    } else {
+                      if (scan_character == "\"") scan_in_string = 1
+                      else if (scan_character == "{") value_object_depth++
+                      else if (scan_character == "}") {
+                        value_object_depth--
+                        if (value_object_depth == 0 && value_array_depth == 0) break
+                      } else if (scan_character == "[") value_array_depth++
+                      else if (scan_character == "]") {
+                        value_array_depth--
+                        if (value_object_depth == 0 && value_array_depth == 0) break
+                      }
                     }
                   }
+                  if (scan_position > source_length) return ""
+                  value_end = scan_position
+                } else {
+                  value_end = value_start
+                  while (value_end <= source_length) {
+                    scan_character = substr(source, value_end, 1)
+                    if (scan_character == "," || scan_character == "}") break
+                    value_end++
+                  }
+                  value_end--
+                  while (value_end >= value_start && substr(source, value_end, 1) ~ /[[:space:]]/) value_end--
+                  if (value_end < value_start) return ""
                 }
-                return ""
+                value = substr(source, value_start, value_end - value_start + 1)
+                found_count++
+                if (found_count == 1) found_value = value
+                else return ""
               }
             }
           }
@@ -958,53 +1008,46 @@ write_macrobenchmark_summary() {
           if (character == "\"") {
             in_string = 1
             key_start = position
-          } else if (character == "{") brace_depth++
-          else if (character == "}") brace_depth--
+          } else if (character == "{") object_depth++
+          else if (character == "}") object_depth--
+          else if (character == "[") array_depth++
+          else if (character == "]") array_depth--
         }
+      }
+      if (found_count != 1) return ""
+      return found_value
+    }
+
+    function json_member_object(source, field, value) {
+      value = json_member_value(source, field)
+      if (substr(value, 1, 1) == "{") return value
+      return ""
+    }
+
+    function metric_field(object, field, value) {
+      value = json_member_value(object, field)
+      if (value ~ /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$/) return value
+      return ""
+    }
+
+    function metric_string_field(object, field, value) {
+      value = json_member_value(object, field)
+      if (length(value) >= 2 && substr(value, 1, 1) == "\"" && substr(value, length(value), 1) == "\"") {
+        return substr(value, 2, length(value) - 2)
       }
       return ""
     }
 
-    function metric_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
-      start = index(object, needle)
-      if (start == 0) return ""
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?/)) return substr(rest, 1, RLENGTH)
+    function metric_boolean_field(object, field, value) {
+      value = json_member_value(object, field)
+      if (value == "true" || value == "false") return value
       return ""
     }
 
-    function metric_string_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
-      start = index(object, needle)
-      if (start == 0) return ""
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^"[^"]*"/)) return substr(rest, 2, RLENGTH - 2)
-      return ""
-    }
-
-    function metric_boolean_field(object, field,    needle, start, rest) {
-      needle = "\"" field "\""
-      start = index(object, needle)
-      if (start == 0) return ""
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
-      return ""
-    }
-
-    function metric_runs(object, values,    needle, start, rest, close_pos, run_text) {
-      needle = "\"runs\""
-      start = index(object, needle)
-      if (start == 0) return 0
-      rest = substr(object, start + length(needle))
-      sub(/^[[:space:]]*:[[:space:]]*/, "", rest)
-      if (substr(rest, 1, 1) != "[") return 0
-      close_pos = index(rest, "]")
-      if (close_pos == 0) return 0
-      run_text = substr(rest, 2, close_pos - 2)
+    function metric_runs(object, values,    runs_value, run_text) {
+      runs_value = json_member_value(object, "runs")
+      if (substr(runs_value, 1, 1) != "[" || substr(runs_value, length(runs_value), 1) != "]") return 0
+      run_text = substr(runs_value, 2, length(runs_value) - 2)
       gsub(/[[:space:]]/, "", run_text)
       if (run_text == "") return 0
       return split(run_text, values, ",")
