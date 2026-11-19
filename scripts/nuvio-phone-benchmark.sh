@@ -635,6 +635,32 @@ validate_macrobenchmark_statistics() {
         exit 1
       }
 
+      # StartupTimingMetric omits timeToFullDisplayMs when the trace has no
+      # fully-drawn event. This phone runner requires API 33+, so every arm
+      # must provide ten positive TTFD samples rather than silently reporting
+      # TTID-only results or mixing incomplete arms.
+      reported_api = metric_field(json, "sdk")
+      if (reported_api == "" || reported_api !~ /^[0-9]+$/ || reported_api + 0 < 33) {
+        print "FAIL: Macrobenchmark JSON must report Android API 33 or newer for this phone runner."
+        exit 1
+      }
+      for (ttfd_case_index = 1; ttfd_case_index <= 3; ttfd_case_index++) {
+        if (ttfd_case_index == 1) ttfd_case_name = "startupNoCompilation"
+        else if (ttfd_case_index == 2) ttfd_case_name = "startupPartialWithoutBaselineProfile"
+        else ttfd_case_name = "startupWithBaselineProfile"
+        ttfd_case_pattern = "\\"timeToFullDisplayMs\\"[[:space:]]*:[[:space:]]*\\\\{[^}]*\\\\}"
+        ttfd_case_rest = json
+        ttfd_case_count = 0
+        while (match(ttfd_case_rest, ttfd_case_pattern)) {
+          ttfd_case_count++
+          ttfd_case_rest = substr(ttfd_case_rest, RSTART + RLENGTH)
+        }
+        if (ttfd_case_count != 3) {
+          print "FAIL: JSON must contain exactly three timeToFullDisplayMs metric objects, one for each startup comparison arm."
+          exit 1
+        }
+      }
+
       total_metric_objects = 0
       for (metric_name_index = 1; metric_name_index <= 2; metric_name_index++) {
         if (metric_name_index == 1) metric_name = "timeToInitialDisplayMs"
