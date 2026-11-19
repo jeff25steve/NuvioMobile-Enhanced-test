@@ -334,7 +334,12 @@ for expected in \
   'device_model = metric_string_field(build_object, "model")' \
   'android_api = metric_field(version_object, "sdk")' \
   'cpu_core_count = metric_field(context_object, "cpuCoreCount")' \
+  'cpu_max_frequency = metric_field(context_object, "cpuMaxFreqHz")' \
   'cpu_locked = metric_boolean_field(context_object, "cpuLocked")' \
+  'memory_total = metric_field(context_object, "memTotalBytes")' \
+  'art_mainline_version = metric_field(context_object, "artMainlineVersion")' \
+  'sustained_performance = metric_boolean_field(context_object, "sustainedPerformanceModeEnabled")' \
+  'os_codename = metric_string_field(context_object, "osCodenameAbbreviated")' \
   'reported_api + 0 < 33' \
   'ttfd_metric_count != 3'; do
   grep -Fq "$expected" "$PHONE_RUNNER" || {
@@ -343,7 +348,14 @@ for expected in \
   }
 done
 if grep -Fq 'android_api = metric_field(json, "sdk")' "$PHONE_RUNNER" ||
-   grep -Fq 'device_model = metric_string_field(json, "model")' "$PHONE_RUNNER"; then
+   grep -Fq 'device_model = metric_string_field(json, "model")' "$PHONE_RUNNER" ||
+   grep -Fq 'cpu_core_count = metric_field(json, "cpuCoreCount")' "$PHONE_RUNNER" ||
+   grep -Fq 'cpu_max_frequency = metric_field(json, "cpuMaxFreqHz")' "$PHONE_RUNNER" ||
+   grep -Fq 'cpu_locked = metric_boolean_field(json, "cpuLocked")' "$PHONE_RUNNER" ||
+   grep -Fq 'memory_total = metric_field(json, "memTotalBytes")' "$PHONE_RUNNER" ||
+   grep -Fq 'art_mainline_version = metric_field(json, "artMainlineVersion")' "$PHONE_RUNNER" ||
+   grep -Fq 'sustained_performance = metric_boolean_field(json, "sustainedPerformanceModeEnabled")' "$PHONE_RUNNER" ||
+   grep -Fq 'os_codename = metric_string_field(json, "osCodenameAbbreviated")' "$PHONE_RUNNER"; then
   echo "FAIL: phone summary must not read device metadata from unscoped JSON keys." >&2
   exit 1
 fi
