@@ -73,6 +73,10 @@ require_startup_metrics() {
     grep -Fq "$metric" "$log_file" || \
       fail "$label did not emit $metric; check that its JUnit benchmark cases ran and that the app reported fully drawn."
   done
+  for metric in artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do
+    grep -Fq "$metric" "$log_file" || \
+      fail "$label did not emit $metric; check that AndroidX ArtMetric ran for both startup comparison arms."
+  done
 }
 
 printf 'Physical device: %s (API %s)\n' "$DEVICE_MODEL" "$API_LEVEL"
