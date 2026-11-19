@@ -885,3 +885,28 @@ The prior readiness helper also ran monkey during marker waits when it detected 
 - **Not established as a defect:** The Baseline Profile generator's rule -> true predicate. This is AndroidX's documented no-filter default. No generated profile evidence currently justifies narrowing it; leave profile scope open for a measured rule-size/coverage review.
 - **Not adopted literally:** Removing the launch overlay transition from TTFD. The overlay is the one transition that can still obscure Home. The app now waits only for this explicit launch overlay to leave; it does not wait for unrelated animation state.
 - **Architecture split:** StartupReadiness remains responsible for startup/package/active-window conditions; HomeBrowseReadiness owns the scrolling journey. This is a maintainability improvement, not a runtime speed optimization.
+
+## Follow-up optimization — overlap independent Home storage reads (19 November 2026)
+
+The Android critical preload previously restored four Home-required stores sequentially after profile restoration: watched history, watch progress, Continue Watching preferences and the Home snapshot.
+
+The first two repositories both initialize the shared tracking-provider registry/settings and remain ordered. Continue Watching preferences use their own `nuvio_continue_watching_preferences` SharedPreferences file. The Home snapshot is read from the separate `nuvio_file_cache/home/...` file through `AppFileCache`.
+
+Changes:
+- Added `runStartupPreloadWork`, a small structured-concurrency helper with an injected dispatcher.
+- Continue Watching preference restoration and Home snapshot read/decode now start as independent `Dispatchers.IO` children while watched history and watch progress run in their original order on IO.
+- The helper waits for all independent work before the critical phase completes; all four Home-required values remain available before `setContent`.
+- Existing `step()` logging/failure isolation, profile restoration ordering, parallel downloader scheduler construction, and post-frame warm-up are unchanged.
+- Added a deterministic `StandardTestDispatcher` contract proving the two independent reads start while the ordered sequence is still suspended.
+
+The broader alternative—running all four reads concurrently—was rejected because WatchedRepository and WatchProgressRepository both initialize shared tracking-provider state. Android startup guidance also warns that excessive parallel prewarming can contend for shared disk/CPU resources. This change overlaps only the two separate storage reads and does not create new feature warm-up work.
+
+Expected benefit: overlap some of the independent local storage latency with the existing ordered watched/progress reads. This is an architectural reduction in serial work, not a measured TTID/TTFD gain. Test source was statically reviewed but not executed. No Gradle task, test, build, device benchmark or CI was run.
+
+Research:
+- [Android — Improve app performance with Kotlin coroutines](https://developer.android.com/kotlin/coroutines/coroutines-adv)
+- [Kotlinx Coroutines 1.10.1 — composing suspending functions](https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.1/docs/topics/composing-suspending-functions.md)
+- [Kotlinx Coroutines 1.10.1 — coroutines and channels](https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.1/docs/topics/coroutines-and-channels.md)
+- [Android Developers — Don't prewarm app features](https://medium.com/androiddevelopers/dont-prewarm-app-features-118e0a2d4bb1)
+
+Context7 resolved Kotlinx Coroutines but did not list the repository's exact 1.10.2 patch; its nearest listed API version was 1.10.1. The implementation uses existing coroutine APIs already present in the project and adds no dependency.
