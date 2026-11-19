@@ -13,6 +13,7 @@ READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 [ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
+sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
 for expected in \
   'The three cold-start comparison arms are:' \
   'partial compilation without a Baseline Profile (3 warmups)' \
