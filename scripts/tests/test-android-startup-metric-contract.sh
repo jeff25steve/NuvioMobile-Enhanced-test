@@ -301,4 +301,15 @@ phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHON
   exit 1
 }
 
+grep -Fq 'Expected exactly one self-instrumenting instrumentation component' "$PHONE_RUNNER" &&
+  grep -Fq 'androidx.test.runner.AndroidJUnitRunner' "$PHONE_RUNNER" || {
+  echo "FAIL: phone runner must resolve exactly one expected self-instrumenting AndroidJUnitRunner." >&2
+  exit 1
+}
+grep -Fq 'additional profiler artifacts are not accepted in a clean timing comparison' "$PHONE_RUNNER" &&
+  grep -Fq 'Trace Iteration ' "$PHONE_RUNNER" || {
+  echo "FAIL: phone result validation must reject extra profiler artifacts and validate per-iteration trace objects." >&2
+  exit 1
+}
+
 printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
