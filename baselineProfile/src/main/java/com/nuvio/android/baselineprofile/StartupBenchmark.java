@@ -40,6 +40,7 @@ public final class StartupBenchmark {
     @Test
     public void startupNoCompilation() {
         runColdStartupBenchmark(
+                "startupNoCompilation",
                 CompilationMode.None.INSTANCE,
                 java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
@@ -48,6 +49,7 @@ public final class StartupBenchmark {
     @Test
     public void startupPartialWithoutBaselineProfile() {
         runColdStartupBenchmark(
+                "startupPartialWithoutBaselineProfile",
                 new CompilationMode.Partial(BaselineProfileMode.Disable, 3),
                 java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
@@ -56,12 +58,14 @@ public final class StartupBenchmark {
     @Test
     public void startupWithBaselineProfile() {
         runColdStartupBenchmark(
+                "startupWithBaselineProfile",
                 new CompilationMode.Partial(BaselineProfileMode.Require),
                 java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }
 
     private void runColdStartupBenchmark(
+            String journeyName,
             CompilationMode compilationMode,
             java.util.List<androidx.benchmark.macro.Metric> metrics) {
         benchmarkRule.measureRepeated(
@@ -79,7 +83,7 @@ public final class StartupBenchmark {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device);
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName);
                     return Unit.INSTANCE;
                 }
         );
