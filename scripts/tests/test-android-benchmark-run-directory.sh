@@ -61,4 +61,31 @@ third_dir="$RUN_DIR"
 [ "$third_dir" != "$first_dir" ] && [ "$third_dir" != "$second_dir" ] || fail "third same-second run reused an existing result directory"
 [ -f "$first_marker" ] && [ -f "$second_marker" ] && [ -f "$MARKER" ] || fail "same-second run markers are not isolated"
 
+# Race separate shell processes against one fixed timestamp. Atomic directory
+# creation must reserve one path per process without a lock file or shared state.
+mkdir -p "$TMP/concurrent-paths"
+allocation_count=16
+allocation_index=1
+while [ "$allocation_index" -le "$allocation_count" ]; do
+  (
+    new_run_dir
+    printf '%s\n' "$RUN_DIR" > "$TMP/concurrent-paths/$allocation_index"
+  ) &
+  allocation_index=$((allocation_index + 1))
+done
+wait
+
+: > "$TMP/concurrent-path-list"
+observed_allocations=0
+for allocation_file in "$TMP"/concurrent-paths/*; do
+  [ -f "$allocation_file" ] || continue
+  IFS= read -r allocated_dir < "$allocation_file"
+  [ -d "$allocated_dir" ] && [ -f "$allocated_dir/.started" ] || fail "concurrent allocation did not preserve its unique directory and marker: $allocated_dir"
+  printf '%s\n' "$allocated_dir" >> "$TMP/concurrent-path-list"
+  observed_allocations=$((observed_allocations + 1))
+done
+[ "$observed_allocations" -eq "$allocation_count" ] || fail "expected $allocation_count concurrent allocations but observed $observed_allocations"
+duplicate_allocations="$(sort "$TMP/concurrent-path-list" | uniq -d | wc -l | tr -d ' ')"
+[ "$duplicate_allocations" -eq 0 ] || fail "concurrent invocations reused $duplicate_allocations result directory paths"
+
 printf 'PASS: same-second benchmark invocations receive distinct result directories and retain earlier run markers.\n'
