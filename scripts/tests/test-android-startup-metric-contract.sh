@@ -366,7 +366,7 @@ for expected in \
   }
 done
 if grep -Fq 'start = index(object, needle)' "$PHONE_RUNNER" ||
-   grep -Fq 'count_matches(object, "\\"runs\\"' "$PHONE_RUNNER" ||
+   grep -Eq 'count_matches\\(object,.*runs' "$PHONE_RUNNER" ||
    grep -Fq 'metric_object = substr(metric_rest, metric_start, metric_length)' "$PHONE_RUNNER" ||
    grep -Fq 'metric_object = substr(result_object, RSTART, RLENGTH)' "$PHONE_RUNNER" ||
    grep -Fq 'class_load_count_object = substr(result_object, RSTART, RLENGTH)' "$PHONE_RUNNER" ||
