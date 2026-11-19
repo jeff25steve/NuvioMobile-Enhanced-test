@@ -83,11 +83,27 @@ grep -Fq 'shouldShowMainLaunchOverlay(' "$MAIN_CONTENT_SOURCE" && \
   echo "FAIL: launch-overlay visibility and Activity fully-drawn reporting must use separate predicates." >&2
   exit 1
 }
-fallback_effect="$(sed -n '/LaunchedEffect(appContentGeneration)/,/^    }/p' "$MAIN_CONTENT_SOURCE")"
-if printf '%s\n' "$fallback_effect" | grep -Fq 'initialHomeReady = true'; then
+timeout_context="$(grep -B 8 -A 5 -F 'initialHomeFallbackElapsed = true' "$MAIN_CONTENT_SOURCE")"
+if printf '%s\n' "$timeout_context" | grep -Fq 'initialHomeReady = true'; then
   echo "FAIL: timeout fallback must not set product Home readiness." >&2
   exit 1
 fi
+grep -Fq 'withFrameNanos { }' "$HOME_SCREEN_SOURCE" || {
+  echo "FAIL: Home layout readiness must wait for a Compose frame after the loading-state transition." >&2
+  exit 1
+}
+grep -Fq 'onInitialHomeContentRendered = { initialHomeReady = true }' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: the product Home-ready state must be updated by the Home content callback." >&2
+  exit 1
+}
+
+# MainActivity must retain its complete Android lifecycle/intent integration.
+for activity_method in 'override fun onCreate(' 'override fun onNewIntent(' 'override fun onUserLeaveHint(' 'override fun onPictureInPictureModeChanged(' 'override fun onDestroy('; do
+  grep -Fq "$activity_method" "$MAIN_ACTIVITY_SOURCE" || {
+    echo "FAIL: MainActivity is missing restored lifecycle method: $activity_method" >&2
+    exit 1
+  }
+done
 grep -Fq 'snapshotFlow {' "$HOME_SCREEN_SOURCE" && \
   grep -Fq 'homeListState.layoutInfo.visibleItemsInfo' "$HOME_SCREEN_SOURCE" && \
   grep -Fq 'isInitialHomeContentLoading' "$HOME_SCREEN_SOURCE" || {
