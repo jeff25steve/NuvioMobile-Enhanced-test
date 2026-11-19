@@ -23,6 +23,8 @@ import java.io.InterruptedIOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.FutureTask
 
 private const val MB = 1024L * 1024L
 private const val READ_AHEAD_BLOCK_BYTES = 16 shl 20
@@ -100,10 +102,17 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     val cacheDirectory = context.cacheDir
     var bufferedFactory: DataSource.Factory = plainFactory
     if (settings.vodDiskCacheEnabled) {
-        bufferedFactory = CacheDataSource.Factory()
-            .setCache(PlaybackDiskCache.get(context, settings))
-            .setUpstreamDataSourceFactory(plainFactory)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        // SimpleCache's constructor waits synchronously for its disk/index scan to finish.
+        // Start that work now, while the player is still being assembled, instead of blocking
+        // the Compose thread that creates this DataSource.Factory.
+        PlaybackDiskCache.prewarm(context, settings)
+        bufferedFactory = DataSource.Factory {
+            CacheDataSource.Factory()
+                .setCache(PlaybackDiskCache.get(context, settings))
+                .setUpstreamDataSourceFactory(plainFactory)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                .createDataSource()
+        }
     }
     val readAheadBytes = settings.nativeReadAheadBytes()
     if (readAheadBytes > 0L) {
@@ -122,24 +131,79 @@ internal fun DataSource.Factory.withPlaybackBuffering(
     }
 }
 
+internal class BackgroundInitialization<T>(
+    threadName: String,
+    initializer: () -> T,
+) {
+    private val task = FutureTask(initializer).also { future ->
+        Thread(future, threadName).apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    fun await(): T = try {
+        task.get()
+    } catch (error: InterruptedException) {
+        Thread.currentThread().interrupt()
+        throw IllegalStateException("Interrupted while waiting for background initialization", error)
+    } catch (error: ExecutionException) {
+        when (val cause = error.cause) {
+            is RuntimeException -> throw cause
+            is Error -> throw cause
+            else -> throw IllegalStateException("Background initialization failed", cause ?: error)
+        }
+    }
+}
+
 private object PlaybackDiskCache {
     private var cache: SimpleCache? = null
+    private var initialization: BackgroundInitialization<SimpleCache>? = null
 
-    @Synchronized
-    fun get(context: Context, settings: PlayerSettingsUiState): SimpleCache =
-        cache ?: run {
-            val directory = File(context.cacheDir, "vod_playback_cache").apply { mkdirs() }
-            val maxBytes = if (settings.vodDiskCacheAutoSize) {
-                (directory.usableSpace / 5L).coerceIn(256L * MB, 10_240L * MB)
-            } else {
-                settings.vodDiskCacheSizeMb * MB
+    fun prewarm(context: Context, settings: PlayerSettingsUiState) {
+        synchronized(this) {
+            if (cache == null && initialization == null) {
+                initialization = startInitialization(context, settings)
             }
-            SimpleCache(
-                directory,
-                LeastRecentlyUsedCacheEvictor(maxBytes),
-                StandaloneDatabaseProvider(context.applicationContext),
-            )
-        }.also { cache = it }
+        }
+    }
+
+    fun get(context: Context, settings: PlayerSettingsUiState): SimpleCache {
+        val pending = synchronized(this) {
+            cache?.let { return it }
+            initialization ?: startInitialization(context, settings).also { initialization = it }
+        }
+        val initialized = try {
+            pending.await()
+        } catch (error: Throwable) {
+            synchronized(this) {
+                if (initialization === pending) initialization = null
+            }
+            throw error
+        }
+        return synchronized(this) {
+            if (cache == null) cache = initialized
+            if (initialization === pending) initialization = null
+            checkNotNull(cache)
+        }
+    }
+
+    private fun startInitialization(
+        context: Context,
+        settings: PlayerSettingsUiState,
+    ): BackgroundInitialization<SimpleCache> = BackgroundInitialization("NuvioPlaybackCacheInit") {
+        val directory = File(context.cacheDir, "vod_playback_cache").apply { mkdirs() }
+        val maxBytes = if (settings.vodDiskCacheAutoSize) {
+            (directory.usableSpace / 5L).coerceIn(256L * MB, 10_240L * MB)
+        } else {
+            settings.vodDiskCacheSizeMb * MB
+        }
+        SimpleCache(
+            directory,
+            LeastRecentlyUsedCacheEvictor(maxBytes),
+            StandaloneDatabaseProvider(context.applicationContext),
+        )
+    }
 }
 
 private class SelectiveBufferedDataSource(
