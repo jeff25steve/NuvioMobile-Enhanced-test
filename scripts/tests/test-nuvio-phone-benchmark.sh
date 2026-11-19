@@ -525,6 +525,18 @@ JSON
         ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
         mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
         ;;
+      nested-art-metric-fields)
+        awk '
+          !replaced && /"artJitCount":/ {
+            print "        \"artJitCount\": {\"details\": {\"minimum\": 1, \"maximum\": 10, \"median\": 5.5, \"coefficientOfVariation\": 0.5504818825631803, \"runs\": [1,2,3,4,5,6,7,8,9,10]}},"
+            replaced=1
+            next
+          }
+          { print }
+          END { if (!replaced) exit 1 }
+        ' "$FAKE_MEDIA_DIR/fake-benchmarkData.json" > "$FAKE_MEDIA_DIR/result.tmp"
+        mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
+        ;;
     esac
 
     if [ "${FAKE_BENCHMARK_JSON:-complete}" = "misleading-root-metadata" ]; then
@@ -1230,7 +1242,7 @@ for flavor in full playstore; do
     }
   done
 
-  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build non-object-context non-object-build non-object-version duplicate-context nested-metric-fields duplicate-metric-field one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
+  for bad_json in empty missing-profile missing-ttfd missing-one-ttfd-arm short-ttfd-samples missing-context-sdk misleading-global-sdk misleading-global-build non-object-context non-object-build non-object-version duplicate-context nested-metric-fields duplicate-metric-field nested-art-metric-fields one-arm-metrics wrong-repeat-iterations wrong-warmup-iterations short-samples invalid-stats wrong-median wrong-cv wrong-art-cv negative-art-run missing-art-jit unpaired-classload missing-cv missing-samples missing-trace-metadata missing-trace-file empty-trace-file extra-profiler-output; do
     if FAKE_BENCHMARK_JSON="$bad_json" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$bad_json.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
