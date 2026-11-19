@@ -24,8 +24,9 @@ import org.junit.runner.RunWith;
  * part of a normal release build.
  *
  * Phone-only (LADB) tip: start the instrument command, then immediately leave
- * the terminal so {@code com.nuvio.media.benchmark} stays in front. The readiness
- * helper also re-foregrounds Nuvio if a known shell package steals focus mid-wait.
+ * the terminal so {@code com.nuvio.media.benchmark} stays in front. Readiness
+ * checks require Nuvio to own the active window and never relaunch it during
+ * a measured startup; a shell-owned foreground window fails with diagnostics.
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
@@ -68,28 +69,28 @@ public final class BaselineProfileGenerator {
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
                     StartupReadiness.awaitHomeAndFullyDrawn(device);
-                    StartupReadiness.scrollRequired(
+                    HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_home_scroll",
                             Direction.DOWN,
                             "Home feed");
-                    StartupReadiness.scrollUntilMarker(
+                    HomeBrowseReadiness.scrollUntilMarker(
                             device,
                             "nuvio_benchmark_home_scroll",
                             "nuvio_benchmark_catalog_row",
                             Direction.DOWN,
                             "Home feed");
-                    StartupReadiness.scrollRequired(
+                    HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_catalog_row",
                             Direction.RIGHT,
                             "catalogue shelf");
-                    StartupReadiness.scrollRequired(
+                    HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_catalog_row",
                             Direction.LEFT,
                             "catalogue shelf");
-                    StartupReadiness.scrollRequired(
+                    HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_home_scroll",
                             Direction.UP,
