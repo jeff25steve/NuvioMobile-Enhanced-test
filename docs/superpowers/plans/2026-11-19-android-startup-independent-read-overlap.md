@@ -40,12 +40,12 @@
 - The helper launches each independent operation as an `async(dispatcher)` child, yields so they can start, executes `sequential` with `withContext(dispatcher)`, then awaits all independent children.
 - Structured scope cancellation and child-failure propagation remain standard kotlinx.coroutines behavior.
 
-- [ ] Add a test using `StandardTestDispatcher`, a `CompletableDeferred` gate and `runCurrent()`. Assert both independent operations have started while the sequential operation is still waiting at the gate.
-- [ ] Review the test source and confirm it exercises the scheduling contract, not just a mocked call count.
-- [ ] Add the helper with injected dispatcher and structured child jobs.
-- [ ] Replace the four sequential startup reads with two independent lambdas (Continue Watching preferences and Home snapshot) plus the ordered watched/progress sequence.
-- [ ] Preserve each existing `step()` wrapper and the existing surrounding profile/download preload ordering.
-- [ ] Perform static review of imports, call sites, cancellation and failure behavior. Do not run Gradle, tests, builds or CI.
+- [x] Add a test using `StandardTestDispatcher`, a `CompletableDeferred` gate and `runCurrent()`. Assert both independent operations have started while the sequential operation is still waiting at the gate.
+- [x] Review the test source and confirm it exercises the scheduling contract, not just a mocked call count.
+- [x] Add the helper with injected dispatcher and structured child jobs.
+- [x] Replace the four sequential startup reads with two independent lambdas (Continue Watching preferences and Home snapshot) plus the ordered watched/progress sequence.
+- [x] Preserve each existing `step()` wrapper and the existing surrounding profile/download preload ordering.
+- [x] Perform static review of imports, call sites, cancellation and failure behavior. Do not run Gradle, tests, builds or CI.
 
 ### Task 2: Engineering record and remote verification
 
@@ -53,8 +53,8 @@
 - Modify: `docs/engineering/android-startup-critical-path-review.md`
 - Modify: `docs/engineering/codebase-improvement-notes.md`
 
-- [ ] Record the selected bounded overlap, why tracking-dependent reads remain sequential, and why this is an expected optimization rather than a measured gain.
-- [ ] Record that regression tests are added but unexecuted.
+- [x] Record the selected bounded overlap, why tracking-dependent reads remain sequential, and why this is an expected optimization rather than a measured gain.
+- [x] Record that regression tests are added but unexecuted.
 - [ ] Fetch the updated files and branch ref from GitHub.
 - [ ] Compare the new branch head with the starting checkpoint and confirm zero commits behind.
 - [ ] Confirm no workflow file changed and no CI/build was started.
