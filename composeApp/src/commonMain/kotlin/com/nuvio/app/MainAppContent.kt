@@ -610,6 +610,7 @@ internal fun MainAppContent(
         ownsAppRuntime,
         launchOverlayState.currentState,
         launchOverlayState.isIdle,
+        onRootContentReady != null,
     ) {
         if (ownsAppRuntime) {
             // The launch overlay is the only visual transition gating TTFD: do not
