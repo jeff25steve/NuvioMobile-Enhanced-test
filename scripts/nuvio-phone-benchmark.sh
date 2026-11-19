@@ -255,10 +255,24 @@ write_run_provenance() {
 
 new_run_dir() {
   stamp="$(date '+%Y%m%d-%H%M%S')"
-  RUN_DIR="$OUTPUT_ROOT/$FLAVOR/$ACTION-$stamp"
-  mkdir -p "$RUN_DIR"
+  run_dir_base="$OUTPUT_ROOT/$FLAVOR/$ACTION-$stamp"
+  mkdir -p "$OUTPUT_ROOT/$FLAVOR" || fail "Cannot create the benchmark result folder: $OUTPUT_ROOT/$FLAVOR"
+
+  # Reserve each result directory with atomic mkdir. The timestamp is only
+  # human-readable; same-second or concurrent runs must never share artifacts.
+  RUN_DIR="$run_dir_base"
+  run_dir_suffix=0
+  while :; do
+    if mkdir "$RUN_DIR" 2>/dev/null; then
+      break
+    fi
+    [ -d "$RUN_DIR" ] || fail "Cannot reserve a unique benchmark result directory: $RUN_DIR"
+    run_dir_suffix=$((run_dir_suffix + 1))
+    RUN_DIR="$run_dir_base-$run_dir_suffix"
+  done
+
   MARKER="$RUN_DIR/.started"
-  : > "$MARKER"
+  : > "$MARKER" || fail "Cannot create the benchmark run marker: $MARKER"
   # Ensure the filesystem timestamp of the marker precedes any benchmark output.
   sleep 2
 }
