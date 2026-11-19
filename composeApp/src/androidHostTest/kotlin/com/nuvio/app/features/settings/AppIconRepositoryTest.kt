@@ -1,7 +1,9 @@
 package com.nuvio.app.features.settings
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -62,6 +64,45 @@ class AppIconRepositoryTest {
         AppIconRepository.ensureLoaded()
         assertEquals(AppIconOption.EMERALD, AppIconRepository.state.value.selected)
         assertEquals(AppIconOption.EMERALD.key, AppIconPlatform.loadSelectedIconKey())
+    }
+
+    @Test
+    fun restoresDefaultAliasOnlyWhenNoAlternativeAliasIsEnabled() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val packageManager = context.packageManager
+        val launcherComponents = AppIconOption.entries.map { option ->
+            ComponentName(
+                context.packageName,
+                "com.nuvio.app.launcher.${option.platformName ?: "AppIconDefault"}",
+            )
+        }
+        val defaultComponent = launcherComponents.first()
+
+        try {
+            launcherComponents.forEach { component ->
+                packageManager.setComponentEnabledSetting(
+                    component,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
+
+            AppIconPlatform.initialize(context)
+            assertEquals(
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                packageManager.getComponentEnabledSetting(defaultComponent),
+            )
+
+            assertTrue(AppIconPlatform.activateIcon(AppIconOption.COPPER.platformName))
+            AppIconPlatform.initialize(context)
+            assertEquals(
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                packageManager.getComponentEnabledSetting(defaultComponent),
+            )
+            assertEquals(AppIconOption.COPPER.platformName, AppIconPlatform.currentIconName())
+        } finally {
+            AppIconPlatform.activateIcon(null)
+        }
     }
 
     @Test

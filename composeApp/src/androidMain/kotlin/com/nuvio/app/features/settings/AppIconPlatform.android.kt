@@ -67,21 +67,28 @@ internal actual object AppIconPlatform {
 
     private fun restoreDefaultIfNeeded(context: Context) {
         val packageManager = context.packageManager
-        val hasEnabledComponent = launcherComponents.any { (_, className) ->
-            packageManager.getComponentEnabledSetting(component(context, className)) ==
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-        }
-        if (hasEnabledComponent) return
-
         val defaultClass = launcherComponents.first { it.first == null }.second
+        val defaultComponent = component(context, defaultClass)
+
+        // The default launcher alias is enabled in the manifest. Its normal
+        // PackageManager state is DEFAULT, so avoid scanning every alias unless
+        // the default has explicitly been disabled.
         if (
-            packageManager.getComponentEnabledSetting(component(context, defaultClass)) !=
+            packageManager.getComponentEnabledSetting(defaultComponent) !=
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         ) {
             return
         }
+
+        val hasEnabledAlternative = launcherComponents.any { (_, className) ->
+            className != defaultClass &&
+                packageManager.getComponentEnabledSetting(component(context, className)) ==
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }
+        if (hasEnabledAlternative) return
+
         packageManager.setComponentEnabledSetting(
-            component(context, defaultClass),
+            defaultComponent,
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
             PackageManager.DONT_KILL_APP,
         )

@@ -164,3 +164,16 @@
 - [x] Run isolated POSIX AWK parser fixtures: valid 30-record data accepted; missing, malformed, duplicate and unexpected-journey data rejected.
 - The committed shell regression scripts were not run because a complete local checkout is unavailable. The isolated parser check is not a full suite pass. Java/Kotlin compilation is unverified.
 - No Gradle task, build, CI, instrumentation, Baseline Profile collection or real-device benchmark was started. P0 runtime diagnosis remains pending an authorized device capture; no startup speedup is claimed.
+
+ 
+### Cycle 85 — remove redundant PackageManager scans from the normal app-icon startup path
+
+- [x] Trace `AppIconPlatform.initialize()` from `MainActivity.onCreate` and confirm it invokes `restoreDefaultIfNeeded()` before `super.onCreate`.
+- [x] Confirm the main manifest sets `AppIconDefault` to `android:enabled="true"` and the enum contains six launcher aliases.
+- [x] Verify from the official Android PackageManager reference that `COMPONENT_ENABLED_STATE_DEFAULT` means the component follows its manifest setting.
+- [x] Check the default alias first and return unless it is explicitly disabled; scan alternative aliases only in that exceptional recovery case.
+- [x] Preserve recovery when all aliases are disabled and preserve any explicitly enabled custom alias.
+- [x] Add the shell regression guard and a Robolectric host regression for recovery and custom-alias preservation; wire the shell guard into the existing startup initialization test.
+- [x] Run the shell guard against the previous recovery ordering (expected failure) and changed ordering (pass).
+- The regular default-icon path now makes one `getComponentEnabledSetting` call instead of seven (six aliases plus a repeated default query). This is a source-derived PackageManager call-count reduction; no time saving is claimed.
+- The Robolectric test and full committed shell suite were not run. No Gradle task, build, CI, instrumentation or device benchmark was authorized or started.
