@@ -1338,9 +1338,11 @@ read_battery_saver_from_snapshot() {
     return 0
   }
   awk '
-    tolower($0) ~ /^[[:space:]]*battery saver \\(settings global low_power\\):[[:space:]]*[01]([[:space:]]|$)/ {
-      status_line = $0
-      sub(/^[^:]*:[[:space:]]*/, "", status_line)
+    line = tolower($0)
+    sub(/^[[:space:]]*/, "", line)
+    if (index(line, "battery saver (settings global low_power):") == 1) {
+      status_line = line
+      sub(/^.*:[[:space:]]*/, "", status_line)
       sub(/[[:space:]].*$/, "", status_line)
       if (status_line == "0" || status_line == "1") {
         print status_line
