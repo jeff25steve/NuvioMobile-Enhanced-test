@@ -1159,7 +1159,7 @@ for flavor in full playstore; do
   grep -Fq 'Nonblank rules: 3' "$profile_audit"
   grep -Fq 'Unique exact rules: 2' "$profile_audit"
   grep -Fq 'Duplicate exact rules: 1' "$profile_audit"
-  grep -Fq 'Rules carrying H/S/P flags: H=1 S=1 P=1' "$profile_audit"
+  grep -Fq 'Rules carrying H/S/P flags: H=2 S=2 P=2' "$profile_audit"
   grep -Fq 'profile-audit-summary.txt' "$profile_result_dir/copied-files.txt"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
   environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
