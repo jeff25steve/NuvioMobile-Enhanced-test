@@ -159,6 +159,19 @@ grep -Fq 'device.findObject(By.pkg(TARGET_APP_PACKAGE))' "$READINESS_SOURCE" || 
   echo "FAIL: bare Compose testTag lookup must be guarded by target-package presence." >&2
   exit 1
 }
+grep -Fq 'static void scrollUntilMarker(' "$READINESS_SOURCE" || {
+  echo "FAIL: shared readiness helper must expose bounded scrolling until a Home browse target is visible." >&2
+  exit 1
+}
+grep -Fq 'static void scrollRequired(' "$READINESS_SOURCE" || {
+  echo "FAIL: shared readiness helper must validate required Home browse scroll actions." >&2
+  exit 1
+}
+grep -Fq 'scrollable.isScrollable()' "$READINESS_SOURCE" &&
+  grep -Fq 'scrollable.scroll(direction, 0.75f)' "$READINESS_SOURCE" || {
+  echo "FAIL: Home browse collection must verify real scrollable accessibility nodes before scrolling." >&2
+  exit 1
+}
 grep -Fq 'rootReadinessStateDescription' "$READINESS_SOURCE" || {
   echo "FAIL: readiness diagnostics must report the visible root state description." >&2
   exit 1
