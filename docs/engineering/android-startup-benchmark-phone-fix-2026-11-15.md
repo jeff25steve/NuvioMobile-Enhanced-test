@@ -3105,3 +3105,25 @@ Research source: [AOSP — Thermal mitigation and thermal status codes](https://
 - Scope is limited to the phone runner, its regression/static-contract fixtures and benchmark notes/spec/plan. No production app code, benchmark Java code, dependency, build configuration or workflow was changed.
 
 Research source: [AOSP PackageManagerShellCommand.java](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/services/core/java/com/android/server/pm/PackageManagerShellCommand.java) — `pm path` emits the base `sourceDir` and each `splitSourceDirs` path with a `package:` prefix. The shell-readable status of those files is not treated as guaranteed; inaccessible bytes remain `UNVERIFIED`.
+
+### Cycle 65 — resolve one exact self-instrumenting AndroidJUnitRunner
+
+- The previous resolver filtered pm list instrumentation to the self-instrumenting test package but then selected the first matching component with head -n 1. It accepted a wrong runner class and silently chose one candidate when metadata was ambiguous.
+- The runner now requires exactly one matching instrumentation component and requires its exact component name to be com.nuvio.android.baselineprofile/androidx.test.runner.AndroidJUnitRunner. Missing, wrong-class and multiple-candidate states fail before am instrument.
+- The fake package-manager fixture now models missing, wrong and ambiguous instrumentation metadata. Each regression asserts that the command fails before instrumentation is launched.
+
+### Cycle 66 — validate each clean-run profiler output as a typed iteration trace
+
+- AndroidX Macrobenchmark combines the measured-iteration Perfetto trace paths with any additional profiler result files in profilerOutputs. The old phone contract counted Perfetto type fields, filenames and iteration labels independently; it did not count the output objects or prove that each iteration label belonged to a PerfettoTrace object with its own filename.
+- The validator now requires exactly ten profiler output objects per comparison arm, ten PerfettoTrace entries and ten filenames. For every Trace Iteration N label, it validates the same JSON object contains exactly one PerfettoTrace type and one filename.
+- Additional profiler artifacts are rejected with a specific clean-run diagnostic. This preserves the existing unprofiled timing contract; it does not enable method tracing or add profiler overhead to the benchmark.
+- Added an extra-profiler-output fixture that appends a MethodTrace result and asserts the explicit rejection. The static contract also protects exact runner identity and the profiler-output rule.
+
+### Verification boundary for cycles 65–66
+
+- Isolated POSIX shell checks reproduced the old instrumentation resolver accepting a wrong runner and selecting the first of two candidates; the new resolver rejected missing, wrong and ambiguous metadata and accepted the unique expected AndroidJUnitRunner.
+- An isolated AWK fixture accepted ten correctly typed iteration traces and rejected an additional MethodTrace profiler object.
+- The full test-nuvio-phone-benchmark.sh and test-android-startup-metric-contract.sh scripts were not run. The container still cannot resolve GitHub, so there is no local repository checkout; no remote workflow was started.
+- No Gradle task, Kotlin/Java compilation, APK build, profile generation, instrumentation, Macrobenchmark, LADB session, device benchmark or CI was run. No Nuvio startup speedup is claimed.
+
+Research: [AndroidX Macrobenchmark source — profiler output merging](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) shows that measured iteration traces and additional profiler results are combined into profilerOutputs. [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) documents per-iteration Perfetto traces and the presence of profiling trace files in the output directory.
