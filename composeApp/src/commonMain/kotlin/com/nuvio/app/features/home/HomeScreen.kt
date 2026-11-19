@@ -904,8 +904,13 @@ fun HomeScreen(
         // layoutInfo, which always describes the previous completed layout pass.
         withFrameNanos { }
         snapshotFlow {
-            !isInitialHomeContentLoading &&
-                homeListState.layoutInfo.visibleItemsInfo.any { item -> item.size > 0 }
+            val visibleItems = homeListState.layoutInfo.visibleItemsInfo
+            val visibleNonHeroContent = visibleItems.any { item ->
+                item.size > 0 && item.key != "home_hero"
+            }
+            val visibleRealHero = homeUiState.heroItems.isNotEmpty() &&
+                visibleItems.any { item -> item.size > 0 && item.key == "home_hero" }
+            !isInitialHomeContentLoading && (visibleNonHeroContent || visibleRealHero)
         }.first { contentPresented -> contentPresented }
         onContentPresented()
     }
