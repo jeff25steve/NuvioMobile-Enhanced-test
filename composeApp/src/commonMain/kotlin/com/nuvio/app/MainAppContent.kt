@@ -411,6 +411,9 @@ internal fun MainAppContent(
     var initialHomeReady by rememberSaveable(ownsAppRuntime, appContentGeneration) {
         mutableStateOf(!ownsAppRuntime)
     }
+    var initialHomeFallbackElapsed by rememberSaveable(ownsAppRuntime, appContentGeneration) {
+        mutableStateOf(false)
+    }
     var offlineLaunchRouteHandled by rememberSaveable { mutableStateOf(false) }
     var networkToastBaselineReady by rememberSaveable { mutableStateOf(false) }
     var lastNetworkToastCondition by rememberSaveable { mutableStateOf(NetworkCondition.Unknown.name) }
@@ -587,7 +590,12 @@ internal fun MainAppContent(
 
 
     val rootContentReady = !ownsAppRuntime || (initialHomeReady && !profileSwitchLoading)
-    val launchOverlayVisible = ownsAppRuntime && showLaunchOverlay && !rootContentReady
+    val launchOverlayVisible = shouldShowMainLaunchOverlay(
+        ownsAppRuntime = ownsAppRuntime,
+        showLaunchOverlay = showLaunchOverlay,
+        rootContentReady = rootContentReady,
+        fallbackElapsed = initialHomeFallbackElapsed,
+    )
     val launchOverlayState = remember(ownsAppRuntime, showLaunchOverlay) {
         MutableTransitionState(
             launchOverlayVisible,
@@ -606,9 +614,11 @@ internal fun MainAppContent(
             // Root data can be ready before the launch overlay finishes its exit.
             // Report the user-visible state only after that transition is fully gone.
             onRootContentReady?.invoke(
-                rootContentReady &&
-                    launchOverlayState.isIdle &&
-                    !launchOverlayState.currentState,
+                shouldReportMainContentReady(
+                    rootContentReady = rootContentReady,
+                    overlayIdle = launchOverlayState.isIdle,
+                    overlayVisible = launchOverlayState.currentState,
+                ),
             )
         }
     }
@@ -646,14 +656,16 @@ internal fun MainAppContent(
         NetworkStatusRepository.ensureStarted()
         if (!isIos) withFrameNanos { }
         EpisodeReleaseNotificationsRepository.refreshAsync()
-        // Safety-net timeout only: the real signal is onInitialHomeContentRendered below, which
-        // flips initialHomeReady as soon as the first catalog section renders (often well under
-        // 5s) so it always wins the race on its own. This just bounds how long a user can get
-        // stuck on the loading screen if catalogs never resolve (e.g. every addon manifest fails).
+        // This timeout is only a visual escape hatch for the launch overlay. It must not
+        // promote initialHomeReady or report Activity.reportFullyDrawn: that signal comes only
+        // from HomeScreen after a meaningful Home item has actually been laid out.
         kotlinx.coroutines.delay(5_000)
         if (!initialHomeReady) {
-            initialHomeReady = true
-            InAppLogger.info("App/Runtime", "Initial home ready (fallback timeout, catalogs still loading)")
+            initialHomeFallbackElapsed = true
+            InAppLogger.info(
+                "App/Runtime",
+                "Initial Home overlay fallback elapsed; startup readiness remains pending",
+            )
         }
     }
 
