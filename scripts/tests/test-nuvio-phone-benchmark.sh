@@ -1019,6 +1019,8 @@ for flavor in full playstore; do
   grep -Fq 'Allocation sampling interval: 2048 bytes' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'Continuous dump interval: 500 ms' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'Allocation evidence: sampled call stacks, not exact heap totals or RSS/PSS' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'Heapprofd behavior: block_client=true; completeness prioritized over frame timing' "$memory_result_dir/memory-profile-summary.txt"
+  grep -Fq 'some earliest Zygote-specialization allocations may precede profiling' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'not a statistical startup comparison' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'Memory Profiling Iteration 0' "$memory_result_dir/memory-profile-summary.txt"
   grep -Fq 'memory-profile-summary.txt' "$memory_result_dir/copied-files.txt"
