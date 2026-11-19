@@ -60,3 +60,9 @@ Android Performance Analyzer is an official open-beta tool that can inspect Perf
 - Ensure the regular fake timing run still requires only the original three comparison results and thirty clean traces.
 - Re-fetch all changed files and compare the branch against the starting checkpoint.
 - Full shell tests and compilation remain unverified unless run from a local checkout; no build/CI is authorized in this task.
+
+## Confirmed production-device eligibility and interpretation constraints
+
+- AndroidX's pinned `PerfettoConfig.kt` configures heapprofd with `com.android.art` and/or `libc.malloc`, an 8 MiB shared buffer, `sampling_interval_bytes=2048`, `block_client=true`, and 500 ms continuous dumps. The diagnostic summary must report these exact values, not generic Perfetto defaults.
+- Perfetto documents that a target app on a normal Android user build must be `profileable` or `debuggable` for heapprofd. Nuvio's shared app manifest already declares `<profileable android:shell="true" />`; its Play Store overlay currently does not remove that declaration. A static regression assertion protects the source manifest and overlay. Since this task does not build variants, the merged manifest remains to be confirmed after an authorized build.
+- The result is sampled allocation-call-stack evidence. It is not an exact allocation ledger, total Java/native heap, RSS/PSS, or a Java object-retention graph. AndroidX's own sampling config prioritizes allocation completeness/determinism over frame timing, and the profile is captured in a separate pass. No exact memory-footprint or startup regression claims may be derived from the single profile.
