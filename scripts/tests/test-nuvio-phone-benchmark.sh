@@ -216,11 +216,39 @@ case "$1" in
       echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]'
       exit 1
     fi
+    source_apk=""
+    for argument in "$@"; do source_apk="$argument"; done
+    case "$source_apk" in
+      *-Tests.apk) cp -f "$source_apk" "$FAKE_INSTALLED_DIR/test-base.apk" || exit 1 ;;
+      *.apk) cp -f "$source_apk" "$FAKE_INSTALLED_DIR/app-base.apk" || exit 1 ;;
+    esac
     echo 'Success'
+    ;;
+  path)
+    case "$2" in
+      com.nuvio.media.benchmark)
+        if [ "${FAKE_STALE_INSTALLED_PACKAGE:-}" = app ]; then
+          printf 'stale installed app APK\n' > "$FAKE_INSTALLED_DIR/stale-app.apk"
+          printf 'package:%s\n' "$FAKE_INSTALLED_DIR/stale-app.apk"
+        elif [ "${FAKE_UNREADABLE_INSTALLED_PACKAGE:-}" = app ]; then
+          printf 'package:%s\n' "$FAKE_INSTALLED_DIR/unreadable-app.apk"
+        else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk"; fi
+        ;;
+      com.nuvio.android.baselineprofile)
+        if [ "${FAKE_STALE_INSTALLED_PACKAGE:-}" = test ]; then
+          printf 'stale installed test APK\n' > "$FAKE_INSTALLED_DIR/stale-test.apk"
+          printf 'package:%s\n' "$FAKE_INSTALLED_DIR/stale-test.apk"
+        elif [ "${FAKE_UNREADABLE_INSTALLED_PACKAGE:-}" = test ]; then
+          printf 'package:%s\n' "$FAKE_INSTALLED_DIR/unreadable-test.apk"
+        else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/test-base.apk"; fi
+        ;;
+      *) exit 1 ;;
+    esac
     ;;
   *) exit 0 ;;
 esac
 STUB
+
 cat > "$TMP/bin/monkey" <<'STUB'
 #!/bin/sh
 printf 'monkey %s\n' "$*" >> "$FAKE_COMMAND_LOG"
@@ -587,6 +615,8 @@ chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_ROOT="$TMP/media"
 export FAKE_MEDIA_DIR="$FAKE_MEDIA_ROOT/com.nuvio.android.baselineprofile"
+export FAKE_INSTALLED_DIR="$TMP/installed"
+mkdir -p "$FAKE_INSTALLED_DIR"
 export NUVIO_PHONE_OUTPUT_DIR="$TMP/output" NUVIO_PHONE_MEDIA_ROOT="$FAKE_MEDIA_ROOT"
 export NUVIO_PHONE_STAGE_DIR="$TMP/staged"
 
@@ -676,6 +706,24 @@ for flavor in full playstore; do
     echo "FAIL: measure-* directory must contain the Macrobenchmark JSON result ($flavor)." >&2
     exit 1
   }
+  profile_provenance="$profile_result_dir/provenance.txt"
+  benchmark_provenance="$benchmark_result_dir/provenance.txt"
+  test -s "$profile_provenance"
+  test -s "$benchmark_provenance"
+  grep -Fq "App APK source filename: Nuvio-$flavor-NonMinifiedRelease.apk" "$profile_provenance" || {
+    echo "FAIL: profile collection lost the installed NonMinifiedRelease source APK identity ($flavor)." >&2
+    cat "$profile_provenance" >&2
+    exit 1
+  }
+  grep -Fq "Test APK source filename: Nuvio-$flavor-NonMinifiedRelease-Tests.apk" "$profile_provenance"
+  grep -Fq "App APK source filename: Nuvio-$flavor-BenchmarkRelease.apk" "$benchmark_provenance" || {
+    echo "FAIL: measurement lost the installed BenchmarkRelease source APK identity ($flavor)." >&2
+    cat "$benchmark_provenance" >&2
+    exit 1
+  }
+  grep -Fq "Test APK source filename: Nuvio-$flavor-BenchmarkRelease-Tests.apk" "$benchmark_provenance"
+  grep -Fq 'App installed APK verification: MATCH' "$benchmark_provenance"
+  grep -Fq 'Test installed APK verification: MATCH' "$benchmark_provenance"
   [ -s "$benchmark_result_dir/benchmark-summary.txt" ] || {
     echo "FAIL: measure-* directory must contain the human-readable benchmark summary ($flavor)." >&2
     exit 1
@@ -855,6 +903,30 @@ for flavor in full playstore; do
     exit 1
   }
 
+  for stale_package in app test; do
+    : > "$FAKE_COMMAND_LOG"
+    if FAKE_STALE_INSTALLED_PACKAGE="$stale_package" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-stale-$stale_package.log" 2>&1; then
+      echo "FAIL: runner accepted a stale installed $stale_package APK ($flavor)." >&2
+      exit 1
+    fi
+    grep -Fq "Installed $stale_package APK SHA-256 does not match the saved source APK" "$TMP/$flavor-stale-$stale_package.log" || {
+      echo "FAIL: stale installed $stale_package APK was not identified ($flavor)." >&2
+      cat "$TMP/$flavor-stale-$stale_package.log" >&2
+      exit 1
+    }
+    if grep -Fq 'am instrument' "$FAKE_COMMAND_LOG"; then
+      echo "FAIL: instrumentation started with a mismatched installed $stale_package APK ($flavor)." >&2
+      exit 1
+    fi
+  done
+  : > "$FAKE_COMMAND_LOG"
+  FAKE_UNREADABLE_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-unreadable-installed.log" 2>&1
+  unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
+  grep -Fq 'App installed APK verification: UNVERIFIED' "$unreadable_dir/provenance.txt" || {
+    echo "FAIL: unreadable installed APK path must be labelled UNVERIFIED ($flavor)." >&2
+    cat "$unreadable_dir/provenance.txt" >&2
+    exit 1
+  }
   for missing_case in startupNoCompilation startupPartialWithoutBaselineProfile startupWithBaselineProfile; do
     if FAKE_MISSING_TEST_CASE="$missing_case" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-$missing_case.log" 2>&1; then
       echo "FAIL: Macrobenchmark accepted a run missing $missing_case." >&2
