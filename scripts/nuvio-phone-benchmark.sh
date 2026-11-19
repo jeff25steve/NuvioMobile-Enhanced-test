@@ -736,7 +736,7 @@ validate_macrobenchmark_statistics() {
             print "FAIL: each startup result must contain exactly one trace reference for every measured iteration."
             exit 1
           }
-          trace_object_pattern = "\\\\{[^}]*\\\"label\\\"[[:space:]]*:[[:space:]]*\\\"Trace Iteration " trace_iteration "\\\"[^}]*\\\\}"
+      trace_object_pattern = "\\{[^}]*\"label\"[[:space:]]*:[[:space:]]*\"Trace Iteration " trace_iteration "\"[^}]*\\}"
           if (!match(trace_array, trace_object_pattern)) {
             print "FAIL: Macrobenchmark JSON is missing the profiler output object for Trace Iteration " trace_iteration "."
             exit 1
