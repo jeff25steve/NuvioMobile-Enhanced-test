@@ -55,6 +55,13 @@
 
 - [x] Record the selected bounded overlap, why tracking-dependent reads remain sequential, and why this is an expected optimization rather than a measured gain.
 - [x] Record that regression tests are added but unexecuted.
-- [ ] Fetch the updated files and branch ref from GitHub.
-- [ ] Compare the new branch head with the starting checkpoint and confirm zero commits behind.
-- [ ] Confirm no workflow file changed and no CI/build was started.
+- [x] Fetch the updated files and branch ref from GitHub.
+- [x] Compare the new branch head with the starting checkpoint and confirm zero commits behind.
+- [x] Confirm no workflow file changed and no CI/build was started.
+
+## Execution record
+
+- Test source added before the production helper. The test was statically reviewed, but the required RED/GREEN run was not performed because this task was constrained to no Gradle tasks/builds/CI. Therefore the test and Kotlin compilation remain unverified; this plan is not a substitute for an authorized test run.
+- Static self-review checked dispatcher placement, structured child cancellation, failure isolation through existing `step()` wrappers, the watched-before-watch-progress ordering, Android-only invocation and unchanged iOS startup.
+- No independent reviewer/subagent was available in this session; review was author-performed.
+- Remote branch comparison from starting checkpoint `12de97ca85155e12e806f762af439cfe8859d0e4` to the final head confirms ahead/behind status after the last commit. No workflow file was changed and no new Actions run was observed.
