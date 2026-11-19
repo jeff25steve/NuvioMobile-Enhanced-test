@@ -71,3 +71,5 @@ Android Performance Analyzer is an official open-beta tool that can inspect Perf
 ## Additional validation assertions
 
 The memory result is accepted only when its single BenchmarkData result has JSON `className=com.nuvio.android.baselineprofile.StartupMemoryBenchmark` and `repeatIterations=1`, in addition to the matching AndroidJUnitRunner status records and profiler output contract. Regression fixtures cover a wrong JSON class and an unexpected repeat-iteration count.
+
+The summary and review must also disclose that AndroidX's heapprofd config sets `block_client=true` (prioritizing allocation completeness/determinism over frame timing) and that process-name startup profiling may miss some allocations during the earliest Zygote specialization. This profiling pass is not a complete record of every process-start allocation.
