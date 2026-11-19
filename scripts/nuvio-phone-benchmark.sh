@@ -2021,7 +2021,7 @@ case "$ACTION" in
     ;;
   measure)
     run_instrumentation macrobenchmark "$BENCHMARK_CLASS"
-    printf '\nThe JSON contains paired cold-start results for CompilationMode.None and CompilationMode.Partial(BaselineProfileMode.Require). Check both TTID and TTFD medians; the profile-enabled arm uses the profile already packaged in this benchmarkRelease APK, not the profile collected in the previous step.\n'
+    printf '\nThe three cold-start comparison arms are: no compilation; partial compilation without a Baseline Profile (3 warmups); and partial compilation requiring the packaged Baseline Profile. Compare TTID and TTFD medians and per-iteration traces. The profile-enabled arm uses the Baseline Profile already packaged in this benchmarkRelease APK; text rules collected by the separate collect step are not installed into this APK.\n'
     ;;
   memory-profile)
     run_instrumentation macrobenchmark "$MEMORY_BENCHMARK_CLASS"
