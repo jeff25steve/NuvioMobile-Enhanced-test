@@ -6467,3 +6467,14 @@ References: [ProgressiveMediaSource 1.8.0](https://github.com/androidx/media/blo
 - Details: [Android DoH parallelization and upgrade review](player-doh-parallel-dns-2026-11-19.md). No Gradle tasks, tests, builds, APK/AAB packaging, CI or device playback were run; no runtime or latency improvement is yet verified.
 
 References: [OkHttp 5.3.2 DoH implementation](https://github.com/square/okhttp/blob/parent-5.3.2/okhttp-dnsoverhttps/src/main/kotlin/okhttp3/dnsoverhttps/DnsOverHttps.kt) · [Media3 release notes](https://developer.android.com/jetpack/androidx/releases/media3) · [Ktor 3.6 releases](https://ktor.io/changelog/3.6/) · [Ktor release guide](https://ktor.io/docs/releases.html)
+
+### 19 November 2026 — Android startup independent-read overlap (Cycles 69–70)
+
+- **Cycle 69 — Home-critical storage overlap:** The pre-`setContent` phase previously loaded watched history, watch progress, Continue Watching preferences and the Home snapshot sequentially. Watched and watch-progress restoration both initialize shared tracking-provider state, so they remain sequential. Continue Watching preferences use their own SharedPreferences file and Home snapshot uses the separate AppFileCache path; these two now start as structured `Dispatchers.IO` children while watched/progress restoration runs in order.
+- All four Home-required reads still complete before the critical phase returns. Profile restoration, downloader scheduler startup, post-frame feature warm-up, error isolation and iOS behavior remain unchanged.
+- Added a deterministic common-test contract for overlapping the two independent reads with the ordered sequence. Test source statically reviewed; tests not executed.
+- **Cycle 70 — concurrency safety review:** Rejected running all four reads concurrently. The shared tracking-provider registry makes watched/progress ordering important, and Android guidance cautions that excessive parallel startup IO can contend for storage/CPU. The bounded two-read overlap adds no new prewarming or feature initialization.
+- Expected effect: reduce the serial portion of Home-critical local restoration by overlapping two independent stores. No measured TTID/TTFD gain is claimed.
+- Design: [startup independent-read overlap](../superpowers/specs/2026-11-19-android-startup-independent-read-overlap-design.md). Plan: [implementation plan](../superpowers/plans/2026-11-19-android-startup-independent-read-overlap.md). No Gradle tasks, tests, builds, device benchmarks or CI were run.
+
+References: [Android coroutine performance](https://developer.android.com/kotlin/coroutines/coroutines-adv) · [Kotlinx Coroutines async](https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.1/docs/topics/composing-suspending-functions.md) · [Android startup prewarming guidance](https://medium.com/androiddevelopers/dont-prewarm-app-features-118e0a2d4bb1)
