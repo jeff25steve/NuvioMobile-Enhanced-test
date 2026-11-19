@@ -6527,3 +6527,19 @@ These cycles change only the phone benchmark shell runner, its fake-device/stati
 Verification boundary: isolated POSIX shell tests showed the old resolver accepted a wrong runner and silently selected the first of multiple candidates; the new resolver rejected missing/wrong/ambiguous metadata and accepted the unique expected runner. An isolated AWK fixture accepted ten correctly typed Perfetto iteration outputs and rejected an additional MethodTrace object. The complete repository phone-runner and static-contract scripts were not run because the container could not resolve GitHub and no local checkout is available. No Gradle task, build, instrumentation, device benchmark or CI was run. No startup speedup is claimed.
 
 Sources: [AndroidX Macrobenchmark source — profiler output merging](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci)
+
+## Android startup benchmark — require complete API 33+ TTFD results (19 November 2026)
+
+### Cycle 67 — reject missing fully-drawn timing from supported phone runs
+
+AndroidX Macrobenchmark 1.5.0 StartupTimingMetric derives timeToFullDisplayMs from the fully-drawn trace event and omits that metric when no full-display timestamp is present. Its API documentation notes that TTFD may be unavailable before API 29. Nuvio's phone runner already requires API 33+, so a missing TTFD arm/sample is not a supported compatibility fallback for this benchmark: it means the run did not yield the full startup comparison the report promises.
+
+The phone result validator now checks the JSON SDK value is numeric and at least 33, then requires exactly three timeToFullDisplayMs metric objects (one for each of no-compilation, partial-without-profile and Baseline Profile). The existing per-metric validation still checks each result's ten positive raw values and recomputes min/median/max/CV from those samples. This closes the omission gap without changing StartupTimingMetric, the app's fully-drawn marker, or the measurement workload.
+
+Regression fixtures now include a missing TTFD arm and a shortened TTFD sample list. The static source-contract test protects the API guard and three-arm completeness condition.
+
+This is a benchmark-evidence correctness change, not a startup optimisation. No app source, benchmark Java source, dependencies, compilation modes, iteration counts, APK variants, workflows or CI triggers changed.
+
+Verification: the updated runner, fake-device regression fixtures and static contract were re-fetched from GitHub. The full repository test scripts were not executed because no local checkout is available. No Gradle task, build, instrumentation, physical-device benchmark or CI was run. Do not treat the added synthetic fixtures as measured performance results.
+
+Sources: [AndroidX Benchmark 1.5.0 StartupTimingMetric API](https://developer.android.com/reference/androidx/benchmark/macro/StartupTimingMetric) · [AndroidX Macrobenchmark Metric.kt](https://android.googlesource.com/platform/frameworks/support/+/225853c2fd3977d06ea9c0efaddd35ae1d81e3a6/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Metric.kt)
