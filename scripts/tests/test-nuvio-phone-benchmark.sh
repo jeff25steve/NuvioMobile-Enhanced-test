@@ -473,7 +473,7 @@ JSON
       awk '
         NR == 1 {
           print
-          print "  \"diagnostic\": \"escaped quote \\\\"build\\\\" and closing brace } must not confuse object lookup\","
+          print "  \"diagnostic\": \"brace } and escaped \\\"build\\\" token\",
           print "  \"model\": \"Root decoy phone\", \"sdk\": 28, \"cpuCoreCount\": 2, \"cpuLocked\": false, \"cpuMaxFreqHz\": 1000000000, \"memTotalBytes\": 1, \"artMainlineVersion\": 1, \"sustainedPerformanceModeEnabled\": true, \"osCodenameAbbreviated\": \"DECOY\","
           next
         }
