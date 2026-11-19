@@ -197,14 +197,19 @@ grep -Fq 'device.findWindow(By.Window.active(true))' "$READINESS_SOURCE" || {
   echo "FAIL: marker lookup must start from UI Automator's active accessibility window." >&2
   exit 1
 }
-grep -Fq 'activeWindow.findObject(packageRes(marker))' "$READINESS_SOURCE" || {
+grep -Fq 'activeWindow.findObject(composeTagSelector(marker))' "$READINESS_SOURCE" || {
   echo "FAIL: marker lookup must be scoped to the active target window, not global hierarchy." >&2
   exit 1
 }
-grep -Fq 'By.res(TARGET_APP_PACKAGE, marker)' "$READINESS_SOURCE" || {
-  echo "FAIL: Compose testTag selectors must be resource-package qualified." >&2
+grep -Fq 'static BySelector composeTagSelector(String marker)' "$READINESS_SOURCE" && \
+  grep -Fq 'return By.res(marker);' "$READINESS_SOURCE" || {
+  echo "FAIL: Compose testTagsAsResourceId selectors must use the bare testTag resource name." >&2
   exit 1
 }
+if grep -Fq 'return By.res(TARGET_APP_PACKAGE, marker);' "$READINESS_SOURCE"; then
+  echo "FAIL: package-qualified By.res does not match Compose testTag resource names." >&2
+  exit 1
+fi
 grep -Fq 'object.getApplicationPackage()' "$READINESS_SOURCE" || {
   echo "FAIL: marker ownership must be verified on the matched UI node itself." >&2
   exit 1
