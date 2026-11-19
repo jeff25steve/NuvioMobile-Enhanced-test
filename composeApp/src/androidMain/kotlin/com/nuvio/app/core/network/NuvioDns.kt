@@ -218,7 +218,6 @@ internal data class DohResolution(
     val cacheExpiresAtMs: Long?,
 )
 
-
 /**
  * Starts the independent IPv6 query before running the blocking IPv4 query.
  * IPv4 remains required; IPv6 is optional, matching the previous resolver contract.
