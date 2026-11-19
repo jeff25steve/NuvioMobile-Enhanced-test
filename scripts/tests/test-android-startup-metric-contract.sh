@@ -323,4 +323,15 @@ for expected in \
   }
 done
 
+for expected in \
+  'context.build.version.sdk' \
+  'version_object = substr(version_rest, 1, version_close)' \
+  'reported_api + 0 < 33' \
+  'ttfd_metric_count != 3'; do
+  grep -Fq "$expected" "$PHONE_RUNNER" || {
+    echo "FAIL: phone runner must validate the exact Macrobenchmark SDK context path and complete TTFD contract '$expected'." >&2
+    exit 1
+  }
+done
+
 printf 'PASS: all three cold-start Macrobenchmark cases are declared and phone results require all three test arms plus TTID/TTFD JSON data.\n'
