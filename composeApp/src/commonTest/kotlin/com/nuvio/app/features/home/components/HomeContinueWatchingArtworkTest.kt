@@ -153,9 +153,17 @@ class HomeContinueWatchingArtworkTest {
             useEpisodeThumbnails = false,
             preferBackdropForNextUp = false,
         )
+        val cardTarget = item.toPosterPrefetchTarget(
+            style = ContinueWatchingSectionStyle.Card,
+            layout = layout,
+            basePosterWidthDp = basePosterWidthDp,
+            useEpisodeThumbnails = false,
+            preferBackdropForNextUp = false,
+        )
 
         assertEquals(PosterPrefetchScale.FIT, wideTarget?.scale)
         assertEquals(PosterPrefetchScale.FIT, posterTarget?.scale)
+        assertEquals(PosterPrefetchScale.CROP, cardTarget?.scale)
     }
 
     @Test
