@@ -104,6 +104,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -896,12 +897,13 @@ fun HomeScreen(
     val addonManifestsLoading = enabledAddons.any { it.isRefreshing }
     val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
     val isResolvingHeroSources = addonManifestsLoading || homeUiState.isLoading
-    var firstCatalogReported by remember { mutableStateOf(false) }
-
-    LaunchedEffect(homeUiState.sections.firstOrNull()?.key, onFirstCatalogRendered) {
-        if (firstCatalogReported || homeUiState.sections.isEmpty()) return@LaunchedEffect
-        firstCatalogReported = true
-        onFirstCatalogRendered?.invoke()
+    LaunchedEffect(homeListState, isInitialHomeContentLoading, onFirstCatalogRendered) {
+        val onContentPresented = onFirstCatalogRendered ?: return@LaunchedEffect
+        snapshotFlow {
+            !isInitialHomeContentLoading &&
+                homeListState.layoutInfo.visibleItemsInfo.any { item -> item.size > 0 }
+        }.first { contentPresented -> contentPresented }
+        onContentPresented()
     }
 
     val visibleCollections = remember(collections) {
@@ -960,6 +962,7 @@ fun HomeScreen(
         hasRenderableHomeRows = hasRenderableHomeRows,
         addonManifestsLoading = addonManifestsLoading,
         homeCatalogLoading = homeUiState.isLoading,
+        homeSourcesLoaded = serversUiState.revision > 0,
     )
 
     BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("nuvio_benchmark_home")) {
