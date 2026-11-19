@@ -737,7 +737,8 @@ The branch's `BaselineProfileGenerator` only collected the launcher startup jour
 - Added a separate `homeBrowseJourneys` Baseline Profile collection pass. It launches the signed-in benchmark app, waits for the existing Home + fully-drawn markers, scrolls the Home feed until a catalogue shelf is found, scrolls that shelf in both horizontal directions, then returns the Home feed upward.
 - Set the new collection to `includeInStartupProfile=false`. The existing `startup` pass remains the only Startup Profile input; `home_browse` contributes only Baseline Profile rules. Existing `mergeIntoMain=false`, `saveInSrc=true`, flavor-specific generation and manual profile workflow settings are unchanged.
 - Added bounded, condition-based `StartupReadiness.scrollUntilMarker` and fail-fast `scrollRequired` helpers. The pass performs a required downward Home scroll first, checks the catalogue row has non-empty visible screen bounds before attempting horizontal scrolling, scrolls the shelf both ways, and returns Home upward. Missing, off-screen or non-scrollable targets fail with diagnostics rather than silently generating incomplete coverage.
-- Updated the startup-readiness regression contract to require both Compose selectors, the browse profile test, the non-Startup-Profile flag and the scroll-helper checks.
+- Updated the phone runner to require a non-empty `home_browse-baseline-prof` file as well as the existing Startup Profile output. Its mocked fixture now rejects missing, empty and whitespace-only Home browse profile output, and confirms both named profile outputs are retained. The desktop and LADB instructions now state the populated, horizontally scrollable catalogue prerequisite.
+- Updated the startup-readiness regression contract to require both Compose selectors, the browse profile test, the non-Startup-Profile flag, the bounded/visible scrolling helpers and both runner prerequisites.
 
 ### Research and API evidence
 
