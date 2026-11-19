@@ -1,4 +1,4 @@
-# Android startup benchmark phone workflow correction — 2026-11-15
+# 02 — Android startup benchmark phone workflow correction — 2026-11-15
 
 ## User-visible failure
 
@@ -3158,3 +3158,34 @@ Research: [AndroidX Benchmark 1.5.0 StartupTimingMetric API](https://developer.a
 - No builds, CI, Gradle tasks, instrumentation, profile generation, LADB or physical-device benchmark was run. The malformed cases are fixtures, not measured data. No startup-speed gain is claimed.
 
 Research: [AndroidX BenchmarkData.kt](https://github.com/androidx/androidx/blob/androidx-main/benchmark/benchmark-common/src/main/java/androidx/benchmark/json/BenchmarkData.kt) defines SDK as context.build.version.sdk. [Android Developers — Benchmark in CI](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) documents the JSON context structure.
+
+## 19 November 2026 — Benchmark cycles 70–72: power-state and result-file integrity
+
+### Cycle 70 — correct the SDK static contract
+
+- Removed a stale static assertion that still expected the old global SDK lookup after Cycle 68 changed extraction to `context.build.version.sdk`.
+- Preserved the nested SDK, API 33+ and TTFD completeness checks.
+- Moved the static-contract PASS line after all assertions, so a later failure cannot follow an already printed success message.
+
+### Cycle 71 — reject and report Battery Saver contamination
+
+- The phone runner already captured `settings get global low_power` in its pre/post environment snapshots but did not interpret it.
+- AOSP defines the LOW_POWER mode as intended to save battery at the cost of performance. A pre-run value of `1` now blocks Macrobenchmark before `am instrument`; a post-run value of `1` marks the saved result `BATTERY-SAVER CONTAMINATED`.
+- Missing/unparseable state is `unknown`, not off. The generated integrity report is appended to `benchmark-summary.txt` and listed in `copied-files.txt`.
+- Added fake-device coverage for preflight rejection and a post-run state change. No extra device command or polling was introduced.
+
+### Cycle 72 — require one result JSON per instrumentation invocation
+
+- The previous code counted benchmark cases across every copied JSON file but wrote the human-readable summary from only the first file.
+- The runner now requires exactly one new `benchmarkData.json` artifact for this single self-instrumenting benchmark module. Multiple files fail with an explicit count instead of silently discarding the others.
+- Added a fake-device fixture that duplicates the valid result JSON and checks the multiple-file diagnostic. The 30 unique per-iteration Perfetto trace requirement is unchanged.
+
+### Verification and limits for cycles 70–72
+
+- Re-fetched all changed runner/test/note files from GitHub and inspected the wiring of the new fixtures and static assertions.
+- Ran only an isolated AWK parser check for Battery Saver values `0`, `1` and `unavailable`; this produced `0`, `1` and `unknown`. This was not the repository regression script.
+- Neither repository shell regression script was executed because there is no local checkout and the GitHub file integration cannot execute shell scripts. The changes have not been represented as test-suite passes.
+- No builds, CI, Gradle tasks, instrumentation, profile collection, LADB commands or physical-device measurements were run.
+
+Sources: [AOSP Power HAL Mode.aidl](https://android.googlesource.com/platform/hardware/interfaces/+/refs/heads/main/power/aidl/android/hardware/power/Mode.aidl) · [Android Developers — Test power-related issues](https://developer.android.com/topic/performance/power/test-power) · [Android Developers — Benchmark in Continuous Integration](https://developer.android.com/topic/performance/benchmarking/benchmarking-in-ci) · [AndroidX Macrobenchmark source](https://android.googlesource.com/platform/frameworks/support/+/0c2ddcd70f6090ccc660e49c03048e1de85c2073/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/Macrobenchmark.kt)
+
