@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -898,8 +899,14 @@ fun HomeScreen(
     val addonManifestsLoading = enabledAddons.any { it.isRefreshing }
     val addonManifestErrorMessage = enabledAddons.firstEnabledManifestError()
     val isResolvingHeroSources = addonManifestsLoading || homeUiState.isLoading
-    LaunchedEffect(homeListState, isInitialHomeContentLoading, onFirstCatalogRendered) {
-        val onContentPresented = onFirstCatalogRendered ?: return@LaunchedEffect
+    val currentOnFirstCatalogRendered by rememberUpdatedState(onFirstCatalogRendered)
+
+    LaunchedEffect(
+        homeListState,
+        isInitialHomeContentLoading,
+        onFirstCatalogRendered != null,
+    ) {
+        if (currentOnFirstCatalogRendered == null) return@LaunchedEffect
         // Let the state-driven Home content complete a frame before inspecting
         // layoutInfo, which always describes the previous completed layout pass.
         withFrameNanos { }
@@ -912,7 +919,7 @@ fun HomeScreen(
                 visibleItems.any { item -> item.size > 0 && item.key == "home_hero" }
             !isInitialHomeContentLoading && (visibleNonHeroContent || visibleRealHero)
         }.first { contentPresented -> contentPresented }
-        onContentPresented()
+        currentOnFirstCatalogRendered?.invoke()
     }
 
     val visibleCollections = remember(collections) {
