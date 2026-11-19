@@ -354,7 +354,10 @@ for expected in \
   'value = json_member_value(object, field)' \
   'runs_value = json_member_value(object, "runs")' \
   'if (found_count != 1) return ""' \
+  'metric_object_start = index(metric_text, "{")' \
   'metric_object = substr(metric_text, metric_object_start)' \
+  'class_load_count_object = substr(class_load_count_text, class_load_count_start)' \
+  'class_load_time_object = substr(class_load_time_text, class_load_time_start)' \
   'result_object = "{" substr(result_rest, 1, RSTART - 1)' \
   'result_object = "{" result_rest'; do
   grep -Fq "$expected" "$PHONE_RUNNER" || {
@@ -363,7 +366,11 @@ for expected in \
   }
 done
 if grep -Fq 'start = index(object, needle)' "$PHONE_RUNNER" ||
-   grep -Fq 'count_matches(object, "\\"runs\\"' "$PHONE_RUNNER"; then
+   grep -Fq 'count_matches(object, "\\"runs\\"' "$PHONE_RUNNER" ||
+   grep -Fq 'metric_object = substr(metric_rest, metric_start, metric_length)' "$PHONE_RUNNER" ||
+   grep -Fq 'metric_object = substr(result_object, RSTART, RLENGTH)' "$PHONE_RUNNER" ||
+   grep -Fq 'class_load_count_object = substr(result_object, RSTART, RLENGTH)' "$PHONE_RUNNER" ||
+   grep -Fq 'class_load_time_object = substr(result_object, RSTART, RLENGTH)' "$PHONE_RUNNER"; then
   echo "FAIL: phone benchmark must not use unscoped substring lookups for JSON object fields or raw runs arrays." >&2
   exit 1
 fi
