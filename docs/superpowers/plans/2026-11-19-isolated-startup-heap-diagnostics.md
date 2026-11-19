@@ -99,10 +99,18 @@ The implementation will be integrated natively in this session because the reque
 
 ## Execution record — 19 November 2026
 
-- Added the version-catalog split, isolated Java benchmark class, separate phone action, dedicated summary and strict trace validation. Regression fixtures cover valid output and the six invalid cases.
+- Added the version-catalog split, isolated Java benchmark class, separate phone action, dedicated summary and strict trace validation. Regression fixtures cover valid output and the eight invalid cases.
 - Added static protection for the app's existing shell-profileable declaration and the Play Store manifest overlay not removing it.
 - Ran isolated POSIX AWK/shell checks against the same memory-output extraction/filename logic and the seven fixture modes (valid + six invalid). Focused checks passed. These are not the repository test scripts.
 - Re-fetched the new runner, fixture script, static contract, version catalog, Java class and engineering notes. The normal timing path remains separate by source inspection.
 - **Not verified:** the complete repository phone-runner and static-contract scripts were not run; Java was not compiled; the merged APK manifest was not built/inspected. The GitHub integration cannot execute source files and no local checkout is available in this session (the attempted clone could not resolve github.com).
 - **Final review:** self-review (no subagent tool available). Findings and residual limitations are recorded here; a fresh reviewer and full test run remain outstanding.
 - No Gradle task, build, CI, instrumentation, profile collection, LADB action or physical-device capture was started. The memory-profile action requires a newly built BenchmarkRelease test APK containing `StartupMemoryBenchmark`.
+
+
+### Additional result-identity hardening
+
+- [x] Require JSON `className` to match `StartupMemoryBenchmark` and require `repeatIterations=1`; the instrumentation log class/test status must also match.
+- [x] Add fake invalid-result variants for a wrong JSON class name and an unexpected repeat-iteration count; include both in the memory-profile invalid-fixture loop.
+- [x] Protect the shared app `profileable android:shell="true"` declaration and assert that neither Full nor Play Store overlays removes it.
+- [x] Add the actual AndroidX heapprofd source settings (2,048-byte sampling interval, 500 ms continuous dumps, 8 MiB buffer) and sampling caveat to the generated memory summary.
