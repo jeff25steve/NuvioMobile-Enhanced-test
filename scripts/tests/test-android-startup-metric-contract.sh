@@ -88,6 +88,10 @@ grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs; do' "$DESKTO
   echo "FAIL: phone runner must require both TTID and TTFD output for every flavor." >&2
   exit 1
 }
+grep -Fq 'for metric in artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must require AndroidX ArtMetric output for every flavor." >&2
+  exit 1
+}
 grep -Fq 'did not emit $metric' "$DESKTOP_RUNNER" || {
   echo "FAIL: phone runner must fail clearly when a startup metric is missing." >&2
   exit 1
