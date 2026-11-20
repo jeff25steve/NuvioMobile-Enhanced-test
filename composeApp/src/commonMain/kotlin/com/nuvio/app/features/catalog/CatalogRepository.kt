@@ -39,7 +39,7 @@ internal fun <T> isCurrentCatalogRequest(
     request: T,
     activeJob: Job?,
     requestJob: Job,
-): Boolean = activeRequest.value == request && activeJob === requestJob
+): Boolean = activeRequest == request && activeJob === requestJob
 
 object CatalogRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
