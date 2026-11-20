@@ -67,6 +67,8 @@ internal class LibraryLocalState {
     private var profileGeneration = 0L
     private var revision = 0L
     private var contentRevision = 0L
+    private var cachedItemsContentRevision = Long.MIN_VALUE
+    private var cachedItemsSnapshot: List<LibraryItem> = emptyList()
     private var isLoading = false
     private var itemsById: MutableMap<String, LibraryItem> = mutableMapOf()
     private var deltaCursorEventId = 0L
@@ -372,19 +374,25 @@ internal class LibraryLocalState {
             generation = profileGeneration,
         )
 
-    private fun snapshotLocked(): LibraryLocalSnapshot =
-        LibraryLocalSnapshot(
+    private fun snapshotLocked(): LibraryLocalSnapshot {
+        if (cachedItemsContentRevision != contentRevision) {
+            cachedItemsSnapshot = itemsById.values.toList()
+            cachedItemsContentRevision = contentRevision
+        }
+
+        return LibraryLocalSnapshot(
             token = tokenLocked(),
             revision = revision,
             contentRevision = contentRevision,
             hasLoaded = hasLoaded,
             isLoading = isLoading,
-            items = itemsById.values.toList(),
+            items = cachedItemsSnapshot,
             deltaCursorEventId = deltaCursorEventId,
             deltaInitialized = deltaInitialized,
             pendingUpsertKeys = pendingUpsertKeysByKey.values.toList(),
             pendingDeleteKeys = pendingDeleteKeysByKey.values.toList(),
         )
+    }
 
     private fun isCurrentLocked(token: LibraryProfileToken): Boolean =
         currentProfileId == token.profileId && profileGeneration == token.generation
