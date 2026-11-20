@@ -310,3 +310,21 @@ This applies the same verified collection-builder approach to the separate strea
 - Exa cross-checked official Kotlin [buildMap API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-map.html), [collection transformations](https://kotlinlang.org/docs/collection-transformations.html), [mapNotNull API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/map-not-null.html) and [collection builders](https://kotlinlang.org/docs/constructing-collections.html). These confirm direct builder population and that `mapNotNull` returns a separate list.
 - Regression coverage was added before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed, per the authorization boundary; compilation and runtime behavior remain unverified.
 - Final source, test and existing engineering notes were re-fetched from GitHub and statically reviewed. This was author self-review; no independent reviewer agent was available.
+
+## MetaDetails app_extras cast CSV — direct person-list construction (Cycle 112, 20 November 2026)
+
+The primitive-string branch of `JsonObject.people("cast")` parsed comma-separated `app_extras.cast` values with `split → map(trim) → filter(notBlank) → map(MetaPerson)`. This materialized three transformation results before returning the final people list.
+
+Changed:
+- Retain the same comma tokenization, then trim and reject blank tokens while adding `MetaPerson` values directly to one `buildList`.
+- Preserve encounter order, case, duplicate entries, trimming and blank exclusion.
+- Added a parser regression case for leading/trailing whitespace, empty tokens and duplicate cast names.
+
+This removes the intermediate trimmed-string, filtered-string and mapped-person lists from this CSV path. The split token list and final result remain; no runtime latency or allocation percentage is claimed. JSON-array cast parsing and all director/writer paths are unchanged.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin standard-library collection operations and the stable `buildList` builder. The project remains pinned to Kotlin 2.4.10; no dependency or API change was introduced.
+- Exa cross-checked the official Kotlin [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [collection transformations](https://kotlinlang.org/docs/collection-transformations.html). The docs confirm builder population and that map/filter transformations return new collections.
+- Regression coverage was committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed, per the authorization boundary; compilation and runtime behavior remain unverified.
+- Production, test and note files were re-fetched from the target branch for final static review. This is author self-review; no independent reviewer agent was available.
