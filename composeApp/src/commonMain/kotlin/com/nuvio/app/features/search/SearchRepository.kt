@@ -192,19 +192,16 @@ object SearchRepository {
                 jobs.joinAll()
                 resultChannel.close()
             }
-            val results = arrayOfNulls<IndexedSearchResult>(loaders.size)
+            val progress = SearchProgressAccumulator(loaders.size)
 
             try {
                 for (result in resultChannel) {
-                    results[result.index] = result
-                    val sections = results.orderedSections()
-                    if (sections.isNotEmpty()) {
-                        searchGeneration.ifCurrent(requestGeneration) {
-                            _uiState.value = SearchUiState(
-                                isLoading = true,
-                                sections = sections,
-                            )
-                        }
+                    val sections = progress.record(result) ?: continue
+                    searchGeneration.ifCurrent(requestGeneration) {
+                        _uiState.value = SearchUiState(
+                            isLoading = true,
+                            sections = sections,
+                        )
                     }
                 }
             } finally {
@@ -214,8 +211,8 @@ object SearchRepository {
 
             if (!searchGeneration.isCurrent(requestGeneration)) return@launch
 
-            val completedResults = results.filterNotNull()
-            val sections = results.orderedSections()
+            val completedResults = progress.completedResults()
+            val sections = progress.orderedSections()
             val firstFailure = completedResults.firstNotNullOfOrNull { result -> result.error?.let { it.serverMessage() ?: it.message } }
             val allFailed = completedResults.isNotEmpty() && completedResults.all { it.error != null }
 
@@ -677,14 +674,26 @@ object SearchRepository {
     }
 }
 
-private data class IndexedSearchResult(
+internal data class IndexedSearchResult(
     val index: Int,
     val section: HomeCatalogSection? = null,
     val error: Throwable? = null,
 )
 
-private fun Array<IndexedSearchResult?>.orderedSections(): List<HomeCatalogSection> =
-    mapNotNull { result -> result?.section }
+internal class SearchProgressAccumulator(resultCount: Int) {
+    private val results = arrayOfNulls<IndexedSearchResult>(resultCount)
+
+    fun record(result: IndexedSearchResult): List<HomeCatalogSection>? {
+        results[result.index] = result
+        if (result.section == null) return null
+        return orderedSections()
+    }
+
+    fun completedResults(): List<IndexedSearchResult> = results.filterNotNull()
+
+    fun orderedSections(): List<HomeCatalogSection> =
+        results.mapNotNull { result -> result?.section }
+}
 
 private fun CatalogPage.withUnreleasedFilter(): CatalogPage {
     if (!HomeCatalogSettingsRepository.snapshot().hideUnreleasedContent) return this
