@@ -57,4 +57,27 @@ printf '%s\n' "$actual_sections" | awk 'length($0) > 127 { exit 1 }' || {
   exit 1
 }
 
+# Protect the lifecycle boundary and require every synchronous initializer
+# in onCreate to be inside one of the measured groups.
+pre_super_line="$(printf '%s\n' "$on_create" | grep -nF 'traceStartupSection("Nuvio.Startup.preSuper")' | cut -d: -f1)"
+super_line="$(printf '%s\n' "$on_create" | grep -nF 'super.onCreate(savedInstanceState)' | cut -d: -f1)"
+post_super_line="$(printf '%s\n' "$on_create" | grep -nF 'traceStartupSection("Nuvio.Startup.identityNetwork")' | cut -d: -f1)"
+[ -n "$pre_super_line" ] && [ -n "$super_line" ] && [ -n "$post_super_line" ] &&
+  [ "$pre_super_line" -lt "$super_line" ] && [ "$super_line" -lt "$post_super_line" ] || {
+  echo "FAIL: the pre-super trace group must remain before super.onCreate and other groups after it." >&2
+  exit 1
+}
+
+initializer_coverage="$(printf '%s\n' "$on_create" | awk '
+  /^[[:space:]]*traceStartupSection\("/ { in_trace=1; next }
+  /^        }$/ && in_trace { in_trace=0; next }
+  /\.initialize\(/ { total++; if (in_trace) traced++ }
+  END { printf "%d %d\n", total, traced }
+')"
+set -- $initializer_coverage
+[ "$#" -eq 2 ] && [ "$1" -gt 0 ] && [ "$1" -eq "$2" ] || {
+  echo "FAIL: every onCreate initializer must remain inside a named trace group." >&2
+  exit 1
+}
+
 printf 'PASS: Android startup trace sections are centralized, balanced, and ordered.\n'
