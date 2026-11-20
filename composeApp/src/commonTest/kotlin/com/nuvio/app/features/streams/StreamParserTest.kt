@@ -121,6 +121,39 @@ class StreamParserTest {
     }
 
     @Test
+    fun `parse filters non-string and blank proxy headers without changing key order`() {
+        val stream = StreamParser.parse(
+            payload =
+                """
+                {
+                  "streams": [{
+                    "url": "https://example.com/video.mp4",
+                    "behaviorHints": {
+                      "proxyHeaders": {
+                        "request": {
+                          "X-First": "one",
+                          "X-Blank": " ",
+                          "X-Second": "two",
+                          "X-Null": null,
+                          "X-Object": {"nested": "ignored"}
+                        }
+                      }
+                    }
+                  }]
+                }
+                """.trimIndent(),
+            addonName = "Addon",
+            addonId = "addon.id",
+        ).single()
+
+        val headers = stream.behaviorHints.proxyHeaders?.request
+        assertNotNull(headers)
+        assertEquals(listOf("X-First", "X-Second"), headers.keys.toList())
+        assertEquals("one", headers["X-First"])
+        assertEquals("two", headers["X-Second"])
+    }
+
+    @Test
     fun `parse keeps client resolve metadata without direct URL`() {
         val streams = StreamParser.parse(
             payload =
