@@ -566,6 +566,7 @@ Regression coverage now checks stable duplicate suffixes, projection identity re
 
 - The live `CatalogScreen` call site and `DuplicateSafeLazyKeys.kt` were inspected. The former performed the complete key projection inside the lazy grid DSL; the latter does two key-selector passes and creates maps plus a mapped wrapper list.
 - Exa returned Android Developers' official [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices), which recommends moving expensive collection transformations out of lazy content and caching the result. The cache uses reference identity rather than a large collection as a `remember` key, avoiding structural equality checks.
+- Context7 resolved the project's Compose Multiplatform documentation, but its indexed release list did not include the pinned 1.13.0-beta01 for a version-specific `remember` API page. The implementation retains the existing `remember` API already used in this source file and adds no Compose API or dependency.
 - This is a source-level reduction in repeated catalogue-wide work; no frame-time or scroll-latency percentage is claimed.
 - Regression tests and production sources were re-fetched from `main-build-testing` for static review. No Kotlin test, Gradle task, build, CI, device run or Macrobenchmark was executed. The test-first RED/GREEN run therefore remains outstanding.
 
