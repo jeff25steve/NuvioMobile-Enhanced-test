@@ -466,3 +466,45 @@ This preserves the existing provider priority, timeout values, fallback behavior
 - Exa checked official Kotlin cancellation guidance and the kotlinx.coroutines issue linked above. A cancelled request must not continue publishing state; ownership checks also cover non-cooperative or already-completed work that returns after a newer request takes ownership.
 - Added the regression test before the production change. No test, Gradle task, build, CI, device run or benchmark was executed. The production source and test were re-fetched for static review; compilation and runtime verification remain outstanding.
 
+## Addon manifest parsing — ignore malformed optional values without discarding valid resources
+
+**Engineering cycle:** 119
+
+Addon manifests are supplied by external providers. The parser previously used the throwing `jsonPrimitive` and `jsonObject` convenience accessors for optional values and nested resource/catalog entries. A manifest containing a valid required header plus one optional field with the wrong JSON shape (for example, an object-valued `description`, array-valued `logo`, or scalar entry in `catalogs`) could therefore fail the entire manifest parse. A malformed item in `resources` or `catalogs` could also prevent valid sibling entries from being retained.
+
+Changed:
+- Replaced optional primitive access with safe `as? JsonPrimitive` checks for strings, booleans, integers and string arrays.
+- Validate resource and catalog entries as `JsonObject` before reading them; skip malformed entries and entries missing their required per-entry identifiers.
+- Validate nested catalog extras before reading their names/options, preserving valid extras in their original order.
+- Treat a wrong-shaped `behaviorHints` value as absent defaults.
+- Keep the top-level manifest object and required manifest identity fields strict; this does not turn an invalid manifest into a valid one.
+
+Added a focused common test containing malformed optional values and mixed valid/invalid resource, catalog and extra entries. It asserts that valid sibling metadata remains available.
+
+### Evidence and verification boundary
+
+- The original failure path was traced through `resources`, `catalogs`, `behaviorHints`, `optionalString`, `stringList`, `boolean` and `int`: these used throwing subtype accessors on provider-controlled JSON.
+- Context7 resolved kotlinx.serialization but did not offer the project's pinned 1.10.0 in its version list; the available official library documentation was queried at its listed version. It confirms that `jsonPrimitive` and `jsonObject` throw `IllegalArgumentException` when the element has a different JSON subtype.
+- Exa independently returned the official [Kotlin JSON elements guide](https://kotlinlang.org/docs/serialization-json-elements.html) and the [kotlinx.serialization JsonElement implementation](https://github.com/Kotlin/kotlinx.serialization/blob/master/formats/json/commonMain/src/kotlinx/serialization/json/JsonElement.kt), confirming the subtype-cast behavior and the three distinct JSON element types.
+- The new regression test and changed parser were re-fetched from `main-build-testing` and statically inspected. No test, Gradle task, build, CI, device run or benchmark was executed; compilation and runtime behavior remain unverified.
+
+## Metadata response parsing — isolate malformed optional fields from valid detail data
+
+**Engineering cycle:** 120
+
+The metadata parser accepts responses from addon/provider services. Its scalar helpers and array readers used the throwing `jsonPrimitive` accessor for optional fields. A single wrong-shaped value in genres, director/cast lists, video fields, trailer fields or embedded stream metadata could throw while parsing the whole title, even when the required `id`, `type` and `name` and other sibling fields were valid. This is separate from stream-list parsing: it affects the detail metadata response and its nested credits, episodes, trailers and embedded streams.
+
+Changed:
+- Make optional string, integer, long and boolean reads use safe `JsonPrimitive` subtype checks.
+- Filter malformed elements from string arrays and CSV/list-backed credit fields instead of throwing.
+- Keep required title identity fields required; malformed required values still fail the metadata response rather than silently fabricating identity.
+- Preserve valid links, people, videos, trailers, season posters and embedded streams when malformed optional siblings are present.
+
+Added a focused common test with mixed valid and malformed metadata values across genres, credits, episode fields, trailers, behavior hints, season posters and embedded streams. It asserts that valid title and episode data survives.
+
+### Evidence and verification boundary
+
+- The parser was traced from `parse` through its scalar helpers, `stringList`, `stringListOrCsv`, people/credit parsing, video/trailer parsing and embedded stream parsing. The unsafe subtype reads were all optional-value paths; required identity remains strict.
+- The same official Context7 and Exa JSON DOM references documented above apply: the convenience accessors throw for mismatched JSON subtypes, while explicit subtype checks let callers decide how to handle unknown structures.
+- The changed parser and regression test were re-fetched from `main-build-testing`; static inspection confirmed the parser no longer calls `jsonPrimitive` and the regression case is present. No test, Gradle task, build, CI, device run or benchmark was executed; compilation and runtime behavior remain unverified.
+
