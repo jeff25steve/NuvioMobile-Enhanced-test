@@ -99,8 +99,16 @@ grep -Fq 'create("nonMinifiedRelease")' "$ANDROID_BUILD_SOURCE" || {
 }
 benchmark_variant_block="$(sed -n '/create("benchmarkRelease") {/,/^[[:space:]]*}/p' "$ANDROID_BUILD_SOURCE")"
 printf '%s\n' "$benchmark_variant_block" | grep -Fq 'isMinifyEnabled = true' &&
-  printf '%s\n' "$benchmark_variant_block" | grep -Fq 'isShrinkResources = true' || {
-  echo "FAIL: the measured benchmarkRelease variant must retain R8 and resource shrinking." >&2
+  printf '%s\n' "$benchmark_variant_block" | grep -Fq 'isShrinkResources = true' &&
+  printf '%s\n' "$benchmark_variant_block" | grep -Fq 'applicationIdSuffix = ".benchmark"' &&
+  printf '%s\n' "$benchmark_variant_block" | grep -Fq 'signingConfig = signingConfigs.getByName("debug")' || {
+  echo "FAIL: benchmarkRelease must remain optimized, isolated under the .benchmark package ID and locally debug-signed." >&2
+  exit 1
+}
+capture_variant_block="$(sed -n '/create("nonMinifiedRelease") {/,/^[[:space:]]*}/p' "$ANDROID_BUILD_SOURCE")"
+printf '%s\n' "$capture_variant_block" | grep -Fq 'applicationIdSuffix = ".benchmark"' &&
+  printf '%s\n' "$capture_variant_block" | grep -Fq 'signingConfig = signingConfigs.getByName("debug")' || {
+  echo "FAIL: nonMinifiedRelease profile capture must use the same isolated package ID and local signing identity as benchmarkRelease." >&2
   exit 1
 }
 grep -Fq 'implementation(libs.androidx.profileinstaller)' "$ANDROID_BUILD_SOURCE" || {
