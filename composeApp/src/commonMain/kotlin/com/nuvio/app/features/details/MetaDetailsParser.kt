@@ -198,11 +198,9 @@ internal object MetaDetailsParser {
     private fun JsonObject.cast(linkedCast: List<MetaPerson>): List<MetaPerson> {
         val appExtras = this["app_extras"] as? JsonObject
         val appExtraCast = appExtras.people("cast")
-        val topLevelCast = stringListOrCsv("cast").map { name ->
-            MetaPerson(name = name)
-        }
+        val topLevelCastNames = stringListOrCsv("cast")
 
-        return mergePeople(appExtraCast, topLevelCast, linkedCast)
+        return mergePeople(appExtraCast, topLevelCastNames, linkedCast)
     }
 
     private fun JsonObject.writers(linkWriters: List<String>): List<String> {
@@ -250,24 +248,32 @@ internal object MetaDetailsParser {
         }
     }
 
-    private fun mergePeople(vararg groups: List<MetaPerson>): List<MetaPerson> {
+    private fun mergePeople(
+        appExtraCast: List<MetaPerson>,
+        topLevelCastNames: List<String>,
+        linkedCast: List<MetaPerson>,
+    ): List<MetaPerson> {
         val merged = linkedMapOf<String, MetaPerson>()
-        groups.forEach { group ->
-            group.forEach { person ->
-                val normalizedName = person.name.trim()
-                if (normalizedName.isBlank()) return@forEach
-                val key = normalizedName.lowercase()
-                val existing = merged[key]
-                merged[key] = if (existing == null) {
-                    person.copy(name = normalizedName)
-                } else {
-                    existing.copy(
-                        role = existing.role ?: person.role,
-                        photo = existing.photo ?: person.photo,
-                    )
-                }
+
+        fun append(person: MetaPerson) {
+            val normalizedName = person.name.trim()
+            if (normalizedName.isBlank()) return
+            val key = normalizedName.lowercase()
+            val existing = merged[key]
+            merged[key] = if (existing == null) {
+                person.copy(name = normalizedName)
+            } else {
+                existing.copy(
+                    role = existing.role ?: person.role,
+                    photo = existing.photo ?: person.photo,
+                )
             }
         }
+
+        appExtraCast.forEach(::append)
+        topLevelCastNames.forEach { name -> append(MetaPerson(name = name)) }
+        linkedCast.forEach(::append)
+
         return merged.values.toList()
     }
 
