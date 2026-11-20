@@ -11,6 +11,7 @@ READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
 [ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
+sh "$SCRIPT_DIR/tests/test-android-startup-initialization.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
 sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
