@@ -59,14 +59,14 @@ printf '%s\n' "$actual_sections" | awk 'length($0) > 127 { exit 1 }' || {
 
 # Sentry must remain in the measured pre-super section so early startup
 # crashes continue to be captured without silently moving SDK startup work.
-pre_super_block="$(printf '%s\\n' "$on_create" | sed -n '/traceStartupSection("Nuvio.Startup.preSuper") {/,/^        }$/p')"
-sentry_start_count="$(printf '%s\\n' "$on_create" | grep -Fc 'SentryInitializer.start(application)' || true)"
-printf '%s\\n' "$pre_super_block" | grep -Fq 'SentryInitializer.start(application)' &&
+pre_super_block="$(printf '%s\n' "$on_create" | sed -n '/traceStartupSection("Nuvio.Startup.preSuper") {/,/^        }$/p')"
+sentry_start_count="$(printf '%s\n' "$on_create" | grep -Fc 'SentryInitializer.start(application)' || true)"
+printf '%s\n' "$pre_super_block" | grep -Fq 'SentryInitializer.start(application)' &&
   [ "$sentry_start_count" -eq 1 ] || {
   echo "FAIL: Sentry must be initialized exactly once inside the measured pre-super startup section." >&2
   exit 1
 }
-sentry_line="$(printf '%s\\n' "$on_create" | grep -nF 'SentryInitializer.start(application)' | cut -d: -f1)"
+sentry_line="$(printf '%s\n' "$on_create" | grep -nF 'SentryInitializer.start(application)' | cut -d: -f1)"
 [ -n "$sentry_line" ] && [ "$sentry_line" -lt "$super_line" ] || {
   echo "FAIL: Sentry initialization must remain before super.onCreate for early crash capture." >&2
   exit 1
