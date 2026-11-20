@@ -65,11 +65,12 @@ internal class LibraryContentProjectionCache {
         snapshot: LibraryLocalSnapshot,
         create: (List<LibraryItem>) -> LibraryContentProjection,
     ): LibraryContentProjection {
-        synchronized(lock) {
+        val cached = synchronized(lock) {
             cachedProjection?.takeIf {
                 cachedToken == snapshot.token && cachedContentRevision == snapshot.contentRevision
-            }?.let { return it }
+            }
         }
+        if (cached != null) return cached
 
         val created = create(snapshot.items)
         return synchronized(lock) {
