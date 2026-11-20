@@ -608,3 +608,39 @@ Regression coverage checks that a metadata-only revision reuses the same project
 - The cache retains only one projection and includes the profile generation in its key. It does not cache provider-backed projections or alter the visible sort/group order.
 - Regression tests and source files were re-fetched from `main-build-testing` for static review. No Kotlin test, Gradle task, build, CI, device run or Macrobenchmark was executed; the RED/GREEN run remains outstanding.
 
+## Search progressive results — skip full-list projection for failed sources (Cycle 126, 20 November 2026)
+
+The search repository runs add-on and server catalog requests concurrently and stores each completion in an indexed result array so visible sections retain configured source order. Before this change, every completion — including a failed request with no section — called `orderedSections()`, scanning the full result array and allocating a new list. A failed source cannot change the visible section list, so this work was unnecessary.
+
+Changed:
+- Added `SearchProgressAccumulator` to own indexed completions and preserve configured source order.
+- `record()` stores every success or failure, but only builds the progressive section snapshot when a result contains a section.
+- Final error aggregation still sees every completed result; final section order and loading/error behavior remain unchanged.
+- Added regression coverage for failed-only completions, out-of-order successful arrivals, stable source ordering, and errors arriving after visible sections.
+
+### Evidence and verification boundary
+
+- The live `SearchRepository.search()` loop was inspected. It previously ran `results.orderedSections()` for every channel message, even when `result.section == null`.
+- `MutableStateFlow` uses equality-based conflation, so identical `SearchUiState` assignments do not notify collectors. This change is therefore documented as eliminating redundant full-array scans and list allocations on failures, not as eliminating recompositions. Context7 and the official kotlinx.coroutines API confirm the equality-based conflation behavior.
+- The request fan-out, cancellation generation, error aggregation, and configured source ordering are unchanged.
+- The focused regression tests and implementation were re-fetched for static review. No test, Gradle task, build, CI, device run or benchmark was executed.
+
+## Player embedded streams — avoid rescanning episode metadata for root stream lookup (Cycle 127, 20 November 2026)
+
+When playback requests streams using the parent metadata ID, `findEmbeddedStreamsForMeta()` first scanned all videos to detect multiple stream-bearing episodes, then performed a second full scan with `flatMap` to collect their streams. For series with embedded streams across many episodes, that repeated traversal and intermediate list allocation occurs on the playback stream-resolution path.
+
+Changed:
+- While performing the existing lookup pass, collect the combined stream list only when the lookup is for the root metadata ID and a second stream-bearing video is encountered.
+- Append later episode streams in their existing video order.
+- Return the accumulated list for the root fallback rather than traversing all videos again.
+- Exact video-ID, season/episode coordinate, and prefix lookup precedence is unchanged. Non-root lookups do not allocate the aggregate list.
+
+Regression coverage checks root aggregation order and verifies exact episode lookup still returns the original episode stream-list instance.
+
+### Evidence and verification boundary
+
+- The live `findEmbeddedStreamsForMeta()` implementation was inspected. Its root fallback explicitly performed `meta.videos.flatMap { it.streams }` after already traversing `meta.videos` to determine whether more than one episode contained streams.
+- The new accumulation starts only after the second stream-bearing video and only for a root-ID lookup, avoiding an extra collection allocation on direct episode lookups and single-video cases.
+- No stream selection policy, episode matching priority, or ordering was changed.
+- The focused regression tests and implementation were re-fetched for static review. No test, Gradle task, build, CI, device run or benchmark was executed.
+
