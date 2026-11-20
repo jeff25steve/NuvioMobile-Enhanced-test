@@ -653,7 +653,7 @@ internal fun AppGate(
                                 if (ready) {
                                     contentReadyDuringTransition = true
                                 }
-                                currentOnAppReady?.invoke(
+                                reportAppReady(
                                     ready && gateScreen == AppGateScreen.Main.name && !profileSelectionLoading,
                                 )
                             },
