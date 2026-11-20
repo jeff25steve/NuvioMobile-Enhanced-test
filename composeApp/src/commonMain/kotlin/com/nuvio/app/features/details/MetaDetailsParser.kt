@@ -168,10 +168,28 @@ internal object MetaDetailsParser {
         val topLevel = stringListOrCsv("director")
         val extraDirectors = appExtras.personNameList("directors")
 
-        return (topLevel + extraDirectors + linkDirectors)
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .distinct()
+        return mergeNames(topLevel, extraDirectors, linkDirectors)
+    }
+
+    private fun mergeNames(
+        first: List<String>,
+        second: List<String>,
+        third: List<String>,
+    ): List<String> = buildList {
+        val seen = mutableSetOf<String>()
+
+        fun append(names: List<String>) {
+            for (name in names) {
+                val normalized = name.trim()
+                if (normalized.isNotBlank() && seen.add(normalized)) {
+                    add(normalized)
+                }
+            }
+        }
+
+        append(first)
+        append(second)
+        append(third)
     }
 
     private fun JsonObject.cast(linkedCast: List<MetaPerson>): List<MetaPerson> {
