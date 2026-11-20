@@ -300,37 +300,49 @@ internal object MetaDetailsParser {
         if (keyed.isNotEmpty()) return keyed
 
         val posters = appExtras["seasonPosters"] as? JsonArray ?: return emptyMap()
-        val seasons = videos
-            .mapNotNull(MetaVideo::season)
-            .filter { it >= SPECIALS_SEASON_NUMBER }
-            .distinct()
-            .sorted()
-        val positiveSeasons = seasons.filter { it > SPECIALS_SEASON_NUMBER }
+        val seasons = buildSet {
+            for (video in videos) {
+                val season = video.season ?: continue
+                if (season >= SPECIALS_SEASON_NUMBER) add(season)
+            }
+        }.sorted()
+        val positiveSeasonCount = seasons.count { it > SPECIALS_SEASON_NUMBER }
         val posterSeasons = when {
             seasons.size == posters.size -> seasons
-            positiveSeasons.size == posters.size -> positiveSeasons
-            positiveSeasons.isNotEmpty() &&
-                posters.size == positiveSeasons.size + 1 &&
-                posters.firstOrNull() == JsonNull -> listOf(SPECIALS_SEASON_NUMBER) + positiveSeasons
+            positiveSeasonCount == posters.size -> seasons.filter { it > SPECIALS_SEASON_NUMBER }
+            positiveSeasonCount > 0 &&
+                posters.size == positiveSeasonCount + 1 &&
+                posters.firstOrNull() == JsonNull -> buildList(positiveSeasonCount + 1) {
+                    add(SPECIALS_SEASON_NUMBER)
+                    for (season in seasons) {
+                        if (season > SPECIALS_SEASON_NUMBER) add(season)
+                    }
+                }
             else -> List(posters.size) { index -> index + 1 }
         }
-        return posters.mapIndexedNotNull { index, element ->
-            (element as? JsonPrimitive)?.contentOrNull
-                ?.trim()
-                ?.takeIf(String::isNotBlank)
-                ?.let { posterSeasons[index] to it }
-        }.toMap()
+        return buildMap {
+            for (index in posters.indices) {
+                val poster = (posters[index] as? JsonPrimitive)?.contentOrNull
+                    ?.trim()
+                    ?.takeIf(String::isNotBlank)
+                    ?: continue
+                put(posterSeasons[index], poster)
+            }
+        }
     }
 
     private fun parseKeyedSeasonPosters(element: JsonElement?): Map<Int, String> {
         val posters = element as? JsonObject ?: return emptyMap()
-        return posters.entries.mapNotNull { (key, value) ->
-            val season = key.toIntOrNull() ?: return@mapNotNull null
-            (value as? JsonPrimitive)?.contentOrNull
-                ?.trim()
-                ?.takeIf(String::isNotBlank)
-                ?.let { season to it }
-        }.toMap()
+        return buildMap {
+            for ((key, value) in posters) {
+                val season = key.toIntOrNull() ?: continue
+                val poster = (value as? JsonPrimitive)?.contentOrNull
+                    ?.trim()
+                    ?.takeIf(String::isNotBlank)
+                    ?: continue
+                put(season, poster)
+            }
+        }
     }
 
     private fun JsonObject.trailers(): List<MetaTrailer> =
