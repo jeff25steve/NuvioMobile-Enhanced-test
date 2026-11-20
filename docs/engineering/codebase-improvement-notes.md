@@ -354,7 +354,7 @@ This removes one intermediate mapped list and its temporary top-level `MetaPerso
 Changed:
 - Parse each resource and append it directly to a `buildList` only when its name is nonblank.
 - Preserve primitive resource handling, object resource parsing, inherited default types and ID prefixes, explicit per-resource overrides, and original resource order.
-- Added parser coverage for primitive and object resources, blank names, default metadata inheritance and explicit overrides.
+- Added parser coverage for primitive and object resources, blank primitive-name filtering, default metadata inheritance and explicit overrides. Object resources with missing or blank required names continue to fail validation before filtering.
 
 This removes the intermediate all-resources list while retaining the final filtered list. It does not change manifest acceptance rules or addon capabilities. No runtime parsing-time or allocation percentage is claimed.
 
