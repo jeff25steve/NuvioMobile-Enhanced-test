@@ -893,6 +893,7 @@ internal fun findEmbeddedStreamsForMeta(
 
     for (video in meta.videos) {
         if (video.streams.isEmpty()) continue
+        if (video.id == videoId) return video.streams
 
         if (firstVideoWithStreams == null) {
             firstVideoWithStreams = video
@@ -907,8 +908,7 @@ internal fun findEmbeddedStreamsForMeta(
             rootStreams?.addAll(video.streams)
         }
 
-        // Keep the existing lookup priority: exact ID, episode coordinates, then prefix.
-        if (video.id == videoId) return video.streams
+        // Keep the existing fallback priority: episode coordinates, then prefix.
         if (
             episodeMatch == null &&
             season != null &&
