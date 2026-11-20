@@ -8,7 +8,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 object StreamParser {
@@ -67,10 +66,10 @@ object StreamParser {
     }
 
     private fun JsonObject.string(name: String): String? =
-        this[name]?.jsonPrimitive?.contentOrNull
+        (this[name] as? JsonPrimitive)?.contentOrNull
 
     private fun JsonObject.int(name: String): Int? =
-        this[name]?.jsonPrimitive?.let { primitive ->
+        (this[name] as? JsonPrimitive)?.let { primitive ->
             primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
         }
 
@@ -80,19 +79,19 @@ object StreamParser {
         }
 
     private fun JsonObject.boolean(name: String): Boolean? =
-        this[name]?.jsonPrimitive?.booleanOrNull
+        (this[name] as? JsonPrimitive)?.booleanOrNull
 
     private fun JsonObject.objectValue(name: String): JsonObject? =
         this[name] as? JsonObject
 
     private fun JsonObject.stringList(name: String): List<String> =
         (this[name] as? JsonArray)
-            ?.mapNotNull { it.jsonPrimitive.contentOrNull?.takeIf(String::isNotBlank) }
+            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
             .orEmpty()
 
     private fun JsonObject.intList(name: String): List<Int> =
         (this[name] as? JsonArray)
-            ?.mapNotNull { it.jsonPrimitive.intOrNull }
+            ?.mapNotNull { (it as? JsonPrimitive)?.intOrNull }
             .orEmpty()
 
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
