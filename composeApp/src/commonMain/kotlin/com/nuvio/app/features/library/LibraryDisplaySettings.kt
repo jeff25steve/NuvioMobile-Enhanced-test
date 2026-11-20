@@ -84,7 +84,19 @@ internal data class LibraryVerticalProjection(
     val availableTypes: List<String>,
     val selectedType: String?,
     val entries: List<LibraryVerticalEntry>,
-)
+) {
+    fun rowCount(columns: Int): Int {
+        if (columns <= 0 || entries.isEmpty()) return 0
+        return (entries.size + columns - 1) / columns
+    }
+
+    fun rowAt(index: Int, columns: Int): List<LibraryVerticalEntry> {
+        if (columns <= 0 || index < 0) return emptyList()
+        val start = index * columns
+        if (start !in entries.indices) return emptyList()
+        return entries.subList(start, minOf(start + columns, entries.size))
+    }
+}
 
 private val ReleaseSortOptions = setOf(LibrarySortOption.RELEASED_DESC, LibrarySortOption.RELEASED_ASC)
 
