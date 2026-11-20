@@ -1,5 +1,7 @@
 package com.nuvio.app.features.search
 
+import com.nuvio.app.features.addons.AddonCatalog
+import com.nuvio.app.features.addons.AddonExtraProperty
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.AddonResource
 import com.nuvio.app.features.addons.ManagedAddon
@@ -278,6 +280,148 @@ class SearchRequestStateTest {
         } finally {
             SearchRepository.reset()
         }
+    }
+
+
+    @Test
+    fun `search catalog builder preserves addon and catalog order and filters unsupported catalogs`() {
+        val firstAddon = managedAddon(
+            id = "first",
+            name = "First addon",
+            catalogs = listOf(
+                AddonCatalog(
+                    type = "movie",
+                    id = "popular",
+                    name = "Popular",
+                    extra = listOf(AddonExtraProperty(name = "search")),
+                ),
+                AddonCatalog(type = "movie", id = "all", name = "All"),
+                AddonCatalog(
+                    type = "movie",
+                    id = "restricted",
+                    name = "Restricted",
+                    extra = listOf(
+                        AddonExtraProperty(name = "search"),
+                        AddonExtraProperty(name = "genre", isRequired = true),
+                    ),
+                ),
+            ),
+        )
+        val secondAddon = managedAddon(
+            id = "second",
+            name = "Second addon",
+            catalogs = listOf(
+                AddonCatalog(
+                    type = "series",
+                    id = "trending",
+                    name = "Trending",
+                    extra = listOf(
+                        AddonExtraProperty(name = "search"),
+                        AddonExtraProperty(name = "skip"),
+                    ),
+                ),
+            ),
+        )
+
+        val requests = SearchRepository.buildSearchRequests(
+            addons = listOf(
+                firstAddon,
+                ManagedAddon(manifestUrl = "https://pending.example/manifest.json"),
+                secondAddon,
+            ),
+            query = "matrix",
+        )
+
+        assertEquals(listOf("popular", "trending"), requests.map { it.catalogId })
+        assertEquals(listOf("First addon", "Second addon"), requests.map { it.addon.displayTitle })
+        assertEquals(listOf("matrix", "matrix"), requests.map { it.query })
+        assertEquals(listOf(false, true), requests.map { it.supportsPagination })
+    }
+
+    @Test
+    fun `discover source builder preserves supported catalogs and genre metadata in source order`() {
+        val addon = managedAddon(
+            id = "discover",
+            name = "Discover addon",
+            catalogs = listOf(
+                AddonCatalog(type = "movie", id = "featured", name = "Featured"),
+                AddonCatalog(
+                    type = "series",
+                    id = "genre",
+                    name = "By genre",
+                    extra = listOf(
+                        AddonExtraProperty(
+                            name = "genre",
+                            isRequired = true,
+                            options = listOf("Action", "Drama"),
+                        ),
+                    ),
+                ),
+                AddonCatalog(
+                    type = "movie",
+                    id = "empty-genre",
+                    name = "Empty genre",
+                    extra = listOf(AddonExtraProperty(name = "genre", isRequired = true)),
+                ),
+                AddonCatalog(
+                    type = "movie",
+                    id = "search-required",
+                    name = "Search required",
+                    extra = listOf(AddonExtraProperty(name = "search", isRequired = true)),
+                ),
+                AddonCatalog(
+                    type = "movie",
+                    id = "other-required",
+                    name = "Other required",
+                    extra = listOf(AddonExtraProperty(name = "region", isRequired = true)),
+                ),
+                AddonCatalog(
+                    type = "anime",
+                    id = "paged",
+                    name = "Paged",
+                    extra = listOf(AddonExtraProperty(name = "skip")),
+                ),
+            ),
+        )
+
+        val sources = SearchRepository.buildDiscoverSources(
+            addons = listOf(addon, ManagedAddon(manifestUrl = "https://pending.example/manifest.json")),
+        )
+
+        assertEquals(
+            listOf(
+                "discover:movie:featured",
+                "discover:series:genre",
+                "discover:anime:paged",
+            ),
+            sources.map { it.key },
+        )
+        assertEquals(listOf("Action", "Drama"), sources[1].genreOptions)
+        assertTrue(sources[1].genreRequired)
+        assertTrue(sources[2].supportsPagination)
+        assertEquals("Discover addon", sources[0].addonName)
+        assertEquals(addon.manifestUrl, sources[0].manifestUrl)
+    }
+
+    private fun managedAddon(
+        id: String,
+        name: String,
+        catalogs: List<AddonCatalog>,
+    ): ManagedAddon {
+        val manifestUrl = "https://$id.example/manifest.json"
+        return ManagedAddon(
+            manifestUrl = manifestUrl,
+            manifest = AddonManifest(
+                id = id,
+                name = name,
+                description = "",
+                version = "1.0.0",
+                resources = listOf(AddonResource(name = "meta", types = listOf("movie", "series", "anime"))),
+                types = listOf("movie", "series", "anime"),
+                catalogs = catalogs,
+                transportUrl = manifestUrl,
+            ),
+        )
     }
 
     private fun discoverCatalog(key: String, type: String): DiscoverCatalogOption =
