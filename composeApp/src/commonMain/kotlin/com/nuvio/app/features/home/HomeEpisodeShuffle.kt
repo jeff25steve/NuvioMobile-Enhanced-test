@@ -93,12 +93,20 @@ internal fun applyHomeShuffle(
     visit: Long,
     videos: (String) -> List<MetaVideo>?,
 ): List<ContinueWatchingItem> {
+    val latestProgressByEpisode = mutableMapOf<Triple<String, Int?, Int?>, Long>()
+    for (entry in progress) {
+        val key = Triple(entry.parentMetaId, entry.seasonNumber, entry.episodeNumber)
+        val latestUpdated = latestProgressByEpisode[key]
+        if (latestUpdated == null || entry.lastUpdatedEpochMs > latestUpdated) {
+            latestProgressByEpisode[key] = entry.lastUpdatedEpochMs
+        }
+    }
     val resumable = items.filter {
         !it.isNextUp && profile.settings(it.parentMetaId, it.parentMetaType).enabled
     }.groupBy { it.parentMetaId }.mapValues { (_, entries) ->
-        entries.maxBy { item -> progress.filter { it.parentMetaId == item.parentMetaId &&
-            it.seasonNumber == item.seasonNumber && it.episodeNumber == item.episodeNumber }
-            .maxOfOrNull { it.lastUpdatedEpochMs } ?: 0L }
+        entries.maxBy { item ->
+            latestProgressByEpisode[Triple(item.parentMetaId, item.seasonNumber, item.episodeNumber)] ?: 0L
+        }
     }
     return items.mapNotNull { item ->
         val settings = profile.settings(item.parentMetaId, item.parentMetaType)
