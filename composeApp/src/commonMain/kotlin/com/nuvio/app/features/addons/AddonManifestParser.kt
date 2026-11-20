@@ -120,24 +120,35 @@ internal object AddonManifestParser {
         this[name]?.jsonPrimitive?.contentOrNull?.toIntOrNull()
 }
 
-private fun String.resolveAgainstManifest(manifestUrl: String): String =
-    when {
-        startsWith("http://") || startsWith("https://") || startsWith("data:") -> this
-        startsWith("//") -> "https:$this"
-        else -> {
-            val manifestBase = manifestUrl.substringBefore("?").substringBeforeLast('/', "")
-            if (startsWith('/')) {
-                val origin = manifestBase.substringBefore("/", missingDelimiterValue = manifestBase)
-                val schemeAndHost = if (origin.contains("://")) {
-                    val scheme = origin.substringBefore("://")
-                    val host = manifestBase.substringAfter("://").substringBefore("/")
-                    "$scheme://$host"
-                } else {
-                    manifestBase
-                }
-                "$schemeAndHost$this"
-            } else {
-                "$manifestBase/$this"
-            }
-        }
+private fun String.resolveAgainstManifest(manifestUrl: String): String {
+    if (
+        startsWith("http://", ignoreCase = true) ||
+        startsWith("https://", ignoreCase = true) ||
+        startsWith("data:", ignoreCase = true)
+    ) {
+        return this
     }
+
+    val baseUrl = manifestUrl.substringBefore('#').substringBefore('?')
+    val schemeSeparator = baseUrl.indexOf("://")
+    val scheme = baseUrl.takeIf { schemeSeparator > 0 }?.substring(0, schemeSeparator)
+    val authorityStart = if (schemeSeparator > 0) schemeSeparator + 3 else -1
+    val authorityEnd = if (authorityStart >= 0) {
+        baseUrl.indexOf('/', authorityStart).takeIf { it >= 0 } ?: baseUrl.length
+    } else {
+        -1
+    }
+    val origin = if (authorityEnd >= 0) baseUrl.substring(0, authorityEnd) else null
+    val manifestPath = if (authorityEnd >= 0) baseUrl.substring(authorityEnd) else ""
+    val manifestDirectory = if (origin != null) {
+        origin + manifestPath.substringBeforeLast('/', "")
+    } else {
+        baseUrl.substringBeforeLast('/', "")
+    }
+
+    return when {
+        startsWith("//") -> "${scheme ?: "https"}:$this"
+        startsWith("/") -> "${origin ?: manifestDirectory}$this"
+        else -> "$manifestDirectory/$this"
+    }
+}
