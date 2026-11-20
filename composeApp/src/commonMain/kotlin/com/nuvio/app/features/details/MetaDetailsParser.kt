@@ -207,10 +207,7 @@ internal object MetaDetailsParser {
         val topLevel = stringListOrCsv("writer")
         val extraWriters = appExtras.personNameList("writers")
 
-        return (topLevel + extraWriters + linkWriters)
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .distinct()
+        return mergeNames(topLevel, extraWriters, linkWriters)
     }
 
     private fun JsonObject?.personNameList(name: String): List<String> =
