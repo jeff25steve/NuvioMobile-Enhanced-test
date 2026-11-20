@@ -195,3 +195,35 @@ These are structural allocation reductions in the metadata parsing path; no pars
 - Exa cross-checked official [Kotlin collection transformations](https://kotlinlang.org/docs/collection-transformations.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html), and [collection types](https://kotlinlang.org/docs/collections-overview.html). Kotlin documents transformation results as new collections; builders support direct population, and the default linked set/map implementations preserve insertion order.
 - Regression tests were added before their corresponding production changes, but were not executed because the instruction forbids builds/CI and no test execution was authorized. Consequently, red/green behavior and compilation remain unverified.
 - Final source/test files and commit diffs were re-fetched from GitHub and statically reviewed. No independent reviewer agent was available in this session; this was author self-review only.
+
+## Search history and Library provider rank projections — bounded traversal and direct map construction (Cycles 104–106, 20 November 2026)
+
+Three small collection paths still performed work that their consumers did not need. These changes preserve public APIs, ordering and selection semantics; they only remove avoidable traversal or intermediate collection materialization.
+
+### Cycle 104 — stop search-history normalization at its output limit
+
+- `normalizeSearchHistoryEntries` previously continued iterating the full decoded history after collecting the requested number of unique entries. The result could no longer change once the limit was reached.
+- Changed the traversal to stop immediately at the limit.
+- Added a regression input whose third element throws, proving that a two-entry result does not read beyond its required prefix.
+- The configured repository limit remains 10; this is a bounded-work improvement for oversized or legacy stored payloads, not a claim that ordinary ten-entry history is a major hotspot.
+
+### Cycle 105 — build the updated search history without concatenating lists
+
+- `applySearchHistoryEntry` previously allocated `listOf(query) + current` and then passed that temporary list through normalization.
+- It now appends the trimmed query first and traverses existing entries directly into the final bounded result, using the same case-insensitive duplicate check and minimum query length.
+- Added a regression input that throws if the existing history is read beyond the number of entries needed to fill the result.
+- Preserved query-first order, trim behavior, case-insensitive de-duplication, limit handling and the existing immutable return value.
+
+### Cycle 106 — construct provider rank maps directly
+
+- The combined provider-order Flow previously converted each emission with `mapNotNull { ... }.toMap()`, materializing an intermediate pair list before creating the final rank map.
+- Replaced that conversion with `buildMap` and a direct loop. Null provider results remain omitted; non-null entries retain the source order.
+- Extended the horizontal-list regression to assert provider-key encounter order as well as independent rank values for each list.
+
+### Evidence and verification boundary
+
+- Context7 checked the Kotlin standard-library builder and traversal documentation for the pinned Kotlin 2.4.10 line. The changes use established `buildList`/`buildMap` APIs and direct iteration; no new dependency or framework API was introduced.
+- Exa cross-checked the official [Kotlin collection builders](https://kotlinlang.org/docs/constructing-collections.html), [collection operations](https://kotlinlang.org/docs/collection-operations.html), and [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html). The documentation confirms that builders populate a destination collection and that ordinary transformation operations return new collections.
+- Regression assertions were committed before their corresponding production changes. They were not executed: no Gradle tests, builds, benchmarks, device runs or CI were started.
+- Production and test files plus this note were re-fetched from GitHub for static review. This was author self-review; no independent reviewer agent was available. No runtime performance percentage or user-visible latency claim is made.
+
