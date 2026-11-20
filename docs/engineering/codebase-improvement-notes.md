@@ -363,3 +363,22 @@ This removes the intermediate all-resources list while retaining the final filte
 - Context7 checked Kotlin 2.4.10 collection builder and transformation semantics. Exa cross-checked the official [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [collection transformations](https://kotlinlang.org/docs/collection-transformations.html).
 - Regression coverage was added to `main-build-testing` after the production change because the initial file-create request used the repository default branch; that misplaced test file was immediately removed from `enhanced`, then recreated on the target branch with the corrected primitive-only blank-name fixture. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed; compilation and runtime behavior remain unverified.
 - Production source, tests and this existing engineering note were re-fetched from GitHub for static self-review. No independent reviewer agent was available.
+
+
+### Startup Profile and benchmark review — 20 November 2026
+
+Reviewed the live Android Baseline Profile and startup benchmark path across the producer module, app build variants, Java profile journeys, shared readiness helper, desktop runner, LADB runner, manual-only GitHub Actions workflow and existing regression guards.
+
+- The profile collection split is consistent: launcher startup contributes to both the Startup Profile and Baseline Profile; the separate Home browse journey contributes Baseline Profile rules only. The R8 benchmark variant is isolated from production under the `.benchmark` application ID, and profile capture uses the matching non-minified variant.
+- The benchmark implementation has three cold-start arms, each configured for ten measured iterations: no compilation; partial compilation without the profile and three warm-up iterations; and partial compilation requiring the packaged profile. Both StartupTimingMetric and ArtMetric are requested. The phone runner already validates all three result names, TTID/TTFD data and per-iteration output.
+- Hardened the desktop runner's result gate so each flavor log must contain all three JUnit case names and at least three occurrences of each expected TTID, TTFD and ART metric before the run is summarized.
+- Corrected the workflow-generated `START-HERE.txt`, which previously described only the no-compilation and profile-enabled arms. It now documents the middle partial-without-profile arm and three warm-up launches, matching the source and LADB runner.
+- Updated the existing Baseline Profile regression guard to protect desktop-runner case/metric validation and the generated phone instructions. No separate guide was added.
+- The active notes and historical archive are an intentional summary/archive split, not duplicate current documentation; historical entries were retained. No duplicate standalone startup benchmark guide was found.
+
+### Review and verification boundary
+
+- Checked exact pinned versions: AGP 9.4.0, Gradle 9.8.2, Baseline Profile plugin 1.5.0, Macrobenchmark 1.6.0-alpha02, UI Automator 2.4.1, ProfileInstaller 1.4.1 and Activity 1.12.2.
+- Cross-checked the API and metric contracts with Context7 and current Android Developers documentation/release notes. Macrobenchmark's StartupTimingMetric supplies TTID and TTFD; its JSON stores per-iteration runs and median/minimum/maximum statistics. The benchmark uses physical-device cold launches and the profile is required explicitly in the profile arm.
+- GitHub sources were re-fetched for static review. No build, Gradle task, shell test, CI, instrumentation, profile collection, device benchmark or Perfetto capture was run. The edits are therefore statically reviewed but not executed or compiled. No runtime startup improvement is claimed.
+- This was a source-level review and self-review; no independent reviewer agent was available.
