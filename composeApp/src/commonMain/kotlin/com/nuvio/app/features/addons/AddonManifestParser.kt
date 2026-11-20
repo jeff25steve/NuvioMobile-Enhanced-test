@@ -44,9 +44,9 @@ internal object AddonManifestParser {
     private fun JsonObject.resources(
         defaultTypes: List<String>,
         defaultPrefixes: List<String>,
-    ): List<AddonResource> =
-        array("resources").map { resource ->
-            when (resource) {
+    ): List<AddonResource> = buildList {
+        for (resource in array("resources")) {
+            val parsed = when (resource) {
                 is JsonPrimitive -> AddonResource(
                     name = resource.contentOrNull.orEmpty(),
                     types = defaultTypes,
@@ -62,7 +62,9 @@ internal object AddonManifestParser {
                     )
                 }
             }
-        }.filter { it.name.isNotBlank() }
+            if (parsed.name.isNotBlank()) add(parsed)
+        }
+    }
 
     private fun JsonObject.catalogs(): List<AddonCatalog> =
         array("catalogs").map { catalogElement ->
