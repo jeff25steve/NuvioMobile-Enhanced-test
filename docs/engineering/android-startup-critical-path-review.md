@@ -910,3 +910,48 @@ Research:
 - [Android Developers — Don't prewarm app features](https://medium.com/androiddevelopers/dont-prewarm-app-features-118e0a2d4bb1)
 
 Context7 resolved Kotlinx Coroutines but did not list the repository's exact 1.10.2 patch; its nearest listed API version was 1.10.1. The implementation uses existing coroutine APIs already present in the project and adds no dependency.
+
+
+## 20 November 2026 — review of the Grok startup video (P0–P3)
+
+The video was checked against the current `main-build-testing` sources and the Android/AndroidX documentation. Its claims are treated as review hypotheses, not accepted as facts.
+
+### P0 — Home, MainAppContent and Activity fully-drawn signals
+
+- Home visibility, MainAppContent readiness and Activity TTFD are distinct signals. The source chain remains connected: Home's laid-out-content callback updates `initialHomeReady`; MainAppContent combines that with profile-switch completion and launch-overlay exit; AppGate requires the Main gate and no profile-selection loading; MainActivity exposes the final state through `ReportDrawnWhen`.
+- AndroidX defines `ReportDrawnWhen` as a predicate condition for `Activity.reportFullyDrawn()`. Macrobenchmark TTFD ends only after the frame containing/following that report. A Home marker alone is therefore not evidence that TTFD should have fired.
+- Grok's observation that AppGate effects can restart when callback lambda identity changes was a valid lifecycle-efficiency concern, but not evidence that the readiness chain loses a callback. AppGate now uses `rememberUpdatedState(onAppReady)`; effects key on gate/readiness state and callback availability rather than callback identity. Both reporting paths invoke the latest callback.
+- The startup regression guard now protects the stable-callback contract.
+- **Still not proven:** the video's reported device-only marker mismatch. No device trace was supplied, and no runtime readiness state was altered to force an earlier fully-drawn report.
+
+### P1 — pre-first-frame initialization
+
+- MainActivity still performs a large number of `.initialize(applicationContext)` calls before `setContent`. The count is not itself a performance measurement.
+- Source inspection of representative high-risk initializers found several are context/handle assignments only: P2P engine, P2P settings, episode notification platform, download live-status platform, subtitle cache and external-player platform. The external-player localized string uses `runBlocking` only when `availablePlayers()` is queried, not in its `initialize()` call.
+- Downloads notification-channel creation is already lazy and synchronized; the channel lookup/resource reads are no longer paid during Activity initialization. Download scheduler construction and transfer-store reads are split into the critical and post-frame preload phases. The critical preload overlaps only independent local reads while preserving the shared tracking-provider initialization order.
+- Sentry startup is genuinely eager and performs SDK initialization, but moving it after the first frame would create an unobserved crash-reporting window. No trace demonstrates that this trade is worthwhile. It remains unchanged.
+- **Disposition:** the video correctly points to a substantial list of initializer calls, but does not establish that the remaining calls are expensive or safe to defer. No speculative bulk-defer/refactor was made. A Perfetto/startup trace is required before changing more production initialization order.
+
+### P2 — Baseline Profile size and rule filtering
+
+- The approximately 1.4 MB figure in the existing audit is the checked-in human-readable `baseline-prof.txt` source text, not the compiled `assets/dexopt/baseline.prof` installed by ART.
+- The source audit previously counted 11,375 unique rules and found no duplicate or malformed rules. The generator deliberately includes startup rules in the Startup Profile and Home-browse rules only in the Baseline Profile.
+- The `rule -> true` predicate is an unfiltered collection predicate; its presence alone does not prove that the profile is oversized or incorrect. Removing rules without generated coverage evidence would risk dropping useful hot paths.
+- The workflow independently inspects the compiled profile inside the optimized benchmark APK, requires it to be non-empty, and rejects a packaged profile at or above 1.5 MiB. The source text size cannot substitute for that compiled-artifact check.
+- **Disposition:** no filter change. Packaged size, profile installation and ART compilation remain artifact/device evidence, not conclusions from the text file.
+
+### P3 — capture APK, benchmark APK and delivery/install path
+
+- The capture/run distinction is intentional: `nonMinifiedRelease` produces readable candidate profile rules; `benchmarkRelease` explicitly enables R8 minification and resource shrinking.
+- Both use the isolated `.benchmark` application ID and matching temporary signing key so the profile-capture and optimized benchmark APKs can upgrade the same test installation without touching the production package.
+- The benchmark workflow validates the APK application IDs, non-debuggable/profileable manifest, R8 mapping, native ABI and packaged compiled profile. It publishes both non-minified capture APK pairs and optimized benchmark APK pairs.
+- The phone runner has separate `install-profile` and `install` steps, verifies source APK hashes against installed package APKs where readable, and runs the profile-required arm against the profile already packaged in the optimized benchmark APK. A newly collected text profile is not silently treated as installed in an already-built APK.
+- **Valid warning:** installing only an arbitrary GitHub APK without following the matching profile-capture/install workflow can understate or invalidate the Baseline Profile comparison. The existing bundle instructions and runner already make the required delivery steps explicit.
+- The active-window refusal is intentional: if the shell/terminal owns the foreground window, the benchmark fails rather than relaunching Nuvio and contaminating a measured cold start. That is a test-environment failure, not a production app defect.
+
+### Verification boundary
+
+- Current remote branch at review start: `main-build-testing`, commit `a7902ca5a6534b705f900d4e27631313b7639c98`.
+- P0 callback-stability implementation and its regression guard were committed separately; the latest commit IDs are recorded in the session result.
+- Android Developers documentation confirms the TTID/TTFD distinction, Compose `ReportDrawnWhen` semantics and Baseline Profile capture requirements. Context7 source inspection confirms the reporter uses a `DisposableEffect` keyed by the predicate, while Compose's `rememberUpdatedState` is the documented pattern for keeping the latest callback without restarting long-lived effects.
+- No Gradle task, build, CI, instrumentation, Baseline Profile generation, APK packaging, physical-device benchmark or Perfetto capture was run.
