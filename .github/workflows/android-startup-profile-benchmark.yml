@@ -410,12 +410,17 @@ jobs:
           JSON/traces. Upload that folder here for review.
 
           nonMinifiedRelease generates readable candidate profile rules.
-          benchmarkRelease is R8/minified, non-debuggable and profileable. Macrobenchmark
-          runs 10 cold launches with CompilationMode.None and 10 with
-          CompilationMode.Partial(BaselineProfileMode.Require). The profile-enabled
-          arm uses the profile already packaged in that APK. A newly collected profile
-          is not inserted into the APK automatically: send the text files for review,
-          then a new authorized build is needed to measure that candidate profile.
+          benchmarkRelease is R8/minified, non-debuggable and profileable. Each flavor
+          runs 10 cold launches in each of these three comparison arms:
+          1. CompilationMode.None (no pre-compilation).
+          2. CompilationMode.Partial(BaselineProfileMode.Disable, 3) (partial
+             compilation without the profile, with three warm-up launches).
+          3. CompilationMode.Partial(BaselineProfileMode.Require) (partial
+             compilation requiring the Baseline Profile packaged in that APK).
+          The profile-enabled arm uses the profile already packaged in that APK.
+          A newly collected profile is not inserted into the APK automatically:
+          send the text files for review, then a new authorized build is needed to
+          measure that candidate profile.
 
           Keep the phone cool, plugged in and otherwise idle. Keep the same device and
           signed-in Home state throughout. Login, onboarding or a missing Home-ready
