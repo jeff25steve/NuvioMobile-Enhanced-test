@@ -198,6 +198,7 @@ class WatchingStateTest {
             entry("alpha:1:2", 1, 2, isCompleted = false).copy(parentMetaId = "alpha"),
             entry("beta:1:3", 1, 3, isCompleted = true).copy(parentMetaId = "beta"),
             entry("alpha:1:4", 1, 4, isCompleted = true).copy(parentMetaId = "alpha"),
+            entry("orphan:1:1", 1, 1, isCompleted = false).copy(parentMetaId = "orphan"),
         )
 
         val result = WatchingState.latestCompletedBySeries(

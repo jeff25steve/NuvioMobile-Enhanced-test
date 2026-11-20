@@ -69,12 +69,11 @@ object WatchingState {
     ): Map<WatchingContentRef, WatchingCompletedEpisode> {
         // Keep first-seen key order while selecting the best completion in one pass.
         // Retaining grouped lists only to scan them again for one maximum is unnecessary.
-        val contentRefs = LinkedHashSet<WatchingContentRef>()
-        val latestCompletedByContent = LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode>()
+        val latestCompletedByContent = LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode?>()
 
         progressEntries.forEach { entry ->
             val content = WatchingContentRef(type = entry.parentMetaType, id = entry.parentMetaId)
-            contentRefs += content
+            latestCompletedByContent.ensureContent(content)
 
             val normalizedEntry = entry.normalizedCompletion()
             if (normalizedEntry.shouldUseAsCompletedSeedForContinueWatching()) {
@@ -94,7 +93,7 @@ object WatchingState {
 
         watchedItems.forEach { item ->
             val content = WatchingContentRef(type = item.type, id = item.id)
-            contentRefs += content
+            latestCompletedByContent.ensureContent(content)
 
             val seasonNumber = item.season
             val episodeNumber = item.episode
@@ -110,8 +109,8 @@ object WatchingState {
         }
 
         val result = LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode>()
-        contentRefs.forEach { content ->
-            latestCompletedByContent[content]?.let { completed -> result[content] = completed }
+        latestCompletedByContent.forEach { (content, completed) ->
+            if (completed != null) result[content] = completed
         }
         return result
     }
@@ -127,7 +126,13 @@ private fun String.isSeriesLikePosterType(): Boolean =
     trim().lowercase() in setOf("series", "show", "tv", "tvshow", "anime")
 
 
-private fun MutableMap<WatchingContentRef, WatchingCompletedEpisode>.considerCompletion(
+private fun MutableMap<WatchingContentRef, WatchingCompletedEpisode?>.ensureContent(
+    content: WatchingContentRef,
+) {
+    if (!containsKey(content)) this[content] = null
+}
+
+private fun MutableMap<WatchingContentRef, WatchingCompletedEpisode?>.considerCompletion(
     content: WatchingContentRef,
     seasonNumber: Int,
     episodeNumber: Int,

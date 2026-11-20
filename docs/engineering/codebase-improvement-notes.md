@@ -6902,3 +6902,20 @@ The structural saving is removal of the two per-content grouped record maps/list
 - Exa research cross-checked Android Developers [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices); the Home caller already remembers the derived candidate list by its source inputs, so this change targets the actual aggregation allocations rather than adding another Compose cache.
 - Context7 resolved Kotlin documentation and was queried for collection grouping and aggregation. No new library/API/dependency is introduced.
 - GitHub source and the 200-series regression fixture were inspected on main-build-testing. A complete local checkout is unavailable in this session, and the user has not authorised Gradle tasks; therefore the new and existing unit tests, Kotlin compilation, builds, CI, device runs and Macrobenchmark were not executed. This change remains statically reviewed, not runtime-verified.
+
+## Home Continue Watching / Next Up — combine key order and completion accumulator (Cycle 97, 20 November 2026)
+
+Follow-up inspection of Cycle 96 found that the one-pass implementation still retained two per-key structures: a LinkedHashSet for first-seen order and a LinkedHashMap for the best completion. These can be represented by one insertion-ordered map whose values are nullable: a null value records that a content key was encountered but has no qualifying completion yet.
+
+Changed:
+- Replaced the separate key set and completion map with one LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode?>.
+- Added each exact content key on first encounter with a null completion; subsequent qualifying progress/watched records update that same key's best completion.
+- Built the required non-null return map directly in accumulator insertion order, omitting content keys with no qualifying completion.
+- Extended the first-seen-order regression with an incomplete-only orphan key to ensure it remains excluded from results.
+
+This removes one additional per-key hash structure while retaining the output map. It does not alter the one-pass selection policy, key identity, timestamp normalization, or stable ordering. This is a structural memory-allocation reduction only; runtime and frame-time gains remain unmeasured.
+
+### Verification boundary
+
+- The existing large-history fixture (200 series × 80 watched episodes) and the first-seen ordering regression remain present; the latter now also verifies that keys with no completion are omitted.
+- Source and test changes were statically checked through the remote GitHub files. No Gradle task, Kotlin compilation, build, CI, device run or benchmark was executed because build/test execution was not authorised.
