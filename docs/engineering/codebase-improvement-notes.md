@@ -508,3 +508,46 @@ Added a focused common test with mixed valid and malformed metadata values acros
 - The same official Context7 and Exa JSON DOM references documented above apply: the convenience accessors throw for mismatched JSON subtypes, while explicit subtype checks let callers decide how to handle unknown structures.
 - The changed parser and regression test were re-fetched from `main-build-testing`; static inspection confirmed the parser no longer calls `jsonPrimitive` and the regression case is present. No test, Gradle task, build, CI, device run or benchmark was executed; compilation and runtime behavior remain unverified.
 
+## Home poster shelves — reuse duplicate-safe lazy keys across recompositions
+
+**Engineering cycle:** 121
+
+The shared `NuvioShelfSection` previously called `entries.withDuplicateSafeLazyKeys(key)` inside the `LazyRow` content builder. That helper performs a full key-counting pass, allocates a count map and occurrence map, then allocates a second list of wrapper entries. The work was repeated whenever the shelf content recomposed, even when its entries and key function were unchanged. This shared component is used by the Home catalog and continue-watching shelves, so the cost was in a high-visibility scrolling path.
+
+Changed:
+- Move duplicate-safe key derivation into a `remember(entries, key)` calculation outside the `LazyRow` DSL.
+- Rebuild the key list only when the row entries or key function changes.
+- Preserve the existing key values, duplicate suffix order, lazy item identity and item rendering paths. Unkeyed rows still use the original entries directly.
+
+The existing duplicate-key regression test continues to cover deterministic key values and occurrence suffixes. No UI structure, prefetch window or visual behaviour was changed.
+
+### Evidence and verification boundary
+
+- The full path was inspected in `ShelfComponents.kt` and `DuplicateSafeLazyKeys.kt`: the key helper did two collection passes and created multiple temporary collections before the lazy items were declared.
+- Context7 queried the official AndroidX Compose Runtime `remember(key1, key2)` reference. It confirms the cached calculation is reused while both keys remain equal and recalculated when either changes. Context7's Compose Multiplatform version list did not include the project's pinned 1.13.0-beta01, so the API reference was checked against the official AndroidX Compose Runtime reference rather than claiming an exact-version lookup.
+- Exa returned the official [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices), which explicitly demonstrates moving expensive list transformations out of lazy-list content and caching them with `remember`.
+- The modified shelf source and existing key regression test were re-fetched from `main-build-testing` for static review. No test, Gradle task, build, CI, device run or benchmark was executed; runtime scroll smoothness and compilation remain unverified.
+
+## Home catalog publication — cache custom-poster transformations for unchanged sections
+
+**Engineering cycle:** 122
+
+Home publishes progressively as catalog requests complete. In each publication, `publishCurrentState` previously reapplied the custom-poster URL pattern to every already-loaded section. `reapplyCustomPosterUrls` maps the full item list and reconstructs poster metadata even when the source section and active pattern have not changed. The existing per-publication map only avoided duplicate work between the visible rows and hero calculation in that single publication; it did not reuse the transformation for the next publication.
+
+Changed:
+- Added a bounded-by-active-catalog-key cache of transformed sections, keyed by catalog cache key, source section identity and active poster pattern.
+- Reuse the transformed section across subsequent progressive publications while both the immutable source section and pattern remain unchanged.
+- Recompute when a catalog refresh replaces the source section or when custom-poster settings change.
+- Prune entries when the active catalog definition set changes and clear the cache when Home state is cleared.
+- Protect cache reads, writes and pruning with AtomicFU's multiplatform `SynchronizedObject` lock because Home publication and settings refresh paths can run on different dispatchers.
+
+Added a regression test asserting that an unchanged section/pattern reuses the same transformed object, while a changed pattern, replaced source section or pruned cache entry triggers transformation again.
+
+### Evidence and verification boundary
+
+- The repeated work was traced in `HomeRepository.publishCurrentState`: each call creates a fresh local overlay map, then invokes `reapplyCustomPosterUrls` for every section reached by both row publication and hero candidate selection. The catalog completion loop can publish multiple times as different sections arrive.
+- The cache uses source object identity rather than structural section equality. A new fetch creates a new immutable `HomeCatalogSection`, and a pattern change is an explicit cache key; this avoids scanning full poster lists just to decide whether the cached transformation is reusable.
+- Context7 queried the project's AtomicFU lock API. The available official reference documents `SynchronizedObject` and `synchronized` across JVM and Native; the project pins AtomicFU 0.32.1, but Context7 did not provide a version-specific 0.32.1 page. The cache only holds its lock for map access; poster transformation happens outside the critical section.
+- Exa's official Compose performance guidance was also used for Cycle 121. No performance percentages or frame-time improvements are claimed here: this change removes repeated full-section poster transformations from unchanged progressive publications, but the actual user-visible effect still requires a permitted device benchmark.
+- The new cache regression test and modified production files were re-fetched from `main-build-testing` and statically reviewed. No test, Gradle task, build, CI, device run or benchmark was executed; compilation and runtime behaviour remain unverified.
+
