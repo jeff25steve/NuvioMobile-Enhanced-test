@@ -15,7 +15,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
@@ -68,10 +67,10 @@ internal object MetaDetailsParser {
     }
 
     private fun JsonObject.requiredString(name: String): String =
-        this[name]?.jsonPrimitive?.contentOrNull ?: error("Missing required field '$name'")
+        string(name) ?: error("Missing required field '$name'")
 
     private fun JsonObject.string(name: String): String? =
-        this[name]?.jsonPrimitive?.contentOrNull
+        (this[name] as? JsonPrimitive)?.contentOrNull
 
     private fun JsonObject.artworkUrl(name: String): String? =
         string(name)?.trim()?.takeIf(String::isNotBlank)
@@ -80,12 +79,12 @@ internal object MetaDetailsParser {
         this[name] as? JsonArray ?: JsonArray(emptyList())
 
     private fun JsonObject.stringList(name: String): List<String> =
-        array(name).mapNotNull { it.jsonPrimitive.contentOrNull?.takeIf(String::isNotBlank) }
+        array(name).mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
 
     private fun JsonObject.stringListOrCsv(name: String): List<String> {
         val value = this[name] ?: return emptyList()
         return when (value) {
-            is JsonArray -> value.mapNotNull { it.jsonPrimitive.contentOrNull?.takeIf(String::isNotBlank) }
+            is JsonArray -> value.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
             is JsonPrimitive -> value.contentOrNull?.let { csv ->
                 buildList {
                     for (entry in csv.split(',')) {
@@ -108,10 +107,10 @@ internal object MetaDetailsParser {
         }
 
     private fun JsonObject.int(name: String): Int? =
-        this[name]?.jsonPrimitive?.intOrNull
+        (this[name] as? JsonPrimitive)?.intOrNull
 
     private fun JsonObject.boolean(name: String): Boolean? =
-        this[name]?.jsonPrimitive?.booleanOrNull
+        (this[name] as? JsonPrimitive)?.booleanOrNull
 
     private fun JsonObject.behaviorHints(): JsonObject =
         this["behaviorHints"] as? JsonObject ?: JsonObject(emptyMap())
@@ -442,7 +441,7 @@ internal object MetaDetailsParser {
     }
 
     private fun JsonObject.long(name: String): Long? =
-        this[name]?.jsonPrimitive?.longOrNull
+        (this[name] as? JsonPrimitive)?.longOrNull
 }
 
 private fun JsonElement?.asJsonObjectOrNull(): JsonObject? = this as? JsonObject
