@@ -162,6 +162,29 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse trims and filters app extras cast CSV entries`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "movie",
+                "type": "movie",
+                "name": "Movie",
+                "app_extras": {
+                  "cast": " Lead Cast, , Shared Cast, Lead Cast,   "
+                }
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("Lead Cast", "Shared Cast"),
+            result.cast.map(MetaPerson::name),
+        )
+    }
+
+    @Test
     fun `parse preserves explicit video availability`() {
         val result = MetaDetailsParser.parse(
             """
