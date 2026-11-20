@@ -60,3 +60,4 @@ grep -Fq 'manager.getNotificationChannel(channelId)' "$SOURCE" &&
 printf 'PASS: download notification channel work is lazy, one-time, and precedes notification construction.\n'
 
 sh "$ROOT_DIR/scripts/tests/test-android-app-icon-initialization.sh" "$ROOT_DIR"
+sh "$ROOT_DIR/scripts/tests/test-android-startup-trace-sections.sh" "$ROOT_DIR"
