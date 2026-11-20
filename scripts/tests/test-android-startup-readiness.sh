@@ -54,6 +54,10 @@ printf '%s\n' "$main_content_ready_bridge" | grep -Fq 'reportAppReady(' &&
   echo "FAIL: the normal AppGate main-content bridge must update controller and Activity readiness only while Main is active and profile selection is complete." >&2
   exit 1
 }
+grep -Fq 'appGateController?.appReady?.first { it }' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: Party deep-link routing must retain its controller readiness wait; the normal Main bridge must satisfy it." >&2
+  exit 1
+}
 # AppGate readiness effects must use the latest callback without restarting on
 # callback identity churn; callback availability remains an explicit effect key.
 grep -Fq 'val currentOnAppReady by rememberUpdatedState(onAppReady)' "$APP_GATE_SOURCE" || {
