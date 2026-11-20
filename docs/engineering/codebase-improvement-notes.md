@@ -551,3 +551,59 @@ Added a regression test asserting that an unchanged section/pattern reuses the s
 - Exa's official Compose performance guidance was also used for Cycle 121. No performance percentages or frame-time improvements are claimed here: this change removes repeated full-section poster transformations from unchanged progressive publications, but the actual user-visible effect still requires a permitted device benchmark.
 - The new cache regression test and modified production files were re-fetched from `main-build-testing` and statically reviewed. No test, Gradle task, build, CI, device run or benchmark was executed; compilation and runtime behaviour remain unverified.
 
+## Catalogue poster grid — reuse duplicate-safe keys by source identity (Cycle 123, 20 November 2026)
+
+The main `CatalogScreen` previously called `withDuplicateSafeLazyKeys` from inside the `LazyVerticalGrid` content builder. That helper performs a key-counting traversal, allocates a key-count map and occurrence map, then maps the full catalogue into wrapper entries. Recomposition of the grid could repeat this full-list work even when the repository had not replaced the item list.
+
+Changed:
+- Added a single-entry `DuplicateSafeLazyKeysCache` that keys its cached projection by source-list reference identity (`===`), avoiding a structural equality scan on every composition.
+- The cache is remembered for the lifetime of the catalogue screen and rebuilds only when `CatalogUiState.items` is replaced.
+- Kept the existing duplicate suffix algorithm and encounter order unchanged. The existing helper remains available to other callers.
+
+Regression coverage now checks stable duplicate suffixes, projection identity reuse for the same list instance, and rebuilding for a different list instance with equal contents.
+
+### Evidence and verification boundary
+
+- The live `CatalogScreen` call site and `DuplicateSafeLazyKeys.kt` were inspected. The former performed the complete key projection inside the lazy grid DSL; the latter does two key-selector passes and creates maps plus a mapped wrapper list.
+- Exa returned Android Developers' official [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices), which recommends moving expensive collection transformations out of lazy content and caching the result. The cache uses reference identity rather than a large collection as a `remember` key, avoiding structural equality checks.
+- This is a source-level reduction in repeated catalogue-wide work; no frame-time or scroll-latency percentage is claimed.
+- Regression tests and production sources were re-fetched from `main-build-testing` for static review. No Kotlin test, Gradle task, build, CI, device run or Macrobenchmark was executed. The test-first RED/GREEN run therefore remains outstanding.
+
+## Local Library snapshots — reuse item-list copies for metadata-only revisions (Cycle 124, 20 November 2026)
+
+`LibraryLocalState.snapshotLocked()` previously copied `itemsById.values` into a new list on every snapshot, including transitions that changed only revision metadata or pending-push state. The state already tracks `contentRevision` separately from the general `revision`, so the code can distinguish content mutations from metadata-only transitions without comparing the full item collection.
+
+Changed:
+- Retain one immutable list snapshot for the current `contentRevision`.
+- Reuse that list when a new snapshot is requested after a metadata-only revision.
+- Rebuild it lazily after a content revision changes. Profile load/reset paths already advance content revision, so a profile switch cannot reuse the previous profile's item list.
+
+Regression coverage asserts that push-completion metadata changes reuse the exact item-list instance, while a subsequent content mutation produces a new list instance.
+
+### Evidence and verification boundary
+
+- The existing `LibraryLocalSnapshot.contentRevision` and all content mutation paths in `LibraryLocalState` were inspected. Snapshot creation was copying the item map values regardless of whether the content revision had changed.
+- The cache is a single current-revision list, guarded by the same existing state lock as the mutable map; it adds no new lock or dependency and has bounded retention.
+- No ordering, membership, profile, pending-push, or persistence semantics are changed.
+- The focused regression test and implementation were re-fetched for static review. No Kotlin test, Gradle task, build, CI, device run or benchmark was executed; the RED/GREEN run remains outstanding.
+
+## Local Library publication — cache sorting and section grouping by content revision (Cycle 125, 20 November 2026)
+
+The local-library branch of `LibraryRepository.publish()` sorted all saved items by descending save time, grouped them by media type, created section objects and sorted those sections on every publication. `publish()` can run for provider-connection changes, source-setting updates and other repository events even when the local saved-content collection is unchanged. The existing profile token and `contentRevision` provide a precise cache key for this projection.
+
+Changed:
+- Added a one-entry `LibraryContentProjectionCache`, keyed by both `LibraryProfileToken` and `contentRevision`.
+- Reuse the sorted item list and grouped/sorted sections when a publication changes only non-content state.
+- Recompute when saved content changes or the active profile generation changes.
+- Keep sorting/grouping outside the cache lock; the lock protects only cache reads and publication of the completed projection.
+- Provider-backed Library publication remains untouched.
+
+Regression coverage checks that a metadata-only revision reuses the same projection, retains descending save-time order, and rebuilds after a content mutation.
+
+### Evidence and verification boundary
+
+- The live `LibraryRepository.publish()` path was inspected: sorting, `groupBy`, section mapping and section sorting were performed unconditionally for local mode. The repository already exposes the profile token and distinct content revision needed for safe invalidation.
+- Context7 resolved the AtomicFU documentation and verified the existing `SynchronizedObject` / `synchronized` API for multiplatform cache protection. The project pins AtomicFU 0.32.1; Context7 returned the official API reference but not a version-specific 0.32.1 page. No new dependency or API was introduced.
+- The cache retains only one projection and includes the profile generation in its key. It does not cache provider-backed projections or alter the visible sort/group order.
+- Regression tests and source files were re-fetched from `main-build-testing` for static review. No Kotlin test, Gradle task, build, CI, device run or Macrobenchmark was executed; the RED/GREEN run remains outstanding.
+
