@@ -74,7 +74,7 @@ object StreamParser {
         }
 
     private fun JsonObject.long(name: String): Long? =
-        this[name]?.jsonPrimitive?.let { primitive ->
+        (this[name] as? JsonPrimitive)?.let { primitive ->
             primitive.longOrNull ?: primitive.contentOrNull?.toLongOrNull()
         }
 
