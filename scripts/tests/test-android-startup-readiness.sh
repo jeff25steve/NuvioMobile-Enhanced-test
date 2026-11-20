@@ -54,6 +54,29 @@ printf '%s\n' "$main_content_ready_bridge" | grep -Fq 'onAppReady?.invoke(' &&
   echo "FAIL: the normal AppGate main-content bridge must forward readiness only while Main is active and profile selection is complete." >&2
   exit 1
 }
+# AppGate readiness effects must use the latest callback without restarting on
+# callback identity churn; callback availability remains an explicit effect key.
+grep -Fq 'val currentOnAppReady by rememberUpdatedState(onAppReady)' "$APP_GATE_SOURCE" || {
+  echo "FAIL: AppGate must retain the latest app-ready callback without keying effects on its identity." >&2
+  exit 1
+}
+grep -Fq 'LaunchedEffect(gateScreen, onAppReady != null)' "$APP_GATE_SOURCE" || {
+  echo "FAIL: AppGate reset effect must restart for gate/availability changes, not callback identity." >&2
+  exit 1
+}
+grep -Fq 'onAppReady != null,' "$APP_GATE_SOURCE" || {
+  echo "FAIL: AppGate fully-drawn effect must preserve callback-availability transitions." >&2
+  exit 1
+}
+if grep -Fq 'LaunchedEffect(gateScreen, onAppReady)' "$APP_GATE_SOURCE" || grep -Fq '        onAppReady,' "$APP_GATE_SOURCE"; then
+  echo "FAIL: AppGate readiness effects must not restart solely because a callback lambda was recreated." >&2
+  exit 1
+fi
+grep -Fq 'currentOnAppReady?.invoke(' "$APP_GATE_SOURCE" || {
+  echo "FAIL: AppGate must invoke the latest callback in both readiness bridges." >&2
+  exit 1
+}
+
 # The app root enables resource-ID mapping; the Home screen owns an independent,
 # unconditional Home marker so the benchmark can distinguish Home-visible from TTFD.
 grep -Fq '.semantics {' "$MAIN_ACTIVITY_SOURCE" &&
