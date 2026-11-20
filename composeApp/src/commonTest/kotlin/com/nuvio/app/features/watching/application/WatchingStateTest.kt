@@ -210,6 +210,7 @@ class WatchingStateTest {
             result.keys.toList(),
         )
     }
+
     private fun watched(id: String, episode: Int, markedAtEpochMs: Long): WatchedItem =
         WatchedItem(
             id = id,

@@ -109,9 +109,11 @@ object WatchingState {
             }
         }
 
-        return contentRefs.mapNotNull { content ->
-            latestCompletedByContent[content]?.let { completed -> content to completed }
-        }.toMap()
+        val result = LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode>()
+        contentRefs.forEach { content ->
+            latestCompletedByContent[content]?.let { completed -> result[content] = completed }
+        }
+        return result
     }
 
     fun visibleContinueWatchingEntries(
@@ -123,7 +125,6 @@ object WatchingState {
 
 private fun String.isSeriesLikePosterType(): Boolean =
     trim().lowercase() in setOf("series", "show", "tv", "tvshow", "anime")
-
 
 
 private fun MutableMap<WatchingContentRef, WatchingCompletedEpisode>.considerCompletion(

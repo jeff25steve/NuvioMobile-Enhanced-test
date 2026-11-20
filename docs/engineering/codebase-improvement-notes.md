@@ -6894,7 +6894,7 @@ Changed:
 - Kept the exact comparator policy: furthest season/episode then timestamp, or latest timestamp then season/episode. Equal comparator values keep the first candidate, matching maxWithOrNull behavior.
 - Added a regression for first-seen key order when the first record is incomplete and a later record completes that series. Existing tests continue to cover provider filtering, both completion policies, exact type/ID matching, timestamp normalization and 200-series large histories.
 
-The structural saving is removal of the two per-content grouped record maps/lists, the per-series filtered marker lists, and the extra full scans over grouped records. The remaining work is one pass over the source records plus one pass over first-seen keys. This is a source-level allocation/traversal reduction; no runtime percentage, frame-time or startup-time gain is claimed.
+The structural saving is removal of the two per-content grouped record maps/lists, the per-series filtered marker lists, and the extra full scans over grouped records. The remaining work is one pass over the source records plus one pass over first-seen keys; the final ordered map is filled directly, without an intermediate list of key/value pairs. This is a source-level allocation/traversal reduction; no runtime percentage, frame-time or startup-time gain is claimed.
 
 ### Evidence and verification boundary
 
