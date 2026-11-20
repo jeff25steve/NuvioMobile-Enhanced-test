@@ -395,12 +395,18 @@ grep -Fq 'Direction.DOWN' "$GENERATOR_SOURCE" && grep -Fq 'Direction.UP' "$GENER
   exit 1
 }
 
-grep -Fq 'write_run_provenance' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
-  echo "FAIL: each benchmark run must save runner and APK provenance." >&2
+# Provenance must be written by the actual instrumentation path, before the
+# measured command starts. A helper existing elsewhere is not sufficient.
+instrumentation_block="$(sed -n '/^run_instrumentation() {/,/^}/p' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh")"
+printf '%s\n' "$instrumentation_block" | grep -Fq 'write_run_provenance' && \
+  printf '%s\n' "$instrumentation_block" | grep -Fq 'am instrument -w -r' || {
+  echo "FAIL: run_instrumentation must persist APK/runner provenance before invoking Android instrumentation." >&2
   exit 1
 }
-grep -Fq 'write_run_provenance' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
-  echo "FAIL: provenance capture must be integrated into run_instrumentation." >&2
+provenance_line="$(printf '%s\n' "$instrumentation_block" | grep -nF 'write_run_provenance' | cut -d: -f1)"
+instrument_line="$(printf '%s\n' "$instrumentation_block" | grep -nF 'am instrument -w -r' | cut -d: -f1)"
+[ "$provenance_line" -lt "$instrument_line" ] || {
+  echo "FAIL: benchmark provenance must be captured before instrumentation begins." >&2
   exit 1
 }
 grep -Fq 'focus_state_file="$RUN_DIR/wireless-debug-focus-check.txt"' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
