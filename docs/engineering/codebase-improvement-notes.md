@@ -6833,3 +6833,27 @@ Added five coarse android.os.Trace sections around the existing MainActivity.onC
 Added scripts/tests/test-android-startup-trace-sections.sh and wired it into test-android-startup-initialization.sh. The guard protects the helper's Trace.beginSection / Trace.endSection pairing, exact group names and group order, the pre-/post-super lifecycle boundary, coverage of every onCreate initializer, and Android's label-length limit. Android Developers' Trace API and custom-event guidance support using these sections to identify which synchronous startup group consumes time in Perfetto. Context7 did not expose a versioned Android SDK API reference, so the official Android Developers API docs were used.
 
 This is observability, not a launch-speed optimization or a benchmark result. No initializer reorder is justified until a representative trace shows which group is expensive. GitHub source was re-fetched after changes. The focused guard's shell syntax and positive/negative behavior were exercised against a temporary five-group fixture (including rejection of an initializer outside the groups); it was not run against the full repository checkout. The parent shell suite, Kotlin compilation, Gradle tasks, builds, CI, instrumentation and Perfetto capture were not run.
+
+
+## Home and detail poster rails — reuse the parent poster-style snapshot (Cycle 94, 20 November 2026)
+
+The high-traffic Home catalogue path already collected `PosterCardStyleUiState` once in `HomeCatalogRowSectionContent` to derive poster prefetch targets and row layout. However, every visible/prefetched `HomePosterCard` called `rememberPosterCardStyleUiState()` again, and the nested `NuvioPosterCard` called it again. The helper resolves a CompositionLocal when present, otherwise it subscribes to `PosterCardStyleRepository.uiState` with `collectAsState()`. The detail poster rail had the same parent snapshot available but did not pass it through.
+
+Changed:
+- Added an optional `posterCardStyle: PosterCardStyleUiState?` input to `HomePosterCard` and `NuvioPosterCard`.
+- Each component resolves the optional input once and retains the repository-backed fallback for standalone callers.
+- `HomeCatalogRowSectionContent` passes its already-collected snapshot through `HomePosterCard` to `NuvioPosterCard`.
+- `DetailPosterRailSection` passes its existing screen-level snapshot through the same path.
+- Card sizing, image selection, fallback art, labels, watched badges, keys, click handling and the visual layout are unchanged.
+
+This removes the redundant per-card style-state reads/Flow collection fallback from Home catalogue and detail poster rails. The performance claim is limited to reducing repeated state reads and avoiding up to two additional fallback `collectAsState()` calls per composed card when no poster-style CompositionLocal provider is active; no frame-time or scroll benchmark was run, so no millisecond improvement is claimed. Other callers that do not supply a shared snapshot preserve the previous behavior.
+
+Added `scripts/tests/test-home-poster-style-propagation.sh` and wired it into `scripts/tests/test-nuvio-phone-benchmark.sh`. The guard protects both caller pass-through paths, the nested pass-through, and the standalone fallback.
+
+### Evidence and verification boundary
+
+- Android Developers [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices) recommends hoisting shared Flow collection and CompositionLocal reads above lazy layouts and passing resolved values to item composables.
+- Android Developers [Where to hoist state](https://developer.android.com/develop/ui/compose/state-hoisting) recommends placing state at the lowest common ancestor and passing immutable state to consumers.
+- Context7 was queried for Compose state collection and the exact pinned Coil 3.6.3 Compose API. Coil's official 3.6.3 documentation confirms that `AsyncImage` is restartable/skippable and should remain the normal choice; this change does not replace it or modify image requests.
+- The focused shell guard was exercised against an old-structure fixture and failed at the expected missing-parameter assertion (RED). It was then exercised against a fixture representing the updated pass-through structure and passed (GREEN). These checks are isolated fixtures, not execution of the committed regression file against a full local repository.
+- The updated production sources, aggregator wiring, test guard and engineering note were re-fetched from GitHub for static review. The committed shell regression was not run from a complete checkout; no Kotlin compilation, Gradle test, build, CI, APK, device run, Macrobenchmark or Perfetto capture was performed.
