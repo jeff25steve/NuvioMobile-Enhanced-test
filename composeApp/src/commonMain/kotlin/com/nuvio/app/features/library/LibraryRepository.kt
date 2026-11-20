@@ -50,12 +50,38 @@ import nuvio.composeapp.generated.resources.library_other
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 
+internal data class LibraryContentProjection(
+    val items: List<LibraryItem>,
+    val sections: List<LibrarySection>,
+)
+
+internal class LibraryContentProjectionCache {
+    private val lock = SynchronizedObject()
+    private var cachedToken: LibraryProfileToken? = null
+    private var cachedContentRevision = Long.MIN_VALUE
+    private var cachedProjection: LibraryContentProjection? = null
+
+    fun getOrCreate(
+        snapshot: LibraryLocalSnapshot,
+        create: (List<LibraryItem>) -> LibraryContentProjection,
+    ): LibraryContentProjection = synchronized(lock) {
+        cachedProjection?.takeIf {
+            cachedToken == snapshot.token && cachedContentRevision == snapshot.contentRevision
+        } ?: create(snapshot.items).also { projection ->
+            cachedToken = snapshot.token
+            cachedContentRevision = snapshot.contentRevision
+            cachedProjection = projection
+        }
+    }
+}
+
 object LibraryRepository {
     private const val pushDebounceMs = 500L
 
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("LibraryRepository")
 
+    private val localContentProjectionCache = LibraryContentProjectionCache()
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
@@ -626,23 +652,25 @@ object LibraryRepository {
             return
         }
 
-        val items = localSnapshot.items
-            .sortedByDescending { it.savedAtEpochMs }
-        val sections = items
-            .groupBy { it.type }
-            .map { (type, typeItems) ->
-                LibrarySection(
-                    type = type,
-                    displayTitle = type.toLibraryDisplayTitle(),
-                    items = typeItems,
-                )
-            }
-            .sortedBy { it.displayTitle }
+        val projection = localContentProjectionCache.getOrCreate(localSnapshot) { snapshotItems ->
+            val items = snapshotItems.sortedByDescending { it.savedAtEpochMs }
+            val sections = items
+                .groupBy { it.type }
+                .map { (type, typeItems) ->
+                    LibrarySection(
+                        type = type,
+                        displayTitle = type.toLibraryDisplayTitle(),
+                        items = typeItems,
+                    )
+                }
+                .sortedBy { it.displayTitle }
+            LibraryContentProjection(items = items, sections = sections)
+        }
 
         val newUiState = LibraryUiState(
             sourceMode = LibrarySourceMode.LOCAL,
-            items = items,
-            sections = sections,
+            items = projection.items,
+            sections = projection.sections,
             isLoaded = localSnapshot.hasLoaded,
             isLoading = localSnapshot.isLoading,
             errorMessage = null,
