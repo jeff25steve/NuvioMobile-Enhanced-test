@@ -120,7 +120,6 @@ object MetaDetailsRepository {
             launchActiveLoad(requestKey) { requestJob ->
                 val enrichedMeta = withContext(Dispatchers.Default) {
                     enrichForMetaScreen(
-                        requestKey = requestKey,
                         meta = cachedBaseMeta,
                         fallbackItemId = id,
                         fallbackItemType = type,
@@ -654,7 +653,6 @@ object MetaDetailsRepository {
         )
         val enrichedMeta = withContext(Dispatchers.Default) {
             enrichForMetaScreen(
-                requestKey = requestKey,
                 meta = meta,
                 fallbackItemId = fallbackItemId,
                 fallbackItemType = fallbackItemType,
@@ -673,7 +671,6 @@ object MetaDetailsRepository {
     }
 
     private suspend fun enrichForMetaScreen(
-        requestKey: String,
         meta: MetaDetails,
         fallbackItemId: String,
         fallbackItemType: String,
