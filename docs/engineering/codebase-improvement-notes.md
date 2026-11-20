@@ -6880,3 +6880,25 @@ Added scripts/tests/test-library-vertical-row-window.sh, which protects indexed 
 - Context7 was queried for the pinned Compose Multiplatform API surface; the available result exposes key-based lazy item patterns but did not include the exact 1.13.0-beta01 lazy-list API version. This change uses the existing LazyListScope.items(count, key, contentType) form already present elsewhere in this repository, so it introduces no new framework API or dependency.
 - Exa search checked official Android guidance on lazy layout item composition and remember; it also reinforced avoiding micro-optimizing small non-lazy Row loops, so no such changes were made.
 - GitHub source was re-fetched after editing for static inspection. No local complete checkout was available to execute the committed unit test or shell regression against production files. No Kotlin compilation, Gradle test, build, CI, APK, device run, Macrobenchmark or Perfetto capture was started.
+
+## Home Continue Watching / Next Up — aggregate completion candidates in one pass (Cycle 96, 20 November 2026)
+
+The shared WatchingState.latestCompletedBySeries path previously created a set of content keys, converted eligible progress and watched records, grouped both record streams into per-content lists, then called latestCompletedSeriesEpisode for every content key. That resolver filtered each already-grouped list again and built a further completion-marker list before selecting one maximum. The Home Next Up caller memoizes the result with remember over progress, hidden-content, watched-history and preference inputs, so this work is tied to meaningful source changes rather than every ordinary recomposition; the existing large-history regression fixture demonstrates the relevant workload size (200 series × 80 watched episodes, plus rewatch markers).
+
+Changed:
+- Replaced the two groupBy maps and per-content resolver calls with a single pass over progress entries and watched items.
+- Retained a LinkedHashSet of all encountered content keys so output map iteration order remains first-seen order, including keys first seen in non-completed progress.
+- Retained exact (type, id) identity; no series-type normalization or cross-provider merging was introduced.
+- Applied the same progress eligibility predicate and normalizedCompletion() conversion before considering progress records.
+- Preserved watched timestamp normalization through normalizeWatchedMarkedAtEpochMs.
+- Kept the exact comparator policy: furthest season/episode then timestamp, or latest timestamp then season/episode. Equal comparator values keep the first candidate, matching maxWithOrNull behavior.
+- Added a regression for first-seen key order when the first record is incomplete and a later record completes that series. Existing tests continue to cover provider filtering, both completion policies, exact type/ID matching, timestamp normalization and 200-series large histories.
+
+The structural saving is removal of the two per-content grouped record maps/lists, the per-series filtered marker lists, and the extra full scans over grouped records. The remaining work is one pass over the source records plus one pass over first-seen keys. This is a source-level allocation/traversal reduction; no runtime percentage, frame-time or startup-time gain is claimed.
+
+### Evidence and verification boundary
+
+- Kotlin's official [collection grouping documentation](https://kotlinlang.org/docs/collection-grouping.html) describes groupBy as building lists per key and groupingBy as supporting aggregation; the implementation uses a direct mutable-map accumulator because the desired result is only the single maximum record per key, not retained groups.
+- Exa research cross-checked Android Developers [Compose performance best practices](https://developer.android.com/develop/ui/compose/performance/bestpractices); the Home caller already remembers the derived candidate list by its source inputs, so this change targets the actual aggregation allocations rather than adding another Compose cache.
+- Context7 resolved Kotlin documentation and was queried for collection grouping and aggregation. No new library/API/dependency is introduced.
+- GitHub source and the 200-series regression fixture were inspected on main-build-testing. A complete local checkout is unavailable in this session, and the user has not authorised Gradle tasks; therefore the new and existing unit tests, Kotlin compilation, builds, CI, device runs and Macrobenchmark were not executed. This change remains statically reviewed, not runtime-verified.

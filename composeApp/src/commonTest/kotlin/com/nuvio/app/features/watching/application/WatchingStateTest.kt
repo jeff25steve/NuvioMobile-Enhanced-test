@@ -192,6 +192,24 @@ class WatchingStateTest {
         }
     }
 
+    @Test
+    fun `latest completed preserves first-seen content order when completion appears later`() {
+        val progress = listOf(
+            entry("alpha:1:2", 1, 2, isCompleted = false).copy(parentMetaId = "alpha"),
+            entry("beta:1:3", 1, 3, isCompleted = true).copy(parentMetaId = "beta"),
+            entry("alpha:1:4", 1, 4, isCompleted = true).copy(parentMetaId = "alpha"),
+        )
+
+        val result = WatchingState.latestCompletedBySeries(
+            progressEntries = progress,
+            watchedItems = emptyList(),
+        )
+
+        assertEquals(
+            listOf(WatchingContentRef("series", "alpha"), WatchingContentRef("series", "beta")),
+            result.keys.toList(),
+        )
+    }
     private fun watched(id: String, episode: Int, markedAtEpochMs: Long): WatchedItem =
         WatchedItem(
             id = id,

@@ -10,9 +10,7 @@ import com.nuvio.app.features.watchprogress.continueWatchingEntries
 import com.nuvio.app.features.watchprogress.shouldUseAsCompletedSeedForContinueWatching
 import com.nuvio.app.features.watching.domain.WatchingCompletedEpisode
 import com.nuvio.app.features.watching.domain.WatchingContentRef
-import com.nuvio.app.features.watching.domain.WatchingProgressRecord
-import com.nuvio.app.features.watching.domain.WatchingWatchedRecord
-import com.nuvio.app.features.watching.domain.latestCompletedSeriesEpisode
+import com.nuvio.app.features.watching.domain.normalizeSeasonNumber
 
 object WatchingState {
     fun isPosterWatched(
@@ -69,30 +67,50 @@ object WatchingState {
         watchedItems: List<WatchedItem>,
         preferFurthestEpisode: Boolean = true,
     ): Map<WatchingContentRef, WatchingCompletedEpisode> {
-        val contentRefs = buildSet {
-            progressEntries.forEach { entry ->
-                add(WatchingContentRef(type = entry.parentMetaType, id = entry.parentMetaId))
-            }
-            watchedItems.forEach { item ->
-                add(WatchingContentRef(type = item.type, id = item.id))
+        // Keep first-seen key order while selecting the best completion in one pass.
+        // Retaining grouped lists only to scan them again for one maximum is unnecessary.
+        val contentRefs = LinkedHashSet<WatchingContentRef>()
+        val latestCompletedByContent = LinkedHashMap<WatchingContentRef, WatchingCompletedEpisode>()
+
+        progressEntries.forEach { entry ->
+            val content = WatchingContentRef(type = entry.parentMetaType, id = entry.parentMetaId)
+            contentRefs += content
+
+            val normalizedEntry = entry.normalizedCompletion()
+            if (normalizedEntry.shouldUseAsCompletedSeedForContinueWatching()) {
+                val seasonNumber = normalizedEntry.seasonNumber
+                val episodeNumber = normalizedEntry.episodeNumber
+                if (seasonNumber != null && episodeNumber != null) {
+                    latestCompletedByContent.considerCompletion(
+                        content = content,
+                        seasonNumber = seasonNumber,
+                        episodeNumber = episodeNumber,
+                        markedAtEpochMs = normalizedEntry.lastUpdatedEpochMs,
+                        preferFurthestEpisode = preferFurthestEpisode,
+                    )
+                }
             }
         }
-        val progressRecordsByContent = progressEntries
-            .asSequence()
-            .filter { entry -> entry.shouldUseAsCompletedSeedForContinueWatching() }
-            .map(WatchProgressEntry::toDomainProgressRecord)
-            .groupBy(WatchingProgressRecord::content)
-        val watchedRecordsByContent = watchedItems
-            .asSequence()
-            .map(WatchedItem::toDomainWatchedRecord)
-            .groupBy(WatchingWatchedRecord::content)
+
+        watchedItems.forEach { item ->
+            val content = WatchingContentRef(type = item.type, id = item.id)
+            contentRefs += content
+
+            val seasonNumber = item.season
+            val episodeNumber = item.episode
+            if (seasonNumber != null && episodeNumber != null) {
+                latestCompletedByContent.considerCompletion(
+                    content = content,
+                    seasonNumber = seasonNumber,
+                    episodeNumber = episodeNumber,
+                    markedAtEpochMs = normalizeWatchedMarkedAtEpochMs(item.markedAtEpochMs),
+                    preferFurthestEpisode = preferFurthestEpisode,
+                )
+            }
+        }
+
         return contentRefs.mapNotNull { content ->
-            latestCompletedSeriesEpisode(
-                content = content,
-                progressRecords = progressRecordsByContent[content].orEmpty(),
-                watchedRecords = watchedRecordsByContent[content].orEmpty(),
-                preferFurthestEpisode = preferFurthestEpisode,
-            )?.let { completed -> content to completed }
+            latestCompletedByContent[content]?.let { completed -> content to completed }
         }.toMap()
     }
 
@@ -106,25 +124,48 @@ object WatchingState {
 private fun String.isSeriesLikePosterType(): Boolean =
     trim().lowercase() in setOf("series", "show", "tv", "tvshow", "anime")
 
-private fun WatchProgressEntry.toDomainProgressRecord(): WatchingProgressRecord =
-    normalizedCompletion().let { entry ->
-        WatchingProgressRecord(
-            content = WatchingContentRef(type = entry.parentMetaType, id = entry.parentMetaId),
-            videoId = entry.videoId,
-            seasonNumber = entry.seasonNumber,
-            episodeNumber = entry.episodeNumber,
-            lastUpdatedEpochMs = entry.lastUpdatedEpochMs,
-            lastPositionMs = entry.lastPositionMs,
-            isCompleted = entry.isCompleted,
-            episodeTitle = entry.episodeTitle,
-            episodeThumbnail = entry.episodeThumbnail,
+
+
+private fun MutableMap<WatchingContentRef, WatchingCompletedEpisode>.considerCompletion(
+    content: WatchingContentRef,
+    seasonNumber: Int,
+    episodeNumber: Int,
+    markedAtEpochMs: Long,
+    preferFurthestEpisode: Boolean,
+) {
+    val current = this[content]
+    if (current == null || isPreferredCompletion(
+            seasonNumber = seasonNumber,
+            episodeNumber = episodeNumber,
+            markedAtEpochMs = markedAtEpochMs,
+            current = current,
+            preferFurthestEpisode = preferFurthestEpisode,
         )
+    ) {
+        this[content] = WatchingCompletedEpisode(seasonNumber, episodeNumber, markedAtEpochMs)
+    }
+}
+
+private fun isPreferredCompletion(
+    seasonNumber: Int,
+    episodeNumber: Int,
+    markedAtEpochMs: Long,
+    current: WatchingCompletedEpisode,
+    preferFurthestEpisode: Boolean,
+): Boolean {
+    if (preferFurthestEpisode) {
+        val seasonComparison = normalizeSeasonNumber(seasonNumber)
+            .compareTo(normalizeSeasonNumber(current.seasonNumber))
+        if (seasonComparison != 0) return seasonComparison > 0
+        val episodeComparison = episodeNumber.compareTo(current.episodeNumber)
+        if (episodeComparison != 0) return episodeComparison > 0
+        return markedAtEpochMs > current.markedAtEpochMs
     }
 
-private fun WatchedItem.toDomainWatchedRecord(): WatchingWatchedRecord =
-    WatchingWatchedRecord(
-        content = WatchingContentRef(type = type, id = id),
-        seasonNumber = season,
-        episodeNumber = episode,
-        markedAtEpochMs = normalizeWatchedMarkedAtEpochMs(markedAtEpochMs),
-    )
+    val timestampComparison = markedAtEpochMs.compareTo(current.markedAtEpochMs)
+    if (timestampComparison != 0) return timestampComparison > 0
+    val seasonComparison = normalizeSeasonNumber(seasonNumber)
+        .compareTo(normalizeSeasonNumber(current.seasonNumber))
+    if (seasonComparison != 0) return seasonComparison > 0
+    return episodeNumber > current.episodeNumber
+}
