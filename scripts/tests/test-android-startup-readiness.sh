@@ -49,9 +49,9 @@ grep -Fq 'currentOnRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
   exit 1
 }
 main_content_ready_bridge="$(sed -n '/onRootContentReady = { ready ->/,/^[[:space:]]*},/p' "$APP_GATE_SOURCE")"
-printf '%s\n' "$main_content_ready_bridge" | grep -Fq 'onAppReady?.invoke(' &&
+printf '%s\n' "$main_content_ready_bridge" | grep -Fq 'reportAppReady(' &&
   printf '%s\n' "$main_content_ready_bridge" | grep -Fq 'ready && gateScreen == AppGateScreen.Main.name && !profileSelectionLoading,' || {
-  echo "FAIL: the normal AppGate main-content bridge must forward readiness only while Main is active and profile selection is complete." >&2
+  echo "FAIL: the normal AppGate main-content bridge must update controller and Activity readiness only while Main is active and profile selection is complete." >&2
   exit 1
 }
 # AppGate readiness effects must use the latest callback without restarting on
