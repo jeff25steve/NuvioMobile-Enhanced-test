@@ -15,6 +15,7 @@ sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
 sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
 sh "$SCRIPT_DIR/tests/test-home-poster-style-propagation.sh" "$ROOT_DIR"
+sh "$SCRIPT_DIR/tests/test-library-vertical-row-window.sh" "$ROOT_DIR"
 for expected in \
   'The three cold-start comparison arms are:' \
   'partial compilation without a Baseline Profile (3 warmups)' \
