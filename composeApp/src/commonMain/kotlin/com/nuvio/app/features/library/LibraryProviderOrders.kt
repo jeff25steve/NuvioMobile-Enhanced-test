@@ -37,6 +37,12 @@ internal fun observeLibraryProviderOrders(
             key to keys?.withIndex()?.associate { (index, item) -> item to index }
         }.onStart { emit(key to null) }
     }) { orders ->
-        LibraryProviderOrders(orders.mapNotNull { (key, ranks) -> ranks?.let { key to it } }.toMap())
+        LibraryProviderOrders(
+            ranks = buildMap {
+                for ((key, ranks) in orders) {
+                    if (ranks != null) put(key, ranks)
+                }
+            },
+        )
     }.catch { emit(LibraryProviderOrders(failed = true)) }.distinctUntilChanged()
 }
