@@ -304,8 +304,12 @@ for expected in \
     exit 1
   }
 done
-grep -Fq 'waitForMarker(device, "nuvio_main_content_ready", remainingPostHomeMs)' "$READINESS_SOURCE" && \\
-  grep -Fq 'long postHomeDeadline = SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {\n  echo "FAIL: readiness diagnostics must observe MainAppContent between Home and Activity fully drawn under one shared post-Home deadline." >&2\n  exit 1\n}\ngrep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
+grep -Fq 'waitForMarker(device, "nuvio_main_content_ready", remainingPostHomeMs)' "$READINESS_SOURCE" && \
+  grep -Fq 'long postHomeDeadline = SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
+  echo "FAIL: readiness diagnostics must observe MainAppContent between Home and Activity fully drawn under one shared post-Home deadline." >&2
+  exit 1
+}
+grep -Fq 'SystemClock.elapsedRealtime()' "$READINESS_SOURCE" || {
   echo "FAIL: readiness stage durations must use monotonic elapsed realtime." >&2
   exit 1
 }
