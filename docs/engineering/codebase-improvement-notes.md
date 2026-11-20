@@ -274,3 +274,20 @@ This removes the intermediate mapped pair list and per-entry pair objects from t
 - Exa checked official Kotlin [collection builders](https://kotlinlang.org/docs/constructing-collections.html), [collection transformations](https://kotlinlang.org/docs/collection-transformations.html) and [buildMap API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-map.html). The docs confirm that `mapNotNull` creates a result collection, `toMap` consumes pairs, and `buildMap` supports direct population.
 - Regression coverage was added before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were run, per the explicit authorization boundary. Compilation and runtime behavior remain unverified.
 - The final production source and regression test were re-fetched from GitHub and statically inspected. This is author review, not an independent review or runtime verification.
+
+## MetaDetails CSV name parsing — fuse trim and blank filtering (Cycle 110, 20 November 2026)
+
+`JsonObject.stringListOrCsv()` handles comma-separated director, writer and cast values. Its CSV branch previously called `split`, `map(String::trim)` and `filter(String::isNotBlank)`, creating two additional intermediate lists after tokenization.
+
+Changed:
+- Retained the same comma splitting, then trim and blank-check each token directly into one `buildList` destination.
+- Preserved token order, case, trimming, empty-token removal and the existing array-valued JSON path.
+- Reused the existing parser regression coverage for comma-separated directors, writers and cast, including whitespace and blank tokens; no duplicate test fixture was added.
+
+This removes the intermediate trimmed and filtered lists from CSV metadata parsing. The split token list and final result remain; this is a bounded allocation reduction, not a claim of zero-allocation parsing or measured latency improvement.
+
+### Verification boundary
+
+- Context7 and Exa evidence recorded in Cycle 109 applies to the same pinned Kotlin 2.4.10 collection-builder semantics; this change introduces no new API or dependency.
+- Existing parser regression cases were inspected remotely but not executed. No tests, Gradle tasks, builds, CI, device runs or benchmarks were started.
+- The updated source and active note were re-fetched from GitHub for static review; compilation and runtime behaviour remain unverified.
