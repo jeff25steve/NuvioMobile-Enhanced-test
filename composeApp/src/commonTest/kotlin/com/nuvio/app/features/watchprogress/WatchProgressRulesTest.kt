@@ -110,6 +110,21 @@ class WatchProgressRulesTest {
     }
 
     @Test
+    fun `continue watching keeps selected active rows in newest first order`() {
+        val olderActive = entry(videoId = "movie-older", lastUpdatedEpochMs = 10L)
+        val newerActive = entry(videoId = "movie-newer", lastUpdatedEpochMs = 20L)
+        val completed = entry(
+            videoId = "movie-completed",
+            lastUpdatedEpochMs = 30L,
+            isCompleted = true,
+        )
+
+        val result = listOf(olderActive, completed, newerActive).continueWatchingEntries()
+
+        assertEquals(listOf("movie-newer", "movie-older"), result.map { it.videoId })
+    }
+
+    @Test
     fun `continue watching deduplicates series keeping latest episode per show`() {
         val ep1 = entry(videoId = "show:1:1", parentMetaId = "show", seasonNumber = 1, episodeNumber = 1, lastUpdatedEpochMs = 10L)
         val ep2 = entry(videoId = "show:1:2", parentMetaId = "show", seasonNumber = 1, episodeNumber = 2, lastUpdatedEpochMs = 20L)
