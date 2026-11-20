@@ -955,3 +955,14 @@ The video was checked against the current `main-build-testing` sources and the A
 - P0 callback-stability implementation and its regression guard were committed separately; the latest commit IDs are recorded in the session result.
 - Android Developers documentation confirms the TTID/TTFD distinction, Compose `ReportDrawnWhen` semantics and Baseline Profile capture requirements. Context7 source inspection confirms the reporter uses a `DisposableEffect` keyed by the predicate, while Compose's `rememberUpdatedState` is the documented pattern for keeping the latest callback without restarting long-lived effects.
 - No Gradle task, build, CI, instrumentation, Baseline Profile generation, APK packaging, physical-device benchmark or Perfetto capture was run.
+
+
+### Cycle 89 — protect compiled Baseline Profile delivery and capture/run separation
+
+- [x] Extend `test-android-baseline-profile.sh` to check the dedicated `nonMinifiedRelease` capture variant and the optimized `benchmarkRelease` R8/resource-shrinking configuration.
+- [x] Guard the AndroidX ProfileInstaller dependency used by the app.
+- [x] Guard the workflow's inspection of the compiled `assets/dexopt/baseline.prof`, requiring a non-empty artifact below 1.5 MiB rather than confusing the checked-in text source with the compiled ART profile.
+- [x] Guard the phone runner's separate `install-profile` capture step and optimized benchmark APK selection, plus the explicit instruction that newly collected text rules are not inserted into an already-built APK.
+- [x] Re-fetch the updated test from GitHub and confirm all assertions match the current Android build, workflow and runner source.
+- The full shell regression was not executed because a complete local checkout is not available through this GitHub integration. No Gradle task, build, CI, APK packaging, profile collection or device measurement was run.
+
