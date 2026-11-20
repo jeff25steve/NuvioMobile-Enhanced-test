@@ -89,6 +89,7 @@ fun DetailPosterRailSection(
                     item = cardItem,
                     useLandscapeBackdropMode = landscape,
                     showLandscapeOverlay = false,
+                    posterCardStyle = posterCardStyle,
                     isWatched = WatchingState.isPosterWatched(
                         watchedKeys = watchedKeys,
                         item = item,
