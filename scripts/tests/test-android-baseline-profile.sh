@@ -5,8 +5,11 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 PROFILE_SOURCE="$ROOT_DIR/androidApp/src/main/baseline-prof.txt"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
+ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
+PHONE_WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
+PHONE_RUNNER_SOURCE="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
 
-for source in "$PROFILE_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+for source in "$PROFILE_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$ANDROID_BUILD_SOURCE" "$PHONE_WORKFLOW_SOURCE" "$PHONE_RUNNER_SOURCE"; do
   [ -s "$source" ] || {
     echo "FAIL: required Baseline Profile source is missing or empty: $source" >&2
     exit 1
@@ -85,4 +88,39 @@ grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 
-printf 'PASS: Baseline Profile artifact integrity, startup/browse separation and comparison arms are guarded.\n'
+
+# The checked-in profile text is not the compiled profile installed by ART.
+# Protect the separate capture/run variants and the packaged binary inspection.
+grep -Fq 'create("nonMinifiedRelease")' "$ANDROID_BUILD_SOURCE" || {
+  echo "FAIL: readable profile collection must use the dedicated nonMinifiedRelease variant." >&2
+  exit 1
+}
+benchmark_variant_block="$(sed -n '/create("benchmarkRelease") {/,/^[[:space:]]*}/p' "$ANDROID_BUILD_SOURCE")"
+printf '%s\n' "$benchmark_variant_block" | grep -Fq 'isMinifyEnabled = true' &&
+  printf '%s\n' "$benchmark_variant_block" | grep -Fq 'isShrinkResources = true' || {
+  echo "FAIL: the measured benchmarkRelease variant must retain R8 and resource shrinking." >&2
+  exit 1
+}
+grep -Fq 'implementation(libs.androidx.profileinstaller)' "$ANDROID_BUILD_SOURCE" || {
+  echo "FAIL: the app must retain AndroidX ProfileInstaller for packaged Baseline Profile delivery." >&2
+  exit 1
+}
+grep -Fq 'assets/dexopt/baseline.prof' "$PHONE_WORKFLOW_SOURCE" &&
+  grep -Fq 'profile_bytes < 1572864' "$PHONE_WORKFLOW_SOURCE" &&
+  grep -Fq 'profile_bytes > 0' "$PHONE_WORKFLOW_SOURCE" || {
+  echo "FAIL: the APK workflow must validate the non-empty compiled Baseline Profile and enforce its 1.5 MiB ceiling." >&2
+  exit 1
+}
+grep -Fq 'install-profile:full' "$PHONE_RUNNER_SOURCE" &&
+  grep -Fq 'Nuvio-$FLAVOR-NonMinifiedRelease.apk' "$PHONE_RUNNER_SOURCE" &&
+  grep -Fq 'Nuvio-$FLAVOR-BenchmarkRelease.apk' "$PHONE_RUNNER_SOURCE" || {
+  echo "FAIL: phone runner must separate profile-capture installation from optimized benchmark installation." >&2
+  exit 1
+}
+grep -Fq 'A newly collected profile' "$PHONE_WORKFLOW_SOURCE" &&
+  grep -Fq 'is not inserted into the APK automatically' "$PHONE_WORKFLOW_SOURCE" || {
+  echo "FAIL: bundle instructions must state that collected text rules require a new packaged build." >&2
+  exit 1
+}
+
+printf 'PASS: Baseline Profile text integrity, capture/run variants, packaged profile delivery and comparison arms are guarded.\n'
