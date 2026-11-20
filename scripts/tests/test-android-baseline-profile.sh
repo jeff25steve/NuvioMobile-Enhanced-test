@@ -97,13 +97,13 @@ for benchmark_case in \
   startupNoCompilation \
   startupPartialWithoutBaselineProfile \
   startupWithBaselineProfile; do
-  printf '%s\\n' "$desktop_metric_check" | grep -Fq "$benchmark_case" || {
+  printf '%s\n' "$desktop_metric_check" | grep -Fq "$benchmark_case" || {
     echo "FAIL: desktop runner must require the '$benchmark_case' result before summarizing a flavor." >&2
     exit 1
   }
 done
 for metric in timeToInitialDisplayMs timeToFullDisplayMs artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do
-  printf '%s\\n' "$desktop_metric_check" | grep -Fq "$metric" || {
+  printf '%s\n' "$desktop_metric_check" | grep -Fq "$metric" || {
     echo "FAIL: desktop runner must validate '$metric' for all three startup cases." >&2
     exit 1
   }
