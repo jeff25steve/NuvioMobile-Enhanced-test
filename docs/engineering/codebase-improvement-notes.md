@@ -6805,3 +6805,22 @@ No app-icon selection behavior, manifest configuration, icon resource, UI or oth
 - Ran an isolated AWK harness mirroring the updated timing parser: a complete 30-row dataset was accepted; malformed MainAppContent duration, an over-budget combined post-Home duration, and a total shorter than its stage sum were rejected.
 - These focused checks do not substitute for `test-android-startup-readiness.sh`, `test-android-startup-metric-contract.sh`, `test-nuvio-phone-benchmark.sh`, or Java compilation. The full committed scripts and Java compilation remain unverified because a complete local checkout is unavailable.
 - No Gradle task, build, CI, instrumentation or physical-device benchmark was started.
+
+
+## Android benchmark — remove arbitrary Home browse scroll ceiling (Cycle 87, 20 November 2026)
+
+The Baseline Profile Home-browse journey used a six-attempt loop around `UiObject2.scroll()` to reveal the catalogue shelf. That creates a fixed 4.5-viewport maximum regardless of the actual Home feed length. A populated or customized feed can place the tagged shelf farther down, causing profile collection to fail even though the scroll container remains scrollable.
+
+Replaced that attempt-count loop with AndroidX Test UI Automator 2.4.1's `UiObject2Ext.scrollToElement`, which polls an accessibility-node predicate while scrolling and has an explicit timeout/poll interval. The predicate requires the exact catalogue/Home marker resource ID (allowing either the bare tag or Android's package-qualified `.../id` form) and `isVisibleToUser()`. After the call, the existing stricter `StartupReadiness.targetMarker` path still verifies the node belongs to Nuvio in the active window and has non-empty clipped visible bounds. Thus the new subtree search cannot by itself satisfy the journey when another app/window owns focus or the marker is clipped away.
+
+The existing `scrollRequired` actions for deliberate vertical/horizontal profile interactions remain on `UiObject2.scroll`; its return value still means whether more scrolling is possible in that direction, not whether the gesture moved. Their behavior was not changed.
+
+### Evidence and verification boundary
+
+- The dependency catalog pins `androidx.test.uiautomator:uiautomator:2.4.1`. Android's official 2.4.1 release notes date that stable release to 4 November 2026, and the official `UiObject2Ext` reference documents `scrollToElement(receiver, direction, timeoutMs, pollIntervalMs, block)` as a 2.4.1 API.
+- Context7 resolved AndroidX Test but returned stale 1.3.x API files for the scroll signatures; that result was not used as version authority. Exa search and the official Android Developers API reference were used to confirm the 2.4.1 API.
+- A focused shell-contract fixture was first run against the old helper and failed because the 2.4.1 API contract was absent (expected RED). The updated isolated guard fixture passed and `sh -n` accepted its shell syntax (GREEN).
+- Full repository shell tests and Java compilation were not run because no local repository checkout is available. No Gradle task, build, CI, instrumentation, Baseline Profile collection or physical-device benchmark was started. This change improves generation-path resilience only; no runtime performance improvement is claimed.
+- Scope is limited to the profile-collection helper, its existing startup-readiness regression guard, and these engineering notes.
+
+References: [AndroidX Test UI Automator 2.4.1 release notes](https://developer.android.com/jetpack/androidx/releases/test-uiautomator) · [UiObject2Ext API reference](https://developer.android.com/reference/androidx/test/uiautomator/UiObject2Ext) · [UiObject2 API reference](https://developer.android.com/reference/androidx/test/uiautomator/UiObject2)

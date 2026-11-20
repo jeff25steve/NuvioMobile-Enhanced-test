@@ -193,3 +193,20 @@
 - Fixed the escaped-newline shell guard formatting found during remote diff review (commit `cbe2f8fe7043d091a132a1b9ef1cde34d8823547`).
 - Focused verification: corrected guard excerpt passed `sh -n`; an isolated AWK harness accepted all 30 valid records and rejected malformed MainAppContent duration, post-Home budget overflow, and inconsistent totals.
 - Full repository shell tests and Java compilation were not run; no build, CI or device benchmark was started.
+
+
+## Additional review cycle — 20 November 2026
+
+### Cycle 87 — use AndroidX 2.4.1 scroll-to-condition for Home browse profile collection
+
+- [x] Confirm the actual pinned dependency is UI Automator 2.4.1.
+- [x] Verify from the official Android Developers reference that 2.4.1 adds `UiObject2Ext.scrollToElement` with a timeout, poll interval and accessibility-node predicate.
+- [x] Replace the fixed six-gesture ceiling in `HomeBrowseReadiness.scrollUntilMarker` with the 2.4.1 condition-driven scroll API.
+- [x] Require the target Compose test-tag resource ID and a visible-to-user accessibility node, then retain active-window/package ownership and clipped-visible-bounds verification after scrolling.
+- [x] Keep deliberate `scrollRequired` gestures unchanged because the existing `UiObject2.scroll` end-of-scroll semantics are correct.
+- [x] Add regression assertions for the new API, visible resource-ID predicate, preserved active-window bounds check and removal of the fixed attempt ceiling.
+- [x] Exercise the focused regression guard against the previous helper shape (expected failure/RED).
+- [x] Exercise the updated isolated guard fixture and shell syntax check (GREEN).
+- Full committed shell tests and Java compilation remain unrun; no Gradle task, build, CI, instrumentation, profile collection or physical-device benchmark was authorized.
+- No launch-time or profile-coverage improvement is claimed until a profile collection run is explicitly authorized and succeeds.
+

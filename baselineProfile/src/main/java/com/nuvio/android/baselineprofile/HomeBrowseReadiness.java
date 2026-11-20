@@ -1,10 +1,12 @@
 package com.nuvio.android.baselineprofile;
 
 import android.graphics.Rect;
+import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.test.uiautomator.Direction;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObject2Ext;
 
 /**
  * UI Automator actions for the Home browse Baseline Profile journey.
@@ -12,8 +14,8 @@ import androidx.test.uiautomator.UiObject2;
  * remain centralized in StartupReadiness.
  */
 final class HomeBrowseReadiness {
-    private static final int MAX_SCROLL_ATTEMPTS = 6;
     private static final float SCROLL_PERCENT = 0.75f;
+    private static final long MARKER_POLL_INTERVAL_MS = 100L;
 
     private HomeBrowseReadiness() {}
 
@@ -37,27 +39,29 @@ final class HomeBrowseReadiness {
                             + StartupReadiness.diagnostics(device));
         }
 
-        for (int attempt = 0; attempt < MAX_SCROLL_ATTEMPTS; attempt++) {
-            if (markerHasVisibleBounds(device, targetMarker)) {
-                return;
-            }
-            UiObject2 scrollable = requireScrollable(device, scrollMarker, journeyStep);
-            try {
-                if (!scrollable.scroll(direction, SCROLL_PERCENT)) {
-                    break;
-                }
-            } catch (RuntimeException scrollFailure) {
-                throw scrollFailure(scrollFailure, direction, journeyStep, device);
-            }
-        }
-        if (markerHasVisibleBounds(device, targetMarker)) {
-            return;
+        UiObject2 scrollable = requireScrollable(device, scrollMarker, journeyStep);
+        try {
+            // AndroidX 2.4.1 polls the accessibility subtree while scrolling, rather
+            // than limiting long Home feeds to an arbitrary number of gestures.
+            UiObject2Ext.scrollToElement(
+                    scrollable,
+                    direction,
+                    StartupReadiness.HOME_BROWSE_MARKER_TIMEOUT_MS,
+                    MARKER_POLL_INTERVAL_MS,
+                    node -> isVisibleTargetMarker(node, targetMarker));
+        } catch (RuntimeException scrollFailure) {
+            throw scrollFailure(scrollFailure, direction, journeyStep, device);
         }
 
-        throw new AssertionError(
-                "Home browse journey could not reveal selector '" + targetMarker
-                        + "' by scrolling " + journeyStep + " " + direction + "."
-                        + StartupReadiness.diagnostics(device));
+        // The subtree predicate is not a substitute for our stricter active-window,
+        // target-package and clipped-visible-bounds checks.
+        if (!markerHasVisibleBounds(device, targetMarker)) {
+            throw new AssertionError(
+                    "Home browse journey found selector '" + targetMarker
+                            + "' while scrolling " + journeyStep + " " + direction
+                            + ", but it is not visibly exposed in the target active window."
+                            + StartupReadiness.diagnostics(device));
+        }
     }
 
     static void scrollRequired(
@@ -87,6 +91,14 @@ final class HomeBrowseReadiness {
         } catch (RuntimeException scrollFailure) {
             throw scrollFailure(scrollFailure, direction, journeyStep, device);
         }
+    }
+
+    private static boolean isVisibleTargetMarker(
+            AccessibilityNodeInfo node, String targetMarker) {
+        if (!node.isVisibleToUser()) return false;
+        String resourceName = node.getViewIdResourceName();
+        return targetMarker.equals(resourceName)
+                || (resourceName != null && resourceName.endsWith("/" + targetMarker));
     }
 
     private static UiObject2 requireScrollable(

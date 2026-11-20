@@ -339,7 +339,12 @@ grep -Fq 'static void scrollUntilMarker(' "$HOME_BROWSE_READINESS_SOURCE" && \
 }
 grep -Fq 'StartupReadiness.targetMarker(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
   grep -Fq 'scrollable.isScrollable()' "$HOME_BROWSE_READINESS_SOURCE" && \
-  grep -Fq 'scrollable.scroll(direction, SCROLL_PERCENT)' "$HOME_BROWSE_READINESS_SOURCE" || {
+  grep -Fq 'UiObject2Ext.scrollToElement(' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'node.isVisibleToUser()' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'node.getViewIdResourceName()' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'resourceName.endsWith("/" + targetMarker)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'scrollable.scroll(direction, SCROLL_PERCENT)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  ! grep -Fq 'MAX_SCROLL_ATTEMPTS' "$HOME_BROWSE_READINESS_SOURCE" || {
   echo "FAIL: Home browse must re-resolve package-owned scroll nodes and verify scrollability." >&2
   exit 1
 }
