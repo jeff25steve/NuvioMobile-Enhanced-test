@@ -17,17 +17,14 @@ class DuplicateSafeLazyKeysTest {
     @Test
     fun `key cache reuses one projection for the same source instance`() {
         val source = listOf("duplicate", "other", "duplicate")
-        val cache = DuplicateSafeLazyKeysCache<String> { it }
         var keyCalls = 0
+        val cache = DuplicateSafeLazyKeysCache<String> { value ->
+            keyCalls += 1
+            value
+        }
 
-        val first = cache.getOrCreate(source) { value ->
-            keyCalls += 1
-            value
-        }
-        val second = cache.getOrCreate(source) { value ->
-            keyCalls += 1
-            value
-        }
+        val first = cache.getOrCreate(source)
+        val second = cache.getOrCreate(source)
 
         assertSame(first, second)
         assertEquals(3, keyCalls)
