@@ -317,4 +317,54 @@ class StreamParserTest {
         assertEquals(null, stream.youTubeIdToResolve)
         assertEquals("https://example.com/video.mp4", stream.playableDirectUrl)
     }
+
+    @Test
+    fun `parse ignores non-primitive optional values without dropping a valid stream`() {
+        val stream = StreamParser.parse(
+            payload = """
+                {
+                  "streams": [{
+                    "url": "https://example.com/video.mp4",
+                    "name": {"unexpected": "object"},
+                    "description": ["unexpected"],
+                    "fileIdx": {"unexpected": 1},
+                    "sources": ["udp://tracker.example", {"unexpected": "object"}, null],
+                    "clientResolve": {
+                      "type": {"unexpected": "object"},
+                      "fileIdx": [],
+                      "sources": ["udp://nested.example", {"unexpected": "object"}],
+                      "stream": {
+                        "raw": {
+                          "parsed": {
+                            "seasons": [1, {"unexpected": 2}, 3],
+                            "episodes": [2, {"unexpected": 3}, 4]
+                          }
+                        }
+                      }
+                    },
+                    "behaviorHints": {
+                      "bingeGroup": {"unexpected": "object"},
+                      "videoSize": [],
+                      "notWebReady": {"unexpected": "object"}
+                    }
+                  }]
+                }
+            """.trimIndent(),
+            addonName = "Addon",
+            addonId = "addon.id",
+        ).single()
+
+        assertEquals(null, stream.name)
+        assertEquals(null, stream.description)
+        assertEquals(null, stream.fileIdx)
+        assertEquals(listOf("udp://tracker.example"), stream.sources)
+        assertEquals(null, stream.clientResolve?.type)
+        assertEquals(null, stream.clientResolve?.fileIdx)
+        assertEquals(listOf("udp://nested.example"), stream.clientResolve?.sources)
+        assertEquals(listOf(1, 3), stream.clientResolve?.stream?.raw?.parsed?.seasons)
+        assertEquals(listOf(2, 4), stream.clientResolve?.stream?.raw?.parsed?.episodes)
+        assertEquals(null, stream.behaviorHints.bingeGroup)
+        assertEquals(null, stream.behaviorHints.videoSize)
+        assertFalse(stream.behaviorHints.notWebReady)
+    }
 }
