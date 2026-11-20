@@ -86,7 +86,7 @@ class SelectiveBufferedDataSourceTest {
 
         override fun open(dataSpec: DataSpec): Long {
             openedUri = dataSpec.uri
-            return C.LENGTH_UNSET
+            return C.LENGTH_UNSET.toLong()
         }
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int = C.RESULT_END_OF_INPUT

@@ -239,7 +239,7 @@ internal fun resolveDohAnswers(
     val cancelIpv6 = try {
         startIpv6(completeIpv6)
     } catch (error: Exception) {
-        completeIpv6(Result.failure(error))
+        completeIpv6(Result.failure(error));
         {}
     }
 
