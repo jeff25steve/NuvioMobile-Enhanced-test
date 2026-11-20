@@ -361,5 +361,5 @@ This removes the intermediate all-resources list while retaining the final filte
 ### Evidence and verification boundary
 
 - Context7 checked Kotlin 2.4.10 collection builder and transformation semantics. Exa cross-checked the official [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [collection transformations](https://kotlinlang.org/docs/collection-transformations.html).
-- Regression coverage was committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed; compilation and runtime behavior remain unverified.
+- Regression coverage was added to `main-build-testing` after the production change because the initial file-create request used the repository default branch; that misplaced test file was immediately removed from `enhanced`, then recreated on the target branch with the corrected primitive-only blank-name fixture. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed; compilation and runtime behavior remain unverified.
 - Production source, tests and this existing engineering note were re-fetched from GitHub for static self-review. No independent reviewer agent was available.
