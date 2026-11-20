@@ -76,6 +76,11 @@ fun <T> NuvioShelfSection(
     itemContent: @Composable (T) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    // Key derivation scans the whole row and allocates a wrapper per entry. Keep it
+    // stable across parent recompositions while the row data and key function are unchanged.
+    val keyedEntries = remember(entries, key) {
+        key?.let { entries.withDuplicateSafeLazyKeys(it) }
+    }
     ScreenActivityEffect(state) { active ->
         if (!active) state.stopScroll()
     }
@@ -98,9 +103,9 @@ fun <T> NuvioShelfSection(
             horizontalArrangement = Arrangement.spacedBy(itemSpacing),
             cacheWindow = ShelfRowCacheWindow,
         ) {
-            if (key != null) {
+            if (keyedEntries != null) {
                 items(
-                    items = entries.withDuplicateSafeLazyKeys(key),
+                    items = keyedEntries,
                     key = { entry -> entry.lazyKey },
                 ) { keyedEntry ->
                     if (animatePlacement) {
