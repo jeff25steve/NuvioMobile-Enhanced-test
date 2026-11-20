@@ -468,17 +468,15 @@ object SearchRepository {
         )
     }
 
-    private fun buildSearchRequests(
+    internal fun buildSearchRequests(
         addons: List<ManagedAddon>,
         query: String,
-    ): List<SearchCatalogRequest> =
-        addons.mapNotNull { addon ->
-            val manifest = addon.manifest ?: return@mapNotNull null
-            addon to manifest
-        }.flatMap { (addon, manifest) ->
-            manifest.catalogs
-                .filter { catalog -> catalog.supportsSearch() }
-                .map { catalog ->
+    ): List<SearchCatalogRequest> = buildList {
+        for (addon in addons) {
+            val manifest = addon.manifest ?: continue
+            for (catalog in manifest.catalogs) {
+                if (!catalog.supportsSearch()) continue
+                add(
                     SearchCatalogRequest(
                         addon = addon,
                         catalogId = catalog.id,
@@ -486,9 +484,11 @@ object SearchRepository {
                         type = catalog.type,
                         query = query,
                         supportsPagination = catalog.supportsPagination(),
-                    )
-                }
+                    ),
+                )
+            }
         }
+    }
 
     private fun buildDiscoverSources(addons: List<ManagedAddon>): List<DiscoverCatalogOption> =
         addons.mapNotNull { addon ->
