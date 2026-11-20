@@ -1054,3 +1054,34 @@ This matches Android's Macrobenchmark setup guidance: benchmark a non-debuggable
 - No Kotlin/Compose API or dependency changed in these two follow-up cycles; Context7 was therefore not required for the shell-test-only edits. No new Context7 API claim is made.
 - Exa research was used to check the official Android guidance above. It did not support filtering the generated rules blindly.
 - No shell regression script, Gradle task, build, CI, profile collection, APK packaging, device benchmark or Perfetto capture was run. Remote source was re-fetched for review; this is static verification only.
+
+
+## 20 November 2026 — grouped MainActivity startup tracing (Cycles 92–93)
+
+### Cycle 92 — add coarse Perfetto trace sections without changing startup work
+
+The 79 pre-setContent setup calls remain in their original synchronous order. No initializer was moved, deferred, parallelized, or removed. Added five named android.os.Trace sections around the existing MainActivity onCreate initializer groups:
+
+1. Nuvio.Startup.preSuper — theme, app icon and Sentry setup before super.onCreate.
+2. Nuvio.Startup.identityNetwork — biometric/autosync identity, add-on HTTP/storage, auth and server configuration.
+3. Nuvio.Startup.coreStorage — library/live-TV/cache/watched/meta/Home/player/P2P/external-player setup.
+4. Nuvio.Startup.profileMetadata — profile, discovery, presentation, ratings, debrid and metadata/tracking storage.
+5. Nuvio.Startup.integrationsDownloads — sync providers, feature preferences, notifications, stream caches, plugins, collections, downloads and updater setup.
+
+All five sections execute synchronously on the Activity's main thread. A single private inline helper pairs Trace.beginSection with Trace.endSection in finally, so an initializer exception does not leave an unmatched section. The labels are short constant strings, well below Android's 127-Unicode-code-unit limit. The app minimum SDK is 24; android.os.Trace predates that API level.
+
+This exposes group-level costs in a Perfetto system trace. It does not expose per-initializer timings, prove any one initializer is slow, or itself reduce launch time. Only groups shown to dominate an authorized trace should be split further or considered for a behavior-preserving lazy/deferred path. Sentry remains in the pre-super group and was not delayed.
+
+### Cycle 93 — protect trace pairing and group order
+
+Added scripts/tests/test-android-startup-trace-sections.sh and wired it into the existing test-android-startup-initialization.sh entry point. The source guard checks the Android Trace import, the centralized begin/try/finally/end helper, exactly five expected section labels, their order within onCreate, and the section-name length bound.
+
+The source transformation was statically checked against the fetched pre-change file: all 78 .initialize(...) call lines remain present in the same order. super.onCreate, splash handling, the critical-preload gate and showContent remain outside the added trace wrappers. No UI/readiness behavior or startup dependency ordering changed.
+
+### Research and verification boundary
+
+- Android Developers [Trace API reference](https://developer.android.com/reference/android/os/Trace) documents that synchronous sections require a matching endSection() on the same thread, are nested, and have a 127 Unicode code unit label limit.
+- Android Developers [Define custom events](https://developer.android.com/topic/performance/tracing/custom-events) documents adding app trace labels to correlate app execution with system activity in Perfetto.
+- Context7 did not return an Android SDK API-reference library for android.os.Trace; its closest result was a platform-samples repository, not a versioned API reference. The official Android Developers API reference was used instead. No Android API or dependency version changed.
+- The branch source, regression guard and wiring were re-fetched from GitHub after writing. The focused shell guard and the parent test script were not executed in this remote-only session; Kotlin compilation, Gradle tests, builds, CI, instrumentation, Macrobenchmark and Perfetto capture were not run.
+- No startup performance improvement is claimed. The next justified optimization depends on measured group durations from a representative, authorized trace.
