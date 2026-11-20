@@ -227,3 +227,33 @@ Three small collection paths still performed work that their consumers did not n
 - Regression assertions were committed before their corresponding production changes. They were not executed: no Gradle tests, builds, benchmarks, device runs or CI were started.
 - Production and test files plus this note were re-fetched from GitHub for static review. This was author self-review; no independent reviewer agent was available. No runtime performance percentage or user-visible latency claim is made.
 
+## Home shuffle and Continue Watching data projections — indexed progress and fused filtering (Cycles 107–108, 20 November 2026)
+
+This cycle pair changes only common Kotlin data-processing helpers. No Compose UI source, layout, component, modifier, styling, navigation, interaction or presentation model was changed.
+
+### Cycle 107 — index episode progress once for Home shuffle resume selection
+
+- `applyHomeShuffle` previously scanned the complete progress list separately for each resumable Home item using `progress.filter(...).maxOfOrNull(...)`.
+- Built a lookup of the latest update timestamp per exact parent metadata ID, season and episode in one traversal, then used constant-time map lookups while selecting the latest resumable item per show.
+- Preserved the prior missing-match default of zero, maximum timestamp behavior (including negative timestamps), parent/season/episode identity, group encounter order and the existing `maxBy` tie behavior.
+- Added a regression test with an instrumented progress list. It asserts the same latest episode is selected and that progress is traversed once rather than once per candidate item.
+
+### Cycle 108 — remove intermediate lists from Continue Watching result projection
+
+- The final projection previously built an identity list before converting it to a set, then created two successive filtered lists.
+- Changed identity collection to `mapTo(mutableSetOf())` and combined identity membership with the existing active-progress predicate in one filter pass.
+- Kept the domain selector, identity keys, completion/in-progress predicate, and descending `lastUpdatedEpochMs` sort unchanged.
+- Added coverage combining completed and active entries to pin the visible active-result order.
+
+### UI and behavior boundary
+
+- No UI files were edited. No composable, component, layout, style, animation, navigation or user interaction code was touched.
+- The intended user-facing item selection and ordering remain the same; these are internal data projection changes only. They do not add or remove UI elements or alter their appearance.
+- No measured frame-time, latency or allocation percentage is claimed.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin collection filtering and destination collection operations against the project's pinned Kotlin 2.4.10 line. Exa cross-checked the official [Kotlin collection filtering](https://kotlinlang.org/docs/collection-filtering.html), [collection operations](https://kotlinlang.org/docs/collection-operations.html), and [filterTo API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/filter-to.html) references.
+- Regression tests were committed before their production changes. They were not executed because no test/build execution was authorized. Compilation and runtime behavior therefore remain unverified.
+- The production and test sources and this note were re-fetched from GitHub for static review. This was author self-review; no independent reviewer agent was available.
+
