@@ -8,6 +8,36 @@ import kotlin.test.assertEquals
 
 class SeasonPosterParsingTest {
     @Test
+    fun `keyed season posters keep last numeric alias and skip invalid entries`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "show",
+                "type": "series",
+                "name": "Show",
+                "app_extras": {
+                  "seasonPosters": {
+                    "01": "first.jpg",
+                    "1": " last.jpg ",
+                    "not-a-season": "ignored.jpg",
+                    "2": " ",
+                    "3": null,
+                    "4": {"url": "ignored.jpg"}
+                  },
+                  "seasonPosterByNumber": {
+                    "5": "fallback-must-not-win.jpg"
+                  }
+                }
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(mapOf(1 to "last.jpg"), result.seasonPosters)
+    }
+
+    @Test
     fun `null specials placeholder does not shift regular season posters`() {
         assertEquals(
             mapOf(1 to "season-1.jpg", 2 to "season-2.jpg", 3 to "season-3.jpg"),
