@@ -328,3 +328,38 @@ This removes the intermediate trimmed-string, filtered-string and mapped-person 
 - Exa cross-checked the official Kotlin [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [collection transformations](https://kotlinlang.org/docs/collection-transformations.html). The docs confirm builder population and that map/filter transformations return new collections.
 - Regression coverage was committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed, per the authorization boundary; compilation and runtime behavior remain unverified.
 - Production, test and note files were re-fetched from the target branch for final static review. This is author self-review; no independent reviewer agent was available.
+
+## MetaDetails cast merge — avoid temporary top-level person projection (Cycle 113, 20 November 2026)
+
+The cast parser converted top-level cast names to a temporary `List<MetaPerson>` with `map`, then immediately traversed that list inside `mergePeople`. The merge helper only needs each name to create or enrich the final keyed result.
+
+Changed:
+- Pass the already-parsed top-level cast names directly into `mergePeople`.
+- Append app-extras people, top-level names and linked cast entries in the original precedence order.
+- Keep the existing case-insensitive merge key, first-seen output order, normalized display name, and first-non-null role/photo enrichment behavior.
+- Added a regression test asserting order, case-insensitive duplicate collapse, and preservation of app-extras role/photo metadata.
+
+This removes one intermediate mapped list and its temporary top-level `MetaPerson` instances. The original names list and final merged result remain. No output, metadata precedence, or public API change is intended; no runtime speedup is claimed.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin 2.4.10 collection transformation semantics and iteration-order behavior. Exa cross-checked the official [collection transformations](https://kotlinlang.org/docs/collection-transformations.html) and [collection builders](https://kotlinlang.org/docs/constructing-collections.html) documentation.
+- The new regression test was committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed; compilation and runtime behavior remain unverified.
+- Source, test and notes were re-fetched from GitHub for static self-review. No independent reviewer agent was available.
+
+## Addon manifest resources — single-pass parse and blank-name filtering (Cycle 114, 20 November 2026)
+
+`AddonManifestParser.resources()` previously mapped every manifest resource into an `AddonResource` and then filtered blank names, creating an intermediate list that was immediately discarded.
+
+Changed:
+- Parse each resource and append it directly to a `buildList` only when its name is nonblank.
+- Preserve primitive resource handling, object resource parsing, inherited default types and ID prefixes, explicit per-resource overrides, and original resource order.
+- Added parser coverage for primitive and object resources, blank names, default metadata inheritance and explicit overrides.
+
+This removes the intermediate all-resources list while retaining the final filtered list. It does not change manifest acceptance rules or addon capabilities. No runtime parsing-time or allocation percentage is claimed.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin 2.4.10 collection builder and transformation semantics. Exa cross-checked the official [buildList API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-list.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [collection transformations](https://kotlinlang.org/docs/collection-transformations.html).
+- Regression coverage was committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed; compilation and runtime behavior remain unverified.
+- Production source, tests and this existing engineering note were re-fetched from GitHub for static self-review. No independent reviewer agent was available.
