@@ -68,6 +68,7 @@ class LibraryProviderOrdersTest {
         }
         val orders = observeLibraryProviderOrders(sorter, listOf(firstKey, secondKey), LibrarySortOption.ADDED_DESC)
             .first { it.ranks.size == 2 }
+        assertEquals(listOf(firstKey, secondKey), orders.ranks.keys.toList())
         val sections = listOf(LibrarySection(firstKey, "First", items), LibrarySection(secondKey, "Second", items))
         val sorted = sortLibrarySections(sections, LibrarySortOption.ADDED_DESC, LibrarySourceMode.MDBLIST, orders.ranks)
         assertEquals(listOf("Zulu", "Alpha", "Bravo"), sorted[0].items.map { it.name })
