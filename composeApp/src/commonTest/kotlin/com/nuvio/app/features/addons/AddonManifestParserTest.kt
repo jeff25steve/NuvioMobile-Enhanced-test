@@ -94,7 +94,7 @@ class AddonManifestParserTest {
                       "extra": [
                         null,
                         "bad",
-                        {"name": 42},
+                        {"name": {"bad": true}},
                         {"name": "genre", "options": [1, "action"], "isRequired": "true", "optionsLimit": "2"}
                       ]
                     }
@@ -116,7 +116,7 @@ class AddonManifestParserTest {
         )
         assertEquals(1, manifest.catalogs.size)
         assertEquals(
-            listOf(AddonExtraProperty(name = "genre", isRequired = true, options = listOf("action"), optionsLimit = 2)),
+            listOf(AddonExtraProperty(name = "genre", isRequired = true, options = listOf("1", "action"), optionsLimit = 2)),
             manifest.catalogs.single().extra,
         )
         assertEquals(false, manifest.behaviorHints.configurable)
