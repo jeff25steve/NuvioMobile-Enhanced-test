@@ -387,3 +387,40 @@ Reviewed the live Android Baseline Profile and startup benchmark path across the
 - Cross-checked the API and metric contracts with Context7 and current Android Developers documentation/release notes. Macrobenchmark's StartupTimingMetric supplies TTID and TTFD; its JSON stores per-iteration runs and median/minimum/maximum statistics. The benchmark uses physical-device cold launches and the profile is required explicitly in the profile arm.
 - Re-fetched all changed files and the current branch state after the edits for static review. No build, Gradle task, shell test, CI, instrumentation, profile collection, device benchmark or Perfetto capture was run, as requested. The edits are therefore statically reviewed but not executed or compiled. No runtime startup improvement is claimed.
 - This was a source-level self-review; no independent reviewer agent was used.
+
+## Addon manifest logo URLs — preserve origin for root-relative and scheme-relative paths (Cycle 115, 20 November 2026)
+
+The manifest parser resolves addon-provided logo references against the manifest URL. Its previous root-relative branch derived the host by splitting the already-truncated manifest directory at the first slash. For a normal URL such as `https://addons.example.test/catalogs/addon/manifest.json`, that split returned `https:` rather than the origin, so `/images/logo.png` was incorrectly joined beneath the manifest directory. Scheme-relative references were also always forced to HTTPS instead of inheriting the manifest scheme.
+
+Changed:
+- Extract the manifest origin from the scheme/authority boundary and the directory from the manifest path, after removing query and fragment components from the base URL.
+- Resolve root-relative paths against the origin, ordinary relative paths against the manifest directory, and scheme-relative paths with the manifest's own scheme.
+- Preserve already-absolute HTTP(S) and data URLs unchanged; no URL library, dependency or public API was added.
+- Added regression cases for a nested manifest with a query string and a root-relative logo, plus an HTTP manifest with a scheme-relative CDN logo.
+
+This corrects concrete logo URL construction without changing the manifest transport URL or the resource/catalog parsing rules. The implementation intentionally covers the reference forms already handled by this helper; it does not claim to implement every RFC 3986 dot-segment normalization case.
+
+### Evidence and verification boundary
+
+- Exa checked RFC 3986 URI-reference semantics for root-relative and scheme-relative references. A scheme-relative reference inherits the base URI scheme; a root-relative reference replaces the path while retaining the authority.
+- Context7 was consulted for Ktor URL handling, but its available documentation did not expose a direct common URL-reference resolution API for the exact pinned Ktor 3.4.1. No Ktor API was introduced; the targeted fix uses the existing string-based helper and no new dependency.
+- Regression tests were committed before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed. The new cases and source were re-fetched for static review; compile/runtime verification remains outstanding.
+
+## Stream provider parsing — ignore malformed optional JSON field types (Cycle 116, 20 November 2026)
+
+`StreamParser` consumes JSON supplied by external addons. Its optional-field helpers used kotlinx.serialization's `jsonPrimitive` extension directly. That extension casts and throws when a field is actually a `JsonObject` or `JsonArray`; one malformed optional field (for example an object-valued stream name or array-valued file index) could therefore abort parsing of the entire provider response, including otherwise valid sibling metadata.
+
+Changed:
+- Read optional scalar fields through safe `as? JsonPrimitive` checks before accessing string, integer, long or boolean content.
+- Apply the same safe primitive check to string and integer arrays, skipping only malformed elements while retaining valid entries in their original order.
+- Preserve existing handling of valid primitive values, numeric-string fallback for integer/long fields, blank string filtering, proxy-header parsing and stream selection.
+- Added a regression case containing object/array values across top-level stream fields, client-resolve metadata, parsed season/episode arrays and behavior hints, while asserting the valid stream and valid sibling values remain available.
+
+This is a defensive parsing improvement for untrusted addon responses: malformed optional metadata no longer makes the whole stream list fail. It does not weaken validation of the required top-level JSON object or alter playback eligibility for valid responses.
+
+### Evidence and verification boundary
+
+- Context7 resolved kotlinx.serialization documentation, but the exact pinned 1.10.0 version was not listed in the available version set (1.9.0 and 1.11.0 were available). The official Kotlin JSON-elements documentation confirms that `jsonPrimitive` throws on a mismatched element type and that `JsonPrimitive`, `JsonArray` and `JsonObject` are distinct element types. The fix uses only stable type checks and casts; no dependency or serialization configuration changed.
+- Exa cross-checked the official [Kotlin JSON elements documentation](https://kotlinlang.org/docs/serialization-json-elements.html) and kotlinx.serialization API references for `JsonPrimitive`.
+- Regression coverage was committed before the production helper changes. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed. The source and regression file were re-fetched for static review; compilation and runtime behavior remain unverified.
+
