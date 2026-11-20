@@ -60,6 +60,36 @@ class ShuffleProjectionTest {
     }
 
     @Test
+    fun homeResumeSelectionScansProgressOnlyOnce() {
+        var progressReads = 0
+        val progress = object : AbstractList<WatchProgressEntry>() {
+            override val size: Int = 2
+
+            override fun get(index: Int): WatchProgressEntry {
+                progressReads++
+                return when (index) {
+                    0 -> progressEntry(1, updated = 10)
+                    1 -> progressEntry(2, updated = 20)
+                    else -> error("Unexpected progress index")
+                }
+            }
+        }
+
+        val projected = applyHomeShuffle(
+            items = listOf(item(1), item(2)),
+            profileId = 1,
+            profile = profile,
+            progress = progress,
+            watchedKeys = emptySet(),
+            shuffle = EpisodeShuffle(),
+            visit = 0,
+        ) { videos }
+
+        assertEquals("show:1:2", projected.single().videoId)
+        assertEquals(2, progressReads)
+    }
+
+    @Test
     fun homeReplacesUnairedNextUpAndClearsReleaseAlerts() {
         val projected = home(listOf(item(5, true).copy(released = "2999-01-01", isReleaseAlert = true, isNewSeasonRelease = true)),
             (1..3).map { progress(it, 100f) }).single()
@@ -98,6 +128,13 @@ class ShuffleProjectionTest {
         subtitle = "", imageUrl = null, seasonNumber = 1, episodeNumber = number,
         isNextUp = next, resumePositionMs = if (next) 0 else 30, durationMs = 100,
         progressFraction = if (next) 0f else 0.3f,
+    )
+
+    private fun progressEntry(number: Int, updated: Long) = WatchProgressEntry(
+        contentType = "series", parentMetaId = "show", parentMetaType = "series",
+        title = "Show", videoId = "show:1:$number", seasonNumber = 1, episodeNumber = number,
+        lastPositionMs = 30L, durationMs = 100L, lastUpdatedEpochMs = updated,
+        progressPercent = 30f,
     )
 
     private fun progress(number: Int, percent: Float, updated: Long = 0) = WatchProgressEntry(
