@@ -6824,3 +6824,12 @@ The existing `scrollRequired` actions for deliberate vertical/horizontal profile
 - Scope is limited to the profile-collection helper, its existing startup-readiness regression guard, and these engineering notes.
 
 References: [AndroidX Test UI Automator 2.4.1 release notes](https://developer.android.com/jetpack/androidx/releases/test-uiautomator) · [UiObject2Ext API reference](https://developer.android.com/reference/androidx/test/uiautomator/UiObject2Ext) · [UiObject2 API reference](https://developer.android.com/reference/androidx/test/uiautomator/UiObject2)
+
+
+## Android startup — grouped Activity trace points (Cycles 92–93, 20 November 2026)
+
+Added five coarse android.os.Trace sections around the existing MainActivity.onCreate initializer groups: pre-super theme/icon/Sentry, identity/network, core storage/player, profile/metadata, and integrations/downloads. The sections preserve the original order of all 78 initializer calls and use one try/finally helper to guarantee same-thread begin/end pairing. No initialization was moved or deferred, and Sentry remains eager.
+
+Added scripts/tests/test-android-startup-trace-sections.sh and wired it into test-android-startup-initialization.sh. The guard protects the helper's Trace.beginSection / Trace.endSection pairing, exact group names, group order and Android's label-length limit. Android Developers' Trace API and custom-event guidance support using these sections to identify which synchronous startup group consumes time in Perfetto. Context7 did not expose a versioned Android SDK API reference, so the official Android Developers API docs were used.
+
+This is observability, not a launch-speed optimization or a benchmark result. No initializer reorder is justified until a representative trace shows which group is expensive. GitHub source was re-fetched after changes; committed shell tests, Kotlin compilation, Gradle tasks, builds, CI, instrumentation and Perfetto capture were not run.
