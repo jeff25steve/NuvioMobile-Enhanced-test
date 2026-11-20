@@ -130,13 +130,14 @@ internal fun LazyListScope.libraryVerticalContent(
     onPosterLongClick: ((LibraryItem, LibrarySection) -> Unit)?,
 ) {
     items(
-        items = projection.entries.chunked(columns),
-        key = { rowEntries ->
-            val firstEntry = rowEntries.first()
+        count = projection.rowCount(columns),
+        key = { rowIndex ->
+            val firstEntry = projection.rowAt(rowIndex, columns).first()
             "library-vertical:${firstEntry.item.type}:${firstEntry.item.id}"
         },
         contentType = { "library_poster_row" },
-    ) { rowEntries ->
+    ) { rowIndex ->
+        val rowEntries = projection.rowAt(rowIndex, columns)
         val resolvedItems = remember(rowEntries, posterPattern, releaseInfoFor) {
             rowEntries.map { entry ->
                 entry.item.toMetaPreview()
