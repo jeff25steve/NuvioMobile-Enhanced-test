@@ -1,0 +1,67 @@
+name: Focused Library Catalogue Tests
+
+# Isolated CI branch only; main-build-testing stays manual-only for app builds.
+on:
+  push:
+    branches:
+      - ci/library-catalog-focused-tests-20261120
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library-catalog-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  focused-tests:
+    name: Run LibraryCatalogStateTest on Android host
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Guard against stale main-build-testing source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          comparison="$(curl --fail --silent --show-error --location \
+            --retry 3 --connect-timeout 10 --max-time 30 \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/compare/main-build-testing...${GITHUB_SHA}")"
+          printf '%s' "${comparison}" | python3 -c '
+          import json
+          import sys
+          data = json.load(sys.stdin)
+          base = data.get("base_commit", {}).get("sha")
+          merge_base = data.get("merge_base_commit", {}).get("sha")
+          behind = data.get("behind_by")
+          print(f"main-build-testing HEAD: {base}")
+          print(f"CI merge-base: {merge_base}")
+          print(f"CI branch behind_by: {behind}")
+          if base is None or merge_base != base or behind != 0:
+              raise SystemExit("Refusing to test: CI branch is not based on current main-build-testing.")
+          print("Source freshness check passed.")
+          '
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run focused Library catalogue tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :composeApp:testAndroidHostTest \
+            --tests '*LibraryCatalogStateTest*' \
+            --no-daemon --stacktrace --console=plain
