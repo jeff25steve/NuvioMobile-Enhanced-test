@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,6 +95,8 @@ internal fun AppGate(
     nativeProfileSwitcherController: NativeProfileSwitcherController?,
     appGateController: AppGateController?,
 ) {
+    val currentOnAppReady by rememberUpdatedState(onAppReady)
+
     if (bypassAppGate) {
         MainAppContent(
             initialTab = initialTab,
@@ -251,10 +254,10 @@ internal fun AppGate(
 
     fun reportAppReady(ready: Boolean) {
         appGateController?.reportAppReady(ready)
-        onAppReady?.invoke(ready)
+        currentOnAppReady?.invoke(ready)
     }
 
-    LaunchedEffect(gateScreen, onAppReady) {
+    LaunchedEffect(gateScreen, onAppReady != null) {
         if (gateScreen != AppGateScreen.Main.name) {
             reportAppReady(false)
         }
@@ -541,7 +544,7 @@ internal fun AppGate(
         profileOverlayState.isIdle,
         launchOverlayState.currentState,
         launchOverlayState.isIdle,
-        onAppReady,
+        onAppReady != null,
     ) {
         if (renderMainContent) return@LaunchedEffect
         val overlaysHidden =
@@ -650,7 +653,7 @@ internal fun AppGate(
                                 if (ready) {
                                     contentReadyDuringTransition = true
                                 }
-                                onAppReady?.invoke(
+                                currentOnAppReady?.invoke(
                                     ready && gateScreen == AppGateScreen.Main.name && !profileSelectionLoading,
                                 )
                             },
