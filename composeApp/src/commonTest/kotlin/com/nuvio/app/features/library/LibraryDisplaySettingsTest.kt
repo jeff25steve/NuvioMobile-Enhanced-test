@@ -209,6 +209,47 @@ class LibraryDisplaySettingsTest {
     }
 
     @Test
+    fun `vertical projection rows preserve order and only materialize the requested row`() {
+        val section = LibrarySection(
+            type = "watchlist",
+            displayTitle = "Watchlist",
+            items = (1..8).map { index -> item("item-$index", name = "Title $index") },
+        )
+        val projection = buildLibraryVerticalProjection(
+            sections = listOf(section),
+            sourceMode = LibrarySourceMode.LOCAL,
+            selectedSectionKey = null,
+            selectedType = null,
+            sortOption = LibrarySortOption.ADDED_DESC,
+        )
+
+        assertEquals(3, projection.rowCount(columns = 3))
+        assertEquals(
+            listOf("item-1", "item-2", "item-3"),
+            projection.rowAt(index = 0, columns = 3).map { it.item.id },
+        )
+        assertEquals(
+            listOf("item-7", "item-8"),
+            projection.rowAt(index = 2, columns = 3).map { it.item.id },
+        )
+    }
+
+    @Test
+    fun `vertical projection row access rejects invalid indices and column counts`() {
+        val projection = buildLibraryVerticalProjection(
+            sections = listOf(LibrarySection("watchlist", "Watchlist", listOf(item("one")))),
+            sourceMode = LibrarySourceMode.LOCAL,
+            selectedSectionKey = null,
+            selectedType = null,
+            sortOption = LibrarySortOption.ADDED_DESC,
+        )
+
+        assertEquals(emptyList(), projection.rowAt(index = -1, columns = 3))
+        assertEquals(emptyList(), projection.rowAt(index = 1, columns = 3))
+        assertEquals(0, projection.rowCount(columns = 0))
+    }
+
+    @Test
     fun `display settings payload round trips and invalid values fall back safely`() {
         val state = LibraryDisplaySettingsUiState(
             layoutMode = LibraryLayoutMode.VERTICAL,
