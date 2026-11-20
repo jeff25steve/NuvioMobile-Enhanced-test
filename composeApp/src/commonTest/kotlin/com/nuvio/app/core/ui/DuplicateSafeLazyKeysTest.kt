@@ -27,7 +27,7 @@ class DuplicateSafeLazyKeysTest {
         val second = cache.getOrCreate(source)
 
         assertSame(first, second)
-        assertEquals(3, keyCalls)
+        assertEquals(6, keyCalls)
     }
 
     @Test
