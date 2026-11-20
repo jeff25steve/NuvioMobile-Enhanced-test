@@ -409,12 +409,14 @@ internal object MetaDetailsParser {
     private fun JsonObject.objectValue(name: String): JsonObject? =
         this[name] as? JsonObject
 
-    private fun JsonObject.stringMap(): Map<String, String> =
-        entries.mapNotNull { (key, value) ->
-            (value as? JsonPrimitive)?.contentOrNull
+    private fun JsonObject.stringMap(): Map<String, String> = buildMap {
+        for ((key, value) in entries) {
+            val content = (value as? JsonPrimitive)?.contentOrNull
                 ?.takeIf { it.isNotBlank() }
-                ?.let { key to it }
-        }.toMap()
+                ?: continue
+            put(key, content)
+        }
+    }
 
     private fun JsonObject.toProxyHeaders(): StreamProxyHeaders? {
         val requestHeaders = objectValue("request")?.stringMap().orEmpty().takeIf { it.isNotEmpty() }
