@@ -187,3 +187,9 @@
 - [x] Extend source guards and fake-instrumentation coverage for malformed MainAppContent timing.
 - AndroidX TTFD remains authoritative; UI Automator timings are post-`startActivityAndWait` diagnostics only.
 - P0 runtime proof remains pending an authorized device capture. No build, CI, instrumentation, Baseline Profile collection or device benchmark was started.
+
+#### Cycle 86 review follow-up
+
+- Fixed the escaped-newline shell guard formatting found during remote diff review (commit `cbe2f8fe7043d091a132a1b9ef1cde34d8823547`).
+- Focused verification: corrected guard excerpt passed `sh -n`; an isolated AWK harness accepted all 30 valid records and rejected malformed MainAppContent duration, post-Home budget overflow, and inconsistent totals.
+- Full repository shell tests and Java compilation were not run; no build, CI or device benchmark was started.

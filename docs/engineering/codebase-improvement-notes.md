@@ -6797,3 +6797,11 @@ No app-icon selection behavior, manifest configuration, icon resource, UI or oth
 - AndroidX `ReportDrawnWhen` and `StartupTimingMetric` semantics were checked against the pinned Activity Compose 1.12.2 and Macrobenchmark 1.6.0-alpha02 dependencies via Context7 and official Android Developers guidance via Exa. UI Automator values remain diagnostics after `startActivityAndWait`, not TTID or TTFD.
 - P0 runtime proof remains open: an authorized device capture/Perfetto trace is still required to establish whether the reported Home-ready/fully-drawn discrepancy occurs at runtime. This improves diagnosis; it does not prove a product defect or an app-speed improvement.
 - Verification boundary: GitHub-hosted source was re-fetched and statically checked. A local checkout was unavailable, so the committed regression scripts and Java compilation could not be run. No build, CI, instrumentation or phone benchmark was started.
+
+#### Cycle 86 review and focused verification
+
+- A separate remote diff review caught escaped newline characters in the new startup-readiness shell guard. Corrected the guard to use real shell line breaks in follow-up commit `cbe2f8fe7043d091a132a1b9ef1cde34d8823547`.
+- Ran `sh -n` on the exact corrected guard excerpt: passed.
+- Ran an isolated AWK harness mirroring the updated timing parser: a complete 30-row dataset was accepted; malformed MainAppContent duration, an over-budget combined post-Home duration, and a total shorter than its stage sum were rejected.
+- These focused checks do not substitute for `test-android-startup-readiness.sh`, `test-android-startup-metric-contract.sh`, `test-nuvio-phone-benchmark.sh`, or Java compilation. The full committed scripts and Java compilation remain unverified because a complete local checkout is unavailable.
+- No Gradle task, build, CI, instrumentation or physical-device benchmark was started.
