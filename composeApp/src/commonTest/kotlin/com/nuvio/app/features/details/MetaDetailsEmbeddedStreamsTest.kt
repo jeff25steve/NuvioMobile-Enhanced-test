@@ -11,6 +11,7 @@ class MetaDetailsEmbeddedStreamsTest {
         val first = stream("first")
         val second = stream("second")
         val third = stream("third")
+        val fourth = stream("fourth")
         val meta = MetaDetails(
             id = "show",
             type = "series",
@@ -18,10 +19,11 @@ class MetaDetailsEmbeddedStreamsTest {
             videos = listOf(
                 MetaVideo(id = "show:1:1", title = "Episode 1", streams = listOf(first, second)),
                 MetaVideo(id = "show:1:2", title = "Episode 2", streams = listOf(third)),
+                MetaVideo(id = "show:1:3", title = "Episode 3", streams = listOf(fourth)),
             ),
         )
 
-        assertEquals(listOf(first, second, third), findEmbeddedStreamsForMeta(meta, "show"))
+        assertEquals(listOf(first, second, third, fourth), findEmbeddedStreamsForMeta(meta, "show"))
     }
 
     @Test
