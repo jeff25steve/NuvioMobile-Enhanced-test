@@ -65,3 +65,5 @@ jobs:
           ./gradlew :composeApp:testAndroidHostTest \
             --tests '*LibraryCatalogStateTest*' \
             --no-daemon --stacktrace --console=plain
+
+# A second branch push triggers this workflow after its initial isolated registration.
