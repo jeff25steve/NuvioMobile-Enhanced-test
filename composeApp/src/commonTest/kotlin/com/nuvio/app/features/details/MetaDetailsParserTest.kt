@@ -673,7 +673,7 @@ class MetaDetailsParserTest {
                 ],
                 "trailers": [null, {"key": "trailer-1", "size": {}, "official": []}],
                 "behaviorHints": ["wrong-shape"],
-                "app_extras": {"seasonPosters": [{"bad": true}, "https://example.test/season.jpg"]}
+                "app_extras": {"seasonPosters": ["https://example.test/season.jpg", {"bad": true}]}
               }
             }
             """.trimIndent(),
