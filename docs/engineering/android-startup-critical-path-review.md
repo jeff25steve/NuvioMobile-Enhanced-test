@@ -926,7 +926,7 @@ The video was checked against the current `main-build-testing` sources and the A
 
 ### P1 — pre-first-frame initialization
 
-- MainActivity still performs a large number of `.initialize(applicationContext)` calls before `setContent`. The count is not itself a performance measurement.
+- MainActivity still performs exactly **78 `.initialize(...)` calls** before `setContent` (counted from the current branch source). The count is not itself a performance measurement.
 - Source inspection of representative high-risk initializers found several are context/handle assignments only: P2P engine, P2P settings, episode notification platform, download live-status platform, subtitle cache and external-player platform. The external-player localized string uses `runBlocking` only when `availablePlayers()` is queried, not in its `initialize()` call.
 - Downloads notification-channel creation is already lazy and synchronized; the channel lookup/resource reads are no longer paid during Activity initialization. Download scheduler construction and transfer-store reads are split into the critical and post-frame preload phases. The critical preload overlaps only independent local reads while preserving the shared tracking-provider initialization order.
 - Sentry startup is genuinely eager and performs SDK initialization, but moving it after the first frame would create an unobserved crash-reporting window. No trace demonstrates that this trade is worthwhile. It remains unchanged.
