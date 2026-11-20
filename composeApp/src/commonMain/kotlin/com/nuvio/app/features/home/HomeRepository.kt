@@ -35,10 +35,66 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlin.math.absoluteValue
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlin.time.TimeSource
+
+
+/**
+ * Reuses the expensive custom-poster transformation while the underlying catalog section
+ * and active URL pattern are unchanged. Home publishes progressively as catalog requests
+ * complete, so without this cache every publication remaps every previously loaded poster.
+ */
+internal class HomePosterOverlayCache {
+    private data class Entry(
+        val source: HomeCatalogSection,
+        val pattern: String,
+        val transformed: HomeCatalogSection,
+    )
+
+    private val lock = SynchronizedObject()
+    private val entries = mutableMapOf<String, Entry>()
+
+    fun getOrApply(
+        cacheKey: String,
+        source: HomeCatalogSection,
+        pattern: String,
+        transform: (HomeCatalogSection) -> HomeCatalogSection,
+    ): HomeCatalogSection {
+        val cached = synchronized(lock) {
+            entries[cacheKey]
+                ?.takeIf { it.source === source && it.pattern == pattern }
+                ?.transformed
+        }
+        if (cached != null) return cached
+
+        val transformed = transform(source)
+        return synchronized(lock) {
+            val latest = entries[cacheKey]
+            if (latest?.source === source && latest.pattern == pattern) {
+                latest.transformed
+            } else {
+                entries[cacheKey] = Entry(source, pattern, transformed)
+                transformed
+            }
+        }
+    }
+
+    fun retainKeys(keys: Set<String>) {
+        synchronized(lock) {
+            entries.keys.retainAll(keys)
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            entries.clear()
+        }
+    }
+}
 
 object HomeRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -51,6 +107,7 @@ object HomeRepository {
     private var currentRequestKey: String? = null
     private var currentDefinitions: List<HomeCatalogDefinition> = emptyList()
     private var cachedSections: Map<String, HomeCatalogSection> = emptyMap()
+    private val posterOverlayCache = HomePosterOverlayCache()
     private var cachedCollectionHeroItems: List<MetaPreview> = emptyList()
     private var collectionHeroJob: Job? = null
     private var collectionHeroRequestKey: String? = null
@@ -111,6 +168,7 @@ object HomeRepository {
         currentDefinitions = requests
         val requestCacheKeys = requests.mapTo(mutableSetOf(), HomeCatalogDefinition::cacheKey)
         cachedSections = cachedSections.filterKeys(requestCacheKeys::contains)
+        posterOverlayCache.retainKeys(requestCacheKeys)
         val requestKey = requests.joinToString(separator = "|", transform = HomeCatalogDefinition::cacheKey)
         currentRequestKey = requestKey
 
@@ -123,6 +181,7 @@ object HomeRepository {
             activeJob = null
             activeRequestKey = null
             cachedSections = emptyMap()
+        posterOverlayCache.clear()
             lastErrorMessage = null
             publishCurrentState(
                 isLoading = false,
@@ -302,16 +361,14 @@ object HomeRepository {
         val posterPattern = CustomPosterUrlRepository.patternForScreen(com.nuvio.app.core.poster.CustomPosterScreen.HOME)
         fun HomeCatalogSection.withReleaseFilter(): HomeCatalogSection =
             if (todayIsoDate == null) this else filterReleasedItems(todayIsoDate)
-        fun HomeCatalogSection.withPosterOverlay(): HomeCatalogSection =
-            copy(items = items.reapplyCustomPosterUrls(posterPattern))
-
-        // The overlay is deterministic for one publish. Share its mapped items between
-        // the visible rows and hero candidates, but keep release filtering separate because
-        // its result depends on the current clock.
-        val posterOverlayByCacheKey = mutableMapOf<String, HomeCatalogSection?>()
+        // Reuse the mapped section across progressive publications. The source section is
+        // immutable; identity changes when a fresh catalog result replaces it, while a changed
+        // poster pattern invalidates the cached overlay.
         fun HomeCatalogDefinition.sectionWithPosterOverlay(): HomeCatalogSection? =
-            posterOverlayByCacheKey.getOrPut(cacheKey) {
-                sectionsByCacheKey[cacheKey]?.withPosterOverlay()
+            sectionsByCacheKey[cacheKey]?.let { source ->
+                posterOverlayCache.getOrApply(cacheKey, source, posterPattern) { section ->
+                    section.copy(items = section.items.reapplyCustomPosterUrls(posterPattern))
+                }
             }
 
         val entries = definitions
