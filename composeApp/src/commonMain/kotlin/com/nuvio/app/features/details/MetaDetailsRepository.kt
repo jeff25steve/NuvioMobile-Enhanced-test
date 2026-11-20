@@ -886,6 +886,7 @@ internal fun findEmbeddedStreamsForMeta(
     val prefix = "$videoId:"
 
     var firstVideoWithStreams: MetaVideo? = null
+    var rootStreams: MutableList<com.nuvio.app.features.streams.StreamItem>? = null
     var hasMultipleVideosWithStreams = false
     var episodeMatch: MetaVideo? = null
     var prefixMatch: MetaVideo? = null
@@ -895,8 +896,15 @@ internal fun findEmbeddedStreamsForMeta(
 
         if (firstVideoWithStreams == null) {
             firstVideoWithStreams = video
-        } else {
+        } else if (!hasMultipleVideosWithStreams) {
             hasMultipleVideosWithStreams = true
+            if (videoId == meta.id) {
+                rootStreams = firstVideoWithStreams.streams.toMutableList().apply {
+                    addAll(video.streams)
+                }
+            }
+        } else if (videoId == meta.id) {
+            rootStreams?.addAll(video.streams)
         }
 
         // Keep the existing lookup priority: exact ID, episode coordinates, then prefix.
@@ -919,7 +927,7 @@ internal fun findEmbeddedStreamsForMeta(
 
     val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
     return if (hasMultipleVideosWithStreams) {
-        meta.videos.flatMap { it.streams }
+        rootStreams ?: meta.videos.flatMap { it.streams }
     } else {
         onlyVideoWithStreams.streams
     }
