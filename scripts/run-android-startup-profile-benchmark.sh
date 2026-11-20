@@ -67,15 +67,29 @@ run_gradle_step() {
 require_startup_metrics() {
   local label="$1"
   local log_file="$OUTPUT_DIR/$label.log"
+  local benchmark_case
+  local metric
+  local metric_count
   [[ -s "$log_file" ]] || fail "$label did not produce a Macrobenchmark log."
 
-  for metric in timeToInitialDisplayMs timeToFullDisplayMs; do
-    grep -Fq "$metric" "$log_file" || \
-      fail "$label did not emit $metric; check that its JUnit benchmark cases ran and that the app reported fully drawn."
+  # A successful Gradle task is not enough: make sure all three JUnit
+  # comparison cases were actually reported in this flavor's log.
+  for benchmark_case in \
+    startupNoCompilation \
+    startupPartialWithoutBaselineProfile \
+    startupWithBaselineProfile; do
+    grep -Fq "$benchmark_case" "$log_file" || \
+      fail "$label did not report required startup case '$benchmark_case'."
   done
-  for metric in artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do
-    grep -Fq "$metric" "$log_file" || \
-      fail "$label did not emit $metric; check that AndroidX ArtMetric ran for both startup comparison arms."
+
+  # Every arm must emit the startup timing and ART diagnostics. TTFD is
+  # required because this benchmark targets API 33+, where the product's
+  # fully-drawn reporter is expected to be available.
+  for metric in timeToInitialDisplayMs timeToFullDisplayMs \
+    artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do
+    metric_count="$(grep -Fc "$metric" "$log_file" || true)"
+    [[ "$metric_count" -ge 3 ]] || \
+      fail "$label emitted $metric only $metric_count time(s); expected results for all three startup comparison cases."
   done
 }
 
