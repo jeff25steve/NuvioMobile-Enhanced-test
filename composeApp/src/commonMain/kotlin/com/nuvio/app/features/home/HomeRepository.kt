@@ -181,7 +181,7 @@ object HomeRepository {
             activeJob = null
             activeRequestKey = null
             cachedSections = emptyMap()
-        posterOverlayCache.clear()
+            posterOverlayCache.clear()
             lastErrorMessage = null
             publishCurrentState(
                 isLoading = false,
@@ -288,6 +288,7 @@ object HomeRepository {
         currentRequestKey = null
         currentDefinitions = emptyList()
         cachedSections = emptyMap()
+        posterOverlayCache.clear()
         cachedCollectionHeroItems = emptyList()
         collectionHeroJob?.cancel()
         collectionHeroJob = null
