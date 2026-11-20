@@ -83,6 +83,42 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse merges director and writer names in trimmed first-seen case-sensitive order`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "movie",
+                "type": "movie",
+                "name": "Movie",
+                "director": " Lead Director, Shared, lead director, Shared ",
+                "writer": " Lead Writer, Shared Writer, lead writer ",
+                "app_extras": {
+                  "directors": ["shared", " Extra Director ", " "],
+                  "writers": ["shared writer", " Extra Writer ", " "]
+                },
+                "links": [
+                  {"name": "Shared", "category": "director", "url": "https://example.com/director-1"},
+                  {"name": "Linked Director", "category": "director", "url": "https://example.com/director-2"},
+                  {"name": "Shared Writer", "category": "writer", "url": "https://example.com/writer-1"},
+                  {"name": "Linked Writer", "category": "writer", "url": "https://example.com/writer-2"}
+                ]
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("Lead Director", "Shared", "lead director", "shared", "Extra Director", "Linked Director"),
+            result.director,
+        )
+        assertEquals(
+            listOf("Lead Writer", "Shared Writer", "lead writer", "shared writer", "Extra Writer", "Linked Writer"),
+            result.writer,
+        )
+    }
+
+    @Test
     fun `parse preserves credit category precedence and link order`() {
         val result = MetaDetailsParser.parse(
             """
