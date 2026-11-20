@@ -291,3 +291,22 @@ This removes the intermediate trimmed and filtered lists from CSV metadata parsi
 - Context7 and Exa evidence recorded in Cycle 109 applies to the same pinned Kotlin 2.4.10 collection-builder semantics; this change introduces no new API or dependency.
 - Existing parser regression cases were inspected remotely but not executed. No tests, Gradle tasks, builds, CI, device runs or benchmarks were started.
 - The updated source and active note were re-fetched from GitHub for static review; compilation and runtime behaviour remain unverified.
+
+## StreamParser proxy headers — direct map construction (Cycle 111, 20 November 2026)
+
+`StreamParser` parses provider-supplied proxy request and response headers for selectable stream results. Its `JsonObject.stringMap()` duplicated the same `mapNotNull` → `Pair` list → `toMap` allocation pattern removed from `MetaDetailsParser` in Cycle 109.
+
+Changed:
+- Populate the returned map directly with `buildMap` and `put`, removing the intermediate pair list.
+- Preserve primitive-only values, whitespace-only exclusion, untrimmed header values, exact key casing and source entry order.
+- Added a focused regression case covering multiple headers, blank values, null values and nested-object values, including the retained key order.
+- Existing tests for proxy response headers and forcing `notWebReady` remain unchanged.
+
+This applies the same verified collection-builder approach to the separate stream-provider parsing path. It does not alter stream eligibility, proxy behavior, network requests or header normalization. No runtime performance percentage is claimed.
+
+### Evidence and verification boundary
+
+- Context7 resolved the Kotlin documentation and checked `buildMap` common standard-library semantics for the project's Kotlin 2.4.10 line.
+- Exa cross-checked official Kotlin [buildMap API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-map.html), [collection transformations](https://kotlinlang.org/docs/collection-transformations.html), [mapNotNull API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/map-not-null.html) and [collection builders](https://kotlinlang.org/docs/constructing-collections.html). These confirm direct builder population and that `mapNotNull` returns a separate list.
+- Regression coverage was added before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed, per the authorization boundary; compilation and runtime behavior remain unverified.
+- Final source, test and existing engineering notes were re-fetched from GitHub and statically reviewed. This was author self-review; no independent reviewer agent was available.
