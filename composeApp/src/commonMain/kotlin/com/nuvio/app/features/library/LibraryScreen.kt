@@ -164,6 +164,7 @@ import com.nuvio.app.features.cloud.CloudLibraryRepository
 import com.nuvio.app.features.cloud.CloudLibraryUiState
 import com.nuvio.app.features.cloud.cloudLibraryHasActiveFilters
 import com.nuvio.app.features.cloud.effectiveCloudLibraryProviderId
+import com.nuvio.app.features.cloud.projectCloudLibraryItems
 import com.nuvio.app.features.cloud.reconcileCloudLibrarySelectedItemKey
 import com.nuvio.app.features.cloud.TorboxCloudConnectDialog
 import com.nuvio.app.core.ui.DialogButton
@@ -1370,29 +1371,21 @@ private fun LazyListScope.cloudLibraryContent(
                 selectedProviderId = selectedProviderId,
                 providers = uiState.providers,
             )
-            val providerItems = uiState.items
-                .filter { item -> effectiveSelectedProviderId == null || item.providerId == effectiveSelectedProviderId }
-            val availableTypes = providerItems
-                .map { item -> item.type }
-                .distinct()
-                .sortedBy { type -> type.ordinal }
-            val effectiveSelectedType = selectedType?.takeIf { type -> type in availableTypes }
-            val typeFilteredItems = providerItems
-                .filter { item -> effectiveSelectedType == null || item.type == effectiveSelectedType }
-            val trimmedQuery = searchQuery.trim()
+            val filterProjection = projectCloudLibraryItems(
+                providers = uiState.providers,
+                selectedProviderId = effectiveSelectedProviderId,
+                selectedType = selectedType,
+                searchQuery = searchQuery,
+            )
+            val availableTypes = filterProjection.availableTypes
+            val effectiveSelectedType = filterProjection.effectiveSelectedType
+            val trimmedQuery = filterProjection.trimmedQuery
             val hasActiveFilter = cloudLibraryHasActiveFilters(
                 selectedProviderId = effectiveSelectedProviderId,
                 selectedType = effectiveSelectedType,
                 searchQuery = trimmedQuery,
             )
-            val filteredItems = if (trimmedQuery.isEmpty()) {
-                typeFilteredItems
-            } else {
-                typeFilteredItems.filter { item ->
-                    item.name.contains(trimmedQuery, ignoreCase = true) ||
-                        item.files.any { file -> file.name.contains(trimmedQuery, ignoreCase = true) }
-                }
-            }
+            val filteredItems = filterProjection.filteredItems
             val selectedItem = filteredItems.firstOrNull { it.stableKey == selectedCloudItemKey }
 
             if (selectedItem != null) {

@@ -144,12 +144,60 @@ data class CloudLibraryUiState(
         get() = providers.isNotEmpty()
 }
 
+internal data class CloudLibraryFilterProjection(
+    val availableTypes: List<CloudLibraryItemType>,
+    val effectiveSelectedType: CloudLibraryItemType?,
+    val trimmedQuery: String,
+    val filteredItems: List<CloudLibraryItem>,
+)
+
+internal fun projectCloudLibraryItems(
+    providers: List<CloudLibraryProviderState>,
+    selectedProviderId: String?,
+    selectedType: CloudLibraryItemType?,
+    searchQuery: String,
+): CloudLibraryFilterProjection {
+    // Read the nested provider lists directly; CloudLibraryUiState.items would
+    // flatten them into a fresh list on every filter update.
+    val availableTypeSet = mutableSetOf<CloudLibraryItemType>()
+    for (provider in providers) {
+        if (selectedProviderId != null && provider.providerId != selectedProviderId) continue
+        for (item in provider.items) availableTypeSet += item.type
+    }
+
+    val effectiveSelectedType = selectedType?.takeIf { it in availableTypeSet }
+    val trimmedQuery = searchQuery.trim()
+    val filteredItems = ArrayList<CloudLibraryItem>()
+    for (provider in providers) {
+        if (selectedProviderId != null && provider.providerId != selectedProviderId) continue
+        for (item in provider.items) {
+            if (effectiveSelectedType != null && item.type != effectiveSelectedType) continue
+            if (trimmedQuery.isNotEmpty() &&
+                !item.name.contains(trimmedQuery, ignoreCase = true) &&
+                item.files.none { file -> file.name.contains(trimmedQuery, ignoreCase = true) }
+            ) continue
+            filteredItems.add(item)
+        }
+    }
+
+    return CloudLibraryFilterProjection(
+        availableTypes = availableTypeSet.sortedBy { type -> type.ordinal },
+        effectiveSelectedType = effectiveSelectedType,
+        trimmedQuery = trimmedQuery,
+        filteredItems = filteredItems,
+    )
+}
+
 internal fun reconcileCloudLibrarySelectedItemKey(
     selectedItemKey: String?,
     uiState: CloudLibraryUiState,
 ): String? {
     if (selectedItemKey == null || !uiState.isLoaded || uiState.isRefreshing) return selectedItemKey
-    return selectedItemKey.takeIf { key -> uiState.items.any { item -> item.stableKey == key } }
+    return selectedItemKey.takeIf { key ->
+        uiState.providers.any { provider ->
+            provider.items.any { item -> item.stableKey == key }
+        }
+    }
 }
 
 
