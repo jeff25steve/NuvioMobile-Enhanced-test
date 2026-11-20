@@ -196,7 +196,7 @@ class NuvioDnsTest {
             },
             startIpv6 = { complete ->
                 ipv6Started = true
-                complete(Result.success(ipv6))
+                complete(Result.success(ipv6));
                 {}
             },
         )
@@ -218,7 +218,7 @@ class NuvioDnsTest {
                 )
             },
             startIpv6 = { complete ->
-                complete(Result.failure(IOException("AAAA lookup failed")))
+                complete(Result.failure(IOException("AAAA lookup failed")));
                 {}
             },
         )
