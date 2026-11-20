@@ -374,11 +374,16 @@ Reviewed the live Android Baseline Profile and startup benchmark path across the
 - Hardened the desktop runner's result gate so each flavor log must contain all three JUnit case names and at least three occurrences of each expected TTID, TTFD and ART metric before the run is summarized.
 - Corrected the workflow-generated `START-HERE.txt`, which previously described only the no-compilation and profile-enabled arms. It now documents the middle partial-without-profile arm and three warm-up launches, matching the source and LADB runner.
 - Updated the existing Baseline Profile regression guard to protect desktop-runner case/metric validation and the generated phone instructions. No separate guide was added.
-- The active notes and historical archive are an intentional summary/archive split, not duplicate current documentation; historical entries were retained. No duplicate standalone startup benchmark guide was found.
+- Added a source guard requiring `SentryInitializer.start(application)` exactly once inside the measured `Nuvio.Startup.preSuper` block and before `super.onCreate`, preserving both the trace boundary and early crash-capture ordering.
+- Wired `test-android-startup-initialization.sh` into the existing `test-nuvio-phone-benchmark.sh` aggregator. The initialization guard (including the app-icon and startup-trace checks) was previously present but not reached by that aggregate path; the manual workflow invokes the aggregator, so this closes a real regression-coverage gap.
+- Corrected the Startup Insights version guard to check `androidx-benchmark-macro = "1.6.0-alpha02"` rather than the separate Baseline Profile Gradle plugin alias `androidx-benchmark = "1.5.0"`. No dependency versions were changed.
+- Rechecked the pinned UI Automator 2.4.1 scroll-to-element contract and Activity Compose `ReportDrawnWhen` behavior. The Home browse wait and Activity TTFD bridge use the documented APIs; no source change was warranted.
+- Confirmed the main-manifest `<profileable android:shell="true" />` is intentional for release-like profiling: Android's official Macrobenchmark and profiling guidance requires a profileable target and explicitly describes the low-overhead release configuration. It was not removed from production variants.
+- The active notes and historical archive remain the intentional summary/archive split. The older startup incident log, design documents and implementation plans have distinct historical purposes; no new guide or duplicate notes file was created, and no historical record was deleted.
 
 ### Review and verification boundary
 
 - Checked exact pinned versions: AGP 9.4.0, Gradle 9.8.2, Baseline Profile plugin 1.5.0, Macrobenchmark 1.6.0-alpha02, UI Automator 2.4.1, ProfileInstaller 1.4.1 and Activity 1.12.2.
 - Cross-checked the API and metric contracts with Context7 and current Android Developers documentation/release notes. Macrobenchmark's StartupTimingMetric supplies TTID and TTFD; its JSON stores per-iteration runs and median/minimum/maximum statistics. The benchmark uses physical-device cold launches and the profile is required explicitly in the profile arm.
-- GitHub sources were re-fetched for static review. No build, Gradle task, shell test, CI, instrumentation, profile collection, device benchmark or Perfetto capture was run. The edits are therefore statically reviewed but not executed or compiled. No runtime startup improvement is claimed.
-- This was a source-level review and self-review; no independent reviewer agent was available.
+- Re-fetched all changed files and the current branch state after the edits for static review. No build, Gradle task, shell test, CI, instrumentation, profile collection, device benchmark or Perfetto capture was run, as requested. The edits are therefore statically reviewed but not executed or compiled. No runtime startup improvement is claimed.
+- This was a source-level self-review; no independent reviewer agent was used.
