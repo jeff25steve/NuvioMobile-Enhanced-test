@@ -926,7 +926,7 @@ The video was checked against the current `main-build-testing` sources and the A
 
 ### P1 — pre-first-frame initialization
 
-- MainActivity still performs exactly **78 `.initialize(...)` calls** before `setContent` (counted from the current branch source). The count is not itself a performance measurement.
+- MainActivity performs **78 `.initialize(...)` calls plus `SentryInitializer.start(application)`** before `setContent` in the current branch: 79 setup calls total. The count is not itself a performance measurement.
 - Source inspection of representative high-risk initializers found several are context/handle assignments only: P2P engine, P2P settings, episode notification platform, download live-status platform, subtitle cache and external-player platform. The external-player localized string uses `runBlocking` only when `availablePlayers()` is queried, not in its `initialize()` call.
 - Downloads notification-channel creation is already lazy and synchronized; the channel lookup/resource reads are no longer paid during Activity initialization. Download scheduler construction and transfer-store reads are split into the critical and post-frame preload phases. The critical preload overlaps only independent local reads while preserving the shared tracking-provider initialization order.
 - Sentry startup is genuinely eager and performs SDK initialization, but moving it after the first frame would create an unobserved crash-reporting window. No trace demonstrates that this trade is worthwhile. It remains unchanged.
@@ -966,3 +966,47 @@ The video was checked against the current `main-build-testing` sources and the A
 - [x] Re-fetch the updated test from GitHub and confirm all assertions match the current Android build, workflow and runner source.
 - The full shell regression was not executed because a complete local checkout is not available through this GitHub integration. No Gradle task, build, CI, APK packaging, profile collection or device measurement was run.
 
+
+
+## 20 November 2026 — review of the second Grok startup video
+
+This review corrects the previous P0 assessment where necessary. The video was inspected frame by frame and its seven claims were compared with the current `main-build-testing` source at each implementation step.
+
+### Priority 0 — controller-backed readiness contract (confirmed and fixed)
+
+**Root cause confirmed:** `App()` always calls `AppGate(renderMainContent = true)`. On that normal Main composition path, `AppGate`'s readiness effect intentionally returns early for the externally rendered main content. The `MainAppContent.onRootContentReady` bridge previously forwarded the readiness boolean only to `onAppReady` (the Activity callback); it did not update `AppGateController._appReady`.
+
+This differs from the Activity signal. `MainActivity` does not pass an `AppGateController`, so the video does not establish an Android Activity fully-drawn failure. However, `App()` publicly accepts a non-null controller, and `MainAppContent`'s Party deep-link path awaits `appGateController?.appReady?.first { it }`. A host supplying a controller could therefore wait indefinitely after Main content becomes ready.
+
+**Fix:** the normal Main bridge now calls the existing `reportAppReady(...)` helper rather than invoking only the Activity callback. That helper updates both `AppGateController.reportAppReady` and the latest Activity callback, preserving the same gate/profile-selection conditions. The bypass/externally hosted path already used the controller callback and remains unchanged.
+
+**Regression guard:** `test-android-startup-readiness.sh` now requires the normal Main bridge to call `reportAppReady` and protects the Party deep-link controller wait. The source/test files were re-fetched from GitHub after the changes. The shell script was not run, so this is source-level verification, not a passing test result.
+
+Correction to the previous video review: it was too broad to say the normal Main path had no controller-readiness asymmetry. The Activity callback path was connected, but the separate controller flow was not.
+
+### Priority 1 — synchronous startup setup and critical preload
+
+- The current `MainActivity.onCreate` source contains 78 `.initialize(...)` calls and one `SentryInitializer.start(application)` call before `setContent`: 79 setup calls total. This reconciles the video's count with the earlier count that included only `.initialize` calls.
+- The critical pre-frame preload is not a single tiny operation: it restores profile cache, watched history, watch progress, Continue Watching preferences, Home snapshot and download platform scheduler state. The two tracking-provider repositories remain ordered because they share provider initialization; independent local reads are overlapped.
+- The 5-second Home fallback only removes the visual overlay. It does not set `initialHomeReady`, report Main content ready, or promote Activity fully-drawn. This is intentional and protected by existing source-level regression assertions. If Home never reports a meaningful laid-out item, TTFD remains pending rather than recording a false successful launch.
+- The 79-call count and multi-repository preload are real startup surface area, but neither proves all calls are expensive or safely deferrable. No initializer order was changed without per-operation timing and dependency evidence.
+
+### Priority 2 — generated resource rules and filtering
+
+- Current GitHub tree metadata reports `androidApp/src/main/baseline-prof.txt` at **1,409,345 bytes**. The prior audit records 11,375 unique rules. The video's further figures (3,063 lines containing `generated/`, about 27%) are reported by Grok but were not independently recomputed in this review because GitHub's file-content endpoint does not return this 1.4 MB blob.
+- Both generator journeys still pass `rule -> true`, which is the documented no-filter default. The official Android guidance says package/class filtering is particularly useful for library profiles and recommends the Gradle plugin's package filters over per-collection predicates. It does not say that generated resource accessors in an application profile are inherently invalid or should be excluded.
+- **Concrete diagnostic improvement:** the existing profile-integrity shell audit now reports the number and percentage of rules whose descriptors contain `/generated/`. It does not delete or exclude them. This turns the video's resource-share hypothesis into a repeatable measurement before any curation decision.
+- No filter was added: generated Compose resource accessors may be exercised by the captured journeys, and excluding them without a filtered-vs-unfiltered physical-device comparison could reduce profile coverage or regress performance. A future profile change requires exact rule-origin inspection plus the same Macrobenchmark comparison arms.
+
+### Priority 3 — benchmark signing and production representativeness
+
+- Confirmed: both `benchmarkRelease` and `nonMinifiedRelease` use the `.benchmark` application ID suffix and the debug signing configuration. The source explicitly documents that the variants use a temporary debug signing key and are isolated from production `com.nuvio.media`.
+- This is an intentional safety boundary for phone testing and allows the two benchmark variants to upgrade the same isolated install without touching the production app.
+- These APKs are optimized benchmark artifacts, not production-signed release APKs. The signature itself is not a substitute for a performance comparison; however, the package ID, install state and production signing/release delivery are not identical. Results must be labelled benchmark-variant results, not claimed as measurements of the exact production-signed package.
+- No signing configuration was changed. Using the production signing key for a test-only package would not solve the representativeness distinction and would weaken the isolation boundary.
+
+### Research and verification boundary
+
+- Android documentation: [Configure Baseline Profile generation](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles), [BaselineProfileRule API](https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule), [Baseline Profiles overview](https://developer.android.com/topic/performance/baselineprofiles/overview), and [Compose Multiplatform resources](https://kotlinlang.org/docs/multiplatform/compose-multiplatform-resources-usage.html).
+- Context7 resolved Compose Multiplatform but did not expose the repository's exact pinned `1.13.0-beta01` version; its available version list did not include that beta. The P0 change uses the already-present local helper and does not add or alter Compose APIs/dependencies.
+- No Gradle test, compile, build, CI, APK generation, profile collection, emulator/device run or Perfetto capture was run.
