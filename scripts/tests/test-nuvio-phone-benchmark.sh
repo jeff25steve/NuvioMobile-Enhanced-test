@@ -63,8 +63,8 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
       echo "FAIL: all three comparison cases must retain stable diagnostic journey names." >&2
       exit 1
     }
-    grep -Fq 'androidx-benchmark = "1.5.0"' "$ROOT_DIR/gradle/libs.versions.toml" || {
-      echo "FAIL: Startup Insights usage must be checked against the repository's pinned AndroidX Benchmark version." >&2
+    grep -Fq 'androidx-benchmark-macro = "1.6.0-alpha02"' "$ROOT_DIR/gradle/libs.versions.toml" || {
+      echo "FAIL: Startup Insights usage must be checked against the pinned AndroidX Macrobenchmark API version." >&2
       exit 1
     }
     grep -Fq 'import androidx.benchmark.ExperimentalConfig;' "$source" || {
