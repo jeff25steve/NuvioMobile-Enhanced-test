@@ -185,6 +185,47 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse merges cast names without losing earlier role and photo metadata`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "movie",
+                "type": "movie",
+                "name": "Movie",
+                "cast": "ada, Bob",
+                "app_extras": {
+                  "cast": [
+                    {
+                      "name": "Ada",
+                      "character": "Hero",
+                      "photo": "https://example.com/ada.jpg"
+                    }
+                  ]
+                },
+                "links": [
+                  {
+                    "name": "ADA",
+                    "category": "actor",
+                    "url": "https://example.com/ada"
+                  },
+                  {
+                    "name": "Cara",
+                    "category": "actor",
+                    "url": "https://example.com/cara"
+                  }
+                ]
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf("Ada", "Bob", "Cara"), result.cast.map(MetaPerson::name))
+        assertEquals("Hero", result.cast.first().role)
+        assertEquals("https://example.com/ada.jpg", result.cast.first().photo)
+    }
+
+    @Test
     fun `parse preserves explicit video availability`() {
         val result = MetaDetailsParser.parse(
             """
