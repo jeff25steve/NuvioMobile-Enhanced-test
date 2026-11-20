@@ -72,6 +72,42 @@ class SearchHistoryRepositoryTest {
         assertEquals(listOf("d", "a", "b"), updated)
     }
     @Test
+    fun `normalizeSearchHistoryEntries stops reading after reaching the limit`() {
+        val entries = object : AbstractList<String>() {
+            override val size: Int = 3
+
+            override fun get(index: Int): String = when (index) {
+                0 -> "Dune"
+                1 -> "Arrival"
+                else -> error("Entries after the limit must not be read")
+            }
+        }
+
+        assertEquals(
+            listOf("Dune", "Arrival"),
+            normalizeSearchHistoryEntries(entries = entries, limit = 2),
+        )
+    }
+
+    @Test
+    fun `applySearchHistoryEntry keeps query first and only reads enough existing entries`() {
+        val current = object : AbstractList<String>() {
+            override val size: Int = 3
+
+            override fun get(index: Int): String = when (index) {
+                0 -> "Dune"
+                1 -> "Arrival"
+                else -> error("Entries after the limit must not be read")
+            }
+        }
+
+        assertEquals(
+            listOf("Silo", "Dune", "Arrival"),
+            applySearchHistoryEntry(current = current, query = " Silo ", limit = 3),
+        )
+    }
+
+    @Test
     fun `removeSearchHistoryEntry removes a match ignoring case`() {
         assertEquals(
             listOf("Arrival"),
