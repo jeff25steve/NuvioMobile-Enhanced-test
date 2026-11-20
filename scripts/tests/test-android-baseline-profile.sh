@@ -8,8 +8,9 @@ BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 ANDROID_BUILD_SOURCE="$ROOT_DIR/androidApp/build.gradle.kts"
 PHONE_WORKFLOW_SOURCE="$ROOT_DIR/.github/workflows/android-startup-profile-benchmark.yml"
 PHONE_RUNNER_SOURCE="$ROOT_DIR/scripts/nuvio-phone-benchmark.sh"
+DESKTOP_RUNNER_SOURCE="$ROOT_DIR/scripts/run-android-startup-profile-benchmark.sh"
 
-for source in "$PROFILE_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$ANDROID_BUILD_SOURCE" "$PHONE_WORKFLOW_SOURCE" "$PHONE_RUNNER_SOURCE"; do
+for source in "$PROFILE_SOURCE" "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE" "$ANDROID_BUILD_SOURCE" "$PHONE_WORKFLOW_SOURCE" "$PHONE_RUNNER_SOURCE" "$DESKTOP_RUNNER_SOURCE"; do
   [ -s "$source" ] || {
     echo "FAIL: required Baseline Profile source is missing or empty: $source" >&2
     exit 1
@@ -90,6 +91,40 @@ grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 
+# The desktop runner must not silently summarize a partial JUnit benchmark run.
+desktop_metric_check="$(sed -n '/^require_startup_metrics() {/,/^}/p' "$DESKTOP_RUNNER_SOURCE")"
+for benchmark_case in \
+  startupNoCompilation \
+  startupPartialWithoutBaselineProfile \
+  startupWithBaselineProfile; do
+  printf '%s\\n' "$desktop_metric_check" | grep -Fq "$benchmark_case" || {
+    echo "FAIL: desktop runner must require the '$benchmark_case' result before summarizing a flavor." >&2
+    exit 1
+  }
+done
+for metric in timeToInitialDisplayMs timeToFullDisplayMs artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do
+  printf '%s\\n' "$desktop_metric_check" | grep -Fq "$metric" || {
+    echo "FAIL: desktop runner must validate '$metric' for all three startup cases." >&2
+    exit 1
+  }
+done
+
+# The phone bundle's embedded instructions must describe the same three arms
+# as StartupBenchmark.java and the phone-side validator.
+for expected in \
+  'CompilationMode.None (no pre-compilation).' \
+  'CompilationMode.Partial(BaselineProfileMode.Disable, 3)' \
+  'CompilationMode.Partial(BaselineProfileMode.Require)' \
+  '10 cold launches in each of these three comparison arms'; do
+  grep -Fq "$expected" "$PHONE_WORKFLOW_SOURCE" || {
+    echo "FAIL: generated phone instructions are missing current comparison detail '$expected'." >&2
+    exit 1
+  }
+done
+if grep -Fq 'runs 10 cold launches with CompilationMode.None and 10 with' "$PHONE_WORKFLOW_SOURCE"; then
+  echo "FAIL: generated phone instructions still describe the obsolete two-arm comparison." >&2
+  exit 1
+fi
 
 # The checked-in profile text is not the compiled profile installed by ART.
 # Protect the separate capture/run variants and the packaged binary inspection.
