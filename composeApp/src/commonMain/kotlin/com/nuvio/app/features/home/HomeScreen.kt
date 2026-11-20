@@ -901,27 +901,6 @@ fun HomeScreen(
     val isResolvingHeroSources = addonManifestsLoading || homeUiState.isLoading
     val currentOnFirstCatalogRendered by rememberUpdatedState(onFirstCatalogRendered)
 
-    LaunchedEffect(
-        homeListState,
-        isInitialHomeContentLoading,
-        onFirstCatalogRendered != null,
-    ) {
-        if (currentOnFirstCatalogRendered == null) return@LaunchedEffect
-        // Let the state-driven Home content complete a frame before inspecting
-        // layoutInfo, which always describes the previous completed layout pass.
-        withFrameNanos { }
-        snapshotFlow {
-            val visibleItems = homeListState.layoutInfo.visibleItemsInfo
-            val visibleNonHeroContent = visibleItems.any { item ->
-                item.size > 0 && item.key != "home_hero"
-            }
-            val visibleRealHero = homeUiState.heroItems.isNotEmpty() &&
-                visibleItems.any { item -> item.size > 0 && item.key == "home_hero" }
-            !isInitialHomeContentLoading && (visibleNonHeroContent || visibleRealHero)
-        }.first { contentPresented -> contentPresented }
-        currentOnFirstCatalogRendered?.invoke()
-    }
-
     val visibleCollections = remember(collections) {
         collections.filter { it.folders.isNotEmpty() }
     }
@@ -980,6 +959,27 @@ fun HomeScreen(
         homeCatalogLoading = homeUiState.isLoading,
         homeSourcesLoaded = serversUiState.revision > 0,
     )
+
+    LaunchedEffect(
+        homeListState,
+        isInitialHomeContentLoading,
+        onFirstCatalogRendered != null,
+    ) {
+        if (currentOnFirstCatalogRendered == null) return@LaunchedEffect
+        // Let the state-driven Home content complete a frame before inspecting
+        // layoutInfo, which always describes the previous completed layout pass.
+        withFrameNanos { }
+        snapshotFlow {
+            val visibleItems = homeListState.layoutInfo.visibleItemsInfo
+            val visibleNonHeroContent = visibleItems.any { item ->
+                item.size > 0 && item.key != "home_hero"
+            }
+            val visibleRealHero = homeUiState.heroItems.isNotEmpty() &&
+                visibleItems.any { item -> item.size > 0 && item.key == "home_hero" }
+            !isInitialHomeContentLoading && (visibleNonHeroContent || visibleRealHero)
+        }.first { contentPresented -> contentPresented }
+        currentOnFirstCatalogRendered?.invoke()
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("nuvio_benchmark_home")) {
         val homeSectionPadding = homeSectionHorizontalPaddingForWidth(maxWidth.value)

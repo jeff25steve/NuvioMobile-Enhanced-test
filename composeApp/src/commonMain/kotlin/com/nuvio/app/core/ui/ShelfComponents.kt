@@ -148,7 +148,7 @@ fun NuvioPosterCard(
     val cardWidth = shape.cardWidth(basePosterWidthDp = resolvedPosterCardStyle.widthDp)
     val cardShape = RoundedCornerShape(resolvedPosterCardStyle.cornerRadiusDp.dp)
     val catalogLogoOverlaySize = catalogLogoOverlaySize(
-        basePosterWidthDp = posterCardStyle.widthDp,
+        basePosterWidthDp = resolvedPosterCardStyle.widthDp,
         shape = shape,
     )
     val shouldShowTitleBelow = showTitleBelow && !resolvedPosterCardStyle.hideLabelsEnabled
@@ -171,7 +171,7 @@ fun NuvioPosterCard(
                     onClick = onClick,
                     onLongClick = onLongClick,
                     zoomImageUrl = imageUrl,
-                    zoomCornerRadius = posterCardStyle.cornerRadiusDp.dp,
+                    zoomCornerRadius = resolvedPosterCardStyle.cornerRadiusDp.dp,
                 ),
             contentAlignment = Alignment.Center,
         ) {
