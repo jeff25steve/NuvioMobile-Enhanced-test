@@ -114,11 +114,11 @@ Regression coverage includes both selection policies, interleaved series, exact 
 `cloudLibraryContent` is the `LazyListScope` content builder for the Cloud Library. The search query is an input to the library screen, so each query update recomputes its projection. Previously the path materialized `CloudLibraryUiState.items` through `providers.flatMap`, then allocated additional provider-filtered and type-filtered lists before producing the text-filtered result. `reconcileCloudLibrarySelectedItemKey` separately accessed the same flattening getter to validate the current selection.
 
 Changed:
-- Added `projectCloudLibraryItems`, which reads each provider's existing item list directly. Its first pass collects available types for the effective provider; its second pass builds only the final filtered result.
+- Added `projectCloudLibraryItems`, which reads each provider's existing item list directly. Its first pass collects available types from items whose own `providerId` matches the effective provider; its second pass applies the same item-level provider predicate before building the final filtered result.
 - Kept available-type ordering by enum ordinal, provider/item encounter order, stale selected-type fallback to no type filter, trimmed query behavior, case-insensitive item-name matching and nested-file-name matching.
 - Changed selected-item reconciliation to search provider item lists directly, avoiding a separate flattened list allocation.
 - Kept `CloudLibraryUiState.items` available for existing callers; this hot UI path no longer depends on it.
-- Added common regression cases for provider isolation/order, item-name and file-name search, unavailable selected types, valid type filtering and selection reconciliation.
+- Added common regression cases for provider isolation/order, item-name and file-name search, unavailable selected types, valid type filtering, selection reconciliation, null-key no-iteration behavior and item-level provider ID mismatch.
 
 This removes the full flattened catalog copy and intermediate filter lists from the query-update path, and removes the second flattened copy used by selection validation. The final `filteredItems` list and sorted type list remain because the lazy list and toolbar consume them. No cache keyed by the flattened list was added: that getter creates a fresh list, making it a poor stable memoization key. No user-visible filtering or playback behavior was intentionally changed.
 

@@ -161,16 +161,18 @@ internal fun projectCloudLibraryItems(
     // flatten them into a fresh list on every filter update.
     val availableTypeSet = mutableSetOf<CloudLibraryItemType>()
     for (provider in providers) {
-        if (selectedProviderId != null && provider.providerId != selectedProviderId) continue
-        for (item in provider.items) availableTypeSet += item.type
+        for (item in provider.items) {
+            if (selectedProviderId != null && item.providerId != selectedProviderId) continue
+            availableTypeSet += item.type
+        }
     }
 
     val effectiveSelectedType = selectedType?.takeIf { it in availableTypeSet }
     val trimmedQuery = searchQuery.trim()
     val filteredItems = ArrayList<CloudLibraryItem>()
     for (provider in providers) {
-        if (selectedProviderId != null && provider.providerId != selectedProviderId) continue
         for (item in provider.items) {
+            if (selectedProviderId != null && item.providerId != selectedProviderId) continue
             if (effectiveSelectedType != null && item.type != effectiveSelectedType) continue
             if (trimmedQuery.isNotEmpty() &&
                 !item.name.contains(trimmedQuery, ignoreCase = true) &&

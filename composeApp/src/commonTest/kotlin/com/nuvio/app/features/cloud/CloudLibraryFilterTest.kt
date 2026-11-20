@@ -46,6 +46,28 @@ class CloudLibraryFilterTest {
     }
 
     @Test
+    fun `projection filters item provider ids even when a provider state contains a mismatched item`() {
+        val providers = listOf(
+            provider(
+                DebridProviders.Torbox,
+                listOf(
+                    item(DebridProviders.Torbox, "torbox-item", CloudLibraryItemType.Torrent, "Torbox item"),
+                    item(DebridProviders.Premiumize, "mismatched-item", CloudLibraryItemType.WebDownload, "Other provider item"),
+                ),
+            ),
+        )
+
+        val projection = projectCloudLibraryItems(
+            providers = providers,
+            selectedProviderId = DebridProviders.TORBOX_ID,
+            selectedType = null,
+            searchQuery = "",
+        )
+
+        assertEquals(listOf(CloudLibraryItemType.Torrent), projection.availableTypes)
+        assertEquals(listOf("torbox-item"), projection.filteredItems.map { it.id })
+    }
+    @Test
     fun `projection ignores a selected type unavailable for the selected provider`() {
         val providers = listOf(
             provider(
@@ -141,6 +163,7 @@ class CloudLibraryFilterTest {
         )
         assertNull(findCloudLibraryItemByKey(listOf(first, selected), selectedItemKey = "missing"))
     }
+
     private fun provider(
         provider: com.nuvio.app.features.debrid.DebridProvider,
         items: List<CloudLibraryItem>,
