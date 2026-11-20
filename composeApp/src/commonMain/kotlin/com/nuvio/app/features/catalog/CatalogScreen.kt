@@ -99,6 +99,10 @@ fun CatalogScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by CatalogRepository.uiState.collectAsStateWithLifecycle()
+    val lazyKeyCache = remember {
+        DuplicateSafeLazyKeysCache<MetaPreview> { item -> item.stableKey() }
+    }
+    val keyedCatalogItems = lazyKeyCache.getOrCreate(uiState.items)
     val homeCatalogSettingsUiState by HomeCatalogSettingsRepository.uiState.collectAsStateWithLifecycle()
     val posterCardStyle = rememberPosterCardStyleUiState()
     val networkStatusUiState by NetworkStatusRepository.uiState.collectAsStateWithLifecycle()
@@ -236,7 +240,7 @@ fun CatalogScreen(
                         }
                     } else {
                         items(
-                            items = uiState.items.withDuplicateSafeLazyKeys { item -> item.stableKey() },
+                            items = keyedCatalogItems,
                             key = { item -> item.lazyKey },
                         ) { keyedItem ->
                             val item = keyedItem.value
