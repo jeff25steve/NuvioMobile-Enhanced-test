@@ -126,10 +126,19 @@ object MetaDetailsRepository {
                         fallbackItemType = type,
                         settings = mdbListSettings,
                         settingsFingerprint = metaScreenSettingsFingerprint,
-                        requestJob = requestJob,
                     )
                 }
                 if (!isCurrentLoad(requestKey, requestJob)) return@launchActiveLoad
+                cachedMetaByRequestKey[requestKey] = cachedMetaByRequestKey[requestKey]
+                    ?.copy(
+                        metaScreenMeta = enrichedMeta,
+                        metaScreenSettingsFingerprint = metaScreenSettingsFingerprint,
+                    )
+                    ?: CachedMetaEntry(
+                        baseMeta = cachedBaseMeta,
+                        metaScreenMeta = enrichedMeta,
+                        metaScreenSettingsFingerprint = metaScreenSettingsFingerprint,
+                    )
                 val displayMeta = enrichedMeta.withUnreleasedFilter()
                 if (!isCurrentLoad(requestKey, requestJob)) return@launchActiveLoad
                 _uiState.value = MetaDetailsUiState(meta = displayMeta)
@@ -651,7 +660,6 @@ object MetaDetailsRepository {
                 fallbackItemType = fallbackItemType,
                 settings = mdbListSettings,
                 settingsFingerprint = metaScreenSettingsFingerprint,
-                requestJob = requestJob,
             )
         }
         if (!isCurrentLoad(requestKey, requestJob)) return
@@ -671,7 +679,6 @@ object MetaDetailsRepository {
         fallbackItemType: String,
         settings: com.nuvio.app.features.mdblist.MdbListSettings,
         settingsFingerprint: String,
-        requestJob: Job,
     ): MetaDetails {
         val mdbListEnrichedMeta = withTimeoutOrNull(MDBLIST_ENRICH_TIMEOUT_MS) {
             MdbListMetadataService.enrichMeta(
@@ -690,18 +697,6 @@ object MetaDetailsRepository {
             fallbackItemId = fallbackItemId,
             fallbackItemType = fallbackItemType,
         )
-
-        if (!isCurrentLoad(requestKey, requestJob)) return enrichedMeta
-        cachedMetaByRequestKey[requestKey] = cachedMetaByRequestKey[requestKey]
-            ?.copy(
-                metaScreenMeta = enrichedMeta,
-                metaScreenSettingsFingerprint = settingsFingerprint,
-            )
-            ?: CachedMetaEntry(
-                baseMeta = meta,
-                metaScreenMeta = enrichedMeta,
-                metaScreenSettingsFingerprint = settingsFingerprint,
-            )
 
         return enrichedMeta
     }
