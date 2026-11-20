@@ -11,6 +11,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 
 class LibraryRepositoryTest {
@@ -99,6 +101,25 @@ class LibraryRepositoryTest {
             ),
             membership,
         )
+    }
+
+    @Test
+    fun `metadata-only snapshot revision reuses the item list instance`() {
+        val state = LibraryLocalState()
+        val token = state.beginProfileLoad(profileId = 1).snapshot.token
+        val loaded = assertNotNull(
+            state.completeProfileLoad(
+                token = token,
+                activeProfileId = 1,
+                items = listOf(libraryItem(id = "saved", savedAtEpochMs = 1L)),
+            ),
+        )
+
+        val afterPushCompletion = assertNotNull(state.markPushCompleted(loaded))
+        assertSame(loaded.items, afterPushCompletion.items)
+
+        val afterContentChange = state.upsert(libraryItem(id = "new", savedAtEpochMs = 2L))
+        assertNotSame(afterPushCompletion.items, afterContentChange.items)
     }
 
     @Test
