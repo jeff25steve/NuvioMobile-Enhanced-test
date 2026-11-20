@@ -424,3 +424,45 @@ This is a defensive parsing improvement for untrusted addon responses: malformed
 - Exa cross-checked the official [Kotlin JSON elements documentation](https://kotlinlang.org/docs/serialization-json-elements.html) and kotlinx.serialization API references for `JsonPrimitive`.
 - Regression coverage was committed before the production helper changes. No tests, Gradle tasks, builds, CI, device runs or benchmarks were executed. The source and regression file were re-fetched for static review; compilation and runtime behavior remain unverified.
 
+## Catalog page loads — prevent cancelled and superseded requests from publishing (Cycle 117, 20 November 2026)
+
+The catalog repository runs page requests on `Dispatchers.Default`, but previously identified the active operation only by `CatalogRequest` equality. A forced refresh of the same catalog keeps that key unchanged. The previous job is cancelled, but its `runCatching` converted the cancellation into a failure result; its failure handler could then pass the same-key check and overwrite the new request's loading/results state. The internal Library observer also checked only the request key before and after poster settings were loaded, leaving a same-key replacement window. The repository's active request and job references were plain mutable fields shared between caller and Default-dispatcher code.
+
+Changed:
+- Added request ownership checks that require both the immutable request key and the exact active `Job` identity. A same-key replacement can no longer inherit the previous job's permission to publish.
+- Start jobs lazily, publish the new job reference before starting it, and clear the active reference before cancelling the previous job. This closes the window where a cancelled job could still appear current.
+- Recheck ownership after suspending poster-settings loading and immediately before publishing the page or Library state.
+- Rethrow `CancellationException` from page failure handling rather than converting cancellation into a visible catalog failure.
+- Store the active job and request in AtomicFU atomic references. This makes the cross-dispatcher ownership reads/writes visible and atomic; the pinned catalog already includes AtomicFU 0.32.1, so no dependency was added.
+- Added focused ownership tests for same-key/different-job replacement and changed request keys.
+
+The correction affects cancellation/replacement state handling only. It preserves page requests, pagination offsets, merge/dedupe rules, poster selection and Library state projection. No speed or network-call reduction is claimed.
+
+### Evidence and verification boundary
+
+- The original code path was traced from `load` / `loadMore` through `fetchPage` and `observeInternalLibrary`: cancellation was captured by `runCatching`, and publication was guarded by request equality rather than operation identity.
+- Context7 was queried for the project's pinned AtomicFU API; the version catalog specifies 0.32.1. The available API reference confirms volatile `AtomicRef.value` access and atomic `getAndSet`, which are used for the active request/job slots. Context7's coroutines results were from 1.10.1 because the exact pinned 1.10.2 was not listed.
+- Exa checked the official [Kotlin cancellation guidance](https://kotlinlang.org/docs/cancellation-and-timeouts.html) and kotlinx.coroutines' [CancellationException/runCatching issue](https://github.com/Kotlin/kotlinx.coroutines/issues/1814). Both describe cancellation as control flow that must not be swallowed; the issue also documents why blindly treating every CancellationException as proof of the current job's cancellation is not universally correct. This repository rethrows the caught exception and independently guards request ownership.
+- Added the regression test before the production change. No test, Gradle task, build, CI, device run or benchmark was executed. The test and implementation were re-fetched and statically reviewed; compilation and runtime verification remain outstanding.
+
+## Metadata detail loads — cancel and fence stale addon/server responses (Cycle 118, 20 November 2026)
+
+`MetaDetailsRepository.load` launched addon-backed loads without retaining their jobs. Navigating to another title or calling `clear()` did not stop the previous operation. The normal addon path could then publish its result or fallback error without checking whether its request was still selected. The server-backed path did check `activeRequestKey`, but a sequence such as A → B → A could make an old A job pass the key check again. Enrichment also wrote the shared metadata cache from inside `withContext(Dispatchers.Default)`, even though the cache is an ordinary mutable map owned by the repository's Main-dispatcher workflow.
+
+Changed:
+- Centralized active metadata load creation in a lazy-start helper that cancels the previous job, installs the new job identity and request key, then starts the new job.
+- Added exact job-identity plus request-key checks before addon/server success and failure publication, and after suspending provider resolution, fetch and enrichment operations.
+- Made `clear()` cancel and detach the active job before resetting the request key and UI state, preventing late responses from repopulating a cleared detail screen.
+- Applied the same ownership fence to cached-base enrichment and server-backed details, not only the primary addon request path.
+- Moved the enriched-cache write out of the `Dispatchers.Default` enrichment function and back to the repository's Main-dispatcher continuation after ownership is rechecked. This avoids concurrent mutation of the ordinary metadata cache from the worker dispatcher.
+- Added focused tests proving that the same metadata key cannot authorize a superseded job and that a cleared/changed request is rejected.
+
+This preserves the existing provider priority, timeout values, fallback behavior, metadata cache keys, enrichment settings and detail UI models. It changes which request is allowed to publish; it does not claim faster metadata fetching.
+
+### Evidence and verification boundary
+
+- The source review traced the normal addon path, cached-enrichment path, server-details path, `publishLoadedMeta`, `enrichForMetaScreen` and `clear()`. The stale-publication gap and off-dispatcher cache mutation were visible in those call paths.
+- Context7's kotlinx.coroutines 1.10.1 documentation was checked for cancellation propagation and retrieving the current `Job` from `currentCoroutineContext()`; exact 1.10.2 docs were not available in the resolved version set. The implementation uses the stable `Job` identity contract and lazy coroutine start.
+- Exa checked official Kotlin cancellation guidance and the kotlinx.coroutines issue linked above. A cancelled request must not continue publishing state; ownership checks also cover non-cooperative or already-completed work that returns after a newer request takes ownership.
+- Added the regression test before the production change. No test, Gradle task, build, CI, device run or benchmark was executed. The production source and test were re-fetched for static review; compilation and runtime verification remain outstanding.
+
