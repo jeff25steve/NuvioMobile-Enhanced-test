@@ -169,3 +169,29 @@ Both changes reduce temporary collection materialization while retaining the fin
 - Exa cross-checked the official [Kotlin collection transformations](https://kotlinlang.org/docs/collection-transformations.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html) and [Sequences](https://kotlinlang.org/docs/sequences.html) guidance. The first two explain that transformations create new collections and that builders support direct population; the Sequence guide notes its lazy pipeline overhead can matter for smaller collections, so this change does not blanket-convert the paths to sequences.
 - Regression tests were committed before the production builder changes. They cover stable order, query and addon metadata, search/discover capability filters, pagination and genre metadata. They were not executed: no Gradle test, build, CI, device run or benchmark was started.
 - The final production source and test additions were re-fetched from the remote branch and checked for the new single-pass builders, absence of the old builder chains, retained capability predicates, expected constructor fields and regression assertions. This was an author static self-review; no subagent-dispatch tool was available. It is not compilation or runtime verification.
+
+## MetaDetails parser collection projections — ordered name merge and season poster maps (Cycles 102–103, 20 November 2026)
+
+Two independent MetaDetails parsing paths created avoidable intermediate collections while building final consumer-facing values. These changes keep the parser API and parsed values unchanged.
+
+### Cycle 102 — director and writer name merge
+
+- Replaced each `(topLevel + extra + linked).map(trim).filter(notBlank).distinct()` chain with one shared ordered merge helper using a membership set and one result list.
+- Preserved group precedence (top-level, app extras, linked credits), first-seen order, trimming, blank exclusion and case-sensitive duplicate handling.
+- Added parser-level coverage for exact duplicates, case-only distinctions, whitespace and ordering across all three source groups.
+
+### Cycle 103 — season poster maps
+
+- Replaced the episode-season `mapNotNull/filter/distinct/sorted` chain with one `buildSet` traversal followed by a single sort; count positive seasons without materializing a separate filtered list.
+- Build positional poster maps directly rather than creating indexed pairs and converting them with `toMap`.
+- Build keyed poster maps directly with `buildMap`, preserving invalid-entry skipping and last-value-wins when different numeric key strings parse to the same season number.
+- Added coverage for numeric key aliases, overwrite precedence, invalid keys, blank/null/object values and keyed-map precedence. Existing positional tests continue to cover specials, sparse seasons, duplicate episode seasons and null poster slots.
+
+These are structural allocation reductions in the metadata parsing path; no parsing-time or memory percentage is claimed without measurement. No public API, JSON field precedence, player behavior, UI or dependency was changed.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin standard-library buildSet/buildMap semantics and insertion-order behavior against the Kotlin documentation. The project pins Kotlin 2.4.10; only established common standard-library APIs are used.
+- Exa cross-checked official [Kotlin collection transformations](https://kotlinlang.org/docs/collection-transformations.html), [collection builders](https://kotlinlang.org/docs/constructing-collections.html), and [collection types](https://kotlinlang.org/docs/collections-overview.html). Kotlin documents transformation results as new collections; builders support direct population, and the default linked set/map implementations preserve insertion order.
+- Regression tests were added before their corresponding production changes, but were not executed because the instruction forbids builds/CI and no test execution was authorized. Consequently, red/green behavior and compilation remain unverified.
+- Final source/test files and commit diffs were re-fetched from GitHub and statically reviewed. No independent reviewer agent was available in this session; this was author self-review only.
