@@ -238,12 +238,14 @@ internal object MetaDetailsParser {
                     else -> null
                 }
             }
-            is JsonPrimitive -> value.contentOrNull
-                ?.split(',')
-                ?.map(String::trim)
-                ?.filter(String::isNotBlank)
-                ?.map(::MetaPerson)
-                .orEmpty()
+            is JsonPrimitive -> value.contentOrNull?.let { csv ->
+                buildList {
+                    for (entry in csv.split(',')) {
+                        val normalized = entry.trim()
+                        if (normalized.isNotBlank()) add(MetaPerson(normalized))
+                    }
+                }
+            }.orEmpty()
             else -> emptyList()
         }
     }
