@@ -66,4 +66,4 @@ jobs:
             --tests '*LibraryCatalogStateTest*' \
             --no-daemon --stacktrace --console=plain
 
-# A second branch push triggers this workflow after its initial isolated registration.
+# This workflow compiles the Android host source set and executes only the focused Library catalogue tests.
