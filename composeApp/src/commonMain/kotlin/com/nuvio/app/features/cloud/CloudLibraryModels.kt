@@ -188,6 +188,14 @@ internal fun projectCloudLibraryItems(
     )
 }
 
+internal fun findCloudLibraryItemByKey(
+    items: List<CloudLibraryItem>,
+    selectedItemKey: String?,
+): CloudLibraryItem? {
+    val selectedKey = selectedItemKey ?: return null
+    return items.firstOrNull { item -> item.stableKey == selectedKey }
+}
+
 internal fun reconcileCloudLibrarySelectedItemKey(
     selectedItemKey: String?,
     uiState: CloudLibraryUiState,

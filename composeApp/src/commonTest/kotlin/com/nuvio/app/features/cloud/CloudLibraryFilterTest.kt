@@ -117,6 +117,30 @@ class CloudLibraryFilterTest {
         )
     }
 
+    @Test
+    fun `null selected key returns without reading the item list`() {
+        val unreadableItems = object : AbstractList<CloudLibraryItem>() {
+            override val size: Int
+                get() = error("The item list must not be read when no key is selected")
+
+            override fun get(index: Int): CloudLibraryItem =
+                error("The item list must not be read when no key is selected")
+        }
+
+        assertNull(findCloudLibraryItemByKey(unreadableItems, selectedItemKey = null))
+    }
+
+    @Test
+    fun `selected item lookup returns the matching item and leaves unknown keys unresolved`() {
+        val first = item(DebridProviders.Torbox, "first", CloudLibraryItemType.Torrent, "First")
+        val selected = item(DebridProviders.Torbox, "selected", CloudLibraryItemType.File, "Selected")
+
+        assertEquals(
+            selected,
+            findCloudLibraryItemByKey(listOf(first, selected), selectedItemKey = selected.stableKey),
+        )
+        assertNull(findCloudLibraryItemByKey(listOf(first, selected), selectedItemKey = "missing"))
+    }
     private fun provider(
         provider: com.nuvio.app.features.debrid.DebridProvider,
         items: List<CloudLibraryItem>,

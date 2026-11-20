@@ -164,6 +164,7 @@ import com.nuvio.app.features.cloud.CloudLibraryRepository
 import com.nuvio.app.features.cloud.CloudLibraryUiState
 import com.nuvio.app.features.cloud.cloudLibraryHasActiveFilters
 import com.nuvio.app.features.cloud.effectiveCloudLibraryProviderId
+import com.nuvio.app.features.cloud.findCloudLibraryItemByKey
 import com.nuvio.app.features.cloud.projectCloudLibraryItems
 import com.nuvio.app.features.cloud.reconcileCloudLibrarySelectedItemKey
 import com.nuvio.app.features.cloud.TorboxCloudConnectDialog
@@ -1386,7 +1387,7 @@ private fun LazyListScope.cloudLibraryContent(
                 searchQuery = trimmedQuery,
             )
             val filteredItems = filterProjection.filteredItems
-            val selectedItem = filteredItems.firstOrNull { it.stableKey == selectedCloudItemKey }
+            val selectedItem = findCloudLibraryItemByKey(filteredItems, selectedCloudItemKey)
 
             if (selectedItem != null) {
                 item {
