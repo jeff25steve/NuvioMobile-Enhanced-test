@@ -136,16 +136,17 @@ fun NuvioPosterCard(
     isWatched: Boolean = false,
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
+    posterCardStyle: PosterCardStyleUiState? = null,
 ) {
-    val posterCardStyle = rememberPosterCardStyleUiState()
+    val resolvedPosterCardStyle = posterCardStyle ?: rememberPosterCardStyleUiState()
     val tokens = MaterialTheme.nuvio
-    val cardWidth = shape.cardWidth(basePosterWidthDp = posterCardStyle.widthDp)
-    val cardShape = RoundedCornerShape(posterCardStyle.cornerRadiusDp.dp)
+    val cardWidth = shape.cardWidth(basePosterWidthDp = resolvedPosterCardStyle.widthDp)
+    val cardShape = RoundedCornerShape(resolvedPosterCardStyle.cornerRadiusDp.dp)
     val catalogLogoOverlaySize = catalogLogoOverlaySize(
         basePosterWidthDp = posterCardStyle.widthDp,
         shape = shape,
     )
-    val shouldShowTitleBelow = showTitleBelow && !posterCardStyle.hideLabelsEnabled
+    val shouldShowTitleBelow = showTitleBelow && !resolvedPosterCardStyle.hideLabelsEnabled
 
     Column(
         modifier = modifier.width(cardWidth),
