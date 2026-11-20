@@ -927,7 +927,7 @@ internal fun findEmbeddedStreamsForMeta(
 
     val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
     return if (hasMultipleVideosWithStreams) {
-        rootStreams ?: meta.videos.flatMap { it.streams }
+        rootStreams.orEmpty()
     } else {
         onlyVideoWithStreams.streams
     }
