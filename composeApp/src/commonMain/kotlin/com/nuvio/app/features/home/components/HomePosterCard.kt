@@ -20,11 +20,12 @@ fun HomePosterCard(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     showLandscapeOverlay: Boolean = true,
+    posterCardStyle: PosterCardStyleUiState? = null,
 ) {
-    val posterCardStyle = rememberPosterCardStyleUiState()
-    val isLandscapeMode = useLandscapeBackdropMode || posterCardStyle.catalogLandscapeModeEnabled
-    val effectiveLandscapePoster = if (posterCardStyle.alwaysShowLandscapeClearlogo) null else item.landscapePoster
-    val images = item.homePosterImages(posterCardStyle, useLandscapeBackdropMode)
+    val resolvedPosterCardStyle = posterCardStyle ?: rememberPosterCardStyleUiState()
+    val isLandscapeMode = useLandscapeBackdropMode || resolvedPosterCardStyle.catalogLandscapeModeEnabled
+    val effectiveLandscapePoster = if (resolvedPosterCardStyle.alwaysShowLandscapeClearlogo) null else item.landscapePoster
+    val images = item.homePosterImages(resolvedPosterCardStyle, useLandscapeBackdropMode)
 
     NuvioPosterCard(
         title = item.name,
@@ -32,13 +33,14 @@ fun HomePosterCard(
         modifier = modifier,
         fallbackImageUrl = images.fallbackImageUrl,
         shape = images.shape,
-        detailLine = if (isLandscapeMode || posterCardStyle.hideLabelsEnabled) null else item.releaseInfo?.let { formatReleaseDateForDisplay(it) },
+        detailLine = if (isLandscapeMode || resolvedPosterCardStyle.hideLabelsEnabled) null else item.releaseInfo?.let { formatReleaseDateForDisplay(it) },
         showTitleBelow = !posterCardStyle.hideLabelsEnabled,
         bottomLeftLogoUrl = if (isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank()) item.logo else null,
         bottomLeftText = if (isLandscapeMode && showLandscapeOverlay && effectiveLandscapePoster.isNullOrBlank() && item.logo.isNullOrBlank() && !posterCardStyle.hideLabelsEnabled) item.name else null,
         isWatched = isWatched,
         onClick = onClick,
         onLongClick = onLongClick,
+        posterCardStyle = resolvedPosterCardStyle,
     )
 }
 
