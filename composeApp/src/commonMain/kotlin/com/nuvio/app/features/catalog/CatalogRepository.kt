@@ -19,6 +19,7 @@ import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.filterReleasedItems
 import com.nuvio.app.features.trakt.TraktPublicListSourceResolver
 import com.nuvio.app.features.watchprogress.CurrentDateProvider
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -38,15 +39,15 @@ internal fun <T> isCurrentCatalogRequest(
     request: T,
     activeJob: Job?,
     requestJob: Job,
-): Boolean = activeRequest == request && activeJob === requestJob
+): Boolean = activeRequest.value == request && activeJob === requestJob
 
 object CatalogRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _uiState = MutableStateFlow(CatalogUiState())
     val uiState: StateFlow<CatalogUiState> = _uiState.asStateFlow()
 
-    private var activeJob: Job? = null
-    private var activeRequest: CatalogRequest? = null
+    private val activeJob = atomic<Job?>(null)
+    private val activeRequest = atomic<CatalogRequest?>(null)
     private val scrollPositions = linkedMapOf<CatalogRequest, CatalogScrollPosition>()
 
     fun load(
@@ -54,10 +55,10 @@ object CatalogRepository {
         force: Boolean = false,
     ) {
         val request = catalogRequest(target)
-        if (!force && activeRequest == request && (_uiState.value.items.isNotEmpty() || _uiState.value.isLoading)) {
+        if (!force && activeRequest.value == request && (_uiState.value.items.isNotEmpty() || _uiState.value.isLoading)) {
             return
         }
-        activeRequest = request
+        activeRequest.value = request
         if (target is CatalogTarget.Library) {
             observeInternalLibrary(request)
             return
@@ -70,7 +71,7 @@ object CatalogRepository {
     }
 
     fun loadMore() {
-        val request = activeRequest ?: return
+        val request = activeRequest.value ?: return
         val current = _uiState.value
         if (current.isLoading || current.nextSkip == null) return
         fetchPage(
@@ -81,10 +82,9 @@ object CatalogRepository {
     }
 
     fun clear() {
-        val previousJob = activeJob
-        activeJob = null
+        val previousJob = activeJob.getAndSet(null)
         previousJob?.cancel()
-        activeRequest = null
+        activeRequest.value = null
         scrollPositions.clear()
         _uiState.value = CatalogUiState()
     }
@@ -108,8 +108,7 @@ object CatalogRepository {
     }
 
     private fun observeInternalLibrary(request: CatalogRequest) {
-        val previousJob = activeJob
-        activeJob = null
+        val previousJob = activeJob.getAndSet(null)
         previousJob?.cancel()
         _uiState.value = _uiState.value.copy(
             isLoading = true,
@@ -121,13 +120,13 @@ object CatalogRepository {
             try {
                 val target = request.target as CatalogTarget.Library
                 LibraryRepository.ensureLoaded()
-                if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@launch
+                if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@launch
                 LibraryRepository.uiState.libraryCatalogStates(
                     target, LibraryRepository.uiState.libraryCatalogOrders(target),
                 ).collect { state ->
-                    if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@collect
+                    if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@collect
                     CustomPosterUrlRepository.ensureLoaded()
-                    if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@collect
+                    if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@collect
                     val posterPattern = CustomPosterUrlRepository.patternForScreen(
                         com.nuvio.app.core.poster.CustomPosterScreen.LIBRARY
                     )
@@ -138,13 +137,13 @@ object CatalogRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@launch
+                if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@launch
                 _uiState.value = CatalogUiState(
                     errorMessage = error.serverMessage() ?: error.message ?: getString(Res.string.catalog_load_failed),
                 )
             }
         }
-        activeJob = job
+        activeJob.value = job
         job.start()
     }
 
@@ -153,8 +152,7 @@ object CatalogRepository {
         reset: Boolean,
         forceRefresh: Boolean,
     ) {
-        val previousJob = activeJob
-        activeJob = null
+        val previousJob = activeJob.getAndSet(null)
         previousJob?.cancel()
         val current = _uiState.value
         val requestedSkip = if (reset) 0 else current.nextSkip ?: return
@@ -195,7 +193,7 @@ object CatalogRepository {
                 }.withUnreleasedFilter(request.hideUnreleasedContent)
             }.fold(
                 onSuccess = { page ->
-                    if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@fold
+                    if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@fold
 
                     val mergedItems = if (reset) {
                         dedupeCatalogItems(page.items)
@@ -218,7 +216,7 @@ object CatalogRepository {
                         else -> com.nuvio.app.core.poster.CustomPosterScreen.HOME
                     }
                     val posterPattern = CustomPosterUrlRepository.patternForScreen(posterScreen)
-                    if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@fold
+                    if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@fold
                     _uiState.value = CatalogUiState(
                         items = mergedItems.withCustomPosterUrls(posterPattern),
                         isLoading = false,
@@ -229,7 +227,7 @@ object CatalogRepository {
                 },
                 onFailure = { error ->
                     if (error is CancellationException) throw error
-                    if (!isCurrentCatalogRequest(activeRequest, request, activeJob, requestJob)) return@fold
+                    if (!isCurrentCatalogRequest(activeRequest.value, request, activeJob.value, requestJob)) return@fold
 
                     _uiState.value = current.copy(
                         items = if (reset) emptyList() else current.items,
@@ -240,7 +238,7 @@ object CatalogRepository {
                 },
             )
         }
-        activeJob = job
+        activeJob.value = job
         job.start()
     }
 
