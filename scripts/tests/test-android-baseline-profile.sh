@@ -23,6 +23,7 @@ awk '
   NF {
     rules++
     if (seen[$0]++) duplicates++
+    if ($0 ~ /\/generated\//) generatedPathRules++
     if ($0 !~ /^[SHP]*L[^;]+;(->.*)?$/) malformed++
     if ($0 ~ /^L[^;]+;$/) classes++
     if ($0 ~ /^[SHP]*L[^;]+;->/) methods++
@@ -34,14 +35,15 @@ awk '
   END {
     if (rules == 0 || duplicates > 0 || malformed > 0 ||
         classes == 0 || methods == 0 || startupMethods == 0 || baselineMethods == 0) {
-      printf "FAIL: profile integrity: rules=%d duplicates=%d malformed=%d classes=%d methods=%d startupMethods=%d baselineMethods=%d\n", \
-        rules, duplicates, malformed, classes, methods, startupMethods, baselineMethods > "/dev/stderr"
+      printf "FAIL: profile integrity: rules=%d generatedPathRules=%d duplicates=%d malformed=%d classes=%d methods=%d startupMethods=%d baselineMethods=%d\\n", \\
+        rules, generatedPathRules, duplicates, malformed, classes, methods, startupMethods, baselineMethods > "/dev/stderr"
       exit 1
     }
-    printf "PROFILE: rules=%d classes=%d methods=%d startupMethods=%d baselineMethods=%d duplicates=0 malformed=0\n", \
-      rules, classes, methods, startupMethods, baselineMethods
+    generatedPercent = rules > 0 ? (generatedPathRules * 100.0 / rules) : 0
+    printf "PROFILE: rules=%d generatedPathRules=%d generatedPathPercent=%.1f classes=%d methods=%d startupMethods=%d baselineMethods=%d duplicates=0 malformed=0\\n", \\
+      rules, generatedPathRules, generatedPercent, classes, methods, startupMethods, baselineMethods
   }
-' "$PROFILE_SOURCE"
+'' "$PROFILE_SOURCE"
 
 startup_collect_block="$(awk '
   /baselineProfileRule.collect\(/ { collection++ }
