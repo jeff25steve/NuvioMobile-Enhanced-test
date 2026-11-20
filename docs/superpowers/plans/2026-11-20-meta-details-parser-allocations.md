@@ -36,9 +36,9 @@
 
 **Interfaces:** Keep `MetaDetailsParser.parse` and its output fields unchanged. Add a private merge helper that accepts the three ordered name groups and returns a list.
 
-- [ ] Add a parser-level regression test asserting trimmed first-seen order, exact duplicate removal and case-sensitive distinction for both directors and writers.
-- [ ] Implement direct ordered accumulation with a membership set and one result list; remove the concatenation/map/filter/distinct chains.
-- [ ] Re-read the changed method and test fixture against the original ordering and blank-name rules. Test execution remains blocked until authorized.
+- [x] Add a parser-level regression test asserting trimmed first-seen order, exact duplicate removal and case-sensitive distinction for both directors and writers.
+- [x] Implement direct ordered accumulation with a membership set and one result list; remove the concatenation/map/filter/distinct chains.
+- [x] Re-read the changed method and test fixture against the original ordering and blank-name rules. Test execution remains blocked until authorized.
 
 ### Task 2: Season poster map construction
 
@@ -48,10 +48,10 @@
 
 **Interfaces:** Keep `seasonPosters(videos)` and `parseKeyedSeasonPosters(element)` private and preserve their returned `Map<Int, String>` contract.
 
-- [ ] Add a parser-level regression test for numeric key aliases, last-value-wins, invalid keys and blank/non-primitive values.
-- [ ] Gather unique valid episode seasons in one set pass, sort once, derive positive-season count without a separate filtered list, and build the result map directly.
-- [ ] Build keyed season poster maps directly with `buildMap`, retaining numeric-key overwrite behavior.
-- [ ] Re-read all existing season-poster cases and the changed code. Test execution remains blocked until authorized.
+- [x] Add a parser-level regression test for numeric key aliases, last-value-wins, invalid keys and blank/non-primitive values.
+- [x] Gather unique valid episode seasons in one set pass, sort once, derive positive-season count without a separate filtered list, and build the result map directly.
+- [x] Build keyed season poster maps directly with `buildMap`, retaining numeric-key overwrite behavior.
+- [x] Re-read all existing season-poster cases and the changed code. Test execution remains blocked until authorized.
 
 ## Verification Boundary
 
