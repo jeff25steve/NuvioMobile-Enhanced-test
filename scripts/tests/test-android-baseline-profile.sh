@@ -43,7 +43,7 @@ awk '
     printf "PROFILE: rules=%d generatedPathRules=%d generatedPathPercent=%.1f classes=%d methods=%d startupMethods=%d baselineMethods=%d duplicates=0 malformed=0\n", \
       rules, generatedPathRules, generatedPercent, classes, methods, startupMethods, baselineMethods
   }
-'' "$PROFILE_SOURCE"
+' "$PROFILE_SOURCE"
 
 startup_collect_block="$(awk '
   /baselineProfileRule.collect\(/ { collection++ }
