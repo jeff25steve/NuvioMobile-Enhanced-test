@@ -45,4 +45,24 @@ class AddonManifestParserTest {
             manifest.resources,
         )
     }
+
+    @Test
+    fun `parse resolves root-relative logo from the manifest origin`() {
+        val manifest = AddonManifestParser.parse(
+            manifestUrl = "https://addons.example.test/catalogs/addon/manifest.json?token=secret",
+            payload = """{"id":"addon","name":"Addon","version":"1","logo":"/images/logo.png"}""",
+        )
+
+        assertEquals("https://addons.example.test/images/logo.png", manifest.logoUrl)
+    }
+
+    @Test
+    fun `parse resolves scheme-relative logo using manifest scheme`() {
+        val manifest = AddonManifestParser.parse(
+            manifestUrl = "http://addons.example.test/catalogs/manifest.json",
+            payload = """{"id":"addon","name":"Addon","version":"1","logo":"//cdn.example.test/logo.png"}""",
+        )
+
+        assertEquals("http://cdn.example.test/logo.png", manifest.logoUrl)
+    }
 }
