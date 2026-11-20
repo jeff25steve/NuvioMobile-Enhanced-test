@@ -1,6 +1,7 @@
 package com.nuvio.app.features.details
 
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.StreamProxyHeaders
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -534,6 +535,48 @@ class MetaDetailsParserTest {
         assertSame(singleStreams, findEmbeddedStreamsForMeta(single, "show"))
         assertTrue(findEmbeddedStreamsForMeta(single.copy(videos = emptyList()), "show").isEmpty())
         assertTrue(findEmbeddedStreamsForMeta(single, "unmatched").isEmpty())
+    }
+
+    @Test
+    fun `embedded stream proxy headers preserve request and response entries`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "show",
+                "type": "series",
+                "name": "Show",
+                "videos": [{
+                  "id": "show:1:1",
+                  "title": "Episode",
+                  "streams": [{
+                    "url": "https://example.test/video.m3u8",
+                    "behaviorHints": {
+                      "proxyHeaders": {
+                        "request": {
+                          "Authorization": "Bearer token",
+                          "X-Client": "nuvio"
+                        },
+                        "response": {
+                          "Content-Type": "video/mp2t",
+                          "Cache-Control": "no-store"
+                        }
+                      }
+                    }
+                  }]
+                }]
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            StreamProxyHeaders(
+                request = mapOf("Authorization" to "Bearer token", "X-Client" to "nuvio"),
+                response = mapOf("Content-Type" to "video/mp2t", "Cache-Control" to "no-store"),
+            ),
+            result.videos.single().streams.single().behaviorHints.proxyHeaders,
+        )
     }
 
     private fun testStream(name: String): StreamItem =
