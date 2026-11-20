@@ -80,6 +80,10 @@ grep -Fq 'currentOnAppReady?.invoke(' "$APP_GATE_SOURCE" || {
   echo "FAIL: AppGate must invoke the latest callback in both readiness bridges." >&2
   exit 1
 }
+grep -Fq 'appGateController?.reportAppReady(ready)' "$APP_GATE_SOURCE" || {
+  echo "FAIL: the shared AppGate readiness helper must publish readiness to AppGateController as well as the Activity callback." >&2
+  exit 1
+}
 
 # The app root enables resource-ID mapping; the Home screen owns an independent,
 # unconditional Home marker so the benchmark can distinguish Home-visible from TTFD.
