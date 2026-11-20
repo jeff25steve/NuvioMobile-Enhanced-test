@@ -257,3 +257,20 @@ This cycle pair changes only common Kotlin data-processing helpers. No Compose U
 - Regression tests were committed before their production changes. They were not executed because no test/build execution was authorized. Compilation and runtime behavior therefore remain unverified.
 - The production and test sources and this note were re-fetched from GitHub for static review. This was author self-review; no independent reviewer agent was available.
 
+## MetaDetails embedded proxy headers — direct map construction (Cycle 109, 20 November 2026)
+
+`JsonObject.stringMap()` is used to parse request and response proxy headers for embedded video streams. It previously built a temporary list of key/value `Pair` objects with `mapNotNull`, then copied those pairs into the final map with `toMap`.
+
+Changed:
+- Populate the final map directly with `buildMap` and `put`.
+- Preserve the original primitive-only acceptance rule, whitespace-only value exclusion, untrimmed header values, JSON entry encounter order and exact header keys.
+- Added a parser regression case covering both request and response headers with multiple entries.
+
+This removes the intermediate mapped pair list and per-entry pair objects from this proxy-header parsing path. It does not change network request behavior, header normalization or stream selection. No runtime timing or allocation percentage is claimed.
+
+### Evidence and verification boundary
+
+- Context7 checked Kotlin's standard-library `buildMap` and map insertion semantics for the project's Kotlin 2.4.10 dependency line. `buildMap` returns a read-only map populated directly; the default linked map preserves insertion order.
+- Exa checked official Kotlin [collection builders](https://kotlinlang.org/docs/constructing-collections.html), [collection transformations](https://kotlinlang.org/docs/collection-transformations.html) and [buildMap API](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/build-map.html). The docs confirm that `mapNotNull` creates a result collection, `toMap` consumes pairs, and `buildMap` supports direct population.
+- Regression coverage was added before the production change. No tests, Gradle tasks, builds, CI, device runs or benchmarks were run, per the explicit authorization boundary. Compilation and runtime behavior remain unverified.
+- The final production source and regression test were re-fetched from GitHub and statically inspected. This is author review, not an independent review or runtime verification.
