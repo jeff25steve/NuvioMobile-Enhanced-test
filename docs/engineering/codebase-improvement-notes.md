@@ -6786,3 +6786,14 @@ Reordered the recovery check to inspect the default alias first. Unless it is ex
 Added `scripts/tests/test-android-app-icon-initialization.sh` to protect the manifest-enabled default contract and the short-circuit-before-alternative-scan ordering. Added a Robolectric host regression covering both recovery when all aliases are disabled and preserving an enabled custom alias. The shell guard was exercised against the previous implementation (expected failure) and the changed implementation (pass). The Robolectric test was added but not run because no Gradle/test task was authorized.
 
 No app-icon selection behavior, manifest configuration, icon resource, UI or other startup initializer was changed. No build, Gradle task, CI, instrumentation or device benchmark was started. P0 readiness runtime diagnosis remains open pending authorized device evidence; P2 packaged-profile/ART validation remains unavailable without a build/device run.
+
+### Cycle 86 — isolate Home, MainAppContent and Activity readiness (20 November 2026)
+
+- [x] Reuse the existing `nuvio_main_content_ready` accessibility marker to observe the MainAppContent-ready transition between Home visibility and the Activity fully-drawn marker.
+- [x] Record separate monotonic durations and stage-specific outcomes for Home, MainAppContent-ready and Activity fully-drawn observations.
+- [x] Preserve the existing 60-second launch deadline and the single 15-second post-Home deadline. Both post-Home marker waits now consume one shared budget; readiness is never promoted or bypassed.
+- [x] Extend the instrumentation record and phone-runner parser to require the new field and verify combined deadline consistency.
+- [x] Extend source-contract and fake instrumentation regressions, including malformed intermediate-stage timing.
+- AndroidX `ReportDrawnWhen` and `StartupTimingMetric` semantics were checked against the pinned Activity Compose 1.12.2 and Macrobenchmark 1.6.0-alpha02 dependencies via Context7 and official Android Developers guidance via Exa. UI Automator values remain diagnostics after `startActivityAndWait`, not TTID or TTFD.
+- P0 runtime proof remains open: an authorized device capture/Perfetto trace is still required to establish whether the reported Home-ready/fully-drawn discrepancy occurs at runtime. This improves diagnosis; it does not prove a product defect or an app-speed improvement.
+- Verification boundary: GitHub-hosted source was re-fetched and statically checked. A local checkout was unavailable, so the committed regression scripts and Java compilation could not be run. No build, CI, instrumentation or phone benchmark was started.

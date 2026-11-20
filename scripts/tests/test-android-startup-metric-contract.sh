@@ -524,7 +524,8 @@ for expected in \
   'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING:' \
   'Startup readiness timing records must contain exactly thirty valid per-launch samples' \
   'scope.getIteration()' \
-  'total_wait < active_wait + home_wait + fully_drawn_wait'; do
+  'main_content_marker_wait_ms=' \
+  'total_wait < active_wait + home_wait + main_content_wait + fully_drawn_wait'; do
   grep -Fq -- "$expected" "$PHONE_RUNNER" || {
     echo "FAIL: phone runner is missing the measured-iteration readiness integrity contract '$expected'." >&2
     exit 1

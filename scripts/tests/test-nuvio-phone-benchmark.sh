@@ -434,13 +434,19 @@ JSON
           fi
           if [ "$omit_readiness_record" -eq 0 ]; then
             home_wait_ms=150
+            main_content_wait_ms=200
             if [ "$readiness_mode" = malformed-last ] &&
                [ "$test_name" = startupWithBaselineProfile ] &&
                [ "$readiness_iteration" -eq 9 ]; then
               home_wait_ms=invalid
             fi
-            printf 'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING: journey=%s iteration=%s active_window_wait_ms=0 home_marker_wait_ms=%s fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready\n' \
-              "$test_name" "$readiness_iteration" "$home_wait_ms"
+            if [ "$readiness_mode" = malformed-main-content-last ] &&
+               [ "$test_name" = startupWithBaselineProfile ] &&
+               [ "$readiness_iteration" -eq 9 ]; then
+              main_content_wait_ms=invalid
+            fi
+            printf 'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING: journey=%s iteration=%s active_window_wait_ms=0 home_marker_wait_ms=%s main_content_marker_wait_ms=%s fully_drawn_marker_wait_ms=200 total_wait_ms=550 outcome=ready\n' \
+              "$test_name" "$readiness_iteration" "$home_wait_ms" "$main_content_wait_ms"
           fi
           readiness_iteration=$((readiness_iteration + 1))
         done
@@ -1060,11 +1066,11 @@ for flavor in full playstore; do
     echo "FAIL: benchmark summary must retain all thirty per-launch readiness observations ($flavor)." >&2
     exit 1
   }
-  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupNoCompilation iteration=0 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
-  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupPartialWithoutBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
-  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupWithBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 fully_drawn_marker_wait_ms=400 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupNoCompilation iteration=0 active_window_wait_ms=0 home_marker_wait_ms=150 main_content_marker_wait_ms=200 fully_drawn_marker_wait_ms=200 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupPartialWithoutBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 main_content_marker_wait_ms=200 fully_drawn_marker_wait_ms=200 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
+  grep -Fq 'NUVIO_STARTUP_READINESS_TIMING: journey=startupWithBaselineProfile iteration=9 active_window_wait_ms=0 home_marker_wait_ms=150 main_content_marker_wait_ms=200 fully_drawn_marker_wait_ms=200 total_wait_ms=550 outcome=ready' "$benchmark_result_dir/benchmark-summary.txt"
 
-  for readiness_mode in missing-last malformed-last; do
+  for readiness_mode in missing-last malformed-last malformed-main-content-last; do
     if FAKE_READINESS_TIMING_MODE="$readiness_mode" sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-readiness-$readiness_mode.log" 2>&1; then
       echo "FAIL: phone runner accepted incomplete or malformed per-launch readiness diagnostics ($flavor, $readiness_mode)." >&2
       exit 1

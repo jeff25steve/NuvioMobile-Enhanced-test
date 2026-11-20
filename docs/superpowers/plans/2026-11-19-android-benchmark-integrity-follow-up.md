@@ -177,3 +177,13 @@
 - [x] Run the shell guard against the previous recovery ordering (expected failure) and changed ordering (pass).
 - The regular default-icon path now makes one `getComponentEnabledSetting` call instead of seven (six aliases plus a repeated default query). This is a source-derived PackageManager call-count reduction; no time saving is claimed.
 - The Robolectric test and full committed shell suite were not run. No Gradle task, build, CI, instrumentation or device benchmark was authorized or started.
+
+### Cycle 86 — separate MainAppContent readiness from Activity fully drawn (20 November 2026)
+
+- [x] Observe the existing `nuvio_main_content_ready` marker between Home visibility and the Activity fully-drawn marker.
+- [x] Measure all three marker waits separately with monotonic elapsed time and stage-specific failure outcomes.
+- [x] Preserve the existing single 15-second post-Home deadline for both MainAppContent-ready and fully-drawn observations.
+- [x] Extend phone-runner validation to require four stage durations, enforce combined deadlines and reject malformed or missing intermediate timing data.
+- [x] Extend source guards and fake-instrumentation coverage for malformed MainAppContent timing.
+- AndroidX TTFD remains authoritative; UI Automator timings are post-`startActivityAndWait` diagnostics only.
+- P0 runtime proof remains pending an authorized device capture. No build, CI, instrumentation, Baseline Profile collection or device benchmark was started.

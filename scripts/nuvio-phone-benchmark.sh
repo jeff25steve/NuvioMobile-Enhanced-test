@@ -1520,22 +1520,24 @@ append_startup_readiness_timings() {
     index($0, prefix) == 1 {
       payload = substr($0, length(prefix) + 1)
       token_count = split(payload, tokens, /[[:space:]]+/)
-      if (token_count != 7) {
-        reject("readiness timing record must contain journey, iteration, three stage durations, total duration and outcome.")
+      if (token_count != 8) {
+        reject("readiness timing record must contain journey, iteration, four stage durations, total duration and outcome.")
       }
 
       journey_token = tokens[1]
       iteration_token = tokens[2]
       active_token = tokens[3]
       home_token = tokens[4]
-      fully_drawn_token = tokens[5]
-      total_token = tokens[6]
-      outcome_token = tokens[7]
+      main_content_token = tokens[5]
+      fully_drawn_token = tokens[6]
+      total_token = tokens[7]
+      outcome_token = tokens[8]
 
       if (journey_token !~ /^journey=[A-Za-z0-9_]+$/ ||
           iteration_token !~ /^iteration=[0-9]+$/ ||
           active_token !~ /^active_window_wait_ms=[0-9]+$/ ||
           home_token !~ /^home_marker_wait_ms=[0-9]+$/ ||
+          main_content_token !~ /^main_content_marker_wait_ms=[0-9]+$/ ||
           fully_drawn_token !~ /^fully_drawn_marker_wait_ms=[0-9]+$/ ||
           total_token !~ /^total_wait_ms=[0-9]+$/ ||
           outcome_token !~ /^outcome=[a-z_]+$/) {
@@ -1546,6 +1548,7 @@ append_startup_readiness_timings() {
       sub(/^iteration=/, "", iteration_token)
       sub(/^active_window_wait_ms=/, "", active_token)
       sub(/^home_marker_wait_ms=/, "", home_token)
+      sub(/^main_content_marker_wait_ms=/, "", main_content_token)
       sub(/^fully_drawn_marker_wait_ms=/, "", fully_drawn_token)
       sub(/^total_wait_ms=/, "", total_token)
       sub(/^outcome=/, "", outcome_token)
@@ -1553,6 +1556,7 @@ append_startup_readiness_timings() {
       iteration = iteration_token + 0
       active_wait = active_token + 0
       home_wait = home_token + 0
+      main_content_wait = main_content_token + 0
       fully_drawn_wait = fully_drawn_token + 0
       total_wait = total_token + 0
 
@@ -1562,10 +1566,11 @@ append_startup_readiness_timings() {
       if (iteration < 0 || iteration > 9) {
         reject("readiness timing iteration must be between 0 and 9 for " journey_token ".")
       }
-      # UIAutomator polls every 250ms and performs one final visibility check
-      # after each deadline, so allow one polling interval beyond each budget.
-      if (active_wait > 15250 || home_wait > 60250 || fully_drawn_wait > 15250 ||
-          total_wait > 90750 || total_wait < active_wait + home_wait + fully_drawn_wait) {
+      # Active-window + Home waits share the 60s launch deadline; both post-Home
+      # marker waits share one 15s deadline. Each final poll may add at most 250ms.
+      if (active_wait > 15250 || active_wait + home_wait > 60250 ||
+          main_content_wait + fully_drawn_wait > 15250 || total_wait > 75500 ||
+          total_wait < active_wait + home_wait + main_content_wait + fully_drawn_wait) {
         reject("readiness timing durations are outside the configured timeout budgets or inconsistent.")
       }
       if (outcome_token != "ready") {
@@ -1604,7 +1609,7 @@ append_startup_readiness_timings() {
 
       print ""
       print "UIAutomator readiness observations after startActivityAndWait"
-      print "Each row measures only the test-side waits for active-window ownership, Home marker and fully-drawn marker after Macrobenchmark returned from startActivityAndWait."
+      print "Each row measures only the test-side waits for active-window ownership, Home marker, MainAppContent-ready marker and Activity fully-drawn marker after Macrobenchmark returned from startActivityAndWait."
       print "These stage timings are diagnostic only; they are not TTID, TTFD, or total launch time."
       for (record_index = 1; record_index <= record_count; record_index++) {
         printf "  NUVIO_STARTUP_READINESS_TIMING: %s\n", records[record_index]
