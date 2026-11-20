@@ -490,15 +490,13 @@ object SearchRepository {
         }
     }
 
-    private fun buildDiscoverSources(addons: List<ManagedAddon>): List<DiscoverCatalogOption> =
-        addons.mapNotNull { addon ->
-            val manifest = addon.manifest ?: return@mapNotNull null
-            addon to manifest
-        }.flatMap { (addon, manifest) ->
-            manifest.catalogs
-                .filter { catalog -> catalog.supportsDiscover() }
-                .map { catalog ->
-                    val genreExtra = catalog.genreExtra()
+    internal fun buildDiscoverSources(addons: List<ManagedAddon>): List<DiscoverCatalogOption> = buildList {
+        for (addon in addons) {
+            val manifest = addon.manifest ?: continue
+            for (catalog in manifest.catalogs) {
+                if (!catalog.supportsDiscover()) continue
+                val genreExtra = catalog.genreExtra()
+                add(
                     DiscoverCatalogOption(
                         key = "${manifest.id}:${catalog.type}:${catalog.id}",
                         addonName = addon.displayTitle,
@@ -509,9 +507,11 @@ object SearchRepository {
                         genreOptions = genreExtra?.options.orEmpty(),
                         genreRequired = genreExtra?.isRequired == true,
                         supportsPagination = catalog.supportsPagination(),
-                    )
-                }
+                    ),
+                )
+            }
         }
+    }
 
     private suspend fun SearchCatalogRequest.toSection(forceRefresh: Boolean): HomeCatalogSection {
         val manifest = requireNotNull(addon.manifest)
