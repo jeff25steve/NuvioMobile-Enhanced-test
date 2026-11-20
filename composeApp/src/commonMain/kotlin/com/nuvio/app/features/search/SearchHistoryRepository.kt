@@ -109,15 +109,9 @@ internal fun normalizeSearchHistoryEntries(
     if (limit <= 0) return emptyList()
 
     return buildList {
-        entries.forEach { entry ->
-            val normalized = entry.trim()
-            if (
-                normalized.length >= 2 &&
-                size < limit &&
-                none { existing -> existing.equals(normalized, ignoreCase = true) }
-            ) {
-                add(normalized)
-            }
+        for (entry in entries) {
+            if (size >= limit) break
+            appendSearchHistoryEntry(this, entry, limit)
         }
     }
 }
@@ -126,10 +120,32 @@ internal fun applySearchHistoryEntry(
     current: List<String>,
     query: String,
     limit: Int,
-): List<String> = normalizeSearchHistoryEntries(
-    entries = listOf(query) + current,
-    limit = limit,
-)
+): List<String> {
+    if (limit <= 0) return emptyList()
+
+    return buildList {
+        appendSearchHistoryEntry(this, query, limit)
+        for (entry in current) {
+            if (size >= limit) break
+            appendSearchHistoryEntry(this, entry, limit)
+        }
+    }
+}
+
+private fun appendSearchHistoryEntry(
+    destination: MutableList<String>,
+    entry: String,
+    limit: Int,
+) {
+    val normalized = entry.trim()
+    if (
+        normalized.length >= 2 &&
+        destination.size < limit &&
+        destination.none { existing -> existing.equals(normalized, ignoreCase = true) }
+    ) {
+        destination.add(normalized)
+    }
+}
 
 internal fun removeSearchHistoryEntry(
     current: List<String>,
