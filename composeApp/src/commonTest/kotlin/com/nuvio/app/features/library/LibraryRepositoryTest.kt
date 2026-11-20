@@ -123,6 +123,51 @@ class LibraryRepositoryTest {
     }
 
     @Test
+    fun `local library projection is reused until content revision changes`() {
+        val state = LibraryLocalState()
+        val token = state.beginProfileLoad(profileId = 1).snapshot.token
+        val loaded = assertNotNull(
+            state.completeProfileLoad(
+                token = token,
+                activeProfileId = 1,
+                items = listOf(
+                    libraryItem(id = "older", savedAtEpochMs = 1L),
+                    libraryItem(id = "newer", savedAtEpochMs = 2L),
+                ),
+            ),
+        )
+        val cache = LibraryContentProjectionCache()
+        var buildCount = 0
+
+        fun buildProjection(items: List<LibraryItem>): LibraryContentProjection {
+            buildCount += 1
+            val sortedItems = items.sortedByDescending { it.savedAtEpochMs }
+            val sections = sortedItems
+                .groupBy { it.type }
+                .map { (type, typeItems) ->
+                    LibrarySection(type, type.toLibraryDisplayTitle(), typeItems)
+                }
+                .sortedBy { it.displayTitle }
+            return LibraryContentProjection(sortedItems, sections)
+        }
+
+        val first = cache.getOrCreate(loaded, ::buildProjection)
+        val metadataOnly = assertNotNull(state.markPushCompleted(loaded))
+        val second = cache.getOrCreate(metadataOnly, ::buildProjection)
+
+        assertSame(first, second)
+        assertEquals(1, buildCount)
+        assertEquals(listOf("newer", "older"), second.items.map { it.id })
+
+        val changed = state.upsert(libraryItem(id = "newest", savedAtEpochMs = 3L))
+        val third = cache.getOrCreate(changed, ::buildProjection)
+
+        assertNotSame(second, third)
+        assertEquals(2, buildCount)
+        assertEquals(listOf("newest", "newer", "older"), third.items.map { it.id })
+    }
+
+    @Test
     fun `local snapshot remains attached to its profile after replacement`() {
         val state = LibraryLocalState()
         val profileOneLoad = state.beginProfileLoad(profileId = 1).snapshot
