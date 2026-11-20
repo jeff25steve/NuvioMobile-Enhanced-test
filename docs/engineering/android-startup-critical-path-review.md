@@ -1010,3 +1010,47 @@ Correction to the previous video review: it was too broad to say the normal Main
 - Android documentation: [Configure Baseline Profile generation](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles), [BaselineProfileRule API](https://developer.android.com/reference/androidx/benchmark/macro/junit4/BaselineProfileRule), [Baseline Profiles overview](https://developer.android.com/topic/performance/baselineprofiles/overview), and [Compose Multiplatform resources](https://kotlinlang.org/docs/multiplatform/compose-multiplatform-resources-usage.html).
 - Context7 resolved Compose Multiplatform but did not expose the repository's exact pinned `1.13.0-beta01` version; its available version list did not include that beta. The P0 change uses the already-present local helper and does not add or alter Compose APIs/dependencies.
 - No Gradle test, compile, build, CI, APK generation, profile collection, emulator/device run or Perfetto capture was run.
+
+
+## 20 November 2026 — follow-up implementation cycles from the 24-second Grok review
+
+The uploaded 23.856-second video was reopened and sampled at two frames per second. Its central controller-readiness claim matches the source history already corrected in the preceding checkpoint. The video itself is not runtime evidence: it shows source inspection, not an Android device trace.
+
+### Priority disposition
+
+- **P0 — completed in the preceding checkpoint:** the normal Main composition readiness bridge now calls the shared `reportAppReady(...)` helper, publishing to both `AppGateController` and the Activity callback. The Party deep-link wait is therefore satisfied for hosts that provide a controller. The Android Activity path still does not demonstrate an Activity TTFD defect because it passes no controller.
+- **P1 — audited; no production initializer reordered:** the 79 pre-`setContent` setup-call count is confirmed (78 `.initialize(...)` calls plus one Sentry start). Existing startup work already separates Home-critical reads from post-frame feature warm-up. Without a per-initializer trace and dependency evidence, moving more work would be speculative and could delay crash reporting or break feature availability. The 5-second overlay fallback remains visual-only; it does not set Home readiness or the Activity fully-drawn state.
+- **P2 — completed diagnostic hardening:** the Baseline Profile audit reports generated-path rule count and percentage without excluding rules. The video’s 3,063 / approximately 27% figure is still not independently verified against the complete profile blob. Android's filtering guidance describes filters as particularly useful for library profiles; it does not justify excluding generated Compose resource accessors from this app's profile without coverage and benchmark evidence.
+- **P3 — completed regression hardening:** benchmark tests now explicitly protect the `.benchmark` application ID suffix and local debug signing on both capture and optimized benchmark variants. This preserves the intentional separation from production `com.nuvio.media` and ensures capture and measurement variants remain install-compatible.
+
+### Cycle 90 — validate benchmark provenance at the actual instrumentation boundary
+
+The startup readiness regression script previously checked `write_run_provenance` twice with identical global file-presence assertions. The second assertion claimed to protect integration into `run_instrumentation`, but did not inspect that function.
+
+Changed:
+- Removed the duplicate weak assertion.
+- Extracted the actual `run_instrumentation()` function body in the static guard.
+- Required both `write_run_provenance` and the `am instrument -w -r` invocation inside that function.
+- Compared their source line positions so provenance must be written before instrumentation begins.
+
+This protects the real benchmark-run contract rather than merely requiring a helper with the right name to exist somewhere in the runner.
+
+### Cycle 91 — preserve benchmark variant isolation and signing contract
+
+The Baseline Profile regression script already protected R8/resource shrinking on `benchmarkRelease`, but did not protect the package/signing isolation described in the build file and benchmark documentation.
+
+Changed:
+- Require `benchmarkRelease` to retain `applicationIdSuffix = ".benchmark"`, optimized R8/resource shrinking, and the local debug signing config.
+- Require `nonMinifiedRelease` profile capture to retain the same isolated package suffix and local debug signing config.
+- No production signing key or release signing configuration was changed.
+
+This matches Android's Macrobenchmark setup guidance: benchmark a non-debuggable, release-like optimized build; local debug signing is an accepted way to sign the benchmark variant. The benchmark remains a benchmark variant, not an exact production-signed release installation.
+
+### Research and limits
+
+- Android Developers, [Configure Baseline Profile generation](https://developer.android.com/topic/performance/baselineprofiles/configure-baselineprofiles): filtering is supported; Gradle plugin filters are recommended over per-collection predicates, with library-profile use highlighted.
+- Android Developers, [Write a Macrobenchmark](https://developer.android.com/topic/performance/benchmarking/macrobenchmark-overview): benchmark targets should be profileable, non-debuggable and as close to release as possible; a release-derived benchmark build may be locally debug-signed.
+- Android Developers, [Debug Baseline Profiles](https://developer.android.com/topic/performance/baselineprofiles/debug-baseline-profiles): packaged profile presence and on-device installation/compilation are distinct checks.
+- No Kotlin/Compose API or dependency changed in these two follow-up cycles; Context7 was therefore not required for the shell-test-only edits. No new Context7 API claim is made.
+- Exa research was used to check the official Android guidance above. It did not support filtering the generated rules blindly.
+- No shell regression script, Gradle task, build, CI, profile collection, APK packaging, device benchmark or Perfetto capture was run. Remote source was re-fetched for review; this is static verification only.
