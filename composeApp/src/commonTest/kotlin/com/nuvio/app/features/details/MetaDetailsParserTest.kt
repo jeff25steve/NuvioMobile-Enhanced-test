@@ -646,4 +646,49 @@ class MetaDetailsParserTest {
     private fun testStream(name: String): StreamItem =
         StreamItem(name = name, addonName = "Test addon", addonId = "test-addon")
 
+
+    @Test
+    fun `parse ignores malformed optional metadata field types`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "movie",
+                "type": "movie",
+                "name": "Movie",
+                "genres": ["Drama", {}, [], null, "Comedy"],
+                "director": ["Alice", {}, [], "Bob"],
+                "cast": [{"name": "Actor", "character": {}, "photo": []}, {}, "Other"],
+                "links": [42, {"name": "Linked", "category": "director", "url": "https://example.test/link"}],
+                "videos": [
+                  42,
+                  {
+                    "id": "episode-1",
+                    "title": "Episode 1",
+                    "season": {},
+                    "episode": [],
+                    "available": {},
+                    "streams": [false, {"url": "https://example.test/video.m3u8", "fileIdx": []}]
+                  }
+                ],
+                "trailers": [null, {"key": "trailer-1", "size": {}, "official": []}],
+                "behaviorHints": ["wrong-shape"],
+                "app_extras": {"seasonPosters": [{"bad": true}, "https://example.test/season.jpg"]}
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf("Drama", "Comedy"), result.genres)
+        assertEquals(listOf("Alice", "Bob", "Linked"), result.director)
+        assertEquals(listOf("Actor", "Other"), result.cast.map(MetaPerson::name))
+        assertEquals(1, result.videos.size)
+        assertEquals("episode-1", result.videos.single().id)
+        assertEquals("https://example.test/video.m3u8", result.videos.single().streams.single().url)
+        assertEquals(1, result.trailers.size)
+        assertEquals("trailer-1", result.trailers.single().key)
+        assertEquals(null, result.defaultVideoId)
+        assertEquals(mapOf(1 to "https://example.test/season.jpg"), result.seasonPosters)
+    }
+
 }
