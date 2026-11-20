@@ -126,10 +126,12 @@ internal fun List<WatchProgressEntry>.continueWatchingEntries(
         progressRecords = selectionEntries.map(WatchProgressEntry::toDomainProgressRecord),
         limit = limit,
     )
-    val identityKeys = domainEntries.map { record -> record.identityKey }.toSet()
+    val identityKeys = domainEntries.mapTo(mutableSetOf()) { record -> record.identityKey }
     return selectionEntries
-        .filter { entry -> entry.resolvedProgressKey() in identityKeys }
-        .filter { entry -> entry.shouldTreatAsInProgressForContinueWatching() }
+        .filter { entry ->
+            entry.resolvedProgressKey() in identityKeys &&
+                entry.shouldTreatAsInProgressForContinueWatching()
+        }
         .sortedByDescending { it.lastUpdatedEpochMs }
 }
 
