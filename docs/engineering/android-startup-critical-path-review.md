@@ -1074,7 +1074,7 @@ This exposes group-level costs in a Perfetto system trace. It does not expose pe
 
 ### Cycle 93 — protect trace pairing and group order
 
-Added scripts/tests/test-android-startup-trace-sections.sh and wired it into the existing test-android-startup-initialization.sh entry point. The source guard checks the Android Trace import, the centralized begin/try/finally/end helper, exactly five expected section labels, their order within onCreate, and the section-name length bound.
+Added scripts/tests/test-android-startup-trace-sections.sh and wired it into the existing test-android-startup-initialization.sh entry point. The source guard checks the Android Trace import, the centralized begin/try/finally/end helper, exactly five expected section labels, their order within onCreate, that the pre-super group stays before super.onCreate, and that every onCreate .initialize call is inside a named group; it also enforces the section-name length bound.
 
 The source transformation was statically checked against the fetched pre-change file: all 78 .initialize(...) call lines remain present in the same order. super.onCreate, splash handling, the critical-preload gate and showContent remain outside the added trace wrappers. No UI/readiness behavior or startup dependency ordering changed.
 
