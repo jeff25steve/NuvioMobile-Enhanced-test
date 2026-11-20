@@ -86,11 +86,14 @@ internal object MetaDetailsParser {
         val value = this[name] ?: return emptyList()
         return when (value) {
             is JsonArray -> value.mapNotNull { it.jsonPrimitive.contentOrNull?.takeIf(String::isNotBlank) }
-            is JsonPrimitive -> value.contentOrNull
-                ?.split(',')
-                ?.map(String::trim)
-                ?.filter(String::isNotBlank)
-                .orEmpty()
+            is JsonPrimitive -> value.contentOrNull?.let { csv ->
+                buildList {
+                    for (entry in csv.split(',')) {
+                        val normalized = entry.trim()
+                        if (normalized.isNotBlank()) add(normalized)
+                    }
+                }
+            }.orEmpty()
             else -> emptyList()
         }
     }
