@@ -91,10 +91,10 @@ internal data class LibraryVerticalProjection(
     }
 
     fun rowAt(index: Int, columns: Int): List<LibraryVerticalEntry> {
-        if (columns <= 0 || index < 0) return emptyList()
-        val start = index * columns
-        if (start !in entries.indices) return emptyList()
-        return entries.subList(start, minOf(start + columns, entries.size))
+        if (columns <= 0 || index < 0 || index >= rowCount(columns)) return emptyList()
+        val start = index.toLong() * columns
+        val end = minOf(start + columns, entries.size.toLong())
+        return entries.subList(start.toInt(), end.toInt())
     }
 }
 
