@@ -145,3 +145,12 @@ No production playback behavior was changed in this audit. No tests, Kotlin comp
 - No initializer was moved or deferred: the current trace slices should first be measured on a physical device. Compare the five slices and first Compose frame with Sentry enabled and disabled before deciding whether any initialization is actually on the critical path.
 - No Perfetto capture, tests, Gradle tasks, build, CI or device benchmark was run. This is a source-level call-path finding, not evidence of a measured delay.
 - Detailed call-path notes are in [codebase improvement notes](codebase-improvement-notes.md), Cycle 129.
+
+
+### Theme settings first-composition storage follow-up (Cycle 130, 21 November 2026)
+
+A new source path was inspected after the Activity-to-first-frame audit: `MainActivity.showContent()` enters Compose, then root `AppEnvironment` calls `ThemeSettingsRepository.ensureLoaded()` synchronously inside `remember`. On first load, this reads multiple SharedPreferences values, decodes persisted theme/Liquid Glass state, performs two custom-background-image file existence/length checks, and applies theme/native-tab state before composition continues. The Android storage initialization itself is already in the pre-super Activity trace, but this repository hydration occurs later during initial Compose composition.
+
+This is a concrete candidate for first-composition work, not proof of a measurable bottleneck. Do not blindly defer it: selected theme, AMOLED state, Liquid Glass surface overrides, profile-scoped values, locale application and legacy migration all affect initial UI state. The next evidence step is a dedicated trace around `ensureLoaded()` with cold and warm launches, then a test-backed readiness design if it materially contributes to TTID/TTFD. DataStore is asynchronous by design, but replacing this existing storage contract would require a deliberate migration and parity plan.
+
+Coil 3.6.3 was also checked: the Android `SingletonImageLoader.Factory` and root-composable `setSingletonImageLoaderFactory` used on the platform paths match Coil's documented configuration options. No loader change was justified. No code, tests, builds, CI, Perfetto or device measurements were performed.
