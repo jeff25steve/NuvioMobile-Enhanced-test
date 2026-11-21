@@ -2,6 +2,7 @@
 
 package com.nuvio.app.features.player
 
+import androidx.media3.common.C
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheSpan
 import java.io.File
@@ -34,6 +35,32 @@ class AdjustableLruCacheEvictorTest {
         cache.add(span("second", length = 100L, touchedAt = 2L))
 
         assertEquals(180L, cache.cacheSpace)
+        assertEquals(setOf("first", "second"), cache.keys)
+    }
+
+    @Test
+    fun knownWriteReservationEvictsEnoughLeastRecentlyUsedBytesBeforeWriting() {
+        val evictor = AdjustableLruCacheEvictor(initialMaxBytes = 100L)
+        val cache = FakeCache(evictor)
+        cache.add(span("old", length = 60L, touchedAt = 1L))
+        cache.add(span("new", length = 30L, touchedAt = 2L))
+
+        evictor.onStartFile(cache.cache, "incoming", 0L, 40L)
+
+        assertEquals(30L, cache.cacheSpace)
+        assertEquals(setOf("new"), cache.keys)
+    }
+
+    @Test
+    fun unknownWriteLengthDoesNotEvictBeforeTheWriteSizeIsKnown() {
+        val evictor = AdjustableLruCacheEvictor(initialMaxBytes = 100L)
+        val cache = FakeCache(evictor)
+        cache.add(span("first", length = 60L, touchedAt = 1L))
+        cache.add(span("second", length = 30L, touchedAt = 2L))
+
+        evictor.onStartFile(cache.cache, "incoming", 0L, C.LENGTH_UNSET)
+
+        assertEquals(90L, cache.cacheSpace)
         assertEquals(setOf("first", "second"), cache.keys)
     }
 
