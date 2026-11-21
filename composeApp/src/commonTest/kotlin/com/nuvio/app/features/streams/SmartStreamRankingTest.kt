@@ -8,35 +8,51 @@ class SmartStreamRankingTest {
 
     @Test
     fun `best recommendation obeys active instant-only filter`() {
-        val uncached = stream(name = "4K uncached", url = "https://example.com/uncached.mkv")
+        val uncached = stream("Torrentio", "4K uncached", "https://example.com/uncached.mkv")
         val cached = stream(
-            name = "1080p cached",
-            url = "https://example.com/cached.mkv",
-            cacheState = StreamDebridCacheState.CACHED,
+            "Torrentio",
+            "1080p cached",
+            "https://example.com/cached.mkv",
+            StreamDebridCacheState.CACHED,
         )
         val listState = stateOf(uncached, cached)
         val allState = stateOf(uncached, cached)
 
-        val result = compute(
-            listState = listState,
-            allState = allState,
-            filters = SmartStreamFilters(instantOnly = true),
-        )
+        val result = compute(listState, allState, SmartStreamFilters(instantOnly = true))
 
         assertEquals(cached, result.best?.stream)
+        assertEquals(listOf(cached), result.listState.allStreams)
     }
 
     @Test
     fun `best recommendation is absent when filters remove every stream`() {
-        val onlyStream = stream(name = "1080p", url = "https://example.com/only.mkv")
+        val onlyStream = stream("Torrentio", "1080p", "https://example.com/only.mkv")
 
         val result = compute(
-            listState = stateOf(onlyStream),
-            allState = stateOf(onlyStream),
-            filters = SmartStreamFilters(instantOnly = true),
+            stateOf(onlyStream),
+            stateOf(onlyStream),
+            SmartStreamFilters(instantOnly = true),
         )
 
         assertNull(result.best)
+    }
+
+    @Test
+    fun `best recommendation follows the selected provider filter`() {
+        val selectedProvider = stream("Provider A", "1080p", "https://example.com/a.mkv")
+        val otherProvider = stream(
+            "Provider B",
+            "4K",
+            "https://example.com/b.mkv",
+            StreamDebridCacheState.CACHED,
+        )
+        val listState = stateOf(selectedProvider, otherProvider).copy(selectedFilter = "addon:Provider A")
+        val allState = stateOf(selectedProvider, otherProvider)
+
+        val result = compute(listState, allState, SmartStreamFilters())
+
+        assertEquals(selectedProvider, result.best?.stream)
+        assertEquals(listOf(selectedProvider), result.listState.allStreams)
     }
 
     private fun compute(
@@ -70,28 +86,36 @@ class SmartStreamRankingTest {
     }
 
     private fun stateOf(vararg streams: StreamItem): StreamsUiState {
-        val groups = streams.mapIndexed { index, item ->
+        val groups = streams.map { item ->
             AddonStreamGroup(
                 addonName = item.addonName,
-                addonId = item.addonId + index,
+                addonId = item.addonId,
                 streams = listOf(item),
                 isLoading = false,
             )
-        }
-        return StreamsUiState(groups = groups)
+        }.distinctBy { it.addonId }
+        return StreamsUiState(
+            groups = groups,
+            activeAddonIds = groups.map { it.addonId }.toSet(),
+        )
     }
 
     private fun stream(
+        addonName: String,
         name: String,
         url: String,
         cacheState: StreamDebridCacheState? = null,
     ): StreamItem = StreamItem(
         name = name,
         url = url,
-        addonName = "Test Addon",
-        addonId = "test-addon",
+        addonName = addonName,
+        addonId = "addon:$addonName",
         debridCacheStatus = cacheState?.let { state ->
-            StreamDebridCacheStatus(state = state, providerId = "premiumize")
+            StreamDebridCacheStatus(
+                providerId = "premiumize",
+                providerName = "Premiumize",
+                state = state,
+            )
         },
     )
 }
