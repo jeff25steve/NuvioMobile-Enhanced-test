@@ -99,7 +99,13 @@ jobs:
           set -euo pipefail
           bash -n scripts/run-android-startup-profile-benchmark.sh
           sh -n scripts/nuvio-phone-benchmark.sh
-          sh scripts/tests/test-nuvio-phone-benchmark.sh
+          phone_test_trace="$RUNNER_TEMP/nuvio-phone-benchmark-test-xtrace.log"
+          if ! sh -x scripts/tests/test-nuvio-phone-benchmark.sh > "$phone_test_trace" 2>&1; then
+            echo "Phone benchmark test failed; last traced commands:"
+            tail -n 140 "$phone_test_trace"
+            exit 1
+          fi
+          tail -n 4 "$phone_test_trace"
           sh scripts/tests/test-android-benchmark-bundle-assembly.sh
           sh scripts/tests/test-android-startup-readiness.sh
           sh scripts/tests/test-android-startup-metric-contract.sh
