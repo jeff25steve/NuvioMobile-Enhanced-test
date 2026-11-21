@@ -20,8 +20,10 @@ grep -Fq 'fun rowAt(index: Int, columns: Int)' "$MODEL" || {
   echo "FAIL: Library projection must expose indexed row access." >&2
   exit 1
 }
-grep -Fq 'return entries.subList(start, minOf(start + columns, entries.size))' "$MODEL" || {
-  echo "FAIL: row access must return a bounded view without materializing all row lists." >&2
+grep -Fq 'val start = index.toLong() * columns' "$MODEL" &&
+  grep -Fq 'val end = minOf(start + columns, entries.size.toLong())' "$MODEL" &&
+  grep -Fq 'return entries.subList(start.toInt(), end.toInt())' "$MODEL" || {
+  echo "FAIL: row access must calculate overflow-safe bounds and return a bounded view without materializing row lists." >&2
   exit 1
 }
 grep -Fq 'count = projection.rowCount(columns)' "$CONTENT" || {
