@@ -94,3 +94,12 @@ This follow-up is isolated on `review/playback-startup-best-match-20261121`; it 
 - Tests have not been run; the test-first RED result is not established. Kotlin compilation, Android build, device playback, Macrobenchmark and CI have not been run.
 - No measured startup or buffering improvement is claimed. The diagnostic data must be collected on a physical device and compared across representative streams/networks before considering any further playback-policy changes. Before doing so, add and verify event-to-current-media identity checks using Media3 `EventTime.timeline/windowIndex/mediaPeriodId` and the `current*` counterparts, and make first-load guards correspond to a real prepare attempt.
 - The review branch is ahead of `main-build-testing` with no merge-base divergence. The target branch remains untouched.
+
+### HLS inspection timing instrumentation (21 November 2026)
+
+- Added elapsed-realtime instrumentation around the existing HLS playlist SPS/PPS compatibility inspection.
+- Each eligible initial playlist inspection now logs elapsed milliseconds, playlist byte count, whether the playlist was rewritten, and whether the measured duration reached the 3-second inspection timeout.
+- The log deliberately excludes playlist and segment URLs, query strings, request headers, and stream identifiers.
+- This is measurement-only: playlist parsing, segment-head probing, timeout, rewrite eligibility, and fallback behavior are unchanged. It does not claim to improve playback startup.
+- Use these measurements on healthy and affected HLS VOD sources to determine whether inspection is a meaningful first-frame critical-path cost before changing the compatibility strategy. Compare with first-frame elapsed time and network load events on the same device and connection.
+- No tests, Kotlin compilation, Android build, CI, or physical-device measurements have been run for this instrumentation.
