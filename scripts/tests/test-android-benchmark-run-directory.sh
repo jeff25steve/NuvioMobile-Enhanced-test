@@ -86,6 +86,12 @@ for allocation_file in "$TMP"/concurrent-paths/*; do
 done
 [ "$observed_allocations" -eq "$allocation_count" ] || fail "expected $allocation_count concurrent allocations but observed $observed_allocations"
 duplicate_allocations="$(sort "$TMP/concurrent-path-list" | uniq -d | wc -l | tr -d ' ')"
-[ "$duplicate_allocations" -eq 0 ] || fail "concurrent invocations reused $duplicate_allocations result directory paths"
+if [ "$duplicate_allocations" -ne 0 ]; then
+  echo "Duplicate directory allocations:" >&2
+  sort "$TMP/concurrent-path-list" | uniq -c | awk '$1 > 1 { print $0 }' >&2
+  echo "All allocated paths:" >&2
+  cat "$TMP/concurrent-path-list" >&2
+  fail "concurrent invocations reused $duplicate_allocations result directory paths"
+fi
 
 printf 'PASS: same-second benchmark invocations receive distinct result directories and retain earlier run markers.\n'
