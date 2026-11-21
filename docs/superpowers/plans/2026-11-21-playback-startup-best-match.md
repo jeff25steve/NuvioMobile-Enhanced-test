@@ -86,6 +86,7 @@
 
 **Confirmed current behavior:** eligible finished clear playlists synchronously wait up to 3 seconds for optional segment-head inspection after the playlist body has been read. Existing timeout coverage tests an interruptible worker, not a slow/non-interruptible DataSource.
 
+- [x] Add a focused test for explicit timeout-outcome reporting; use the timeout callback rather than elapsed-duration comparison.
 - [ ] Add controllable DataSource tests for healthy fast segment, slow segment timeout, interruption, close, and original-playlist fallback.
 - [ ] Preserve SPS/PPS repair on affected VOD while proving optional inspection does not introduce an unbounded or unnecessary critical-path delay.
 - [ ] Measure before changing the 3-second policy; do not select an arbitrary smaller timeout.
