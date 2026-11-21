@@ -700,3 +700,23 @@ Decision:
 Verification boundary:
 - Re-fetched `MainActivity.kt`, `NuvioApplication.kt`, `StartupPreloader.kt`, `ProfileRepository.kt`, and the Sentry initializer from the live review branch. This is a source call-graph audit, not a performance measurement.
 - No startup code, lifecycle ordering, Sentry configuration, storage behavior, or preload scheduling was changed. No tests, Gradle tasks, build, CI, Perfetto capture or device benchmark was run. No startup improvement is claimed.
+
+
+## Theme settings first-composition storage audit (Cycle 130, 21 November 2026)
+
+The Android startup path initializes `ThemeSettingsStorage` in the already-traced `Nuvio.Startup.preSuper` section. Later, `MainActivity.showContent()` calls `setContent`, and the root `AppEnvironment` composable executes `ThemeSettingsRepository.ensureLoaded()` inside a Compose `remember` calculation before collecting the selected theme. This is a distinct first-composition path from the five Activity initialization groups audited in Cycle 129.
+
+The source call chain is concrete:
+- `ensureLoaded()` calls `loadFromDisk()` synchronously on the caller when `hasLoaded` is false.
+- `loadFromDisk()` reads the theme and multiple appearance preferences, decodes the stored Liquid Glass settings, and applies the effective theme before returning.
+- On Android, `ThemeSettingsStorage.loadCustomSettingsBackgroundImageUri()` also clears a legacy preference and checks `File.isFile` and `File.length()`; `loadCustomLibraryCloudBackgroundImageUri()` performs another file existence/length check. These calls occur inside that same synchronous load.
+- The caller is the initial Compose composition path, not a coroutine or an explicit IO dispatcher. The Android storage uses SharedPreferences and local files; the two background-image metadata checks are filesystem operations.
+
+**Decision:** do not move this wholesale to IO or convert it to DataStore without a migration design. Theme values, Liquid Glass overrides, profile-scoped preferences, language application, legacy migration writes and native tab bridge publication have ordering/first-frame implications. A safe next change needs an explicit loading/readiness contract that prevents an incorrect default-theme flash, plus tests for profile switching, migration, missing/corrupt settings and custom background image publication. Measure this path with a dedicated trace section around `ensureLoaded` and compare cold/warm TTID/TTFD before choosing the scope. This audit identifies synchronous work; it does not establish that it is a significant delay or claim a startup speedup.
+
+### Evidence and verification boundary
+
+- Re-fetched `MainActivity.kt`, `App.kt`, `ThemeSettingsRepository.kt`, the common storage contract and Android storage implementation from the live review branch.
+- Context7 checked the exact pinned Coil 3.6.3 singleton-loader guidance separately; it confirms the existing Android `SingletonImageLoader.Factory` and Compose Multiplatform root factory are supported patterns. No image-loader change is indicated by this audit.
+- Context7's Android DataStore documentation confirms its asynchronous Flow-based read model, but adopting it would be a storage migration, not a safe mechanical dispatcher change.
+- No production code or tests were changed. No test, Gradle task, build, CI, Perfetto capture or device benchmark was run.
