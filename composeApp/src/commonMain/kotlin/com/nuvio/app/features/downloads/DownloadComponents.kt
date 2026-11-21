@@ -116,17 +116,17 @@ internal fun DownloadItemActions(
             DownloadStatus.Downloading, DownloadStatus.Queued -> Triple(
                 Icons.Rounded.Pause,
                 Res.string.compose_action_pause,
-                { DownloadsRepository.pauseDownload(item.id) },
+                { DownloadsRepository.pauseDownload(item.id); Unit },
             )
             DownloadStatus.Paused -> Triple(
                 Icons.Rounded.PlayArrow,
                 Res.string.action_resume,
-                { DownloadsRepository.resumeDownload(item.id) },
+                { DownloadsRepository.resumeDownload(item.id); Unit },
             )
             DownloadStatus.Failed -> Triple(
                 Icons.Rounded.Refresh,
                 Res.string.action_retry,
-                { DownloadsRepository.resumeDownload(item.id) },
+                { DownloadsRepository.resumeDownload(item.id); Unit },
             )
             DownloadStatus.Completed -> Triple(Icons.Rounded.PlayArrow, Res.string.action_play, onPlay)
         }
