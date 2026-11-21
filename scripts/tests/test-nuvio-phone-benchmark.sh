@@ -195,11 +195,11 @@ grep -Fq '*home_browse-baseline-prof*.txt' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must validate the named Home browse Baseline Profile output." >&2
   exit 1
 }
-grep -Fq 'horizontally scrollable catalogue shelf' "$RUNNER_SOURCE" || {
+grep -Fq 'Home has a populated, horizontally scrollable catalogue' "$RUNNER_SOURCE" || {
   echo "FAIL: phone runner must tell users that browse profile collection requires a populated, horizontally scrollable Home catalogue." >&2
   exit 1
 }
-grep -Fq 'horizontally scrollable catalogue shelf' "$DESKTOP_RUNNER" || {
+grep -Fq 'Home contains at least one catalogue shelf with enough entries to scroll horizontally' "$DESKTOP_RUNNER" || {
   echo "FAIL: desktop runner must tell users that browse profile collection requires a populated, horizontally scrollable Home catalogue." >&2
   exit 1
 }
