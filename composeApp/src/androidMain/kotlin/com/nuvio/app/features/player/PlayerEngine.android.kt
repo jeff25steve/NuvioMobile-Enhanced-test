@@ -1319,6 +1319,8 @@ private fun ExoPlayerSurface(
 
             private var firstManifestLogged = false
             private var firstMediaLogged = false
+            private var firstManifestCompletedLogged = false
+            private var firstMediaCompletedLogged = false
 
             private fun loadKind(dataType: Int): String = when (dataType) {
                 C.DATA_TYPE_MANIFEST -> "manifest"
@@ -1358,16 +1360,31 @@ private fun ExoPlayerSurface(
                 )
             }
 
+            private fun shouldLogFirstCompletion(dataType: Int): Boolean = when (dataType) {
+                C.DATA_TYPE_MANIFEST -> if (firstManifestCompletedLogged) false else {
+                    firstManifestCompletedLogged = true
+                    true
+                }
+                C.DATA_TYPE_MEDIA -> if (firstMediaCompletedLogged) false else {
+                    firstMediaCompletedLogged = true
+                    true
+                }
+                else -> false
+            }
+
             override fun onLoadCompleted(
                 eventTime: AnalyticsListener.EventTime,
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
             ) {
+                if (!shouldLogFirstCompletion(mediaLoadData.dataType)) return
+                val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
+                if (elapsedMs < 0L) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadComplete kind=${loadKind(mediaLoadData.dataType)} " +
                         "attempt=${playbackDiagnostics.attempt} " +
-                        "elapsedMs=${eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs} " +
+                        "elapsedMs=$elapsedMs " +
                         "durationMs=${loadEventInfo.loadDurationMs} " +
                         "bytes=${loadEventInfo.bytesLoaded} " +
                         "trackType=${mediaLoadData.trackType}",
