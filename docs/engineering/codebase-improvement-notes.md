@@ -839,3 +839,26 @@ Reconciled the exact AndroidX Media3 1.8.0 sources with the app's `setPlaybackMe
 - `MediaSourceEventListener` in the exact 1.8.0 source exposes source-local `windowIndex` and nullable `MediaPeriodId`; `WrappingMediaSource` provides a supported single-child wrapping abstraction. This makes source-local attribution a viable investigation direction, but it still needs to handle merged sources and pre-timeline manifest loads explicitly.
 
 **Decision:** do not use the current first-media log as a video-startup metric for dual-source playback. Future diagnostics should separate video/audio/subtitle source roles and include the prepare boundary. Keep the existing logs provisional until this is covered by source-level tests. No production code or tests changed; no test task, build, CI or device measurement was run.
+
+
+## ExoPlayer prepare-entry-point coverage audit (Cycle 138, 21 November 2026)
+
+Counted every `exoPlayer.prepare()` call and every `PlaybackDiagnostics.beginAttempt()` call in the branch's `PlayerEngine.android.kt`.
+
+**Confirmed call-site coverage**
+- There are six ExoPlayer `prepare()` call sites in this file.
+- Only the initial `preparePlayback` path calls `playbackDiagnostics.beginAttempt()` before preparing ExoPlayer.
+- The other five prepare paths are: Blu-ray title selection/recovery (`playDiscTitle`), the player-control manual retry, external subtitle attachment (`setSubtitleUri`), external subtitle removal (`clearExternalSubtitle`), and external subtitle removal plus built-in track selection (`clearExternalSubtitleAndSelect`).
+- The separate mpv `LaunchedEffect` also calls `beginAttempt`, but that does not cover any of the six ExoPlayer paths.
+
+**Impact**
+- These paths can prepare/reprepare the same ExoPlayer while retaining the existing diagnostic attempt number and first-event guards. Logs for a retry, disc-title change or subtitle reload can therefore be omitted by already-consumed guards or attributed to the previous prepare start.
+- The six paths are not semantically identical: manual retry re-prepares the current source; Blu-ray recovery changes the active title; subtitle operations replace the MediaItem at the current position. The eventual shared attempt API must make the boundary explicit at each caller rather than blindly incrementing from an AnalyticsListener callback.
+
+**Decision**
+- The next code change should centralize an explicit ExoPlayer diagnostic attempt-start helper and route all six call sites through it, while keeping player rebuild/listener lifecycle distinct from a new prepare attempt. Add host tests for each boundary and stale callback behavior before changing production code.
+- No source code or tests changed in this audit. No test task, build, CI, benchmark or device run was started.
+
+**Evidence**
+- Re-fetched the complete `PlayerEngine.android.kt` and counted the six `exoPlayer.prepare()` occurrences and the ExoPlayer/MPV `beginAttempt()` occurrences directly from the remote branch.
+- The implementation plan now tracks these missing boundaries and the separate audio/subtitle event attribution requirement.
