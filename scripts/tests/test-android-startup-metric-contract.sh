@@ -51,10 +51,15 @@ awk '
   exit 1
 }
 grep -Fq 'runColdStartupBenchmark(' "$BENCHMARK_SOURCE" &&
-  grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: no-compilation test must execute the shared cold-start measurement with Java's None singleton." >&2
+  grep -Fq 'new CompilationMode.None()' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), null)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup insights and no-compilation baseline must use the Java-compatible AndroidX 1.6.0-alpha02 API." >&2
   exit 1
 }
+if grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE"; then
+  echo "FAIL: Java Macrobenchmark source must instantiate CompilationMode.None instead of using a Kotlin singleton field." >&2
+  exit 1
+fi
 awk '
   /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
   /^[[:space:]]*public void startupWithBaselineProfile[[:space:]]*\(/ && annotated { found=1 }
