@@ -92,4 +92,4 @@ This follow-up is isolated on `review/playback-startup-best-match-20261121`; it 
 - The implementation, regression-test source and documentation were re-fetched from the review branch for static inspection.
 - Tests have not been run; the test-first RED result is not established. Kotlin compilation, Android build, device playback, Macrobenchmark and CI have not been run.
 - No measured startup or buffering improvement is claimed. The diagnostic data must be collected on a physical device and compared across representative streams/networks before considering any further playback-policy changes.
-- The review branch is nine commits ahead of `main-build-testing` and has no merge-base divergence. The target branch remains untouched.
+- The review branch is ahead of `main-build-testing` with no merge-base divergence. The target branch remains untouched.
