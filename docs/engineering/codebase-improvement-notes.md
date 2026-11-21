@@ -656,3 +656,27 @@ Source changes are isolated on `review/playback-startup-best-match-20261121`; no
 - No playback buffer, HLS adaptation, source fallback, DNS, or stream-link cache policy was changed.
 
 **Verification:** static remote source re-fetch and review only. No RED/GREEN test run, Kotlin compilation, Android build, CI, physical-device playback, Macrobenchmark or measured latency comparison was performed. No startup speedup is claimed. See [player startup optimization and diagnostics](player-stream-startup-optimization-2026-11-19.md) and the review design/plan in `docs/superpowers/specs` and `docs/superpowers/plans`.
+
+
+## Android release profile audit — verify flavor-specific Baseline Profile artifacts before tuning startup (Cycle 128, 21 November 2026)
+
+A separate cold-start audit checked the Android Baseline Profile wiring rather than changing playback or Compose behavior.
+
+Findings:
+- `androidApp/src/main/baseline-prof.txt` exists but is zero bytes. This alone does **not** prove that release variants ship without a profile: `androidApp/build.gradle.kts` sets `baselineProfile.mergeIntoMain = false`, so the generic main source-set file is not the expected place to judge the generated release profiles.
+- The app applies the Baseline Profile plugin, depends on `:baselineProfile`, and includes ProfileInstaller. The generator module targets `:androidApp` and declares matching `full` and `playstore` distribution flavors.
+- Profile persistence is configured with `saveInSrc = true`, while `automaticGenerationDuringBuild = false`. A normal release build therefore must not be assumed to refresh the profile; profile generation is an explicit workflow.
+- The app has separate optimized `benchmarkRelease` and non-minified `nonMinifiedRelease` build types with the same `.benchmark` application ID suffix, consistent with separating profile capture from optimized release packaging.
+- The Android manifest declares `com.nuvio.app.launcher.AppIconDefault` as the default launcher activity. Other launcher aliases are also declared for icon variants; the profile journey must launch through the real app entry point rather than accidentally profile an internal activity.
+
+Decision:
+- Do not hand-author ART profile rules or copy guessed rules into `src/main`. That would be speculative and could optimize the wrong classes or omit real critical journeys.
+- Before calling the profile complete, inspect the actual generator test source and the generated output for each distribution flavor, confirm that startup capture is marked for startup-profile inclusion, and inspect the final release APK/AAB for a non-empty compiled profile at the documented packaging location.
+- Include only measured, representative critical user journeys in the general Baseline Profile; keep startup-only interactions distinct from later navigation/playback journeys so non-startup code does not pollute the Startup Profile.
+- Compare cold TTID/TTFD on the same physical device and equivalent signed-in state with profile compilation disabled versus required Baseline Profile compilation. Keep profile changes only when repeated measurements show a real improvement without regressions.
+
+Evidence and limits:
+- Re-fetched the live `androidApp/build.gradle.kts`, `baselineProfile/build.gradle.kts`, `gradle/libs.versions.toml`, main Android manifest and profile source file from this review branch. The repository pins AGP 9.4.0, AndroidX Benchmark Macro 1.6.0-alpha02 and ProfileInstaller 1.4.1.
+- Context7 and Android Developers guidance confirm that generated profile output is variant-sensitive, that `includeInStartupProfile` should be reserved for startup journeys, and that the compiled profile must be checked in the packaged release artifact. A zero-byte `src/main/baseline-prof.txt` is not enough to infer whether flavor-specific generated profiles are present.
+- The GitHub file connector could not resolve the generator source file's package path or enumerate the module directory. Therefore generator coverage and the generated flavor-specific profile contents remain **unverified**, not declared missing.
+- No source behavior, profile rules, Gradle configuration or dependencies were changed. No Gradle task, profile generation, APK/AAB build, CI, physical-device benchmark or performance measurement was run.
