@@ -1425,6 +1425,7 @@ for flavor in full playstore; do
   done
   : > "$FAKE_COMMAND_LOG"
   FAKE_UNREADABLE_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-unreadable-installed.log" 2>&1
+  unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   for invalid_path_state in missing split; do
     : > "$FAKE_COMMAND_LOG"
     if [ "$invalid_path_state" = missing ]; then
@@ -1445,7 +1446,6 @@ for flavor in full playstore; do
       exit 1
     fi
   done
-  unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   grep -Fq 'App installed APK verification: UNVERIFIED' "$unreadable_dir/provenance.txt" || {
     echo "FAIL: unreadable installed APK path must be labelled UNVERIFIED ($flavor)." >&2
     cat "$unreadable_dir/provenance.txt" >&2
