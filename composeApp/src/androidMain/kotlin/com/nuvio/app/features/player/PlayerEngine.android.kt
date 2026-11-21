@@ -1791,8 +1791,6 @@ private fun ExoPlayerSurface(
                             .build()
                         Log.d(TAG, "setSubtitleUri: track params set before prepare, textDisabled=${exoPlayer.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)}")
                         beginExoPlayerPrepareAttempt(reason = "external_subtitle_set", details = "positionMs=$currentPosition")
-                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear", details = "positionMs=$currentPosition")
-                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear_select", details = "positionMs=$currentPosition")
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
@@ -1819,6 +1817,7 @@ private fun ExoPlayerSurface(
                         val newMediaItem = currentMediaItem.buildUpon()
                             .setSubtitleConfigurations(emptyList())
                             .build()
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear", details = "positionMs=$currentPosition")
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
@@ -1849,6 +1848,7 @@ private fun ExoPlayerSurface(
                         val newMediaItem = currentMediaItem.buildUpon()
                             .setSubtitleConfigurations(emptyList())
                             .build()
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear_select", details = "positionMs=$currentPosition")
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
