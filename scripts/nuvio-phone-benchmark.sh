@@ -1249,7 +1249,7 @@ write_macrobenchmark_summary() {
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
 
-      # Keep every reported device field tied to the AndroidX root context object.
+      # Keep every reported device field tied to AndroidX's root context object.
       context_object = json_member_object(json, "context")
       build_object = json_member_object(context_object, "build")
       version_object = json_member_object(build_object, "version")
@@ -1716,8 +1716,6 @@ require_memory_profile_result_data() {
     printf '\nBattery Saver integrity\n'
     cat "$RUN_DIR/battery-saver-integrity.txt"
   } > "$RUN_DIR/memory-profile-summary.txt" || fail "Could not write the memory-profile summary."
-  printf 'Generated thermal integrity -> %s\n' "$RUN_DIR/thermal-integrity.txt" >> "$RUN_DIR/copied-files.txt"
-  printf 'Generated Battery Saver integrity -> %s\n' "$RUN_DIR/battery-saver-integrity.txt" >> "$RUN_DIR/copied-files.txt"
   printf 'Generated memory-profile summary -> %s\n' "$RUN_DIR/memory-profile-summary.txt" >> "$RUN_DIR/copied-files.txt"
 }
 
@@ -1824,7 +1822,7 @@ install_variant() {
     printf 'Test APK source filename: %s\nTest APK source SHA-256: %s\n' "$(basename "$TEST_APK")" "$test_source_hash"
   } > "$(install_provenance_file)" || fail "Could not persist APK install provenance."
   printf '\nInstalled %s (%s). Open Nuvio, sign in, finish onboarding if needed, and leave it on Home.\n' "$FLAVOR" "$ACTION"
-  printf 'For Home browse Baseline Profile collection, Home must contain a populated, horizontally scrollable catalogue shelf with enough entries to scroll; the home_browse profile fails if it is absent.\n'
+  printf 'For profile collection, Home must contain at least one catalogue shelf with enough entries to scroll horizontally; the home_browse profile fails if it is absent.\n'
   printf 'Do not clear app data between full and playstore; both flavors share the isolated .benchmark app ID and signing key.\n'
   printf 'Production app com.nuvio.media and its data are separate and were not changed.\n'
 }

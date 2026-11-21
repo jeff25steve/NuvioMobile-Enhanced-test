@@ -27,12 +27,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -604,24 +604,18 @@ internal fun MainAppContent(
     }
     launchOverlayState.targetState = launchOverlayVisible
 
-    val currentOnRootContentReady by rememberUpdatedState(onRootContentReady)
-    LaunchedEffect(
-        rootContentReady,
-        ownsAppRuntime,
-        launchOverlayState.currentState,
-        launchOverlayState.isIdle,
-        onRootContentReady != null,
-    ) {
+    val reportMainContentReady = shouldReportMainContentReady(
+        rootContentReady = rootContentReady,
+        overlayIdle = launchOverlayState.isIdle,
+        overlayVisible = launchOverlayState.currentState,
+    )
+
+    // This publishes already-derived Compose state to the Activity; it is not ongoing
+    // coroutine work. SideEffect runs after each successful composition, so the Activity
+    // receives the same final Home/overlay readiness that was applied to the UI tree.
+    SideEffect {
         if (ownsAppRuntime) {
-            // The launch overlay is the only visual transition gating TTFD: do not
-            // report the Activity fully drawn while it still covers the Home content.
-            currentOnRootContentReady?.invoke(
-                shouldReportMainContentReady(
-                    rootContentReady = rootContentReady,
-                    overlayIdle = launchOverlayState.isIdle,
-                    overlayVisible = launchOverlayState.currentState,
-                ),
-            )
+            onRootContentReady?.invoke(reportMainContentReady)
         }
     }
 
@@ -1604,8 +1598,7 @@ internal fun MainAppContent(
                     .testTag(
                         when {
                             !rootContentReady -> "nuvio_main_content_loading"
-                            !launchOverlayState.isIdle || launchOverlayState.currentState ->
-                                "nuvio_launch_overlay_transitioning"
+                            !reportMainContentReady -> "nuvio_launch_overlay_transitioning"
                             else -> "nuvio_main_content_ready"
                         },
                     ),

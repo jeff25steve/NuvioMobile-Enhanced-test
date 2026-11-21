@@ -43,7 +43,7 @@ grep -Fq 'val rootContentReady = !ownsAppRuntime || (initialHomeReady && !profil
   echo "FAIL: MainAppContent root readiness must depend on real initial Home readiness and profile-switch completion." >&2
   exit 1
 }
-grep -Fq 'currentOnRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
+grep -Fq 'onRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
   grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: MainAppContent must forward the overlay-gated root readiness result." >&2
   exit 1
@@ -159,14 +159,20 @@ grep -Fq 'onInitialHomeContentRendered = { initialHomeReady = true }' "$MAIN_CON
   echo "FAIL: the product Home-ready state must be updated by the Home content callback." >&2
   exit 1
 }
-grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: the root readiness effect must use the latest callback without restarting on lambda identity changes." >&2
+# The root readiness callback only publishes already-derived state. Run it as a
+# post-composition SideEffect so the Activity receives the final Home/overlay state
+# synchronously after successful composition, without a cancellable coroutine hop.
+grep -Fq 'val reportMainContentReady = shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'SideEffect {' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'onRootContentReady?.invoke(reportMainContentReady)' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq '!reportMainContentReady -> "nuvio_launch_overlay_transitioning"' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent must publish its overlay-gated readiness through a post-composition SideEffect." >&2
   exit 1
 }
-grep -Fq 'onRootContentReady != null,' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: root readiness must restart only when callback availability changes, not callback identity." >&2
+if grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE"; then
+  echo "FAIL: root readiness publication must not use the old LaunchedEffect/rememberUpdatedState bridge." >&2
   exit 1
-}
+fi
 grep -Fq 'rememberUpdatedState(onFirstCatalogRendered)' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: Home readiness must use the latest callback without restarting on lambda identity changes." >&2
   exit 1
@@ -244,9 +250,11 @@ grep -Fq 'initWith(getByName("release"))' "$ANDROID_BUILD_SOURCE" || {
   echo "FAIL: benchmarkRelease must inherit the optimized release configuration." >&2
   exit 1
 }
-# The named overloads are asserted below for each collection/measurement journey.
-# Keep callers free of full accessibility-hierarchy serialization.
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(' "$source" || {
+    echo "FAIL: both benchmark journeys must delegate to the shared Home/fully-drawn readiness wait." >&2
+    exit 1
+  }
   if grep -Fq 'dumpWindowHierarchy' "$source"; then
     echo "FAIL: benchmark callers must not serialize the entire accessibility hierarchy." >&2
     exit 1
@@ -318,8 +326,7 @@ grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
 # instrumentation status stream; do not change the app's reportFullyDrawn gate.
 for expected in \
   'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName)' \
-  'static void awaitHomeAndFullyDrawn(' \
-  'UiDevice device, String journeyName, Integer measurementIteration)' \
+  'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName, Integer measurementIteration)' \
   'InstrumentationRegistry.getInstrumentation().sendStatus(0, status)' \
   'Instrumentation.REPORT_KEY_STREAMRESULT' \
   'NUVIO_STARTUP_READINESS_TIMING:' \
