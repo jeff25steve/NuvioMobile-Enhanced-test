@@ -57,6 +57,19 @@ class SmartStreamRankingTest {
         assertEquals(listOf(selectedProvider), result.listState.allStreams)
     }
 
+    @Test
+    fun `best recommendation is not narrowed by the free-text list search`() {
+        val searched = stream("Provider A", "1080p", "https://example.com/a.mkv")
+        val betterUnsearched = stream("Provider B", "4K", "https://example.com/b.mkv")
+        val listState = stateOf(searched)
+        val allState = stateOf(searched, betterUnsearched)
+
+        val result = compute(listState, allState, SmartStreamFilters())
+
+        assertEquals(betterUnsearched, result.best?.stream)
+        assertEquals(listOf(searched), result.listState.allStreams)
+    }
+
     private fun compute(
         listState: StreamsUiState,
         allState: StreamsUiState,
