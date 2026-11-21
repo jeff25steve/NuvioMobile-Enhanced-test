@@ -36,6 +36,16 @@ class AdjustableLruCacheEvictorTest {
     }
 
     @Test
+    fun autoSizeRecomputesFromCurrentUsableSpaceAndKeepsConfiguredBounds() {
+        val oneGiB = 1024L * 1024L * 1024L
+
+        assertEquals(512L * 1024L * 1024L, calculateVodDiskCacheMaxBytes(2L * oneGiB, true, 2048))
+        assertEquals(256L * 1024L * 1024L, calculateVodDiskCacheMaxBytes(512L * 1024L * 1024L, true, 2048))
+        assertEquals(10_240L * 1024L * 1024L, calculateVodDiskCacheMaxBytes(100L * oneGiB, true, 2048))
+        assertEquals(3L * 1024L * 1024L, calculateVodDiskCacheMaxBytes(100L * oneGiB, false, 3))
+    }
+
+    @Test
     fun touchingSpanUpdatesLruOrderBeforeNextWrite() {
         val evictor = AdjustableLruCacheEvictor(initialMaxBytes = 100L)
         val cache = FakeCache(evictor)
