@@ -258,18 +258,25 @@ new_run_dir() {
   run_dir_base="$OUTPUT_ROOT/$FLAVOR/$ACTION-$stamp"
   mkdir -p "$OUTPUT_ROOT/$FLAVOR" || fail "Cannot create the benchmark result folder: $OUTPUT_ROOT/$FLAVOR"
 
-  # Reserve each result directory with atomic mkdir. The timestamp is only
-  # human-readable; same-second or concurrent runs must never share artifacts.
-  RUN_DIR="$run_dir_base"
-  run_dir_suffix=0
-  while :; do
-    if mkdir "$RUN_DIR" 2>/dev/null; then
-      break
-    fi
-    [ -d "$RUN_DIR" ] || fail "Cannot reserve a unique benchmark result directory: $RUN_DIR"
-    run_dir_suffix=$((run_dir_suffix + 1))
-    RUN_DIR="$run_dir_base-$run_dir_suffix"
-  done
+  # Use the platform's atomic temporary-directory allocator. The timestamp
+  # remains human-readable; the random suffix prevents concurrent same-second
+  # invocations from racing over a shared numeric suffix.
+  if command -v mktemp >/dev/null 2>&1; then
+    RUN_DIR="$(mktemp -d "${run_dir_base}-XXXXXX" 2>/dev/null)" ||
+      fail "Cannot reserve a unique benchmark result directory under: $run_dir_base"
+  else
+    # Compatibility fallback for minimal shells without mktemp.
+    RUN_DIR="$run_dir_base"
+    run_dir_suffix=0
+    while :; do
+      if mkdir "$RUN_DIR" 2>/dev/null; then
+        break
+      fi
+      [ -d "$RUN_DIR" ] || fail "Cannot reserve a unique benchmark result directory: $RUN_DIR"
+      run_dir_suffix=$((run_dir_suffix + 1))
+      RUN_DIR="$run_dir_base-$run_dir_suffix"
+    done
+  fi
 
   MARKER="$RUN_DIR/.started"
   : > "$MARKER" || fail "Cannot create the benchmark run marker: $MARKER"
