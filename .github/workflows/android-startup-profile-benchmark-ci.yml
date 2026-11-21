@@ -1,6 +1,7 @@
 name: Android Startup Profile Benchmark CI Branch Runner
 
 # Push-triggered only on this isolated branch; main-build-testing remains manual-only.
+# The repair commit is verified from this isolated branch before any changes reach main-build-testing.
 on:
   push:
     branches:
