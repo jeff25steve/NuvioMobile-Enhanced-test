@@ -180,7 +180,7 @@ Two additional source-level findings were verified against the review branch:
 
 2. For separate audio URLs, `PlayerEngine.android.kt` merges distinct video and audio MediaSources. Media3 1.5.0+ reports load events from secondary merged sources too; the current first-media diagnostic can therefore be audio rather than video. The exact Media3 1.8.0 source/API was inspected. Keep this metric provisional and separate video/audio/subtitle roles before using it for first-frame analysis. See Cycle 137 in the codebase notes.
 
-Also audited all six `exoPlayer.prepare()` call sites: only the initial start path begins a fresh `PlaybackDiagnostics` attempt. Manual retry, Blu-ray title/recovery, and three external-subtitle reload paths do not. The current attempt counters and first-event guards are therefore not consistent across all ExoPlayer prepare operations. See Cycle 138 in the codebase notes.
+Cycle 138 found that only the initial ExoPlayer start path began a fresh `PlaybackDiagnostics` attempt. Cycle 143 now routes all six ExoPlayer prepare boundaries (initial, Blu-ray, retry and three subtitle reload paths) through one helper that resets the per-attempt guards. Delayed callbacks still require event-specific identity correlation before these logs can be treated as authoritative. See Cycles 138 and 143 in the codebase notes.
 
 No production code or tests changed in these audits. No test task, build, CI, network fault injection, benchmark or device run was started.
 
