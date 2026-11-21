@@ -59,7 +59,8 @@
 - [x] Log only first manifest and first media load-start events; ignore retries for first-load classification.
 - [x] Log only the first manifest and first media load completion, avoiding per-segment log flooding.
 - [x] Discard negative elapsed timestamps before consuming the first-event guard.
-- [ ] Verify event-to-attempt correlation for source transitions and stale callbacks.
+- [ ] Correlate `EventTime` event-specific timeline/window/period identity with current player identity; do not trust the current `attempt` counter for delayed or pre-buffered events.
+- [ ] Reset first-load guards at a verified prepare-attempt boundary if the diagnostics are intended to cover repeated prepares on the same ExoPlayer.
 - [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 
 ### Task 3: Evidence and notes
