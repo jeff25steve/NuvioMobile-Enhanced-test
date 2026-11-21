@@ -210,3 +210,12 @@
 - Full committed shell tests and Java compilation remain unrun; no Gradle task, build, CI, instrumentation, profile collection or physical-device benchmark was authorized.
 - No launch-time or profile-coverage improvement is claimed until a profile collection run is explicitly authorized and succeeds.
 
+### Cycle 88 — publish the Activity TTFD gate from applied Compose readiness (21 November 2026)
+
+- [x] Read the newly captured LADB instrumentation log rather than infer from foreground snapshots. Both profile journeys failed at `nuvio_startup_ready`: the target app was active; Home and `nuvio_main_content_ready` were present; profile switching was idle; the launch overlay was gone; the Activity fully-drawn marker remained absent for the full 15-second post-Home budget.
+- [x] Verify both installed APK SHA-256 values matched the exact Play Store profile-capture APK pair. The run failed inside `BaselineProfileGenerator`, before the R8 three-arm measurement; APK provenance and LADB installation were not the cause.
+- [x] Preserve the product readiness contract. Keep `rootContentReady = initialHomeReady && !profileSwitchLoading` and the existing overlay-idle/hidden predicate; do not increase the timeout or report ready from a timer.
+- [x] Replace the `LaunchedEffect` callback hop with Compose `SideEffect`, publishing the already-derived readiness value only after a successful composition. Reuse that exact boolean for both the `nuvio_main_content_ready` / overlay-transition marker and the AppGate-to-Activity callback, so benchmark-observed readiness and the `ReportDrawnWhen` input cannot drift into separate predicates.
+- [x] Extend `test-android-startup-readiness.sh` to require the shared readiness value, post-composition publication and marker reuse, and reject the previous `rememberUpdatedState`/LaunchedEffect bridge.
+- The regression guard was made RED against the previous bridge shape before the implementation change. The updated source was re-fetched from GitHub for focused contract verification; the complete repository shell suite and Kotlin compilation were not run because no local checkout was available through the connected GitHub environment.
+- No Gradle task, build, CI, instrumentation, profile collection or new physical-device run was started. The source-level fix is not yet device-verified; the next authorized profile-collection run must confirm that `nuvio_startup_ready` appears after Home/overlay readiness and both profile journeys complete.
