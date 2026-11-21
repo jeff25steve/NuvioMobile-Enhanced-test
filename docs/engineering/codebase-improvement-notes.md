@@ -776,3 +776,30 @@ The initial Cycle 134 conclusion that Home snapshot file I/O and JSON decoding r
 **Decision:** withdraw the proposed dispatcher change. It would duplicate existing IO dispatch and add no demonstrated benefit. The earlier Cycle 134 main-thread finding must not be used as a performance candidate or as justification for a production change. The current `StartupPreloaderTest` verifies that independent startup reads overlap the ordered critical reads, but it does not assert the actual Home snapshot thread; no new test is required to justify a dispatcher fix because no such fix is needed on this path.
 
 This correction was established by tracing `StartupPreloader.preloadCriticalPhase()` → `runStartupPreloadWork(Dispatchers.IO)` → `async(dispatcher)` → `HomeRepository.preloadSnapshot()`. No production code changed. No tests, build, CI, StrictMode capture, Perfetto trace or device benchmark was run.
+
+
+## Media3 startup diagnostic ownership audit (Cycle 135, 21 November 2026)
+
+Re-opened the isolated playback-hardening branch's actual `PlayerEngine.android.kt` implementation and checked the callback contract against the repository-pinned Media3 version.
+
+**Confirmed root cause**
+- The listener currently computes elapsed time from the mutable `PlaybackDiagnostics.prepareStartedAtMs`, then labels the callback with the mutable `PlaybackDiagnostics.attempt` at callback-delivery time.
+- It does not inspect `AnalyticsListener.EventTime.timeline`, `windowIndex`, `mediaPeriodId`, or their `current*` counterparts. Resetting the one-time flags in `beginAttempt()` therefore does not establish which prepare attempt owns a load event.
+- Android's official Analytics documentation explicitly says the event's timeline/window/mediaPeriod identify the item to which the event belongs, while `currentTimeline/currentWindowIndex/currentMediaPeriodId` describe the item current at callback time; those can differ when the event belongs to a pre-buffered next item.
+- The official API also defines `EventTime.timeline` as the most recent timeline containing the event position, and `windowIndex` as a prospective index when the timeline is not yet known and empty. A null `mediaPeriodId` is valid for events not associated with a specific period.
+
+**Important initial-HLS limitation**
+- An initial manifest event can legitimately arrive before the timeline is populated. In that case, event identity may be only a prospective window index, with no event media-period ID. Comparing the event item to the current item is not a proof of ownership in that state.
+- Consequently, a simple equality check against `currentMediaPeriodId`, or a timestamp check against the latest prepare start, is insufficient. Blindly rejecting all empty-timeline events would also discard legitimate initial manifest observations.
+- The current logs must remain provisional; they must not be used to compare per-attempt manifest/media startup timings or to justify buffer-policy changes.
+
+**Decision**
+- No speculative callback filter or media-item-ID rewrite was added. A safe production fix requires a source-level ownership design that can associate each load event with the exact MediaSource/prepare generation, including the initial manifest before a timeline exists. The next implementation investigation must trace how the app constructs and wraps each MediaSource (including merged audio/subtitles and the HLS compatibility wrapper), then define testable ownership semantics for start, completion, retry, cancellation, prepare replacement and player rebuild.
+- Preserve the existing diagnostics and their URL redaction until that ownership contract is implemented. Do not describe this as fixed.
+
+**Evidence and verification boundary**
+- Re-fetched the branch's `PlayerEngine.android.kt`, `PlaybackDiagnosticsTest.kt` and `gradle/libs.versions.toml`; the catalog pins Media3 1.8.0.
+- Context7 resolved AndroidX Media3 but did not expose an exact 1.8.0 documentation version; its nearest indexed version was 1.8.1. No 1.8.1-only API was assumed.
+- Exa returned the official Android Developers Analytics guide and official AndroidX `AnalyticsListener.java` source, including the event-versus-current identity contract. The exact 1.8.0 tagged source was not independently located during this pass.
+- The existing host tests cover counter reset/limits only; they do not exercise event identity, empty timelines, previous-item events or prepare replacement.
+- No production code or tests changed. No Gradle test task, build, CI, benchmark, device run or playback experiment was started.
