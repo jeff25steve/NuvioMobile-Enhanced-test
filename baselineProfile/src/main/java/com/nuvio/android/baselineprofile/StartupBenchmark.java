@@ -32,7 +32,7 @@ import org.junit.runner.RunWith;
 public final class StartupBenchmark {
     private static final int ITERATIONS = 10;
     private static final ExperimentalConfig STARTUP_INSIGHTS_CONFIG =
-            new ExperimentalConfig(null, new StartupInsightsConfig(true));
+            new ExperimentalConfig(null, new StartupInsightsConfig(true), null);
 
     @Rule
     public final MacrobenchmarkRule benchmarkRule = new MacrobenchmarkRule();
@@ -41,7 +41,7 @@ public final class StartupBenchmark {
     public void startupNoCompilation() {
         runColdStartupBenchmark(
                 "startupNoCompilation",
-                CompilationMode.None.INSTANCE,
+                new CompilationMode.None(),
                 java.util.Arrays.asList(new StartupTimingMetric(), new ArtMetric())
         );
     }
