@@ -146,9 +146,10 @@ private object PlaybackDiskCache {
         val directory = File(context.cacheDir, "vod_playback_cache").apply { mkdirs() }
         val activeCache = cache
         if (activeCache != null) {
-            val activeEvictor = checkNotNull(evictor)
-            activeEvictor.setMaxBytes(activeCache, maxBytes(directory, settings))
-            observeSettings(directory, activeCache, activeEvictor)
+            // The settings argument is a player-composition snapshot and may be stale.
+            // Once created, the live repository flow is the only authority for policy changes.
+            // It also performs eviction on Dispatchers.IO rather than on the playback setup path.
+            observeSettings(directory, activeCache, checkNotNull(evictor))
             return activeCache
         }
 
