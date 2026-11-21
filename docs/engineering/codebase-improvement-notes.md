@@ -800,6 +800,42 @@ Re-opened the isolated playback-hardening branch's actual `PlayerEngine.android.
 **Evidence and verification boundary**
 - Re-fetched the branch's `PlayerEngine.android.kt`, `PlaybackDiagnosticsTest.kt` and `gradle/libs.versions.toml`; the catalog pins Media3 1.8.0.
 - Context7 resolved AndroidX Media3 but did not expose an exact 1.8.0 documentation version; its nearest indexed version was 1.8.1. No 1.8.1-only API was assumed.
-- Exa returned the official Android Developers Analytics guide and official AndroidX `AnalyticsListener.java` source, including the event-versus-current identity contract. The exact 1.8.0 tagged source was not independently located during this pass.
+- Exa subsequently fetched the exact AndroidX Media3 1.8.0 tagged `AnalyticsListener.java`, `MediaSourceEventListener.java`, `WrappingMediaSource.java` and `MergingMediaSource.java` sources. Context7's indexed 1.8.1 release notes were used only for the historical 1.5.0 merged-source event change, not to assume a 1.8.1-only API.
 - The existing host tests cover counter reset/limits only; they do not exercise event identity, empty timelines, previous-item events or prepare replacement.
 - No production code or tests changed. No Gradle test task, build, CI, benchmark, device run or playback experiment was started.
+
+
+## HLS parameter-set inspection critical-path audit (Cycle 136, 21 November 2026)
+
+Inspected `HlsParameterSetInitDataSource.open()`, `HlsParameterSetInit.withParameterSetInit()` and `HlsParameterSetInitTest` as a new playback-startup path, separate from the Media3 callback race.
+
+**Confirmed call sequence**
+- For a position-zero HLS playlist request, `open()` opens the upstream source and fully reads the playlist before invoking the optional SPS/PPS inspection.
+- Only finished clear media playlists with at least two segments and without an existing map, byte ranges, discontinuities or encryption qualify for inspection.
+- The inspection runs inside `resultWithin(CHECK_TIMEOUT_MS = 3_000)`. That helper starts a daemon thread but synchronously waits on `FutureTask.get(3 seconds)` before returning the original or rewritten playlist.
+- The inspection fetches the second segment head first. Healthy streams stop after that one fetch; streams whose second segment lacks SPS/PPS then fetch the first segment head and may construct an init segment.
+
+**Concrete latency implication**
+- The 3-second timeout bounds only the optional segment-inspection wait; it does not bound the preceding playlist `upstream.open()` or `readAll()`.
+- A slow segment host can therefore hold the playlist `open()` call for up to the full 3-second inspection timeout even when the stream is healthy and will ultimately be served unchanged. The nearby source comment says a slow segment host must not hold up startup, but the synchronous wait still permits this bounded delay.
+- On timeout, `FutureTask.cancel(true)` interrupts the inspection worker. The existing test proves the helper returns within a broad bound for an interruptible `Thread.sleep`, but it does not prove every network `DataSource` promptly honors interruption or closes its socket. A lingering worker is a risk to test, not a confirmed leak.
+
+**Decision**
+- Do not lower the 3-second cap arbitrarily: on affected streams the inspection is the mechanism that creates the init segment needed to avoid the observed mid-stream H.264 no-frame stall. Do not move it asynchronously after returning the playlist, because the playlist must contain `EXT-X-MAP` before ExoPlayer parses it.
+- The next safe improvement needs a testable policy that distinguishes the optional healthy-stream check from the required repair path, plus a controllable DataSource test for slow open/read, timeout, interruption, close and fallback-to-original-playlist behavior. Measure the impact on first playlist readiness and confirm the SPS/PPS workaround still activates on affected VOD before changing the timeout or execution strategy.
+
+**Verification boundary**
+- Re-fetched `HlsParameterSetInitDataSource.kt`, `HlsParameterSetInit.kt` and `HlsParameterSetInitTest.kt` from the review branch.
+- Existing tests cover parser correctness, playlist eligibility, extractor behavior and the generic timeout helper; they do not cover the end-to-end DataSource `open()` latency or non-interruptible network operations.
+- No source behavior or tests changed. No test task, build, CI, benchmark, network fault injection or physical-device playback was run.
+
+### Media3 merged-source diagnostic attribution (Cycle 137, 21 November 2026)
+
+Reconciled the exact AndroidX Media3 1.8.0 sources with the app's `setPlaybackMediaItem()` construction path.
+
+- When `sourceAudioUrl` is present, the app builds separate video and audio `MediaSource` instances and wraps them in `MergingMediaSource`, then in `AudioDelayMediaSource`.
+- Media3 release notes document that since 1.5.0, `MergingMediaSource` reports load events from secondary sources too, including sideloaded subtitles; duplicate load events can therefore reach `AnalyticsListener` for one logical playback item. This behavior is present in the repository-pinned 1.8.0 line.
+- The current diagnostics claim the first manifest/media event by data type only. They do not distinguish video-source events from separate audio or subtitle-source events. A first media event may therefore describe a secondary source rather than the video whose first-frame latency is the primary startup target.
+- `MediaSourceEventListener` in the exact 1.8.0 source exposes source-local `windowIndex` and nullable `MediaPeriodId`; `WrappingMediaSource` provides a supported single-child wrapping abstraction. This makes source-local attribution a viable investigation direction, but it still needs to handle merged sources and pre-timeline manifest loads explicitly.
+
+**Decision:** do not use the current first-media log as a video-startup metric for dual-source playback. Future diagnostics should separate video/audio/subtitle source roles and include the prepare boundary. Keep the existing logs provisional until this is covered by source-level tests. No production code or tests changed; no test task, build, CI or device measurement was run.
