@@ -75,8 +75,8 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
       echo "FAIL: StartupBenchmark must import AndroidX StartupInsightsConfig." >&2
       exit 1
     }
-    grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true))' "$source" || {
-      echo "FAIL: both startup comparison arms must enable trace-based Startup Insights without changing the Perfetto config." >&2
+    grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), null)' "$source" || {
+      echo "FAIL: both startup comparison arms must enable trace-based Startup Insights through the AndroidX 1.6.0-alpha02 Java constructor." >&2
       exit 1
     }
     grep -Fq '                STARTUP_INSIGHTS_CONFIG,' "$source" || {
