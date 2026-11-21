@@ -162,9 +162,10 @@ grep -Fq 'onInitialHomeContentRendered = { initialHomeReady = true }' "$MAIN_CON
 # The root readiness callback only publishes already-derived state. Run it as a
 # post-composition SideEffect so the Activity receives the final Home/overlay state
 # synchronously after successful composition, without a cancellable coroutine hop.
-grep -Fq 'SideEffect {' "$MAIN_CONTENT_SOURCE" &&
-  grep -Fq 'onRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
-  grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
+grep -Fq 'val reportMainContentReady = shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'SideEffect {' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'onRootContentReady?.invoke(reportMainContentReady)' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq '!reportMainContentReady -> "nuvio_launch_overlay_transitioning"' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: MainAppContent must publish its overlay-gated readiness through a post-composition SideEffect." >&2
   exit 1
 }
