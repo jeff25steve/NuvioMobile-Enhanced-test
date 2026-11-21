@@ -1468,7 +1468,7 @@ for flavor in full playstore; do
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
     fi
-    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output' "$TMP/$flavor-$bad_json.log" || {
+    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output|Could not create the human-readable Macrobenchmark summary' "$TMP/$flavor-$bad_json.log" || {
       echo "FAIL: incomplete JSON rejection did not identify the result-data gap ($bad_json)." >&2
       cat "$TMP/$flavor-$bad_json.log" >&2
       exit 1
