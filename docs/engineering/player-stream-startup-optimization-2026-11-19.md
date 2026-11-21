@@ -126,3 +126,12 @@ The proposed idea of downloading the first few minutes after a stream is selecte
 - **Decision:** retain the existing logs as provisional diagnostics only. Do not use them as authoritative per-attempt manifest/media timing, and do not tune buffer policy or claim a measured speedup from them until event ownership and prepare-attempt boundaries have a testable implementation.
 
 No production playback behavior was changed in this audit. No tests, Kotlin compilation, Android build, CI, Macrobenchmark, or physical-device playback were run.
+
+
+### Android Baseline Profile packaging audit (21 November 2026)
+
+- The generic `androidApp/src/main/baseline-prof.txt` is zero bytes, but the app config explicitly sets `baselineProfile.mergeIntoMain = false`; do not treat the generic file alone as proof that a release flavor has no generated profile.
+- The profile generator module is wired to `:androidApp` with matching `full` and `playstore` flavors. Profile saving is enabled, but automatic generation during builds is disabled.
+- The correct next verification is to inspect the generator's actual startup and in-app journeys, generate each release-flavor profile through the explicit profile task on a supported device, and confirm the compiled profile is packaged in each release artifact. Do not hand-author rules or infer a speedup from source configuration.
+- Generator source path and flavor-specific generated profile contents could not be verified through the available repository file endpoint. No profile-generation task, build, CI, device benchmark or playback test was run.
+- Detailed findings and acceptance criteria are recorded in [codebase improvement notes](codebase-improvement-notes.md), Cycle 128.
