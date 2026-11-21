@@ -75,8 +75,8 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
       echo "FAIL: StartupBenchmark must import AndroidX StartupInsightsConfig." >&2
       exit 1
     }
-    grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true))' "$source" || {
-      echo "FAIL: both startup comparison arms must enable trace-based Startup Insights without changing the Perfetto config." >&2
+    grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), null)' "$source" || {
+      echo "FAIL: both startup comparison arms must enable trace-based Startup Insights through the AndroidX 1.6.0-alpha02 Java constructor." >&2
       exit 1
     }
     grep -Fq '                STARTUP_INSIGHTS_CONFIG,' "$source" || {
@@ -707,7 +707,7 @@ JSON
       mv "$FAKE_MEDIA_DIR/result.tmp" "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
     fi
     case "${FAKE_BENCHMARK_JSON:-complete}" in
-      complete|misleading-root-metadata|nested-context-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
+      complete|misleading-root-metadata|nested-context-metadata|missing-context-sdk|misleading-global-sdk|misleading-global-build|non-object-context|non-object-build|non-object-version|duplicate-context|nested-metric-fields|duplicate-metric-field|nested-art-metric-fields|missing-trace-metadata|missing-trace-file|empty-trace-file|no-classload|extra-profiler-output) ;;
       empty) printf '{"benchmarks":[]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json" ;;
       missing-profile)
         printf '{"benchmarks":[{"name":"startupNoCompilation","metrics":{"timeToInitialDisplayMs":{"median":1},"timeToFullDisplayMs":{"median":2}}}]}' > "$FAKE_MEDIA_DIR/fake-benchmarkData.json"
@@ -1137,7 +1137,7 @@ for flavor in full playstore; do
       exit 1
     }
   done
-  for decoy_value in 'Root decoy phone' 'Android API: 28' 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+  for decoy_value in 'Root decoy phone' 'Android API: 28' 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1 |' 'sustained performance mode: true' 'Android release codename: DECOY'; do
     if grep -Fq "$decoy_value" "$decoy_summary"; then
       echo "FAIL: summary accepted unrelated root-level metadata '$decoy_value' ($flavor)." >&2
       cat "$decoy_summary" >&2
@@ -1161,7 +1161,7 @@ for flavor in full playstore; do
       exit 1
     }
   done
-  for decoy_value in 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+  for decoy_value in 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1 |' 'sustained performance mode: true' 'Android release codename: DECOY'; do
     if grep -Fq "$decoy_value" "$nested_context_summary"; then
       echo "FAIL: summary accepted nested context metadata '$decoy_value' ($flavor)." >&2
       cat "$nested_context_summary" >&2
@@ -1241,8 +1241,8 @@ for flavor in full playstore; do
   grep -Fq 'Rules carrying H/S/P flags: H=2 S=2 P=2' "$profile_audit"
   grep -Fq 'profile-audit-summary.txt' "$profile_result_dir/copied-files.txt"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
-  environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
-  environment_after="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print -quit)"
+  environment_before="$memory_result_dir/environment-before.txt"
+  environment_after="$memory_result_dir/environment-after.txt"
   test -s "$environment_before"
   test -s "$environment_after"
   grep -Fq 'level: 88' "$environment_before"
@@ -1253,16 +1253,35 @@ for flavor in full playstore; do
   grep -Fq 'Thermal status before measurement: 0 (NONE)' "$thermal_integrity"
   grep -Fq 'Thermal status after measurement: 0 (NONE)' "$thermal_integrity"
   grep -Fq 'NO MODERATE-OR-HIGHER THERMAL STATUS OBSERVED AT THE TWO SNAPSHOTS' "$thermal_integrity"
-  grep -Fq 'thermal-integrity.txt' "$(dirname "$environment_before")/copied-files.txt"
-  grep -Fq 'Thermal integrity' "$(dirname "$environment_before")/benchmark-summary.txt"
+  memory_copied_files="$(dirname "$environment_before")/copied-files.txt"
+  grep -Fq 'thermal-integrity.txt' "$memory_copied_files" || {
+    echo "FAIL: thermal integrity report is missing from the memory-profile copied-files manifest ($flavor)." >&2
+    cat "$memory_copied_files" >&2
+    echo "Memory-profile summary:" >&2
+    cat "$(dirname "$environment_before")/memory-profile-summary.txt" >&2
+    exit 1
+  }
+  grep -Fq 'Thermal integrity' "$memory_result_dir/memory-profile-summary.txt" || {
+    echo "FAIL: memory-profile summary must include thermal integrity ($flavor)." >&2
+    cat "$memory_result_dir/memory-profile-summary.txt" >&2
+    exit 1
+  }
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   foreground_before="$(find "$TMP/output/$flavor" -name 'foreground-before.txt' -print -quit)"
   foreground_after="$(find "$TMP/output/$flavor" -name 'foreground-after.txt' -print -quit)"
   test -s "$foreground_before"
   test -s "$foreground_after"
-  grep -Fq 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}' "$foreground_before"
-  grep -Fq 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}' "$foreground_before"
+  grep -Fq 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}' "$foreground_before" || {
+    echo "FAIL: foreground snapshot is missing the expected launcher mCurrentFocus record ($flavor)." >&2
+    cat "$foreground_before" >&2
+    exit 1
+  }
+  grep -Fq 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}' "$foreground_before" || {
+    echo "FAIL: foreground snapshot is missing the expected launcher topResumedActivity record ($flavor)." >&2
+    cat "$foreground_before" >&2
+    exit 1
+  }
   grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
   grep -Fq 'Boot completed: 1' "$environment_before"
   grep -Eq '^Device uptime since boot: [0-9]+ seconds$' "$environment_before"
@@ -1282,7 +1301,7 @@ for flavor in full playstore; do
     cat "$TMP/$flavor-diagnostics-fail.log" >&2
     exit 1
   fi
-  diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
+  diagnostic_snapshot="$(find "$TMP/output/$flavor" -mindepth 2 -maxdepth 2 -type f -path '*/measure-*/environment-after.txt' -print | sort | tail -n 1)"
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
   diagnostic_summary="$(dirname "$diagnostic_snapshot")/benchmark-summary.txt"
@@ -1406,6 +1425,7 @@ for flavor in full playstore; do
   done
   : > "$FAKE_COMMAND_LOG"
   FAKE_UNREADABLE_INSTALLED_PACKAGE=app sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" > "$TMP/$flavor-unreadable-installed.log" 2>&1
+  unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   for invalid_path_state in missing split; do
     : > "$FAKE_COMMAND_LOG"
     if [ "$invalid_path_state" = missing ]; then
@@ -1426,7 +1446,6 @@ for flavor in full playstore; do
       exit 1
     fi
   done
-  unreadable_dir="$(find "$TMP/output/$flavor" -mindepth 1 -maxdepth 1 -type d -name 'measure-*' -print | sort | tail -n 1)"
   grep -Fq 'App installed APK verification: UNVERIFIED' "$unreadable_dir/provenance.txt" || {
     echo "FAIL: unreadable installed APK path must be labelled UNVERIFIED ($flavor)." >&2
     cat "$unreadable_dir/provenance.txt" >&2
@@ -1449,7 +1468,7 @@ for flavor in full playstore; do
       echo "FAIL: Macrobenchmark accepted incomplete JSON fixture $bad_json." >&2
       exit 1
     fi
-    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output' "$TMP/$flavor-$bad_json.log" || {
+    grep -Eq 'Macrobenchmark JSON|benchmarkData.json|Macrobenchmark trace output|Could not create the human-readable Macrobenchmark summary' "$TMP/$flavor-$bad_json.log" || {
       echo "FAIL: incomplete JSON rejection did not identify the result-data gap ($bad_json)." >&2
       cat "$TMP/$flavor-$bad_json.log" >&2
       exit 1
