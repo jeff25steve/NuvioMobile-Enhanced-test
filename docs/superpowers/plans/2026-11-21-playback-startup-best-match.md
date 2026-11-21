@@ -62,7 +62,7 @@
 - [ ] Correlate `EventTime` event-specific timeline/window/period identity with current player identity; do not trust the current `attempt` counter for delayed or pre-buffered events.
 - [x] Route all six `exoPlayer.prepare()` call sites through one explicit diagnostic attempt boundary, including retry, Blu-ray title/recovery and external-subtitle reloads.
 - [ ] Distinguish video, secondary audio and subtitle source load events when `MergingMediaSource` is used; do not treat the first merged media event as necessarily the video load.
-- [ ] Reset first-load guards only at the corresponding verified prepare-attempt boundary.
+- [x] Reset first-load guards at each explicit ExoPlayer prepare-attempt boundary; stale callback identity correlation remains a separate open item.
 - [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 
 ### Task 3: Evidence and notes
