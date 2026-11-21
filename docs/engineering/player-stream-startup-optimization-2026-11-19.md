@@ -66,3 +66,30 @@ The test source was reviewed and the synthetic state mappings were checked in me
 - Added three host-test contracts for request ordering, optional AAAA failure and cancellation on A failure. Test source reviewed, not executed.
 - Expected effect is lower custom-DoH lookup critical-path latency when A and AAAA responses have meaningful independent delay. No measured stream-startup gain is claimed.
 - Details and the separate dependency audit: [Android DoH parallelization](player-doh-parallel-dns-2026-11-19.md). No Gradle tasks, tests, builds or CI were run.
+
+
+## Follow-up under review — Smart Streams filters and first-load diagnostics (21 November 2026)
+
+This follow-up is isolated on `review/playback-startup-best-match-20261121`; it is not merged into `main-build-testing`.
+
+### Smart Streams Best Match consistency
+
+- The source-wide Play Best recommendation now applies the same Smart Streams filters to `allState.groups` and the selected-provider filter through `allState.filteredGroups`.
+- The visible stream list still applies Smart Streams filters to `listState.groups` after the existing free-text search. Play Best intentionally remains independent of the lower-page free-text search, preserving its existing placement and source-wide role.
+- Existing stream scores, weights, low-quality fallback, and stable input-order tie-break are unchanged.
+- Added `SmartStreamRankingTest` cases for resolution filtering, Instant Only excluding an unresolved addon torrent, provider selection, and independence from free-text list search.
+
+### Android Media3 initial load diagnostics
+
+- Added Media3 1.8.0 `AnalyticsListener.onLoadStarted` and `onLoadCompleted` handling for the first manifest load and first media load per listener/player instance.
+- Start events exclude retries; completion events are capped to one manifest and one media event, avoiding per-segment log flooding.
+- Logs include elapsed realtime from the existing prepare start, load duration, byte count and track type. Start URLs pass through `InAppLogger.redactUrl`; no headers or raw query parameters are added.
+- Negative elapsed events are discarded before first-event flags are consumed so an event timestamp from before the current prepare is not classified as the new attempt.
+- This supplements existing decoder initialization, load-error and first-frame diagnostics. It does not change player selection, HLS requests, buffer thresholds, retry handling, DNS, or link cache policy.
+
+### Verification boundary
+
+- The implementation, regression-test source and documentation were re-fetched from the review branch for static inspection.
+- Tests have not been run; the test-first RED result is not established. Kotlin compilation, Android build, device playback, Macrobenchmark and CI have not been run.
+- No measured startup or buffering improvement is claimed. The diagnostic data must be collected on a physical device and compared across representative streams/networks before considering any further playback-policy changes.
+- The review branch is nine commits ahead of `main-build-testing` and has no merge-base divergence. The target branch remains untouched.
