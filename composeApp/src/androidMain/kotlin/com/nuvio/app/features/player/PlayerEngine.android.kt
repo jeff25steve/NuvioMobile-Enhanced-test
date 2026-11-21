@@ -890,6 +890,14 @@ private fun ExoPlayerSurface(
         onDispose { audioFocus.abandon() }
     }
 
+    fun beginExoPlayerPrepareAttempt(reason: String, details: String = "") {
+        playbackDiagnostics.beginAttempt(SystemClock.elapsedRealtime())
+        Log.i(
+            PLAYER_DIAGNOSTIC_TAG,
+            "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
+        )
+    }
+
     LaunchedEffect(exoPlayer, resolvedMediaItem, initialPositionRequestKey, playbackResumeGeneration) {
         val mediaItem = attachedAddonSubtitleConfig?.let { config ->
             resolvedMediaItem.buildUpon().setSubtitleConfigurations(listOf(config)).build()
@@ -909,11 +917,10 @@ private fun ExoPlayerSurface(
                 discSnapshotVersion += 1
             }
         }
-        playbackDiagnostics.beginAttempt(SystemClock.elapsedRealtime())
-        Log.i(
-            PLAYER_DIAGNOSTIC_TAG,
-            "prepare begin attempt=${playbackDiagnostics.attempt} " +
-                "source=${diagnosticPlaybackSource(sourceUrl)} audioSource=${!sourceAudioUrl.isNullOrBlank()} " +
+        beginExoPlayerPrepareAttempt(
+            reason = "initial",
+            details = "source=${diagnosticPlaybackSource(sourceUrl)} " +
+                "audioSource=${!sourceAudioUrl.isNullOrBlank()} " +
                 "mime=${mediaItem.localConfiguration?.mimeType ?: "auto"} " +
                 "startPositionMs=${requestedStartPositionMs ?: 0L}",
         )
@@ -986,6 +993,7 @@ private fun ExoPlayerSurface(
             "ExoPlayer/Android",
             "Blu-ray $reason title=${bluraySession?.activeIndex} startPositionMs=$startPositionMs",
         )
+        beginExoPlayerPrepareAttempt(reason = "bluray:$reason", details = "startPositionMs=$startPositionMs")
         exoPlayer.setPlaybackMediaItem(mediaItem, startPositionMs)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
@@ -1576,6 +1584,7 @@ private fun ExoPlayerSurface(
 
                 override fun retry() {
                     InAppLogger.info("ExoPlayer/Android", "control retry positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)}")
+                    beginExoPlayerPrepareAttempt(reason = "manual_retry")
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = true
                 }
@@ -1781,6 +1790,9 @@ private fun ExoPlayerSurface(
                             .setPreferredTextRoleFlags(C.ROLE_FLAG_SUBTITLE)
                             .build()
                         Log.d(TAG, "setSubtitleUri: track params set before prepare, textDisabled=${exoPlayer.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)}")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_set", details = "positionMs=$currentPosition")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear", details = "positionMs=$currentPosition")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear_select", details = "positionMs=$currentPosition")
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
