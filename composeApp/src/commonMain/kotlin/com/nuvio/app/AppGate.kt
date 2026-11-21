@@ -1,5 +1,6 @@
 package com.nuvio.app
 
+import com.nuvio.app.features.settings.PreloadAppBrandWordmark
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
@@ -97,6 +98,7 @@ internal fun AppGate(
 ) {
     val currentOnAppReady by rememberUpdatedState(onAppReady)
 
+    PreloadAppBrandWordmark()
     if (bypassAppGate) {
         MainAppContent(
             initialTab = initialTab,

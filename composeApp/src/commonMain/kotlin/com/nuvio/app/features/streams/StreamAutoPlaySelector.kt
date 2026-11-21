@@ -10,6 +10,7 @@ object StreamAutoPlaySelector {
         preferredGroupIds: Set<String> = emptySet(),
     ): List<AddonStreamGroup> {
         if (groups.isEmpty()) return groups
+        val (downloadedEntries, nonDownloadedGroups) = groups.partition { it.isLocalDownload }
 
         val addonRankByName: Map<String, Int> = if (installedOrder.isEmpty()) {
             emptyMap()

@@ -7,6 +7,7 @@ import com.nuvio.app.core.auth.isAuthSessionIdentityCurrentForProfile
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.servers.ServerRepository
+import com.nuvio.app.features.servers.RefusedServerTypes
 import com.nuvio.app.features.servers.ServerSyncSnapshot
 import com.nuvio.app.features.servers.SyncedServer
 import com.nuvio.app.features.servers.mergeSyncedServers
@@ -27,6 +28,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.time.TimeSource
 
 private const val MEDIA_SERVER_PUSH_DEBOUNCE_MS = 500L
 
@@ -43,6 +45,8 @@ private data class MediaServerSyncScope(
 object MediaServerSync {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("MediaServerSync")
+    private val clockStart = TimeSource.Monotonic.markNow()
+    private val refusedTypes = RefusedServerTypes { clockStart.elapsedNow().inWholeMilliseconds }
     private val syncMutex = Mutex()
     private var observeJob: Job? = null
 
@@ -104,7 +108,7 @@ object MediaServerSync {
             }
             if (!identityCurrent || !applied) return false
 
-            if (merged.any { it.key !in remoteKeys }) {
+            if (merged.any { it.key !in remoteKeys && !refusedTypes.isRefused(it.providerId) }) {
                 if (!isCurrentScope(expectedScope)) return false
                 val currentSnapshot = ServerRepository.syncSnapshot(profileId) ?: return false
                 if (!push(currentSnapshot, expectedScope)) return false
@@ -132,24 +136,29 @@ object MediaServerSync {
 
     private suspend fun push(snapshot: ServerSyncSnapshot, expectedScope: MediaServerSyncScope): Boolean {
         if (!isCurrentScope(expectedScope)) return false
-        SupabaseProvider.client.postgrest.rpc(
-            function = "sync_push_media_servers",
-            parameters = buildJsonObject {
-                put("p_profile_id", snapshot.profileId)
-                put("p_servers", snapshot.servers.toSyncPayload())
-                putSyncOriginClientId()
-            },
-        )
+        val uploaded = refusedTypes.upload(snapshot) { allowed ->
+            SupabaseProvider.client.postgrest.rpc(
+                function = "sync_push_media_servers",
+                parameters = buildJsonObject {
+                    put("p_profile_id", allowed.profileId)
+                    put("p_servers", allowed.servers.toSyncPayload())
+                    putSyncOriginClientId()
+                },
+            )
+        }
         if (!isCurrentScope(expectedScope)) return false
         var markedPushed = false
         val identityCurrent = AuthRepository.runIfSessionIdentityCurrent(expectedScope.identity) {
             if (ProfileRepository.activeProfileId == expectedScope.profileId) {
-                ServerRepository.markPushed(snapshot)
+                ServerRepository.markPushed(uploaded)
                 markedPushed = true
             }
         }
         if (!identityCurrent || !markedPushed) return false
-        log.d { "Pushed ${snapshot.servers.size} media servers for profile ${snapshot.profileId}" }
+        if (uploaded.servers.size < snapshot.servers.size) {
+            log.i { "Backend refused ${snapshot.servers.size - uploaded.servers.size} media servers; keeping them on this device" }
+        }
+        log.d { "Pushed ${uploaded.servers.size} media servers for profile ${uploaded.profileId}" }
         return true
     }
 

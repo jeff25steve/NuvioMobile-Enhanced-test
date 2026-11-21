@@ -81,7 +81,8 @@ actual fun PlatformPlayerSurface(
     val latestPlayerSettings = rememberUpdatedState(playerSettings)
     val experimentalSinglePrimaryPictureInPictureEnabled =
         IosExperimentalPictureInPictureSettingsStorage.loadSinglePrimaryRendererEnabled()
-    var subtitleText by remember(sourceUrl) { mutableStateOf("") }
+    var subtitleText by remember { mutableStateOf("") }
+    LaunchedEffect(sourceUrl) { subtitleText = "" }
     var subtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
 
     LaunchedEffect(Unit) { trimImageMemoryForPlayback() }
@@ -525,6 +526,7 @@ actual fun PlatformPlayerSurface(
             }
             val snapshot = PlayerPlaybackSnapshot(
                 isLoading = bridge.getIsLoading(),
+                isOpening = bridge.getIsOpening(),
                 isPlaying = bridge.getIsPlaying(),
                 isEnded = bridge.getIsEnded(),
                 durationMs = durationMs,
@@ -584,7 +586,8 @@ actual fun PlatformPlayerSurface(
             },
             interactive = false,
         )
-        StyledSubtitleOverlay(subtitleText, subtitleStyle)
+        val subtitleCues = remember(subtitleText) { parseMpvSubtitleText(subtitleText) }
+        StyledSubtitleOverlay(subtitleCues, subtitleStyle)
         
         if (useNativeController) {
             var isPlayingLocal by remember { mutableStateOf(playWhenReady) }

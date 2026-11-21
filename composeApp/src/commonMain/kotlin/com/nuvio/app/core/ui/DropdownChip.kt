@@ -64,6 +64,7 @@ fun NuvioDropdownChip(
     previewGlass: Boolean = false,
     selectedPreviewSurface: LiquidGlassSurface? = null,
     onGlassSurfaceInteracted: (() -> Unit)? = null,
+    fillWidth: Boolean = false,
 ) {
     val tokens = MaterialTheme.nuvio
     val glassEnabled = glassSurface != null && isLiquidGlassSurfaceEffectivelyEnabled(
@@ -139,6 +140,7 @@ fun NuvioDropdownChip(
             modifier = modifier
                 .then(selectionFrameModifier)
                 .size(width = nativeWidth, height = 40.dp),
+            modifier = if (fillWidth) Modifier.weight(1f) else Modifier,
         )
     } else {
         LiquidGlassTextContrastScope(enabled = glassEnabled) {
@@ -157,6 +159,7 @@ fun NuvioDropdownChip(
                     color = if (enabled) tokens.colors.textPrimary else tokens.colors.textDisabled,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = if (fillWidth) Modifier.weight(1f) else Modifier,
                 )
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowDown,

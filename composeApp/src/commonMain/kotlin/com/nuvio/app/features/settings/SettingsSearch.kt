@@ -966,6 +966,38 @@ internal fun settingsSearchEntries(
         section = downloadsPage,
         searchTerms = listOf("offline", "download manager", "storage", "saved files"),
     )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "preferred-resolution",
+        title = stringResource(Res.string.downloads_preferred_resolution_title),
+        description = stringResource(Res.string.downloads_preferred_resolution_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+    )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "max-concurrent-downloads",
+        title = stringResource(Res.string.downloads_max_concurrent_title),
+        description = stringResource(Res.string.downloads_max_concurrent_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+    )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "max-episodes-per-show",
+        title = stringResource(Res.string.downloads_max_series_episode_concurrent_title),
+        description = stringResource(Res.string.downloads_max_series_episode_concurrent_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+    )
+    addRow(
+        page = SettingsPage.Downloads,
+        key = "max-concurrent-shows",
+        title = stringResource(Res.string.downloads_max_concurrent_shows_title),
+        description = stringResource(Res.string.downloads_max_concurrent_shows_description),
+        pageLabel = downloadsPage,
+        section = downloadsPage,
+    )
     addPage(
         page = SettingsPage.Playback,
         key = "playback",
@@ -1828,6 +1860,7 @@ internal fun settingsSearchEntries(
             if (continueWatchingStyle != ContinueWatchingSectionStyle.Poster && continueWatchingEpisodeThumbnails) {
                 PlaybackSearchRow("blur-next-up", stringResource(Res.string.settings_continue_watching_blur_next_up_title), stringResource(Res.string.settings_continue_watching_blur_next_up_description))
             } else null,
+            PlaybackSearchRow("click-action", stringResource(Res.string.settings_continue_watching_click_action_title), stringResource(Res.string.settings_continue_watching_click_action_description)),
         ),
     )
     addContinueWatchingRows(

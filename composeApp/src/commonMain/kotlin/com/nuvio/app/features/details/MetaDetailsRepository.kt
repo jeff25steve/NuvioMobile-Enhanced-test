@@ -2,9 +2,11 @@ package com.nuvio.app.features.details
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.logging.InAppLogger
+import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.concurrency.runCatchingUnlessCancelled
 import com.nuvio.app.features.addons.AddonManifest
 import com.nuvio.app.features.addons.AddonRepository
+import com.nuvio.app.features.downloads.OfflineMetadataRepository
 import com.nuvio.app.features.addons.buildAddonResourceUrl
 import com.nuvio.app.features.addons.enabledAddons
 import com.nuvio.app.features.addons.fetchAddonResponseText
@@ -145,6 +147,20 @@ object MetaDetailsRepository {
             return
         }
 
+        val savedOfflineMeta = OfflineMetadataRepository.getSavedMetaDetails(id)
+        val isOffline = NetworkStatusRepository.uiState.value.isOfflineLike
+
+        if (isOffline && publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "Offline")) return
+        if (savedOfflineMeta != null) {
+            if (currentState.meta?.type != type || currentState.meta.id != id) {
+                log.d { "Using saved download metadata while refreshing for type=$type id=$id" }
+                _uiState.value = MetaDetailsUiState(
+                    isLoading = true,
+                    meta = savedOfflineMeta.withUnreleasedFilter(),
+                )
+            }
+        }
+
         if (currentState.meta?.type == type && currentState.meta.id == id && !currentState.isLoading) {
             log.d { "Skipping reload for cached meta — type=$type id=$id" }
             InAppLogger.debug("Metadata/MetaDetailsRepository", "Skipping reload for current meta type=$type id=$id")
@@ -159,7 +175,9 @@ object MetaDetailsRepository {
             return
         }
 
-        _uiState.value = MetaDetailsUiState(isLoading = true)
+        if (savedOfflineMeta == null) {
+            _uiState.value = MetaDetailsUiState(isLoading = true)
+        }
 
         launchActiveLoad(requestKey) { requestJob ->
             val metaLookupId = resolveMetaLookupId(itemId = id, itemType = type)
@@ -183,6 +201,8 @@ object MetaDetailsRepository {
                     )
                     return@launchActiveLoad
                 }
+
+                if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "No addon or TMDB meta")) return@launch
 
                 log.w { "No addon provides meta for type=$type id=$id" }
                 InAppLogger.warn("Metadata/MetaDetailsRepository", "No addon provides meta type=$type id=$id lookup=$metaLookupId")
@@ -225,6 +245,8 @@ object MetaDetailsRepository {
                 return@launchActiveLoad
             }
 
+            if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "Failed to load meta from all providers")) return@launch
+
             InAppLogger.error("Metadata/MetaDetailsRepository", "Failed to load meta from all providers type=$type id=$id lookup=$metaLookupId")
             val message = getString(Res.string.details_load_failed_all_addons)
             if (!isCurrentLoad(requestKey, requestJob)) return@launchActiveLoad
@@ -233,19 +255,55 @@ object MetaDetailsRepository {
         }
     }
 
+    /** Publishes saved offline details as the final metadata fallback. */
+    private fun publishSavedOfflineMeta(
+        savedMeta: MetaDetails?,
+        type: String,
+        id: String,
+        requestKey: String,
+        reason: String,
+    ): Boolean {
+        savedMeta ?: return false
+        log.i { "$reason, using saved download metadata type=$type id=$id" }
+        _uiState.value = MetaDetailsUiState(meta = savedMeta.withUnreleasedFilter())
+        activeRequestKey = requestKey
+        return true
+    }
+
     fun peek(type: String, id: String): MetaDetails? {
         val requestKey = "$type:$id"
         val currentMeta = _uiState.value.meta?.takeIf { it.type == type && it.id == id }
         if (currentMeta != null) return currentMeta
 
-        val cachedEntry = cachedMetaByRequestKey[requestKey] ?: return null
-        val cachedMeta = cachedEntry.metaScreenMeta
-            ?.takeIf {
-                cachedEntry.metaScreenSettingsFingerprint ==
-                    buildMetaScreenSettingsFingerprint(MdbListSettingsRepository.snapshot())
-            }
-            ?: cachedEntry.baseMeta
-        return cachedMeta.withUnreleasedFilter()
+        val cachedEntry = cachedMetaByRequestKey[requestKey]
+        if (cachedEntry != null) {
+            val cachedMeta = cachedEntry.metaScreenMeta
+                ?.takeIf {
+                    cachedEntry.metaScreenSettingsFingerprint ==
+                        buildMetaScreenSettingsFingerprint(MdbListSettingsRepository.snapshot())
+                }
+                ?: cachedEntry.baseMeta
+            return cachedMeta.withUnreleasedFilter()
+        }
+
+        return OfflineMetadataRepository.getSavedMetaDetails(id)?.withUnreleasedFilter()
+    }
+
+    suspend fun withPreferredMoreLikeThis(
+        meta: MetaDetails,
+        fallbackItemId: String,
+        fallbackItemType: String,
+    ): MetaDetails {
+        if (meta.moreLikeThisSource == MoreLikeThisSource.SIMKL || meta.moreLikeThisSource == MoreLikeThisSource.TRAKT) {
+            return meta
+        }
+        return withContext(Dispatchers.Default) {
+            applyMoreLikeThisSource(
+                meta = meta,
+                fallbackItemId = fallbackItemId,
+                fallbackItemType = fallbackItemType,
+            )
+        }.withUnreleasedFilter()
     }
 
     fun clearCachedMetadata() {
@@ -397,6 +455,7 @@ object MetaDetailsRepository {
                     val meta = details.meta
                     ServerUserStateProjection.apply(details)
                     cachedMetaByRequestKey[requestKey] = CachedMetaEntry(baseMeta = meta)
+                    OfflineMetadataRepository.onMetaLoaded(meta)
                     _uiState.value = MetaDetailsUiState(meta = meta)
                 },
                 onFailure = { error ->
@@ -639,6 +698,7 @@ object MetaDetailsRepository {
         if (!isCurrentLoad(requestKey, requestJob)) return
         val cachedEntry = CachedMetaEntry(baseMeta = meta)
         cachedMetaByRequestKey[requestKey] = cachedEntry
+        OfflineMetadataRepository.onMetaLoaded(meta)
 
         if (!shouldEnrichForMetaScreen(meta, fallbackItemId, mdbListSettings)) {
             val displayMeta = meta.withUnreleasedFilter()
@@ -711,6 +771,10 @@ object MetaDetailsRepository {
         val isTraktAuthenticated = TraktAuthRepository.uiState.value.mode == TraktConnectionMode.CONNECTED
         val tmdbSettings = TmdbSettingsRepository.snapshot()
 
+        log.d {
+            "More like this source=${trackingSettings.moreLikeThisSource} simkl=${shouldUseSimklMoreLikeThis(trackingSettings.moreLikeThisSource)} " +
+                "type=${meta.type} fallbackType=$fallbackItemType id=${meta.id}"
+        }
         // Simkl source
         if (shouldUseSimklMoreLikeThis(trackingSettings.moreLikeThisSource) &&
             supportsMoreLikeThis(meta, fallbackItemType)
@@ -724,11 +788,15 @@ object MetaDetailsRepository {
             }.onFailure { error ->
                 log.w { "Failed to load Simkl related titles for ${meta.id}: ${error.message}" }
             }.getOrDefault(emptyList())
+            InAppLogger.info("Metadata/Simkl", "Related titles id=${meta.id} count=${items.size}")
 
-            return meta.copy(
-                moreLikeThis = items,
-                moreLikeThisSource = MoreLikeThisSource.SIMKL.takeIf { items.isNotEmpty() },
-            )
+            if (items.isNotEmpty()) {
+                return meta.copy(
+                    moreLikeThis = items,
+                    moreLikeThisSource = MoreLikeThisSource.SIMKL,
+                    moreLikeThisHasMore = false,
+                )
+            }
         }
 
         // Trakt source
@@ -807,7 +875,7 @@ object MetaDetailsRepository {
         val trackingSettings = TrackingSettingsRepository.uiState.value
         val isTraktAuthenticated = TraktAuthRepository.uiState.value.mode == TraktConnectionMode.CONNECTED
         val tmdbSettings = TmdbSettingsRepository.snapshot()
-        return shouldUseTraktMoreLikeThis(
+        return shouldUseSimklMoreLikeThis(trackingSettings.moreLikeThisSource) || shouldUseTraktMoreLikeThis(
             isAuthenticated = isTraktAuthenticated,
             source = trackingSettings.moreLikeThisSource,
         ) || !tmdbSettings.enabled || !tmdbSettings.useMoreLikeThis || meta.moreLikeThisSource == null && meta.moreLikeThis.isNotEmpty()
@@ -826,7 +894,7 @@ object MetaDetailsRepository {
         return buildString {
             append("${settings.enabled}:${settings.apiKey.trim()}:$providers")
             append("|mdblist_account=${settings.accountScope.takeUnless { settings.hasApiKey }}")
-            append("|more_like=${trackingSettings.moreLikeThisSource}:$traktAuthMode")
+            append("|more_like=${trackingSettings.moreLikeThisSource}:$traktAuthMode:${shouldUseSimklMoreLikeThis(trackingSettings.moreLikeThisSource)}")
             append("|tmdb=${tmdbSettings.enabled}:${tmdbSettings.useMoreLikeThis}:${tmdbSettings.language}")
             append("|omdb=${OmdbEpisodeRatingsService.hasApiKey}:${tmdbSettings.useEpisodeRatings}")
         }
@@ -907,6 +975,7 @@ internal fun findEmbeddedStreamsForMeta(
         } else if (videoId == meta.id) {
             rootStreams?.addAll(video.streams)
         }
+    }
 
         // Keep the existing fallback priority: episode coordinates, then prefix.
         if (
@@ -931,6 +1000,12 @@ internal fun findEmbeddedStreamsForMeta(
     } else {
         onlyVideoWithStreams.streams
     }
+
+    if (videoId == id && videosWithStreams.isNotEmpty()) {
+        return videosWithStreams.flatMap { it.streams }
+    }
+
+    return emptyList()
 }
 
 internal sealed interface MetaLookupOutcome {

@@ -122,9 +122,11 @@ internal fun StreamCard(
                         refractionAmount = 9.dp,
                         preview = preview,
                     )
+                        .compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
                 } else {
                     Modifier.background(surfaceFallback, cardShape)
                 },
+                staticFromBackdrop = true,
             )
             .then(
                 if (isCurrent || outlined) {
@@ -209,7 +211,7 @@ internal fun StreamCard(
                 if (!stream.addonLogo.isNullOrBlank()) {
                     AsyncImage(
                         model = stream.addonLogo,
-                        contentDescription = stream.addonName,
+                        contentDescription = stream.displayAddonName(),
                         modifier = Modifier
                             .size(28.dp)
                             .clip(RoundedCornerShape(6.dp)),
@@ -218,7 +220,7 @@ internal fun StreamCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = stream.addonName,
+                    text = stream.displayAddonName(),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, shadow = streamGlassTextShadow(preview = preview)),
                     color = Color.White,
                     maxLines = 1,
@@ -345,7 +347,10 @@ private fun CurrentStreamBadge(label: String) {
     }
 }
 
-internal const val StreamGlassTintAlpha = 0.55f
+internal const val StreamGlassTintAlpha = 0.45f
+
+internal val StreamGlassTint: Color = Color.White.copy(alpha = 0.05f)
+    .compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
 
 private val StreamGlassTextShadow = Shadow(
     color = Color.Black.copy(alpha = 0.6f),

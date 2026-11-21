@@ -1,5 +1,8 @@
 package com.nuvio.app.features.downloads
 
+import com.nuvio.app.features.details.MetaDetails
+import com.nuvio.app.core.sync.AppForegroundMonitor
+import com.nuvio.app.core.sync.AppVisibility
 import com.nuvio.app.features.player.SubtitleRequestExtras
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthSessionIdentity
@@ -19,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 
@@ -29,15 +33,18 @@ object DownloadsRepository {
     private val _hasUnseenCompleted = MutableStateFlow(false)
     val hasUnseenCompleted: StateFlow<Boolean> = _hasUnseenCompleted.asStateFlow()
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val activeHandles = mutableMapOf<DownloadOperationKey, DownloadsTaskHandle>()
     private val activeOperations = mutableMapOf<DownloadOperationKey, Long>()
     private var nextOperationGeneration = 0L
     private var hasLoaded = false
     private var loadedProfileOwner: DownloadProfileOwner? = null
     private var nextDownloadOrdinal = 0L
+    private val lastProgressPersistAt = mutableMapOf<String, Long>()
 
     fun ensureLoaded() {
         ensureLoadedForCurrentProfile()
+        observeInputs()
     }
 
     private fun ensureLoadedForCurrentProfile(): DownloadProfileOwner {
@@ -130,6 +137,11 @@ object DownloadsRepository {
         _hasUnseenCompleted.value = false
     }
 
+    /**
+     * Resets in-memory state on sign-out. Must not write storage: by the time this runs the
+     * active profile has already been reset, so a write would land on another profile's key.
+     * Unfinished records for every profile are removed by the platform storage wipe.
+     */
     fun clearLocalState() {
         val handles = activeHandles.values.toList()
         activeOperations.clear()
@@ -138,6 +150,7 @@ object DownloadsRepository {
         hasLoaded = false
         loadedProfileOwner = null
         _hasUnseenCompleted.value = false
+        OfflineMetadataRepository.clear()
         _uiState.value = DownloadsUiState()
         notifyLiveStatusPlatform()
     }
@@ -373,6 +386,8 @@ object DownloadsRepository {
         episodeTitle: String?,
         episodeThumbnail: String?,
         stream: StreamItem,
+        episodeOverview: String? = null,
+        showMeta: MetaDetails? = null,
     ): DownloadEnqueueResult {
         val owner = ensureLoadedForCurrentProfile()
 
@@ -407,6 +422,10 @@ object DownloadsRepository {
             currentItems.removeAll { it.id == existing.id }
         }
 
+        val replacement = replaceExistingDownload(logicalKey)
+        val replacedExisting = replacement != null
+        val currentItems = _uiState.value.items.toMutableList()
+        replacement?.let { currentItems.removeAll { item -> item.id == it.id } }
         val downloadId = nextDownloadId(now)
         val fileName = buildFileName(
             title = title,
@@ -418,7 +437,7 @@ object DownloadsRepository {
             downloadId = downloadId,
         )
 
-        val item = DownloadItem(
+        val queuedItem = DownloadItem(
             id = downloadId,
             contentType = contentType,
             parentMetaId = parentMetaId,
@@ -431,7 +450,7 @@ object DownloadsRepository {
             seasonNumber = seasonNumber,
             episodeNumber = episodeNumber,
             episodeTitle = episodeTitle,
-            episodeThumbnail = episodeThumbnail,
+            episodeThumbnail = resolvedEpisodeThumbnail,
             streamTitle = stream.streamLabel,
             streamSubtitle = stream.streamSubtitle,
             providerName = stream.addonName,
@@ -447,30 +466,89 @@ object DownloadsRepository {
             sourceSubtitles = stream.externalSubtitles,
             localFileUri = null,
             fileName = fileName,
-            status = DownloadStatus.Downloading,
+            status = DownloadStatus.Queued,
             downloadedBytes = 0L,
             totalBytes = null,
             errorMessage = null,
             createdAtEpochMs = now,
             updatedAtEpochMs = now,
         )
-
-        currentItems.add(0, item)
+        currentItems.add(0, queuedItem)
         publish(currentItems)
         persist(owner)
         startDownload(item, owner)
 
-        return if (replacedExisting) {
+        return if (item.status == DownloadStatus.Queued) {
+            DownloadEnqueueResult.Queued
+        } else if (replacedExisting) {
             DownloadEnqueueResult.Replaced
         } else {
             DownloadEnqueueResult.Started
         }
     }
 
+    private fun updateOfflineMetadata(
+        meta: MetaDetails?, parentMetaId: String, parentMetaType: String, title: String,
+        logo: String?, poster: String?, background: String?, videoId: String, episodeTitle: String?,
+        episodeThumbnail: String?, episodeOverview: String?, seasonNumber: Int?, episodeNumber: Int?,
+    ) {
+        if (meta != null) {
+            OfflineMetadataRepository.merge(meta)
+        } else {
+            OfflineMetadataRepository.recordBasic(
+                showId = parentMetaId, type = parentMetaType, title = title, logo = logo,
+                poster = poster, background = background,
+                episode = if (seasonNumber != null && episodeNumber != null) StoredDownloadedVideoMeta(
+                    id = videoId, title = episodeTitle.orEmpty(), thumbnail = episodeThumbnail,
+                    season = seasonNumber, episode = episodeNumber, overview = episodeOverview,
+                ) else null,
+            )
+        }
+    }
+
+    private fun replaceExistingDownload(logicalKey: String): DownloadItem? {
+        val existing = _uiState.value.items.firstOrNull { it.logicalContentKey == logicalKey } ?: return null
+        dropHandle(existing.id)?.cancel()
+        DownloadsPlatformDownloader.removeFile(playableLocalFileUri(existing) ?: existing.localFileUri)
+        DownloadsPlatformDownloader.removePartialFile(existing.fileName)
+        return existing
+    }
+
+    /** Starts queued downloads until the concurrency limits or network policy stop it. */
+    fun advanceDownloadQueue() {
+        ensureLoaded()
+        val policy = DownloadQueuePolicy.current()
+        val items = _uiState.value.items.toMutableList()
+        val started = mutableListOf<DownloadItem>()
+        while (true) {
+            val next = policy.nextToStart(items) ?: break
+            val replacement = next.copy(status = DownloadStatus.Downloading, updatedAtEpochMs = DownloadsClock.nowEpochMs(), errorMessage = null)
+            val index = items.indexOfFirst { it.id == next.id }
+            if (index < 0) break
+            items[index] = replacement
+            started += replacement
+        }
+        if (started.isNotEmpty()) {
+            publish(items)
+            persist()
+            started.forEach(::startDownload)
+        }
+    }
+
     fun pauseDownload(downloadId: String) {
+        pauseDownloads(listOf(downloadId))
+    }
+
+    fun pauseActiveDownloads() {
+        pauseActiveDownloadsMatching { true }
+    }
+
+    /** Pauses the download if it is running or queued; otherwise resumes or retries it. */
+    fun togglePause(downloadId: String) {
         val owner = ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
-        if (item.status != DownloadStatus.Downloading) return
+        if (item.isActive) pauseDownload(downloadId) else resumeDownload(downloadId)
+    }
 
         cancelDownloadOperation(owner, downloadId)
         mutateItem(owner, downloadId) { current ->
@@ -481,12 +559,52 @@ object DownloadsRepository {
         }
     }
 
-    fun pauseActiveDownloads() {
+    /** Pauses every matching active item in one update before advancing the queue. */
+    private fun pauseActiveDownloadsMatching(predicate: (DownloadItem) -> Boolean) {
+        ensureLoaded()
+        val current = _uiState.value.items
+        val targets = current.filter { it.isActive && predicate(it) }
+        if (targets.isEmpty()) return
+        val ids = targets.mapTo(mutableSetOf()) { it.id }
+        setStatus(ids, DownloadStatus.Paused)
+        advanceDownloadQueue()
+    }
+
+    private fun setStatus(ids: Set<String>, status: DownloadStatus) {
+        if (ids.isEmpty()) return
+        val current = _uiState.value.items
+        ids.forEach { dropHandle(it)?.cancel() }
+        val now = DownloadsClock.nowEpochMs()
+        publish(current.map { item ->
+            if (item.id in ids) item.copy(status = status, updatedAtEpochMs = now, errorMessage = null) else item
+        })
+        persist()
+    }
+
+    /** Resumes paused episodes of [seriesId] and retries its failed ones. */
+    private fun resumeOrRetrySeriesDownloads(seriesId: String) {
         ensureLoaded()
         _uiState.value.items
-            .filter { it.status == DownloadStatus.Downloading }
+            .filter { it.parentMetaId == seriesId && it.isResumable }
             .map { it.id }
-            .forEach(::pauseDownload)
+            .let(::resumeDownloads)
+    }
+
+    /** Resumes every paused download and retries every failed one. */
+    fun resumeOrRetryAllDownloads() {
+        ensureLoaded()
+        _uiState.value.items
+            .filter { it.isResumable }
+            .map { it.id }
+            .let(::resumeDownloads)
+    }
+
+    fun resumePausedDownloads() {
+        ensureLoaded()
+        _uiState.value.items
+            .filter { it.status == DownloadStatus.Paused }
+            .map { it.id }
+            .forEach(::resumeDownload)
     }
 
     fun resumeDownload(downloadId: String): DownloadEnqueueResult? {
@@ -495,14 +613,18 @@ object DownloadsRepository {
         if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return null
         if (!isDownloadNetworkAllowedForCurrentSettings()) return DownloadEnqueueResult.RequiresWifi
 
-        val reset = item.copy(
-            status = DownloadStatus.Downloading,
-            errorMessage = null,
-            localFileUri = null,
-            updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-        )
+        val now = DownloadsClock.nowEpochMs()
+        val resetById = toResume.associate { item ->
+            val reset = item.copy(
+                status = DownloadStatus.Queued,
+                errorMessage = null,
+                localFileUri = null,
+                updatedAtEpochMs = now,
+            )
+            item.id to reset
+        }
 
-        replaceItem(reset)
+        publish(current.map { resetById[it.id] ?: it })
         persist(owner)
         startDownload(reset, owner)
         return DownloadEnqueueResult.Started
@@ -538,21 +660,30 @@ object DownloadsRepository {
 
         publish(_uiState.value.items.filterNot { it.id == downloadId })
         persist(owner)
+        if (wasDownloading) {
+            advanceDownloadQueue()
+        }
     }
 
     private fun loadFromDisk(owner: DownloadProfileOwner) {
+        OfflineMetadataRepository.reload()
         _hasUnseenCompleted.value = false
         hasLoaded = true
         loadedProfileOwner = owner
         val payload = DownloadsStorage.loadPayload(owner.profileIndex).orEmpty().trim()
         if (payload.isEmpty()) {
+            OfflineMetadataRepository.ensureLoaded()
             _uiState.value = DownloadsUiState(isLoaded = true)
+            OfflineMetadataRepository.setDownloads(emptyList())
             notifyLiveStatusPlatform()
             return
         }
 
+        val decoded = DownloadsCodec.decodePayload(payload)
+        OfflineMetadataRepository.migrateLegacy(decoded.showMetadata)
+
         var shouldPersistNormalized = false
-        val normalized = DownloadsCodec.decodeItems(payload)
+        val normalized = decoded.items
             .map { item ->
                 val operationKey = DownloadOperationKey(owner, item.id)
                 val statusNormalized = if (operationKey in activeOperations) {
@@ -575,6 +706,7 @@ object DownloadsRepository {
             .filter { it.status == DownloadStatus.Downloading }
             .filter { DownloadOperationKey(owner, it.id) !in activeOperations }
             .forEach { item -> startDownload(item, owner) }
+        advanceDownloadQueue()
     }
 
     private fun startDownload(item: DownloadItem, owner: DownloadProfileOwner) {
@@ -608,6 +740,7 @@ object DownloadsRepository {
                             )
                         }
                     }
+                    advanceDownloadQueue()
                 }
             },
             onSuccess = { localFileUri, totalBytes ->
@@ -644,6 +777,7 @@ object DownloadsRepository {
                     } finally {
                         finishDownloadOperation(key, generation)
                     }
+                    advanceDownloadQueue()
                 }
             },
             onPaused = {
@@ -680,6 +814,20 @@ object DownloadsRepository {
         updateOwnedDownload(owner, downloadId, transform)
     }
 
+    /** Forgets a transfer's handle and its progress-save timestamp. */
+    private fun dropHandle(downloadId: String): DownloadsTaskHandle? {
+        lastProgressPersistAt.remove(downloadId)
+        return activeHandles.remove(downloadId)
+    }
+
+    private fun shouldPersistProgress(item: DownloadItem): Boolean {
+        val now = DownloadsClock.nowEpochMs()
+        val previous = lastProgressPersistAt[item.id] ?: 0L
+        if (now - previous < PROGRESS_PERSIST_INTERVAL_MS) return false
+        lastProgressPersistAt[item.id] = now
+        return true
+    }
+
     private fun replaceItem(item: DownloadItem) {
         var previousStatus: DownloadStatus? = null
         val updated = updateProfileDownloadItem(_uiState.value.items, item.id) { current ->
@@ -695,6 +843,7 @@ object DownloadsRepository {
             items = items,
             isLoaded = hasLoaded,
         )
+        OfflineMetadataRepository.setDownloads(items)
         notifyLiveStatusPlatform()
     }
 
@@ -733,38 +882,46 @@ object DownloadsRepository {
             item
         }
     }
-
-    private fun DownloadItem.hasPlayableLocalFile(): Boolean =
-        status == DownloadStatus.Completed &&
-            DownloadsPlatformDownloader.resolveLocalFileUri(
-                localFileUri = localFileUri,
-                destinationFileName = fileName,
-            ) != null
 }
 
+internal fun DownloadItem.hasPlayableLocalFile(): Boolean =
+    status == DownloadStatus.Completed &&
+        DownloadsPlatformDownloader.resolveLocalFileUri(
+            localFileUri = localFileUri,
+            destinationFileName = fileName,
+        ) != null
+
 @Serializable
-private data class StoredDownloadsPayload(
+internal data class StoredDownloadsPayload(
     val items: List<DownloadItem> = emptyList(),
+    val showMetadata: Map<String, StoredOfflineMeta> = emptyMap(),
 )
 
-private object DownloadsCodec {
+@Serializable
+private data class StoredDownloadItemsPayload(val items: List<DownloadItem> = emptyList())
+
+internal object DownloadsCodec {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
 
-    fun decodeItems(payload: String): List<DownloadItem> =
-        runCatching {
-            json.decodeFromString<StoredDownloadsPayload>(payload).items
-        }.getOrDefault(emptyList())
+    fun decodePayload(payload: String): StoredDownloadsPayload = runCatching {
+        val root = json.parseToJsonElement(payload) as? kotlinx.serialization.json.JsonObject
+            ?: return StoredDownloadsPayload()
+        val items = (root["items"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { element -> runCatching { json.decodeFromJsonElement<DownloadItem>(element) }.getOrNull() }
+        val metadata = runCatching {
+            root["showMetadata"]?.let { json.decodeFromJsonElement<Map<String, StoredOfflineMeta>>(it) }.orEmpty()
+        }.getOrDefault(emptyMap())
+        StoredDownloadsPayload(items = items, showMetadata = metadata)
+    }.getOrDefault(StoredDownloadsPayload())
 
-    fun encodeItems(items: Collection<DownloadItem>): String =
-        json.encodeToString(
-            StoredDownloadsPayload(
-                items = items.toList(),
-            ),
-        )
+    fun encodePayload(items: Collection<DownloadItem>): String =
+        json.encodeToString(StoredDownloadItemsPayload(items = items.toList()))
 }
+
+private const val PROGRESS_PERSIST_INTERVAL_MS = 5_000L
 
 private fun sanitizeRequestHeaders(headers: Map<String, String>?): Map<String, String> =
     headers
@@ -799,7 +956,7 @@ private fun sanitizeResponseHeaders(headers: Map<String, String>?): Map<String, 
         }
         .toMap()
 
-private fun buildLogicalKey(
+internal fun buildLogicalKey(
     parentMetaId: String,
     seasonNumber: Int?,
     episodeNumber: Int?,
@@ -860,7 +1017,7 @@ private fun String.fileExtensionFromUrl(): String {
     }
 }
 
-private fun String.isSupportedDownloadUrl(): Boolean {
+internal fun String.isSupportedDownloadUrl(): Boolean {
     val normalized = trim().lowercase()
     if (normalized.startsWith("magnet:")) return false
     if (normalized.endsWith(".m3u8") || normalized.contains(".m3u8?")) return false

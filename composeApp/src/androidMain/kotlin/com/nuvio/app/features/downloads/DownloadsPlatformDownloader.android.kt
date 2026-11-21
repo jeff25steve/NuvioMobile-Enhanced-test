@@ -16,6 +16,9 @@ import java.io.File
 import java.net.URI
 
 internal actual object DownloadsPlatformDownloader {
+    // Transfers stream into a .part file and resume with a Range request.
+    actual val restartKeepsProgress: Boolean = true
+
     @Volatile
     private var appContext: Context? = null
 

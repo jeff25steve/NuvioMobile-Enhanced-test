@@ -9,6 +9,7 @@ import com.nuvio.app.features.cloud.playbackVideoId
 import com.nuvio.app.features.debrid.DebridProviders
 import com.nuvio.app.features.watchprogress.CachedInProgressItem
 import com.nuvio.app.features.watchprogress.CachedNextUpItem
+import com.nuvio.app.features.watchprogress.ContinueWatchingClickAction
 import com.nuvio.app.features.watchprogress.ContinueWatchingItem
 import com.nuvio.app.features.watchprogress.ContinueWatchingSortMode
 import com.nuvio.app.features.watchprogress.WatchProgressEntry
@@ -975,6 +976,26 @@ class HomeScreenTest {
         )
 
         assertFalse(hasUsableHomeNextUpMetadata(decision.item))
+        assertEquals(HomeNextUpCandidateMetadataOutcome.Dismissed, decision.outcome)
+    }
+
+    @Test
+    fun `dismissed next up stays hidden after its seed episode changes`() {
+        val laterEpisode = continueWatchingItem(
+            videoId = "show:1:4",
+            subtitle = "S1E4 • Later",
+            seasonNumber = 1,
+            episodeNumber = 4,
+            seedSeasonNumber = 1,
+            seedEpisodeNumber = 3,
+        )
+
+        val decision = classifyHomeNextUpCandidateMetadata(
+            freshItem = laterEpisode,
+            cachedFallbackItem = null,
+            dismissedNextUpKeys = setOf(nextUpDismissKey("show", 1, 1)),
+        )
+
         assertEquals(HomeNextUpCandidateMetadataOutcome.Dismissed, decision.outcome)
     }
 

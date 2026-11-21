@@ -10,6 +10,7 @@ import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -76,7 +77,9 @@ object TraktLibraryRepository {
     private var profileGeneration = 0L
     private var loadedProfileId: Int? = null
     private var hasLoaded = false
+    private val refreshJobMutex = Mutex()
     private val refreshMutex = Mutex()
+    private var refreshJob: Job? = null
     private var lastRefreshAtMs: Long = 0L
     private var lastListTabsRefreshAtMs: Long = 0L
 
