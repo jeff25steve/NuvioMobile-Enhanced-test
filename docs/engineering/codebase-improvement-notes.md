@@ -896,8 +896,8 @@ Implemented the Cycle 139 settings-lifetime fix in the existing Android cache ow
 
 **Production change**
 - Replaced the immutable LeastRecentlyUsedCacheEvictor with AdjustableLruCacheEvictor, which keeps the same LRU ordering semantics and accepts a new byte limit at runtime.
-- The active SimpleCache is not recreated when the configured size changes. A process-lifetime IO coroutine observes the settings flow and applies changes to the existing evictor. The initial get(context, settings) call also synchronizes the current setting before returning the cache.
-- Lowering the limit triggers eviction immediately on the IO settings collector; increasing it affects subsequent writes without clearing existing cache entries.
+- The active SimpleCache is not recreated when the configured size changes. A process-lifetime IO coroutine observes the settings flow and applies changes to the existing evictor. The initial get(context, settings) call uses the initial settings snapshot only when creating the cache; after creation, the live repository flow is the sole authority for policy changes.
+- Lowering the limit triggers eviction from the IO settings collector, not from the playback setup caller; increasing it affects subsequent writes without clearing existing cache entries.
 - Auto-size is recalculated when the auto-size mode or configured-size setting changes, using one-fifth of current usable cache-directory space and retaining the existing 256 MiB–10 GiB clamp. It is not continuously polled for unrelated disk-space changes.
 - The cache's LRU tree is updated from Media3's add/remove/touch callbacks. The evictor never holds its own state lock while calling Cache.removeSpan(). This avoids the lock inversion that would occur if a settings thread held the evictor lock while waiting for the synchronized SimpleCache, as callbacks execute under the cache monitor. Media3 1.8.0 SimpleCache.removeSpan() reports removal synchronously, allowing the tracked byte count to converge after each eviction.
 
@@ -910,3 +910,19 @@ Implemented the Cycle 139 settings-lifetime fix in the existing Android cache ow
 - Source review confirms cache callbacks are invoked synchronously from SimpleCache operations, which are synchronized. The implementation releases its own lock before calling back into the cache.
 - The Android host test source was added but not executed. The available GitHub integration can inspect and update remote files but cannot run the repository's Gradle test task. No Gradle task, APK build, CI, benchmark, cache I/O experiment or device run was started.
 - The runtime settings collector and interaction with concurrent real CacheDataSource reads/writes still require focused host/integration execution before merge. No playback speedup is claimed; this change corrects settings application only.
+
+
+## Review correction — stale player settings snapshot on cache reuse (Cycle 141, 21 November 2026)
+
+A second review of the new cache owner found that PlayerEngine captures PlayerSettingsRepository.uiState.value in a remember block. That value is a player-composition snapshot, not a live settings stream. The first Cycle 140 implementation reapplied the settings argument whenever PlaybackDiskCache.get() returned an existing cache.
+
+**Root cause and correction**
+- A live settings update could be applied correctly by the StateFlow collector, then later be overwritten by a subsequent get() call carrying the older player snapshot. This could make the cache limit revert while the UI continued showing the new setting.
+- The same active-cache branch could call Cache.removeSpan synchronously on the caller that creates playback DataSources. Lowering the limit across many spans could therefore put disk deletion work on a playback setup path.
+- Removed the active-cache setMaxBytes call. The initial snapshot is now used only when creating the SimpleCache; after creation, the process-lifetime IO collector is the sole owner of live policy updates and eviction.
+- This also prevents a stale player snapshot from undoing a newer repository setting and keeps limit-reduction work off the playback setup caller.
+
+**Verification boundary**
+- Confirmed the player settings value is captured with remember and the repository exposes a StateFlow updated by publish(). The live observer collects that flow and maps only the two cache policy fields.
+- Re-fetched the modified cache owner after the correction. The Android host tests remain unexecuted; no Gradle task, APK build, CI or device benchmark was run.
+- The fix improves correctness and avoids synchronous cache eviction during player setup. It is not evidence of measured playback-startup improvement.
