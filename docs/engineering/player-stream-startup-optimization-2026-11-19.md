@@ -135,3 +135,13 @@ No production playback behavior was changed in this audit. No tests, Kotlin comp
 - The correct next verification is to inspect the generator's actual startup and in-app journeys, generate each release-flavor profile through the explicit profile task on a supported device, and confirm the compiled profile is packaged in each release artifact. Do not hand-author rules or infer a speedup from source configuration.
 - Generator source path and flavor-specific generated profile contents could not be verified through the available repository file endpoint. No profile-generation task, build, CI, device benchmark or playback test was run.
 - Detailed findings and acceptance criteria are recorded in [codebase improvement notes](codebase-improvement-notes.md), Cycle 128.
+
+
+### Android Activity-to-first-frame audit (21 November 2026)
+
+- `MainActivity.onCreate()` performs five named synchronous initialization groups on the main thread before `setContent`: pre-super, identity/network, core storage, profile metadata, and integrations/downloads. Each group is already wrapped in a `Trace.beginSection/endSection` marker.
+- `SentryInitializer.start()` is called inside the pre-super group. Its initial settings load and `applyEnabled` execute synchronously on the caller; when enabled with a configured DSN, this path invokes `SentryAndroid.init` before `super.onCreate()`.
+- The separate critical preload decodes the profile payload on IO and runs watched/watch-progress plus Home snapshot preload through IO. Post-frame warmup is deferred until after the first Compose frame.
+- No initializer was moved or deferred: the current trace slices should first be measured on a physical device. Compare the five slices and first Compose frame with Sentry enabled and disabled before deciding whether any initialization is actually on the critical path.
+- No Perfetto capture, tests, Gradle tasks, build, CI or device benchmark was run. This is a source-level call-path finding, not evidence of a measured delay.
+- Detailed call-path notes are in [codebase improvement notes](codebase-improvement-notes.md), Cycle 129.
