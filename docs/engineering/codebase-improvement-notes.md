@@ -926,3 +926,17 @@ A second review of the new cache owner found that PlayerEngine captures PlayerSe
 - Confirmed the player settings value is captured with remember and the repository exposes a StateFlow updated by publish(). The live observer collects that flow and maps only the two cache policy fields.
 - Re-fetched the modified cache owner after the correction. The Android host tests remain unexecuted; no Gradle task, APK build, CI or device benchmark was run.
 - The fix improves correctness and avoids synchronous cache eviction during player setup. It is not evidence of measured playback-startup improvement.
+
+
+## Review correction — HLS inspection timeout telemetry (Cycle 142, 21 November 2026)
+
+The HLS playlist inspection log previously inferred `timedOut` by comparing total elapsed wall time with the configured timeout. That is not the same event as `FutureTask.get()` throwing `TimeoutException`: scheduling and return overhead can make the elapsed duration cross the threshold after a successful result, or clock granularity can make a timeout appear slightly below the threshold.
+
+**Correction**
+- Added an explicit timeout callback to resultWithin(). It runs only in the TimeoutException branch after the worker task is cancelled.
+- HLS inspection now logs this explicit outcome instead of deriving it from elapsed milliseconds. Elapsed time remains a separate duration metric.
+- Added a host test for the timeout callback firing on timeout and remaining false on a successful fast result.
+
+**Remaining boundary**
+- The worker is still interrupted and left daemonized if its DataSource ignores interruption. The existing HLS follow-up remains valid: use a controllable DataSource to test open/read interruption and close behavior before attempting cancellation/close coordination or changing the 3-second timeout.
+- The new host test source was added but not run. No Gradle test task, build, CI, network fault injection or device measurement was performed.
