@@ -315,9 +315,15 @@ internal object SmartStreamRanking {
             group.copy(streams = group.streams.filter { matches(infoOf(it), filters) })
         }
         val filteredState = listState.copy(groups = filteredGroups)
-        val visibleStreams = filteredState.filteredGroups.flatMap { it.streams }
 
-        val candidates = visibleStreams
+        // Best Match follows provider and Smart Streams filters, but not the free-text list search.
+        val bestGroups = allState.groups.map { group ->
+            group.copy(streams = group.streams.filter { matches(infoOf(it), filters) })
+        }
+        val bestState = allState.copy(groups = bestGroups)
+        val bestCandidates = bestState.filteredGroups.flatMap { it.streams }
+
+        val candidates = bestCandidates
             .filter { it.isSelectableForPlayback(debridEnabled) }
             .mapIndexed { index, stream ->
                 val info = infoOf(stream)
