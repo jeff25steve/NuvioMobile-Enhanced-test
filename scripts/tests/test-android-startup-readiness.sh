@@ -337,7 +337,7 @@ for expected in \
   'fully_drawn_marker_wait_ms=' \
   'total_wait_ms=' \
   'outcome='; do
-  printf '%s\\n' "$readiness_source_compact" | grep -Fq "$expected" || {
+  printf '%s\n' "$readiness_source_compact" | grep -Fq "$expected" || {
     echo "FAIL: shared readiness timing diagnostics are missing '$expected'." >&2
     exit 1
   }
