@@ -732,3 +732,24 @@ Reviewed the two platform configuration paths rather than changing image loading
 Context7 was queried against the exact catalog-pinned Coil 3.6.3 documentation. It explicitly supports `SingletonImageLoader.Factory` on Android and `setSingletonImageLoaderFactory` near the root composable for Compose Multiplatform. The current platform split is consistent with those documented patterns. No production change is justified; replacing this with another loader or altering cache policy without request-level evidence risks losing custom artwork handling, shared networking, or cache reuse.
 
 **Verification boundary:** `App.kt`, `NuvioApplication.kt` and `gradle/libs.versions.toml` were fetched from the review branch. No runtime request trace, image-cache benchmark, test, build, CI or device run was performed. No image-loading speedup is claimed.
+
+
+## Android DoH dual-stack resolution wait audit (Cycle 132, 21 November 2026)
+
+Inspected the custom Android `NuvioDns` path and its actual `DohClient` implementation.
+
+Confirmed behavior:
+- For non-system DNS providers, `NuvioDns.lookup()` calls `DohClient.resolve()` synchronously from OkHttp's `Dns.lookup` contract.
+- `resolveDohAnswers()` starts the AAAA query asynchronously, executes the A query synchronously, then calls an un-timed `CountDownLatch.await()` before returning the combined addresses.
+- The DoH OkHttp client has connect=5s, read=5s and call=8s timeouts. Therefore a slow or unresponsive AAAA response can hold a successful A lookup until that independent call finishes or times out; the caller does not receive the usable IPv4 answer immediately.
+- If the A query fails, the outstanding AAAA request is cancelled. If AAAA fails, the failure is treated as optional and IPv4 is returned. Successful address responses are cached only after the combined resolution returns; late AAAA completion is not retained after the resolver has returned.
+- The outer resolver falls back to system DNS on DoH `IOException`, but the AAAA wait itself is not separately bounded by a resolution-delay policy.
+
+External standards check: RFC 8305 §3 says dual-stack clients should issue A/AAAA queries close together and should not wait for both responses before attempting connection establishment; after an A response it recommends a 50ms resolution delay for a pending AAAA response. This is relevant evidence that waiting for a slow optional family can delay usable connectivity. However, this app currently implements OkHttp's synchronous `Dns.lookup(hostname): List<InetAddress>` contract, which returns one completed address list; adopting the full asynchronous RFC behavior would require understanding OkHttp's address/connection-attempt lifecycle or introducing a carefully designed bounded wait and late-result cache.
+
+**Decision:** no arbitrary 50ms cutoff or dropped-IPv6 change was made. That would change address ordering and could discard IPv6 for the current connection; a correct implementation must preserve late AAAA results for later requests and handle provider changes, cancellation, cache TTL and duplicate completion. Next step is a regression-tested resolver design plus device/network fault-injection measurements (fast A/slow AAAA, slow A/fast AAAA, both fail, provider switch during lookup). No code or tests changed; no DNS benchmark, device test, build or CI was run. No connection-speed improvement is claimed.
+
+### Evidence
+
+- Re-fetched `NuvioDns.kt`, `DnsPlatform.android.kt`, `SharedOkHttpClient.kt` and the live branch's startup/network sources.
+- Exa reviewed RFC 8305 and OkHttp DNS API/source guidance. Context7 was used for Android platform API documentation in the preceding audit; the RFC is the relevant normative source for dual-stack behavior.
