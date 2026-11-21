@@ -101,7 +101,7 @@ internal class HlsParameterSetInitDataSource(
             }
             head.toByteArray()
         } catch (e: java.io.IOException) {
-            Log.w(TAG, "Could not read the start of $uri", e)
+            Log.w(TAG, "Could not read the start of ${InAppLogger.redactUrl(uri)}", e)
             null
         } finally {
             runCatching { source.close() }
