@@ -64,7 +64,6 @@
 - [ ] Distinguish video, secondary audio and subtitle source load events when `MergingMediaSource` is used; do not treat the first merged media event as necessarily the video load.
 - [ ] Reset first-load guards only at the corresponding verified prepare-attempt boundary.
 - [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
-- [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 
 ### Task 3: Evidence and notes
 
