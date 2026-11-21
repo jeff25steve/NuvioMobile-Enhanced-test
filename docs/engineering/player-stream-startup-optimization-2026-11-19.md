@@ -183,3 +183,8 @@ Two additional source-level findings were verified against the review branch:
 Also audited all six `exoPlayer.prepare()` call sites: only the initial start path begins a fresh `PlaybackDiagnostics` attempt. Manual retry, Blu-ray title/recovery, and three external-subtitle reload paths do not. The current attempt counters and first-event guards are therefore not consistent across all ExoPlayer prepare operations. See Cycle 138 in the codebase notes.
 
 No production code or tests changed in these audits. No test task, build, CI, network fault injection, benchmark or device run was started.
+
+
+### VOD cache-size setting lifetime (21 November 2026)
+
+Found a separate correctness gap in the Android VOD disk-cache owner: `PlaybackDiskCache` is a process-wide singleton and computes the `LeastRecentlyUsedCacheEvictor` maximum only on first creation. The common settings setters for `vodDiskCacheAutoSize` and `vodDiskCacheSizeMb` only publish/persist state; they do not reconfigure or invalidate the cache. Media3 1.8.0's `LeastRecentlyUsedCacheEvictor` stores `maxBytes` as a final field with no setter, so changing the UI setting while the app is running leaves the active cache enforcing its previous limit. Do not create a second `SimpleCache` over the same directory while the first may still be active. The safe follow-up is a mutable, synchronized LRU `CacheEvictor` that can immediately enforce a newly lowered limit while retaining the same `SimpleCache` owner. This is a settings correctness issue, not evidence of faster/slower startup. See Cycle 139 in the codebase improvement notes.
