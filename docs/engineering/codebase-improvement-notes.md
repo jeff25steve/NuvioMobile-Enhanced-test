@@ -940,3 +940,25 @@ The HLS playlist inspection log previously inferred `timedOut` by comparing tota
 **Remaining boundary**
 - The worker is still interrupted and left daemonized if its DataSource ignores interruption. The existing HLS follow-up remains valid: use a controllable DataSource to test open/read interruption and close behavior before attempting cancellation/close coordination or changing the 3-second timeout.
 - The new host test source was added but not run. No Gradle test task, build, CI, network fault injection or device measurement was performed.
+
+
+## Review correction — ExoPlayer prepare-attempt coverage (Cycle 143, 21 November 2026)
+
+Completed the missing diagnostic attempt boundaries identified in Cycle 138. A single local beginExoPlayerPrepareAttempt(reason, details) helper now increments PlaybackDiagnostics and resets first-load/completion guards immediately before each ExoPlayer prepare sequence.
+
+**Covered call sites**
+- Initial media preparation.
+- Blu-ray title/recovery preparation.
+- Manual retry.
+- External subtitle attachment/reload.
+- External subtitle removal/reload.
+- External subtitle removal followed by built-in subtitle selection/reload.
+
+**Why this matters**
+- Previously, only initial media preparation began a new attempt. Loads following retry, disc-title navigation or subtitle-driven MediaItem replacement could be consumed by stale first-event guards or attributed to the previous attempt.
+- The helper is called once at each of the six prepare boundaries; MPV retains its separate beginAttempt path.
+- Event identity correlation is still not solved. A delayed callback from a previous media item may have a non-negative elapsed timestamp and still be misattributed; the current diagnostics remain provisional until event-specific timeline/window/period identity is correlated.
+
+**Verification boundary**
+- Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
+- No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
