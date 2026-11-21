@@ -51,10 +51,15 @@ awk '
   exit 1
 }
 grep -Fq 'runColdStartupBenchmark(' "$BENCHMARK_SOURCE" &&
-  grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: no-compilation test must execute the shared cold-start measurement with Java's None singleton." >&2
+  grep -Fq 'new CompilationMode.None()' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), null)' "$BENCHMARK_SOURCE" || {
+  echo "FAIL: startup insights and no-compilation baseline must use the Java-compatible AndroidX 1.6.0-alpha02 API." >&2
   exit 1
 }
+if grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE"; then
+  echo "FAIL: Java Macrobenchmark source must instantiate CompilationMode.None instead of using a Kotlin singleton field." >&2
+  exit 1
+fi
 awk '
   /^[[:space:]]*@Test[[:space:]]*$/ { annotated=1; next }
   /^[[:space:]]*public void startupWithBaselineProfile[[:space:]]*\(/ && annotated { found=1 }
@@ -114,16 +119,14 @@ grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 
-grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs; do' "$DESKTOP_RUNNER" || {
-  echo "FAIL: phone runner must require both TTID and TTFD output for every flavor." >&2
+grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs' "$DESKTOP_RUNNER" &&
+  grep -Fq 'artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must require TTID, TTFD and ART diagnostics for each of the three startup comparison arms." >&2
   exit 1
 }
-grep -Fq 'for metric in artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do' "$DESKTOP_RUNNER" || {
-  echo "FAIL: desktop runner must require AndroidX ArtMetric output for every flavor." >&2
-  exit 1
-}
-grep -Fq 'did not emit $metric' "$DESKTOP_RUNNER" || {
-  echo "FAIL: phone runner must fail clearly when a startup metric is missing." >&2
+grep -Fq 'metric_count="$(grep -Fc "$metric" "$log_file" || true)"' "$DESKTOP_RUNNER" &&
+  grep -Fq 'expected results for all three startup comparison cases.' "$DESKTOP_RUNNER" || {
+  echo "FAIL: desktop runner must count each required metric across all three startup arms and fail clearly when one is missing." >&2
   exit 1
 }
 
@@ -350,8 +353,8 @@ phone_case_check="$(grep -n -F '      require_macrobenchmark_cases' "$PHONE_RUNN
 phone_copy="$(grep -n -F '      copy_recent_outputs benchmark' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
 phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
 [ -n "$phone_case_check" ] && [ -n "$phone_copy" ] && [ -n "$phone_json_check" ] &&
-[ "$phone_case_check" -lt "$phone_copy" ] && [ "$phone_copy" -lt "$phone_json_check" ] || {
-  echo "FAIL: phone runner must check all three instrumentation cases, copy results, then validate JSON before reporting completion." >&2
+[ "$phone_copy" -lt "$phone_case_check" ] && [ "$phone_case_check" -lt "$phone_json_check" ] || {
+  echo "FAIL: phone runner must copy instrumentation output before checking all three test cases, then validate JSON before reporting completion." >&2
   exit 1
 }
 
@@ -523,7 +526,7 @@ for expected in \
   'append_startup_readiness_timings() {' \
   'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING:' \
   'Startup readiness timing records must contain exactly thirty valid per-launch samples' \
-  'scope.getIteration()' \
+  'iteration_token !~ /^iteration=[0-9]+$/' \
   'main_content_marker_wait_ms=' \
   'total_wait < active_wait + home_wait + main_content_wait + fully_drawn_wait'; do
   grep -Fq -- "$expected" "$PHONE_RUNNER" || {
