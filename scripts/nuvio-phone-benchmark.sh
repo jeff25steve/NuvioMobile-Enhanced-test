@@ -1716,6 +1716,8 @@ require_memory_profile_result_data() {
     printf '\nBattery Saver integrity\n'
     cat "$RUN_DIR/battery-saver-integrity.txt"
   } > "$RUN_DIR/memory-profile-summary.txt" || fail "Could not write the memory-profile summary."
+  printf 'Generated thermal integrity -> %s\n' "$RUN_DIR/thermal-integrity.txt" >> "$RUN_DIR/copied-files.txt"
+  printf 'Generated Battery Saver integrity -> %s\n' "$RUN_DIR/battery-saver-integrity.txt" >> "$RUN_DIR/copied-files.txt"
   printf 'Generated memory-profile summary -> %s\n' "$RUN_DIR/memory-profile-summary.txt" >> "$RUN_DIR/copied-files.txt"
 }
 
