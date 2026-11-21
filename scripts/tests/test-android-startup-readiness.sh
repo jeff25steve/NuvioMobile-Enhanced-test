@@ -244,11 +244,9 @@ grep -Fq 'initWith(getByName("release"))' "$ANDROID_BUILD_SOURCE" || {
   echo "FAIL: benchmarkRelease must inherit the optimized release configuration." >&2
   exit 1
 }
+# The named overloads are asserted below for each collection/measurement journey.
+# Keep callers free of full accessibility-hierarchy serialization.
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
-  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device)' "$source" || {
-    echo "FAIL: both benchmark journeys must delegate to the shared Home/fully-drawn readiness wait." >&2
-    exit 1
-  }
   if grep -Fq 'dumpWindowHierarchy' "$source"; then
     echo "FAIL: benchmark callers must not serialize the entire accessibility hierarchy." >&2
     exit 1
