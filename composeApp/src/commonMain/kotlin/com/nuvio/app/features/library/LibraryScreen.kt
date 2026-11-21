@@ -4446,12 +4446,6 @@ private fun isoEpochDay(date: String): Long {
     return era * 146_097L + dayOfEra - 719_468L
 }
 
-internal enum class LibraryViewMode {
-    Saved,
-    Cloud,
-    Servers,
-}
-
 private const val LIBRARY_SECTION_PREVIEW_LIMIT = 18
 
 private data class LibraryDisplayEntry(
