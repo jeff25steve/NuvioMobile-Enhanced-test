@@ -348,8 +348,8 @@ phone_case_check="$(grep -n -F '      require_macrobenchmark_cases' "$PHONE_RUNN
 phone_copy="$(grep -n -F '      copy_recent_outputs benchmark' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
 phone_json_check="$(grep -n -F '      require_macrobenchmark_result_data' "$PHONE_RUNNER" | head -n 1 | cut -d: -f1)"
 [ -n "$phone_case_check" ] && [ -n "$phone_copy" ] && [ -n "$phone_json_check" ] &&
-[ "$phone_case_check" -lt "$phone_copy" ] && [ "$phone_copy" -lt "$phone_json_check" ] || {
-  echo "FAIL: phone runner must check all three instrumentation cases, copy results, then validate JSON before reporting completion." >&2
+[ "$phone_copy" -lt "$phone_case_check" ] && [ "$phone_case_check" -lt "$phone_json_check" ] || {
+  echo "FAIL: phone runner must copy instrumentation output before checking all three test cases, then validate JSON before reporting completion." >&2
   exit 1
 }
 
@@ -521,7 +521,7 @@ for expected in \
   'append_startup_readiness_timings() {' \
   'INSTRUMENTATION_STATUS: stream=NUVIO_STARTUP_READINESS_TIMING:' \
   'Startup readiness timing records must contain exactly thirty valid per-launch samples' \
-  'scope.getIteration()' \
+  'iteration_token !~ /^iteration=[0-9]+$/' \
   'main_content_marker_wait_ms=' \
   'total_wait < active_wait + home_wait + main_content_wait + fully_drawn_wait'; do
   grep -Fq -- "$expected" "$PHONE_RUNNER" || {
