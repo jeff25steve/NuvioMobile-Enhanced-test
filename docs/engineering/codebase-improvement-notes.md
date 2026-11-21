@@ -753,3 +753,17 @@ External standards check: RFC 8305 §3 says dual-stack clients should issue A/AA
 
 - Re-fetched `NuvioDns.kt`, `DnsPlatform.android.kt`, `SharedOkHttpClient.kt` and the live branch's startup/network sources.
 - Exa reviewed RFC 8305 and OkHttp DNS API/source guidance. Context7 was used for Android platform API documentation in the preceding audit; the RFC is the relevant normative source for dual-stack behavior.
+
+
+## Startup preloader profile-cache dispatch audit (Cycle 133, 21 November 2026)
+
+Inspected the critical preload coordinator and its profile-cache dependency.
+
+- `StartupPreloader` owns a `Dispatchers.Main` scope and starts the critical phase from that scope.
+- `ProfileRepository.loadCachedProfiles()` explicitly switches payload decoding to `Dispatchers.IO`; `applyStoredPayload()` also switches PIN-cache synchronization to IO. The profile payload read and PIN-cache synchronization are therefore not synchronous main-thread work, despite the Main-scope call site.
+- After applying the cached profile, `loadCachedProfiles()` calls `ThemeSettingsRepository.onProfileChanged()` on the caller dispatcher. That method calls the synchronous theme settings loader identified in Cycle 130. It is the same shared settings path, not a separate profile-cache optimization target.
+- `runStartupPreloadWork()` schedules independent reads and ordered watched/watch-progress reads on the supplied IO dispatcher. Existing tests cover the helper's overlap behavior.
+
+**Decision:** retain the existing IO dispatch for profile payload decoding and PIN-cache sync. Trace the shared theme settings loader at both entry points before changing its readiness contract. This avoids duplicate work and prevents misreporting the profile payload read as main-thread disk I/O.
+
+**Verification:** re-fetched `StartupPreloader.kt`, `ProfileRepository.kt`, `ProfileStorage.android.kt` and `StartupPreloaderTest.kt`. Tests were inspected but not run. No code or tests changed; no Gradle task, build, CI, device trace or benchmark was run.
