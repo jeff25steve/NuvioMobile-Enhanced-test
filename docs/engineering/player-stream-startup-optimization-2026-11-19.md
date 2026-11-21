@@ -154,3 +154,12 @@ A new source path was inspected after the Activity-to-first-frame audit: `MainAc
 This is a concrete candidate for first-composition work, not proof of a measurable bottleneck. Do not blindly defer it: selected theme, AMOLED state, Liquid Glass surface overrides, profile-scoped values, locale application and legacy migration all affect initial UI state. The next evidence step is a dedicated trace around `ensureLoaded()` with cold and warm launches, then a test-backed readiness design if it materially contributes to TTID/TTFD. DataStore is asynchronous by design, but replacing this existing storage contract would require a deliberate migration and parity plan.
 
 Coil 3.6.3 was also checked: the Android `SingletonImageLoader.Factory` and root-composable `setSingletonImageLoaderFactory` used on the platform paths match Coil's documented configuration options. No loader change was justified. No code, tests, builds, CI, Perfetto or device measurements were performed.
+
+
+### Dual-stack DNS resolution follow-up (Cycle 132, 21 November 2026)
+
+The custom Android DoH resolver starts AAAA asynchronously, performs A synchronously, then waits without a separate resolution-delay bound for the AAAA callback. Its DoH client has an 8-second call timeout, so an available IPv4 answer can be held while a slow AAAA request completes or times out. RFC 8305 §3 advises clients not to wait for both address families before connection attempts and recommends a 50ms resolution delay after an A response. This is a concrete latency candidate, but the current OkHttp `Dns.lookup` API returns a completed list; a safe change needs to preserve IPv6 preference where available, retain late AAAA answers for future lookups, and cover provider changes/cache expiry/cancellation. No arbitrary cutoff was added. See Cycle 132 in the codebase notes for the full evidence and next test matrix.
+
+### Startup preloader call-path clarification (Cycle 133, 21 November 2026)
+
+The critical preloader calls `ProfileRepository.loadCachedProfiles()` from its Main scope, but profile payload decoding and PIN-cache synchronization explicitly switch to `Dispatchers.IO`. After applying the profile, it calls `ThemeSettingsRepository.onProfileChanged()` on the caller dispatcher, which enters the synchronous theme settings loader already identified in Cycle 130. This is the same shared settings path, not a second independent cache-read issue. No code or tests changed; the existing helper tests were inspected but not run.
