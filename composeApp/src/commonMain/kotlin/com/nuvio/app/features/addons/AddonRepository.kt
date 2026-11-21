@@ -275,7 +275,7 @@ object AddonRepository {
             "Addons/Repository",
             "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifest.transportUrl)}",
         )
-        AddAddonResult.Success(manifest)
+        return AddAddonResult.Success(manifest)
     }
 
     suspend fun addAddon(rawUrl: String): AddAddonResult {
@@ -350,7 +350,7 @@ object AddonRepository {
             "Addons/Repository",
             "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifestUrl)}",
         )
-        AddAddonResult.Success(manifest)
+        return AddAddonResult.Success(manifest)
     }
 
     fun removeAddon(manifestUrl: String) {
