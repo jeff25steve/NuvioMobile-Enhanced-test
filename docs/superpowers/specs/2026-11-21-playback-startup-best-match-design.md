@@ -52,4 +52,5 @@ For diagnostics:
 
 - Source-level static review is possible through GitHub, but no checked-out workspace/build runner is available in this task session.
 - The Android code and shared Kotlin must be compiled and regression tests run before merge.
+- Before using load events for per-attempt startup analysis, correlate event-specific `timeline`, `windowIndex`, and `mediaPeriodId` with `currentTimeline`, `currentWindowIndex`, and `currentMediaPeriodId`, or otherwise bind the load to a unique prepare/media-item identity. Media3 can report events for a different item than the one currently playing.
 - Physical-device measurements must compare multiple cold/warm playback attempts by media type and network. Do not change buffer/track/source policies until evidence points to a specific critical-path stage.
