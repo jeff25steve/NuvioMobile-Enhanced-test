@@ -1249,7 +1249,7 @@ write_macrobenchmark_summary() {
       metric_names[1] = "timeToInitialDisplayMs"
       metric_names[2] = "timeToFullDisplayMs"
 
-      # Keep every reported device field tied to AndroidX's root context object.
+      # Keep every reported device field tied to the AndroidX root context object.
       context_object = json_member_object(json, "context")
       build_object = json_member_object(context_object, "build")
       version_object = json_member_object(build_object, "version")
