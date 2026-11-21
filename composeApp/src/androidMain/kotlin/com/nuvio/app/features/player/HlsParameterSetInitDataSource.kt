@@ -47,14 +47,15 @@ internal class HlsParameterSetInitDataSource(
         val baseUri = (upstream.uri ?: dataSpec.uri).toString()
         // Healthy streams pay for this check too, so a slow segment host must not hold up the start.
         val inspectionStartedAtMs = SystemClock.elapsedRealtime()
-        val rewritten = resultWithin(CHECK_TIMEOUT_MS) {
+        var inspectionTimedOut = false
+        val rewritten = resultWithin(CHECK_TIMEOUT_MS, onTimeout = { inspectionTimedOut = true }) {
             HlsParameterSetInit.withParameterSetInit(body.toString(Charsets.UTF_8), baseUri, ::fetchSegmentHead)
         }
         val inspectionElapsedMs = (SystemClock.elapsedRealtime() - inspectionStartedAtMs).coerceAtLeast(0L)
         Log.i(
             TAG,
             "HLS playlist inspection elapsedMs=$inspectionElapsedMs playlistBytes=${body.size} " +
-                "rewritten=${rewritten != null} timedOut=${inspectionElapsedMs >= CHECK_TIMEOUT_MS}",
+                "rewritten=${rewritten != null} timedOut=$inspectionTimedOut",
         )
         if (rewritten != null) Log.i(TAG, "Added an SPS/PPS init segment")
         val served = rewritten?.toByteArray(Charsets.UTF_8) ?: body
@@ -145,13 +146,14 @@ private const val TAG = "HlsParameterSetInit"
  * Runs [block] on its own thread and returns its result, or null when it fails or [timeoutMs]
  * passes first. A block that overruns is interrupted and left to finish in the background.
  */
-internal fun <T : Any> resultWithin(timeoutMs: Long, block: () -> T?): T? {
+internal fun <T : Any> resultWithin(timeoutMs: Long, onTimeout: () -> Unit = {}, block: () -> T?): T? {
     val task = FutureTask(Callable { block() })
     Thread(task, TAG).apply { isDaemon = true }.start()
     return try {
         task.get(timeoutMs, TimeUnit.MILLISECONDS)
     } catch (e: TimeoutException) {
         task.cancel(true)
+        onTimeout()
         Log.w(TAG, "Checking segments took over $timeoutMs ms, playlist left as is")
         null
     } catch (e: ExecutionException) {
