@@ -103,7 +103,7 @@
 
 **Confirmed defect:** the singleton `PlaybackDiskCache` creates a `LeastRecentlyUsedCacheEvictor` once. Its maximum is final in Media3 1.8.0, and settings setters do not update the active cache. The UI can therefore display a new size while the active cache continues enforcing the old one.
 
-- [ ] Add tests first for lowering the active limit (immediate eviction), increasing the limit (subsequent writes), and recomputing auto-size.
-- [ ] Implement a synchronized mutable LRU `CacheEvictor` without opening a second `SimpleCache` for the same directory.
-- [ ] Verify active cache reads/writes remain safe during policy changes and cache release.
-- [ ] Run focused and relevant Android host tests only after explicit test/build authorization; no CI or APK build without separate authorization.
+- [x] Add Android host regression tests for lowering the active limit (immediate eviction), increasing the limit (subsequent writes), LRU touch ordering and auto-size calculation/clamps.
+- [x] Implement a mutable LRU `CacheEvictor` without opening a second `SimpleCache` for the same directory; observe relevant settings changes and apply the new limit to the existing cache.
+- [x] Review cache/evictor lock ordering against the exact Media3 1.8.0 `SimpleCache` callbacks; never hold the evictor state lock while calling `Cache.removeSpan`.
+- [ ] Execute the focused Android host tests and exercise concurrent active `CacheDataSource` reads/writes before merge. The source test is added but unexecuted; no Gradle task, APK build or CI was run in this session.
