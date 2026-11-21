@@ -680,3 +680,23 @@ Evidence and limits:
 - Context7 and Android Developers guidance confirm that generated profile output is variant-sensitive, that `includeInStartupProfile` should be reserved for startup journeys, and that the compiled profile must be checked in the packaged release artifact. A zero-byte `src/main/baseline-prof.txt` is not enough to infer whether flavor-specific generated profiles are present.
 - The GitHub file connector could not resolve the generator source file's package path or enumerate the module directory. Therefore generator coverage and the generated flavor-specific profile contents remain **unverified**, not declared missing.
 - No source behavior, profile rules, Gradle configuration or dependencies were changed. No Gradle task, profile generation, APK/AAB build, CI, physical-device benchmark or performance measurement was run.
+
+
+## Android first-frame critical path — trace-gated initialization audit (Cycle 129, 21 November 2026)
+
+A second new-area review traced the Android launcher Activity before Compose content is installed.
+
+Confirmed call-path facts:
+- `MainActivity.onCreate()` performs several groups of initialization synchronously on the main thread before `showContent()` calls `setContent`: `preSuper`, `identityNetwork`, `coreStorage`, `profileMetadata`, and `integrationsDownloads`.
+- The existing `traceStartupSection` helper wraps each group with Android `Trace.beginSection/endSection`, so the code already exposes coarse Perfetto slices for those blocks.
+- `SentryInitializer.start(application)` is inside the `preSuper` trace. Its first `SentrySettingsRepository.ensureLoaded()` and `applyEnabled(...)` calls run synchronously on the caller. If Sentry is enabled and a DSN is configured, `applyEnabled` calls `SentryAndroid.init` before the Activity proceeds to `super.onCreate()`.
+- The profile/home/watch-progress critical preload is a separate coroutine phase. Profile payload decoding explicitly switches to IO; watched/watch-progress and the independent Home snapshot preload run through the existing IO dispatcher. The post-frame warmup is deliberately deferred until after a Compose frame.
+
+Decision:
+- Do not move Sentry initialization or storage initialization to another dispatcher based only on source inspection. Android lifecycle ordering, SDK threading guarantees, early crash coverage and synchronous preference access need to be respected.
+- The next evidence-producing step is a Perfetto/System Trace capture on the physical device, comparing the five named Activity initialization slices and the first Compose frame. Repeat with Sentry enabled and disabled in otherwise identical app state to determine whether `SentryAndroid.init` is a material contributor rather than assuming it is.
+- If one section dominates, inspect its individual initializer call sites and move only work proven safe to defer or execute off-main. Preserve storage readiness before dependent repositories and preserve startup error-reporting requirements.
+
+Verification boundary:
+- Re-fetched `MainActivity.kt`, `NuvioApplication.kt`, `StartupPreloader.kt`, `ProfileRepository.kt`, and the Sentry initializer from the live review branch. This is a source call-graph audit, not a performance measurement.
+- No startup code, lifecycle ordering, Sentry configuration, storage behavior, or preload scheduling was changed. No tests, Gradle tasks, build, CI, Perfetto capture or device benchmark was run. No startup improvement is claimed.
