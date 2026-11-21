@@ -44,7 +44,7 @@ For diagnostics:
 - The Best Match projection is `allState.groups` with the same Smart Streams filters, followed by `allState.filteredGroups` for selected-provider filtering. It intentionally ignores the lower-page free-text search, preserving the existing Play Best placement/behavior.
 - Existing “best non-low-quality unless none exist” behavior and stable input order are retained after filtering.
 - ExoPlayer instrumentation uses Media3 1.8.0 `AnalyticsListener` callbacks and `EventTime.realtimeMs`, which is elapsed realtime.
-- Log data classification by `C.DATA_TYPE_MANIFEST` and `C.DATA_TYPE_MEDIA`. First-start and first-completion events are limited to one per type per player-listener lifetime. Negative elapsed timestamps are discarded so callbacks from before the current prepare are not labelled as the new attempt.
+- Log data classification by `C.DATA_TYPE_MANIFEST` and `C.DATA_TYPE_MEDIA`. First-start and first-completion events are limited to one per type per diagnostic attempt; `PlaybackDiagnostics.beginAttempt()` resets those guards. Negative elapsed timestamps are discarded as a coarse sanity check, but this does not establish event ownership: delayed callbacks from a previous media item can still have non-negative elapsed time and be attributed to the newer attempt. Event/timeline identity correlation remains an explicit open requirement.
 - All URIs pass through existing `InAppLogger.redactUrl`.
 - Media3 first-frame callback indicates codec buffer release, not confirmation of physical display presentation. Keep the diagnostic name consistent with the existing firstFrame event.
 
