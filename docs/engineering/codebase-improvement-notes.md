@@ -856,7 +856,7 @@ Counted every `exoPlayer.prepare()` call and every `PlaybackDiagnostics.beginAtt
 - The six paths are not semantically identical: manual retry re-prepares the current source; Blu-ray recovery changes the active title; subtitle operations replace the MediaItem at the current position. The eventual shared attempt API must make the boundary explicit at each caller rather than blindly incrementing from an AnalyticsListener callback.
 
 **Decision**
-- The next code change should centralize an explicit ExoPlayer diagnostic attempt-start helper and route all six call sites through it, while keeping player rebuild/listener lifecycle distinct from a new prepare attempt. Add host tests for each boundary and stale callback behavior before changing production code.
+- This follow-up was implemented in Cycle 143: one explicit ExoPlayer diagnostic attempt-start helper now covers all six call sites, while keeping player rebuild/listener lifecycle distinct from a new prepare attempt. Event identity correlation and stale-callback tests remain open.
 - No source code or tests changed in this audit. No test task, build, CI, benchmark or device run was started.
 
 **Evidence**
@@ -902,7 +902,7 @@ Implemented the Cycle 139 settings-lifetime fix in the existing Android cache ow
 - The cache's LRU tree is updated from Media3's add/remove/touch callbacks. The evictor never holds its own state lock while calling Cache.removeSpan(). This avoids the lock inversion that would occur if a settings thread held the evictor lock while waiting for the synchronized SimpleCache, as callbacks execute under the cache monitor. Media3 1.8.0 SimpleCache.removeSpan() reports removal synchronously, allowing the tracked byte count to converge after each eviction.
 
 **Regression coverage added**
-- Added Android host tests for immediate eviction after lowering the limit, allowing subsequent writes after increasing it, LRU recency updates after a span touch, and auto-size calculation/clamps.
+- Added Android host tests for immediate eviction after lowering the limit, allowing subsequent writes after increasing it, LRU recency updates after a span touch, auto-size calculation/clamps, and known/unknown write-length reservation behavior.
 - The tests use a focused Cache proxy to exercise the real evictor callback behavior without opening a second SimpleCache or depending on Android filesystem/database setup.
 
 **Review boundaries and remaining verification**
