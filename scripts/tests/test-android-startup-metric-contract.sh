@@ -114,7 +114,7 @@ grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   exit 1
 }
 
-grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs \\' "$DESKTOP_RUNNER" &&
+grep -Fq 'for metric in timeToInitialDisplayMs timeToFullDisplayMs' "$DESKTOP_RUNNER" &&
   grep -Fq 'artJitCount artJitSumMs artVerifyClassCount artVerifyClassSumMs; do' "$DESKTOP_RUNNER" || {
   echo "FAIL: desktop runner must require TTID, TTFD and ART diagnostics for each of the three startup comparison arms." >&2
   exit 1
