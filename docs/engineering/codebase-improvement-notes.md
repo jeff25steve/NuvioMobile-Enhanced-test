@@ -862,3 +862,29 @@ Counted every `exoPlayer.prepare()` call and every `PlaybackDiagnostics.beginAtt
 **Evidence**
 - Re-fetched the complete `PlayerEngine.android.kt` and counted the six `exoPlayer.prepare()` occurrences and the ExoPlayer/MPV `beginAttempt()` occurrences directly from the remote branch.
 - The implementation plan now tracks these missing boundaries and the separate audio/subtitle event attribution requirement.
+
+
+## VOD disk-cache setting lifetime audit (Cycle 139, 21 November 2026)
+
+Inspected the complete Android `PlaybackBuffering.android.kt` cache owner, the common `PlayerSettingsRepository` setters, the playback-buffer settings UI and the exact AndroidX Media3 1.8.0 cache implementation.
+
+**Confirmed behavior**
+- `PlaybackDiskCache` stores one process-wide `SimpleCache` in a nullable singleton field. `get(context, settings)` returns that same instance on every later call once initialized.
+- The first call computes the `LeastRecentlyUsedCacheEvictor` maximum from either the configured `vodDiskCacheSizeMb` or one-fifth of current usable cache-directory space (clamped to 256 MiB–10 GiB), then permanently captures that value in the evictor.
+- `PlayerSettingsRepository.setVodDiskCacheAutoSize()` and `setVodDiskCacheSizeMb()` publish and persist changes but do not notify, invalidate or reconfigure `PlaybackDiskCache`.
+- The Media3 1.8.0 `LeastRecentlyUsedCacheEvictor` stores `maxBytes` in a `private final long` and exposes no setter. Its `evictCache()` uses that captured value when spans are added or a file is started.
+- Therefore changing the cache size mode or configured size while the app process is alive does not change the active cache's eviction limit. The new setting is used only if the singleton is newly created in a later process lifetime. Auto-size likewise does not react to changing free disk space after first initialization.
+
+**Impact**
+- The settings UI can display a newly selected cache limit while the active cache continues enforcing its previous limit. This is a real settings/application mismatch, not a measured playback-startup regression.
+- Simply constructing a second `SimpleCache` over the same directory is not a safe fix: Media3 1.8.0 documents that only one `SimpleCache` instance may own a directory at a time, and active `CacheDataSource` instances may still hold the existing cache.
+
+**Safe implementation direction**
+- Introduce a cache owner that can update its eviction policy without opening a second `SimpleCache` on the same directory. The most direct candidate is a small mutable LRU `CacheEvictor` implementing Media3 1.8.0's `CacheEvictor` callbacks, tracking current spans and enforcing the latest byte limit. It must evict immediately when a new lower limit is applied, not wait for the next cache write.
+- Keep the active cache and its directory lock stable while updating the policy. Serialize policy updates with cache callbacks and verify startup, active reads/writes, profile/settings changes, and cache release/recreation.
+- Add tests proving that an existing cache owner enforces a changed lower limit immediately, an increased limit is honored on subsequent writes, auto-size recomputation is explicit, and only one SimpleCache owns the directory.
+
+**Evidence and verification boundary**
+- Re-fetched `PlaybackBuffering.android.kt`, `PlayerSettingsRepository.kt`, `PlaybackBufferSettings.kt` and the Media3 1.8.0 `LeastRecentlyUsedCacheEvictor.java` and `SimpleCache.java` sources.
+- Confirmed the two settings setters only persist/publish; no cache invalidation or reconfiguration call exists in the repository's playback cache owner.
+- No production code or tests changed. No Gradle test, build, CI, cache I/O experiment or device benchmark was run.
