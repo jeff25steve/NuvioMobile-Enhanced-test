@@ -43,7 +43,7 @@ grep -Fq 'val rootContentReady = !ownsAppRuntime || (initialHomeReady && !profil
   echo "FAIL: MainAppContent root readiness must depend on real initial Home readiness and profile-switch completion." >&2
   exit 1
 }
-grep -Fq 'currentOnRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
+grep -Fq 'onRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
   grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
   echo "FAIL: MainAppContent must forward the overlay-gated root readiness result." >&2
   exit 1
@@ -159,14 +159,19 @@ grep -Fq 'onInitialHomeContentRendered = { initialHomeReady = true }' "$MAIN_CON
   echo "FAIL: the product Home-ready state must be updated by the Home content callback." >&2
   exit 1
 }
-grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: the root readiness effect must use the latest callback without restarting on lambda identity changes." >&2
+# The root readiness callback only publishes already-derived state. Run it as a
+# post-composition SideEffect so the Activity receives the final Home/overlay state
+# synchronously after successful composition, without a cancellable coroutine hop.
+grep -Fq 'SideEffect {' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'onRootContentReady?.invoke(' "$MAIN_CONTENT_SOURCE" &&
+  grep -Fq 'shouldReportMainContentReady(' "$MAIN_CONTENT_SOURCE" || {
+  echo "FAIL: MainAppContent must publish its overlay-gated readiness through a post-composition SideEffect." >&2
   exit 1
 }
-grep -Fq 'onRootContentReady != null,' "$MAIN_CONTENT_SOURCE" || {
-  echo "FAIL: root readiness must restart only when callback availability changes, not callback identity." >&2
+if grep -Fq 'rememberUpdatedState(onRootContentReady)' "$MAIN_CONTENT_SOURCE"; then
+  echo "FAIL: root readiness publication must not use the old LaunchedEffect/rememberUpdatedState bridge." >&2
   exit 1
-}
+fi
 grep -Fq 'rememberUpdatedState(onFirstCatalogRendered)' "$HOME_SCREEN_SOURCE" || {
   echo "FAIL: Home readiness must use the latest callback without restarting on lambda identity changes." >&2
   exit 1
