@@ -84,12 +84,13 @@ This follow-up is isolated on `review/playback-startup-best-match-20261121`; it 
 - Added Media3 1.8.0 `AnalyticsListener.onLoadStarted` and `onLoadCompleted` handling for the first manifest load and first media load per listener/player instance.
 - Start events exclude retries; completion events are capped to one manifest and one media event, avoiding per-segment log flooding.
 - Logs include elapsed realtime from the existing prepare start, load duration, byte count and track type. Start URLs pass through `InAppLogger.redactUrl`; no headers or raw query parameters are added.
-- Negative elapsed events are discarded before first-event flags are consumed so an event timestamp from before the current prepare is not classified as the new attempt.
+- Negative elapsed events are discarded before first-event flags are consumed. This rejects only callbacks whose event timestamp predates the current prepare; it does **not** prove that a callback arriving later belongs to that prepare.
 - This supplements existing decoder initialization, load-error and first-frame diagnostics. It does not change player selection, HLS requests, buffer thresholds, retry handling, DNS, or link cache policy.
+- **Important limitation found during review:** `EventTime` carries both event-specific and current timeline/window/media-period identity. The current implementation does not compare those fields. ExoPlayer can emit events for pre-buffered or previous items, so `attempt` is the current counter at callback time, not a proven owner of the event. The one-time flags are per listener lifetime, not per prepare attempt. Do not use these new logs as authoritative per-attempt startup measurements until event correlation and guard reset are implemented and verified.
 
 ### Verification boundary
 
 - The implementation, regression-test source and documentation were re-fetched from the review branch for static inspection.
 - Tests have not been run; the test-first RED result is not established. Kotlin compilation, Android build, device playback, Macrobenchmark and CI have not been run.
-- No measured startup or buffering improvement is claimed. The diagnostic data must be collected on a physical device and compared across representative streams/networks before considering any further playback-policy changes.
+- No measured startup or buffering improvement is claimed. The diagnostic data must be collected on a physical device and compared across representative streams/networks before considering any further playback-policy changes. Before doing so, add and verify event-to-current-media identity checks using Media3 `EventTime.timeline/windowIndex/mediaPeriodId` and the `current*` counterparts, and make first-load guards correspond to a real prepare attempt.
 - The review branch is ahead of `main-build-testing` with no merge-base divergence. The target branch remains untouched.
