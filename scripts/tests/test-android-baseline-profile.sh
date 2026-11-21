@@ -80,12 +80,17 @@ for collect_block in "$startup_collect_block" "$browse_collect_block"; do
   }
 done
 
-grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE" &&
+grep -Fq 'new CompilationMode.None()' "$BENCHMARK_SOURCE" &&
+  grep -Fq 'new ExperimentalConfig(null, new StartupInsightsConfig(true), null)' "$BENCHMARK_SOURCE" &&
   grep -Fq 'BaselineProfileMode.Disable' "$BENCHMARK_SOURCE" &&
   grep -Fq 'BaselineProfileMode.Require' "$BENCHMARK_SOURCE" || {
-  echo "FAIL: startup comparison must retain no-compilation, partial-without-profile and required-profile arms." >&2
+  echo "FAIL: startup comparison must retain the Java-compatible no-compilation, partial-without-profile and required-profile arms with Startup Insights enabled." >&2
   exit 1
 }
+if grep -Fq 'CompilationMode.None.INSTANCE' "$BENCHMARK_SOURCE"; then
+  echo "FAIL: startup comparison must use Java's CompilationMode.None constructor, not a Kotlin singleton field." >&2
+  exit 1
+fi
 grep -Fq 'private static final int ITERATIONS = 10;' "$BENCHMARK_SOURCE" || {
   echo "FAIL: startup comparison iteration count changed without an explicit review." >&2
   exit 1
