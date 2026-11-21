@@ -1317,6 +1317,63 @@ private fun ExoPlayerSurface(
         val analyticsListener = object : AnalyticsListener {
             private var lastBandwidthLogUptimeMs = 0L
 
+            private var firstManifestLogged = false
+            private var firstMediaLogged = false
+
+            private fun loadKind(dataType: Int): String = when (dataType) {
+                C.DATA_TYPE_MANIFEST -> "manifest"
+                C.DATA_TYPE_MEDIA -> "media"
+                C.DATA_TYPE_MEDIA_INITIALIZATION -> "media_init"
+                C.DATA_TYPE_DRM -> "drm"
+                C.DATA_TYPE_TIME_SYNCHRONIZATION -> "time_sync"
+                else -> "other"
+            }
+
+            private fun shouldLogFirstLoad(dataType: Int): Boolean = when (dataType) {
+                C.DATA_TYPE_MANIFEST -> if (firstManifestLogged) false else {
+                    firstManifestLogged = true
+                    true
+                }
+                C.DATA_TYPE_MEDIA -> if (firstMediaLogged) false else {
+                    firstMediaLogged = true
+                    true
+                }
+                else -> false
+            }
+
+            override fun onLoadStarted(
+                eventTime: AnalyticsListener.EventTime,
+                loadEventInfo: LoadEventInfo,
+                mediaLoadData: MediaLoadData,
+                retryCount: Int,
+            ) {
+                if (retryCount != 0 || !shouldLogFirstLoad(mediaLoadData.dataType)) return
+                Log.i(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "loadStart kind=${loadKind(mediaLoadData.dataType)} " +
+                        "attempt=${playbackDiagnostics.attempt} " +
+                        "elapsedMs=${eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs} " +
+                        "trackType=${mediaLoadData.trackType} " +
+                        "url=${InAppLogger.redactUrl(loadEventInfo.uri.toString())}",
+                )
+            }
+
+            override fun onLoadCompleted(
+                eventTime: AnalyticsListener.EventTime,
+                loadEventInfo: LoadEventInfo,
+                mediaLoadData: MediaLoadData,
+            ) {
+                Log.i(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "loadComplete kind=${loadKind(mediaLoadData.dataType)} " +
+                        "attempt=${playbackDiagnostics.attempt} " +
+                        "elapsedMs=${eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs} " +
+                        "durationMs=${loadEventInfo.loadDurationMs} " +
+                        "bytes=${loadEventInfo.bytesLoaded} " +
+                        "trackType=${mediaLoadData.trackType}",
+                )
+            }
+
             override fun onVideoDecoderInitialized(
                 eventTime: AnalyticsListener.EventTime,
                 decoderName: String,
