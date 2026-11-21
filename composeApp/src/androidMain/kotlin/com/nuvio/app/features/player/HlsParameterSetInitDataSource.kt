@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
+import com.nuvio.app.core.logging.InAppLogger
 import java.io.ByteArrayOutputStream
 import java.io.InterruptedIOException
 import java.util.concurrent.Callable
