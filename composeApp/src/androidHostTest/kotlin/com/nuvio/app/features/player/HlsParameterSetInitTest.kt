@@ -145,6 +145,20 @@ class HlsParameterSetInitTest {
     }
 
     @Test
+    fun timeoutCallbackReportsTheActualTimeoutRatherThanElapsedTimeApproximation() {
+        var timedOut = false
+        assertNull(resultWithin(100, onTimeout = { timedOut = true }) {
+            Thread.sleep(5_000)
+            "late"
+        })
+        assertTrue(timedOut)
+
+        timedOut = false
+        assertEquals("done", resultWithin(1_000, onTimeout = { timedOut = true }) { "done" })
+        assertFalse(timedOut)
+    }
+
+    @Test
     fun segmentCheckGivesUpAtItsTimeLimit() {
         val started = System.nanoTime()
         assertNull(resultWithin(100) { Thread.sleep(5_000); "late" })
