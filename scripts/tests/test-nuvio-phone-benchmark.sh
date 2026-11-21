@@ -1253,8 +1253,19 @@ for flavor in full playstore; do
   grep -Fq 'Thermal status before measurement: 0 (NONE)' "$thermal_integrity"
   grep -Fq 'Thermal status after measurement: 0 (NONE)' "$thermal_integrity"
   grep -Fq 'NO MODERATE-OR-HIGHER THERMAL STATUS OBSERVED AT THE TWO SNAPSHOTS' "$thermal_integrity"
-  grep -Fq 'thermal-integrity.txt' "$(dirname "$environment_before")/copied-files.txt"
-  grep -Fq 'Thermal integrity' "$(dirname "$environment_before")/benchmark-summary.txt"
+  memory_copied_files="$(dirname "$environment_before")/copied-files.txt"
+  grep -Fq 'thermal-integrity.txt' "$memory_copied_files" || {
+    echo "FAIL: thermal integrity report is missing from the memory-profile copied-files manifest ($flavor)." >&2
+    cat "$memory_copied_files" >&2
+    echo "Memory-profile summary:" >&2
+    cat "$(dirname "$environment_before")/memory-profile-summary.txt" >&2
+    exit 1
+  }
+  grep -Fq 'Thermal integrity' "$(dirname "$environment_before")/benchmark-summary.txt" || {
+    echo "FAIL: legacy benchmark summary unexpectedly missing from memory-profile run ($flavor)." >&2
+    ls -la "$(dirname "$environment_before")" >&2
+    exit 1
+  }
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
   grep -Fq 'Screen brightness setting: 128' "$environment_before"
   foreground_before="$(find "$TMP/output/$flavor" -name 'foreground-before.txt' -print -quit)"
