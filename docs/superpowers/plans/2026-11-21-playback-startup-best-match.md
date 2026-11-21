@@ -92,3 +92,18 @@
 - [ ] Measure before changing the 3-second policy; do not select an arbitrary smaller timeout.
 
 **Current evidence:** source inspection only. No code/test change, test execution, build, CI, fault injection or device measurement.
+
+
+### Task 5: Runtime VOD cache-limit updates
+
+**Files:**
+- Modify: `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/PlaybackBuffering.android.kt`
+- Tests: add focused Android host tests for the cache evictor/owner lifecycle.
+- Inspect: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerSettingsRepository.kt`
+
+**Confirmed defect:** the singleton `PlaybackDiskCache` creates a `LeastRecentlyUsedCacheEvictor` once. Its maximum is final in Media3 1.8.0, and settings setters do not update the active cache. The UI can therefore display a new size while the active cache continues enforcing the old one.
+
+- [ ] Add tests first for lowering the active limit (immediate eviction), increasing the limit (subsequent writes), and recomputing auto-size.
+- [ ] Implement a synchronized mutable LRU `CacheEvictor` without opening a second `SimpleCache` for the same directory.
+- [ ] Verify active cache reads/writes remain safe during policy changes and cache release.
+- [ ] Run focused and relevant Android host tests only after explicit test/build authorization; no CI or APK build without separate authorization.
