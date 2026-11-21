@@ -644,3 +644,15 @@ Regression coverage checks root aggregation order and verifies exact episode loo
 - No stream selection policy, episode matching priority, or ordering was changed.
 - The focused regression tests and implementation were re-fetched for static review. No test, Gradle task, build, CI, device run or benchmark was executed.
 
+
+
+## Smart Streams Best Match and Android startup diagnostics review (21 November 2026)
+
+Source changes are isolated on `review/playback-startup-best-match-20261121`; not merged into `main-build-testing`.
+
+- Smart Streams Best Match candidates now apply the active Smart Streams filters to the full source state and the selected provider filter, while remaining independent of the separate free-text stream-list search. Ranking weights, low-quality fallback and stable order tie-break remain unchanged.
+- Added common regression-test source for resolution filtering, Instant Only/unresolved torrent exclusion, provider selection and free-text search separation.
+- Android Media3 1.8.0 diagnostics now record the first manifest and media load starts/completions per player listener, including elapsed realtime, load duration, bytes and track type. Started URLs use existing redaction; completion logs are bounded to one per type, and negative elapsed events are ignored.
+- No playback buffer, HLS adaptation, source fallback, DNS, or stream-link cache policy was changed.
+
+**Verification:** static remote source re-fetch and review only. No RED/GREEN test run, Kotlin compilation, Android build, CI, physical-device playback, Macrobenchmark or measured latency comparison was performed. No startup speedup is claimed. See [player startup optimization and diagnostics](player-stream-startup-optimization-2026-11-19.md) and the review design/plan in `docs/superpowers/specs` and `docs/superpowers/plans`.
