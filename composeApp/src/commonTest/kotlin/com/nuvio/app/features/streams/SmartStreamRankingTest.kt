@@ -48,8 +48,8 @@ class SmartStreamRankingTest {
             "4K",
             "https://example.com/b.mkv",
         )
-        val listState = stateOf(selectedProvider, otherProvider).copy(selectedFilter = "addon:Provider A")
-        val allState = stateOf(selectedProvider, otherProvider)
+        val allState = stateOf(selectedProvider, otherProvider).copy(selectedFilter = "addon:Provider A")
+        val listState = allState
 
         val result = compute(listState, allState, SmartStreamFilters())
 
