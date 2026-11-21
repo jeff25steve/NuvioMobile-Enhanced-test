@@ -137,7 +137,47 @@ private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 
 private class PlaybackDiagnostics {
     var prepareStartedAtMs: Long = 0L
+        private set
     var attempt: Int = 0
+        private set
+
+    private var firstManifestLogged = false
+    private var firstMediaLogged = false
+    private var firstManifestCompletedLogged = false
+    private var firstMediaCompletedLogged = false
+
+    fun beginAttempt(startedAtMs: Long) {
+        attempt += 1
+        prepareStartedAtMs = startedAtMs
+        firstManifestLogged = false
+        firstMediaLogged = false
+        firstManifestCompletedLogged = false
+        firstMediaCompletedLogged = false
+    }
+
+    fun claimFirstLoad(dataType: Int): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestLogged) false else {
+            firstManifestLogged = true
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (firstMediaLogged) false else {
+            firstMediaLogged = true
+            true
+        }
+        else -> false
+    }
+
+    fun claimFirstCompletion(dataType: Int): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestCompletedLogged) false else {
+            firstManifestCompletedLogged = true
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (firstMediaCompletedLogged) false else {
+            firstMediaCompletedLogged = true
+            true
+        }
+        else -> false
+    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -869,8 +909,7 @@ private fun ExoPlayerSurface(
                 discSnapshotVersion += 1
             }
         }
-        playbackDiagnostics.attempt += 1
-        playbackDiagnostics.prepareStartedAtMs = SystemClock.elapsedRealtime()
+        playbackDiagnostics.beginAttempt(SystemClock.elapsedRealtime())
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} " +
@@ -1317,10 +1356,6 @@ private fun ExoPlayerSurface(
         val analyticsListener = object : AnalyticsListener {
             private var lastBandwidthLogUptimeMs = 0L
 
-            private var firstManifestLogged = false
-            private var firstMediaLogged = false
-            private var firstManifestCompletedLogged = false
-            private var firstMediaCompletedLogged = false
 
             private fun loadKind(dataType: Int): String = when (dataType) {
                 C.DATA_TYPE_MANIFEST -> "manifest"
@@ -1331,18 +1366,6 @@ private fun ExoPlayerSurface(
                 else -> "other"
             }
 
-            private fun shouldLogFirstLoad(dataType: Int): Boolean = when (dataType) {
-                C.DATA_TYPE_MANIFEST -> if (firstManifestLogged) false else {
-                    firstManifestLogged = true
-                    true
-                }
-                C.DATA_TYPE_MEDIA -> if (firstMediaLogged) false else {
-                    firstMediaLogged = true
-                    true
-                }
-                else -> false
-            }
-
             override fun onLoadStarted(
                 eventTime: AnalyticsListener.EventTime,
                 loadEventInfo: LoadEventInfo,
@@ -1351,7 +1374,7 @@ private fun ExoPlayerSurface(
             ) {
                 if (retryCount != 0) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
-                if (elapsedMs < 0L || !shouldLogFirstLoad(mediaLoadData.dataType)) return
+                if (elapsedMs < 0L || !playbackDiagnostics.claimFirstLoad(mediaLoadData.dataType)) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadStart kind=${loadKind(mediaLoadData.dataType)} " +
@@ -1362,25 +1385,13 @@ private fun ExoPlayerSurface(
                 )
             }
 
-            private fun shouldLogFirstCompletion(dataType: Int): Boolean = when (dataType) {
-                C.DATA_TYPE_MANIFEST -> if (firstManifestCompletedLogged) false else {
-                    firstManifestCompletedLogged = true
-                    true
-                }
-                C.DATA_TYPE_MEDIA -> if (firstMediaCompletedLogged) false else {
-                    firstMediaCompletedLogged = true
-                    true
-                }
-                else -> false
-            }
-
             override fun onLoadCompleted(
                 eventTime: AnalyticsListener.EventTime,
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
             ) {
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
-                if (elapsedMs < 0L || !shouldLogFirstCompletion(mediaLoadData.dataType)) return
+                if (elapsedMs < 0L || !playbackDiagnostics.claimFirstCompletion(mediaLoadData.dataType)) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadComplete kind=${loadKind(mediaLoadData.dataType)} " +
