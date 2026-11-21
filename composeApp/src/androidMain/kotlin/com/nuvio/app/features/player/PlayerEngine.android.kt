@@ -1349,12 +1349,14 @@ private fun ExoPlayerSurface(
                 mediaLoadData: MediaLoadData,
                 retryCount: Int,
             ) {
-                if (retryCount != 0 || !shouldLogFirstLoad(mediaLoadData.dataType)) return
+                if (retryCount != 0) return
+                val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
+                if (elapsedMs < 0L || !shouldLogFirstLoad(mediaLoadData.dataType)) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadStart kind=${loadKind(mediaLoadData.dataType)} " +
                         "attempt=${playbackDiagnostics.attempt} " +
-                        "elapsedMs=${eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs} " +
+                        "elapsedMs=$elapsedMs " +
                         "trackType=${mediaLoadData.trackType} " +
                         "url=${InAppLogger.redactUrl(loadEventInfo.uri.toString())}",
                 )
@@ -1377,9 +1379,8 @@ private fun ExoPlayerSurface(
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
             ) {
-                if (!shouldLogFirstCompletion(mediaLoadData.dataType)) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
-                if (elapsedMs < 0L) return
+                if (elapsedMs < 0L || !shouldLogFirstCompletion(mediaLoadData.dataType)) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadComplete kind=${loadKind(mediaLoadData.dataType)} " +
