@@ -86,14 +86,15 @@ class SmartStreamRankingTest {
     }
 
     private fun stateOf(vararg streams: StreamItem): StreamsUiState {
-        val groups = streams.map { item ->
+        val groups = streams.groupBy { it.addonId }.map { (_, items) ->
+            val first = items.first()
             AddonStreamGroup(
-                addonName = item.addonName,
-                addonId = item.addonId,
-                streams = listOf(item),
+                addonName = first.addonName,
+                addonId = first.addonId,
+                streams = items,
                 isLoading = false,
             )
-        }.distinctBy { it.addonId }
+        }
         return StreamsUiState(
             groups = groups,
             activeAddonIds = groups.map { it.addonId }.toSet(),
