@@ -324,9 +324,10 @@ grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
 
 # Record per-launch UIAutomator stage timings through AndroidJUnitRunner's raw
 # instrumentation status stream; do not change the app's reportFullyDrawn gate.
+readiness_source_compact="$(tr '\n\t' '  ' < "$READINESS_SOURCE" | tr -s ' ')"
 for expected in \
   'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName)' \
-  'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName, Integer measurementIteration)' \
+  'static void awaitHomeAndFullyDrawn( UiDevice device, String journeyName, Integer measurementIteration)' \
   'InstrumentationRegistry.getInstrumentation().sendStatus(0, status)' \
   'Instrumentation.REPORT_KEY_STREAMRESULT' \
   'NUVIO_STARTUP_READINESS_TIMING:' \
@@ -336,7 +337,7 @@ for expected in \
   'fully_drawn_marker_wait_ms=' \
   'total_wait_ms=' \
   'outcome='; do
-  grep -Fq "$expected" "$READINESS_SOURCE" || {
+  printf '%s\\n' "$readiness_source_compact" | grep -Fq "$expected" || {
     echo "FAIL: shared readiness timing diagnostics are missing '$expected'." >&2
     exit 1
   }
