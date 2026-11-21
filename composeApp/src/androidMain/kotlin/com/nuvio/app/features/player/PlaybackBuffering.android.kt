@@ -14,7 +14,9 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.Cache
+import androidx.media3.datasource.cache.CacheEvictor
+import androidx.media3.datasource.cache.CacheSpan
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import java.io.File
@@ -23,6 +25,14 @@ import java.io.InterruptedIOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.util.TreeSet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private const val MB = 1024L * 1024L
 private const val READ_AHEAD_BLOCK_BYTES = 16 shl 20
@@ -126,23 +136,135 @@ internal fun DataSource.Factory.withPlaybackBuffering(
 }
 
 private object PlaybackDiskCache {
+    private val settingsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var cache: SimpleCache? = null
+    private var evictor: AdjustableLruCacheEvictor? = null
+    private var settingsObserverStarted = false
 
     @Synchronized
-    fun get(context: Context, settings: PlayerSettingsUiState): SimpleCache =
-        cache ?: run {
-            val directory = File(context.cacheDir, "vod_playback_cache").apply { mkdirs() }
-            val maxBytes = if (settings.vodDiskCacheAutoSize) {
-                (directory.usableSpace / 5L).coerceIn(256L * MB, 10_240L * MB)
-            } else {
-                settings.vodDiskCacheSizeMb * MB
-            }
-            SimpleCache(
-                directory,
-                LeastRecentlyUsedCacheEvictor(maxBytes),
-                StandaloneDatabaseProvider(context.applicationContext),
-            )
-        }.also { cache = it }
+    fun get(context: Context, settings: PlayerSettingsUiState): SimpleCache {
+        val directory = File(context.cacheDir, "vod_playback_cache").apply { mkdirs() }
+        val activeCache = cache
+        if (activeCache != null) {
+            val activeEvictor = checkNotNull(evictor)
+            activeEvictor.setMaxBytes(activeCache, maxBytes(directory, settings))
+            observeSettings(directory, activeCache, activeEvictor)
+            return activeCache
+        }
+
+        val activeEvictor = AdjustableLruCacheEvictor(maxBytes(directory, settings))
+        val createdCache = SimpleCache(
+            directory,
+            activeEvictor,
+            StandaloneDatabaseProvider(context.applicationContext),
+        )
+        cache = createdCache
+        evictor = activeEvictor
+        observeSettings(directory, createdCache, activeEvictor)
+        return createdCache
+    }
+
+    private fun observeSettings(
+        directory: File,
+        cache: SimpleCache,
+        evictor: AdjustableLruCacheEvictor,
+    ) {
+        if (settingsObserverStarted) return
+        settingsObserverStarted = true
+        settingsScope.launch {
+            PlayerSettingsRepository.uiState
+                .map { it.vodDiskCacheAutoSize to it.vodDiskCacheSizeMb }
+                .distinctUntilChanged()
+                .collect { (autoSize, sizeMb) ->
+                    evictor.setMaxBytes(cache, maxBytes(directory, autoSize, sizeMb))
+                }
+        }
+    }
+
+    private fun maxBytes(directory: File, settings: PlayerSettingsUiState): Long =
+        maxBytes(directory, settings.vodDiskCacheAutoSize, settings.vodDiskCacheSizeMb)
+
+    private fun maxBytes(directory: File, autoSize: Boolean, sizeMb: Int): Long =
+        if (autoSize) {
+            (directory.usableSpace / 5L).coerceIn(256L * MB, 10_240L * MB)
+        } else {
+            sizeMb.coerceAtLeast(1).toLong() * MB
+        }
+}
+
+/**
+ * LRU eviction with a process-lifetime adjustable byte limit.
+ *
+ * Cache callbacks run while SimpleCache holds its monitor. Never hold [lock] while calling
+ * Cache.removeSpan: settings updates can run on another thread and must not invert the
+ * SimpleCache -> evictor callback lock order.
+ */
+internal class AdjustableLruCacheEvictor(initialMaxBytes: Long) : CacheEvictor {
+    private val lock = Any()
+    private val leastRecentlyUsed = TreeSet<CacheSpan> { left, right ->
+        val timestampOrder = left.lastTouchTimestamp.compareTo(right.lastTouchTimestamp)
+        if (timestampOrder != 0) timestampOrder else left.compareTo(right)
+    }
+
+    @Volatile
+    private var maxBytes = initialMaxBytes
+
+    private var currentSize = 0L
+
+    init {
+        require(initialMaxBytes > 0L)
+    }
+
+    override fun requiresCacheSpanTouches(): Boolean = true
+
+    override fun onCacheInitialized() = Unit
+
+    override fun onStartFile(cache: Cache, key: String, position: Long, length: Long) {
+        if (length != C.LENGTH_UNSET) evictCache(cache, length)
+    }
+
+    override fun onSpanAdded(cache: Cache, span: CacheSpan) {
+        synchronized(lock) {
+            if (leastRecentlyUsed.add(span)) currentSize += span.length
+        }
+        evictCache(cache, 0L)
+    }
+
+    override fun onSpanRemoved(cache: Cache, span: CacheSpan) {
+        synchronized(lock) {
+            if (leastRecentlyUsed.remove(span)) currentSize -= span.length
+        }
+    }
+
+    override fun onSpanTouched(cache: Cache, oldSpan: CacheSpan, newSpan: CacheSpan) {
+        synchronized(lock) {
+            leastRecentlyUsed.remove(oldSpan)
+            leastRecentlyUsed.add(newSpan)
+        }
+        evictCache(cache, 0L)
+    }
+
+    fun setMaxBytes(cache: Cache, newMaxBytes: Long) {
+        require(newMaxBytes > 0L)
+        maxBytes = newMaxBytes
+        evictCache(cache, 0L)
+    }
+
+    private fun evictCache(cache: Cache, requiredSpace: Long) {
+        while (true) {
+            val oldestSpan = synchronized(lock) {
+                if (currentSize + requiredSpace > maxBytes) {
+                    leastRecentlyUsed.firstOrNull()
+                } else {
+                    null
+                }
+            } ?: return
+
+            // removeSpan synchronously reports onSpanRemoved, which updates currentSize.
+            // The cache call is deliberately outside the evictor lock to avoid lock inversion.
+            cache.removeSpan(oldestSpan)
+        }
+    }
 }
 
 internal class SelectiveBufferedDataSource(
