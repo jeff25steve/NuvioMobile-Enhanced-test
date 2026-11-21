@@ -1301,7 +1301,7 @@ for flavor in full playstore; do
     cat "$TMP/$flavor-diagnostics-fail.log" >&2
     exit 1
   fi
-  diagnostic_snapshot="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print | sort | tail -n 1)"
+  diagnostic_snapshot="$(find "$TMP/output/$flavor" -mindepth 2 -maxdepth 2 -type f -path '*/measure-*/environment-after.txt' -print | sort | tail -n 1)"
   grep -Fq 'level: unavailable' "$diagnostic_snapshot"
   grep -Fq 'unavailable' "$diagnostic_snapshot"
   diagnostic_summary="$(dirname "$diagnostic_snapshot")/benchmark-summary.txt"
