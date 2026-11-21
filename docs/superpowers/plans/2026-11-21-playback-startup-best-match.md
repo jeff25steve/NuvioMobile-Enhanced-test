@@ -60,7 +60,10 @@
 - [x] Log only the first manifest and first media load completion, avoiding per-segment log flooding.
 - [x] Discard negative elapsed timestamps before consuming the first-event guard.
 - [ ] Correlate `EventTime` event-specific timeline/window/period identity with current player identity; do not trust the current `attempt` counter for delayed or pre-buffered events.
-- [ ] Reset first-load guards at a verified prepare-attempt boundary if the diagnostics are intended to cover repeated prepares on the same ExoPlayer.
+- [ ] Route all six `exoPlayer.prepare()` call sites through one explicit diagnostic attempt boundary, including retry, Blu-ray title/recovery and external-subtitle reloads.
+- [ ] Distinguish video, secondary audio and subtitle source load events when `MergingMediaSource` is used; do not treat the first merged media event as necessarily the video load.
+- [ ] Reset first-load guards only at the corresponding verified prepare-attempt boundary.
+- [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 - [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 
 ### Task 3: Evidence and notes
@@ -74,3 +77,18 @@
 - [ ] Record verification and measurement status accurately, including the absence of runtime results until measured.
 - [ ] Re-fetch all changed files from the remote branch and inspect the complete diff.
 - [ ] Request independent code review before merge.
+
+
+### Task 4: HLS inspection latency regression coverage
+
+**Files:**
+- Modify: `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/HlsParameterSetInitDataSource.kt` only after the tests establish the desired latency/fallback contract.
+- Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/HlsParameterSetInitTest.kt` or a focused DataSource host test beside it.
+
+**Confirmed current behavior:** eligible finished clear playlists synchronously wait up to 3 seconds for optional segment-head inspection after the playlist body has been read. Existing timeout coverage tests an interruptible worker, not a slow/non-interruptible DataSource.
+
+- [ ] Add controllable DataSource tests for healthy fast segment, slow segment timeout, interruption, close, and original-playlist fallback.
+- [ ] Preserve SPS/PPS repair on affected VOD while proving optional inspection does not introduce an unbounded or unnecessary critical-path delay.
+- [ ] Measure before changing the 3-second policy; do not select an arbitrary smaller timeout.
+
+**Current evidence:** source inspection only. No code/test change, test execution, build, CI, fault injection or device measurement.
