@@ -427,11 +427,11 @@ if grep -Fq 'printf '\''Runner path: %s\\\\n'\''' "$ROOT_DIR/scripts/nuvio-phone
   echo "FAIL: provenance records must use real newline characters, not literal backslash-n text." >&2
   exit 1
 fi
-grep -Fq 'printf '\''App APK SHA-256: %s\\n'\''' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+grep -Fq 'App APK source SHA-256:' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
   echo "FAIL: provenance must record the application APK hash." >&2
   exit 1
 }
-grep -Fq 'printf '\''Test APK SHA-256: %s\\n'\''' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
+grep -Fq 'Test APK source SHA-256:' "$ROOT_DIR/scripts/nuvio-phone-benchmark.sh" || {
   echo "FAIL: provenance must record the instrumentation APK hash." >&2
   exit 1
 }
