@@ -56,6 +56,7 @@ import nuvio.composeapp.generated.resources.downloads_delete_message
 import nuvio.composeapp.generated.resources.downloads_delete_title
 import nuvio.composeapp.generated.resources.downloads_empty_message
 import nuvio.composeapp.generated.resources.downloads_empty_title
+import nuvio.composeapp.generated.resources.downloads_enqueue_requires_wifi
 import nuvio.composeapp.generated.resources.downloads_episodes
 import nuvio.composeapp.generated.resources.downloads_open_directory
 import nuvio.composeapp.generated.resources.downloads_open_directory_failed
@@ -101,10 +102,13 @@ fun DownloadsScreen(
     }
 
     var selectedShowId by rememberSaveable(initialShowId) { mutableStateOf(initialShowId) }
-    var downloadPendingDeletionId by rememberSaveable { mutableStateOf<String?>(null) }
-    val openDownloadsDirectoryFailedText = stringResource(Res.string.downloads_open_directory_failed)
+    var actionsItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    val speeds = rememberDownloadSpeeds(uiState.items)
+    val watchStatusOf: (DownloadItem) -> DownloadWatchStatus = remember(watchProgressState, watchedState) {
+        { item -> item.watchStatus(watchProgressState) }
+    }
     val requiresWifiMessage = stringResource(Res.string.downloads_enqueue_requires_wifi)
-    var showSettings by rememberSaveable { mutableStateOf(false) }
 
     fun resumeOrRetryDownload(downloadId: String) {
         if (DownloadsRepository.resumeDownload(downloadId) == DownloadEnqueueResult.RequiresWifi) {
@@ -112,11 +116,6 @@ fun DownloadsScreen(
         }
     }
 
-    val completedEpisodes = remember(uiState.items) {
-        uiState.completedItems
-            .filter { it.isEpisode }
-            .sortedForSeriesDownloads()
-    }
     val selectedShowTitle = remember(selectedShowId, uiState.items) {
         selectedShowId?.let { showId ->
             uiState.items.firstOrNull { it.isEpisode && it.parentMetaId == showId }?.title
@@ -161,23 +160,26 @@ fun DownloadsScreen(
         val showId = selectedShowId
         if (showId == null) {
             downloadsRootContent(
-                items = uiState.items,
+                uiState = uiState,
                 speeds = speeds,
                 watchStatusOf = watchStatusOf,
                 onPlay = onOpenDownload,
                 onOpenShow = { item ->
-                    onNavigateToShow?.invoke(item.parentMetaId, item.title) ?: run { selectedShowId = item.parentMetaId }
+                    if (onNavigateToShow != null) onNavigateToShow(item.parentMetaId, item.title)
+                    else selectedShowId = item.parentMetaId
                 },
                 onResumeOrRetry = ::resumeOrRetryDownload,
                 onOpenActions = onOpenActions,
             )
         } else {
             downloadsShowContent(
-                showId = selectedShowId.orEmpty(),
-                episodes = completedEpisodes,
+                showId = showId,
+                episodes = uiState.items,
+                speeds = speeds,
+                watchStatusOf = watchStatusOf,
                 onOpenDownload = onOpenDownload,
+                onOpenActions = onOpenActions,
                 onResumeOrRetry = ::resumeOrRetryDownload,
-                onDeleteDownload = { downloadPendingDeletionId = it },
             )
         }
     }
@@ -208,17 +210,31 @@ fun DownloadsScreen(
 
 private fun LazyListScope.downloadsRootContent(
     uiState: DownloadsUiState,
-    onOpenDownload: (DownloadItem) -> Unit,
-    onOpenShow: (showId: String, title: String) -> Unit,
+    speeds: Map<String, Long>,
+    watchStatusOf: (DownloadItem) -> DownloadWatchStatus,
+    onPlay: (DownloadItem) -> Unit,
+    onOpenShow: (DownloadItem) -> Unit,
     onResumeOrRetry: (String) -> Unit,
-    onDeleteDownload: (String) -> Unit,
+    onOpenActions: (DownloadItem) -> Unit,
 ) {
+    val items = uiState.items
     if (items.isEmpty()) {
         item(key = "empty") {
-            DownloadsEmptyState(
-                title = stringResource(Res.string.downloads_empty_title),
-                message = stringResource(Res.string.downloads_empty_message),
-            )
+            if (uiState.isLoaded) {
+                DownloadsEmptyState(
+                    title = stringResource(Res.string.downloads_empty_title),
+                    message = stringResource(Res.string.downloads_empty_message),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
         }
         return
     }
@@ -237,30 +253,22 @@ private fun LazyListScope.downloadsRootContent(
     }
 
     if (activeItems.isNotEmpty()) {
-        item {
-            SectionTitle(stringResource(Res.string.downloads_section_active))
-        }
-        items(
-            items = activeItems,
-            key = { it.id },
-        ) { item ->
-            DownloadRow(
-                item = item,
-                onOpen = { onOpenDownload(item) },
-                onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { onResumeOrRetry(item.id) },
-                onRetry = { onResumeOrRetry(item.id) },
-                onDelete = { onDeleteDownload(item.id) },
-            )
+        item(key = "active_header") {
+            SectionHeader(title = stringResource(Res.string.downloads_section_active))
         }
         items(items = activeItems, key = { it.id }) { item ->
             ActiveDownloadRow(
                 item = item,
-                onOpen = { onOpenDownload(item) },
-                onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { onResumeOrRetry(item.id) },
-                onRetry = { onResumeOrRetry(item.id) },
-                onDelete = { onDeleteDownload(item.id) },
+                speedBytesPerSecond = speeds[item.id],
+                inShowPage = false,
+                onToggle = {
+                    when (item.status) {
+                        DownloadStatus.Downloading, DownloadStatus.Queued -> DownloadsRepository.pauseDownload(item.id)
+                        DownloadStatus.Paused, DownloadStatus.Failed -> onResumeOrRetry(item.id)
+                        DownloadStatus.Completed -> Unit
+                    }
+                },
+                onOpenActions = { onOpenActions(item) },
             )
         }
     }
@@ -287,64 +295,46 @@ private fun LazyListScope.downloadsRootContent(
             }
         }
     }
-
-    if (!uiState.isLoaded) {
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 40.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-        }
-    } else if (uiState.items.isEmpty()) {
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 40.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(Res.string.downloads_empty_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
 }
 
 private fun LazyListScope.downloadsShowContent(
+    showId: String,
     episodes: List<DownloadItem>,
+    speeds: Map<String, Long>,
+    watchStatusOf: (DownloadItem) -> DownloadWatchStatus,
     onOpenDownload: (DownloadItem) -> Unit,
+    onOpenActions: (DownloadItem) -> Unit,
     onResumeOrRetry: (String) -> Unit,
-    onDeleteDownload: (String) -> Unit,
 ) {
-    if (episodes.isEmpty()) {
+    val showEpisodes = episodes
+        .filter { it.parentMetaId == showId }
+        .sortedForSeriesDownloads()
+
+    if (showEpisodes.isEmpty()) {
         item(key = "empty") {
-            DownloadsEmptyState(title = stringResource(Res.string.downloads_empty_title))
+            DownloadsEmptyState(title = stringResource(Res.string.downloads_empty_episodes))
         }
         return
     }
 
     item(key = "summary") {
-        val watchedCount = episodes.count { watchStatusOf(it).isWatched }
+        val watchedCount = showEpisodes.count { watchStatusOf(it).isWatched }
         SummaryText(
             listOfNotNull(
-                pluralStringResource(Res.plurals.downloads_episodes, episodes.size, episodes.size),
-                formatBytes(episodes.sumOf { it.sizeOnDiskBytes }),
+                pluralStringResource(Res.plurals.downloads_episodes, showEpisodes.size, showEpisodes.size),
+                formatBytes(showEpisodes.sumOf { it.sizeOnDiskBytes }),
                 stringResource(Res.string.downloads_watched_count, watchedCount).takeIf { watchedCount > 0 },
             ),
         )
     }
 
-    episodes
+    showEpisodes
         .groupBy { it.seasonNumber ?: 0 }
         .toList()
-        .sortedBy { (season, _) -> season }
+        .sortedWith(
+            compareBy<Pair<Int, List<DownloadItem>>> { (season, _) -> if (season == 0) 0 else 1 }
+                .thenBy { (season, _) -> if (season == 0) 0 else season },
+        )
         .forEach { (season, seasonEpisodes) ->
             item(key = "season_$season") {
                 SectionHeader(
@@ -364,7 +354,7 @@ private fun LazyListScope.downloadsShowContent(
                     DownloadedEpisodeRow(
                         item = item,
                         watchStatus = watchStatusOf(item),
-                        onPlay = { onPlay(item) },
+                        onPlay = { onOpenDownload(item) },
                         onOpenActions = { onOpenActions(item) },
                     )
                 } else {
@@ -372,7 +362,13 @@ private fun LazyListScope.downloadsShowContent(
                         item = item,
                         speedBytesPerSecond = speeds[item.id],
                         inShowPage = true,
-                        onToggle = item::toggleTransfer,
+                        onToggle = {
+                            when (item.status) {
+                                DownloadStatus.Downloading, DownloadStatus.Queued -> DownloadsRepository.pauseDownload(item.id)
+                                DownloadStatus.Paused, DownloadStatus.Failed -> onResumeOrRetry(item.id)
+                                DownloadStatus.Completed -> Unit
+                            }
+                        },
                         onOpenActions = { onOpenActions(item) },
                     )
                 }
@@ -389,17 +385,28 @@ private fun SummaryText(parts: List<String>) {
     )
 }
 
-        items(
-            items = sortedEpisodes,
-            key = { it.id },
-        ) { item ->
-            DownloadRow(
-                item = item,
-                onOpen = { onOpenDownload(item) },
-                onPause = { DownloadsRepository.pauseDownload(item.id) },
-                onResume = { onResumeOrRetry(item.id) },
-                onRetry = { onResumeOrRetry(item.id) },
-                onDelete = { onDeleteDownload(item.id) },
+@Composable
+private fun SectionHeader(
+    title: String,
+    detail: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.nuvio.colors.textPrimary,
+        )
+        if (!detail.isNullOrBlank()) {
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.nuvio.colors.textSecondary,
             )
         }
     }

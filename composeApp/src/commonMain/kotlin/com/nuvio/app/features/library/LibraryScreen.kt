@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ViewAgenda
 import com.nuvio.app.features.downloads.DownloadsQueueDialog
 import com.nuvio.app.features.downloads.DownloadItem
+import com.nuvio.app.features.downloads.DownloadStatus
 import com.nuvio.app.features.downloads.DownloadsRepository
 import com.nuvio.app.features.downloads.DownloadDeleteConfirmation
 import com.nuvio.app.features.downloads.OpenDownloadsFolderButton
@@ -336,6 +337,7 @@ internal fun libraryBackdropCaptureRequired(
             isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) ||
                 isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER)
             )
+        LibraryViewMode.Downloaded -> false
         LibraryViewMode.Cloud -> (
             isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_FILTERS) ||
                 isSurfacePreferenceEnabled(LiquidGlassSurface.LIBRARY_CLOUD_SEARCH) ||
@@ -604,6 +606,46 @@ fun LibraryScreen(
                 hydrated = hydratedReleaseInfo[item.libraryReleaseInfoKey()],
                 fallback = unknownReleaseLabel,
             )
+        }
+    }
+    val effectivePosterClick: ((LibraryItem) -> Unit)? = when {
+        sourceMode != LibraryViewMode.Downloaded -> onPosterClick
+        onPosterClick == null && onOpenDownload == null -> null
+        else -> { item ->
+            val completedMovie = if (!item.isSeries) {
+                downloadsUiState.items.firstOrNull { download ->
+                    !download.isEpisode &&
+                        download.contentId == item.id &&
+                        download.status == DownloadStatus.Completed
+                }
+            } else {
+                null
+            }
+            if (completedMovie != null && onOpenDownload != null) {
+                onOpenDownload(completedMovie)
+            } else {
+                onPosterClick?.invoke(item)
+            }
+        }
+    }
+    val effectivePosterLongClick = onPosterLongClick
+    val activeDownloadItemFor: (LibraryItem) -> ActiveDownloadCard? = { item ->
+        activeDownloadShelfItem(item, downloadsUiState.items)
+    }
+    val onActiveDownloadTogglePause: (ActiveDownloadCard) -> Unit = { activeCard ->
+        val downloadIds = activeCard.movieDownload?.let { listOf(it.id) }
+            ?: downloadsUiState.items
+                .filter { download ->
+                    download.isEpisode &&
+                        download.parentMetaId == activeCard.contentId &&
+                        download.status != DownloadStatus.Completed &&
+                        download.status != DownloadStatus.Failed
+                }
+                .map { it.id }
+        if (activeCard.status == DownloadStatus.Paused) {
+            DownloadsRepository.resumeDownloads(downloadIds)
+        } else {
+            DownloadsRepository.pauseDownloads(downloadIds)
         }
     }
     val retryLibraryLoad: () -> Unit = {
@@ -1024,9 +1066,7 @@ fun LibraryScreen(
                         LibrarySourceSwitch(
                             selectedMode = sourceMode,
                             showServers = hasServers,
-                            onModeSelected = { mode ->
-                                sourceModeName = mode.name
-                            },
+                            onModeSelected = LibraryDisplaySettingsRepository::setViewMode,
                             modifier = sourceSwitchGlassModifier,
                             trailingActions = sourceSwitchTrailingActions,
                         )
@@ -1265,9 +1305,7 @@ fun LibraryScreen(
                         LibrarySourceSwitch(
                             selectedMode = sourceMode,
                             showServers = hasServers,
-                            onModeSelected = { mode ->
-                                sourceModeName = mode.name
-                            },
+                            onModeSelected = LibraryDisplaySettingsRepository::setViewMode,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .padding(top = 4.dp)
@@ -1309,11 +1347,14 @@ fun LibraryScreen(
                                 sortOption = effectiveSortOption,
                                 verticalProjection = verticalProjection,
                                 onSectionSelected = { sectionKey ->
-                                    selectedLibrarySectionKey = sectionKey
-                                    selectedLibraryType = null
+                                    LibraryDisplaySettingsRepository.setSelectedSection(sectionKey)
                                 },
-                                onTypeSelected = { type -> selectedLibraryType = type },
+                                onTypeSelected = LibraryDisplaySettingsRepository::setSelectedType,
                                 onSortSelected = LibraryDisplaySettingsRepository::setSortOption,
+                                watchedFilter = libraryWatchedFilter,
+                                onGenreSelected = { libraryGenre = it },
+                                onYearSelected = { libraryYear = it },
+                                onWatchedFilterSelected = { libraryWatchedFilterName = it.name },
                                 typeGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER,
                                 sortGlassSurface = LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER,
                                 modifier = Modifier
@@ -1761,31 +1802,16 @@ internal fun LibrarySourceSwitch(
         )
     val sourceModes = buildList {
         add(LibraryViewMode.Saved)
+        add(LibraryViewMode.Downloaded)
         add(LibraryViewMode.Cloud)
         if (showServers) add(LibraryViewMode.Servers)
     }
     val sourceLabels = sourceModes.map { mode ->
         when (mode) {
             LibraryViewMode.Saved -> stringResource(Res.string.library_source_saved)
+            LibraryViewMode.Downloaded -> stringResource(Res.string.library_source_downloaded)
             LibraryViewMode.Cloud -> stringResource(Res.string.library_source_cloud)
             LibraryViewMode.Servers -> stringResource(Res.string.library_source_servers)
-            LibraryChip(
-                label = stringResource(Res.string.library_source_downloaded),
-                selected = selectedMode == LibraryViewMode.Downloaded,
-                onClick = { onModeSelected(LibraryViewMode.Downloaded) },
-            )
-            LibraryChip(
-                label = stringResource(Res.string.library_source_cloud),
-                selected = selectedMode == LibraryViewMode.Cloud,
-                onClick = { onModeSelected(LibraryViewMode.Cloud) },
-            )
-            if (showServers) {
-                LibraryChip(
-                    label = stringResource(Res.string.library_source_servers),
-                    selected = selectedMode == LibraryViewMode.Servers,
-                    onClick = { onModeSelected(LibraryViewMode.Servers) },
-                )
-            }
         }
     }
 
@@ -1821,6 +1847,15 @@ internal fun LibrarySourceSwitch(
                 )
                 LibraryChip(
                     label = sourceLabels[1],
+                    selected = selectedMode == LibraryViewMode.Downloaded,
+                    glassSelection = sourceSwitchGlassEnabled,
+                    onClick = {
+                        onModeSelected(LibraryViewMode.Downloaded)
+                        onPreviewModeSelected?.invoke(LibraryViewMode.Downloaded)
+                    },
+                )
+                LibraryChip(
+                    label = sourceLabels[2],
                     selected = selectedMode == LibraryViewMode.Cloud,
                     glassSelection = sourceSwitchGlassEnabled,
                     onClick = {
@@ -1830,7 +1865,7 @@ internal fun LibrarySourceSwitch(
                 )
                 if (showServers) {
                     LibraryChip(
-                        label = sourceLabels[2],
+                        label = sourceLabels[3],
                         selected = selectedMode == LibraryViewMode.Servers,
                         glassSelection = sourceSwitchGlassEnabled,
                         onClick = {

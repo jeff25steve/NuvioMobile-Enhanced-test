@@ -202,7 +202,7 @@ object MetaDetailsRepository {
                     return@launchActiveLoad
                 }
 
-                if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "No addon or TMDB meta")) return@launch
+                if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "No addon or TMDB meta")) return@launchActiveLoad
 
                 log.w { "No addon provides meta for type=$type id=$id" }
                 InAppLogger.warn("Metadata/MetaDetailsRepository", "No addon provides meta type=$type id=$id lookup=$metaLookupId")
@@ -245,7 +245,7 @@ object MetaDetailsRepository {
                 return@launchActiveLoad
             }
 
-            if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "Failed to load meta from all providers")) return@launch
+            if (publishSavedOfflineMeta(savedOfflineMeta, type, id, requestKey, "Failed to load meta from all providers")) return@launchActiveLoad
 
             InAppLogger.error("Metadata/MetaDetailsRepository", "Failed to load meta from all providers type=$type id=$id lookup=$metaLookupId")
             val message = getString(Res.string.details_load_failed_all_addons)
@@ -975,9 +975,8 @@ internal fun findEmbeddedStreamsForMeta(
         } else if (videoId == meta.id) {
             rootStreams?.addAll(video.streams)
         }
-    }
 
-        // Keep the existing fallback priority: episode coordinates, then prefix.
+        // Preserve the fallback order: exact season/episode coordinates, then ID prefix.
         if (
             episodeMatch == null &&
             season != null &&
@@ -995,25 +994,5 @@ internal fun findEmbeddedStreamsForMeta(
     if (videoId != meta.id) return emptyList()
 
     val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
-    return if (hasMultipleVideosWithStreams) {
-        rootStreams.orEmpty()
-    } else {
-        onlyVideoWithStreams.streams
-    }
-
-    if (videoId == id && videosWithStreams.isNotEmpty()) {
-        return videosWithStreams.flatMap { it.streams }
-    }
-
-    return emptyList()
-}
-
-internal sealed interface MetaLookupOutcome {
-    class Loaded(val meta: MetaDetails) : MetaLookupOutcome
-
-    class Throttled(val retryAtEpochMs: Long) : MetaLookupOutcome
-
-    object Unavailable : MetaLookupOutcome
-
-    object Failed : MetaLookupOutcome
+    return if (hasMultipleVideosWithStreams) rootStreams.orEmpty() else onlyVideoWithStreams.streams
 }

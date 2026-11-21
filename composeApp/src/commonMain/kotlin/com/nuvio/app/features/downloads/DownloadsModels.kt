@@ -9,6 +9,7 @@ import nuvio.composeapp.generated.resources.downloads_enqueue_replaced
 import nuvio.composeapp.generated.resources.downloads_enqueue_queued
 import nuvio.composeapp.generated.resources.downloads_enqueue_started
 import nuvio.composeapp.generated.resources.downloads_enqueue_unsupported_format
+import nuvio.composeapp.generated.resources.downloads_enqueue_requires_wifi
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.StringResource
 import nuvio.composeapp.generated.resources.downloads_resolution_720p
@@ -140,7 +141,8 @@ enum class DownloadEnqueueResult {
     Replaced,
     Queued,
     MissingUrl,
-    UnsupportedFormat;
+    UnsupportedFormat,
+    RequiresWifi;
 
     val isSuccess: Boolean
         get() = this == Started || this == Replaced || this == Queued
@@ -152,6 +154,7 @@ enum class DownloadEnqueueResult {
             Queued -> getString(Res.string.downloads_enqueue_queued)
             MissingUrl -> getString(Res.string.downloads_enqueue_missing_url)
             UnsupportedFormat -> getString(Res.string.downloads_enqueue_unsupported_format)
+            RequiresWifi -> getString(Res.string.downloads_enqueue_requires_wifi)
         }
     }
 }

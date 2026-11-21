@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -139,8 +140,10 @@ fun NuvioDropdownChip(
             onClick = openOptions,
             modifier = modifier
                 .then(selectionFrameModifier)
-                .size(width = nativeWidth, height = 40.dp),
-            modifier = if (fillWidth) Modifier.weight(1f) else Modifier,
+                .then(
+                    if (fillWidth) Modifier.fillMaxWidth().height(40.dp)
+                    else Modifier.size(width = nativeWidth, height = 40.dp),
+                ),
         )
     } else {
         LiquidGlassTextContrastScope(enabled = glassEnabled) {

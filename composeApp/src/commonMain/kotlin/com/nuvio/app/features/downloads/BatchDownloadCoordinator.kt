@@ -5,7 +5,7 @@ import com.nuvio.app.features.debrid.DebridStreamMetadata
 import com.nuvio.app.features.debrid.DebridStreamPreferences
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaVideo
-import com.nuvio.app.features.details.findEmbeddedStreams
+import com.nuvio.app.features.details.findEmbeddedStreamsForMeta
 import com.nuvio.app.features.details.normalizeSeasonNumber
 import com.nuvio.app.features.details.seasonSortKey
 import com.nuvio.app.features.streams.StreamItem
@@ -358,7 +358,7 @@ object BatchDownloadCoordinator {
                                     videoId = target.streamVideoId,
                                     season = target.season,
                                     episode = target.episode,
-                                    embeddedStreams = plan.meta.findEmbeddedStreams(target.streamVideoId),
+                                    embeddedStreams = findEmbeddedStreamsForMeta(plan.meta, target.streamVideoId),
                                     timeoutMs = SOURCE_LOAD_TIMEOUT_MS,
                                 )
                             }.getOrElse { emptyList() }

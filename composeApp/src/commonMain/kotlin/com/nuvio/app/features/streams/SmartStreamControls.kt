@@ -144,7 +144,6 @@ internal fun SmartStreamControls(
                         fallback = colors.accent,
                         blurRadius = 14.dp,
                         refractionHeight = 8.dp,
-                        staticFromBackdrop = true,
                     )
                     .combinedClickable(
                         onClick = { onPlay(best.stream) },
@@ -250,7 +249,6 @@ internal fun SmartStreamControls(
                                     fallback = backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
                                     blurRadius = 14.dp,
                                     refractionHeight = 8.dp,
-                                    staticFromBackdrop = true,
                                 )
                                 .border(1.dp, colors.accent.copy(alpha = 0.55f), CircleShape)
                                 .clickable(onClick = chip.remove)
@@ -335,7 +333,6 @@ private fun SmartBarButton(
                 fallback = backdropControlColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
                 blurRadius = 14.dp,
                 refractionHeight = 8.dp,
-                staticFromBackdrop = true,
             )
             .then(if (highlighted) Modifier.border(1.dp, colors.accent.copy(alpha = 0.55f), shape) else Modifier)
             .clickable(onClick = onClick)

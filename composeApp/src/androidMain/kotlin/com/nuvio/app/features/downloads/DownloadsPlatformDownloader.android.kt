@@ -16,9 +16,6 @@ import java.io.File
 import java.net.URI
 
 internal actual object DownloadsPlatformDownloader {
-    // Transfers stream into a .part file and resume with a Range request.
-    actual val restartKeepsProgress: Boolean = true
-
     @Volatile
     private var appContext: Context? = null
 
@@ -61,12 +58,26 @@ internal actual object DownloadsPlatformDownloader {
     actual fun restoreItem(item: DownloadItem): DownloadItem = downloadScheduler?.restore(item)
         ?: if (item.status == DownloadStatus.Downloading) item.copy(status = DownloadStatus.Paused) else item
 
+    actual fun pauseRestoredItem(item: DownloadItem) {
+        val context = appContext ?: return
+        scheduler(context).pause(item.fileName)
+    }
+
+    actual fun clearUnfinishedTransfers() {
+        val context = appContext ?: return
+        val activeScheduler = scheduler(context)
+        managedTransfers()
+            .filter { it.item.status != DownloadStatus.Completed }
+            .forEach { transfer -> activeScheduler.remove(transfer.item.fileName) }
+    }
+
     actual fun start(
         request: DownloadPlatformRequest,
         onProgress: (downloadedBytes: Long, totalBytes: Long?) -> Unit,
         onSuccess: (localFileUri: String, totalBytes: Long?) -> Unit,
         onFailure: (message: String) -> Unit,
         onPaused: () -> Unit,
+        onQueued: () -> Unit,
     ): DownloadsTaskHandle {
         val scheduler = checkNotNull(downloadScheduler) { "Downloads are not initialized" }
         val transfer = scheduler.enqueue(request.item)
@@ -77,12 +88,13 @@ internal actual object DownloadsPlatformDownloader {
                     if (current == null || current.generation != transfer.generation) return@takeWhile false
                     val item = current.item
                     when (item.status) {
+                        DownloadStatus.Queued -> onQueued()
                         DownloadStatus.Downloading -> onProgress(item.downloadedBytes, item.totalBytes)
                         DownloadStatus.Completed -> onSuccess(checkNotNull(item.localFileUri), item.totalBytes)
                         DownloadStatus.Failed -> onFailure(item.errorMessage ?: "Download failed")
                         DownloadStatus.Paused -> onPaused()
                     }
-                    item.status == DownloadStatus.Downloading
+                    item.status == DownloadStatus.Queued || item.status == DownloadStatus.Downloading
                 }.collect()
         }
         return object : DownloadsTaskHandle {
@@ -90,6 +102,7 @@ internal actual object DownloadsPlatformDownloader {
                 observer.cancel()
                 val current = scheduler.pause(request.destinationFileName, transfer.generation) ?: return
                 when (current.item.status) {
+                    DownloadStatus.Queued -> onQueued()
                     DownloadStatus.Downloading -> Unit
                     DownloadStatus.Paused -> onPaused()
                     DownloadStatus.Completed -> {

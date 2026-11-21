@@ -352,7 +352,6 @@ private fun FilterChip(
                 } else {
                     Modifier.background(containerColor, chipShape)
                 },
-                staticFromBackdrop = true,
             )
             .combinedClickable(
                 interactionSource = interactionSource,

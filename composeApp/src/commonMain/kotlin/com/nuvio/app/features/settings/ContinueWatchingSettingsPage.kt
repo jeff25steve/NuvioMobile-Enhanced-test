@@ -88,6 +88,7 @@ internal fun LazyListScope.continueWatchingSettingsContent(
     blurNextUp: Boolean,
     showResumePromptOnLaunch: Boolean,
     sortMode: ContinueWatchingSortMode,
+    clickAction: ContinueWatchingClickAction,
     highlightedSearchAnchorKey: String? = null,
 ) {
     item {

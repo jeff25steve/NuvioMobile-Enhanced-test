@@ -1,8 +1,6 @@
 package com.nuvio.app.features.downloads
 
 import com.nuvio.app.features.details.MetaDetails
-import com.nuvio.app.core.sync.AppForegroundMonitor
-import com.nuvio.app.core.sync.AppVisibility
 import com.nuvio.app.features.player.SubtitleRequestExtras
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthSessionIdentity
@@ -33,7 +31,6 @@ object DownloadsRepository {
     private val _hasUnseenCompleted = MutableStateFlow(false)
     val hasUnseenCompleted: StateFlow<Boolean> = _hasUnseenCompleted.asStateFlow()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val activeHandles = mutableMapOf<DownloadOperationKey, DownloadsTaskHandle>()
     private val activeOperations = mutableMapOf<DownloadOperationKey, Long>()
     private var nextOperationGeneration = 0L
@@ -44,7 +41,6 @@ object DownloadsRepository {
 
     fun ensureLoaded() {
         ensureLoadedForCurrentProfile()
-        observeInputs()
     }
 
     private fun ensureLoadedForCurrentProfile(): DownloadProfileOwner {
@@ -136,6 +132,9 @@ object DownloadsRepository {
     fun markCompletedSeen() {
         _hasUnseenCompleted.value = false
     }
+
+    /** Returns persisted offline metadata used to hydrate downloaded Library entries. */
+    fun getOfflineMetadata(showId: String): StoredOfflineMeta? = OfflineMetadataRepository[showId]
 
     /**
      * Resets in-memory state on sign-out. Must not write storage: by the time this runs the
@@ -411,21 +410,10 @@ object DownloadsRepository {
             episodeNumber = episodeNumber,
         )
 
-        var replacedExisting = false
-        val currentItems = _uiState.value.items.toMutableList()
-        val existing = currentItems.firstOrNull { it.logicalContentKey == logicalKey }
-        if (existing != null) {
-            replacedExisting = true
-            cancelDownloadOperation(owner, existing.id)
-            DownloadsPlatformDownloader.removeFile(playableLocalFileUri(existing) ?: existing.localFileUri)
-            DownloadsPlatformDownloader.removePartialFile(existing.id, existing.fileName)
-            currentItems.removeAll { it.id == existing.id }
-        }
-
         val replacement = replaceExistingDownload(logicalKey)
         val replacedExisting = replacement != null
         val currentItems = _uiState.value.items.toMutableList()
-        replacement?.let { currentItems.removeAll { item -> item.id == it.id } }
+        replacement?.let { previous -> currentItems.removeAll { it.id == previous.id } }
         val downloadId = nextDownloadId(now)
         val fileName = buildFileName(
             title = title,
@@ -450,7 +438,7 @@ object DownloadsRepository {
             seasonNumber = seasonNumber,
             episodeNumber = episodeNumber,
             episodeTitle = episodeTitle,
-            episodeThumbnail = resolvedEpisodeThumbnail,
+            episodeThumbnail = episodeThumbnail,
             streamTitle = stream.streamLabel,
             streamSubtitle = stream.streamSubtitle,
             providerName = stream.addonName,
@@ -475,15 +463,27 @@ object DownloadsRepository {
         )
         currentItems.add(0, queuedItem)
         publish(currentItems)
+        updateOfflineMetadata(
+            meta = showMeta,
+            parentMetaId = parentMetaId,
+            parentMetaType = parentMetaType,
+            title = title,
+            logo = logo,
+            poster = poster,
+            background = background,
+            videoId = videoId,
+            episodeTitle = episodeTitle,
+            episodeThumbnail = episodeThumbnail,
+            episodeOverview = episodeOverview,
+            seasonNumber = seasonNumber,
+            episodeNumber = episodeNumber,
+        )
         persist(owner)
-        startDownload(item, owner)
-
-        return if (item.status == DownloadStatus.Queued) {
-            DownloadEnqueueResult.Queued
-        } else if (replacedExisting) {
-            DownloadEnqueueResult.Replaced
-        } else {
-            DownloadEnqueueResult.Started
+        advanceDownloadQueue()
+        return when (_uiState.value.items.firstOrNull { it.id == queuedItem.id }?.status) {
+            DownloadStatus.Queued -> DownloadEnqueueResult.Queued
+            DownloadStatus.Downloading -> if (replacedExisting) DownloadEnqueueResult.Replaced else DownloadEnqueueResult.Started
+            else -> if (replacedExisting) DownloadEnqueueResult.Replaced else DownloadEnqueueResult.Queued
         }
     }
 
@@ -510,13 +510,13 @@ object DownloadsRepository {
         val existing = _uiState.value.items.firstOrNull { it.logicalContentKey == logicalKey } ?: return null
         dropHandle(existing.id)?.cancel()
         DownloadsPlatformDownloader.removeFile(playableLocalFileUri(existing) ?: existing.localFileUri)
-        DownloadsPlatformDownloader.removePartialFile(existing.fileName)
+        DownloadsPlatformDownloader.removePartialFile(existing.id, existing.fileName)
         return existing
     }
 
     /** Starts queued downloads until the concurrency limits or network policy stop it. */
     fun advanceDownloadQueue() {
-        ensureLoaded()
+        val owner = ensureLoadedForCurrentProfile()
         val policy = DownloadQueuePolicy.current()
         val items = _uiState.value.items.toMutableList()
         val started = mutableListOf<DownloadItem>()
@@ -530,8 +530,8 @@ object DownloadsRepository {
         }
         if (started.isNotEmpty()) {
             publish(items)
-            persist()
-            started.forEach(::startDownload)
+            persist(owner)
+            started.forEach { item -> startDownload(item, owner) }
         }
     }
 
@@ -550,18 +550,9 @@ object DownloadsRepository {
         if (item.isActive) pauseDownload(downloadId) else resumeDownload(downloadId)
     }
 
-        cancelDownloadOperation(owner, downloadId)
-        mutateItem(owner, downloadId) { current ->
-            current.pauseIfNetworkDisallowed(
-                networkAllowed = false,
-                updatedAtEpochMs = DownloadsClock.nowEpochMs(),
-            )
-        }
-    }
-
     /** Pauses every matching active item in one update before advancing the queue. */
     private fun pauseActiveDownloadsMatching(predicate: (DownloadItem) -> Boolean) {
-        ensureLoaded()
+        ensureLoadedForCurrentProfile()
         val current = _uiState.value.items
         val targets = current.filter { it.isActive && predicate(it) }
         if (targets.isEmpty()) return
@@ -572,13 +563,21 @@ object DownloadsRepository {
 
     private fun setStatus(ids: Set<String>, status: DownloadStatus) {
         if (ids.isEmpty()) return
+        val owner = ensureLoadedForCurrentProfile()
         val current = _uiState.value.items
-        ids.forEach { dropHandle(it)?.cancel() }
+        ids.forEach { id -> dropHandle(id)?.cancel() }
         val now = DownloadsClock.nowEpochMs()
         publish(current.map { item ->
             if (item.id in ids) item.copy(status = status, updatedAtEpochMs = now, errorMessage = null) else item
         })
-        persist()
+        persist(owner)
+    }
+
+    /** Pauses queued or running downloads by ID in one update. */
+    fun pauseDownloads(downloadIds: Collection<String>) {
+        val ids = downloadIds.toSet()
+        if (ids.isEmpty()) return
+        pauseActiveDownloadsMatching { it.id in ids }
     }
 
     /** Resumes paused episodes of [seriesId] and retries its failed ones. */
@@ -604,30 +603,43 @@ object DownloadsRepository {
         _uiState.value.items
             .filter { it.status == DownloadStatus.Paused }
             .map { it.id }
-            .forEach(::resumeDownload)
+            .let(::resumeDownloads)
+    }
+
+    /** Re-queues resumable items under the active profile, then applies the configured queue policy. */
+    fun resumeDownloads(downloadIds: Collection<String>) {
+        val owner = ensureLoadedForCurrentProfile()
+        val ids = downloadIds.toSet()
+        if (ids.isEmpty()) return
+        val current = _uiState.value.items
+        val now = DownloadsClock.nowEpochMs()
+        val updated = current.map { item ->
+            if (item.id in ids && item.isResumable) {
+                item.copy(
+                    status = DownloadStatus.Queued,
+                    errorMessage = null,
+                    localFileUri = null,
+                    updatedAtEpochMs = now,
+                )
+            } else item
+        }
+        if (updated == current) return
+        publish(updated)
+        persist(owner)
+        advanceDownloadQueue()
     }
 
     fun resumeDownload(downloadId: String): DownloadEnqueueResult? {
-        val owner = ensureLoadedForCurrentProfile()
+        ensureLoadedForCurrentProfile()
         val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return null
-        if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return null
+        if (!item.isResumable) return null
         if (!isDownloadNetworkAllowedForCurrentSettings()) return DownloadEnqueueResult.RequiresWifi
-
-        val now = DownloadsClock.nowEpochMs()
-        val resetById = toResume.associate { item ->
-            val reset = item.copy(
-                status = DownloadStatus.Queued,
-                errorMessage = null,
-                localFileUri = null,
-                updatedAtEpochMs = now,
-            )
-            item.id to reset
+        resumeDownloads(listOf(downloadId))
+        return when (_uiState.value.items.firstOrNull { it.id == downloadId }?.status) {
+            DownloadStatus.Downloading -> DownloadEnqueueResult.Started
+            DownloadStatus.Queued -> DownloadEnqueueResult.Queued
+            else -> null
         }
-
-        publish(current.map { resetById[it.id] ?: it })
-        persist(owner)
-        startDownload(reset, owner)
-        return DownloadEnqueueResult.Started
     }
 
     fun retryDownload(downloadId: String): DownloadEnqueueResult? = resumeDownload(downloadId)
@@ -651,18 +663,26 @@ object DownloadsRepository {
     }
 
     fun cancelDownload(downloadId: String) {
+        cancelDownloads(listOf(downloadId))
+    }
+
+    /** Removes matching downloads and updates profile storage once. */
+    fun cancelDownloads(downloadIds: Collection<String>) {
         val owner = ensureLoadedForCurrentProfile()
-        val item = _uiState.value.items.firstOrNull { it.id == downloadId } ?: return
-
-        cancelDownloadOperation(owner, downloadId)
-        DownloadsPlatformDownloader.removeFile(playableLocalFileUri(item) ?: item.localFileUri)
-        DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
-
-        publish(_uiState.value.items.filterNot { it.id == downloadId })
-        persist(owner)
-        if (wasDownloading) {
-            advanceDownloadQueue()
+        val ids = downloadIds.toSet()
+        if (ids.isEmpty()) return
+        val current = _uiState.value.items
+        val targets = current.filter { it.id in ids }
+        if (targets.isEmpty()) return
+        val shouldAdvanceQueue = targets.any { it.isActive }
+        targets.forEach { item ->
+            cancelDownloadOperation(owner, item.id)
+            DownloadsPlatformDownloader.removeFile(playableLocalFileUri(item) ?: item.localFileUri)
+            DownloadsPlatformDownloader.removePartialFile(item.id, item.fileName)
         }
+        publish(current.filterNot { it.id in ids })
+        persist(owner)
+        if (shouldAdvanceQueue) advanceDownloadQueue()
     }
 
     private fun loadFromDisk(owner: DownloadProfileOwner) {
@@ -784,11 +804,20 @@ object DownloadsRepository {
                 if (isCurrentOperation(key, generation)) {
                     try {
                         updateOwnedDownload(owner, item.id) { current ->
-                            if (current.status != DownloadStatus.Downloading) current
+                            if (current.status != DownloadStatus.Downloading && current.status != DownloadStatus.Queued) current
                             else current.copy(status = DownloadStatus.Paused, errorMessage = null)
                         }
                     } finally {
                         finishDownloadOperation(key, generation)
+                    }
+                    advanceDownloadQueue()
+                }
+            },
+            onQueued = {
+                if (isCurrentOperation(key, generation)) {
+                    updateOwnedDownload(owner, item.id) { current ->
+                        if (current.status == DownloadStatus.Completed) current
+                        else current.copy(status = DownloadStatus.Queued, errorMessage = null)
                     }
                 }
             },
@@ -816,8 +845,11 @@ object DownloadsRepository {
 
     /** Forgets a transfer's handle and its progress-save timestamp. */
     private fun dropHandle(downloadId: String): DownloadsTaskHandle? {
+        val owner = loadedProfileOwner ?: return null
+        val key = DownloadOperationKey(owner, downloadId)
         lastProgressPersistAt.remove(downloadId)
-        return activeHandles.remove(downloadId)
+        activeOperations.remove(key)
+        return activeHandles.remove(key)
     }
 
     private fun shouldPersistProgress(item: DownloadItem): Boolean {
@@ -851,6 +883,10 @@ object DownloadsRepository {
         runCatching {
             DownloadsLiveStatusPlatform.onItemsChanged(_uiState.value.items)
         }
+    }
+
+    private fun persist() {
+        loadedProfileOwner?.let(::persist)
     }
 
     private fun persist(owner: DownloadProfileOwner) {
@@ -905,6 +941,10 @@ internal object DownloadsCodec {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
+
+    fun decodeItems(payload: String): List<DownloadItem> = decodePayload(payload).items
+
+    fun encodeItems(items: Collection<DownloadItem>): String = encodePayload(items)
 
     fun decodePayload(payload: String): StoredDownloadsPayload = runCatching {
         val root = json.parseToJsonElement(payload) as? kotlinx.serialization.json.JsonObject

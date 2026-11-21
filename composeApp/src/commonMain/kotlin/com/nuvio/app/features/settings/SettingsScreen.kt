@@ -1014,6 +1014,7 @@ private fun MobileSettingsScreen(
                     blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
                     showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
                     sortMode = continueWatchingPreferencesUiState.sortMode,
+                    clickAction = continueWatchingPreferencesUiState.clickAction,
                     highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                 )
                 SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(
@@ -1545,6 +1546,7 @@ private fun TabletSettingsScreen(
                         blurNextUp = continueWatchingPreferencesUiState.blurNextUp,
                         showResumePromptOnLaunch = continueWatchingPreferencesUiState.showResumePromptOnLaunch,
                         sortMode = continueWatchingPreferencesUiState.sortMode,
+                        clickAction = continueWatchingPreferencesUiState.clickAction,
                         highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     )
                     SettingsPage.PosterCustomization -> posterCustomizationSettingsContent(

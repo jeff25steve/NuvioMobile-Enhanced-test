@@ -57,7 +57,7 @@ internal actual object DownloadsStorage {
             val payload = prefs.getString(key, null) ?: return@forEach
             val items = DownloadsCodec.decodePayload(payload).items
             val unfinished = items.filter { it.status != DownloadStatus.Completed }
-            unfinished.forEach { DownloadsPlatformDownloader.removePartialFile(it.fileName) }
+            unfinished.forEach { DownloadsPlatformDownloader.removePartialFile(it.id, it.fileName) }
             prefs.edit().putString(
                 key,
                 DownloadsCodec.encodePayload(items.filter { it.status == DownloadStatus.Completed }),

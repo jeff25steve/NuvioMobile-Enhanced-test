@@ -122,11 +122,9 @@ internal fun StreamCard(
                         refractionAmount = 9.dp,
                         preview = preview,
                     )
-                        .compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
                 } else {
                     Modifier.background(surfaceFallback, cardShape)
                 },
-                staticFromBackdrop = true,
             )
             .then(
                 if (isCurrent || outlined) {
@@ -350,7 +348,6 @@ private fun CurrentStreamBadge(label: String) {
 internal const val StreamGlassTintAlpha = 0.45f
 
 internal val StreamGlassTint: Color = Color.White.copy(alpha = 0.05f)
-    .compositeOver(Color.Black.copy(alpha = StreamGlassTintAlpha))
 
 private val StreamGlassTextShadow = Shadow(
     color = Color.Black.copy(alpha = 0.6f),

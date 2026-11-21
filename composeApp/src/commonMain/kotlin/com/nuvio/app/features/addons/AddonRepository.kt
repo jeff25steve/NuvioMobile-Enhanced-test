@@ -254,7 +254,28 @@ object AddonRepository {
         if (_uiState.value.addons.any { it.manifestUrl == manifest.transportUrl }) {
             return AddAddonResult.Error(getString(Res.string.addon_already_installed))
         }
-        return installManifest(manifest.transportUrl, manifest)
+        val operation = currentProfileOperation()
+            ?: throw CancellationException("Add-on profile changed before installation started")
+        val applied = runIfCurrent(operation) {
+            _uiState.update { current ->
+                current.copy(
+                    addons = current.addons + ManagedAddon(
+                        manifestUrl = manifest.transportUrl,
+                        manifest = manifest,
+                        isRefreshing = false,
+                        errorMessage = null,
+                    ),
+                )
+            }
+            persistSnapshot(operation.profileId)
+        }
+        if (!applied) throw CancellationException("Add-on profile changed while installing")
+        pushToServer(operation)
+        InAppLogger.info(
+            "Addons/Repository",
+            "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifest.transportUrl)}",
+        )
+        AddAddonResult.Success(manifest)
     }
 
     suspend fun addAddon(rawUrl: String): AddAddonResult {
@@ -310,10 +331,6 @@ object AddonRepository {
         if (manifest.isTrackingAddon) {
             return AddAddonResult.TrackingConsentRequired(manifest)
         }
-        return installManifest(manifestUrl, manifest)
-    }
-
-    private fun installManifest(manifestUrl: String, manifest: AddonManifest): AddAddonResult {
         val applied = runIfCurrent(operation) {
             _uiState.update { current ->
                 current.copy(
@@ -329,8 +346,11 @@ object AddonRepository {
         }
         if (!applied) throw CancellationException("Add-on profile changed while installing")
         pushToServer(operation, syncClient)
-        InAppLogger.info("Addons/Repository", "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifestUrl)}")
-        return AddAddonResult.Success(manifest)
+        InAppLogger.info(
+            "Addons/Repository",
+            "addAddon success name=${manifest.name} url=${InAppLogger.redactUrl(manifestUrl)}",
+        )
+        AddAddonResult.Success(manifest)
     }
 
     fun removeAddon(manifestUrl: String) {

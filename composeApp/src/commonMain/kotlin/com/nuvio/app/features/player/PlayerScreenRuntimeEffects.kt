@@ -1028,6 +1028,7 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
 
     val currentVideoId = activeVideoId ?: return false
     credentialRefreshAttemptedSourceUrl = failedUrl
+    val savedPositionMs = playbackSnapshot.positionMs.coerceAtLeast(0L)
     removeFailedStreamFromCache()
 
     val expectedProviderAddonId = activeProviderAddonId

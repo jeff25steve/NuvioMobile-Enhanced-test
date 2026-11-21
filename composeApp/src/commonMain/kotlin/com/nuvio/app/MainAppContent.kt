@@ -325,10 +325,11 @@ internal fun MainAppContent(
         LaunchedEffect(libraryItems) {
             warmLibraryReleaseSchedule(libraryItems)
         }
-        val showLiveTvInNavigation by remember {
+        val liveTvUiState by remember {
             if (isIos) LiveTvRepository.ensureLoaded()
             LiveTvRepository.uiState
-        }.collectMappedAsState { it.showInNavigation }
+        }.collectAsStateWithLifecycle()
+        val showLiveTvInNavigation = liveTvUiState.showInNavigation
         val authState by AuthRepository.state.collectAsStateWithLifecycle()
         val openPosterActions: (PosterActionTarget) -> Unit = { target ->
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -369,11 +370,13 @@ internal fun MainAppContent(
         WatchedRepository.uiState
     }.collectAsStateWithLifecycle()
     val fullyWatchedSeriesKeys by WatchedRepository.fullyWatchedSeriesKeys.collectAsStateWithLifecycle()
-    val completedDownloads by remember {
+    val downloadsUiState by remember {
         if (isIos) DownloadsRepository.ensureLoaded()
         DownloadsRepository.uiState
-    }.collectMappedAsState { it.completedItems }
-    val networkCondition by NetworkStatusRepository.uiState.collectMappedAsState { it.condition }
+    }.collectAsStateWithLifecycle()
+    val completedDownloads = downloadsUiState.completedItems
+    val networkStatusUiState by NetworkStatusRepository.uiState.collectAsStateWithLifecycle()
+    val networkCondition = networkStatusUiState.condition
     val playbackAvailability = rememberPlaybackAvailability()
     val playbackUnavailableMessage = stringResource(Res.string.playback_unavailable_message)
     val downloadedProviderLabel = stringResource(Res.string.provider_downloaded)
@@ -424,10 +427,11 @@ internal fun MainAppContent(
     var networkToastBaselineReady by rememberSaveable { mutableStateOf(false) }
     var lastNetworkToastCondition by rememberSaveable { mutableStateOf(NetworkCondition.Unknown.name) }
     var watchSourceReconnectPending by remember { mutableStateOf(false) }
-    val serversRevision by remember {
+    val serversUiState by remember {
         if (isIos) ServerRepository.ensureLoaded()
         ServerRepository.uiState
-    }.collectMappedAsState { it.revision }
+    }.collectAsStateWithLifecycle()
+    val serversRevision = serversUiState.revision
 
     LaunchedEffect(appContentGeneration, serversRevision) {
         if (!ownsAppRuntime) return@LaunchedEffect

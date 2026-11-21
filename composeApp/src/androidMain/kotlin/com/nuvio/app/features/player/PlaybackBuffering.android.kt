@@ -227,7 +227,7 @@ internal class AdjustableLruCacheEvictor(initialMaxBytes: Long) : CacheEvictor {
     override fun onCacheInitialized() = Unit
 
     override fun onStartFile(cache: Cache, key: String, position: Long, length: Long) {
-        if (length != C.LENGTH_UNSET) evictCache(cache, length)
+        if (length != C.LENGTH_UNSET.toLong()) evictCache(cache, length)
     }
 
     override fun onSpanAdded(cache: Cache, span: CacheSpan) {

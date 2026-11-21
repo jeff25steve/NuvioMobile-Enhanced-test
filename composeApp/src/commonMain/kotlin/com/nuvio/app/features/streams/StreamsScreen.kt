@@ -1,6 +1,7 @@
 package com.nuvio.app.features.streams
 
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -641,7 +642,6 @@ internal fun ResumeBanner(
                 } else {
                     Modifier.clip(shape).background(fallback, shape)
                 },
-                staticFromBackdrop = true,
             )
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {

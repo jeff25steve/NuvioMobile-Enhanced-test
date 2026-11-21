@@ -55,12 +55,12 @@ internal fun LibrarySavedControls(
     sourceMode: LibrarySourceMode,
     sortOption: LibrarySortOption,
     verticalProjection: LibraryVerticalProjection,
-    watchedFilter: LibraryWatchedFilter,
+    watchedFilter: LibraryWatchedFilter = LibraryWatchedFilter.ALL,
     onSectionSelected: (String) -> Unit,
     onTypeSelected: (String?) -> Unit,
-    onGenreSelected: (String?) -> Unit,
-    onYearSelected: (String?) -> Unit,
-    onWatchedFilterSelected: (LibraryWatchedFilter) -> Unit,
+    onGenreSelected: (String?) -> Unit = {},
+    onYearSelected: (String?) -> Unit = {},
+    onWatchedFilterSelected: (LibraryWatchedFilter) -> Unit = {},
     onSortSelected: (LibrarySortOption) -> Unit,
     modifier: Modifier = Modifier,
     typeGlassSurface: LiquidGlassSurface? = null,
@@ -179,33 +179,14 @@ internal fun LibrarySavedControls(
                         ?.let(onSortSelected)
                 },
                 fillWidth = fillWidth,
-                glassSurface = typeGlassSurface,
+                glassSurface = sortGlassSurface,
                 previewGlass = previewGlass,
                 selectedPreviewSurface = selectedPreviewSurface,
-                onGlassSurfaceInteracted = { onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_SAVED_TYPE_FILTER) },
+                onGlassSurfaceInteracted = { onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER) },
             )
         }
     }
 
-        NuvioDropdownChip(
-            title = stringResource(Res.string.library_filter_sort),
-            label = librarySortOptionLabel(sortOption),
-            selectedKey = sortOption.name,
-            options = sortOptions.map { option ->
-                NuvioDropdownOption(key = option.name, label = librarySortOptionLabel(option))
-            },
-            enabled = sortOptions.size > 1,
-            onSelected = { option ->
-                LibrarySortOption.entries
-                    .firstOrNull { it.name == option.key }
-                    ?.let(onSortSelected)
-            },
-            glassSurface = sortGlassSurface,
-            previewGlass = previewGlass,
-            selectedPreviewSurface = selectedPreviewSurface,
-            onGlassSurfaceInteracted = { onPreviewSurfaceSelected?.invoke(LiquidGlassSurface.LIBRARY_SAVED_SORT_FILTER) },
-        )
-    }
 }
 
 private val CompactFilterRowMaxWidth = 960.dp

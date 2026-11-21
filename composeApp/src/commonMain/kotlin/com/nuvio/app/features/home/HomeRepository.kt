@@ -427,7 +427,7 @@ object HomeRepository {
                 sectionForDefinition = { definition ->
                     definition.sectionWithPosterOverlay()?.withReleaseFilter()
                 },
-            ).shuffled(heroRandom)
+            ).shuffled(Random((requestKey?.hashCode() ?: 0).absoluteValue + 1))
                 .take(HOME_HERO_ITEM_LIMIT)
         } else {
             emptyList()
@@ -442,7 +442,7 @@ object HomeRepository {
                 keepVisibleHeroWhilePending &&
                 visibleHeroItems.isNotEmpty() &&
                 isHeroResolutionPending(isLoading) &&
-                (catalogHeroItems.isEmpty() || visibleHeroItems.allComeFrom(heroSourceItems))
+                (catalogHeroItems.isEmpty() || visibleHeroItems.all { item -> item in heroSourceItems })
             ) {
                 visibleHeroItems
             } else {
