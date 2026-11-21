@@ -996,3 +996,13 @@ internal fun findEmbeddedStreamsForMeta(
     val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
     return if (hasMultipleVideosWithStreams) rootStreams.orEmpty() else onlyVideoWithStreams.streams
 }
+
+internal sealed interface MetaLookupOutcome {
+    class Loaded(val meta: MetaDetails) : MetaLookupOutcome
+
+    class Throttled(val retryAtEpochMs: Long) : MetaLookupOutcome
+
+    object Unavailable : MetaLookupOutcome
+
+    object Failed : MetaLookupOutcome
+}
