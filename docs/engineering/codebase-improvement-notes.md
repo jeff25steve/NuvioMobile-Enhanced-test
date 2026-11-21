@@ -888,3 +888,25 @@ Inspected the complete Android `PlaybackBuffering.android.kt` cache owner, the c
 - Re-fetched `PlaybackBuffering.android.kt`, `PlayerSettingsRepository.kt`, `PlaybackBufferSettings.kt` and the Media3 1.8.0 `LeastRecentlyUsedCacheEvictor.java` and `SimpleCache.java` sources.
 - Confirmed the two settings setters only persist/publish; no cache invalidation or reconfiguration call exists in the repository's playback cache owner.
 - No production code or tests changed. No Gradle test, build, CI, cache I/O experiment or device benchmark was run.
+
+
+## Runtime VOD cache-limit implementation and concurrency review (Cycle 140, 21 November 2026)
+
+Implemented the Cycle 139 settings-lifetime fix in the existing Android cache owner, retaining the single process-wide SimpleCache and its directory lock.
+
+**Production change**
+- Replaced the immutable LeastRecentlyUsedCacheEvictor with AdjustableLruCacheEvictor, which keeps the same LRU ordering semantics and accepts a new byte limit at runtime.
+- The active SimpleCache is not recreated when the configured size changes. A process-lifetime IO coroutine observes the settings flow and applies changes to the existing evictor. The initial get(context, settings) call also synchronizes the current setting before returning the cache.
+- Lowering the limit triggers eviction immediately on the IO settings collector; increasing it affects subsequent writes without clearing existing cache entries.
+- Auto-size is recalculated when the auto-size mode or configured-size setting changes, using one-fifth of current usable cache-directory space and retaining the existing 256 MiB–10 GiB clamp. It is not continuously polled for unrelated disk-space changes.
+- The cache's LRU tree is updated from Media3's add/remove/touch callbacks. The evictor never holds its own state lock while calling Cache.removeSpan(). This avoids the lock inversion that would occur if a settings thread held the evictor lock while waiting for the synchronized SimpleCache, as callbacks execute under the cache monitor. Media3 1.8.0 SimpleCache.removeSpan() reports removal synchronously, allowing the tracked byte count to converge after each eviction.
+
+**Regression coverage added**
+- Added Android host tests for immediate eviction after lowering the limit, allowing subsequent writes after increasing it, LRU recency updates after a span touch, and auto-size calculation/clamps.
+- The tests use a focused Cache proxy to exercise the real evictor callback behavior without opening a second SimpleCache or depending on Android filesystem/database setup.
+
+**Review boundaries and remaining verification**
+- Exact Media3 1.8.0 CacheEvictor, Cache, CacheSpan, SimpleCache and LeastRecentlyUsedCacheEvictor sources were fetched from the AndroidX repository through Exa. Context7 resolved AndroidX Media3 but returned no matching API documentation for this cache-specific query; no API claims rely on a newer version.
+- Source review confirms cache callbacks are invoked synchronously from SimpleCache operations, which are synchronized. The implementation releases its own lock before calling back into the cache.
+- The Android host test source was added but not executed. The available GitHub integration can inspect and update remote files but cannot run the repository's Gradle test task. No Gradle task, APK build, CI, benchmark, cache I/O experiment or device run was started.
+- The runtime settings collector and interaction with concurrent real CacheDataSource reads/writes still require focused host/integration execution before merge. No playback speedup is claimed; this change corrects settings application only.
