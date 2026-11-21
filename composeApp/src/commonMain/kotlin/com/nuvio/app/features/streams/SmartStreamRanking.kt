@@ -310,7 +310,14 @@ internal object SmartStreamRanking {
         val target = target(device, settings)
         fun infoOf(stream: StreamItem): SmartStreamInfo = SmartStreamQuality.cached(stream)
 
-        val candidates = allState.groups.flatMap { it.streams }
+        val filters = settings.filters
+        val filteredGroups = listState.groups.map { group ->
+            group.copy(streams = group.streams.filter { matches(infoOf(it), filters) })
+        }
+        val filteredState = listState.copy(groups = filteredGroups)
+        val visibleStreams = filteredState.filteredGroups.flatMap { it.streams }
+
+        val candidates = visibleStreams
             .filter { it.isSelectableForPlayback(debridEnabled) }
             .mapIndexed { index, stream ->
                 val info = infoOf(stream)
@@ -320,11 +327,6 @@ internal object SmartStreamRanking {
         val top = decent.maxWithOrNull(compareBy<SmartRankedStream> { it.score }.thenByDescending { it.index })
         val best = top?.let { SmartPick(it.stream, it.info, reasons(it.info, device, target)) }
 
-        val filters = settings.filters
-        val filteredGroups = listState.groups.map { group ->
-            group.copy(streams = group.streams.filter { matches(infoOf(it), filters) })
-        }
-        val filteredState = listState.copy(groups = filteredGroups)
         val total = listState.filteredGroups.sumOf { it.streams.size }
         val shown = filteredState.filteredGroups.sumOf { it.streams.size }
 
