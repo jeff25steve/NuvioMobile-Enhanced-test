@@ -720,3 +720,15 @@ The source call chain is concrete:
 - Context7 checked the exact pinned Coil 3.6.3 singleton-loader guidance separately; it confirms the existing Android `SingletonImageLoader.Factory` and Compose Multiplatform root factory are supported patterns. No image-loader change is indicated by this audit.
 - Context7's Android DataStore documentation confirms its asynchronous Flow-based read model, but adopting it would be a storage migration, not a safe mechanical dispatcher change.
 - No production code or tests were changed. No test, Gradle task, build, CI, Perfetto capture or device benchmark was run.
+
+
+## Coil singleton image-loader lifecycle audit (Cycle 131, 21 November 2026)
+
+Reviewed the two platform configuration paths rather than changing image loading speculatively:
+- Android `NuvioApplication` implements `SingletonImageLoader.Factory`; the loader is configured before Activity composition and includes the app's custom artwork interceptors, shared OkHttp-backed Ktor fetcher, cache-control strategy, request de-duplication, SVG and API-level GIF decoder.
+- The common `AppEnvironment` installs `setSingletonImageLoaderFactory` only when `platformProvidesImageLoader` is false. This is the Compose Multiplatform entrypoint path and does not unconditionally replace the Android Application factory.
+- Both paths enable memory/disk caching and concurrent request de-duplication. The Android factory's shared HTTP engine configuration is intentional and preserves the app's shared network behavior; no second Android loader creation path was established from the inspected source.
+
+Context7 was queried against the exact catalog-pinned Coil 3.6.3 documentation. It explicitly supports `SingletonImageLoader.Factory` on Android and `setSingletonImageLoaderFactory` near the root composable for Compose Multiplatform. The current platform split is consistent with those documented patterns. No production change is justified; replacing this with another loader or altering cache policy without request-level evidence risks losing custom artwork handling, shared networking, or cache reuse.
+
+**Verification boundary:** `App.kt`, `NuvioApplication.kt` and `gradle/libs.versions.toml` were fetched from the review branch. No runtime request trace, image-cache benchmark, test, build, CI or device run was performed. No image-loading speedup is claimed.
