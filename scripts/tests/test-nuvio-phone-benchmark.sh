@@ -1261,8 +1261,16 @@ for flavor in full playstore; do
   foreground_after="$(find "$TMP/output/$flavor" -name 'foreground-after.txt' -print -quit)"
   test -s "$foreground_before"
   test -s "$foreground_after"
-  grep -Fq 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}' "$foreground_before"
-  grep -Fq 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}' "$foreground_before"
+  grep -Fq 'mCurrentFocus=Window{abc com.android.launcher/.Launcher}' "$foreground_before" || {
+    echo "FAIL: foreground snapshot is missing the expected launcher mCurrentFocus record ($flavor)." >&2
+    cat "$foreground_before" >&2
+    exit 1
+  }
+  grep -Fq 'topResumedActivity=ActivityRecord{abc com.android.launcher/.Launcher}' "$foreground_before" || {
+    echo "FAIL: foreground snapshot is missing the expected launcher topResumedActivity record ($flavor)." >&2
+    cat "$foreground_before" >&2
+    exit 1
+  }
   grep -Fq 'Build fingerprint: fixture/fingerprint' "$environment_before"
   grep -Fq 'Boot completed: 1' "$environment_before"
   grep -Eq '^Device uptime since boot: [0-9]+ seconds$' "$environment_before"
