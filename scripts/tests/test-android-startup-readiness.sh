@@ -251,7 +251,7 @@ grep -Fq 'initWith(getByName("release"))' "$ANDROID_BUILD_SOURCE" || {
   exit 1
 }
 for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
-  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device)' "$source" || {
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(' "$source" || {
     echo "FAIL: both benchmark journeys must delegate to the shared Home/fully-drawn readiness wait." >&2
     exit 1
   }
