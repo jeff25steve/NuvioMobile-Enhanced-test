@@ -318,7 +318,8 @@ grep -Fq 'Active window package:' "$READINESS_SOURCE" && \
 # instrumentation status stream; do not change the app's reportFullyDrawn gate.
 for expected in \
   'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName)' \
-  'static void awaitHomeAndFullyDrawn(UiDevice device, String journeyName, Integer measurementIteration)' \
+  'static void awaitHomeAndFullyDrawn(' \
+  'UiDevice device, String journeyName, Integer measurementIteration)' \
   'InstrumentationRegistry.getInstrumentation().sendStatus(0, status)' \
   'Instrumentation.REPORT_KEY_STREAMRESULT' \
   'NUVIO_STARTUP_READINESS_TIMING:' \
