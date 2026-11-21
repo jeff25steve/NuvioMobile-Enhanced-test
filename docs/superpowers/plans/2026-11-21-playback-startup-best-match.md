@@ -4,7 +4,7 @@
 
 **Goal:** Make Smart Streams' Best Match recommendation obey the same filters and provider selection as the visible list, and add bounded Android startup load-phase evidence without changing playback behavior.
 
-**Architecture:** Keep the existing Smart Stream score and ordering unchanged; calculate the recommendation from the already-filtered visible stream set. Extend the existing Media3 1.8.0 AnalyticsListener only for first manifest/media loads, logging monotonic elapsed time, load duration, byte count and redacted URLs.
+**Architecture:** Keep the existing Smart Stream score and ordering unchanged; derive Play Best candidates from all sources after provider and Smart Streams filters, while preserving free-text search as a separate lower-list concern. Extend the existing Media3 1.8.0 AnalyticsListener only for first manifest/media loads and first completion per category, logging monotonic elapsed time, load duration, byte count and redacted URLs.
 
 **Tech Stack:** Kotlin 2.4.10, AndroidX Media3 1.8.0, Kotlin test, existing InAppLogger and PLAYER_DIAGNOSTIC_TAG.
 
@@ -38,11 +38,11 @@
 
 **Interfaces:**
 - Consumes: `StreamsUiState.filteredGroups`, `SmartStreamRanking.matches`, `SmartStreamQuality.cached`.
-- Produces: unchanged `SmartStreamsResult.best`, now selected from the same visible stream set as the list.
+- Produces: unchanged `SmartStreamsResult.best`, selected from `allState` after provider and Smart Streams filters, intentionally independent of the free-text list search.
 
-- [x] Add regression tests for instant-only, all-filtered, and provider-selected recommendation behavior.
+- [x] Add regression tests for resolution filters, Instant Only with an unresolved torrent, provider selection, and independence from the free-text list search.
 - [ ] Run the tests to verify they fail against the unmodified implementation.
-- [x] Change `compute` to derive the visible filtered groups first and use their streams for Best Match ranking.
+- [x] Apply Smart Streams filters independently to the list and full source state; use the latter plus `selectedFilter` for Best Match.
 - [ ] Run the focused test, the full common test suite and the relevant Android host tests.
 - [ ] Review tie handling and verify no change to score or sort weights.
 
@@ -57,7 +57,8 @@
 
 - [x] Verify exact APIs and constants against Media3 1.8.0 source.
 - [x] Log only first manifest and first media load-start events; ignore retries for first-load classification.
-- [x] Log load completions with event elapsed time, duration, bytes and track type.
+- [x] Log only the first manifest and first media load completion, avoiding per-segment log flooding.
+- [x] Discard negative elapsed timestamps before consuming the first-event guard.
 - [ ] Verify event-to-attempt correlation for source transitions and stale callbacks.
 - [ ] Compile the Android target and inspect sample diagnostics after playback on a physical device.
 
