@@ -66,8 +66,10 @@ printf '%s\n' "$pre_super_block" | grep -Fq 'SentryInitializer.start(application
   echo "FAIL: Sentry must be initialized exactly once inside the measured pre-super startup section." >&2
   exit 1
 }
+# Capture the lifecycle boundary before checking the Sentry ordering.
+super_line="$(printf '%s\n' "$on_create" | grep -nF 'super.onCreate(savedInstanceState)' | cut -d: -f1)"
 sentry_line="$(printf '%s\n' "$on_create" | grep -nF 'SentryInitializer.start(application)' | cut -d: -f1)"
-[ -n "$sentry_line" ] && [ "$sentry_line" -lt "$super_line" ] || {
+[ -n "$sentry_line" ] && [ -n "$super_line" ] && [ "$sentry_line" -lt "$super_line" ] || {
   echo "FAIL: Sentry initialization must remain before super.onCreate for early crash capture." >&2
   exit 1
 }
@@ -75,7 +77,6 @@ sentry_line="$(printf '%s\n' "$on_create" | grep -nF 'SentryInitializer.start(ap
 # Protect the lifecycle boundary and require every synchronous initializer
 # in onCreate to be inside one of the measured groups.
 pre_super_line="$(printf '%s\n' "$on_create" | grep -nF 'traceStartupSection("Nuvio.Startup.preSuper")' | cut -d: -f1)"
-super_line="$(printf '%s\n' "$on_create" | grep -nF 'super.onCreate(savedInstanceState)' | cut -d: -f1)"
 post_super_line="$(printf '%s\n' "$on_create" | grep -nF 'traceStartupSection("Nuvio.Startup.identityNetwork")' | cut -d: -f1)"
 [ -n "$pre_super_line" ] && [ -n "$super_line" ] && [ -n "$post_super_line" ] &&
   [ "$pre_super_line" -lt "$super_line" ] && [ "$super_line" -lt "$post_super_line" ] || {
