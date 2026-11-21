@@ -1137,7 +1137,7 @@ for flavor in full playstore; do
       exit 1
     }
   done
-  for decoy_value in 'Root decoy phone' 'Android API: 28' 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+  for decoy_value in 'Root decoy phone' 'Android API: 28' 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1 |' 'sustained performance mode: true' 'Android release codename: DECOY'; do
     if grep -Fq "$decoy_value" "$decoy_summary"; then
       echo "FAIL: summary accepted unrelated root-level metadata '$decoy_value' ($flavor)." >&2
       cat "$decoy_summary" >&2
@@ -1161,7 +1161,7 @@ for flavor in full playstore; do
       exit 1
     }
   done
-  for decoy_value in 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1' 'sustained performance mode: true' 'Android release codename: DECOY'; do
+  for decoy_value in 'CPU: 2 cores' '1000000000 Hz' '1 bytes' 'ART Mainline: 1 |' 'sustained performance mode: true' 'Android release codename: DECOY'; do
     if grep -Fq "$decoy_value" "$nested_context_summary"; then
       echo "FAIL: summary accepted nested context metadata '$decoy_value' ($flavor)." >&2
       cat "$nested_context_summary" >&2
