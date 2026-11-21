@@ -163,3 +163,14 @@ The custom Android DoH resolver starts AAAA asynchronously, performs A synchrono
 ### Startup preloader call-path clarification (Cycle 133, 21 November 2026)
 
 The critical preloader calls `ProfileRepository.loadCachedProfiles()` from its Main scope, but profile payload decoding and PIN-cache synchronization explicitly switch to `Dispatchers.IO`. After applying the profile, it calls `ThemeSettingsRepository.onProfileChanged()` on the caller dispatcher, which enters the synchronous theme settings loader already identified in Cycle 130. This is the same shared settings path, not a second independent cache-read issue. No code or tests changed; the existing helper tests were inspected but not run.
+
+
+### Home snapshot preload — main-thread disk and decode follow-up (Cycle 134, 21 November 2026)
+
+A new startup path was traced that is distinct from the profile payload and theme settings work. The critical preloader runs in a `Dispatchers.Main` scope and invokes `HomeRepository.preloadSnapshot()` directly. That method calls `HomeSnapshotStore.load()`; the store synchronously reads the JSON file through Android `AppFileCache.read()` (`File.isFile`, `File.length()`, `File.readText()`), decodes the full `SnapshotPayload`, and maps the stored sections and hero items into app models. There is no dispatcher switch in this call chain. This is confirmed main-thread file I/O and JSON/model reconstruction in the startup critical phase.
+
+The safe direction is to make the preload main-safe by doing the read/decode on `Dispatchers.IO`, while preserving the active profile key associated with the result and ensuring a profile switch cannot apply stale snapshot data. The later `restoreSnapshot()` fallback already runs from the repository's `Dispatchers.Default` scope, and snapshot saving is already background work; do not duplicate those changes.
+
+No production change was made because a test-first regression for dispatcher affinity and profile-switch races could not be run in this remote-only session without invoking a Gradle test/build, which was not authorized. The next implementation cycle should establish RED/GREEN for those cases before changing the call path. Android Developers' [Keep your app responsive](https://developer.android.com/topic/performance/anrs/keep-your-app-responsive) and [coroutines main-safety guidance](https://developer.android.com/kotlin/coroutines/coroutines-adv) explicitly recommend moving blocking I/O and CPU-heavy parsing off Main; Context7's coroutines KDoc confirms that `suspend` alone does not move work to a background dispatcher and that `withContext` returns results cancellably to the caller context.
+
+This is a source-level critical-path finding, not a measured speedup. No tests, build, CI, StrictMode, Perfetto or device benchmark was run.
