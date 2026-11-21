@@ -2,6 +2,7 @@ package com.nuvio.app.features.player
 
 import android.net.Uri
 import android.util.Log
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -44,10 +45,17 @@ internal class HlsParameterSetInitDataSource(
         val body = readAll(upstream)
         val baseUri = (upstream.uri ?: dataSpec.uri).toString()
         // Healthy streams pay for this check too, so a slow segment host must not hold up the start.
+        val inspectionStartedAtMs = SystemClock.elapsedRealtime()
         val rewritten = resultWithin(CHECK_TIMEOUT_MS) {
             HlsParameterSetInit.withParameterSetInit(body.toString(Charsets.UTF_8), baseUri, ::fetchSegmentHead)
         }
-        if (rewritten != null) Log.i(TAG, "Added an SPS/PPS init segment to $baseUri")
+        val inspectionElapsedMs = (SystemClock.elapsedRealtime() - inspectionStartedAtMs).coerceAtLeast(0L)
+        Log.i(
+            TAG,
+            "HLS playlist inspection elapsedMs=$inspectionElapsedMs playlistBytes=${body.size} " +
+                "rewritten=${rewritten != null} timedOut=${inspectionElapsedMs >= CHECK_TIMEOUT_MS}",
+        )
+        if (rewritten != null) Log.i(TAG, "Added an SPS/PPS init segment")
         val served = rewritten?.toByteArray(Charsets.UTF_8) ?: body
         playlist = served
         return served.size.toLong()
