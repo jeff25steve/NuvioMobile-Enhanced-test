@@ -1815,7 +1815,7 @@ install_variant() {
     printf 'Test APK source filename: %s\nTest APK source SHA-256: %s\n' "$(basename "$TEST_APK")" "$test_source_hash"
   } > "$(install_provenance_file)" || fail "Could not persist APK install provenance."
   printf '\nInstalled %s (%s). Open Nuvio, sign in, finish onboarding if needed, and leave it on Home.\n' "$FLAVOR" "$ACTION"
-  printf 'For profile collection, Home must contain at least one catalogue shelf with enough entries to scroll horizontally; the home_browse profile fails if it is absent.\n'
+  printf 'For Home browse Baseline Profile collection, Home must contain a populated, horizontally scrollable catalogue shelf with enough entries to scroll; the home_browse profile fails if it is absent.\n'
   printf 'Do not clear app data between full and playstore; both flavors share the isolated .benchmark app ID and signing key.\n'
   printf 'Production app com.nuvio.media and its data are separate and were not changed.\n'
 }
