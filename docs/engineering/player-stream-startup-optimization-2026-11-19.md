@@ -103,3 +103,26 @@ This follow-up is isolated on `review/playback-startup-best-match-20261121`; it 
 - This is measurement-only: playlist parsing, segment-head probing, timeout, rewrite eligibility, and fallback behavior are unchanged. It does not claim to improve playback startup.
 - Use these measurements on healthy and affected HLS VOD sources to determine whether inspection is a meaningful first-frame critical-path cost before changing the compatibility strategy. Compare with first-frame elapsed time and network load events on the same device and connection.
 - No tests, Kotlin compilation, Android build, CI, or physical-device measurements have been run for this instrumentation.
+
+
+### Media3 preload feasibility audit (21 November 2026)
+
+The proposed idea of downloading the first few minutes after a stream is selected and then continuing in the background was checked against the actual Android player construction path and Media3's preload-manager contract.
+
+- Media3 playback is already incremental. The player buffers ahead while consuming the current stream; downloading a fixed multi-minute prefix is not a general prerequisite for starting playback and could increase startup delay, memory use, network contention, and wasted transfer when the user seeks or leaves.
+- `DefaultPreloadManager` is designed for a known, ordered set of likely-next media items (for example, a feed or carousel). The current player is constructed around a selected source and a per-source Compose lifecycle, not an already-registered queue of candidate media items.
+- The current ExoPlayer builder uses app-specific `DefaultTrackSelector`, `LoadControl` (including live-specific wrapping), renderer customization, and a custom `DataSource.Factory`. That factory can include request/response headers, the HLS SPS/PPS compatibility wrapper, optional progressive-source buffering/cache, byte counting, and special handling for YouTube chunked, loopback, live, and external subtitle paths.
+- The current player may also build merged video/audio sources, Blu-ray sources, and libass-enabled players. A preload manager must create the playback player through the same builder and share compatible components; a preloaded `MediaSource` must be handed to that linked player on the shared playback looper. Bypassing those paths risks losing headers, custom HLS handling, subtitles, track-selection consistency, or decoder/render configuration.
+- The AndroidX Media3 guidance explicitly requires the same `DefaultPreloadManager.Builder` to build the preload manager and player, and calls out shared LoadControl, TrackSelector implementation, MediaSourceFactory, RenderersFactory and playback looper. It also warns that unmanaged preload queues retain sample queues and can exhaust memory unless a bounded sliding window removes distant items.
+- The repository is pinned to Media3 1.8.0. Context7 exposed 1.8.1 as its nearest indexed version; the official AndroidX 1.8.0 release notes and official Android Developers preload guidance were used as cross-checks. No 1.8.1-only API has been assumed.
+
+**Decision:** Do not add speculative multi-minute preloading to the current player. First establish a real pre-selection opportunity in the stream chooser (a stable, bounded list of likely next sources) and prove that its source metadata, headers, selected quality, and player lifecycle can be handed off without bypassing current custom factories. Only then prototype a small configurable preload target and compare first-frame latency, network bytes, memory, and cancellation/waste against the existing path.
+
+### Analytics event ownership — further review (21 November 2026)
+
+- Re-inspected the current Android analytics listener and the prepare call site. The listener's first-load flags live for the listener lifetime, while `prepareStartedAtMs` and `attempt` are updated by the current prepare path. A callback from a previously active or pre-buffered media item can therefore consume a first-load flag or be labelled with the newer attempt.
+- Media3's official `AnalyticsListener.EventTime` documentation distinguishes the event's `timeline/windowIndex/mediaPeriodId` from `currentTimeline/currentWindowIndex/currentMediaPeriodId`. The current item can differ from the item associated with the event.
+- A timestamp check (`eventTime.realtimeMs >= prepareStartedAtMs`) cannot prove ownership. A robust guard must identify the event's media item/period against the intended source and explicitly handle events emitted before the timeline is populated; blindly rejecting all empty-timeline events would also lose legitimate initial manifest observations.
+- **Decision:** retain the existing logs as provisional diagnostics only. Do not use them as authoritative per-attempt manifest/media timing, and do not tune buffer policy or claim a measured speedup from them until event ownership and prepare-attempt boundaries have a testable implementation.
+
+No production playback behavior was changed in this audit. No tests, Kotlin compilation, Android build, CI, Macrobenchmark, or physical-device playback were run.
