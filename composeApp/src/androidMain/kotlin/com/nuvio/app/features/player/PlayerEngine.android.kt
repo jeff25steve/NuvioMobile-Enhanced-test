@@ -135,7 +135,7 @@ import java.util.concurrent.atomic.AtomicReference
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 
-private class PlaybackDiagnostics {
+internal class PlaybackDiagnostics {
     var prepareStartedAtMs: Long = 0L
         private set
     var attempt: Int = 0
