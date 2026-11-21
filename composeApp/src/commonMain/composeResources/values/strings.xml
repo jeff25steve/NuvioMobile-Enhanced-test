@@ -692,6 +692,7 @@
     <string name="downloads_downloading_count">%1$d downloading</string>
     <string name="downloads_empty_message">Long-press a stream and choose Download file to watch it offline.</string>
     <string name="downloads_empty_title">No downloads yet</string>
+    <string name="downloads_empty_episodes">No downloaded episodes yet</string>
     <string name="downloads_open_directory">Open downloads folder</string>
     <string name="downloads_open_directory_failed">Couldn&apos;t open downloads folder</string>
     <string name="downloads_pause_all">Pause all</string>
