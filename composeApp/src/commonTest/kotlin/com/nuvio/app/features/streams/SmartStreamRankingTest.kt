@@ -7,30 +7,33 @@ import kotlin.test.assertNull
 class SmartStreamRankingTest {
 
     @Test
-    fun `best recommendation obeys active instant-only filter`() {
-        val uncached = stream("Torrentio", "4K uncached", "https://example.com/uncached.mkv")
-        val cached = stream(
-            "Torrentio",
-            "1080p cached",
-            "https://example.com/cached.mkv",
-            StreamDebridCacheState.CACHED,
+    fun `best recommendation obeys active resolution filter`() {
+        val fourK = stream("Torrentio", "4K", "https://example.com/4k.mkv")
+        val fullHd = stream("Torrentio", "1080p", "https://example.com/1080p.mkv")
+
+        val result = compute(
+            stateOf(fourK, fullHd),
+            stateOf(fourK, fullHd),
+            SmartStreamFilters(resolutions = setOf(SmartResolution.FHD1080)),
         )
-        val listState = stateOf(uncached, cached)
-        val allState = stateOf(uncached, cached)
 
-        val result = compute(listState, allState, SmartStreamFilters(instantOnly = true))
-
-        assertEquals(cached, result.best?.stream)
-        assertEquals(listOf(cached), result.listState.allStreams)
+        assertEquals(fullHd, result.best?.stream)
+        assertEquals(listOf(fullHd), result.listState.allStreams)
     }
 
     @Test
-    fun `best recommendation is absent when filters remove every stream`() {
-        val onlyStream = stream("Torrentio", "1080p", "https://example.com/only.mkv")
+    fun `best recommendation is absent when instant-only removes every candidate`() {
+        val unresolvedTorrent = stream(
+            addonName = "Torrentio",
+            name = "1080p",
+            url = null,
+            infoHash = "0123456789abcdef0123456789abcdef01234567",
+            cacheState = StreamDebridCacheState.UNKNOWN,
+        )
 
         val result = compute(
-            stateOf(onlyStream),
-            stateOf(onlyStream),
+            stateOf(unresolvedTorrent),
+            stateOf(unresolvedTorrent),
             SmartStreamFilters(instantOnly = true),
         )
 
@@ -44,7 +47,6 @@ class SmartStreamRankingTest {
             "Provider B",
             "4K",
             "https://example.com/b.mkv",
-            StreamDebridCacheState.CACHED,
         )
         val listState = stateOf(selectedProvider, otherProvider).copy(selectedFilter = "addon:Provider A")
         val allState = stateOf(selectedProvider, otherProvider)
@@ -60,11 +62,14 @@ class SmartStreamRankingTest {
         allState: StreamsUiState,
         filters: SmartStreamFilters,
     ): SmartStreamsResult {
-        val settings = SmartStreamSettings(filters = filters)
+        val settings = SmartStreamSettings(
+            filters = filters,
+            resolutionLimit = SmartResolutionLimit.P4K,
+        )
         val device = SmartDeviceProfile(
             screen = SmartScreenInfo(
-                longSidePx = 2400,
-                shortSidePx = 1080,
+                longSidePx = 3840,
+                shortSidePx = 2160,
                 hdrFormats = emptySet(),
                 hevcHardware = true,
                 av1Hardware = false,
@@ -104,11 +109,13 @@ class SmartStreamRankingTest {
     private fun stream(
         addonName: String,
         name: String,
-        url: String,
+        url: String?,
+        infoHash: String? = null,
         cacheState: StreamDebridCacheState? = null,
     ): StreamItem = StreamItem(
         name = name,
         url = url,
+        infoHash = infoHash,
         addonName = addonName,
         addonId = "addon:$addonName",
         debridCacheStatus = cacheState?.let { state ->
