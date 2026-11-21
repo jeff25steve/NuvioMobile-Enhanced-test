@@ -170,3 +170,16 @@ The critical preloader calls `ProfileRepository.loadCachedProfiles()` from its M
 The preceding proposed main-thread I/O finding was incorrect and is withdrawn. Although `StartupPreloader`'s owning scope uses `Dispatchers.Main`, its critical phase calls `runStartupPreloadWork(dispatcher = Dispatchers.IO)`. The Home snapshot operation is one of that helper's independent reads, launched using `async(dispatcher)`. Consequently the snapshot file read, JSON decode and model mapping execute on IO, not Main. No additional dispatcher switch is warranted, and no production change should be made for this path.
 
 The existing `StartupPreloaderTest` verifies overlap between independent startup reads and ordered critical reads; it does not directly assert thread affinity for Home snapshot loading. Source tracing is sufficient to reject the proposed duplicate dispatcher change. No production code or tests changed, and no tests, build, CI, StrictMode, Perfetto or device benchmark was run.
+
+
+### HLS SPS/PPS inspection latency and Media3 source attribution follow-up (21 November 2026)
+
+Two additional source-level findings were verified against the review branch:
+
+1. `HlsParameterSetInitDataSource.open()` reads the playlist, then synchronously waits up to `CHECK_TIMEOUT_MS = 3_000` for the optional segment-head inspection. A slow second-segment host can add up to three seconds before an otherwise healthy playlist is returned unchanged. The timeout does not include the preceding playlist open/read. The existing timeout test exercises an interruptible sleep, not a network DataSource's interruption and close behavior. Do not reduce the timeout without proving the SPS/PPS repair still works on affected VOD; design an injectable DataSource test and measure the critical-path delay first. See Cycle 136 in the codebase notes.
+
+2. For separate audio URLs, `PlayerEngine.android.kt` merges distinct video and audio MediaSources. Media3 1.5.0+ reports load events from secondary merged sources too; the current first-media diagnostic can therefore be audio rather than video. The exact Media3 1.8.0 source/API was inspected. Keep this metric provisional and separate video/audio/subtitle roles before using it for first-frame analysis. See Cycle 137 in the codebase notes.
+
+Also audited all six `exoPlayer.prepare()` call sites: only the initial start path begins a fresh `PlaybackDiagnostics` attempt. Manual retry, Blu-ray title/recovery, and three external-subtitle reload paths do not. The current attempt counters and first-event guards are therefore not consistent across all ExoPlayer prepare operations. See Cycle 138 in the codebase notes.
+
+No production code or tests changed in these audits. No test task, build, CI, network fault injection, benchmark or device run was started.
