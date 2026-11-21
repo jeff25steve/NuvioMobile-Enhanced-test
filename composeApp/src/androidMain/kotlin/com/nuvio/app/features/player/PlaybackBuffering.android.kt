@@ -13,8 +13,8 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
-import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.Cache
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheEvictor
 import androidx.media3.datasource.cache.CacheSpan
 import androidx.media3.datasource.cache.SimpleCache
@@ -185,11 +185,17 @@ private object PlaybackDiskCache {
         maxBytes(directory, settings.vodDiskCacheAutoSize, settings.vodDiskCacheSizeMb)
 
     private fun maxBytes(directory: File, autoSize: Boolean, sizeMb: Int): Long =
-        if (autoSize) {
-            (directory.usableSpace / 5L).coerceIn(256L * MB, 10_240L * MB)
-        } else {
-            sizeMb.coerceAtLeast(1).toLong() * MB
-        }
+        calculateVodDiskCacheMaxBytes(directory.usableSpace, autoSize, sizeMb)
+}
+
+internal fun calculateVodDiskCacheMaxBytes(
+    usableSpaceBytes: Long,
+    autoSize: Boolean,
+    configuredSizeMb: Int,
+): Long = if (autoSize) {
+    (usableSpaceBytes / 5L).coerceIn(256L * MB, 10_240L * MB)
+} else {
+    configuredSizeMb.coerceAtLeast(1).toLong() * MB
 }
 
 /**
