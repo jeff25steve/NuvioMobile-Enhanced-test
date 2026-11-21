@@ -2281,8 +2281,7 @@ private fun LibmpvPlayerSurface(
 
     LaunchedEffect(playerViewRef, sourceUrl, sourceAudioUrl, sanitizedSourceHeaders, externalSubtitles) {
         val view = playerViewRef ?: return@LaunchedEffect
-        playbackDiagnostics.attempt += 1
-        playbackDiagnostics.prepareStartedAtMs = SystemClock.elapsedRealtime()
+        playbackDiagnostics.beginAttempt(SystemClock.elapsedRealtime())
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "mpv_prepare_begin attempt=${playbackDiagnostics.attempt} " +
