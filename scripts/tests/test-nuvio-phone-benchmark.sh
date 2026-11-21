@@ -1241,8 +1241,8 @@ for flavor in full playstore; do
   grep -Fq 'Rules carrying H/S/P flags: H=2 S=2 P=2' "$profile_audit"
   grep -Fq 'profile-audit-summary.txt' "$profile_result_dir/copied-files.txt"
   test -n "$(find "$TMP/output/$flavor" -name '*benchmarkData.json' -print -quit)"
-  environment_before="$(find "$TMP/output/$flavor" -name 'environment-before.txt' -print -quit)"
-  environment_after="$(find "$TMP/output/$flavor" -name 'environment-after.txt' -print -quit)"
+  environment_before="$memory_result_dir/environment-before.txt"
+  environment_after="$memory_result_dir/environment-after.txt"
   test -s "$environment_before"
   test -s "$environment_after"
   grep -Fq 'level: 88' "$environment_before"
@@ -1261,9 +1261,9 @@ for flavor in full playstore; do
     cat "$(dirname "$environment_before")/memory-profile-summary.txt" >&2
     exit 1
   }
-  grep -Fq 'Thermal integrity' "$(dirname "$environment_before")/benchmark-summary.txt" || {
-    echo "FAIL: legacy benchmark summary unexpectedly missing from memory-profile run ($flavor)." >&2
-    ls -la "$(dirname "$environment_before")" >&2
+  grep -Fq 'Thermal integrity' "$memory_result_dir/memory-profile-summary.txt" || {
+    echo "FAIL: memory-profile summary must include thermal integrity ($flavor)." >&2
+    cat "$memory_result_dir/memory-profile-summary.txt" >&2
     exit 1
   }
   grep -Fq 'Battery saver (settings global low_power): 0' "$environment_before"
