@@ -188,3 +188,25 @@ No production code or tests changed in these audits. No test task, build, CI, ne
 ### VOD cache-size setting lifetime (21 November 2026)
 
 Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial LeastRecentlyUsedCacheEvictor limit after settings changed. Cycle 140 adds a runtime-adjustable LRU CacheEvictor on the same SimpleCache and observes the two policy fields through the settings StateFlow. Cycle 141 corrects an important reuse-path issue: PlayerEngine passes a remembered settings snapshot, so an existing cache must not reapply that potentially stale value or perform synchronous eviction on the playback setup caller. The live IO collector is now the sole authority for policy changes after cache creation. Host test source covers limit decreases/increases, span-touch LRU ordering and size calculation, but remains unexecuted. See Cycles 140–141 in the codebase improvement notes for the concurrency and stale-snapshot rationale. This fixes a settings correctness mismatch and removes synchronous eviction from the playback setup path; it is not a measured playback speedup.
+
+
+## Android HLS repair eligibility and bounded segment inspection (Cycles 151–152, 22 November 2026)
+
+### Cycle 151 — require an IDR first slice before injecting SPS/PPS
+
+- The segment scanner previously treated every H.264 coded-slice NAL type (1–5) as equivalent. It therefore considered a segment beginning with a P/B slice to be a candidate for SPS/PPS repair.
+- SPS/PPS restore codec configuration, not the reference pictures required by a P/B slice. After a seek or fresh extractor, such a segment is not independently decodable merely because the parameter sets were injected.
+- The scanner now records whether the first slice is NAL type 5 (IDR). Playlist rewriting is allowed only when the second segment has reached an IDR first slice, lacks SPS/PPS, and the first segment supplies matching parameter sets.
+- Added host regression coverage for non-IDR first slices and verified the scanner's classification in the test source. Existing IDR fixtures retain the repair path.
+
+### Cycle 152 — bound the underlying HTTP inspection call
+
+- The previous `FutureTask.get(3s)` deadline interrupted the worker, but the player network client used a 15-second read timeout and interruption alone does not reliably abort a blocked OkHttp response-body read. A timed-out inspection could therefore leave a daemon worker and network request alive well past the advertised budget.
+- Added a dedicated segment-inspection DataSource factory using a derived OkHttp client with a 2.5-second whole-call timeout. OkHttp's `newBuilder()` retains the existing dispatcher, connection pool, DNS, TLS configuration and interceptors; the existing source request headers and Authorization injection are retained. The outer 3-second FutureTask deadline remains a final guard.
+- The playlist's normal playback DataSource retains its existing timeouts. Only the optional segment-head probe uses the shorter whole-call deadline. The full flavor's YouTube chunked transport keeps its existing fallback instead of being bypassed by a different HTTP stack.
+- Added a host test proving the HLS wrapper creates segment probes from the dedicated inspection factory.
+
+**Evidence and verification boundary**
+- The repository pins Media3 1.8.0; its `DataSource` and `OkHttpDataSource.Factory` contracts were reviewed. Media3 1.8.0's OkHttp datasource dependency resolves to OkHttp 4.12.0. OkHttp 4.x documentation/source confirms `callTimeout(long, TimeUnit)` spans DNS, connection, retries/redirects and response-body reads, and `newBuilder()` inherits the existing client configuration and shared connection resources.
+- Context7 documentation for AndroidX Media3 and OkHttp was consulted; Context7 did not expose an exact Media3 1.8.0 or OkHttp 4.12.0 versioned library entry, so the pinned dependency and upstream source/POM evidence were used for version-specific checks.
+- Source and host regression fixtures were updated on the feature branch. Tests and Kotlin compilation have not been run. No Gradle task, build, CI, network fault injection, device playback or benchmark was started. No measured playback speedup is claimed.
