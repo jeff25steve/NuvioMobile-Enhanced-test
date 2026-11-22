@@ -962,3 +962,24 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## Android download per-file lock registry — release idle entries (Cycle 146, 22 November 2026)
+
+A fresh review of the Android download scheduler found that its per-file serialization map was process-lifetime and unbounded: `ConcurrentHashMap<String, Mutex>` retained one mutex for every distinct download filename ever passed through `lock(fileName)`. The map had no removal path. A user who downloads and removes many distinct files could therefore grow this registry for the lifetime of the scheduler even after all corresponding work had finished.
+
+**Changed**
+- Replaced the scheduler's permanent map with `KeyedMutex`, a reference-counted keyed lock registry.
+- Each invocation increments the entry reference count before attempting the suspending lock, so both the active holder and queued waiters keep the same mutex alive.
+- The reference is released in `finally` whether the action completes, throws, or is cancelled while waiting. The entry is removed only when the count reaches zero and the map still points to that exact entry.
+- Kept the same per-filename serialization boundaries for transfer execution and removal cleanup. Different filenames continue to use independent mutexes and can proceed concurrently.
+- Added host regression cases for same-key serialization, different-key concurrency, and cancellation of a queued waiter. Added a focused shell source-contract guard for the scheduler integration and lifecycle invariants.
+
+**Why the reference count is required**
+Removing a mutex immediately after its holder exits would be unsafe if another coroutine is already queued on that mutex: a new caller could then create a second mutex for the same key and overlap with the queued caller. Counting holders and waiters prevents that split-lock race. The registry monitor protects only the small map/reference-count operation; it is not held while suspending or running download work.
+
+**Evidence and verification boundary**
+- Re-fetched the live `AndroidDownloadScheduler.kt`, confirmed the map was only used by `execute()` and asynchronous removal cleanup, and verified both paths now use the same keyed-lock registry.
+- The project pins kotlinx.coroutines 1.10.2. Context7 did not list 1.10.2; the 1.10.1 documentation was used for the stable `Mutex` lock/unlock contract. Exa independently retrieved the official Kotlin API documentation and source describing prompt cancellation and lock release semantics.
+- The focused shell guard was run against an old-structure fixture and failed (RED), then against the updated structure fixture and passed (GREEN). This validates the structural integration only; it does not execute Kotlin concurrency behavior.
+- Added actual coroutine host tests for serialization, cross-key concurrency and cancellation cleanup, but they have not been run. No Gradle test task, Kotlin compilation, build, CI, APK, device test or benchmark was started.
+- This change bounds the registry's retained entries to keys with active or waiting operations. It does not claim a measured memory or performance improvement.
