@@ -382,8 +382,8 @@ grep -Fq 'static void scrollUntilMarker(' "$HOME_BROWSE_READINESS_SOURCE" && \
   echo "FAIL: Home browse scrolling must live in its dedicated readiness helper." >&2
   exit 1
 }
-grep -Fq 'StartupReadiness.targetMarkerIsScrollable(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
-  grep -Fq 'static boolean targetMarkerIsScrollable(' "$READINESS_SOURCE" && \
+grep -Fq 'StartupReadiness.targetScrollableMarker(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'static UiObject2 targetScrollableMarker(' "$READINESS_SOURCE" && \
   grep -Fq 'static boolean targetMarkerHasVisibleBounds(' "$READINESS_SOURCE" && \
   grep -Fq 'return StaleNodeRetry.run(() -> {' "$READINESS_SOURCE" && \
   grep -Fq 'UiObject2Ext.scrollToElement(' "$HOME_BROWSE_READINESS_SOURCE" && \
