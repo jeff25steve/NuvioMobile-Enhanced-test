@@ -15,7 +15,6 @@ import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.network.DnsPlatform
 import com.nuvio.app.core.network.SharedOkHttpClient
-import com.nuvio.app.core.network.NetworkErrorInterceptor
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
 import com.nuvio.app.features.servers.plex.PlexArtworkInterceptor
 import com.nuvio.app.features.servers.silo.SiloArtworkInterceptor
