@@ -2084,7 +2084,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
     if command -v logcat >/dev/null 2>&1; then
-      logcat -d -v time -s 'ProfileInstaller:V' 'Benchmark:V' 'AndroidRuntime:E' 2>&1 \
+      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
         || printf 'Filtered logcat capture failed.\n'
     else
       printf 'logcat unavailable\n'
@@ -2271,7 +2271,7 @@ start_profile_collection_diagnostics() {
   PROFILE_PROCESS_MONITOR_PID=$!
 
   if command -v logcat >/dev/null 2>&1; then
-    logcat -v time -s 'Benchmark:V' 'ProfileInstaller:V' 'AndroidRuntime:E' \
+    logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
       >> "$logcat_timeline" 2>&1 &
     PROFILE_LOGCAT_MONITOR_PID=$!
   else
