@@ -55,6 +55,10 @@ if grep -Fq 'am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE' "$RU
   echo "FAIL: standalone SAVE_PROFILE preflight must not gate BaselineProfileRule collection." >&2
   exit 1
 fi
+if grep -Fq "Benchmark:*" "$RUNNER_SOURCE" || grep -Fq "ProfileInstaller:*" "$RUNNER_SOURCE"; then
+  echo "FAIL: wildcard priorities can inherit logcat's silent default and suppress the required events." >&2
+  exit 1
+fi
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
   echo "FAIL: profile collection output prefix must remain startup." >&2
@@ -1647,6 +1651,24 @@ grep -Fq 'No matching process (pgrep exit status 1).' "$api36_no_match_dir/profi
   echo 'FAIL: zero-process pgrep result was not distinguished from a command error.' >&2
   exit 1
 }
+if ! FAKE_API=36 FAKE_PGREP_MODE=error sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-pgrep-error.log" 2>&1; then
+  echo 'FAIL: pgrep diagnostic error should be recorded without aborting collection.' >&2
+  cat "$TMP/api36-pgrep-error.log" >&2
+  exit 1
+fi
+pgrep_error_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+grep -Fq 'pgrep command failed (exit status 2).' "$pgrep_error_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep execution failure was not distinguished from zero matching processes.' >&2
+  exit 1
+}
+grep -Fq 'pgrep fixture error' "$pgrep_error_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep stderr was not preserved for diagnosis.' >&2
+  exit 1
+}
+if grep -Fq 'MALFORMED pgrep row' "$pgrep_error_dir/profile-process-timeline.txt"; then
+  echo 'FAIL: pgrep error text was incorrectly parsed as a process row.' >&2
+  exit 1
+fi
 grep -Fq 'com.nuvio.media.benchmark' "$api36_no_match_dir/profile-process-timeline.txt" || {
   echo 'FAIL: independent ps snapshot was not retained alongside the pgrep no-match result.' >&2
   exit 1
