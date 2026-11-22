@@ -57,7 +57,7 @@ internal suspend fun transferAndroidDownload(
                     header("Accept-Encoding", "identity")
                     if (offset > 0L) {
                         header("Range", "bytes=$offset-")
-                        validator?.takeIf(::isStrongEntityTag)?.let { header("If-Range", it) }
+                        validator?.takeIf { it.isStrongEntityTag() }?.let { header("If-Range", it) }
                     }
                 }.build()
                 val call = client.newCall(request)
@@ -92,7 +92,7 @@ internal suspend fun transferAndroidDownload(
                     // If-Range requires a strong validator. Last-Modified is implicitly
                     // weak unless its strength can be proven from Date metadata, which this
                     // persisted transfer record does not retain.
-                    val responseValidator = response.header("ETag")?.takeIf(::isStrongEntityTag)
+                    val responseValidator = response.header("ETag")?.takeIf { it.isStrongEntityTag() }
                     onHeaders(totalBytes, responseValidator)
                     var downloaded = startingBytes
                     var responseBytesRead = 0L
