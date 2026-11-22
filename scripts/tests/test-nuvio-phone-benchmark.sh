@@ -969,6 +969,7 @@ cat > "$TMP/bin/ps" <<'STUB'
 #!/bin/sh
 printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
 printf 'u0_a124 12347 1 123456 12345 S com.nuvio.media.benchmark.child.proc:remote\n'
+printf 'u0_a125 12348 1 123456 12345 S com.nuvio.media.benchmarking\n'
 STUB
 cat > "$TMP/bin/pgrep" <<'STUB'
 #!/bin/sh
@@ -1626,6 +1627,10 @@ printf '%s\n' "$ps_snapshot" | grep -Fq 'com.nuvio.media.benchmark.child.proc:re
   echo 'FAIL: independent ps snapshot omitted the dotted child process supported by AndroidX.' >&2
   exit 1
 }
+if printf '%s\n' "$ps_snapshot" | grep -Fq 'com.nuvio.media.benchmarking'; then
+  echo 'FAIL: independent ps snapshot matched a non-boundary package-name prefix.' >&2
+  exit 1
+fi
 grep -Fq 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: AndroidX should accept a dotted custom process when no intermediate or full subpackage is installed.' >&2
   exit 1
