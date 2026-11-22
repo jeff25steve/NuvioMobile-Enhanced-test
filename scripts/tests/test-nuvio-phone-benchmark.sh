@@ -968,6 +968,7 @@ STUB
 cat > "$TMP/bin/ps" <<'STUB'
 #!/bin/sh
 printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
+printf 'u0_a124 12347 1 123456 12345 S com.nuvio.media.benchmark.child.proc:remote\n'
 STUB
 cat > "$TMP/bin/pgrep" <<'STUB'
 #!/bin/sh
