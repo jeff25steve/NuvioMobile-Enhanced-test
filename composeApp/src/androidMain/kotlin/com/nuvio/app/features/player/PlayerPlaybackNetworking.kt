@@ -54,10 +54,11 @@ internal object PlayerPlaybackNetworking {
     fun createHttpDataSourceFactory(
         defaultHeaders: Map<String, String> = emptyMap(),
         useLongReadTimeout: Boolean = false,
+        callTimeoutMs: Long? = null,
     ): DataSource.Factory {
         val requestHeaders = sanitizeHeaders(defaultHeaders)
         val baseClient = if (useLongReadTimeout) loopbackPlaybackHttpClient else playbackHttpClient
-        val client = requestHeaders.headerValue("Authorization")?.let { authorization ->
+        val clientWithHeaders = requestHeaders.headerValue("Authorization")?.let { authorization ->
             baseClient.newBuilder()
                 .addNetworkInterceptor { chain ->
                     val request = chain.request()
@@ -73,6 +74,14 @@ internal object PlayerPlaybackNetworking {
                 }
                 .build()
         } ?: baseClient
+        // newBuilder() preserves the shared dispatcher, connection pool, DNS, TLS policy and
+        // interceptors. Only the optional whole-call deadline differs for this inspection client.
+        val client = callTimeoutMs?.let { timeoutMs ->
+            require(timeoutMs > 0L) { "callTimeoutMs must be positive" }
+            clientWithHeaders.newBuilder()
+                .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                .build()
+        } ?: clientWithHeaders
 
         return OkHttpDataSource.Factory(client).apply {
             setDefaultRequestProperties(requestHeaders)
